@@ -1,0 +1,41 @@
+# Environment variables
+.env
+.envrc
+
+# Rust build artifacts
+/target/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+/target
+
+# Node.js dependencies
+node_modules/
+package-lock.json
+
+# Other
+.bacon-locations
+/vibe/ongoing
+/logs
+/feat
+/private-scripts
+/e2e-output
+
+# mdbook build output
+/docs/book/
+
+# dprint cache
+.dprint
+
+# Nix
+/result
+
+# Agents
+.claude
