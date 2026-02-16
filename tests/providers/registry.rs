@@ -1,8 +1,8 @@
-mod common;
-
 use ghost::providers::{
     ProviderInitError, model_from_alias, provider_for_alias, types::user_message,
 };
+
+use super::common;
 
 #[test]
 fn resolves_default_model_alias() {
