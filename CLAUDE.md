@@ -14,9 +14,6 @@ should make extremely few assumptions and regularly ask the user if your approac
 right, and your understanding of the product and features are right. DO NOT MAKE
 ASSUMPTIONS ABOUT WHAT THE USER WANTS: ASK THEM.
 
-Terminology rule for docs/prose: always write `GHOST` and `OPERATOR` in all caps. Keep
-real code/file identifiers (crate names, paths, variable names) unchanged.
-
 ## CRUCIAL
 
 Always update this file when:
@@ -29,7 +26,7 @@ Always update this file when:
 
 GHOST is a personal AI agent platform. A single binary (`ghost`) runs one GHOST for one
 OPERATOR. It provides persistent memory, background jobs, and multi-interface
-communication (Discord as the primary interface).
+communication (Discord as the primary interface for the PoC).
 
 ### Predecessor
 
@@ -47,7 +44,8 @@ several things).
 - Logfire for observability — mandatory tracing spans on all meaningful operations
 - CLI-first — all features accessible through direct commands (`ghost daemon`,
   `ghost job validate`, etc.)
-- Skills over tools — prefer agentskills.io skills + file reads over adding new tool APIs
+- Skills over tools — prefer agentskills.io skills + file reads over adding new tool
+  APIs
 
 ## Core Concepts
 
@@ -58,16 +56,15 @@ several things).
 - **Session**: Chat thread between OPERATOR and GHOST.
 - **Job**: Markdown file in `$WORKSPACE/jobs/` with TOML frontmatter. Cron-scheduled.
   Heartbeat and reflection are dedicated subsystems (not regular jobs).
-- **Knowledge**: Notes, references, and diary entries stored in SurrealDB with typed graph
-  edges and embeddings search.
+- **Knowledge**: Notes, references, and diary entries stored in SurrealDB with typed
+  graph edges and embeddings search.
 - **Skill**: agentskills.io-compatible files in `$WORKSPACE/skills/`. Read via standard
   file tools, no dedicated `load_skill` tool.
-- **Provider**: LLM backend (OpenRouter for PoC). Provider trait for future extensibility.
+- **Provider**: LLM backend (OpenRouter for PoC). Provider trait for future
+  extensibility.
 
 ## Workspace and Flow
 
-- Work in the currently opened workspace/worktree only.
-- Do not jump to repo roots outside the opened workspace.
 - Prefer small, atomic commits with conventional commit messages (`feat:`, `fix:`,
   `refactor:`, `test:`, `docs:`, `chore:`).
 
@@ -77,7 +74,7 @@ several things).
   skills, identity files, knowledge notes).
 - Prefer skills + CLI workflows over adding new tool APIs.
 - Add a dedicated tool only when text + existing tools + CLI cannot deliver the feature
-  safely or ergonomically.
+  safely or ergonomically. Always ask the user before adding a tool.
 
 ## MCPs
 
@@ -95,8 +92,8 @@ Prefer MCP-backed answers over assumptions for library/framework behavior.
 
 Every meaningful public function MUST have a `tracing` span instrumented via
 `#[instrument]` or `logfire::span!()`. This is the single most important code quality
-rule. When there was a crash in the predecessor app, it was extremely hard to fix because
-logs were lackluster and there was no tracing.
+rule. When there was a crash in the predecessor app, it was extremely hard to fix
+because logs were lackluster and there was no tracing.
 
 - Use `#[tracing::instrument(skip_all, fields(relevant_field = %value))]` on async
   functions
@@ -116,10 +113,10 @@ logs were lackluster and there was no tracing.
 
 ### Code Structure
 
-- Single crate, organized with modules. No workspace.
+- Single crate, organized with modules.
 - If you need over 4 levels of indentation, break it into functions.
-- Avoid excess comments: code should be expressive and readable. If it requires comments,
-  it likely needs a refactor.
+- Avoid excess comments: code should be expressive and readable. If it requires
+  comments, it likely needs a refactor.
 - Break down complex systems into clear functions or traits, and if required, multiple
   files with clear names.
 - A file over 500 LoC (excluding tests) likely means a design issue. Humans search code
@@ -128,7 +125,9 @@ logs were lackluster and there was no tracing.
 
 ### Rust Style
 
-- Use `clippy` with default lints at minimum. Address all warnings.
+- Use `just ci` to run format, check, clippy, and tests all at once. No need to run them
+  one by one.
+- Always fix all the issues in `just ci` before returning
 - Prefer `&str` over `String` in function parameters when ownership isn't needed.
 - Prefer `impl Trait` in argument position for flexibility.
 - Use `Arc` for shared state, not `Rc` (we are always async/multi-threaded).
@@ -146,7 +145,7 @@ Core stack (do not change without discussion):
 - **Discord**: serenity
 - **Observability**: logfire + tracing
 - **Error handling**: thiserror
-- **Serialization**: serde + serde_json
+- **Serialization**: serde + format-specific crates
 - **Config**: toml
 - **Time**: chrono
 - **Embeddings**: Ollama (HTTP API)
@@ -155,13 +154,9 @@ Core stack (do not change without discussion):
 
 Iterate until all spec items are built and tested:
 
-1. At each step:
-   - Run `just check`
-   - Run `just clippy`
-   - Run `just test` (no live tests)
-   - Run `just fmt`
+1. At each step, run `just ci`
 2. Once an atomic feature is complete, make a conventional commit.
-3. Offer the user to create a pull request with the `gh` MCP.
+3. Offer the user to create a pull request with the `gh` MCP if working on a branch.
 
 ## Testing Strategy
 
@@ -206,6 +201,8 @@ src/
 - Markdown, JSON, TOML: `dprint fmt`
 - Run `just fmt` to format everything
 - Line width: 88 characters for dprint-formatted files
+- Terminology rule for docs/prose: always write `GHOST` and `OPERATOR` in all caps. Keep
+  real code/file identifiers (crate names, paths, variable names) unchanged.
 
 ## Security
 

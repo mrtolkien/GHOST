@@ -4,8 +4,8 @@
 
 Configuration is split into two layers:
 
-1. **config.toml** — Non-sensitive settings (models, workspace path, Discord config, tool
-   settings, timing)
+1. **config.toml** — Non-sensitive settings (models, workspace path, Discord config,
+   tool settings, timing)
 2. **.env / environment variables** — Secrets (API keys, tokens)
 
 Config lives at `~/.config/ghost/config.toml` by default. Override with

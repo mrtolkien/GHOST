@@ -31,22 +31,22 @@ pub struct Note {
 
 ### Archetypes
 
-Archetypes are note super-types that provide suggested templates. They are NOT enforced —
-a note can have any archetype or none. Templates are guidance, not schema.
+Archetypes are note super-types that provide suggested templates. They are NOT enforced
+— a note can have any archetype or none. Templates are guidance, not schema.
 
-| Archetype      | Template guidance                                  |
-| -------------- | -------------------------------------------------- |
-| `person`       | Name, role, context, relationship to OPERATOR      |
-| `concept`      | Definition, examples, related concepts             |
-| `decision`     | Context, options, chosen path, rationale, trade-offs|
-| `event`        | When, where, who, what happened, outcome           |
-| `place`        | Location, purpose, context                         |
-| `project`      | Goals, status, dependencies, key decisions         |
-| `organization` | What it does, key people, relationship to OPERATOR |
-| `procedure`    | Steps, prerequisites, expected outcome             |
-| `media`        | Title, creator, summary, key takeaways             |
-| `quote`        | Quote text, attribution, context                   |
-| `topic`        | Hub note for a reference topic collection          |
+| Archetype      | Template guidance                                    |
+| -------------- | ---------------------------------------------------- |
+| `person`       | Name, role, context, relationship to OPERATOR        |
+| `concept`      | Definition, examples, related concepts               |
+| `decision`     | Context, options, chosen path, rationale, trade-offs |
+| `event`        | When, where, who, what happened, outcome             |
+| `place`        | Location, purpose, context                           |
+| `project`      | Goals, status, dependencies, key decisions           |
+| `organization` | What it does, key people, relationship to OPERATOR   |
+| `procedure`    | Steps, prerequisites, expected outcome               |
+| `media`        | Title, creator, summary, key takeaways               |
+| `quote`        | Quote text, attribution, context                     |
+| `topic`        | Hub note for a reference topic collection            |
 
 ### References
 
@@ -83,9 +83,9 @@ type:
 ```markdown
 # Dioxus
 
-Dioxus is a UI framework [[written_in>Rust]]. It was [[created_by>Jonathan Kelley]].
-The project [[competes_with>React]] in the frontend space and
-[[depends_on>VirtualDom]] for its rendering pipeline.
+Dioxus is a UI framework [[written_in>Rust]]. It was [[created_by>Jonathan Kelley]]. The
+project [[competes_with>React]] in the frontend space and [[depends_on>VirtualDom]] for
+its rendering pipeline.
 ```
 
 This creates edges:
@@ -120,10 +120,9 @@ SELECT ->relates_to->note, <-relates_to<-note FROM note WHERE title = "Dioxus";
 When a note is saved or updated:
 
 1. Parse wiki links from the body using regex: `\[\[(?:(\w+)>)?([^\]]+)\]\]`
-2. For each link:
-   a. Check if target note exists (by title)
-   b. If not, create a stub note (title only, no body) — it will be filled in later
-   c. Create/update the edge with the appropriate label
+2. For each link: a. Check if target note exists (by title) b. If not, create a stub
+   note (title only, no body) — it will be filled in later c. Create/update the edge
+   with the appropriate label
 3. Remove edges that no longer have corresponding wiki links
 
 ## Scopes (Simplified from t-koma)
@@ -139,8 +138,8 @@ No SharedNote vs GhostNote distinction. No cross-ghost visibility concerns.
 
 ## Search
 
-Hybrid search combining full-text and embeddings (see 14-embeddings.md for the embeddings
-side):
+Hybrid search combining full-text and embeddings (see 14-embeddings.md for the
+embeddings side):
 
 ### Full-Text Search
 

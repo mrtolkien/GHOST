@@ -5,9 +5,9 @@
 Skills are structured instruction files that guide the GHOST through complex workflows.
 They follow the agentskills.io specification and live in `$WORKSPACE/skills/`.
 
-Unlike t-koma, there is no `load_skill` tool. The GHOST reads skills using standard
-file tools (`read_file`). The system prompt lists available skills so the GHOST knows
-what's available.
+Unlike t-koma, there is no `load_skill` tool. The GHOST reads skills using standard file
+tools (`read_file`). The system prompt lists available skills so the GHOST knows what's
+available.
 
 ## Skill Format (agentskills.io)
 

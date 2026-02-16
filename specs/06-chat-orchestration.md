@@ -106,13 +106,13 @@ infinite loops.
 
 ## Differences Between `chat()` and `chat_job()`
 
-| Aspect          | `chat()`                | `chat_job()`               |
-| --------------- | ----------------------- | -------------------------- |
-| Trigger         | OPERATOR message        | Scheduler / manual run     |
-| Messages stored | In `message` table      | In `job_log.transcript`    |
-| Tool set        | Chat tools              | Job-specific tools         |
-| Response goes to| OPERATOR (via Discord)  | Job log + optional notify  |
-| System prompt   | Full system prompt      | Job-specific prompt        |
+| Aspect           | `chat()`               | `chat_job()`              |
+| ---------------- | ---------------------- | ------------------------- |
+| Trigger          | OPERATOR message       | Scheduler / manual run    |
+| Messages stored  | In `message` table     | In `job_log.transcript`   |
+| Tool set         | Chat tools             | Job-specific tools        |
+| Response goes to | OPERATOR (via Discord) | Job log + optional notify |
+| System prompt    | Full system prompt     | Job-specific prompt       |
 
 ## Acceptance Criteria
 
@@ -130,7 +130,8 @@ infinite loops.
 Old code in `../t-koma`:
 
 - `t-koma-gateway/src/session.rs` — `SessionChat` with `chat()` and `chat_job()`. Core
-  logic (tool loop, message persistence, job transcript separation) is directly reusable.
-  The data layer changes (SurrealDB vs SQLite) but the orchestration pattern is the same.
+  logic (tool loop, message persistence, job transcript separation) is directly
+  reusable. The data layer changes (SurrealDB vs SQLite) but the orchestration pattern
+  is the same.
 - `t-koma-gateway/src/chat/history.rs` — Provider-neutral chat history types. Reusable
   type definitions.

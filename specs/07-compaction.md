@@ -12,8 +12,8 @@ compaction summary replaces them in the prompt.
 
 1. **Trigger**: Before sending to the provider, check if total token estimate exceeds
    `compaction.threshold` (default 85%) of the model's context window.
-2. **Select messages**: All messages before the `keep_window` (default: last 20 messages)
-   are candidates for compaction.
+2. **Select messages**: All messages before the `keep_window` (default: last 20
+   messages) are candidates for compaction.
 3. **Summarize**: Send the candidate messages to the provider with a compaction prompt
    asking for a structured summary.
 4. **Store**: Save the summary to `session.compaction_summary` and set
@@ -25,6 +25,7 @@ compaction summary replaces them in the prompt.
 
 ```markdown
 Summarize the following conversation history. Preserve:
+
 - Key decisions and their rationale
 - Important facts and context established
 - Active tasks and their current state
@@ -50,8 +51,8 @@ fn estimate_tokens(text: &str) -> usize {
 
 ```toml
 [compaction]
-threshold = 0.85    # Compact when history exceeds 85% of context window
-keep_window = 20    # Keep the last 20 messages verbatim
+threshold = 0.85 # Compact when history exceeds 85% of context window
+keep_window = 20 # Keep the last 20 messages verbatim
 ```
 
 ## Acceptance Criteria

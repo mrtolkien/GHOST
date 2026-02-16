@@ -11,13 +11,13 @@ the User-Agent requirement was easy to miss and caused silent failures.
 
 ## How It Differs from Generic OpenAI-Compatible
 
-| Aspect           | Generic OpenAI-compatible     | Kimi Code                          |
-| ---------------- | ----------------------------- | ---------------------------------- |
-| Base URL         | Configured per model          | `https://api.kimi.com/coding/v1`   |
-| Auth             | Optional API key              | Required `KIMI_API_KEY`            |
-| User-Agent       | Default reqwest               | **Must be** `KimiCLI/1.12.0`      |
-| Context window   | Varies                        | 262,144 tokens                     |
-| Empty responses  | Rare                          | Occasional — needs retry_on_empty  |
+| Aspect          | Generic OpenAI-compatible | Kimi Code                         |
+| --------------- | ------------------------- | --------------------------------- |
+| Base URL        | Configured per model      | `https://api.kimi.com/coding/v1`  |
+| Auth            | Optional API key          | Required `KIMI_API_KEY`           |
+| User-Agent      | Default reqwest           | **Must be** `KimiCLI/1.12.0`      |
+| Context window  | Varies                    | 262,144 tokens                    |
+| Empty responses | Rare                      | Occasional — needs retry_on_empty |
 
 ## Implementation
 
@@ -74,8 +74,8 @@ KIMI_API_KEY=...
 
 1. **User-Agent is mandatory** — Without the correct User-Agent header, the API returns
    opaque errors. This was the #1 debugging headache.
-2. **Empty responses** — Kimi occasionally returns empty content. Use `retry_on_empty: 2`
-   in config.
+2. **Empty responses** — Kimi occasionally returns empty content. Use
+   `retry_on_empty: 2` in config.
 3. **Distinct from Moonshot Open Platform** — `api.kimi.com/coding` is a different
    endpoint from `api.moonshot.ai` with different API keys and models.
 4. **Version sensitivity** — The `KimiCLI/1.12.0` version string may need updating if

@@ -1,20 +1,22 @@
 # GHOST — PoC Roadmap
 
-Ordered task list. Each task has a corresponding spec file. Complete them in order — later
-tasks may depend on earlier ones.
+Ordered task list. Each task has a corresponding spec file. Complete them in order —
+later tasks may depend on earlier ones.
 
 ## Phase 1: Foundation
 
 - [ ] Project scaffolding and CLI skeleton — [01-scaffolding.md](01-scaffolding.md)
 - [ ] Configuration system — [02-config.md](02-config.md)
-- [ ] Observability setup (logfire + tracing) — [03-observability.md](03-observability.md)
+- [ ] Observability setup (logfire + tracing) —
+      [03-observability.md](03-observability.md)
 - [ ] SurrealDB embedded setup — [04-database.md](04-database.md)
 
 ## Phase 2: Core Chat Loop
 
 - [ ] Provider trait + OpenRouter adapter — [05-providers.md](05-providers.md)
 - [ ] Kimi Code provider — [05a-kimi-code.md](05a-kimi-code.md)
-- [ ] OpenAI OAuth provider (`ghost auth codex`) — [05b-openai-oauth.md](05b-openai-oauth.md)
+- [ ] OpenAI OAuth provider (`ghost auth codex`) —
+      [05b-openai-oauth.md](05b-openai-oauth.md)
 - [ ] Chat orchestration and session management —
       [06-chat-orchestration.md](06-chat-orchestration.md)
 - [ ] Context compaction — [07-compaction.md](07-compaction.md)

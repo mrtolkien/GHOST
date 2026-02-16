@@ -146,7 +146,8 @@ OpenAI.
 
 - Log token refresh events (not the tokens themselves!)
 - Span on every `get_token()` call with `token_refreshed: bool` field
-- Log auth failures with clear error messages (expired refresh token, network error, etc.)
+- Log auth failures with clear error messages (expired refresh token, network error,
+  etc.)
 - Never log token values
 
 ## Acceptance Criteria

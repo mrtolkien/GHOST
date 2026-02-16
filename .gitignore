@@ -39,3 +39,5 @@ package-lock.json
 
 # Agents
 .claude
+.mcp.json
+

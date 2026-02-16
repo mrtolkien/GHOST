@@ -6,14 +6,15 @@ Jobs are markdown files in `$WORKSPACE/jobs/` with TOML frontmatter. They define
 cron-scheduled tasks that the GHOST executes autonomously.
 
 For the PoC, the job system handles **cron jobs only**. Heartbeat and reflection are
-dedicated subsystems with their own code paths (see [17-default-jobs.md](17-default-jobs.md)).
+dedicated subsystems with their own code paths (see
+[17-default-jobs.md](17-default-jobs.md)).
 
 > **Future**: The end goal is a unified job system where ALL autonomous behaviors —
 > including heartbeat and reflection — are expressed as jobs with event-based triggers
 > (session_idle, job_completed, daemon_start, etc.). This requires the Lua jobs system
-> (see `backlog/lua-jobs.md`) which provides the flexibility needed for complex jobs like
-> reflection. The cron job system built here is the foundation that the unified system will
-> extend.
+> (see `backlog/lua-jobs.md`) which provides the flexibility needed for complex jobs
+> like reflection. The cron job system built here is the foundation that the unified
+> system will extend.
 
 ## Job File Format
 
@@ -32,6 +33,7 @@ Review the OPERATOR's current projects and search for relevant news, updates, an
 resources. Create or update notes for anything significant.
 
 Focus on:
+
 - Active project dependencies and their changelogs
 - Industry news related to current work
 - New tools or libraries that might be useful
@@ -39,23 +41,23 @@ Focus on:
 
 ### Frontmatter Fields
 
-| Field              | Type   | Required | Default     | Description                            |
-| ------------------ | ------ | -------- | ----------- | -------------------------------------- |
-| `name`             | string | yes      |             | Unique job identifier                  |
-| `enabled`          | bool   | no       | `true`      | Whether the job is active              |
-| `schedule`         | string | yes      |             | Cron expression (5-field, UTC)         |
-| `model`            | string | no       | `"default"` | Model alias from config                |
-| `tools`            | string | no       | `"chat"`    | Tool set: "chat", "none"              |
-| `carry_last_output`| bool   | no       | `false`     | Load/save `.state/<name>.last.md`      |
+| Field               | Type   | Required | Default     | Description                       |
+| ------------------- | ------ | -------- | ----------- | --------------------------------- |
+| `name`              | string | yes      |             | Unique job identifier             |
+| `enabled`           | bool   | no       | `true`      | Whether the job is active         |
+| `schedule`          | string | yes      |             | Cron expression (5-field, UTC)    |
+| `model`             | string | no       | `"default"` | Model alias from config           |
+| `tools`             | string | no       | `"chat"`    | Tool set: "chat", "none"          |
+| `carry_last_output` | bool   | no       | `false`     | Load/save `.state/<name>.last.md` |
 
 ## Cron Schedules
 
 Standard 5-field cron expressions (UTC):
 
 ```toml
-schedule = "0 9 * * MON"        # Every Monday at 9am UTC
-schedule = "*/30 * * * *"       # Every 30 minutes
-schedule = "0 0 1 * *"          # First of every month
+schedule = "0 9 * * MON" # Every Monday at 9am UTC
+schedule = "*/30 * * * *" # Every 30 minutes
+schedule = "0 0 1 * *" # First of every month
 ```
 
 ## Scheduler
@@ -80,9 +82,8 @@ pub struct LoadedJob {
 
 1. On daemon start, load all job files from `$WORKSPACE/jobs/`
 2. Watch `$WORKSPACE/jobs/` for file changes (add, modify, delete)
-3. Every tick (default: 10 seconds):
-   a. Check cron jobs — is it time to run?
-   b. Execute eligible jobs via `SessionChat::chat_job()`
+3. Every tick (default: 10 seconds): a. Check cron jobs — is it time to run? b. Execute
+   eligible jobs via `SessionChat::chat_job()`
 
 ### File Watching
 
@@ -118,7 +119,8 @@ $WORKSPACE/.state/
 └── ...
 ```
 
-The previous output is injected into the job prompt on the next run, enabling continuity.
+The previous output is injected into the job prompt on the next run, enabling
+continuity.
 
 ## CLI Commands
 
@@ -161,5 +163,6 @@ Old code in `../t-koma`:
 
 - `t-koma-gateway/src/scheduler.rs` — Scheduler loop with tick-based checking. Reusable
   pattern.
-- `t-koma-gateway/src/cron.rs` — Cron job execution and file watching. Directly reusable.
+- `t-koma-gateway/src/cron.rs` — Cron job execution and file watching. Directly
+  reusable.
 - `t-koma-core/src/cron.rs` — TOML frontmatter parsing for job files. Directly reusable.

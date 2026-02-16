@@ -6,8 +6,8 @@ Web results fetched during conversations are automatically cached in
 `$WORKSPACE/.web-cache/`. During reflection jobs, the GHOST curates these cached files
 into proper reference topics or discards them.
 
-This pattern ensures no information slips away during conversations — the GHOST can focus
-on answering the OPERATOR, knowing reflection will organize everything afterward.
+This pattern ensures no information slips away during conversations — the GHOST can
+focus on answering the OPERATOR, knowing reflection will organize everything afterward.
 
 ## Cache Flow
 
@@ -60,7 +60,8 @@ The reflection prompt includes the list of web cache files:
 
 The GHOST uses these reflection tools to curate:
 
-- `reference_manage(action="move", cache_file=".web-cache/file.md", target_topic="topic", target_filename="name.md")` — Move to a reference topic
+- `reference_manage(action="move", cache_file=".web-cache/file.md", target_topic="topic", target_filename="name.md")`
+  — Move to a reference topic
 - `reference_manage(action="delete", cache_file=".web-cache/file.md")` — Delete garbage
 - Or skip — the directory is auto-cleared after reflection completes successfully
 

@@ -2,8 +2,8 @@
 
 ## Overview
 
-Web tools allow the GHOST to search the internet and fetch web page contents. Web results
-are automatically cached for later curation during reflection.
+Web tools allow the GHOST to search the internet and fetch web page contents. Web
+results are automatically cached for later curation during reflection.
 
 ## Web Search
 

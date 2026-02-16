@@ -13,12 +13,12 @@ enables:
 
 ```toml
 [database]
-mode = "client"                      # "embedded" (default) or "client"
-url = "ws://localhost:8000"          # SurrealDB WebSocket endpoint
+mode = "client" # "embedded" (default) or "client"
+url = "ws://localhost:8000" # SurrealDB WebSocket endpoint
 namespace = "ghost"
 database = "main"
 username = "root"
-password_env = "SURREALDB_PASSWORD"  # env var containing password
+password_env = "SURREALDB_PASSWORD" # env var containing password
 ```
 
 ## Implementation

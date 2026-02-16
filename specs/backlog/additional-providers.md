@@ -54,8 +54,8 @@ provider = "gemini"
 model = "gemini-2.0-flash"
 ```
 
-Chain resolution: try primary, if rate limited try fallback, then tertiary.
-Circuit breaker prevents hammering rate-limited providers.
+Chain resolution: try primary, if rate limited try fallback, then tertiary. Circuit
+breaker prevents hammering rate-limited providers.
 
 ## Implementation
 

@@ -2,9 +2,9 @@
 
 ## Overview
 
-Embeddings power the semantic search side of the knowledge system. The GHOST uses a local
-Ollama server to generate embedding vectors, which are stored in SurrealDB for vector
-similarity search.
+Embeddings power the semantic search side of the knowledge system. The GHOST uses a
+local Ollama server to generate embedding vectors, which are stored in SurrealDB for
+vector similarity search.
 
 ## Architecture
 

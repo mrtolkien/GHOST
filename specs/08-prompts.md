@@ -10,8 +10,8 @@ guidelines.
 
 The system prompt is composed of these layers (in order):
 
-1. **Base system prompt** — Core instructions shipped with the binary (embedded in code or
-   as a resource file)
+1. **Base system prompt** — Core instructions shipped with the binary (embedded in code
+   or as a resource file)
 2. **BOOT.md** — Core identity, values, behavioral constraints. From workspace.
 3. **SOUL.md** — Evolving self-model, communication style. From workspace.
 4. **OPERATOR.md** — Knowledge about the OPERATOR. From workspace.
@@ -19,19 +19,19 @@ The system prompt is composed of these layers (in order):
 
 ## Prompt Template
 
-The base system prompt uses `{{ variable }}` interpolation (simple string replacement, no
-template engine needed).
+The base system prompt uses `{{ variable }}` interpolation (simple string replacement,
+no template engine needed).
 
 Variables:
 
-| Variable          | Source                                    |
-| ----------------- | ----------------------------------------- |
-| `ghost_identity`  | Concatenation of BOOT.md + SOUL.md        |
-| `operator_context`| Contents of OPERATOR.md                   |
-| `ghost_diary`     | Today's diary entry (if any)              |
-| `ghost_skills`    | List of available skills in `skills/`     |
-| `system_info`     | OS, hostname, current time, workspace path|
-| `model_info`      | Current model name and provider           |
+| Variable           | Source                                     |
+| ------------------ | ------------------------------------------ |
+| `ghost_identity`   | Concatenation of BOOT.md + SOUL.md         |
+| `operator_context` | Contents of OPERATOR.md                    |
+| `ghost_diary`      | Today's diary entry (if any)               |
+| `ghost_skills`     | List of available skills in `skills/`      |
+| `system_info`      | OS, hostname, current time, workspace path |
+| `model_info`       | Current model name and provider            |
 
 ## Identity Files
 
@@ -43,6 +43,7 @@ Variables:
 You are GHOST, a personal AI assistant.
 
 ## Values
+
 - Be honest and direct
 - Challenge assumptions — don't be sycophantic
 - Research before answering
@@ -61,9 +62,9 @@ context, and communication style.
 ## Job and Subsystem Prompts
 
 Heartbeat and reflection are dedicated subsystems with their own prompts (see
-[17-default-jobs.md](17-default-jobs.md)). Their prompts are embedded as defaults and can
-be overridden by placing `$WORKSPACE/heartbeat.md` or `$WORKSPACE/reflection.md` in the
-workspace.
+[17-default-jobs.md](17-default-jobs.md)). Their prompts are embedded as defaults and
+can be overridden by placing `$WORKSPACE/heartbeat.md` or `$WORKSPACE/reflection.md` in
+the workspace.
 
 Cron jobs (see [16-jobs.md](16-jobs.md)) use their markdown body as the prompt directly.
 
@@ -71,12 +72,12 @@ The `PromptRenderer` handles variable interpolation (`{{ var }}`) for all prompt
 
 ### Reflection Prompt Variables
 
-| Variable              | Source                                      |
-| --------------------- | ------------------------------------------- |
-| `previous_handoff`    | Contents of `.state/reflection.last.md`     |
-| `diary_today`         | Today's diary entry from SurrealDB          |
-| `recent_messages`     | Filtered session transcript                 |
-| `web_cache_files`     | File list from `$WORKSPACE/.web-cache/`     |
+| Variable           | Source                                  |
+| ------------------ | --------------------------------------- |
+| `previous_handoff` | Contents of `.state/reflection.last.md` |
+| `diary_today`      | Today's diary entry from SurrealDB      |
+| `recent_messages`  | Filtered session transcript             |
+| `web_cache_files`  | File list from `$WORKSPACE/.web-cache/` |
 
 ## Implementation
 

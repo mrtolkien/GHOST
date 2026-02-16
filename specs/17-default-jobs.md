@@ -2,16 +2,20 @@
 
 ## Overview
 
-Heartbeat and reflection are **dedicated subsystems** in the daemon, not regular jobs. They
-have their own code paths, timing configuration, and execution logic.
+Heartbeat and reflection are **dedicated subsystems** in the daemon, not regular jobs.
+They have their own code paths, timing configuration, and execution logic.
 
 This matches the t-koma approach. The key difference from the original plan: event-based
-triggers and the unified job system are deferred to post-PoC (see `backlog/lua-jobs.md`).
+triggers and the unified job system are deferred to post-PoC (see
+`backlog/lua-jobs.md`).
 
-> **Future**: When the Lua jobs system is built, heartbeat and reflection will be migrated
-> to event-triggered Lua jobs. The dedicated code paths built here will be replaced by:
+> **Future**: When the Lua jobs system is built, heartbeat and reflection will be
+> migrated to event-triggered Lua jobs. The dedicated code paths built here will be
+> replaced by:
+>
 > - Heartbeat: a Lua job with `trigger = { event = "session_idle", delay = "4m" }`
-> - Reflection: a Lua job with `trigger = { event = "job_completed", job = "heartbeat" }`
+> - Reflection: a Lua job with
+>   `trigger = { event = "job_completed", job = "heartbeat" }`
 >
 > The prompts and logic documented here will inform the Lua job implementations.
 
@@ -40,7 +44,8 @@ Cooldown starts (30 minutes)
 
 - Skip if no messages at all in the session since last heartbeat (`skip_if_no_activity`)
 - Skip if cooldown hasn't elapsed (`timing.heartbeat_continue_minutes`)
-- The daemon checks for idle sessions every `timing.heartbeat_check_seconds` (default: 60s)
+- The daemon checks for idle sessions every `timing.heartbeat_check_seconds` (default:
+  60s)
 
 ### Heartbeat Prompt
 
@@ -53,6 +58,7 @@ The heartbeat prompt is embedded as a default but can be overridden by placing
 You are running a heartbeat check. The OPERATOR has been idle for a few minutes.
 
 Review the recent conversation and decide:
+
 1. Is there something useful you can proactively share?
 2. Is there a follow-up question worth asking?
 3. Is there a task you can work on in the background?
@@ -67,8 +73,8 @@ This will suppress any output and reschedule the next heartbeat.
 ### Heartbeat Execution
 
 1. Load the heartbeat prompt (workspace override or embedded default)
-2. Run via `SessionChat::chat_job()` **in the idle session's context** (with full message
-   history)
+2. Run via `SessionChat::chat_job()` **in the idle session's context** (with full
+   message history)
 3. Check the response for `HEARTBEAT_CONTINUE`:
    - If found → suppress output, log as "skipped", reset cooldown timer
    - Otherwise → send the response to the OPERATOR's Discord channel
@@ -134,6 +140,7 @@ transcript below and organize knowledge.
 Use `[[Target]]` for default relationships or `[[relationship>Target]]` for typed edges.
 
 Examples:
+
 - `[[Rust]]` — creates a default `relates_to` edge
 - `[[written_in>Rust]]` — creates a `written_in` edge
 - `[[depends_on>tokio]]` — creates a `depends_on` edge
@@ -141,15 +148,19 @@ Examples:
 ## Your Input
 
 ### Previous Handoff Note
+
 {{ previous_handoff }}
 
 ### Today's Diary
+
 {{ diary_today }}
 
 ### Conversation Transcript (filtered)
+
 {{ recent_messages }}
 
 ### Cached Web Results
+
 {{ web_cache_files }}
 
 ## Workflow
@@ -191,10 +202,10 @@ implemented as a post-processing step in the reflection subsystem.
 
 ```toml
 [timing]
-heartbeat_idle_minutes = 4         # Idle time before heartbeat fires
-heartbeat_check_seconds = 60       # How often to check for idle sessions
-heartbeat_continue_minutes = 30    # Cooldown between heartbeats
-reflection_idle_minutes = 4        # Delay after heartbeat before reflection
+heartbeat_idle_minutes = 4 # Idle time before heartbeat fires
+heartbeat_check_seconds = 60 # How often to check for idle sessions
+heartbeat_continue_minutes = 30 # Cooldown between heartbeats
+reflection_idle_minutes = 4 # Delay after heartbeat before reflection
 ```
 
 ## Prompt Customization
@@ -208,8 +219,8 @@ $WORKSPACE/
 └── ...
 ```
 
-If the file doesn't exist, the embedded default is used. This lets the OPERATOR customize
-behavior without touching code.
+If the file doesn't exist, the embedded default is used. This lets the OPERATOR
+customize behavior without touching code.
 
 ## Observability
 

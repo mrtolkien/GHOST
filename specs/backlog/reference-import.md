@@ -13,10 +13,10 @@ Clone a repository and import relevant files:
 
 ```json
 {
-    "source": "git",
-    "url": "https://github.com/surrealdb/surrealdb",
-    "paths": ["doc/", "README.md"],
-    "extensions": [".md", ".rs"]
+  "source": "git",
+  "url": "https://github.com/surrealdb/surrealdb",
+  "paths": ["doc/", "README.md"],
+  "extensions": [".md", ".rs"]
 }
 ```
 
@@ -30,10 +30,10 @@ Crawl from a seed URL following same-host links:
 
 ```json
 {
-    "source": "crawl",
-    "url": "https://docs.surrealdb.com",
-    "max_depth": 3,
-    "max_pages": 50
+  "source": "crawl",
+  "url": "https://docs.surrealdb.com",
+  "max_depth": 3,
+  "max_pages": 50
 }
 ```
 

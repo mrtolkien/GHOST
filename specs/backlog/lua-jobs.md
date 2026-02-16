@@ -23,12 +23,12 @@ single job system with event-based triggers.
 
 The Lua job system should support event-based triggers in addition to cron:
 
-| Event             | Fires when                                          |
-| ----------------- | --------------------------------------------------- |
-| `session_idle`    | No OPERATOR messages for `delay` duration           |
-| `session_start`   | A new session begins (first message in a channel)   |
-| `job_completed`   | Another job finishes (specify `job` field)           |
-| `daemon_start`    | The daemon process starts up                        |
+| Event           | Fires when                                        |
+| --------------- | ------------------------------------------------- |
+| `session_idle`  | No OPERATOR messages for `delay` duration         |
+| `session_start` | A new session begins (first message in a channel) |
+| `job_completed` | Another job finishes (specify `job` field)        |
+| `daemon_start`  | The daemon process starts up                      |
 
 Trigger fields: `event`, `delay`, `cooldown`, `job`, `skip_if_no_activity`.
 
@@ -36,8 +36,8 @@ Duration format: `15m`, `1h`, `30s`, `2h30m`.
 
 ## Heartbeat/Reflection Migration
 
-The PoC builds heartbeat and reflection as dedicated subsystems (see `17-default-jobs.md`).
-When Lua jobs ship, migrate them:
+The PoC builds heartbeat and reflection as dedicated subsystems (see
+`17-default-jobs.md`). When Lua jobs ship, migrate them:
 
 ### Heartbeat as Lua Job
 
@@ -178,5 +178,6 @@ Use `mlua` crate for Rust-Lua interop. Expose a `ctx` table with functions:
 ## Blocked By
 
 - PoC job system (16-jobs.md) must be stable first
-- PoC heartbeat/reflection (17-default-jobs.md) must be working to validate the migration
+- PoC heartbeat/reflection (17-default-jobs.md) must be working to validate the
+  migration
 - Need real usage patterns from markdown jobs to inform the Lua API design

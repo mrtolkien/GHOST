@@ -50,8 +50,8 @@ On first use, download the model from Hugging Face Hub to a cache directory:
 
 ```toml
 [embeddings]
-backend = "candle"          # or "ollama"
-model = "all-MiniLM-L6-v2"  # for candle
+backend = "candle" # or "ollama"
+model = "all-MiniLM-L6-v2" # for candle
 # url = "..."               # for ollama
 ```
 

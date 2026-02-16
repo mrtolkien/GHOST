@@ -2,8 +2,8 @@
 
 ## Overview
 
-Set up the Rust project as a single crate with a CLI entry point using `clap`. The binary
-is called `ghost` and exposes subcommands for all operations.
+Set up the Rust project as a single crate with a CLI entry point using `clap`. The
+binary is called `ghost` and exposes subcommands for all operations.
 
 ## CLI Subcommands
 

@@ -2,9 +2,9 @@
 
 ## Overview
 
-Observability is non-negotiable. Every meaningful operation gets a tracing span.
-Logfire provides the dashboard and storage. The `tracing` crate provides the
-instrumentation API.
+Observability is non-negotiable. Every meaningful operation gets a tracing span. Logfire
+provides the dashboard and storage. The `tracing` crate provides the instrumentation
+API.
 
 ## Architecture
 
@@ -51,20 +51,20 @@ pub async fn chat(&self, session_id: &str, message: &str) -> Result<Response> {
 
 ### Key spans to instrument:
 
-| Area           | Span name                | Key fields                                      |
-| -------------- | ------------------------ | ----------------------------------------------- |
-| Provider calls | `provider.chat`          | provider, model, input_tokens, output_tokens     |
-| Tool execution | `tool.execute`           | tool_name, duration_ms                           |
-| Discord        | `discord.message`        | user_id, channel_id                              |
-| Job execution  | `job.execute`            | job_name, trigger_type                           |
-| Knowledge      | `knowledge.search`       | query, result_count                              |
-| Knowledge      | `knowledge.write`        | note_title, archetype                            |
-| Embeddings     | `embeddings.generate`    | model, batch_size, chunk_count                   |
-| Compaction     | `session.compact`        | session_id, messages_before, messages_after       |
-| Web            | `web.search`             | query, provider, result_count                    |
-| Web            | `web.fetch`              | url, status_code, content_length                 |
-| Config         | `config.load`            | config_path                                      |
-| DB             | `db.query`               | table, operation                                 |
+| Area           | Span name             | Key fields                                   |
+| -------------- | --------------------- | -------------------------------------------- |
+| Provider calls | `provider.chat`       | provider, model, input_tokens, output_tokens |
+| Tool execution | `tool.execute`        | tool_name, duration_ms                       |
+| Discord        | `discord.message`     | user_id, channel_id                          |
+| Job execution  | `job.execute`         | job_name, trigger_type                       |
+| Knowledge      | `knowledge.search`    | query, result_count                          |
+| Knowledge      | `knowledge.write`     | note_title, archetype                        |
+| Embeddings     | `embeddings.generate` | model, batch_size, chunk_count               |
+| Compaction     | `session.compact`     | session_id, messages_before, messages_after  |
+| Web            | `web.search`          | query, provider, result_count                |
+| Web            | `web.fetch`           | url, status_code, content_length             |
+| Config         | `config.load`         | config_path                                  |
+| DB             | `db.query`            | table, operation                             |
 
 ### Structured events for key moments:
 
@@ -98,9 +98,9 @@ RUST_LOG=ghost=debug,info   # Standard tracing env filter
 
 ## Console Fallback
 
-When `LOGFIRE_TOKEN` is not set, tracing output goes to stderr via
-`tracing-subscriber` with a human-readable format. This ensures observability works
-in development without a logfire account.
+When `LOGFIRE_TOKEN` is not set, tracing output goes to stderr via `tracing-subscriber`
+with a human-readable format. This ensures observability works in development without a
+logfire account.
 
 ## Acceptance Criteria
 
