@@ -9,6 +9,16 @@ pub enum ConfigCommand {
 }
 
 #[tracing::instrument(skip_all)]
-pub async fn execute(_command: ConfigCommand) -> Result<(), GhostError> {
-    Err(GhostError::NotYetImplemented { command: "config" })
+pub async fn execute(command: ConfigCommand) -> Result<(), GhostError> {
+    match command {
+        ConfigCommand::Get { key } => {
+            let value = crate::config::get_resolved_value(&key)?;
+            println!("{value}");
+            Ok(())
+        }
+        ConfigCommand::Set { key, value } => {
+            crate::config::set_value(&key, &value)?;
+            Ok(())
+        }
+    }
 }

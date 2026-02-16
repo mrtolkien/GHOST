@@ -1,11 +1,6 @@
-mod cli;
-mod config;
-mod daemon;
-mod error;
-
 use clap::{Parser, Subcommand};
 
-use crate::error::GhostError;
+use ghost::error::GhostError;
 
 #[derive(Debug, Parser)]
 #[command(name = "ghost")]
@@ -22,23 +17,23 @@ enum Commands {
     Init,
     Config {
         #[command(subcommand)]
-        command: cli::config::ConfigCommand,
+        command: ghost::cli::config::ConfigCommand,
     },
     Auth {
         #[command(subcommand)]
-        command: cli::auth::AuthCommand,
+        command: ghost::cli::auth::AuthCommand,
     },
     Job {
         #[command(subcommand)]
-        command: cli::job::JobCommand,
+        command: ghost::cli::job::JobCommand,
     },
     Session {
         #[command(subcommand)]
-        command: cli::session::SessionCommand,
+        command: ghost::cli::session::SessionCommand,
     },
     Knowledge {
         #[command(subcommand)]
-        command: cli::knowledge::KnowledgeCommand,
+        command: ghost::cli::knowledge::KnowledgeCommand,
     },
     Version,
 }
@@ -60,13 +55,13 @@ fn init_tracing() {
 #[tracing::instrument(skip_all)]
 async fn dispatch(command: Commands) -> Result<(), GhostError> {
     match command {
-        Commands::Daemon => cli::daemon::execute().await,
-        Commands::Init => cli::init::execute().await,
-        Commands::Config { command } => cli::config::execute(command).await,
-        Commands::Auth { command } => cli::auth::execute(command).await,
-        Commands::Job { command } => cli::job::execute(command).await,
-        Commands::Session { command } => cli::session::execute(command).await,
-        Commands::Knowledge { command } => cli::knowledge::execute(command).await,
+        Commands::Daemon => ghost::cli::daemon::execute().await,
+        Commands::Init => ghost::cli::init::execute().await,
+        Commands::Config { command } => ghost::cli::config::execute(command).await,
+        Commands::Auth { command } => ghost::cli::auth::execute(command).await,
+        Commands::Job { command } => ghost::cli::job::execute(command).await,
+        Commands::Session { command } => ghost::cli::session::execute(command).await,
+        Commands::Knowledge { command } => ghost::cli::knowledge::execute(command).await,
         Commands::Version => {
             println!("{}", env!("CARGO_PKG_VERSION"));
             Ok(())
