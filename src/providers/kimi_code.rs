@@ -39,7 +39,6 @@ impl KimiCodeProvider {
 
 #[async_trait]
 impl Provider for KimiCodeProvider {
-    #[tracing::instrument(skip_all, fields(provider = "kimi_code", model = %request.model))]
     async fn chat(&self, request: ChatRequest) -> Result<ChatResponse, ProviderError> {
         self.inner.chat(request).await
     }

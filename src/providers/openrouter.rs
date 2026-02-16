@@ -46,7 +46,6 @@ impl OpenRouterProvider {
 
 #[async_trait]
 impl Provider for OpenRouterProvider {
-    #[tracing::instrument(skip_all, fields(provider = "openrouter", model = %request.model))]
     async fn chat(&self, request: ChatRequest) -> Result<ChatResponse, ProviderError> {
         self.inner.chat(request).await
     }

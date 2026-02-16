@@ -38,7 +38,7 @@ impl PromptRenderer {
     }
 
     /// Render the full system prompt for a chat session.
-    #[tracing::instrument(skip_all, fields(model = %context.model))]
+    #[tracing::instrument(skip_all, level = "debug", fields(model = %context.model))]
     pub fn render_system_prompt(&self, context: &PromptContext) -> Result<String, PromptError> {
         let workspace = &self.config.workspace;
 
@@ -63,7 +63,7 @@ impl PromptRenderer {
     }
 
     /// Render a job prompt with job-specific variables.
-    #[tracing::instrument(skip_all, fields(job_name = %job_name))]
+    #[tracing::instrument(skip_all, level = "debug", fields(job_name = %job_name))]
     pub fn render_job_prompt(
         &self,
         job_name: &str,

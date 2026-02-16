@@ -51,7 +51,7 @@ struct InterfaceRow {
     interface: String,
 }
 
-#[tracing::instrument(skip_all)]
+#[tracing::instrument(skip_all, level = "debug")]
 pub async fn create_session(db: &Surreal<Db>) -> Result<Thing, DatabaseError> {
     let mut response = db
         .query(
@@ -87,7 +87,7 @@ pub async fn create_session(db: &Surreal<Db>) -> Result<Thing, DatabaseError> {
         })
 }
 
-#[tracing::instrument(skip_all, fields(session_id = %session_id))]
+#[tracing::instrument(skip_all, level = "debug", fields(session_id = %session_id))]
 pub async fn get_session(
     db: &Surreal<Db>,
     session_id: &Thing,
@@ -115,7 +115,7 @@ pub async fn get_session(
         })
 }
 
-#[tracing::instrument(skip_all, fields(session_id = %session_id))]
+#[tracing::instrument(skip_all, level = "debug", fields(session_id = %session_id))]
 pub async fn mark_rebooted(db: &Surreal<Db>, session_id: &Thing) -> Result<(), DatabaseError> {
     db.query("UPDATE $session_id SET status = 'rebooted', updated_at = time::now()")
         .bind(("session_id", session_id.clone()))
@@ -129,7 +129,7 @@ pub async fn mark_rebooted(db: &Surreal<Db>, session_id: &Thing) -> Result<(), D
     Ok(())
 }
 
-#[tracing::instrument(skip_all, fields(session_id = %session_id))]
+#[tracing::instrument(skip_all, level = "debug", fields(session_id = %session_id))]
 pub async fn update_compaction(
     db: &Surreal<Db>,
     session_id: &Thing,
@@ -155,7 +155,7 @@ pub async fn update_compaction(
     Ok(())
 }
 
-#[tracing::instrument(skip_all, fields(session_id = %session_id))]
+#[tracing::instrument(skip_all, level = "debug", fields(session_id = %session_id))]
 pub async fn update_activity(db: &Surreal<Db>, session_id: &Thing) -> Result<(), DatabaseError> {
     db.query("UPDATE $session_id SET updated_at = time::now(), last_activity_at = time::now()")
         .bind(("session_id", session_id.clone()))
@@ -169,7 +169,7 @@ pub async fn update_activity(db: &Surreal<Db>, session_id: &Thing) -> Result<(),
     Ok(())
 }
 
-#[tracing::instrument(skip_all, fields(session_id = %session_id))]
+#[tracing::instrument(skip_all, level = "debug", fields(session_id = %session_id))]
 pub async fn get_session_todo_list(
     db: &Surreal<Db>,
     session_id: &Thing,
@@ -213,7 +213,7 @@ pub async fn get_session_todo_list(
     ))
 }
 
-#[tracing::instrument(skip_all, fields(session_id = %session_id))]
+#[tracing::instrument(skip_all, level = "debug", fields(session_id = %session_id))]
 pub async fn set_session_todo_list(
     db: &Surreal<Db>,
     session_id: &Thing,
@@ -253,7 +253,7 @@ pub async fn set_session_todo_list(
     Ok(())
 }
 
-#[tracing::instrument(skip_all, fields(session_id = %session_id, role = %role))]
+#[tracing::instrument(skip_all, level = "debug", fields(session_id = %session_id, role = %role))]
 pub async fn create_message(
     db: &Surreal<Db>,
     session_id: &Thing,
@@ -263,7 +263,7 @@ pub async fn create_message(
     create_message_with_metadata(db, session_id, role, content, None, None, None).await
 }
 
-#[tracing::instrument(skip_all, fields(session_id = %session_id, role = %role))]
+#[tracing::instrument(skip_all, level = "debug", fields(session_id = %session_id, role = %role))]
 pub async fn create_message_with_metadata(
     db: &Surreal<Db>,
     session_id: &Thing,
@@ -316,7 +316,7 @@ pub async fn create_message_with_metadata(
         })
 }
 
-#[tracing::instrument(skip_all, fields(session_id = %session_id))]
+#[tracing::instrument(skip_all, level = "debug", fields(session_id = %session_id))]
 pub async fn list_messages_by_session(
     db: &Surreal<Db>,
     session_id: &Thing,
@@ -340,7 +340,7 @@ pub async fn list_messages_by_session(
         })
 }
 
-#[tracing::instrument(skip_all, fields(limit = limit))]
+#[tracing::instrument(skip_all, level = "debug", fields(limit = limit))]
 pub async fn list_recent_sessions(
     db: &Surreal<Db>,
     limit: usize,
@@ -364,7 +364,7 @@ pub async fn list_recent_sessions(
         })
 }
 
-#[tracing::instrument(skip_all, fields(session_id = %session_id))]
+#[tracing::instrument(skip_all, level = "debug", fields(session_id = %session_id))]
 pub async fn count_messages_for_session(
     db: &Surreal<Db>,
     session_id: &Thing,
@@ -387,7 +387,7 @@ pub async fn count_messages_for_session(
     Ok(rows.first().map_or(0, |row| row.count.max(0) as usize))
 }
 
-#[tracing::instrument(skip_all, fields(session_id = %session_id))]
+#[tracing::instrument(skip_all, level = "debug", fields(session_id = %session_id))]
 pub async fn get_interface_for_session(
     db: &Surreal<Db>,
     session_id: &Thing,

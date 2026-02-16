@@ -76,7 +76,7 @@ impl ToolManager {
         self.tools.values().map(|tool| tool.schema()).collect()
     }
 
-    #[tracing::instrument(skip_all, fields(tool_name = tool_name))]
+    #[tracing::instrument(skip_all, level = "debug", fields(tool_name = tool_name))]
     pub async fn execute(
         &self,
         tool_name: &str,

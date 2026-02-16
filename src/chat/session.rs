@@ -203,6 +203,14 @@ impl SessionChat {
                             ChatStopReason::EndTurn
                         },
                     };
+                    logfire::info!(
+                        "chat complete",
+                        session_id = session_id.to_string(),
+                        iterations = iterations as u64,
+                        stop_reason = format!("{:?}", result.stop_reason),
+                        citation_count = result.citations.len() as u64,
+                        response_len = result.message.len() as u64,
+                    );
                     return Ok(result);
                 }
             }
@@ -347,7 +355,7 @@ impl SessionChat {
     /// `stored_message_ids` is parallel to the returned messages (one DB
     /// message ID per provider message). The summary pseudo-message (if any)
     /// gets an empty string as its ID.
-    #[tracing::instrument(skip_all, fields(session_id = %session_id))]
+    #[tracing::instrument(skip_all, level = "debug", fields(session_id = %session_id))]
     pub(super) async fn load_provider_history(
         &self,
         session_id: &Thing,
@@ -383,7 +391,7 @@ impl SessionChat {
         Ok((messages, ids))
     }
 
-    #[tracing::instrument(skip_all, fields(session_id = %session_id))]
+    #[tracing::instrument(skip_all, level = "debug", fields(session_id = %session_id))]
     async fn todo_injection_message(
         &self,
         session_id: &Thing,
@@ -459,7 +467,7 @@ impl SessionChat {
         }
     }
 
-    #[tracing::instrument(skip_all, fields(message_id = %message_id))]
+    #[tracing::instrument(skip_all, level = "debug", fields(message_id = %message_id))]
     async fn create_citation_edges(
         &self,
         message_id: &Thing,
@@ -482,7 +490,7 @@ impl SessionChat {
         Ok(())
     }
 
-    #[tracing::instrument(skip_all, fields(source = source))]
+    #[tracing::instrument(skip_all, level = "debug", fields(source = source))]
     async fn lookup_citation_target(&self, source: &str) -> Result<Option<Thing>, ChatError> {
         #[derive(Debug, Deserialize)]
         struct IdRow {

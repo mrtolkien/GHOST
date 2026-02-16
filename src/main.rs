@@ -39,10 +39,12 @@ enum Commands {
 }
 
 #[tokio::main]
-#[allow(clippy::result_large_err)]
-async fn main() -> Result<(), GhostError> {
+async fn main() {
     let cli = Cli::parse();
-    dispatch(cli.command).await
+    if let Err(e) = dispatch(cli.command).await {
+        eprintln!("Error: {e}");
+        std::process::exit(1);
+    }
 }
 
 #[tracing::instrument(skip_all)]

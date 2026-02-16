@@ -94,7 +94,7 @@ pub struct TokenBudget {
 }
 
 /// Compute the token budget for a request.
-#[tracing::instrument(skip_all, fields(
+#[tracing::instrument(skip_all, level = "debug", fields(
     context_window = context_window,
     threshold = threshold,
 ))]
@@ -157,7 +157,7 @@ fn safe_truncate(s: &str, max_bytes: usize) -> usize {
 /// Messages at index `>= keep_start` are left untouched. Older `ToolResult`
 /// blocks are replaced with `[tool_result: {name}{error} — {preview}
 /// (truncated)]`.
-#[tracing::instrument(skip_all, fields(
+#[tracing::instrument(skip_all, level = "debug", fields(
     total_messages = messages.len(),
     keep_start = keep_start,
     preview_chars = preview_chars,
@@ -323,7 +323,7 @@ fn render_messages_for_summary(messages: &[ChatMessage], preview_chars: usize) -
 ///
 /// `stored_message_ids` must be parallel to `messages` — one DB message ID
 /// per provider message. The cursor is set to the last summarized message's ID.
-#[tracing::instrument(skip_all, fields(
+#[tracing::instrument(skip_all, level = "debug", fields(
     total_messages = messages.len(),
     keep_window = config.keep_window,
 ))]
@@ -340,7 +340,7 @@ pub async fn summarize_older_messages(
 
     let conversation_text = render_messages_for_summary(to_summarize, config.mask_preview_chars);
 
-    logfire::info!(
+    logfire::debug!(
         "Phase 2: summarizing older messages",
         messages_to_summarize = to_summarize.len() as u64,
         messages_to_keep = to_keep.len() as u64,
@@ -381,7 +381,7 @@ pub async fn summarize_older_messages(
         .cloned()
         .unwrap_or_default();
 
-    logfire::info!(
+    logfire::debug!(
         "Phase 2 complete",
         compacted_count = to_summarize.len() as u64,
         summary_len = summary.len() as u64,
@@ -406,7 +406,7 @@ impl SessionChat {
     /// Phase 1 (tool result masking) is tried first. If that isn't enough,
     /// Phase 2 (LLM summarization) kicks in. Provider or empty-summary errors
     /// are logged and gracefully degraded — they never fail the chat.
-    #[tracing::instrument(skip_all, fields(session_id = %session_id))]
+    #[tracing::instrument(skip_all, level = "debug", fields(session_id = %session_id))]
     pub(super) async fn compact_if_needed(
         &self,
         session_id: &Thing,
@@ -457,7 +457,7 @@ impl SessionChat {
         let masked = mask_tool_results(history, keep_start, compaction.mask_preview_chars);
         let masked_tokens = estimate_history_tokens(&masked);
 
-        logfire::info!(
+        logfire::debug!(
             "Phase 1: observation masking complete",
             before = budget.history_tokens as u64,
             after = masked_tokens as u64,
@@ -525,7 +525,7 @@ impl SessionChat {
     }
 
     /// Lightweight Phase 1 masking during tool loops (no LLM call).
-    #[tracing::instrument(skip_all)]
+    #[tracing::instrument(skip_all, level = "debug")]
     pub(super) fn apply_masking_if_needed(&self, history: &mut Vec<ChatMessage>) {
         let alias = &self.config().models.default;
         let context_window = self

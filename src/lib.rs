@@ -5,6 +5,7 @@ pub mod config;
 pub mod daemon;
 pub mod db;
 pub mod error;
+pub mod interfaces;
 pub mod observability;
 pub mod prompt;
 pub mod providers;

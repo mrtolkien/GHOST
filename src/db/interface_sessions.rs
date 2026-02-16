@@ -14,7 +14,7 @@ struct SessionRow {
     session: Thing,
 }
 
-#[tracing::instrument(skip_all, fields(interface = interface))]
+#[tracing::instrument(skip_all, level = "debug", fields(interface = interface))]
 pub async fn get_active_session_for_interface(
     db: &Surreal<Db>,
     interface: &str,
@@ -38,7 +38,7 @@ pub async fn get_active_session_for_interface(
     Ok(rows.first().map(|row| row.session.clone()))
 }
 
-#[tracing::instrument(skip_all, fields(interface = interface, session_id = %session_id))]
+#[tracing::instrument(skip_all, level = "debug", fields(interface = interface, session_id = %session_id))]
 pub async fn set_active_session_for_interface(
     db: &Surreal<Db>,
     interface: &str,
@@ -63,7 +63,7 @@ pub async fn set_active_session_for_interface(
     Ok(())
 }
 
-#[tracing::instrument(skip_all, fields(old_session_id = %old_session_id, new_session_id = %new_session_id))]
+#[tracing::instrument(skip_all, level = "debug", fields(old_session_id = %old_session_id, new_session_id = %new_session_id))]
 pub async fn replace_session_everywhere(
     db: &Surreal<Db>,
     old_session_id: &Thing,

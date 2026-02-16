@@ -3,7 +3,7 @@ use std::collections::HashMap;
 /// Render a template string by replacing `{{ variable }}` placeholders with
 /// values from the provided map. Unknown variables render as empty strings
 /// and emit a warning.
-#[tracing::instrument(skip_all)]
+#[tracing::instrument(skip_all, level = "debug")]
 pub fn render_template(template: &str, vars: &HashMap<&str, String>) -> String {
     let mut out = String::with_capacity(template.len());
     let mut rest = template;

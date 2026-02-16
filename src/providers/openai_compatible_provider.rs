@@ -89,6 +89,8 @@ impl OpenAiCompatibleProvider {
         }
 
         let body = build_request_body(request);
+        let request_json =
+            serde_json::to_string(&body).unwrap_or_else(|e| format!("<serialization failed: {e}>"));
         let started = Instant::now();
         logfire::info!(
             "provider request",
@@ -96,7 +98,8 @@ impl OpenAiCompatibleProvider {
             model = request.model.clone(),
             endpoint = self.endpoint.clone(),
             messages = body.messages.len() as u64,
-            tools = body.tools.as_ref().map_or(0, |tools| tools.len()) as u64
+            tools = body.tools.as_ref().map_or(0, |tools| tools.len()) as u64,
+            body = request_json,
         );
         let http_response = self.client.post(&self.endpoint).json(&body).send().await?;
         let status = http_response.status();
@@ -174,6 +177,19 @@ impl OpenAiCompatibleProvider {
 
         self.circuit_breaker.record_success(&request.model);
 
+        let tool_call_summary: String = parsed
+            .content
+            .iter()
+            .filter_map(|block| match block {
+                crate::providers::ContentBlock::ToolUse { name, .. } => Some(name.as_str()),
+                _ => None,
+            })
+            .collect::<Vec<_>>()
+            .join(", ");
+
+        let content_json = serde_json::to_string(&parsed.content)
+            .unwrap_or_else(|e| format!("<serialization failed: {e}>"));
+
         logfire::info!(
             "provider response",
             provider = self.provider_name,
@@ -181,7 +197,9 @@ impl OpenAiCompatibleProvider {
             input_tokens = parsed.usage.input_tokens,
             output_tokens = parsed.usage.output_tokens,
             duration_ms = started.elapsed().as_millis() as u64,
-            stop_reason = format!("{:?}", parsed.stop_reason)
+            stop_reason = format!("{:?}", parsed.stop_reason),
+            tool_calls = tool_call_summary,
+            content = content_json,
         );
 
         Ok(parsed)
@@ -190,17 +208,18 @@ impl OpenAiCompatibleProvider {
 
 #[async_trait]
 impl Provider for OpenAiCompatibleProvider {
-    #[tracing::instrument(skip_all, fields(provider = self.provider_name, model = %request.model))]
     async fn chat(&self, request: ChatRequest) -> Result<ChatResponse, ProviderError> {
         let max_attempts = usize::from(self.empty_response_retries) + 1;
         for attempt in 0..max_attempts {
-            logfire::info!(
-                "provider chat attempt",
-                provider = self.provider_name,
-                model = request.model.clone(),
-                attempt = (attempt + 1) as u64,
-                max_attempts = max_attempts as u64
-            );
+            if attempt > 0 {
+                logfire::info!(
+                    "provider chat retry",
+                    provider = self.provider_name,
+                    model = request.model.clone(),
+                    attempt = (attempt + 1) as u64,
+                    max_attempts = max_attempts as u64
+                );
+            }
             match self.send_request(&request).await {
                 Ok(response) => return Ok(response),
                 Err(ProviderError::EmptyResponse) if attempt + 1 < max_attempts => {

@@ -133,7 +133,24 @@ pub(super) fn parse_structured_or_fallback(content: &[ContentBlock]) -> (String,
                 })
                 .collect(),
         ),
-        Err(_) => (text, Vec::new()),
+        Err(e) => {
+            let looks_like_json =
+                text.trim_start().starts_with('{') && text.trim_end().ends_with('}');
+            if looks_like_json {
+                logfire::warn!(
+                    "structured response looks like JSON but failed to parse",
+                    error = e.to_string(),
+                    text_prefix = text.chars().take(300).collect::<String>(),
+                );
+            } else {
+                logfire::debug!(
+                    "structured response parse failed, using raw text",
+                    error = e.to_string(),
+                    text_len = text.len() as u64,
+                );
+            }
+            (text, Vec::new())
+        }
     }
 }
 

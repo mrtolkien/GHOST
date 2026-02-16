@@ -23,6 +23,9 @@ pub enum GhostError {
 
     #[error(transparent)]
     Prompt(#[from] crate::prompt::PromptError),
+
+    #[error(transparent)]
+    Discord(#[from] crate::interfaces::discord::DiscordError),
 }
 
 impl From<crate::db::DatabaseError> for GhostError {

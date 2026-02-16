@@ -14,7 +14,7 @@ struct IdRow {
     id: Thing,
 }
 
-#[tracing::instrument(skip_all, fields(job_name = job_name, job_kind = job_kind))]
+#[tracing::instrument(skip_all, level = "debug", fields(job_name = job_name, job_kind = job_kind))]
 pub async fn create_running_job_log(
     db: &Surreal<Db>,
     job_name: &str,
@@ -60,7 +60,7 @@ pub async fn create_running_job_log(
         })
 }
 
-#[tracing::instrument(skip_all, fields(job_log_id = %job_log_id, status = status))]
+#[tracing::instrument(skip_all, level = "debug", fields(job_log_id = %job_log_id, status = status))]
 pub async fn finish_job_log(
     db: &Surreal<Db>,
     job_log_id: &Thing,

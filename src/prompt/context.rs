@@ -2,7 +2,7 @@ use std::fs;
 use std::path::Path;
 
 /// Build system information: OS, hostname, current datetime, workspace path.
-#[tracing::instrument(skip_all, fields(workspace = %workspace.display()))]
+#[tracing::instrument(skip_all, level = "debug", fields(workspace = %workspace.display()))]
 pub fn build_system_info(workspace: &Path) -> String {
     let os = std::env::consts::OS;
     let arch = std::env::consts::ARCH;
@@ -20,14 +20,14 @@ pub fn build_system_info(workspace: &Path) -> String {
 }
 
 /// Build model and provider information.
-#[tracing::instrument(skip_all, fields(model, provider))]
+#[tracing::instrument(skip_all, level = "debug", fields(model, provider))]
 pub fn build_model_info(model: &str, provider: &str) -> String {
     format!("Model: {model}\nProvider: {provider}")
 }
 
 /// Read BOOT.md and SOUL.md from the workspace, concatenating under headers.
 /// Missing files produce empty sections (no error).
-#[tracing::instrument(skip_all, fields(workspace = %workspace.display()))]
+#[tracing::instrument(skip_all, level = "debug", fields(workspace = %workspace.display()))]
 pub fn build_ghost_identity(workspace: &Path) -> String {
     let boot = read_optional_file(&workspace.join("BOOT.md"));
     let soul = read_optional_file(&workspace.join("SOUL.md"));
@@ -45,14 +45,14 @@ pub fn build_ghost_identity(workspace: &Path) -> String {
 }
 
 /// Read OPERATOR.md from the workspace. Missing file produces empty string.
-#[tracing::instrument(skip_all, fields(workspace = %workspace.display()))]
+#[tracing::instrument(skip_all, level = "debug", fields(workspace = %workspace.display()))]
 pub fn build_operator_context(workspace: &Path) -> String {
     read_optional_file(&workspace.join("OPERATOR.md"))
 }
 
 /// Scan the `skills/` directory and list available skills.
 /// Returns empty string if the directory doesn't exist or is empty.
-#[tracing::instrument(skip_all, fields(workspace = %workspace.display()))]
+#[tracing::instrument(skip_all, level = "debug", fields(workspace = %workspace.display()))]
 pub fn build_ghost_skills(workspace: &Path) -> String {
     let skills_dir = workspace.join("skills");
 
@@ -86,14 +86,14 @@ pub fn build_ghost_skills(workspace: &Path) -> String {
 }
 
 /// Placeholder for diary content. Will be wired to SurrealDB in spec 15.
-#[tracing::instrument(skip_all)]
+#[tracing::instrument(skip_all, level = "debug")]
 pub fn build_ghost_diary() -> String {
     // TODO(spec-15): wire to SurrealDB diary query
     String::new()
 }
 
 /// Placeholder for available CLI commands.
-#[tracing::instrument(skip_all)]
+#[tracing::instrument(skip_all, level = "debug")]
 pub fn build_ghost_commands() -> String {
     String::new()
 }

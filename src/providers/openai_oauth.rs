@@ -142,7 +142,17 @@ impl OpenAiOAuthProvider {
         );
 
         let body = build_codex_request_body(request)?;
+        let request_json =
+            serde_json::to_string(&body).unwrap_or_else(|e| format!("<serialization failed: {e}>"));
         let started = Instant::now();
+        logfire::info!(
+            "provider request",
+            provider = "openai_oauth",
+            model = request.model.clone(),
+            endpoint = self.endpoint.clone(),
+            messages = body.input.len() as u64,
+            body = request_json,
+        );
         let http_response = self
             .client
             .post(&self.endpoint)
@@ -197,6 +207,19 @@ impl OpenAiOAuthProvider {
                 );
             })?;
         self.circuit_breaker.record_success(&request.model);
+
+        let tool_call_summary: String = parsed
+            .content
+            .iter()
+            .filter_map(|block| match block {
+                ContentBlock::ToolUse { name, .. } => Some(name.as_str()),
+                _ => None,
+            })
+            .collect::<Vec<_>>()
+            .join(", ");
+        let content_json = serde_json::to_string(&parsed.content)
+            .unwrap_or_else(|e| format!("<serialization failed: {e}>"));
+
         logfire::info!(
             "provider response",
             provider = "openai_oauth",
@@ -204,7 +227,9 @@ impl OpenAiOAuthProvider {
             input_tokens = parsed.usage.input_tokens,
             output_tokens = parsed.usage.output_tokens,
             duration_ms = started.elapsed().as_millis() as u64,
-            stop_reason = format!("{:?}", parsed.stop_reason)
+            stop_reason = format!("{:?}", parsed.stop_reason),
+            tool_calls = tool_call_summary,
+            content = content_json,
         );
         Ok(parsed)
     }
@@ -212,7 +237,6 @@ impl OpenAiOAuthProvider {
 
 #[async_trait]
 impl Provider for OpenAiOAuthProvider {
-    #[tracing::instrument(skip_all, fields(provider = "openai_oauth", model = %request.model))]
     async fn chat(&self, request: ChatRequest) -> Result<ChatResponse, ProviderError> {
         let max_attempts = usize::from(self.empty_response_retries) + 1;
         for attempt in 0..max_attempts {

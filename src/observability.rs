@@ -1,3 +1,4 @@
+use logfire::config::ConsoleOptions;
 use thiserror::Error;
 
 static LIVE_TEST_OBSERVABILITY_INIT: std::sync::Once = std::sync::Once::new();
@@ -23,7 +24,6 @@ impl DaemonObservability {
     }
 }
 
-#[tracing::instrument(skip_all)]
 pub fn init_for_daemon() -> Result<DaemonObservability, ObservabilityError> {
     if running_under_cargo_test() {
         return Ok(DaemonObservability::disabled());
@@ -35,6 +35,7 @@ pub fn init_for_daemon() -> Result<DaemonObservability, ObservabilityError> {
         .with_service_name("GHOST")
         .with_install_panic_handler(true)
         .send_to_logfire(logfire::config::SendToLogfire::IfTokenPresent)
+        .with_console(Some(console_options()))
         .finish()
         .map_err(|source| ObservabilityError::LogfireInit { source })?;
 
@@ -43,7 +44,6 @@ pub fn init_for_daemon() -> Result<DaemonObservability, ObservabilityError> {
     })
 }
 
-#[tracing::instrument(skip_all)]
 pub fn init_for_live_tests() -> Result<DaemonObservability, ObservabilityError> {
     let mut result: Option<ObservabilityError> = None;
     LIVE_TEST_OBSERVABILITY_INIT.call_once(|| {
@@ -65,11 +65,19 @@ fn init_live_tests_inner() -> Result<(), ObservabilityError> {
         .with_service_name("GHOST")
         .with_install_panic_handler(true)
         .send_to_logfire(logfire::config::SendToLogfire::IfTokenPresent)
+        .with_console(Some(console_options()))
         .finish()
         .map_err(|source| ObservabilityError::LogfireInit { source })?;
 
     let _shutdown_guard = logfire.shutdown_guard();
     Ok(())
+}
+
+fn console_options() -> ConsoleOptions {
+    ConsoleOptions::default()
+        .with_colors(logfire::config::ConsoleColors::Auto)
+        .with_include_timestamps(true)
+        .with_min_log_level(tracing::Level::INFO)
 }
 
 fn running_under_cargo_test() -> bool {
@@ -83,6 +91,6 @@ fn set_default_rust_log_filter() {
 
     // SAFETY: daemon startup sets process env before spawning runtime tasks.
     unsafe {
-        std::env::set_var("RUST_LOG", "warn,ghost=trace");
+        std::env::set_var("RUST_LOG", "warn,ghost=info");
     }
 }

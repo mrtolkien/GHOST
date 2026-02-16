@@ -37,7 +37,7 @@ struct OutRow {
     out: Thing,
 }
 
-#[tracing::instrument(skip_all, fields(title = %title))]
+#[tracing::instrument(skip_all, level = "debug", fields(title = %title))]
 pub async fn create_note(
     db: &Surreal<Db>,
     title: &str,
@@ -82,7 +82,7 @@ pub async fn create_note(
         })
 }
 
-#[tracing::instrument(skip_all, fields(topic = %topic, path = %path))]
+#[tracing::instrument(skip_all, level = "debug", fields(topic = %topic, path = %path))]
 pub async fn create_reference(
     db: &Surreal<Db>,
     topic: &str,
@@ -129,7 +129,7 @@ pub async fn create_reference(
         })
 }
 
-#[tracing::instrument(skip_all, fields(note_id = %note_id))]
+#[tracing::instrument(skip_all, level = "debug", fields(note_id = %note_id))]
 pub async fn get_note(db: &Surreal<Db>, note_id: &Thing) -> Result<NoteRecord, DatabaseError> {
     let mut response = db
         .query("SELECT * FROM ONLY $note_id")
@@ -154,7 +154,7 @@ pub async fn get_note(db: &Surreal<Db>, note_id: &Thing) -> Result<NoteRecord, D
         })
 }
 
-#[tracing::instrument(skip_all, fields(from = %from, to = %to, label = %label))]
+#[tracing::instrument(skip_all, level = "debug", fields(from = %from, to = %to, label = %label))]
 pub async fn create_edge(
     db: &Surreal<Db>,
     from: &Thing,
@@ -192,7 +192,7 @@ pub async fn create_edge(
         })
 }
 
-#[tracing::instrument(skip_all, fields(from = %from))]
+#[tracing::instrument(skip_all, level = "debug", fields(from = %from))]
 pub async fn related_note_ids(db: &Surreal<Db>, from: &Thing) -> Result<Vec<Thing>, DatabaseError> {
     let mut response = db
         .query("SELECT out FROM relates_to WHERE `in` = $from")
