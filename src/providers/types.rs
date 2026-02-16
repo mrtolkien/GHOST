@@ -168,6 +168,9 @@ pub fn provider_for_alias(
         "kimi_code" | "kimi" => Ok(Arc::new(
             crate::providers::kimi_code::KimiCodeProvider::new(model.headers.clone())?,
         )),
+        "openai_oauth" => Ok(Arc::new(
+            crate::providers::openai_oauth::OpenAiOAuthProvider::new(model.headers.clone())?,
+        )),
         unsupported => Err(ProviderInitError::UnsupportedProvider {
             provider: unsupported.to_string(),
         }),

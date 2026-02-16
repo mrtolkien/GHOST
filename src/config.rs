@@ -182,6 +182,8 @@ pub enum Provider {
     OpenRouter,
     #[serde(alias = "kimi_code")]
     Kimi,
+    #[serde(alias = "openai_oauth")]
+    OpenAiOAuth,
 }
 
 impl Provider {
@@ -189,6 +191,7 @@ impl Provider {
         match self {
             Self::OpenRouter => "openrouter",
             Self::Kimi => "kimi_code",
+            Self::OpenAiOAuth => "openai_oauth",
         }
     }
 }

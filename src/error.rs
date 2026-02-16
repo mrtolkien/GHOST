@@ -12,6 +12,9 @@ pub enum GhostError {
     #[error(transparent)]
     Database(#[from] crate::db::DatabaseError),
 
+    #[error(transparent)]
+    Auth(#[from] crate::auth::openai_oauth::AuthError),
+
     #[error("io error: {0}")]
     Io(#[from] std::io::Error),
 }
