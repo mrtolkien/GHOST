@@ -26,14 +26,15 @@ no template engine needed).
 
 Variables:
 
-| Variable           | Source                                     |
-| ------------------ | ------------------------------------------ |
-| `ghost_identity`   | BOOT.md (behavior) + SOUL.md (personality) |
-| `operator_context` | Contents of OPERATOR.md                    |
-| `ghost_diary`      | Today's diary entry (if any)               |
-| `ghost_skills`     | List of available skills in `skills/`      |
-| `system_info`      | OS, hostname, current time, workspace path |
-| `model_info`       | Current model name and provider            |
+| Variable           | Source                                            |
+| ------------------ | ------------------------------------------------- |
+| `ghost_identity`   | BOOT.md (behavior) + SOUL.md (personality)        |
+| `operator_context` | Contents of OPERATOR.md                           |
+| `ghost_diary`      | Today's diary entry (if any)                      |
+| `ghost_commands`   | Core CLI commands (knowledge, web) — specs 11, 13 |
+| `ghost_skills`     | List of available skills in `skills/`             |
+| `system_info`      | OS, hostname, current time, workspace path        |
+| `model_info`       | Current model name and provider                   |
 
 ## Identity Files
 

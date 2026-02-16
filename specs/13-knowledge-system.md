@@ -2,9 +2,15 @@
 
 ## Overview
 
-The knowledge system is the GHOST's persistent memory. It stores notes, references, and
-diary entries in SurrealDB with typed graph edges and hybrid search (full-text +
-embeddings).
+The knowledge system is the GHOST's persistent memory. Knowledge is **fulltext-first**:
+notes, references, and diary entries are markdown files on disk. SurrealDB indexes them
+for search (BM25 + embeddings) and stores the knowledge graph (typed edges from wiki
+links), but the files are the source of truth.
+
+The GHOST queries knowledge via `ghost knowledge search` CLI commands (defined below),
+which return **file paths** — then uses `read_file` to get full content. Knowledge write
+operations during reflection use dedicated tools (`note_write`, `reference_write`,
+`reference_manage`) for structured parameter validation.
 
 The key evolution from t-koma is the graph model: wiki links can now carry relationship
 types, enabling queries like "all things written_in Rust" or "all things that depend_on
@@ -159,6 +165,49 @@ DEFINE INDEX idx_diary_fts ON diary FIELDS body SEARCH ANALYZER note_analyzer BM
 3. Merge results with weighted scoring (BM25 weight + embedding weight)
 4. Optionally boost results that are graph-connected to recent conversation topics
 
+## CLI Commands
+
+### `ghost knowledge search "query"`
+
+Hybrid search across notes, references, and diary. Returns **file paths** and snippets
+so the GHOST can use `read_file` to get full content.
+
+```
+$ ghost knowledge search "surrealdb graph traversal"
+knowledge/notes/surrealdb.md (score: 0.92)
+  ...SurrealDB makes graph traversal natural using RELATE statements...
+
+knowledge/references/surrealdb/graph-queries.md (score: 0.87)
+  ...SELECT ->depends_on->note AS deps FROM note...
+
+diary/2026-02-14.md (score: 0.61)
+  ...Explored SurrealDB graph model for knowledge system...
+```
+
+Output is plain text, one result per block, sorted by relevance score. The
+knowledge-search skill (spec 12) documents advanced options (type filters, tag filters,
+graph queries, output formats).
+
+### `ghost knowledge get <path>`
+
+Convenience to read a knowledge item with parsed metadata.
+
+```
+$ ghost knowledge get knowledge/notes/surrealdb.md
+title: SurrealDB
+archetype: concept
+tags: database, graph
+trust: 7
+---
+SurrealDB is an embedded database with native graph...
+```
+
+Also accepts a title: `ghost knowledge get --title "SurrealDB"`.
+
+### `ghost knowledge reindex`
+
+Rebuild all search indexes and embeddings (spec 14).
+
 ## Knowledge Write Tools (Reflection Only)
 
 These tools are available during reflection jobs, NOT during regular chat:
@@ -181,14 +230,8 @@ These tools are available during reflection jobs, NOT during regular chat:
 - Parameters: `action: "move" | "delete"`, `cache_file: string (optional)`,
   `target_topic: string (optional)`, `target_filename: string (optional)`
 
-**`diary_write`** — Append to today's diary entry.
-
-- Parameters: `content: string` (appended as bullet points)
-
-**`identity_edit`** — Edit SOUL.md or OPERATOR.md.
-
-- Parameters: `file: "SOUL" | "OPERATOR"`, `content: string`
-- BOOT.md is only editable when explicitly directed by the OPERATOR.
+Diary and identity file editing are handled by `file_edit` directly — no dedicated tools
+needed. The reflection prompt (spec 17) explains the file paths and conventions.
 
 ## Validation
 
@@ -203,8 +246,8 @@ These tools are available during reflection jobs, NOT during regular chat:
    ranked results
 6. `cargo test` — graph traversal: create a chain (A ->depends_on-> B ->depends_on-> C),
    query 2-hop from A, verify C is returned
-7. `cargo test` — knowledge write tools (`note_write`, `diary_write`) work through the
-   ToolManager
+7. `cargo test` — knowledge write tools (`note_write`, `reference_write`,
+   `reference_manage`) work through the ToolManager
 8. `just ci` — passes
 
 ## Acceptance Criteria
@@ -215,7 +258,9 @@ These tools are available during reflection jobs, NOT during regular chat:
 - Missing link targets create stub notes
 - Full-text search works across notes, references, and diary
 - Graph queries can traverse relationships (1-hop and multi-hop)
-- Knowledge write tools are separate from chat tools
+- `ghost knowledge search` returns file paths + snippets sorted by relevance
+- `ghost knowledge get` reads a knowledge item with parsed metadata
+- Knowledge write tools are separate from chat tools (reflection only)
 - All knowledge operations produce tracing spans
 - Tags are hierarchical, lowercase, slash-separated
 - Archetypes provide template guidance but are not enforced

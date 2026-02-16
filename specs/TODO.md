@@ -26,10 +26,10 @@ later tasks may depend on earlier ones.
 
 - [ ] Discord bot interface — [09-discord.md](09-discord.md)
 
-## Phase 4: Tools
+## Phase 4: Tools and Skills
 
-- [ ] Tool system and chat tools — [10-tools.md](10-tools.md)
-- [ ] Web search and web fetch — [11-web-tools.md](11-web-tools.md)
+- [ ] Tool system (4 core + 3 reflection) — [10-tools.md](10-tools.md)
+- [ ] Web module (library code) — [11-web-tools.md](11-web-tools.md)
 - [ ] Skills system (agentskills.io) — [12-skills.md](12-skills.md)
 
 ## Phase 5: Knowledge

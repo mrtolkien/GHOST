@@ -185,10 +185,27 @@ Examples:
 
 {{ web_cache_files }}
 
+## Diary
+
+Append to today's diary using file_edit on `$WORKSPACE/diary/YYYY-MM-DD.md`. Create the
+file with write_file if it doesn't exist. Each entry is a timestamped bullet point:
+
+- `- 14:30 — Started exploring SurrealDB graph model`
+- `- 16:00 — OPERATOR decided to use typed wiki links`
+
+## Identity Files
+
+Update these with file_edit when reflection reveals new insights:
+
+- `$WORKSPACE/SOUL.md` — Personality and self-model updates
+- `$WORKSPACE/OPERATOR.md` — New knowledge about the OPERATOR
+- `$WORKSPACE/BOOT.md` — Behavioral corrections from OPERATOR feedback
+
 ## Workflow
 
 1. **Plan**: Create a TODO list of knowledge operations
-2. **Execute**: Create/update notes, curate web cache, write diary, update identity
+2. **Execute**: Create/update notes (note_write), curate web cache (reference_manage),
+   write diary (file_edit), update identity (file_edit)
 3. **Handoff**: Your final message becomes the handoff note for the next reflection
 ```
 
@@ -202,7 +219,8 @@ Examples:
    - `{{ web_cache_files }}` — list of files in `.web-cache/`
 3. Run via `SessionChat::chat_job()` in the **same session** as the heartbeat (with full
    message history for context)
-4. Use the **reflection tool set** (knowledge write tools)
+4. Use the **reflection tool set** (4 core tools + `note_write`, `reference_write`,
+   `reference_manage`)
 5. Save transcript to `job_log` table
 6. Save response to `.state/reflection.last.md` (handoff note)
 

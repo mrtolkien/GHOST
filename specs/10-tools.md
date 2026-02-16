@@ -1,12 +1,15 @@
-# 10 — Tool System and Chat Tools
+# 10 — Tool System
 
 ## Overview
 
-Tools are capabilities the GHOST can invoke during conversations. The tool system
-manages registration, schema generation (for the provider's function calling API), and
-execution.
+Minimal tool set following the "bash-first" philosophy (inspired by pi-mono's approach).
+The GHOST has **4 core tools** for all contexts and **3 additional tools** for the
+reflection context. Everything else — file search, knowledge queries, web search — is
+accessed via CLI commands through bash (see specs 11 and 13 for the CLI definitions).
 
-Different contexts (chat, reflection, heartbeat) have different tool sets.
+This keeps the tool count low, reducing token overhead in the system prompt and
+cognitive load on the model. Dedicated tools exist only where bash falls short
+(structured file I/O, surgical edits).
 
 ## Architecture
 
@@ -49,77 +52,71 @@ pub enum ToolError {
 
 ## Tool Sets
 
-| Context    | Tools Available                                                      |
-| ---------- | -------------------------------------------------------------------- |
-| Chat       | shell, read_file, create_file, file_edit, find_files, search_files,  |
-|            | list_dir, web_search, web_fetch, knowledge_search, knowledge_get     |
-| Reflection | knowledge_search, knowledge_get, note_write, reference_write,        |
-|            | reference_manage, diary_write, identity_edit, read_file, find_files, |
-|            | web_search, web_fetch                                                |
-| Heartbeat  | (minimal — defined per heartbeat job)                                |
-| Custom job | (defined per job in frontmatter, defaults to chat tools)             |
+| Context    | Tools                                                            |
+| ---------- | ---------------------------------------------------------------- |
+| Chat       | `run_shell_command`, `read_file`, `write_file`, `file_edit`      |
+| Reflection | Chat tools + `note_write`, `reference_write`, `reference_manage` |
+| Heartbeat  | Chat tools                                                       |
+| Custom job | Chat tools (default)                                             |
 
-## Chat Tools
+All contexts share the same 4 core tools. Only reflection adds 3 knowledge-write tools
+that need structured parameter validation (see spec 13 for their definitions).
 
-### Filesystem Tools
+## Core Tools (4)
 
-**`run_shell_command`** — Execute a shell command from the current working directory.
+**`run_shell_command`** — Execute a shell command.
 
-- Parameters: `command: string`, `timeout_ms: number (optional, default 30000)`
+- Parameters: `command: string`, `timeout_ms: number (optional, default 30000)`,
+  `directory: string (optional, default .)`
 - Returns: stdout + stderr, exit code
-- Safety: Commands run in the workspace directory. The GHOST should ask the OPERATOR
-  before leaving the workspace.
+- Commands run in the workspace directory by default
+- This is the primary way the GHOST accesses knowledge search, web search, file search,
+  and all other CLI features (see spec 10b)
 
-**`read_file`** — Read file contents.
+**`read_file`** — Read file contents with pagination.
 
 - Parameters: `path: string`, `offset: number (optional)`, `limit: number (optional)`
 - Returns: File contents with line numbers
+- Why dedicated: pagination, line numbers, and structured output that `cat` can't match
 
-**`create_file`** — Create a new file (fails if exists).
+**`write_file`** — Create or overwrite a file.
 
 - Parameters: `path: string`, `content: string`
 - Returns: Success message
+- Automatically creates parent directories
+- Replaces the old `create_file` — a single tool for all file creation/overwriting
 
 **`file_edit`** — Edit an existing file by string replacement.
 
 - Parameters: `path: string`, `old_string: string`, `new_string: string`
-- Returns: Success message with context
+- Returns: Success message with diff context
+- Rejects ambiguous edits (multiple matches)
+- Why dedicated: more reliable than `sed`, handles edge cases (whitespace, encoding)
 
-**`find_files`** — Find files by glob pattern.
+## What Moved to CLI + Bash
 
-- Parameters: `pattern: string`, `path: string (optional)`
-- Returns: List of matching file paths
+These are no longer dedicated tools. The GHOST invokes them via `run_shell_command`:
 
-**`search_files`** — Search file contents by regex.
+| Old tool           | New approach                                                          |
+| ------------------ | --------------------------------------------------------------------- |
+| `find_files`       | `fd` or `find` via bash                                               |
+| `search_files`     | `rg` or `grep` via bash                                               |
+| `list_dir`         | `ls` via bash                                                         |
+| `knowledge_search` | `ghost knowledge search "query"` via bash                             |
+| `knowledge_get`    | `read_file` (notes and references are files) or `ghost knowledge get` |
+| `web_search`       | `ghost web search "query"` via bash                                   |
+| `web_fetch`        | `ghost web fetch "url"` via bash                                      |
+| `diary_write`      | `file_edit` on `$WORKSPACE/diary/YYYY-MM-DD.md`                       |
+| `identity_edit`    | `file_edit` on SOUL.md / OPERATOR.md / BOOT.md                        |
 
-- Parameters: `pattern: string`, `path: string (optional)`, `glob: string (optional)`
-- Returns: Matching lines with file paths and line numbers
-
-**`list_dir`** — List directory contents.
-
-- Parameters: `path: string (optional)`
-- Returns: Files and directories with sizes
-
-### Knowledge Tools (Query Only in Chat)
-
-**`knowledge_search`** — Search notes, references, and diary.
-
-- Parameters: `query: string`, `categories: string[] (optional)`,
-  `topic: string (optional)`, `limit: number (optional, default 10)`
-- Returns: Ranked search results with snippets
-
-**`knowledge_get`** — Get full content of a note, reference, or diary entry.
-
-- Parameters: `id: string (optional)`, `topic: string (optional)`,
-  `path: string (optional)`
-- Returns: Full content
+See spec 11 (web CLI), spec 12 (skills), and spec 13 (knowledge CLI) for details.
 
 ## Observability
 
 Every tool execution MUST produce a span:
 
 ```rust
-#[tracing::instrument(skip_all, fields(tool_name = %self.name()))]
+#[tracing::instrument(skip_all, fields(tool_name = %self.name(), params=...))]
 async fn execute(&self, params: Value, ctx: &ToolContext) -> Result<String, ToolError> {
     let start = Instant::now();
     let result = self.run(params, ctx).await;
@@ -127,6 +124,7 @@ async fn execute(&self, params: Value, ctx: &ToolContext) -> Result<String, Tool
         tool_name = %self.name(),
         duration_ms = start.elapsed().as_millis(),
         success = result.is_ok(),
+        result,
     );
     result
 }
@@ -139,8 +137,8 @@ async fn execute(&self, params: Value, ctx: &ToolContext) -> Result<String, Tool
 2. `cargo test` — `read_file` reads a file in a temp workspace, returns content with
    line numbers
 3. `cargo test` — `run_shell_command` executes `echo hello` and returns stdout
-4. `cargo test` — `create_file` + `file_edit`: create a file then edit it via string
-   replacement, verify the result
+4. `cargo test` — `write_file` creates a file with parent directories, then `file_edit`
+   edits it via string replacement, verify the result
 5. `cargo test` — tool execution error (e.g., read nonexistent file) returns a
    `ToolError`, not a panic
 6. Now that tools exist, add the full provider live test from spec 05: send all tool
@@ -152,8 +150,8 @@ async fn execute(&self, params: Value, ctx: &ToolContext) -> Result<String, Tool
 - ToolManager registers tools and generates schemas for the provider
 - Each tool has a JSON Schema definition for function calling
 - Tool execution errors are returned as tool results (not crashes)
-- Different tool sets can be constructed for different contexts
-- All filesystem tools respect workspace boundaries
+- Chat and reflection tool sets are constructible
+- `write_file` auto-creates parent directories
 - Shell commands have configurable timeouts
 - All tool executions produce tracing spans with name and duration
 - `just ci` passes
@@ -165,7 +163,6 @@ Old code in `../t-koma`:
 - `t-koma-gateway/src/tools/manager.rs` — Tool registration, schema generation, context
   management. Directly reusable pattern.
 - `t-koma-gateway/src/tools/*.rs` — Individual tool implementations (shell, read_file,
-  create_file, file_edit, search, find_files, list_dir). Directly reusable with minor
-  type changes.
-- `t-koma-gateway/src/tools/mod.rs` — ToolSet enum for different contexts (chat vs
-  reflection). Reusable concept.
+  create_file, file_edit). Directly reusable with minor type changes.
+- `t-koma-gateway/src/tools/mod.rs` — ToolSet enum for different contexts. Reusable
+  concept, simplified now (chat vs reflection only).

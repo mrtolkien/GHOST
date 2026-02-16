@@ -1,9 +1,12 @@
-# 11 — Web Search and Web Fetch
+# 11 — Web Module and CLI Commands
 
 ## Overview
 
-Web tools allow the GHOST to search the internet and fetch web page contents. Web
-results are automatically cached for later curation during reflection.
+The web module provides web search and web fetch capabilities. It includes both the
+library code (Brave Search client, content extraction, auto-caching) and the CLI
+commands (`ghost web search`, `ghost web fetch`) that the GHOST invokes via bash.
+
+Web results are automatically cached for later curation during reflection.
 
 ## Web Search
 
@@ -21,20 +24,49 @@ pub struct BraveSearchProvider {
 - **Auth**: `X-Subscription-Token` header
 - **Config**: `web.search_provider = "brave"`, `web.search_max_results = 5`
 
-### Tool: `web_search`
+### Library: `search(query, options) -> Vec<SearchResult>`
 
-- Parameters: `query: string`
 - Returns: List of results with title, URL, and snippet
-- Results are NOT auto-cached (they're just search result snippets)
+- Results are auto-cached and managed at the reflection step
+
+### CLI: `ghost web search "query"`
+
+```
+$ ghost web search "rust async runtime comparison 2026"
+1. Comparing Tokio, async-std, and smol in 2026
+   https://blog.example.com/rust-async-2026
+   A detailed comparison of Rust's three main async runtimes...
+
+2. Tokio 2.0 Release Notes
+   https://tokio.rs/blog/2026-01-tokio-2
+   Announcing Tokio 2.0 with structured concurrency...
+```
+
+Thin CLI wrapper calling `BraveSearchProvider::search()` and formatting output.
 
 ## Web Fetch
 
-### Tool: `web_fetch`
+### Library: `fetch(url, options) -> ExtractedContent`
 
-- Parameters: `url: string`, `max_chars: number (optional, default 50000)`
-- Returns: Extracted text content (HTML → readable text)
+- Options: `max_chars: usize (default 50000)`, `raw: bool (default false)`
+- Returns: Extracted text content (HTML → readable text). raw mode returns html.
 - Uses Mozilla Readability algorithm (via `readability` crate) for article extraction
 - Falls back to `html2text` for non-article pages
+
+### CLI: `ghost web fetch "url"`
+
+```
+$ ghost web fetch "https://docs.rs/surrealdb/latest"
+# SurrealDB — Rust Documentation
+
+[extracted content...]
+
+---
+Cached to: .web-cache/2026-02-16T10-30-00_docs-rs_surrealdb.md
+```
+
+Thin CLI wrapper calling `fetch()` and printing to stdout. Auto-caching happens in the
+library layer.
 
 ### Auto-Caching
 
@@ -95,10 +127,10 @@ async fn fetch(&self, url: &str) -> Result<ExtractedContent> {
 
 ## Validation
 
-1. `cargo test --features live-tests` — `web_search` with a known query returns Brave
-   results with titles, URLs, and snippets (requires `BRAVE_API_KEY`)
-2. `cargo test --features live-tests` — `web_fetch` on a known URL returns extracted
-   text content
+1. `cargo test --features live-tests` — `ghost web search "rust"` returns Brave results
+   with titles, URLs, and snippets (requires `BRAVE_API_KEY`)
+2. `cargo test --features live-tests` — `ghost web fetch` on a known URL returns
+   extracted text content
 3. `cargo test` — after a successful mock fetch, a cache file exists in
    `$WORKSPACE/.web-cache/` with correct frontmatter (url, fetched_at)
 4. `cargo test` — a failed fetch (mock 404) does NOT create a cache file
@@ -108,8 +140,8 @@ async fn fetch(&self, url: &str) -> Result<ExtractedContent> {
 
 ## Acceptance Criteria
 
-- `web_search` returns Brave Search results with titles, URLs, and snippets
-- `web_fetch` extracts readable text from HTML pages
+- `ghost web search` returns Brave Search results with titles, URLs, and snippets
+- `ghost web fetch` extracts readable text from HTML pages
 - Successful fetches are auto-cached to `.web-cache/`
 - Cache files include URL and timestamp metadata
 - Non-2xx responses are not cached
