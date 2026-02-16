@@ -59,7 +59,7 @@ several things).
 - **Knowledge**: Notes, references, and diary entries stored in SurrealDB with typed
   graph edges and embeddings search.
 - **Skill**: agentskills.io-compatible files in `$WORKSPACE/skills/`. Read via standard
-  file tools, no dedicated `load_skill` tool.
+  file tools.
 - **Provider**: LLM backend (OpenRouter for PoC). Provider trait for future
   extensibility.
 
@@ -224,7 +224,7 @@ src/
 ├── interfaces/discord/  # Discord bot transport, DiscordSender
 ├── prompt/              # System prompt rendering
 ├── web/                 # Web search, web fetch, web cache
-└── observability/       # Logfire setup, tracing configuration
+└── observability.rs     # Logfire setup, tracing configuration
 ```
 
 ## Formatting
