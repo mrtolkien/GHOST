@@ -59,9 +59,6 @@ pub enum ToolError {
 | Heartbeat  | (minimal — defined per heartbeat job)                                |
 | Custom job | (defined per job in frontmatter, defaults to chat tools)             |
 
-Note: There is no `load_skill` tool. Skills are in `$WORKSPACE/skills/` and the GHOST
-reads them with `read_file`. The system prompt lists available skills.
-
 ## Chat Tools
 
 ### Filesystem Tools
