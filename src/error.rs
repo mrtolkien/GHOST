@@ -20,6 +20,9 @@ pub enum GhostError {
 
     #[error(transparent)]
     Chat(#[from] crate::chat::ChatError),
+
+    #[error(transparent)]
+    Prompt(#[from] crate::prompt::PromptError),
 }
 
 impl From<crate::db::DatabaseError> for GhostError {

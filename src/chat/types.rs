@@ -47,6 +47,9 @@ pub enum ChatError {
     #[error(transparent)]
     ProviderInit(#[from] ProviderInitError),
 
+    #[error(transparent)]
+    Prompt(#[from] crate::prompt::PromptError),
+
     #[error("invalid session id '{session_id}'")]
     InvalidSessionId { session_id: String },
 

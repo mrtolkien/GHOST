@@ -104,7 +104,7 @@ impl SessionChat {
             let prompt = self.prompt_renderer.render_system_prompt(&PromptContext {
                 model: model.clone(),
                 provider: self.provider.name().to_string(),
-            });
+            })?;
             let request = ChatRequest {
                 model: model.clone(),
                 messages: history.clone(),
