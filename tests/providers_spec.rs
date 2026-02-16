@@ -28,7 +28,7 @@ fn unsupported_provider_returns_error() {
         .aliases
         .get_mut("primary")
         .expect("primary model must exist");
-    model.provider = "kimi".to_string();
+    model.provider = "unsupported_provider".to_string();
 
     let error = match provider_for_alias(&config, Some("primary")) {
         Ok(_) => panic!("must fail"),

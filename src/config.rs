@@ -180,6 +180,7 @@ pub struct CompactionConfig {
 #[serde(rename_all = "lowercase")]
 pub enum Provider {
     OpenRouter,
+    #[serde(alias = "kimi_code")]
     Kimi,
 }
 
@@ -187,7 +188,7 @@ impl Provider {
     fn as_str(self) -> &'static str {
         match self {
             Self::OpenRouter => "openrouter",
-            Self::Kimi => "kimi",
+            Self::Kimi => "kimi_code",
         }
     }
 }

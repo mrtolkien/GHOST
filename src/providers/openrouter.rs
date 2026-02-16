@@ -1,13 +1,9 @@
 use std::collections::BTreeMap;
-use std::time::Instant;
 
 use async_trait::async_trait;
-use reqwest::header::{AUTHORIZATION, HeaderMap, HeaderName, HeaderValue};
+use reqwest::header::{HeaderMap, HeaderValue};
 
-use crate::providers::circuit_breaker::CircuitBreaker;
-use crate::providers::openai_compatible::{
-    ChatCompletionsResponse, ProviderErrorBody, build_request_body, parse_response,
-};
+use crate::providers::openai_compatible_provider::OpenAiCompatibleProvider;
 use crate::providers::types::{ChatRequest, ChatResponse, Provider, ProviderError};
 
 const OPENROUTER_CHAT_COMPLETIONS_URL: &str = "https://openrouter.ai/api/v1/chat/completions";
@@ -16,167 +12,35 @@ const DEFAULT_EMPTY_RESPONSE_RETRIES: u8 = 2;
 
 #[derive(Debug)]
 pub struct OpenRouterProvider {
-    client: reqwest::Client,
-    circuit_breaker: CircuitBreaker,
-    empty_response_retries: u8,
-    endpoint: String,
+    inner: OpenAiCompatibleProvider,
 }
 
 impl OpenRouterProvider {
     #[tracing::instrument(skip_all)]
     pub fn new(extra_headers: BTreeMap<String, String>) -> Result<Self, ProviderError> {
-        let api_key = std::env::var(OPENROUTER_API_KEY_ENV)
-            .map_err(|_| ProviderError::Auth(format!("{OPENROUTER_API_KEY_ENV} is not set")))?;
-
         let mut headers = HeaderMap::new();
         headers.insert("X-Title", HeaderValue::from_static("ghost"));
-        headers.insert(
-            AUTHORIZATION,
-            HeaderValue::from_str(&format!("Bearer {api_key}")).map_err(|error| {
-                ProviderError::InvalidResponse(format!(
-                    "failed to encode authorization header: {error}"
-                ))
-            })?,
-        );
 
-        for (name, value) in extra_headers {
-            if let (Ok(header_name), Ok(header_value)) = (
-                HeaderName::try_from(name.as_str()),
-                HeaderValue::from_str(&value),
-            ) {
-                headers.insert(header_name, header_value);
-            }
-        }
-
-        let client = reqwest::Client::builder()
-            .default_headers(headers)
-            .build()
-            .map_err(ProviderError::Request)?;
-
-        Ok(Self {
-            client,
-            circuit_breaker: CircuitBreaker::default(),
-            empty_response_retries: DEFAULT_EMPTY_RESPONSE_RETRIES,
-            endpoint: OPENROUTER_CHAT_COMPLETIONS_URL.to_string(),
-        })
+        let inner = OpenAiCompatibleProvider::with_auth_env(
+            "openrouter",
+            OPENROUTER_CHAT_COMPLETIONS_URL,
+            OPENROUTER_API_KEY_ENV,
+            headers,
+            extra_headers,
+            DEFAULT_EMPTY_RESPONSE_RETRIES,
+        )?;
+        Ok(Self { inner })
     }
 
     #[cfg(test)]
     fn new_for_tests(endpoint: impl Into<String>, empty_response_retries: u8) -> Self {
         Self {
-            client: reqwest::Client::new(),
-            circuit_breaker: CircuitBreaker::new(2, std::time::Duration::from_secs(10)),
-            empty_response_retries,
-            endpoint: endpoint.into(),
+            inner: OpenAiCompatibleProvider::new_for_tests(
+                "openrouter",
+                endpoint,
+                empty_response_retries,
+            ),
         }
-    }
-
-    #[tracing::instrument(skip_all, fields(model = %request.model, provider = "openrouter"))]
-    async fn send_request(&self, request: &ChatRequest) -> Result<ChatResponse, ProviderError> {
-        if let Some(retry_after_secs) = self.circuit_breaker.check(&request.model) {
-            return Err(ProviderError::CircuitOpen {
-                model: request.model.clone(),
-                retry_after_secs,
-            });
-        }
-
-        let body = build_request_body(request);
-        let started = Instant::now();
-        logfire::info!(
-            "provider request",
-            provider = "openrouter",
-            model = request.model.clone(),
-            endpoint = self.endpoint.clone(),
-            messages = body.messages.len() as u64,
-            tools = body.tools.as_ref().map_or(0, |tools| tools.len()) as u64
-        );
-        let http_response = self.client.post(&self.endpoint).json(&body).send().await?;
-        let status = http_response.status();
-
-        if status == reqwest::StatusCode::TOO_MANY_REQUESTS {
-            self.circuit_breaker.record_failure(&request.model);
-            return Err(ProviderError::RateLimited {
-                retry_after_secs: parse_retry_after_secs(
-                    http_response
-                        .headers()
-                        .get("Retry-After")
-                        .and_then(|value| value.to_str().ok()),
-                ),
-            });
-        }
-
-        if status == reqwest::StatusCode::UNAUTHORIZED || status == reqwest::StatusCode::FORBIDDEN {
-            self.circuit_breaker.record_failure(&request.model);
-            return Err(ProviderError::Auth(
-                extract_error_message(http_response).await,
-            ));
-        }
-
-        if status == reqwest::StatusCode::NOT_FOUND {
-            self.circuit_breaker.record_failure(&request.model);
-            return Err(ProviderError::ModelNotFound(request.model.clone()));
-        }
-
-        if !status.is_success() {
-            self.circuit_breaker.record_failure(&request.model);
-            return Err(ProviderError::InvalidResponse(format!(
-                "http status {status}: {}",
-                extract_error_message(http_response).await
-            )));
-        }
-
-        let response_body = http_response.text().await?;
-        let response: ChatCompletionsResponse =
-            serde_json::from_str(&response_body).map_err(|error| {
-                logfire::error!(
-                    "provider response was not valid json",
-                    provider = "openrouter",
-                    model = request.model.clone(),
-                    error = error.to_string(),
-                    raw_response = response_body.clone()
-                );
-                ProviderError::InvalidResponse(format!("response body is not valid json: {error}"))
-            })?;
-        let mut parsed = match parse_response(response) {
-            Ok(parsed) => parsed,
-            Err(ProviderError::EmptyResponse) => {
-                logfire::warn!(
-                    "provider response parsed as empty",
-                    provider = "openrouter",
-                    model = request.model.clone(),
-                    status = status.as_u16() as u64,
-                    raw_response = response_body.clone()
-                );
-                return Err(ProviderError::EmptyResponse);
-            }
-            Err(error) => {
-                logfire::error!(
-                    "provider response parse failed",
-                    provider = "openrouter",
-                    model = request.model.clone(),
-                    error = error.to_string(),
-                    raw_response = response_body.clone()
-                );
-                return Err(error);
-            }
-        };
-        if parsed.model.is_empty() {
-            parsed.model = request.model.clone();
-        }
-
-        self.circuit_breaker.record_success(&request.model);
-
-        logfire::info!(
-            "provider response",
-            provider = "openrouter",
-            model = parsed.model.clone(),
-            input_tokens = parsed.usage.input_tokens,
-            output_tokens = parsed.usage.output_tokens,
-            duration_ms = started.elapsed().as_millis() as u64,
-            stop_reason = format!("{:?}", parsed.stop_reason)
-        );
-
-        Ok(parsed)
     }
 }
 
@@ -184,62 +48,12 @@ impl OpenRouterProvider {
 impl Provider for OpenRouterProvider {
     #[tracing::instrument(skip_all, fields(provider = "openrouter", model = %request.model))]
     async fn chat(&self, request: ChatRequest) -> Result<ChatResponse, ProviderError> {
-        let max_attempts = usize::from(self.empty_response_retries) + 1;
-        for attempt in 0..max_attempts {
-            logfire::info!(
-                "provider chat attempt",
-                provider = "openrouter",
-                model = request.model.clone(),
-                attempt = (attempt + 1) as u64,
-                max_attempts = max_attempts as u64
-            );
-            match self.send_request(&request).await {
-                Ok(response) => return Ok(response),
-                Err(ProviderError::EmptyResponse) if attempt + 1 < max_attempts => {
-                    logfire::warn!(
-                        "provider returned empty response; retrying",
-                        provider = "openrouter",
-                        model = request.model.clone(),
-                        attempt = attempt + 1
-                    );
-                }
-                Err(error) => return Err(error),
-            }
-        }
-
-        logfire::error!(
-            "provider exhausted empty-response retries",
-            provider = "openrouter",
-            model = request.model.clone(),
-            max_attempts = max_attempts as u64
-        );
-        Err(ProviderError::EmptyResponse)
+        self.inner.chat(request).await
     }
 
     fn name(&self) -> &str {
-        "openrouter"
+        self.inner.name()
     }
-}
-
-fn parse_retry_after_secs(retry_after: Option<&str>) -> Option<u64> {
-    retry_after.and_then(|value| value.trim().parse::<u64>().ok())
-}
-
-async fn extract_error_message(response: reqwest::Response) -> String {
-    let body = response.text().await.unwrap_or_default();
-    if body.trim().is_empty() {
-        return "empty error response".to_string();
-    }
-
-    if let Ok(error_body) = serde_json::from_str::<ProviderErrorBody>(&body)
-        && let Some(payload) = error_body.error
-        && let Some(message) = payload.message
-        && !message.trim().is_empty()
-    {
-        return message;
-    }
-
-    body
 }
 
 #[cfg(test)]

@@ -165,6 +165,9 @@ pub fn provider_for_alias(
         "openrouter" => Ok(Arc::new(
             crate::providers::openrouter::OpenRouterProvider::new(model.headers.clone())?,
         )),
+        "kimi_code" | "kimi" => Ok(Arc::new(
+            crate::providers::kimi_code::KimiCodeProvider::new(model.headers.clone())?,
+        )),
         unsupported => Err(ProviderInitError::UnsupportedProvider {
             provider: unsupported.to_string(),
         }),
