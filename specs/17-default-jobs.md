@@ -203,10 +203,16 @@ Update these with file_edit when reflection reveals new insights:
 
 ## Workflow
 
-1. **Plan**: Create a TODO list of knowledge operations
-2. **Execute**: Create/update notes (note_write), curate web cache (reference_manage),
-   write diary (file_edit), update identity (file_edit)
-3. **Handoff**: Your final message becomes the handoff note for the next reflection
+1. **Plan**: Use `todo(action="plan", items=[...])` to create a TODO list of knowledge
+   operations: notes to create/update, web cache to curate, diary entries, identity
+   updates
+2. **Execute**: Work through the TODO list. Create/update notes (note_write), curate web
+   cache (reference_manage), write diary (file_edit), update identity (file_edit). Mark
+   items done with `todo(action="batch_update", updates=[...])` — prefer batch_update
+   over individual update calls.
+3. **Handoff**: Your final message becomes the handoff note for the next reflection. Use
+   `todo(action="batch_update")` to mark remaining items done or skipped before
+   finishing.
 ```
 
 ### Reflection Execution
@@ -219,8 +225,8 @@ Update these with file_edit when reflection reveals new insights:
    - `{{ web_cache_files }}` — list of files in `.web-cache/`
 3. Run via `SessionChat::chat_job()` in the **same session** as the heartbeat (with full
    message history for context)
-4. Use the **reflection tool set** (4 core tools + `note_write`, `reference_write`,
-   `reference_manage`)
+4. Use the **reflection tool set** (5 core tools including `todo` + `note_write`,
+   `reference_write`, `reference_manage`)
 5. Save transcript to `job_log` table
 6. Save response to `.state/reflection.last.md` (handoff note)
 

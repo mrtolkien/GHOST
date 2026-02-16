@@ -3,7 +3,7 @@
 ## Overview
 
 Minimal tool set following the "bash-first" philosophy (inspired by pi-mono's approach).
-The GHOST has **4 core tools** for all contexts and **3 additional tools** for the
+The GHOST has **5 core tools** for all contexts and **3 additional tools** for the
 reflection context. Everything else — file search, knowledge queries, web search — is
 accessed via CLI commands through bash (see specs 11 and 13 for the CLI definitions).
 
@@ -52,17 +52,17 @@ pub enum ToolError {
 
 ## Tool Sets
 
-| Context    | Tools                                                            |
-| ---------- | ---------------------------------------------------------------- |
-| Chat       | `run_shell_command`, `read_file`, `write_file`, `file_edit`      |
-| Reflection | Chat tools + `note_write`, `reference_write`, `reference_manage` |
-| Heartbeat  | Chat tools                                                       |
-| Custom job | Chat tools (default)                                             |
+| Context    | Tools                                                               |
+| ---------- | ------------------------------------------------------------------- |
+| Chat       | `run_shell_command`, `read_file`, `write_file`, `file_edit`, `todo` |
+| Reflection | Chat tools + `note_write`, `reference_write`, `reference_manage`    |
+| Heartbeat  | Chat tools                                                          |
+| Custom job | Chat tools (default)                                                |
 
-All contexts share the same 4 core tools. Only reflection adds 3 knowledge-write tools
+All contexts share the same 5 core tools. Only reflection adds 3 knowledge-write tools
 that need structured parameter validation (see spec 13 for their definitions).
 
-## Core Tools (4)
+## Core Tools (5)
 
 **`run_shell_command`** — Execute a shell command.
 
@@ -92,6 +92,41 @@ that need structured parameter validation (see spec 13 for their definitions).
 - Returns: Success message with diff context
 - Rejects ambiguous edits (multiple matches)
 - Why dedicated: more reliable than `sed`, handles edge cases (whitespace, encoding)
+
+**`todo`** — Session-scoped TODO list for working memory.
+
+- Parameters:
+  - `action: "plan" | "add" | "update" | "batch_update" | "clear"`
+  - `items: [{title, description?}]` — for `plan` (replaces entire list)
+  - `title: string`, `description: string (optional)` — for `add`
+  - `index: number (1-based)`, `status: "pending" | "in_progress" | "done" | "skipped"`,
+    `note: string (optional)` — for `update`
+  - `updates: [{index, status, note?}]` — for `batch_update`
+  - No parameters for `clear` (resets list)
+- Returns: Formatted TODO list with status symbols (○ pending, ◉ in_progress, ✓ done, –
+  skipped) and progress counter (e.g., `TODO [2/5]`)
+- Session-scoped: stored in `session.todo_list` (chat) or `job_log.todo_list` (jobs)
+- `plan` is the standard starting point: the GHOST creates its work plan as a TODO list
+- `batch_update` is essential: mark multiple items done/skipped in a single tool call
+  instead of N separate `update` calls
+- Why dedicated: structured working memory that persists across tool loops without
+  polluting files. The GHOST's equivalent of a scratchpad that doesn't get lost mid-run.
+
+### TODO Context Injection
+
+The current TODO state is injected into each provider call as a message **after** the
+user's message (not in the system prompt — that would break prompt caching). This
+ensures the GHOST always sees its outstanding items without wasting a tool call on
+listing.
+
+```
+[system prompt — cached by provider]
+[message history]
+[user message]
+[system: "Current TODO:\n○ Item 1\n✓ Item 2\n..."]   ← injected here
+```
+
+If the TODO list is empty, nothing is injected.
 
 ## What Moved to CLI + Bash
 
@@ -141,9 +176,13 @@ async fn execute(&self, params: Value, ctx: &ToolContext) -> Result<String, Tool
    edits it via string replacement, verify the result
 5. `cargo test` — tool execution error (e.g., read nonexistent file) returns a
    `ToolError`, not a panic
-6. Now that tools exist, add the full provider live test from spec 05: send all tool
+6. `cargo test` — `todo plan` creates a list, `todo update` changes status,
+   `todo
+   batch_update` updates multiple items, `todo clear` resets the list
+7. `cargo test` — TODO state is injected after the user message (not in system prompt)
+8. Now that tools exist, add the full provider live test from spec 05: send all tool
    schemas to each provider and verify the model can call `run_shell_command`
-7. `just ci` — passes
+9. `just ci` — passes
 
 ## Acceptance Criteria
 
@@ -153,6 +192,8 @@ async fn execute(&self, params: Value, ctx: &ToolContext) -> Result<String, Tool
 - Chat and reflection tool sets are constructible
 - `write_file` auto-creates parent directories
 - Shell commands have configurable timeouts
+- `todo` tool manages session-scoped TODO lists with plan/add/update/batch_update/clear
+- TODO state is injected after user message (not in system prompt) to preserve caching
 - All tool executions produce tracing spans with name and duration
 - `just ci` passes
 
@@ -166,3 +207,7 @@ Old code in `../t-koma`:
   create_file, file_edit). Directly reusable with minor type changes.
 - `t-koma-gateway/src/tools/mod.rs` — ToolSet enum for different contexts. Reusable
   concept, simplified now (chat vs reflection only).
+- `t-koma-gateway/src/tools/reflection_todo.rs` — TODO tool with plan/add/update/
+  batch_update actions, TodoItem/TodoStatus types, formatted output with progress
+  counter. Directly reusable — expand from reflection-only to all contexts, add `clear`
+  action.

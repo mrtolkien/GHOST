@@ -128,6 +128,27 @@ When a response exceeds 40 components:
 - Each message gets up to 40 components
 - Preserve component order
 
+### Citation Footnotes
+
+When `SessionChat::chat()` returns citations, the Discord handler appends them as
+footnotes to the response. URLs are wrapped in `<angle brackets>` to suppress Discord's
+automatic link embeds (which become messy with multiple links).
+
+Example rendering in Discord:
+
+```
+SurrealDB uses RELATE statements to create graph edges between records.
+The typed edge syntax [[rel>Target]] enables rich knowledge modeling.
+
+---
+Sources:
+[1] knowledge/notes/surrealdb.md
+[2] <https://docs.surrealdb.com/docs/surrealql/statements/relate>
+```
+
+For `.web-cache/` citations, the URL is resolved from the file's frontmatter. For
+`knowledge/` citations, just show the path (the OPERATOR can `read_file` if curious).
+
 ### Tool Loop Extension
 
 When `SessionChat::chat()` returns `StopReason::MaxIterations`, the GHOST has hit its
@@ -256,6 +277,8 @@ async fn message(&self, ctx: Context, msg: Message) { ... }
 - Fallback to legacy embeds/plain text on v2 errors
 - `/REBOOT` resets the session and confirms to the OPERATOR
 - Tool loop cap prompts the OPERATOR to continue
+- Citation footnotes are appended to messages with URLs in `<angle brackets>` (no
+  embeds)
 - `just ci` passes
 
 ## Prior Art

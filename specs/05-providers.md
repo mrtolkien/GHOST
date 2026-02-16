@@ -28,6 +28,13 @@ pub struct ChatRequest {
     pub max_tokens: Option<u32>,
     pub temperature: Option<f32>,
     pub system: Option<String>,
+    pub response_format: Option<ResponseFormat>,
+}
+
+/// Structured output constraint for the provider's final text response.
+pub enum ResponseFormat {
+    /// Constrain the final text response to match the given JSON schema.
+    JsonSchema { name: String, schema: serde_json::Value },
 }
 
 pub struct ChatMessage {
@@ -227,6 +234,7 @@ their own provider instance. If a provider can't pass this test, it can't run th
 - Provider trait is defined with `chat()` method
 - OpenRouter adapter sends requests and parses responses correctly
 - Tool use (function calling) works through OpenRouter
+- Structured output (`response_format`) is forwarded to the provider
 - Rate limit errors are detected and surfaced as `ProviderError::RateLimited`
 - Empty responses are retried (configurable count)
 - Circuit breaker tracks failures and prevents hammering

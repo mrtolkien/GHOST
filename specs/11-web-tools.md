@@ -27,7 +27,8 @@ pub struct BraveSearchProvider {
 ### Library: `search(query, options) -> Vec<SearchResult>`
 
 - Returns: List of results with title, URL, and snippet
-- Results are auto-cached and managed at the reflection step
+- Results are auto-cached to `.web-cache/` (same format as fetches — with URLs in
+  frontmatter) so the GHOST can cite them and reflection can curate them
 
 ### CLI: `ghost web search "query"`
 
@@ -70,8 +71,8 @@ library layer.
 
 ### Auto-Caching
 
-Successful web fetches are automatically saved to `$WORKSPACE/.web-cache/` for later
-curation during reflection:
+Both successful web fetches AND search results are automatically saved to
+`$WORKSPACE/.web-cache/` for later curation during reflection:
 
 ```
 .web-cache/
@@ -142,7 +143,7 @@ async fn fetch(&self, url: &str) -> Result<ExtractedContent> {
 
 - `ghost web search` returns Brave Search results with titles, URLs, and snippets
 - `ghost web fetch` extracts readable text from HTML pages
-- Successful fetches are auto-cached to `.web-cache/`
+- Both searches and fetches are auto-cached to `.web-cache/`
 - Cache files include URL and timestamp metadata
 - Non-2xx responses are not cached
 - Large pages are truncated at `max_chars`

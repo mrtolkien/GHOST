@@ -186,7 +186,7 @@ diary/2026-02-14.md (score: 0.61)
 
 Output is plain text, one result per block, sorted by relevance score. The
 knowledge-search skill (spec 12) documents advanced options (type filters, tag filters,
-graph queries, output formats).
+output formats).
 
 ### `ghost knowledge get <path>`
 
@@ -203,6 +203,71 @@ SurrealDB is an embedded database with native graph...
 ```
 
 Also accepts a title: `ghost knowledge get --title "SurrealDB"`.
+
+### `ghost knowledge graph <title-or-path>`
+
+Show direct edges (incoming and outgoing) for a knowledge item. Depth 1 only — the GHOST
+can call the command again on any listed node to explore further.
+
+```
+$ ghost knowledge graph "Dioxus"
+Dioxus (note)
+├─ written_in-> Rust (note)
+├─ created_by-> Jonathan Kelley (stub)
+├─ depends_on-> VirtualDom (note)
+├─ competes_with-> React (note)
+├<─ depends_on─ Freya (note)
+└<─ cited_in─ session:abc123/msg:42
+```
+
+Options:
+
+- `--type <edge_type>` — filter by edge type (e.g., `--type depends_on`)
+- `--direction in|out` — show only incoming or outgoing edges
+- `--types` — list all edge types in the graph with counts
+- `--orphans` — list notes with no edges
+- `--stats` — summary counts: notes, references, diary, edges, tags
+
+The `cited_in` edges come from the citation system (spec 06) — when the GHOST cites a
+note or reference in a response, a `cited` edge links the message to the knowledge item.
+The knowledge-graph skill (spec 12) documents these advanced options.
+
+### `ghost knowledge tags`
+
+List all tags with note counts.
+
+```
+$ ghost knowledge tags
+database (5)
+database/graph (3)
+rust (12)
+rust/async (4)
+people (8)
+```
+
+### `ghost knowledge recent`
+
+Recently created or updated knowledge items (last 20 by default).
+
+```
+$ ghost knowledge recent
+2026-02-16 14:30  knowledge/notes/surrealdb.md (updated)
+2026-02-16 12:00  knowledge/references/dioxus/lifecycle.md (created)
+2026-02-15 18:45  knowledge/notes/dioxus.md (updated)
+```
+
+### `ghost knowledge stats`
+
+Summary of the knowledge graph.
+
+```
+$ ghost knowledge stats
+Notes: 47 (3 stubs)
+References: 23 across 8 topics
+Diary entries: 12
+Edges: 89 (12 types)
+Tags: 34
+```
 
 ### `ghost knowledge reindex`
 
@@ -229,6 +294,13 @@ These tools are available during reflection jobs, NOT during regular chat:
 
 - Parameters: `action: "move" | "delete"`, `cache_file: string (optional)`,
   `target_topic: string (optional)`, `target_filename: string (optional)`
+- On move: the file moves from `.web-cache/` to `knowledge/references/{topic}/` AND the
+  SurrealDB record is updated (path field changes, type changes from `web_cache` to
+  `reference`). All graph edges (including `cited` edges from messages) stay intact
+  because they point to the record ID, not the file path. **This is critical** — moving
+  a file must never break citation traceability.
+- On delete: the file and its SurrealDB record are removed. Edges pointing to the record
+  are cleaned up.
 
 Diary and identity file editing are handled by `file_edit` directly — no dedicated tools
 needed. The reflection prompt (spec 17) explains the file paths and conventions.
@@ -248,7 +320,14 @@ needed. The reflection prompt (spec 17) explains the file paths and conventions.
    query 2-hop from A, verify C is returned
 7. `cargo test` — knowledge write tools (`note_write`, `reference_write`,
    `reference_manage`) work through the ToolManager
-8. `just ci` — passes
+8. `cargo test` — `reference_manage` move: move a web cache file to references, verify
+   the SurrealDB record's path is updated and all edges (including `cited`) are
+   preserved
+9. `cargo test` — `ghost knowledge graph "X"` returns incoming + outgoing edges at depth
+   1
+10. `cargo test` — `ghost knowledge tags` returns tags with correct counts
+11. `cargo test` — `ghost knowledge recent` returns items sorted by updated_at
+12. `just ci` — passes
 
 ## Acceptance Criteria
 
@@ -260,6 +339,11 @@ needed. The reflection prompt (spec 17) explains the file paths and conventions.
 - Graph queries can traverse relationships (1-hop and multi-hop)
 - `ghost knowledge search` returns file paths + snippets sorted by relevance
 - `ghost knowledge get` reads a knowledge item with parsed metadata
+- `ghost knowledge graph` shows depth-1 incoming and outgoing edges
+- `ghost knowledge tags` lists all tags with counts
+- `ghost knowledge recent` lists recently modified items
+- `ghost knowledge stats` shows graph summary
+- `reference_manage` move preserves all graph edges (record ID stays, path updates)
 - Knowledge write tools are separate from chat tools (reflection only)
 - All knowledge operations produce tracing spans
 - Tags are hierarchical, lowercase, slash-separated

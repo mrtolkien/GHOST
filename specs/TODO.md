@@ -28,7 +28,7 @@ later tasks may depend on earlier ones.
 
 ## Phase 4: Tools and Skills
 
-- [ ] Tool system (4 core + 3 reflection) — [10-tools.md](10-tools.md)
+- [ ] Tool system (5 core + 3 reflection) — [10-tools.md](10-tools.md)
 - [ ] Web module (library code) — [11-web-tools.md](11-web-tools.md)
 - [ ] Skills system (agentskills.io) — [12-skills.md](12-skills.md)
 

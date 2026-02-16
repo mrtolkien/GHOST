@@ -66,14 +66,16 @@ This is injected into the system prompt via the `{{ ghost_skills }}` variable.
 Ship these skills as templates that are copied to the workspace on first run:
 
 1. **knowledge-search** — Advanced knowledge search options: type filters, tag filters,
-   graph queries (`ghost knowledge graph`), output formats
-2. **web-search** — Advanced web search and fetch options: result count, freshness, raw
+   output formats, score thresholds
+2. **knowledge-graph** — Graph traversal: edge type filters, direction filters, listing
+   all edge types (`--types`), finding orphan notes (`--orphans`), interpreting stats
+3. **web-search** — Advanced web search and fetch options: result count, freshness, raw
    HTML mode, CSS selector extraction, cache control
-3. **note-writer** — Guides the GHOST through creating well-structured notes with proper
+4. **note-writer** — Guides the GHOST through creating well-structured notes with proper
    archetypes, tags, and wiki links
-4. **reference-researcher** — Strategies for importing and organizing reference material
-5. **cron-job-author** — How to write job definitions with proper frontmatter
-6. **skill-creator** — Meta-skill for creating new skills
+5. **reference-researcher** — Strategies for importing and organizing reference material
+6. **cron-job-author** — How to write job definitions with proper frontmatter
+7. **skill-creator** — Meta-skill for creating new skills
 
 ## Self-Authoring
 
@@ -89,8 +91,8 @@ than through new tool implementations.
 ## Validation
 
 1. `cargo run -- init` on a fresh workspace — default skills (knowledge-search,
-   web-search, note-writer, reference-researcher, cron-job-author, skill-creator) are
-   installed to `$WORKSPACE/skills/`
+   knowledge-graph, web-search, note-writer, reference-researcher, cron-job-author,
+   skill-creator) are installed to `$WORKSPACE/skills/`
 2. `cargo test` — skill discovery: place a skill in a temp workspace, verify it appears
    in the scanned skill list with correct name and description
 3. `cargo test` — `{{ ghost_skills }}` variable in the system prompt contains the

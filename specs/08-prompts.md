@@ -87,6 +87,30 @@ Ghost
 Updated by the GHOST during reflection when it learns about the OPERATOR's preferences,
 context, and communication style.
 
+## Citation Instructions
+
+The base system prompt includes static instructions telling the GHOST to cite sources
+when using information from knowledge or web searches. This is part of the base prompt
+(not a variable), so it doesn't affect prompt caching:
+
+```markdown
+## Sources and Citations
+
+When your response uses information from your knowledge base or web searches, cite the
+source. Your responses use structured output — include each source in the citations
+array so they can be rendered as footnotes.
+
+- For notes: cite the file path (e.g., `knowledge/notes/surrealdb.md`)
+- For references: cite the file path (e.g., `knowledge/references/surrealdb/graph.md`)
+- For web fetches: cite the cache path (e.g., `.web-cache/2026-02-16_docs-surrealdb.md`)
+  — the URL will be resolved automatically from the file's frontmatter
+- For web searches: cite the result URL directly
+```
+
+The structured output schema enforcing this is defined in spec 06. If the provider
+doesn't support structured output, the GHOST still follows these instructions but the
+citations are in natural language rather than structured data.
+
 ## Job and Subsystem Prompts
 
 Heartbeat and reflection are dedicated subsystems with their own prompts (see

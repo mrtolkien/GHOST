@@ -77,8 +77,19 @@ cleared. This means:
 ## What Gets Cached
 
 - Successful `web_fetch` responses (HTTP 2xx) → cached
+- Successful `web_search` result listings → cached (with query and result URLs in
+  frontmatter, so the GHOST can cite them and reflection can curate them)
 - Failed fetches (4xx, 5xx, timeouts) → NOT cached
-- `web_search` results → NOT cached (they're just snippets, not full content)
+
+## Edge Preservation on Move
+
+When `reference_manage(action="move")` moves a cache file to
+`knowledge/references/{topic}/`, the SurrealDB record is updated (path changes, type
+changes from `web_cache` to `reference`). All graph edges — including `cited` edges from
+messages (spec 06) — stay intact because they point to the record ID, not the file path.
+
+This is critical: web cache files are often cited in GHOST responses before reflection
+moves them. Moving must never break citation traceability. See spec 13 for details.
 
 ## Validation
 
@@ -96,11 +107,12 @@ cleared. This means:
 
 ## Acceptance Criteria
 
-- Successful `web_fetch` calls save content to `.web-cache/`
+- Both `web_fetch` and `web_search` results save to `.web-cache/`
 - Cache files include URL and timestamp metadata
 - Failed fetches do not create cache files
 - Reflection prompt includes the web cache file list
 - `reference_manage` can move cache files to reference topics
+- Moving preserves all graph edges (record ID stays, path field updates)
 - `.web-cache/` is cleared after successful reflection
 - `.web-cache/` is preserved after failed reflection
 - `just ci` passes
