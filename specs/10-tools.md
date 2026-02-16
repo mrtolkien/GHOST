@@ -112,6 +112,23 @@ that need structured parameter validation (see spec 13 for their definitions).
 - Why dedicated: structured working memory that persists across tool loops without
   polluting files. The GHOST's equivalent of a scratchpad that doesn't get lost mid-run.
 
+### TODO Prompt Guidance
+
+The base system prompt MUST include guidance on when and how to use the `todo` tool.
+Research shows that models without clear planning guidance can produce worse results
+than no planning at all (Plan-and-Act, ICML 2025: zero-shot planner decreased
+performance by 13pp on WebArena). Good guidance makes planning a net positive for
+complex tasks.
+
+The prompt should cover:
+
+- **When to plan**: research tasks requiring multiple searches, tasks with 3+ steps,
+  multi-part requests from the OPERATOR
+- **When NOT to plan**: simple questions, single-step tasks, conversational responses
+- **How to plan well**: concrete steps (5-10 words each), mark current step
+  `in_progress` before starting, use `batch_update` not individual `update` calls, add
+  new steps with `add` when discovered mid-task
+
 ### TODO Context Injection
 
 The current TODO state is injected into each provider call as a message **after** the
