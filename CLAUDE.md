@@ -126,6 +126,10 @@ because logs were lackluster and there was no tracing.
 - A file over 500 LoC (excluding tests) likely means a design issue. Humans search code
   through filenames.
 - Do not put logic in `mod.rs` files — they should be mostly barrel files (re-exports).
+- Prefer direct, domain-named module files when a module has one primary implementation:
+  use `src/config.rs`, not `src/config/service.rs` or similarly generic names.
+- Avoid generic filenames like `service.rs`, `manager.rs`, `utils.rs` unless scoped by a
+  domain folder containing multiple concrete modules.
 
 ### Rust Style
 
@@ -210,7 +214,7 @@ src/
 ├── main.rs              # CLI entry point (clap)
 ├── cli/                 # CLI subcommands (thin — parse args, delegate)
 ├── daemon/              # Subsystem wiring, task spawning, graceful shutdown
-├── config/              # Config types, loading, defaults
+├── config.rs            # Config types, loading, defaults
 ├── db/                  # SurrealDB schema, queries, connection
 ├── providers/           # Provider trait + OpenRouter implementation
 ├── chat/                # Chat orchestration, session management, compaction

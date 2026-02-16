@@ -84,8 +84,8 @@ This will suppress any output and reschedule the next heartbeat.
 ### Sending to Discord
 
 The heartbeat subsystem needs a reference to the Discord sender to push unsolicited
-messages. The session ID maps to a Discord channel ID (see spec 09 session mapping), so
-the heartbeat can send to the correct channel.
+messages. The `interface_session` table (see spec 09) maps the session back to its
+Discord channel, so the heartbeat can send to the correct channel.
 
 ```rust
 // src/jobs/heartbeat.rs
@@ -268,6 +268,25 @@ async fn run_reflection(&self, session_id: &str) -> Result<()> {
     );
 }
 ```
+
+## Validation
+
+1. `cargo test` — heartbeat fires after the configured idle period (use a short timeout
+   and mock timer)
+2. `cargo test` — mock provider returns `HEARTBEAT_CONTINUE`, verify output is
+   suppressed and cooldown timer resets
+3. `cargo test` — mock provider returns a real message, verify it's sent via
+   `DiscordSender` to the correct channel
+4. `cargo test` — reflection fires after a successful heartbeat when there's new session
+   activity
+5. `cargo test` — reflection skips when there's no new activity since the last run
+6. `cargo test` — reflection on reboot: call `reboot_session()`, verify reflection runs
+   on the old session before the swap
+7. `cargo test` — handoff note: run reflection twice, verify the second run receives the
+   first run's handoff via `.state/reflection.last.md`
+8. `cargo test` — web cache cleared after successful reflection, preserved after failure
+9. Manual: run the daemon, send a message, wait for idle — heartbeat appears in Discord
+10. `just ci` — passes
 
 ## Acceptance Criteria
 

@@ -101,6 +101,15 @@ pub enum GhostError {
 This will grow as features are added. Each module may define its own error type that
 converts into `GhostError`.
 
+## Validation
+
+1. `cargo run -- --help` — all subcommands are listed (daemon, job, auth, init,
+   knowledge)
+2. `cargo run -- daemon` — prints a stub message or exits cleanly
+3. `cargo run -- job list` — prints a stub message
+4. `cargo run -- auth status` — prints a stub message
+5. `just ci` — passes with no warnings
+
 ## Acceptance Criteria
 
 - `cargo build` produces a `ghost` binary

@@ -149,6 +149,20 @@ If Ollama is not available:
 - Note creation/update skips embedding generation
 - Provide a CLI command to backfill embeddings when Ollama becomes available
 
+## Validation
+
+1. `cargo test --features live-tests` — generate an embedding for a short text via
+   Ollama, verify the vector has the expected dimension (requires Ollama running)
+2. `cargo test --features live-tests` — create two semantically similar notes and one
+   unrelated note, run vector search, verify the similar notes rank higher
+3. `cargo test --features live-tests` — hybrid search: verify combined BM25 + embedding
+   scores produce better ranking than either alone
+4. `cargo test` — graceful degradation: with Ollama unavailable, knowledge search falls
+   back to BM25-only without errors
+5. `cargo test --features live-tests` — `ghost knowledge reindex` rebuilds all
+   embeddings (create notes, reindex, verify vectors exist)
+6. `just ci` — passes
+
 ## Acceptance Criteria
 
 - Embeddings are generated via Ollama HTTP API

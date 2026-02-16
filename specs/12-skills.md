@@ -83,6 +83,19 @@ The GHOST can create new skills by:
 This is a key feature — the GHOST extends its own capabilities through skills rather
 than through new tool implementations.
 
+## Validation
+
+1. `cargo run -- init` on a fresh workspace — default skills (note-writer,
+   reference-researcher, cron-job-author, skill-creator) are installed to
+   `$WORKSPACE/skills/`
+2. `cargo test` — skill discovery: place a skill in a temp workspace, verify it appears
+   in the scanned skill list with correct name and description
+3. `cargo test` — `{{ ghost_skills }}` variable in the system prompt contains the
+   discovered skill names and descriptions
+4. `cargo test` — skill with missing or malformed frontmatter is skipped with a warning
+   log, not a crash
+5. `just ci` — passes
+
 ## Acceptance Criteria
 
 - Skills are discovered from `$WORKSPACE/skills/` at startup

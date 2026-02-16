@@ -100,8 +100,10 @@ can decide how to handle it (e.g., ask the OPERATOR to continue — see spec 09)
 
 ## Session Lifecycle
 
-- Sessions are created implicitly on first message from a new conversation context
-  - There is generally one session per interface.
+- Sessions are created implicitly on first message from a new conversation context.
+- Each interface (e.g., Discord channel) has one **active** session at a time, tracked
+  via the `interface_session` table (see spec 09). A channel can have multiple sessions
+  over its lifetime via `/REBOOT`.
 - `last_activity_at` is updated on every OPERATOR message
 - Sessions are never deleted — only the compaction system manages history length
 - A session can have multiple job logs attached to it
@@ -136,6 +138,20 @@ reboot behavior is added when the reflection subsystem exists (spec 17).
 | Tool set         | Chat tools             | Job-specific tools        |
 | Response goes to | OPERATOR (via Discord) | Job log + optional notify |
 | System prompt    | Full system prompt     | Job-specific prompt       |
+
+## Validation
+
+1. `cargo test` — send a message via `SessionChat::chat()` with a mock provider, verify
+   a response is returned
+2. `cargo test` — tool loop: mock provider returns `StopReason::ToolUse`, verify the
+   loop executes the tool and sends results back
+3. `cargo test` — max iterations: mock provider always returns tool_use, verify the loop
+   stops at the cap and returns `StopReason::MaxIterations`
+4. `cargo test` — messages are persisted: after a chat round-trip, query SurrealDB and
+   verify both user and assistant messages exist
+5. `cargo test` — `reboot_session()` marks the old session and creates a new one with a
+   different ID
+6. `just ci` — passes
 
 ## Acceptance Criteria
 

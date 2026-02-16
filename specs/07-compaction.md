@@ -58,6 +58,18 @@ threshold = 0.85 # Compact when history exceeds 85% of context window
 keep_window = 20 # Keep the last 20 messages verbatim
 ```
 
+## Validation
+
+1. `cargo test` — fill a session past the compaction threshold (mock messages), verify
+   compaction triggers and produces a summary
+2. `cargo test` — after compaction, only the summary + recent messages are sent to the
+   provider (inspect mock provider's received request)
+3. `cargo test` — original messages are still in SurrealDB after compaction (not
+   deleted)
+4. `cargo test` — run compaction twice on the same session (summary-of-summary), verify
+   it works without errors
+5. `just ci` — passes
+
 ## Acceptance Criteria
 
 - Compaction triggers when history exceeds threshold

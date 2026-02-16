@@ -159,6 +159,22 @@ async fn execute_job(&self, job: &LoadedJob) -> Result<()> {
 }
 ```
 
+## Validation
+
+1. `cargo test` — parse a job file with TOML frontmatter, verify all fields (name,
+   schedule, model, tools, carry_last_output) are correctly extracted
+2. `cargo test` — cron expression validation: valid expressions parse, invalid ones
+   return a clear error
+3. `cargo run -- job validate path/to/job.md` — prints success or lists errors
+4. `cargo run -- job list` — lists loaded jobs with name, schedule, and next run time
+5. `cargo run -- job run <name>` — executes the job, transcript appears in `job_log`
+   table
+6. `cargo test` — `carry_last_output`: run a job twice, verify the second run receives
+   the first run's output via `.state/<name>.last.md`
+7. `cargo test` — file watcher: add a job file to a temp workspace, verify the scheduler
+   picks it up without restart
+8. `just ci` — passes
+
 ## Acceptance Criteria
 
 - Job files in `$WORKSPACE/jobs/` are loaded on daemon start

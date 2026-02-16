@@ -128,6 +128,18 @@ cargo test --features live-tests
 cargo test --features live-tests test_openrouter_chat
 ```
 
+## Validation
+
+1. `cargo test` — `TestFixture::new()` creates a working environment (DB, config, temp
+   workspace, mock provider) without errors
+2. `cargo test` — mock provider: queue a response, call `SessionChat::chat()`, verify
+   the queued response is returned and the request is recorded
+3. `cargo test` — end-to-end: send a message through `SessionChat`, verify it's
+   persisted, compaction works, and knowledge tools function
+4. `cargo test --features live-tests` — all live tests pass (provider calls, embeddings,
+   web tools)
+5. `just ci` — passes (confirms no live-test code leaks into default test suite)
+
 ## Acceptance Criteria
 
 - `TestFixture::new()` creates a fully functional test environment

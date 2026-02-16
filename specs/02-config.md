@@ -166,6 +166,16 @@ tempfile = "3"
 This `tests/common/` module grows with each spec. The `TestFixture` in spec 18 is the
 full-featured version, but helpers should exist from the start.
 
+## Validation
+
+1. `cargo run -- init` — creates workspace at `~/GHOST/` with identity files (BOOT.md,
+   SOUL.md, OPERATOR.md) and directories (jobs/, skills/)
+2. Create a `~/.config/ghost/config.toml` with a custom workspace path — verify it's
+   respected
+3. `GHOST_CONFIG_DIR=/tmp/ghost-test cargo run -- init` — uses the override path
+4. `cargo test` — config loading tests and temp workspace helper tests pass
+5. `just ci` — passes
+
 ## Acceptance Criteria
 
 - Config loads from `~/.config/ghost/config.toml` with defaults for missing fields

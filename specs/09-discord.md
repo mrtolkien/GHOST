@@ -18,12 +18,27 @@ It does NOT manage tools, build chat history, or talk to providers directly.
 
 ## Session Mapping
 
-Each Discord channel maps to a session. The session ID is derived from the channel ID.
+Each Discord channel has a **current active session**. The session ID is NOT derived
+from the channel ID — a channel can have multiple sessions over its lifetime (via
+`/REBOOT`).
+
+- On first message in a channel, a new session is created and becomes the active session
+  for that channel.
+- On `/REBOOT`, the active session is replaced with a new one (see spec 06).
+- The channel → active session mapping is stored in the `interface_session` DB table.
+
+```surql
+DEFINE TABLE interface_session SCHEMAFULL;
+DEFINE FIELD interface ON interface_session TYPE string;     -- e.g., "discord:channel:123"
+DEFINE FIELD session ON interface_session TYPE record<session>;
+DEFINE FIELD created_at ON interface_session TYPE datetime;
+DEFINE INDEX idx_interface ON interface_session FIELDS interface UNIQUE;
+```
+
 This means:
 
-- DMs with the bot = one session
-- Each server channel = a separate session
-- The OPERATOR can have multiple concurrent sessions across channels
+- DMs with the bot = one active session (rebootable)
+- The OPERATOR can have multiple concurrent sessions across channels (technically)
 
 ## Message Handling
 
@@ -167,8 +182,8 @@ impl DiscordSender {
 }
 ```
 
-The session ID maps to a Discord channel ID (session mapping above), so heartbeat knows
-which channel to send to.
+The `interface_session` table maps sessions back to their interface (channel ID), so
+heartbeat knows which channel to send to.
 
 ## Typing Indicator
 
@@ -177,7 +192,7 @@ Show the typing indicator while the GHOST is processing:
 ```rust
 // Start typing when we receive a message
 let typing = channel_id.start_typing(&ctx.http);
-// typing is automatically stopped when dropped
+// typing is automatically stopped when dropped or after 2 minutes
 ```
 
 ## Attachments
@@ -211,6 +226,19 @@ DISCORD_BOT_TOKEN=...
 ))]
 async fn message(&self, ctx: Context, msg: Message) { ... }
 ```
+
+## Validation (human)
+
+1. `cargo run -- daemon` with `DISCORD_BOT_TOKEN` set — bot appears online in Discord
+2. Send a DM to the bot from the allowed user — GHOST responds
+3. Send a message from a different Discord user — silently ignored, no response
+4. Send `/REBOOT` — bot confirms session reboot
+5. Send a message with a `.txt` attachment — content is included in the GHOST's context
+6. `cargo test` — markdown-to-components v2 conversion: tables become PNG images,
+   horizontal rules become separators, text splits at 4000 chars
+7. `cargo test` — `interface_session` table: verify channel → session mapping is created
+   on first message and updated on reboot
+8. `just ci` — passes
 
 ## Acceptance Criteria
 

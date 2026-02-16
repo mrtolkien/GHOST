@@ -102,6 +102,16 @@ When `LOGFIRE_TOKEN` is not set, tracing output goes to stderr via `tracing-subs
 with a human-readable format. This ensures observability works in development without a
 logfire account.
 
+## Validation
+
+1. Set `LOGFIRE_TOKEN` in `.env` and run any subcommand — spans appear in the logfire
+   dashboard within seconds
+2. Run without `LOGFIRE_TOKEN` — structured logs go to stderr, no crash
+3. `cargo test` — tracing subscriber initializes without panicking
+4. Check the logfire dashboard: spans include service name, environment, and custom
+   fields
+5. `just ci` — passes
+
 ## Acceptance Criteria
 
 - `ghost daemon` initializes logfire on startup

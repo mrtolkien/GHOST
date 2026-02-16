@@ -144,6 +144,15 @@ pub async fn create_edge(db: &Surreal<Db>, from: &Thing, to: &Thing, label: &str
 pub async fn search_notes(db: &Surreal<Db>, query: &str) -> Result<Vec<Note>> { ... }
 ```
 
+## Validation
+
+1. `cargo test` — SurrealDB embedded starts, schema applies, basic CRUD on each table
+   works
+2. Run the daemon briefly — verify the DB file is created at the configured path
+   (`$WORKSPACE/.ghost.db` or similar)
+3. `cargo test` — schema migrations are idempotent (run apply twice, no errors)
+4. `just ci` — passes
+
 ## Acceptance Criteria
 
 - SurrealDB connects in embedded mode on daemon start

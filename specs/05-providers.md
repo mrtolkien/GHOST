@@ -211,6 +211,17 @@ async fn openrouter_accepts_all_tools_and_uses_shell() {
 This same test is duplicated for Kimi Code (05a) and OpenAI OAuth (05b), each using
 their own provider instance. If a provider can't pass this test, it can't run the GHOST.
 
+## Validation
+
+1. `cargo test` — provider trait compiles, OpenRouter adapter serializes requests and
+   parses responses correctly (unit tests with mock HTTP)
+2. `cargo test --features live-tests` — real OpenRouter API call: send a simple message,
+   verify a text response comes back
+3. Check logfire: provider call spans show model name, token counts, and duration
+4. `cargo test` — rate limit error detection: mock a 429 response, verify
+   `ProviderError::RateLimited` is returned
+5. `just ci` — passes
+
 ## Acceptance Criteria
 
 - Provider trait is defined with `chat()` method

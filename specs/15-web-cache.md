@@ -80,6 +80,20 @@ cleared. This means:
 - Failed fetches (4xx, 5xx, timeouts) → NOT cached
 - `web_search` results → NOT cached (they're just snippets, not full content)
 
+## Validation
+
+1. `cargo test` — trigger a mock `web_fetch`, verify a `.web-cache/` file is created
+   with correct filename format (`{timestamp}_{domain}_{slug}.md`) and frontmatter
+2. `cargo test` — `reference_manage(action="move")`: move a cache file to a reference
+   topic, verify it appears under `knowledge/references/{topic}/`
+3. `cargo test` — `reference_manage(action="delete")`: delete a cache file, verify it's
+   gone
+4. `cargo test` — simulate a successful reflection run, verify `.web-cache/` is cleared
+   afterward
+5. `cargo test` — simulate a failed reflection run, verify `.web-cache/` files are
+   preserved
+6. `just ci` — passes
+
 ## Acceptance Criteria
 
 - Successful `web_fetch` calls save content to `.web-cache/`

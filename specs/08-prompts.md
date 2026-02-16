@@ -106,6 +106,10 @@ The `PromptRenderer` handles variable interpolation (`{{ var }}`) for all prompt
 | `recent_messages`  | Filtered session transcript             |
 | `web_cache_files`  | File list from `$WORKSPACE/.web-cache/` |
 
+> **Future**: For the PoC, the base system prompt and subsystem prompts are embedded in
+> the binary. The end goal is making ALL prompts — including the base system prompt —
+> editable as full-text files in the workspace (see `backlog/editable-prompts.md`).
+
 ## Implementation
 
 ```rust
@@ -123,6 +127,18 @@ impl PromptRenderer {
     pub fn render_job_prompt(&self, job_name: &str, context: &JobPromptContext) -> Result<String>;
 }
 ```
+
+## Validation
+
+1. `cargo test` — render a system prompt with BOOT.md and SOUL.md present, verify both
+   contents appear in the output
+2. `cargo test` — render with missing SOUL.md and OPERATOR.md, verify graceful handling
+   (empty sections, no error)
+3. `cargo test` — `{{ variable }}` interpolation: set `system_info` and `model_info`,
+   verify they appear in the rendered prompt
+4. `cargo test` — job prompt rendering with custom variables (`{{ previous_handoff }}`,
+   `{{ diary_today }}`) produces correct output
+5. `just ci` — passes
 
 ## Acceptance Criteria
 

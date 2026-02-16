@@ -93,6 +93,19 @@ async fn fetch(&self, url: &str) -> Result<ExtractedContent> {
 }
 ```
 
+## Validation
+
+1. `cargo test --features live-tests` — `web_search` with a known query returns Brave
+   results with titles, URLs, and snippets (requires `BRAVE_API_KEY`)
+2. `cargo test --features live-tests` — `web_fetch` on a known URL returns extracted
+   text content
+3. `cargo test` — after a successful mock fetch, a cache file exists in
+   `$WORKSPACE/.web-cache/` with correct frontmatter (url, fetched_at)
+4. `cargo test` — a failed fetch (mock 404) does NOT create a cache file
+5. `cargo test` — `max_chars` truncation: fetch a large mock page, verify output is
+   capped
+6. `just ci` — passes
+
 ## Acceptance Criteria
 
 - `web_search` returns Brave Search results with titles, URLs, and snippets

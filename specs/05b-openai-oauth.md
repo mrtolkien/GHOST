@@ -150,6 +150,15 @@ OpenAI.
   etc.)
 - Never log token values
 
+## Validation
+
+1. `cargo run -- auth codex` — prints authorization URL, accepts pasted token, stores to
+   `~/.config/ghost/tokens/openai.json`
+2. `ls -la ~/.config/ghost/tokens/openai.json` — file permissions are `600`
+3. `cargo run -- auth status` — shows OpenAI as authenticated with expiry time
+4. `cargo run -- auth revoke` — deletes token file, `auth status` shows unauthenticated
+5. `just ci` — passes
+
 ## Acceptance Criteria
 
 - `ghost auth codex` completes the OAuth flow and stores tokens

@@ -135,6 +135,21 @@ async fn execute(&self, params: Value, ctx: &ToolContext) -> Result<String, Tool
 }
 ```
 
+## Validation
+
+1. `cargo test` — ToolManager registers tools and `all_tool_schemas()` returns valid
+   JSON Schema for every tool
+2. `cargo test` — `read_file` reads a file in a temp workspace, returns content with
+   line numbers
+3. `cargo test` — `run_shell_command` executes `echo hello` and returns stdout
+4. `cargo test` — `create_file` + `file_edit`: create a file then edit it via string
+   replacement, verify the result
+5. `cargo test` — tool execution error (e.g., read nonexistent file) returns a
+   `ToolError`, not a panic
+6. Now that tools exist, add the full provider live test from spec 05: send all tool
+   schemas to each provider and verify the model can call `run_shell_command`
+7. `just ci` — passes
+
 ## Acceptance Criteria
 
 - ToolManager registers tools and generates schemas for the provider

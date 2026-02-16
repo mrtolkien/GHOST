@@ -81,6 +81,14 @@ KIMI_API_KEY=...
 4. **Version sensitivity** — The `KimiCLI/1.12.0` version string may need updating if
    Kimi starts rejecting older versions. Make it configurable via headers.
 
+## Validation
+
+1. `cargo test --features live-tests` — Kimi Code chat completion succeeds (requires
+   `KIMI_API_KEY`)
+2. Check logfire: the request includes `User-Agent: KimiCLI/1.12.0` header
+3. `cargo test` — empty response retry logic triggers on mock empty response
+4. `just ci` — passes
+
 ## Acceptance Criteria
 
 - Kimi Code works as a provider with the correct User-Agent header

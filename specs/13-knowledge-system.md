@@ -190,6 +190,23 @@ These tools are available during reflection jobs, NOT during regular chat:
 - Parameters: `file: "SOUL" | "OPERATOR"`, `content: string`
 - BOOT.md is only editable when explicitly directed by the OPERATOR.
 
+## Validation
+
+1. `cargo test` — create a note, retrieve it by ID, verify all fields
+2. `cargo test` — create a note with `[[Rust]]` wiki link, verify a `relates_to` edge
+   and a stub note for "Rust" are created
+3. `cargo test` — create a note with `[[written_in>Rust]]`, verify a `written_in` typed
+   edge is created
+4. `cargo test` — update a note: remove a wiki link, verify the corresponding edge is
+   deleted
+5. `cargo test` — full-text search: create several notes, search by keyword, verify
+   ranked results
+6. `cargo test` — graph traversal: create a chain (A ->depends_on-> B ->depends_on-> C),
+   query 2-hop from A, verify C is returned
+7. `cargo test` — knowledge write tools (`note_write`, `diary_write`) work through the
+   ToolManager
+8. `just ci` — passes
+
 ## Acceptance Criteria
 
 - Notes can be created, updated, and searched
