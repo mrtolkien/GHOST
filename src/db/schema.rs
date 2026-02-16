@@ -8,8 +8,10 @@ DEFINE TABLE session SCHEMAFULL;
 DEFINE FIELD created_at ON session TYPE datetime;
 DEFINE FIELD updated_at ON session TYPE datetime;
 DEFINE FIELD last_activity_at ON session TYPE datetime;
+DEFINE FIELD status ON session TYPE string ASSERT $value IN ["active", "rebooted"];
 DEFINE FIELD compaction_summary ON session TYPE option<string>;
 DEFINE FIELD compaction_cursor_id ON session TYPE option<string>;
+DEFINE FIELD todo_list ON session TYPE option<array<string>>;
 
 DEFINE TABLE message SCHEMAFULL;
 DEFINE FIELD session ON message TYPE record<session>;
@@ -17,6 +19,7 @@ DEFINE FIELD role ON message TYPE string ASSERT $value IN ["user", "assistant", 
 DEFINE FIELD content ON message TYPE string;
 DEFINE FIELD tool_calls ON message TYPE option<array>;
 DEFINE FIELD tool_results ON message TYPE option<array>;
+DEFINE FIELD citations ON message TYPE option<array>;
 DEFINE FIELD created_at ON message TYPE datetime;
 DEFINE INDEX idx_message_session ON message FIELDS session, created_at;
 
@@ -29,6 +32,7 @@ DEFINE FIELD finished_at ON job_log TYPE option<datetime>;
 DEFINE FIELD status ON job_log TYPE string ASSERT $value IN ["running", "ok", "failed"];
 DEFINE FIELD transcript ON job_log TYPE option<string>;
 DEFINE FIELD handoff_note ON job_log TYPE option<string>;
+DEFINE FIELD todo_list ON job_log TYPE option<array<string>>;
 
 DEFINE TABLE usage_log SCHEMAFULL;
 DEFINE FIELD session ON usage_log TYPE record<session>;
@@ -70,6 +74,19 @@ DEFINE FIELD created_at ON relates_to TYPE datetime;
 
 DEFINE TABLE references SCHEMAFULL TYPE RELATION IN note OUT reference;
 DEFINE FIELD created_at ON references TYPE datetime;
+
+DEFINE TABLE interface_session SCHEMAFULL;
+-- TEMPORARY SCAFFOLDING for spec 06 reboot/session wiring.
+-- Expected to be refined in spec 09 Discord interface implementation.
+DEFINE FIELD interface ON interface_session TYPE string;
+DEFINE FIELD session ON interface_session TYPE record<session>;
+DEFINE FIELD created_at ON interface_session TYPE datetime;
+DEFINE INDEX idx_interface ON interface_session FIELDS interface UNIQUE;
+
+-- TEMPORARY SCAFFOLDING for spec 06 citation graph edges.
+-- Expected to be revisited in spec 13/15 knowledge and web-cache work.
+DEFINE TABLE cited SCHEMAFULL TYPE RELATION;
+DEFINE FIELD created_at ON cited TYPE datetime;
 "#;
 
 #[tracing::instrument(skip_all)]

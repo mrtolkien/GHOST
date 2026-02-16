@@ -17,6 +17,16 @@ pub struct NoteRecord {
     pub updated_at: Datetime,
 }
 
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct ReferenceRecord {
+    pub id: Thing,
+    pub topic: String,
+    pub path: String,
+    pub content: String,
+    pub source_url: Option<String>,
+    pub created_at: Datetime,
+}
+
 #[derive(Debug, Deserialize)]
 struct IdRow {
     id: Thing,
@@ -68,6 +78,53 @@ pub async fn create_note(
         .map(|row| row.id)
         .ok_or(DatabaseError::MissingRow {
             table: "note",
+            operation: "create",
+        })
+}
+
+#[tracing::instrument(skip_all, fields(topic = %topic, path = %path))]
+pub async fn create_reference(
+    db: &Surreal<Db>,
+    topic: &str,
+    path: &str,
+    content: &str,
+    source_url: Option<&str>,
+) -> Result<Thing, DatabaseError> {
+    // TEMPORARY SCAFFOLDING:
+    // Added for spec 06 citation linkage. The full reference lifecycle and write flows
+    // belong to spec 13 and may replace this helper entirely.
+    let mut response = db
+        .query(
+            "CREATE reference SET \
+                topic = $topic, \
+                path = $path, \
+                content = $content, \
+                source_url = $source_url, \
+                created_at = time::now() \
+             RETURN id",
+        )
+        .bind(("topic", topic.to_string()))
+        .bind(("path", path.to_string()))
+        .bind(("content", content.to_string()))
+        .bind(("source_url", source_url.map(ToString::to_string)))
+        .await
+        .map_err(|source| DatabaseError::Query {
+            table: "reference",
+            operation: "create",
+            source,
+        })?;
+
+    let rows: Vec<IdRow> = response.take(0).map_err(|source| DatabaseError::Query {
+        table: "reference",
+        operation: "create/take",
+        source,
+    })?;
+
+    rows.into_iter()
+        .next()
+        .map(|row| row.id)
+        .ok_or(DatabaseError::MissingRow {
+            table: "reference",
             operation: "create",
         })
 }

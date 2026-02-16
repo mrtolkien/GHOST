@@ -17,4 +17,7 @@ pub enum GhostError {
 
     #[error("io error: {0}")]
     Io(#[from] std::io::Error),
+
+    #[error(transparent)]
+    Chat(#[from] crate::chat::ChatError),
 }

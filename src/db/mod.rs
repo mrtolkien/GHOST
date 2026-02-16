@@ -1,4 +1,6 @@
 mod error;
+pub mod interface_sessions;
+pub mod job_logs;
 pub mod knowledge;
 pub mod schema;
 pub mod sessions;
