@@ -1,5 +1,7 @@
 use thiserror::Error;
 
+static LIVE_TEST_OBSERVABILITY_INIT: std::sync::Once = std::sync::Once::new();
+
 #[derive(Debug, Error)]
 pub enum ObservabilityError {
     #[error("failed to initialize logfire: {source}")]
@@ -43,6 +45,20 @@ pub fn init_for_daemon() -> Result<DaemonObservability, ObservabilityError> {
 
 #[tracing::instrument(skip_all)]
 pub fn init_for_live_tests() -> Result<DaemonObservability, ObservabilityError> {
+    let mut result: Option<ObservabilityError> = None;
+    LIVE_TEST_OBSERVABILITY_INIT.call_once(|| {
+        if let Err(error) = init_live_tests_inner() {
+            result = Some(error);
+        }
+    });
+    if let Some(error) = result {
+        return Err(error);
+    }
+
+    Ok(DaemonObservability::disabled())
+}
+
+fn init_live_tests_inner() -> Result<(), ObservabilityError> {
     let _ = dotenvy::dotenv();
     set_default_rust_log_filter();
     let logfire = logfire::configure()
@@ -52,9 +68,8 @@ pub fn init_for_live_tests() -> Result<DaemonObservability, ObservabilityError> 
         .finish()
         .map_err(|source| ObservabilityError::LogfireInit { source })?;
 
-    Ok(DaemonObservability {
-        _shutdown_guard: Some(logfire.shutdown_guard()),
-    })
+    let _shutdown_guard = logfire.shutdown_guard();
+    Ok(())
 }
 
 fn running_under_cargo_test() -> bool {

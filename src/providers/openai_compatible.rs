@@ -2,7 +2,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::providers::types::{
-    ChatRequest, ChatResponse, ContentBlock, ProviderError, Role, StopReason, ToolDefinition, Usage,
+    ChatRequest, ChatResponse, ContentBlock, ProviderError, ResponseFormat, Role, StopReason,
+    ToolDefinition, Usage,
 };
 
 #[derive(Debug, Serialize)]
@@ -15,6 +16,20 @@ pub(crate) struct ChatCompletionsRequest {
     pub(crate) max_tokens: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) temperature: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) response_format: Option<OpenAiResponseFormat>,
+}
+
+#[derive(Debug, Serialize)]
+pub(crate) struct OpenAiResponseFormat {
+    pub(crate) r#type: String,
+    pub(crate) json_schema: OpenAiJsonSchemaFormat,
+}
+
+#[derive(Debug, Serialize)]
+pub(crate) struct OpenAiJsonSchemaFormat {
+    pub(crate) name: String,
+    pub(crate) schema: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -119,6 +134,22 @@ pub(crate) fn build_request_body(request: &ChatRequest) -> ChatCompletionsReques
             .map(|tools| tools.iter().map(convert_tool).collect()),
         max_tokens: request.max_tokens,
         temperature: request.temperature,
+        response_format: request
+            .response_format
+            .as_ref()
+            .map(convert_response_format),
+    }
+}
+
+fn convert_response_format(response_format: &ResponseFormat) -> OpenAiResponseFormat {
+    match response_format {
+        ResponseFormat::JsonSchema { name, schema } => OpenAiResponseFormat {
+            r#type: "json_schema".to_string(),
+            json_schema: OpenAiJsonSchemaFormat {
+                name: name.clone(),
+                schema: schema.clone(),
+            },
+        },
     }
 }
 
@@ -344,7 +375,7 @@ mod tests {
     use serde_json::json;
 
     use super::*;
-    use crate::providers::types::{ChatMessage, ContentBlock, Role, user_message};
+    use crate::providers::types::{ChatMessage, ContentBlock, ResponseFormat, Role, user_message};
 
     #[test]
     fn convert_messages_serializes_tool_use_and_result() {
@@ -373,6 +404,7 @@ mod tests {
             max_tokens: None,
             temperature: None,
             system: Some("be concise".to_string()),
+            response_format: None,
         };
 
         let messages = convert_messages(&request);
@@ -433,5 +465,38 @@ mod tests {
         ]);
         let text = extract_text_content(content);
         assert!(text.contains("final answer"));
+    }
+
+    #[test]
+    fn build_request_body_includes_response_format() {
+        let request = ChatRequest {
+            model: "moonshotai/kimi-k2.5".to_string(),
+            messages: vec![user_message("Return structured json.")],
+            tools: None,
+            max_tokens: None,
+            temperature: None,
+            system: None,
+            response_format: Some(ResponseFormat::JsonSchema {
+                name: "short_answer".to_string(),
+                schema: json!({
+                    "type": "object",
+                    "properties": { "answer": { "type": "string" } },
+                    "required": ["answer"],
+                    "additionalProperties": false
+                }),
+            }),
+        };
+
+        let body = build_request_body(&request);
+        let as_json = serde_json::to_value(body).expect("serialize request");
+        assert_eq!(as_json["response_format"]["type"], "json_schema");
+        assert_eq!(
+            as_json["response_format"]["json_schema"]["name"],
+            "short_answer"
+        );
+        assert_eq!(
+            as_json["response_format"]["json_schema"]["schema"]["type"],
+            "object"
+        );
     }
 }

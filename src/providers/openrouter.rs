@@ -342,6 +342,7 @@ mod tests {
             max_tokens: Some(32),
             temperature: Some(0.0),
             system: None,
+            response_format: None,
         }
     }
 

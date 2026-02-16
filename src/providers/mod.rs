@@ -6,6 +6,6 @@ pub mod types;
 pub use openrouter::OpenRouterProvider;
 pub use types::{
     ChatMessage, ChatRequest, ChatResponse, ContentBlock, Provider, ProviderError,
-    ProviderInitError, Role, StopReason, ToolDefinition, Usage, model_from_alias,
+    ProviderInitError, ResponseFormat, Role, StopReason, ToolDefinition, Usage, model_from_alias,
     provider_for_alias, user_message,
 };
