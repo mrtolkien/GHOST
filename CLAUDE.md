@@ -106,6 +106,10 @@ because logs were lackluster and there was no tracing.
 ### Error Handling
 
 - Use `thiserror` for all error types — define domain-specific error enums
+- Do not use stringly-typed catch-all variants like `Config(String)` or
+  `Database(String)` for domain errors
+- Each module should define at least one local error enum once it has meaningful
+  behavior; convert into higher-level errors with `#[from]`
 - No `.unwrap()` or `.expect()` in production code (tests are fine)
 - Propagate errors with `?` — add context with `.map_err()` or a wrapper type
 - Log errors at the boundary where they are handled, not where they are created
