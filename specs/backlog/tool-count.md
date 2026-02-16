@@ -49,9 +49,9 @@ speculatively.
 - The "Natural Language Tools" paper showed natural language > JSON schemas (+18.4pp)
 - Skills are exactly this: a markdown file describing how to use a CLI command
 - Loaded on demand (~1,500 tokens when used) vs tool schemas (~100 tokens every turn)
-- For a tool used 3x in a 50-turn session, skill costs 4,500 tokens total; a tool
-  schema costs 5,000 tokens total — roughly equivalent, but the skill is zero-cost on
-  the 47 turns where it's not used
+- For a tool used 3x in a 50-turn session, skill costs 4,500 tokens total; a tool schema
+  costs 5,000 tokens total — roughly equivalent, but the skill is zero-cost on the 47
+  turns where it's not used
 
 ## When to Promote CLI → Tool
 
