@@ -41,6 +41,22 @@ pub fn init_for_daemon() -> Result<DaemonObservability, ObservabilityError> {
     })
 }
 
+#[tracing::instrument(skip_all)]
+pub fn init_for_live_tests() -> Result<DaemonObservability, ObservabilityError> {
+    let _ = dotenvy::dotenv();
+    set_default_rust_log_filter();
+    let logfire = logfire::configure()
+        .with_service_name("GHOST")
+        .with_install_panic_handler(true)
+        .send_to_logfire(logfire::config::SendToLogfire::IfTokenPresent)
+        .finish()
+        .map_err(|source| ObservabilityError::LogfireInit { source })?;
+
+    Ok(DaemonObservability {
+        _shutdown_guard: Some(logfire.shutdown_guard()),
+    })
+}
+
 fn running_under_cargo_test() -> bool {
     std::env::var_os("RUST_TEST_THREADS").is_some()
 }
