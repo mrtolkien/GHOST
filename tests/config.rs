@@ -38,7 +38,8 @@ default = \"primary\"\n\
 \n\
 [models.primary]\n\
 provider = \"openrouter\"\n\
-model = \"anthropic/claude-sonnet-4-5-20250929\"\n",
+model = \"anthropic/claude-sonnet-4-5-20250929\"\n\
+context_window = 200000\n",
             workspace.path().display()
         ),
     )
@@ -63,7 +64,7 @@ fn config_set_updates_toml_correctly() {
     let config_dir = TempDir::new().expect("config tempdir");
     fs::write(
         config_dir.path().join("config.toml"),
-        "[models]\ndefault = \"primary\"\n\n[models.primary]\nprovider = \"openrouter\"\nmodel = \"anthropic/claude-sonnet-4-5-20250929\"\n",
+        "[models]\ndefault = \"primary\"\n\n[models.primary]\nprovider = \"openrouter\"\nmodel = \"anthropic/claude-sonnet-4-5-20250929\"\ncontext_window = 200000\n",
     )
     .expect("write config");
     config::set_value_in_dir(config_dir.path(), "workspace", "/custom/path")
@@ -78,7 +79,7 @@ fn config_set_rejects_unknown_key_paths() {
     let config_dir = TempDir::new().expect("config tempdir");
     fs::write(
         config_dir.path().join("config.toml"),
-        "[models]\ndefault = \"primary\"\n\n[models.primary]\nprovider = \"openrouter\"\nmodel = \"anthropic/claude-sonnet-4-5-20250929\"\n",
+        "[models]\ndefault = \"primary\"\n\n[models.primary]\nprovider = \"openrouter\"\nmodel = \"anthropic/claude-sonnet-4-5-20250929\"\ncontext_window = 200000\n",
     )
     .expect("write config");
     let error =
@@ -95,13 +96,13 @@ fn config_set_can_create_new_model_alias_on_first_write() {
     let config_dir = TempDir::new().expect("config tempdir");
     fs::write(
         config_dir.path().join("config.toml"),
-        "[models]\ndefault = \"primary\"\n\n[models.primary]\nprovider = \"openrouter\"\nmodel = \"anthropic/claude-sonnet-4-5-20250929\"\n",
+        "[models]\ndefault = \"primary\"\n\n[models.primary]\nprovider = \"openrouter\"\nmodel = \"anthropic/claude-sonnet-4-5-20250929\"\ncontext_window = 200000\n",
     )
     .expect("write config");
     config::set_value_in_dir(
         config_dir.path(),
         "models.experimental",
-        "{ provider = \"openrouter\", model = \"anthropic/claude-sonnet-4-5-20250929\" }",
+        "{ provider = \"openrouter\", model = \"anthropic/claude-sonnet-4-5-20250929\", context_window = 200000 }",
     )
     .expect("set model object");
 
@@ -121,7 +122,7 @@ fn config_set_model_object_requires_provider_and_model() {
     let config_dir = TempDir::new().expect("config tempdir");
     fs::write(
         config_dir.path().join("config.toml"),
-        "[models]\ndefault = \"primary\"\n\n[models.primary]\nprovider = \"openrouter\"\nmodel = \"anthropic/claude-sonnet-4-5-20250929\"\n",
+        "[models]\ndefault = \"primary\"\n\n[models.primary]\nprovider = \"openrouter\"\nmodel = \"anthropic/claude-sonnet-4-5-20250929\"\ncontext_window = 200000\n",
     )
     .expect("write config");
     let error = config::set_value_in_dir(
@@ -140,13 +141,13 @@ fn config_set_model_provider_must_be_valid() {
     let config_dir = TempDir::new().expect("config tempdir");
     fs::write(
         config_dir.path().join("config.toml"),
-        "[models]\ndefault = \"primary\"\n\n[models.primary]\nprovider = \"openrouter\"\nmodel = \"anthropic/claude-sonnet-4-5-20250929\"\n",
+        "[models]\ndefault = \"primary\"\n\n[models.primary]\nprovider = \"openrouter\"\nmodel = \"anthropic/claude-sonnet-4-5-20250929\"\ncontext_window = 200000\n",
     )
     .expect("write config");
     let error = config::set_value_in_dir(
         config_dir.path(),
         "models.bad",
-        "{ provider = \"invalid\", model = \"foo/bar\" }",
+        "{ provider = \"invalid\", model = \"foo/bar\", context_window = 200000 }",
     )
     .expect_err("must fail");
     let message = error.to_string();

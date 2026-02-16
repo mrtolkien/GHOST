@@ -19,7 +19,8 @@ default = \"primary\"\n\
 \n\
 [models.primary]\n\
 provider = \"openrouter\"\n\
-model = \"anthropic/claude-sonnet-4-5-20250929\"\n",
+model = \"anthropic/claude-sonnet-4-5-20250929\"\n\
+context_window = 200000\n",
             workspace.path().display()
         ),
     )

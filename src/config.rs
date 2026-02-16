@@ -88,7 +88,7 @@ pub struct ModelsSettings {
 pub struct ModelSettings {
     pub provider: Provider,
     pub model: String,
-    pub context_window: Option<u32>,
+    pub context_window: u32,
     #[serde(default)]
     pub headers: BTreeMap<String, String>,
 }
@@ -122,6 +122,7 @@ pub struct TimingSettings {
 pub struct CompactionSettings {
     pub threshold: Option<f64>,
     pub keep_window: Option<usize>,
+    pub mask_preview_chars: Option<usize>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -145,7 +146,7 @@ pub struct ModelsConfig {
 pub struct ModelConfig {
     pub provider: String,
     pub model: String,
-    pub context_window: Option<u32>,
+    pub context_window: u32,
     pub headers: BTreeMap<String, String>,
 }
 
@@ -174,6 +175,7 @@ pub struct TimingConfig {
 pub struct CompactionConfig {
     pub threshold: f64,
     pub keep_window: usize,
+    pub mask_preview_chars: usize,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
@@ -315,6 +317,11 @@ impl Config {
                     .as_ref()
                     .and_then(|c| c.keep_window)
                     .unwrap_or(20),
+                mask_preview_chars: settings
+                    .compaction
+                    .as_ref()
+                    .and_then(|c| c.mask_preview_chars)
+                    .unwrap_or(100),
             },
         })
     }

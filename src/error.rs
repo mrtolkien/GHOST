@@ -10,7 +10,7 @@ pub enum GhostError {
     Observability(#[from] crate::observability::ObservabilityError),
 
     #[error(transparent)]
-    Database(#[from] crate::db::DatabaseError),
+    Database(Box<crate::db::DatabaseError>),
 
     #[error(transparent)]
     Auth(#[from] crate::auth::openai_oauth::AuthError),
@@ -20,4 +20,10 @@ pub enum GhostError {
 
     #[error(transparent)]
     Chat(#[from] crate::chat::ChatError),
+}
+
+impl From<crate::db::DatabaseError> for GhostError {
+    fn from(e: crate::db::DatabaseError) -> Self {
+        GhostError::Database(Box::new(e))
+    }
 }

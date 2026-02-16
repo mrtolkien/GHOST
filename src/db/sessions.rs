@@ -130,6 +130,32 @@ pub async fn mark_rebooted(db: &Surreal<Db>, session_id: &Thing) -> Result<(), D
 }
 
 #[tracing::instrument(skip_all, fields(session_id = %session_id))]
+pub async fn update_compaction(
+    db: &Surreal<Db>,
+    session_id: &Thing,
+    summary: &str,
+    cursor_id: &str,
+) -> Result<(), DatabaseError> {
+    db.query(
+        "UPDATE $session_id SET \
+            compaction_summary = $summary, \
+            compaction_cursor_id = $cursor_id, \
+            updated_at = time::now()",
+    )
+    .bind(("session_id", session_id.clone()))
+    .bind(("summary", summary.to_owned()))
+    .bind(("cursor_id", cursor_id.to_owned()))
+    .await
+    .map_err(|source| DatabaseError::Query {
+        table: "session",
+        operation: "update_compaction",
+        source,
+    })?;
+
+    Ok(())
+}
+
+#[tracing::instrument(skip_all, fields(session_id = %session_id))]
 pub async fn update_activity(db: &Surreal<Db>, session_id: &Thing) -> Result<(), DatabaseError> {
     db.query("UPDATE $session_id SET updated_at = time::now(), last_activity_at = time::now()")
         .bind(("session_id", session_id.clone()))

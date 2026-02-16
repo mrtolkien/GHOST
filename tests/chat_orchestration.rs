@@ -411,3 +411,278 @@ async fn todo_state_is_injected_after_user_message() {
         .expect("user message");
     assert!(todo_message_index > user_message_index);
 }
+
+// ---------------------------------------------------------------------------
+// Compaction tests
+// ---------------------------------------------------------------------------
+
+/// Helper: build a config with a tiny context window to trigger compaction.
+fn small_context_config(config: &mut ghost::config::Config) {
+    config
+        .models
+        .aliases
+        .get_mut("primary")
+        .expect("primary alias")
+        .context_window = 1000;
+}
+
+/// Helper: pre-fill a session with many messages to exceed the context window.
+async fn fill_session(db: &ghost::db::GhostDb, session_id: &surrealdb::sql::Thing, count: usize) {
+    for i in 0..count {
+        ghost::db::sessions::create_message(
+            db,
+            session_id,
+            if i % 2 == 0 { "user" } else { "assistant" },
+            &format!("Message {i}: {}", "x".repeat(200)),
+        )
+        .await
+        .expect("create filler message");
+    }
+}
+
+#[tokio::test]
+async fn compaction_triggers_when_over_threshold() {
+    let (db, mut config, _workspace, _config_dir) = common::test_database().await;
+    small_context_config(&mut config);
+
+    let session_id = ghost::db::sessions::create_session(&db)
+        .await
+        .expect("create session");
+    fill_session(&db, &session_id, 30).await;
+
+    // Mock responses: 1st = compaction summary, 2nd = final answer
+    let provider = Arc::new(MockProvider::new(vec![
+        response(
+            vec![ContentBlock::Text(
+                "Summary of previous conversation.".to_string(),
+            )],
+            StopReason::EndTurn,
+        ),
+        response(
+            vec![ContentBlock::Text(
+                r#"{"message":"post-compaction","citations":[]}"#.to_string(),
+            )],
+            StopReason::EndTurn,
+        ),
+    ]));
+    let requests = provider.requests();
+    let chat = SessionChat::new(db.clone(), provider, ToolManager::new(), config);
+
+    let result = chat
+        .chat(&session_id.to_string(), "new question")
+        .await
+        .expect("chat result");
+    assert_eq!(result.message, "post-compaction");
+
+    // Verify the second request (the actual chat) has a summary injected
+    let recorded = requests.lock().expect("lock requests");
+    assert_eq!(recorded.len(), 2, "expected compaction + chat requests");
+
+    // The second request should contain the summary as a system message
+    let chat_request = &recorded[1];
+    let has_summary = chat_request.messages.iter().any(|msg| {
+        msg.role == ghost::providers::Role::System
+            && msg.content.iter().any(|block| {
+                matches!(
+                    block,
+                    ContentBlock::Text(text) if text.contains("Summary of previous conversation")
+                )
+            })
+    });
+    assert!(
+        has_summary,
+        "expected summary in chat request messages: {:?}",
+        chat_request.messages
+    );
+
+    // Verify fewer messages than the original 30+ are sent to the provider
+    let message_count = chat_request.messages.len();
+    assert!(
+        message_count < 30,
+        "expected fewer than 30 messages after compaction, got {message_count}"
+    );
+}
+
+#[tokio::test]
+async fn original_messages_preserved_after_compaction() {
+    let (db, mut config, _workspace, _config_dir) = common::test_database().await;
+    small_context_config(&mut config);
+
+    let session_id = ghost::db::sessions::create_session(&db)
+        .await
+        .expect("create session");
+    fill_session(&db, &session_id, 30).await;
+
+    let provider = Arc::new(MockProvider::new(vec![
+        response(
+            vec![ContentBlock::Text("Summary.".to_string())],
+            StopReason::EndTurn,
+        ),
+        response(
+            vec![ContentBlock::Text(
+                r#"{"message":"ok","citations":[]}"#.to_string(),
+            )],
+            StopReason::EndTurn,
+        ),
+    ]));
+    let chat = SessionChat::new(db.clone(), provider, ToolManager::new(), config);
+
+    let _ = chat
+        .chat(&session_id.to_string(), "check")
+        .await
+        .expect("chat result");
+
+    // All original messages (30 filler + 1 user "check" + 1 assistant "ok")
+    // should still be in the database
+    let messages = ghost::db::sessions::list_messages_by_session(&db, &session_id)
+        .await
+        .expect("list messages");
+    assert!(
+        messages.len() >= 32,
+        "expected at least 32 messages in DB, got {}",
+        messages.len()
+    );
+
+    // Session should have a compaction summary set
+    let session = ghost::db::sessions::get_session(&db, &session_id)
+        .await
+        .expect("get session");
+    assert!(
+        session.compaction_summary.is_some(),
+        "expected compaction_summary to be set"
+    );
+    assert!(
+        session.compaction_cursor_id.is_some(),
+        "expected compaction_cursor_id to be set"
+    );
+}
+
+#[tokio::test]
+async fn no_compaction_below_threshold() {
+    let (db, config, _workspace, _config_dir) = common::test_database().await;
+    // Default context_window = 200000, so a short conversation won't trigger
+
+    let session_id = ghost::db::sessions::create_session(&db)
+        .await
+        .expect("create session");
+
+    let provider = Arc::new(MockProvider::new(vec![response(
+        vec![ContentBlock::Text(
+            r#"{"message":"no compact","citations":[]}"#.to_string(),
+        )],
+        StopReason::EndTurn,
+    )]));
+    let requests = provider.requests();
+    let chat = SessionChat::new(db.clone(), provider, ToolManager::new(), config);
+
+    let result = chat
+        .chat(&session_id.to_string(), "short message")
+        .await
+        .expect("chat result");
+    assert_eq!(result.message, "no compact");
+
+    // Only 1 request should have been made (no compaction LLM call)
+    {
+        let recorded = requests.lock().expect("lock requests");
+        assert_eq!(
+            recorded.len(),
+            1,
+            "expected exactly 1 request (no compaction)"
+        );
+    }
+
+    // Session should have no compaction summary
+    let session = ghost::db::sessions::get_session(&db, &session_id)
+        .await
+        .expect("get session");
+    assert!(session.compaction_summary.is_none());
+    assert!(session.compaction_cursor_id.is_none());
+}
+
+#[tokio::test]
+async fn double_compaction_summary_of_summary() {
+    let (db, mut config, _workspace, _config_dir) = common::test_database().await;
+    small_context_config(&mut config);
+
+    let session_id = ghost::db::sessions::create_session(&db)
+        .await
+        .expect("create session");
+
+    // Round 1: fill + compact
+    fill_session(&db, &session_id, 30).await;
+
+    let provider = Arc::new(MockProvider::new(vec![
+        // Compaction summary for round 1
+        response(
+            vec![ContentBlock::Text("First summary.".to_string())],
+            StopReason::EndTurn,
+        ),
+        // Chat response for round 1
+        response(
+            vec![ContentBlock::Text(
+                r#"{"message":"round1","citations":[]}"#.to_string(),
+            )],
+            StopReason::EndTurn,
+        ),
+    ]));
+    let chat = SessionChat::new(db.clone(), provider, ToolManager::new(), config.clone());
+    let r1 = chat
+        .chat(&session_id.to_string(), "round1 question")
+        .await
+        .expect("round 1");
+    assert_eq!(r1.message, "round1");
+
+    // Round 2: fill more + compact again (summary of summary)
+    fill_session(&db, &session_id, 30).await;
+
+    let provider2 = Arc::new(MockProvider::new(vec![
+        // Compaction summary for round 2 (summarizes "First summary" + new msgs)
+        response(
+            vec![ContentBlock::Text(
+                "Second summary, incorporating first.".to_string(),
+            )],
+            StopReason::EndTurn,
+        ),
+        // Chat response for round 2
+        response(
+            vec![ContentBlock::Text(
+                r#"{"message":"round2","citations":[]}"#.to_string(),
+            )],
+            StopReason::EndTurn,
+        ),
+    ]));
+    let requests2 = provider2.requests();
+    let chat2 = SessionChat::new(db.clone(), provider2, ToolManager::new(), config);
+
+    let r2 = chat2
+        .chat(&session_id.to_string(), "round2 question")
+        .await
+        .expect("round 2");
+    assert_eq!(r2.message, "round2");
+
+    // The second compaction summary should be stored
+    let session = ghost::db::sessions::get_session(&db, &session_id)
+        .await
+        .expect("get session");
+    assert_eq!(
+        session.compaction_summary.as_deref(),
+        Some("Second summary, incorporating first.")
+    );
+
+    // The chat request in round 2 should use the second summary
+    let recorded = requests2.lock().expect("lock requests");
+    let chat_request = &recorded[1];
+    let has_second_summary = chat_request.messages.iter().any(|msg| {
+        msg.role == ghost::providers::Role::System
+            && msg.content.iter().any(|block| {
+                matches!(
+                    block,
+                    ContentBlock::Text(text) if text.contains("Second summary")
+                )
+            })
+    });
+    assert!(
+        has_second_summary,
+        "expected second summary in round 2 messages"
+    );
+}
