@@ -1,6 +1,7 @@
 use std::fs;
 
 use ghost::config::{self, Config};
+use ghost::db::{self, GhostDb};
 use tempfile::TempDir;
 
 pub fn test_config() -> (Config, TempDir, TempDir) {
@@ -32,4 +33,13 @@ pub fn test_workspace() -> (Config, TempDir, TempDir) {
     let (config, workspace, config_dir) = test_config();
     config::bootstrap_workspace(&config).expect("bootstrap workspace");
     (config, workspace, config_dir)
+}
+
+#[allow(dead_code)]
+pub async fn test_database() -> (GhostDb, Config, TempDir, TempDir) {
+    let (config, workspace, config_dir) = test_workspace();
+    let db = db::connect(&config.workspace)
+        .await
+        .expect("connect surrealdb");
+    (db, config, workspace, config_dir)
 }

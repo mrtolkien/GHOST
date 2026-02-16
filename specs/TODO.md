@@ -5,11 +5,11 @@ later tasks may depend on earlier ones.
 
 ## Phase 1: Foundation
 
-- [ ] Project scaffolding and CLI skeleton — [01-scaffolding.md](01-scaffolding.md)
-- [ ] Configuration system — [02-config.md](02-config.md)
-- [ ] Observability setup (logfire + tracing) —
+- [x] Project scaffolding and CLI skeleton — [01-scaffolding.md](01-scaffolding.md)
+- [x] Configuration system — [02-config.md](02-config.md)
+- [x] Observability setup (logfire + tracing) —
       [03-observability.md](03-observability.md)
-- [ ] SurrealDB embedded setup — [04-database.md](04-database.md)
+- [x] SurrealDB embedded setup — [04-database.md](04-database.md)
 
 ## Phase 2: Core Chat Loop
 

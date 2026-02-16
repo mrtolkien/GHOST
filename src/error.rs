@@ -9,6 +9,9 @@ pub enum GhostError {
     #[error(transparent)]
     Observability(#[from] crate::observability::ObservabilityError),
 
+    #[error(transparent)]
+    Database(#[from] crate::db::DatabaseError),
+
     #[error("io error: {0}")]
     Io(#[from] std::io::Error),
 }
