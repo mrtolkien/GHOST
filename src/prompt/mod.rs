@@ -1,6 +1,8 @@
 //! TEMPORARY SCAFFOLDING
 //! This prompt renderer is a minimal bridge to support spec 06 orchestration.
 //! It is expected to be replaced by the full prompt stack in spec 08.
+//! WARNING: This file currently contains implementation code. Move logic into
+//! dedicated module files before real prompt feature development continues.
 
 use std::fs;
 

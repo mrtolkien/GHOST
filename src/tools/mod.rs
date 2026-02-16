@@ -2,6 +2,8 @@
 //! This module exists to unblock spec 06 chat orchestration before spec 10 is fully
 //! implemented. It is intentionally minimal and may be rewritten entirely when the
 //! real tool system lands.
+//! WARNING: This file currently contains implementation code. Move logic into
+//! dedicated module files before real tools feature development continues.
 
 use std::collections::HashMap;
 use std::path::PathBuf;

@@ -1,3 +1,6 @@
+//! WARNING: This file currently contains implementation code. Move logic into
+//! dedicated module files before real daemon feature development continues.
+
 use crate::error::GhostError;
 
 #[tracing::instrument(skip_all)]
