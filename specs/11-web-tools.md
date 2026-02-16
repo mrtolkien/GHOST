@@ -103,6 +103,7 @@ async fn fetch(&self, url: &str) -> Result<ExtractedContent> {
 - Large pages are truncated at `max_chars`
 - All web operations produce tracing spans
 - API keys are loaded from environment variables
+- `just ci` passes
 
 ## Prior Art
 

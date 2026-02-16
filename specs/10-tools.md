@@ -144,6 +144,7 @@ async fn execute(&self, params: Value, ctx: &ToolContext) -> Result<String, Tool
 - All filesystem tools respect workspace boundaries
 - Shell commands have configurable timeouts
 - All tool executions produce tracing spans with name and duration
+- `just ci` passes
 
 ## Prior Art
 

@@ -163,10 +163,33 @@ Iterate until all spec items are built and tested:
 - **Integration tests** with a `live-tests` feature flag for all major features.
 - Maintain a robust, reusable integration test "starting state" (test fixtures) that can
   be shared across tests.
+  - For example, adding a new provider should have integration tests validating that it
+    accepts all our tools and is able to use at least one of them.
 - **Unit tests** only when there are genuinely complex behaviors or external crate
   behaviors to validate.
-- No snapshot testing (dropped insta).
-- Live tests (`--features live-tests`) are human-run only.
+- Live tests (`--features live-tests`) are human-run only by default. If you need to run
+  them, ask the user.
+
+### Test Readability (NON-NEGOTIABLE)
+
+Tests must be **readable first**. A reader should understand what a test does in
+seconds, not minutes. This means:
+
+- Extract ALL setup boilerplate into helper functions. A test body should be setup +
+  action + assert, each in 1-3 lines.
+- Prefer `let workspace = test_workspace()` over 15 lines of `TempDir` + `fs::write` +
+  `env::set_var` inline.
+- Build up a `tests/common/` module of reusable helpers from the start (spec 02). The
+  `TestFixture` in spec 18 is the culmination, but helpers should exist before that.
+- Name helpers after what they produce, not what they do: `test_config()` not
+  `setup_config_dir_and_write_toml_and_set_env()`.
+- Never duplicate setup across tests — if two tests need similar state, extract a
+  helper.
+- Extend existing helpers with parameters rather than creating new ones. If
+  `test_config()` works for most tests but one needs a custom model, add an optional
+  parameter — don't write `test_config_with_custom_model()` or inline the setup.
+- This is critical because LLMs are biased toward generating inline boilerplate. Fight
+  that instinct. Every test should read like a specification.
 
 ## Configuration
 
@@ -181,15 +204,16 @@ Iterate until all spec items are built and tested:
 ```
 src/
 ├── main.rs              # CLI entry point (clap)
-├── cli/                 # CLI subcommands (daemon, chat, job, config, ...)
+├── cli/                 # CLI subcommands (thin — parse args, delegate)
+├── daemon/              # Subsystem wiring, task spawning, graceful shutdown
 ├── config/              # Config types, loading, defaults
 ├── db/                  # SurrealDB schema, queries, connection
 ├── providers/           # Provider trait + OpenRouter implementation
 ├── chat/                # Chat orchestration, session management, compaction
 ├── tools/               # Tool definitions and implementations
-├── jobs/                # Job scheduling, triggers, execution
+├── jobs/                # Cron scheduling, heartbeat, reflection
 ├── knowledge/           # Knowledge types, search, graph operations
-├── discord/             # Discord bot transport
+├── interfaces/discord/  # Discord bot transport, DiscordSender
 ├── prompt/              # System prompt rendering
 ├── web/                 # Web search, web fetch, web cache
 └── observability/       # Logfire setup, tracing configuration
@@ -197,8 +221,6 @@ src/
 
 ## Formatting
 
-- Rust: `cargo fmt --all` (default rustfmt settings)
-- Markdown, JSON, TOML: `dprint fmt`
 - Run `just fmt` to format everything
 - Line width: 88 characters for dprint-formatted files
 - Terminology rule for docs/prose: always write `GHOST` and `OPERATOR` in all caps. Keep

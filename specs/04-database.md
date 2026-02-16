@@ -153,3 +153,4 @@ pub async fn search_notes(db: &Surreal<Db>, query: &str) -> Result<Vec<Note>> { 
 - Graph edges can be created and queried (e.g., find all notes linked to a given note)
 - Database operations produce tracing spans
 - Errors include context (table name, operation type)
+- `just ci` passes

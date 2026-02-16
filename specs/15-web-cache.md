@@ -89,6 +89,7 @@ cleared. This means:
 - `reference_manage` can move cache files to reference topics
 - `.web-cache/` is cleared after successful reflection
 - `.web-cache/` is preserved after failed reflection
+- `just ci` passes
 
 ## Prior Art
 

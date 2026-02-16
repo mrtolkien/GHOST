@@ -91,6 +91,7 @@ than through new tool implementations.
 - Default skills are installed to the workspace on first run
 - The GHOST can create new skills by writing files
 - Skill metadata (name, description, triggers) is parsed from frontmatter
+- `just ci` passes
 
 ## Prior Art
 

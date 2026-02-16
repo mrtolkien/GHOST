@@ -60,6 +60,19 @@ schedule = "*/30 * * * *" # Every 30 minutes
 schedule = "0 0 1 * *" # First of every month
 ```
 
+## Module Structure
+
+The `jobs/` module houses the cron scheduler and the heartbeat/reflection subsystems:
+
+```
+src/jobs/
+├── mod.rs            # re-exports
+├── scheduler.rs      # Cron job loading, tick loop, file watching
+├── definition.rs     # JobDefinition, frontmatter parsing
+├── heartbeat.rs      # HeartbeatManager (see 17-default-jobs.md)
+└── reflection.rs     # ReflectionManager (see 17-default-jobs.md)
+```
+
 ## Scheduler
 
 The scheduler runs inside the daemon process and manages all cron jobs:
@@ -156,6 +169,7 @@ async fn execute_job(&self, job: &LoadedJob) -> Result<()> {
 - `ghost job run` executes a job manually
 - All job operations produce tracing spans
 - Job transcripts are stored in `job_log` table
+- `just ci` passes
 
 ## Prior Art
 

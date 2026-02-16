@@ -159,6 +159,7 @@ If Ollama is not available:
 - `ghost knowledge reindex` rebuilds all embeddings
 - System works (degraded) when Ollama is unavailable
 - All embedding operations produce tracing spans with model, batch size, and duration
+- `just ci` passes
 
 ## Prior Art
 

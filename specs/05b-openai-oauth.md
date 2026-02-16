@@ -159,11 +159,14 @@ OpenAI.
 - Clear error message when refresh token expires (re-run `ghost auth codex`)
 - `ghost auth status` shows authentication state
 - Integration test (live-tests) validates the full flow
+- `just ci` passes
 
 ## Prior Art
 
 This is a **new feature** — no implementation exists in t-koma. However:
 
+- https://github.com/badlogic/pi-mono/tree/main/packages/ai - this package supports
+  OpenAI Codex login extremely well. Read their source for inspiration.
 - `t-koma-gateway/src/providers/openai_compatible/client.rs` — The OpenAI-compatible
   client can be reused as the underlying HTTP layer. The OAuth provider wraps it with
   token management.

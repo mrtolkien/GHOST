@@ -105,7 +105,8 @@ logfire account.
 ## Acceptance Criteria
 
 - `ghost daemon` initializes logfire on startup
-- All provider calls produce spans visible in logfire dashboard
 - Console output shows structured logs when no logfire token is set
+- Spans flow to logfire dashboard when `LOGFIRE_TOKEN` is set
 - Panic handler is installed (panics appear in logfire)
 - `RUST_LOG` env filter works for controlling verbosity
+- `just ci` passes

@@ -88,6 +88,8 @@ messages. The session ID maps to a Discord channel ID (see spec 09 session mappi
 the heartbeat can send to the correct channel.
 
 ```rust
+// src/jobs/heartbeat.rs
+
 pub struct HeartbeatManager {
     db: Surreal<Db>,
     session_chat: Arc<SessionChat>,
@@ -98,14 +100,18 @@ pub struct HeartbeatManager {
 
 ## Reflection
 
+Lives in `src/jobs/reflection.rs`.
+
 ### Purpose
 
 Autonomous knowledge curation. After conversations, the GHOST reviews what was discussed
 and organizes information into notes, references, and diary entries.
 
-### Trigger
+### Triggers
 
-Reflection fires after a successful heartbeat run:
+Reflection fires in two situations:
+
+**After heartbeat:**
 
 ```
 Heartbeat completes (status = "ok")
@@ -115,9 +121,25 @@ Check: has there been new activity since last reflection?
 Reflection fires, cooldown = timing.reflection_idle_minutes (default: 4m after heartbeat)
 ```
 
+**On session reboot:**
+
+```
+OPERATOR sends /REBOOT
+    ↓
+Reflection runs immediately on the old session (no cooldown check)
+    ↓
+Session is rebooted (new session created)
+```
+
+This ensures no knowledge is lost when the OPERATOR reboots. The reflection runs against
+the old session's history before it becomes inactive. Wire this into
+`SessionChat::reboot_session()` (spec 06) by calling `ReflectionManager::run()` before
+the session swap.
+
 ### Skip Logic
 
-- Skip if no new session activity since the last reflection run
+- Skip if no new session activity since the last reflection run (heartbeat trigger only
+  — reboot always runs)
 - Only one reflection runs at a time (mutex)
 
 ### Reflection Prompt
@@ -253,6 +275,7 @@ async fn run_reflection(&self, session_id: &str) -> Result<()> {
 - `HEARTBEAT_CONTINUE` response suppresses output
 - Heartbeat sends output to the correct Discord channel
 - Reflection fires after successful heartbeat
+- Reflection runs on session reboot (before session swap)
 - Reflection has access to reflection tool set (knowledge write tools)
 - Filtered transcript is injected into the reflection prompt
 - Handoff note carries over between reflection runs via `.state/reflection.last.md`
@@ -260,6 +283,7 @@ async fn run_reflection(&self, session_id: &str) -> Result<()> {
 - Both prompts can be overridden via workspace files
 - Both subsystems log to `job_log` table
 - Both subsystems produce tracing spans
+- `just ci` passes
 
 ## Prior Art
 

@@ -42,13 +42,15 @@ src/
 ├── main.rs           # clap CLI dispatch
 ├── cli/
 │   ├── mod.rs        # re-exports
-│   ├── daemon.rs     # ghost daemon
+│   ├── daemon.rs     # ghost daemon (thin — delegates to daemon::run())
 │   ├── init.rs       # ghost init
 │   ├── config.rs     # ghost config get/set
 │   ├── auth.rs       # ghost auth codex/status/revoke
 │   ├── job.rs        # ghost job list/validate/run/logs
 │   ├── session.rs    # ghost session list/show
 │   └── knowledge.rs  # ghost knowledge search/get/reindex
+├── daemon/
+│   └── mod.rs        # Subsystem wiring, task spawning, signal handling
 ├── config/
 │   └── mod.rs        # (placeholder)
 └── error.rs          # Top-level GhostError type
@@ -104,6 +106,5 @@ converts into `GhostError`.
 - `cargo build` produces a `ghost` binary
 - `ghost --help` shows all subcommands
 - `ghost version` prints version
-- `ghost daemon` starts and logs "daemon starting" via tracing/logfire
-- All subcommands exist as stubs that print "not yet implemented"
-- `just check`, `just clippy`, `just fmt` all pass
+- All other subcommands exist as stubs that print "not yet implemented"
+- `just ci` passes

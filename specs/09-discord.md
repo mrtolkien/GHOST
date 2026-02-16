@@ -32,7 +32,19 @@ This means:
 - Ignore messages from bots (including self)
 - Ignore messages from users other than `discord.allowed_user_id`
 - Strip bot mentions from the message text
+- Check for `/REBOOT` command (see below)
 - Pass cleaned text to `SessionChat::chat()`
+
+### /REBOOT Command
+
+When the OPERATOR sends `/REBOOT`, the Discord handler:
+
+1. Calls `SessionChat::reboot_session()` for the current channel's session
+2. Sends a confirmation message (e.g., "Session rebooted. Starting fresh.")
+3. Subsequent messages in the channel use the new session
+
+The pre-reboot reflection run is wired in spec 17 — at this step, `/REBOOT` just resets
+the session.
 
 ### Outgoing Messages — Components v2
 
@@ -100,6 +112,17 @@ When a response exceeds 40 components:
 - Group into multiple messages
 - Each message gets up to 40 components
 - Preserve component order
+
+### Tool Loop Extension
+
+When `SessionChat::chat()` returns `StopReason::MaxIterations`, the GHOST has hit its
+tool call cap (default: 25). The Discord handler should:
+
+1. Send the partial response to the channel
+2. Ask the OPERATOR if the GHOST should continue (e.g., "I've hit 25 tool iterations.
+   Should I continue?")
+3. If the OPERATOR confirms, call `SessionChat::chat()` again in the same session — the
+   history picks up where it left off
 
 ### Error Handling
 
@@ -203,6 +226,9 @@ async fn message(&self, ctx: Context, msg: Message) { ... }
 - Components v2 renders markdown tables as PNG images
 - Horizontal rules render as Separator components
 - Fallback to legacy embeds/plain text on v2 errors
+- `/REBOOT` resets the session and confirms to the OPERATOR
+- Tool loop cap prompts the OPERATOR to continue
+- `just ci` passes
 
 ## Prior Art
 

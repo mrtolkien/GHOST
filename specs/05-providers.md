@@ -3,8 +3,7 @@
 ## Overview
 
 The provider system defines a trait for LLM backends and implements OpenRouter as the
-sole PoC provider. The trait exists for future extensibility (Anthropic, Gemini, etc.)
-but only OpenRouter ships initially.
+sole PoC provider.
 
 ## Provider Trait
 
@@ -170,6 +169,48 @@ async fn chat(&self, request: ChatRequest) -> Result<ChatResponse, ProviderError
 }
 ```
 
+## Live Test: Provider Validation
+
+Every provider implementation MUST have a live test (`--features live-tests`) that
+validates end-to-end compatibility with the GHOST's tool system. This catches format
+mismatches, tool schema issues, and model-specific quirks early.
+
+The test (fully functional once tools are defined in spec 10):
+
+1. Build a `ChatRequest` with ALL registered tool schemas (the full chat tool set)
+2. Send a message asking the model to run `pwd` via the `run_shell_command` tool
+3. Assert the response has `StopReason::ToolUse` with a `run_shell_command` call
+4. Assert the tool call input contains a valid `command` field
+
+At spec 05 implementation time, write a basic live test that validates chat completion
+without tools. The full tool-inclusive test is added when spec 10 is implemented.
+
+```rust
+#[cfg(feature = "live-tests")]
+#[tokio::test]
+async fn openrouter_accepts_all_tools_and_uses_shell() {
+    let provider = test_openrouter_provider();
+    let tools = all_tool_schemas();
+
+    let request = ChatRequest {
+        model: "anthropic/claude-sonnet-4-5-20250929".into(),
+        messages: vec![user_message("Run pwd and tell me the result.")],
+        tools: Some(tools),
+        ..Default::default()
+    };
+
+    let response = provider.chat(request).await.unwrap();
+
+    assert_eq!(response.stop_reason, StopReason::ToolUse);
+    let tool_call = response.first_tool_use().unwrap();
+    assert_eq!(tool_call.name, "run_shell_command");
+    assert!(tool_call.input.get("command").is_some());
+}
+```
+
+This same test is duplicated for Kimi Code (05a) and OpenAI OAuth (05b), each using
+their own provider instance. If a provider can't pass this test, it can't run the GHOST.
+
 ## Acceptance Criteria
 
 - Provider trait is defined with `chat()` method
@@ -179,7 +220,7 @@ async fn chat(&self, request: ChatRequest) -> Result<ChatResponse, ProviderError
 - Empty responses are retried (configurable count)
 - Circuit breaker tracks failures and prevents hammering
 - All provider calls produce tracing spans with model, tokens, and duration
-- Usage is logged to SurrealDB `usage_log` table
+- `just ci` passes
 
 ## Prior Art
 

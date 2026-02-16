@@ -88,6 +88,7 @@ KIMI_API_KEY=...
 - Empty response retry works
 - Provider is registered as `kimi_code` in model config
 - Integration test (live-tests) validates a chat completion
+- `just ci` passes
 
 ## Prior Art
 

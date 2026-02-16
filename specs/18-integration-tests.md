@@ -104,7 +104,6 @@ impl MockProvider {
 ### Job System
 
 - Test cron trigger timing
-- Test event trigger firing
 - Test cooldown enforcement
 - Test `carry_last_output` state persistence
 - Test `HEARTBEAT_CONTINUE` suppression
@@ -137,3 +136,4 @@ cargo test --features live-tests test_openrouter_chat
 - Tests are isolated (no shared state between tests)
 - `just test` passes without external dependencies
 - Live tests require `--features live-tests` flag
+- `just ci` passes

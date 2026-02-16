@@ -95,14 +95,37 @@ When the provider returns `StopReason::ToolUse`:
 6. Repeat until `StopReason::EndTurn` or `StopReason::MaxTokens`
 
 Safety: cap tool loops at a configurable maximum (default: 25 iterations) to prevent
-infinite loops.
+infinite loops. When the cap is hit, return `StopReason::MaxIterations` so the caller
+can decide how to handle it (e.g., ask the OPERATOR to continue — see spec 09).
 
 ## Session Lifecycle
 
 - Sessions are created implicitly on first message from a new conversation context
+  - There is generally one session per interface.
 - `last_activity_at` is updated on every OPERATOR message
 - Sessions are never deleted — only the compaction system manages history length
 - A session can have multiple job logs attached to it
+
+### Session Reboot
+
+The OPERATOR can reboot a session via `/REBOOT` (see spec 09). Rebooting means:
+
+1. Mark the current session as `rebooted` (preserves history for reference)
+2. Create a new session for the same interface/channel
+3. The new session starts fresh — clean system prompt, no chat history
+
+```rust
+impl SessionChat {
+    /// Reboot a session: mark old one as rebooted, create a new one.
+    /// Returns the new session ID.
+    /// The pre-reboot reflection trigger is wired in spec 17.
+    #[tracing::instrument(skip_all, fields(old_session_id = %session_id))]
+    pub async fn reboot_session(&self, session_id: &str) -> Result<String>;
+}
+```
+
+At this step, `reboot_session()` just handles the session swap. The reflection-before-
+reboot behavior is added when the reflection subsystem exists (spec 17).
 
 ## Differences Between `chat()` and `chat_job()`
 
@@ -116,7 +139,7 @@ infinite loops.
 
 ## Acceptance Criteria
 
-- OPERATOR can send a message and receive a response
+- `SessionChat::chat()` accepts a message and returns a provider response
 - Tool use loop executes tools and sends results back to the provider
 - Tool loop is capped at max iterations
 - Messages are persisted to SurrealDB after each exchange
@@ -124,6 +147,8 @@ infinite loops.
 - `chat_job()` stores transcript in job_log, not session messages
 - All operations produce tracing spans
 - Errors in tool execution don't crash the chat loop — they're returned as tool errors
+- `reboot_session()` marks old session and creates a new one
+- `just ci` passes
 
 ## Prior Art
 

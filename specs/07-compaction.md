@@ -41,6 +41,9 @@ Use a simple heuristic: ~4 characters per token (good enough for English). This 
 needing a tokenizer dependency. The threshold has enough margin that exact counts aren't
 critical.
 
+There should be a TODO: entry saying we will need to implement per-language rules in the
+future.
+
 ```rust
 fn estimate_tokens(text: &str) -> usize {
     text.len() / 4
@@ -63,6 +66,7 @@ keep_window = 20 # Keep the last 20 messages verbatim
 - Original messages are never deleted
 - Compaction produces a tracing span with before/after message counts
 - Works correctly across multiple compaction cycles (summary of summary scenario)
+- `just ci` passes
 
 ## Prior Art
 

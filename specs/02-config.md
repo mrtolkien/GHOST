@@ -42,10 +42,10 @@ model = "qwen3-embedding:8b"
 batch_size = 32
 
 [timing]
-heartbeat_idle_minutes = 4
+heartbeat_idle_minutes = 5
 heartbeat_check_seconds = 60
 heartbeat_continue_minutes = 30
-reflection_idle_minutes = 4
+reflection_idle_minutes = 15
 
 [compaction]
 threshold = 0.85
@@ -109,7 +109,7 @@ On first run (or `ghost init`), create the workspace directory structure:
 
 ```
 ~/GHOST/
-├── BOOT.md            # Core identity (template provided)
+├── BOOT.md            # Core information (template provided)
 ├── SOUL.md            # Evolving self-model (starts empty)
 ├── OPERATOR.md        # Operator knowledge (starts empty)
 ├── jobs/              # Cron job definitions
@@ -117,6 +117,54 @@ On first run (or `ghost init`), create the workspace directory structure:
 ├── .web-cache/        # Transient web results
 └── knowledge/         # (managed by SurrealDB, but reference files live here)
 ```
+
+## Testing with Temp Workspaces
+
+This is the first feature that touches the filesystem (workspace bootstrap, config
+read/write). All tests that need a workspace MUST use a temporary directory — never the
+real `~/.config/ghost/` or `~/GHOST/`.
+
+Start building a `tests/common/` module here with reusable helpers. Tests should read
+like specifications, not setup scripts:
+
+```rust
+// tests/common/mod.rs — reusable helpers, built up over time
+
+/// Returns a (Config, TempDir, TempDir) with temp workspace and config dir.
+/// Config dir has GHOST_CONFIG_DIR set. TempDirs are kept alive by the caller.
+pub fn test_config() -> (Config, TempDir, TempDir) { ... }
+
+/// Returns a (Config, TempDir, TempDir) with a bootstrapped workspace
+/// (BOOT.md, SOUL.md, OPERATOR.md, jobs/, skills/, etc. already created).
+pub fn test_workspace() -> (Config, TempDir, TempDir) { ... }
+```
+
+Tests that use these helpers stay readable:
+
+```rust
+#[test]
+fn config_loads_defaults_for_missing_fields() {
+    let (config, _workspace, _config_dir) = test_config();
+    assert_eq!(config.compaction.threshold, 0.85);
+}
+
+#[test]
+fn workspace_bootstrap_creates_identity_files() {
+    let (config, workspace, _config_dir) = test_workspace();
+    assert!(workspace.path().join("BOOT.md").exists());
+    assert!(workspace.path().join("SOUL.md").exists());
+}
+```
+
+Add `tempfile` as a dev-dependency in this step:
+
+```toml
+[dev-dependencies]
+tempfile = "3"
+```
+
+This `tests/common/` module grows with each spec. The `TestFixture` in spec 18 is the
+full-featured version, but helpers should exist from the start.
 
 ## Acceptance Criteria
 
@@ -127,3 +175,5 @@ On first run (or `ghost init`), create the workspace directory structure:
 - `ghost config set workspace /custom/path` modifies config.toml correctly
 - Workspace directory is created on first run with template identity files
 - Invalid config produces clear error messages with file path and field name
+- Tests use temp directories — never touch the real `~/.config/ghost/` or `~/GHOST/`
+- `just ci` passes

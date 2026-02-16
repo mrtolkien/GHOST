@@ -202,6 +202,7 @@ These tools are available during reflection jobs, NOT during regular chat:
 - All knowledge operations produce tracing spans
 - Tags are hierarchical, lowercase, slash-separated
 - Archetypes provide template guidance but are not enforced
+- `just ci` passes
 
 ## Prior Art
 

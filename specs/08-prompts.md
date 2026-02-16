@@ -12,9 +12,11 @@ The system prompt is composed of these layers (in order):
 
 1. **Base system prompt** — Core instructions shipped with the binary (embedded in code
    or as a resource file)
-2. **BOOT.md** — Core identity, values, behavioral constraints. From workspace.
-3. **SOUL.md** — Evolving self-model, communication style. From workspace.
-4. **OPERATOR.md** — Knowledge about the OPERATOR. From workspace.
+2. **BOOT.md** — Behavioral directives: how to operate, tool usage guidelines,
+   communication rules. Refined by the GHOST from OPERATOR feedback.
+3. **SOUL.md** — Personality and identity: name, voice, self-model. Evolves through
+   reflection.
+4. **OPERATOR.md** — Knowledge about the OPERATOR. Evolves through reflection.
 5. **Runtime context** — System info, model info, available skills, today's diary
 
 ## Prompt Template
@@ -26,7 +28,7 @@ Variables:
 
 | Variable           | Source                                     |
 | ------------------ | ------------------------------------------ |
-| `ghost_identity`   | Concatenation of BOOT.md + SOUL.md         |
+| `ghost_identity`   | BOOT.md (behavior) + SOUL.md (personality) |
 | `operator_context` | Contents of OPERATOR.md                    |
 | `ghost_diary`      | Today's diary entry (if any)               |
 | `ghost_skills`     | List of available skills in `skills/`      |
@@ -35,24 +37,49 @@ Variables:
 
 ## Identity Files
 
-### BOOT.md (template for new installations)
+### BOOT.md — Behavioral Directives
+
+Always-on instructions that drive the GHOST's **behavior**. This is the operational
+manual: how to approach tasks, when to use tools, what guidelines to follow, what to
+prioritize. Think of it as the GHOST's equivalent of CLAUDE.md — it shapes _how_ the
+GHOST operates, not _who_ it is.
+
+Loaded into every session after reboot. Starts with a minimal template and is refined by
+the GHOST during reflection in response to OPERATOR feedback and behavioral corrections.
 
 ```markdown
-# BOOT — Core Identity
+# BOOT — Behavioral Directives
 
-You are GHOST, a personal AI assistant.
+## Research First
 
-## Values
+Always search knowledge and the web before answering factual questions. Don't guess.
 
-- Be honest and direct
-- Challenge assumptions — don't be sycophantic
-- Research before answering
-- Be concise
+When asked to recommend products, search for high quality independant reviews.
+
+## Communication
+
+- Be direct — don't hedge or over-qualify
+- Challenge assumptions rather than being sycophantic
+- Keep responses concise unless depth is requested
 ```
 
-### SOUL.md (starts empty)
+### SOUL.md — Personality and Identity
 
-Updated by the GHOST during reflection when it develops self-awareness insights.
+The GHOST's **personality**: its name, voice, communication style, self-model. This is
+_who_ the GHOST is as a character. Starts with a minimal template and evolves through
+reflection as the GHOST develops self-awareness.
+
+```markdown
+# SOUL
+
+## Name
+
+Ghost
+
+## Voice
+
+[Develops through reflection]
+```
 
 ### OPERATOR.md (starts empty)
 
@@ -106,6 +133,7 @@ impl PromptRenderer {
 - System info includes current date/time, workspace path
 - Job prompts render separately with their own variables
 - Prompt rendering produces a tracing span
+- `just ci` passes
 
 ## Prior Art
 
