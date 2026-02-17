@@ -825,14 +825,21 @@ pub async fn count_stubs(db: &Surreal<Db>) -> Result<i64, DatabaseError> {
 }
 
 #[derive(Debug, Deserialize)]
-struct TagsRow {
-    tags: Vec<String>,
+struct TagCountRow {
+    tags: String,
+    count: i64,
 }
 
 #[tracing::instrument(skip_all, level = "debug")]
 pub async fn list_tags_with_counts(db: &Surreal<Db>) -> Result<Vec<(String, i64)>, DatabaseError> {
     let mut response = db
-        .query("SELECT tags FROM note WHERE array::len(tags) > 0")
+        .query(
+            "SELECT tags, count() AS count \
+             FROM (SELECT * FROM note SPLIT tags) \
+             WHERE tags IS NOT NONE \
+             GROUP BY tags \
+             ORDER BY count DESC",
+        )
         .await
         .map_err(|source| DatabaseError::Query {
             table: "note",
@@ -840,22 +847,13 @@ pub async fn list_tags_with_counts(db: &Surreal<Db>) -> Result<Vec<(String, i64)
             source,
         })?;
 
-    let rows: Vec<TagsRow> = response.take(0).map_err(|source| DatabaseError::Query {
+    let rows: Vec<TagCountRow> = response.take(0).map_err(|source| DatabaseError::Query {
         table: "note",
         operation: "list_tags/take",
         source,
     })?;
 
-    let mut counts: std::collections::HashMap<String, i64> = std::collections::HashMap::new();
-    for row in rows {
-        for tag in row.tags {
-            *counts.entry(tag).or_insert(0) += 1;
-        }
-    }
-
-    let mut result: Vec<(String, i64)> = counts.into_iter().collect();
-    result.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
-    Ok(result)
+    Ok(rows.into_iter().map(|r| (r.tags, r.count)).collect())
 }
 
 // --- Reference updates ---
