@@ -430,6 +430,13 @@ pub fn bootstrap_workspace(config: &Config) -> Result<(), ConfigError> {
     create_file_if_missing(&config.workspace.join("SOUL.md"), "")?;
     create_file_if_missing(&config.workspace.join("OPERATOR.md"), "")?;
 
+    crate::skills::install_default_skills(&config.workspace).map_err(|source| {
+        ConfigError::WriteFile {
+            path: config.workspace.join("skills"),
+            source,
+        }
+    })?;
+
     Ok(())
 }
 

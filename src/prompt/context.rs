@@ -1,4 +1,3 @@
-use std::fs;
 use std::path::Path;
 
 /// Build system information: OS, hostname, current datetime, workspace path.
@@ -50,39 +49,28 @@ pub fn build_operator_context(workspace: &Path) -> String {
     read_optional_file(&workspace.join("OPERATOR.md"))
 }
 
-/// Scan the `skills/` directory and list available skills.
-/// Returns empty string if the directory doesn't exist or is empty.
+/// Scan the `skills/` directory, parse frontmatter, and list available
+/// skills with descriptions. Returns empty string if no skills found.
 #[tracing::instrument(skip_all, level = "debug", fields(workspace = %workspace.display()))]
 pub fn build_ghost_skills(workspace: &Path) -> String {
-    let skills_dir = workspace.join("skills");
+    let skills = crate::skills::discover_skills(workspace);
 
-    let entries = match fs::read_dir(&skills_dir) {
-        Ok(entries) => entries,
-        Err(_) => return String::new(),
-    };
-
-    let mut skill_names: Vec<String> = Vec::new();
-    for entry in entries.flatten() {
-        let name = entry.file_name().to_string_lossy().to_string();
-        // Skip hidden files/dirs
-        if name.starts_with('.') {
-            continue;
-        }
-        skill_names.push(name);
-    }
-
-    if skill_names.is_empty() {
+    if skills.is_empty() {
         return String::new();
     }
 
-    skill_names.sort();
-
-    let list = skill_names
+    let list = skills
         .iter()
-        .map(|n| format!("- {n}"))
+        .map(|s| format!("- **{}** — {}", s.name, s.description))
         .collect::<Vec<_>>()
         .join("\n");
-    format!("Available skills:\n{list}")
+
+    format!(
+        "## Available Skills\n\n\
+         Use `read_file` to load the full instructions for any \
+         skill before using it.\n\n\
+         {list}"
+    )
 }
 
 /// Placeholder for diary content. Will be wired to SurrealDB in spec 15.
@@ -134,7 +122,7 @@ All results are auto-cached to `$WORKSPACE/.web-cache/`."#
 }
 
 fn read_optional_file(path: &Path) -> String {
-    fs::read_to_string(path).unwrap_or_default()
+    std::fs::read_to_string(path).unwrap_or_default()
 }
 
 #[cfg(test)]
@@ -167,21 +155,46 @@ mod tests {
     }
 
     #[test]
-    fn skills_lists_sorted_entries_and_skips_hidden() {
+    fn skills_lists_sorted_entries_with_descriptions_and_skips_hidden() {
         let dir = TempDir::new().unwrap();
         let skills = dir.path().join("skills");
-        fs::create_dir(&skills).unwrap();
-        fs::create_dir(skills.join(".hidden")).unwrap();
-        fs::create_dir(skills.join("note-writer")).unwrap();
-        fs::create_dir(skills.join("researcher")).unwrap();
+
+        // Hidden dir with valid skill.md — should be skipped
+        let hidden = skills.join(".hidden");
+        fs::create_dir_all(&hidden).unwrap();
+        fs::write(
+            hidden.join("skill.md"),
+            "---\nname: hidden\ndescription: Hidden.\n---\n",
+        )
+        .unwrap();
+
+        // Valid skills with frontmatter
+        let nw = skills.join("note-writer");
+        fs::create_dir_all(&nw).unwrap();
+        fs::write(
+            nw.join("skill.md"),
+            "---\nname: note-writer\ndescription: Create notes.\n---\n",
+        )
+        .unwrap();
+
+        let rs = skills.join("researcher");
+        fs::create_dir_all(&rs).unwrap();
+        fs::write(
+            rs.join("skill.md"),
+            "---\nname: researcher\ndescription: Research things.\n---\n",
+        )
+        .unwrap();
 
         let result = build_ghost_skills(dir.path());
-        assert!(!result.contains(".hidden"));
-        assert!(result.contains("- note-writer"));
-        assert!(result.contains("- researcher"));
+
+        assert!(!result.contains("hidden"));
+        assert!(result.contains("**note-writer** — Create notes."));
+        assert!(result.contains("**researcher** — Research things."));
+        assert!(result.contains("## Available Skills"));
+
         // Verify sorted order
-        let nw = result.find("note-writer").unwrap();
-        let rs = result.find("researcher").unwrap();
-        assert!(nw < rs);
+        let nw_pos = result.find("note-writer").unwrap();
+        let rs_pos = result.find("researcher").unwrap();
+        assert!(nw_pos < rs_pos);
     }
 }
