@@ -6,6 +6,7 @@ pub mod daemon;
 pub mod db;
 pub mod error;
 pub mod interfaces;
+pub mod knowledge;
 pub mod observability;
 pub mod prompt;
 pub mod providers;

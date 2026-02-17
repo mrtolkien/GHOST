@@ -421,7 +421,15 @@ pub fn bootstrap_workspace(config: &Config) -> Result<(), ConfigError> {
         source,
     })?;
 
-    for dir in ["jobs", "skills", ".web-cache", "knowledge"] {
+    for dir in [
+        "jobs",
+        "skills",
+        ".web-cache",
+        "knowledge",
+        "knowledge/notes",
+        "knowledge/references",
+        "knowledge/diary",
+    ] {
         let path = config.workspace.join(dir);
         std::fs::create_dir_all(&path).map_err(|source| ConfigError::WriteFile { path, source })?;
     }
