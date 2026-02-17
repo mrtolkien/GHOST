@@ -13,6 +13,9 @@ pub enum GhostError {
     Database(Box<crate::db::DatabaseError>),
 
     #[error(transparent)]
+    Embedding(#[from] crate::embeddings::EmbeddingError),
+
+    #[error(transparent)]
     Auth(#[from] crate::auth::openai_oauth::AuthError),
 
     #[error("io error: {0}")]

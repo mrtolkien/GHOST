@@ -116,6 +116,7 @@ mod tests {
                 url: "http://localhost:11434".to_string(),
                 model: "test".to_string(),
                 batch_size: 10,
+                dimension: 1024,
             },
             timing: TimingConfig {
                 heartbeat_idle_minutes: 30,

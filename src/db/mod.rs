@@ -1,4 +1,5 @@
 mod connection;
+pub mod embeddings;
 mod error;
 pub mod interface_sessions;
 pub mod job_logs;

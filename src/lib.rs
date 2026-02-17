@@ -4,6 +4,7 @@ pub mod cli;
 pub mod config;
 pub mod daemon;
 pub mod db;
+pub mod embeddings;
 pub mod error;
 pub mod interfaces;
 pub mod knowledge;

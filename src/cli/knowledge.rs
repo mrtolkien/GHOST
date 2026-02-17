@@ -2,6 +2,7 @@ use clap::Subcommand;
 use surrealdb::sql::Thing;
 
 use crate::db;
+use crate::embeddings::EmbeddingClient;
 use crate::error::GhostError;
 use crate::knowledge;
 
@@ -34,7 +35,10 @@ pub enum KnowledgeCommand {
         limit: usize,
     },
     Stats,
-    Reindex,
+    Reindex {
+        #[arg(long)]
+        skip_embeddings: bool,
+    },
 }
 
 #[tracing::instrument(skip_all)]
@@ -45,7 +49,7 @@ pub async fn execute(command: KnowledgeCommand) -> Result<(), GhostError> {
 
     match command {
         KnowledgeCommand::Search { query, kind, limit } => {
-            cmd_search(&db, &query, kind.as_deref(), limit).await
+            cmd_search(&db, &config.embeddings, &query, kind.as_deref(), limit).await
         }
         KnowledgeCommand::Get { path, title } => {
             cmd_get(&db, &config.workspace, path.as_deref(), title.as_deref()).await
@@ -59,34 +63,54 @@ pub async fn execute(command: KnowledgeCommand) -> Result<(), GhostError> {
         KnowledgeCommand::Tags => cmd_tags(&db).await,
         KnowledgeCommand::Recent { limit } => cmd_recent(&db, limit).await,
         KnowledgeCommand::Stats => cmd_stats(&db).await,
-        KnowledgeCommand::Reindex => cmd_reindex(&db, &config.workspace).await,
+        KnowledgeCommand::Reindex { skip_embeddings } => {
+            cmd_reindex(&db, &config.workspace, &config.embeddings, skip_embeddings).await
+        }
     }
 }
 
 async fn cmd_search(
     db: &surrealdb::Surreal<surrealdb::engine::local::Db>,
+    embeddings_config: &crate::config::EmbeddingsConfig,
     query: &str,
     kind: Option<&str>,
     limit: usize,
 ) -> Result<(), GhostError> {
-    let mut hits = Vec::new();
+    let mut bm25_hits = Vec::new();
 
     if kind.is_none() || kind == Some("note") {
-        hits.extend(db::knowledge::search_notes(db, query, limit).await?);
+        bm25_hits.extend(db::knowledge::search_notes(db, query, limit).await?);
     }
     if kind.is_none() || kind == Some("reference") {
-        hits.extend(db::knowledge::search_references(db, query, limit).await?);
+        bm25_hits.extend(db::knowledge::search_references(db, query, limit).await?);
     }
     if kind.is_none() || kind == Some("diary") {
-        hits.extend(db::knowledge::search_diary(db, query, limit).await?);
+        bm25_hits.extend(db::knowledge::search_diary(db, query, limit).await?);
     }
 
-    hits.sort_by(|a, b| {
-        b.score
-            .partial_cmp(&a.score)
-            .unwrap_or(std::cmp::Ordering::Equal)
-    });
-    hits.truncate(limit);
+    // Try hybrid search: embed query and merge with BM25
+    let client = EmbeddingClient::new(embeddings_config);
+    let hits = if client.is_available().await {
+        match client.embed_batch(&[query.to_string()]).await {
+            Ok(vectors) if !vectors.is_empty() => {
+                let embedding_hits = db::embeddings::vector_search(db, &vectors[0], limit).await?;
+                db::knowledge::hybrid_merge(&bm25_hits, &embedding_hits, limit)
+            }
+            Ok(_) => {
+                logfire::warn!("embedding returned empty vectors, falling back to BM25");
+                fallback_bm25(bm25_hits, limit)
+            }
+            Err(e) => {
+                logfire::warn!(
+                    "embedding query failed, falling back to BM25",
+                    error = e.to_string()
+                );
+                fallback_bm25(bm25_hits, limit)
+            }
+        }
+    } else {
+        fallback_bm25(bm25_hits, limit)
+    };
 
     if hits.is_empty() {
         println!("No results for '{query}'");
@@ -101,6 +125,19 @@ async fn cmd_search(
     }
 
     Ok(())
+}
+
+fn fallback_bm25(
+    mut hits: Vec<db::knowledge::SearchHit>,
+    limit: usize,
+) -> Vec<db::knowledge::SearchHit> {
+    hits.sort_by(|a, b| {
+        b.score
+            .partial_cmp(&a.score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+    hits.truncate(limit);
+    hits
 }
 
 async fn cmd_get(
@@ -275,18 +312,22 @@ async fn cmd_stats(
     let diary = db::knowledge::count_diary(db).await?;
     let edges = db::knowledge::count_edges(db).await?;
     let tags = db::knowledge::list_tags_with_counts(db).await?;
+    let embeddings = db::embeddings::count_embeddings(db).await?;
 
     println!("Notes:      {notes} ({stubs} stubs)");
     println!("References: {references}");
     println!("Diary:      {diary}");
     println!("Edges:      {edges}");
     println!("Tags:       {}", tags.len());
+    println!("Embeddings: {embeddings}");
     Ok(())
 }
 
 async fn cmd_reindex(
     db: &surrealdb::Surreal<surrealdb::engine::local::Db>,
     workspace: &std::path::Path,
+    embeddings_config: &crate::config::EmbeddingsConfig,
+    skip_embeddings: bool,
 ) -> Result<(), GhostError> {
     let mut synced = 0usize;
     let mut created = 0usize;
@@ -394,11 +435,40 @@ async fn cmd_reindex(
         }
     }
 
-    // TODO: spec 14 embeddings hook here
+    // Embeddings
+    if skip_embeddings {
+        println!(
+            "Reindex complete: notes {created} created / {synced} updated, \
+             {ref_synced} references synced, {diary_synced} diary entries synced \
+             (embeddings skipped)"
+        );
+        return Ok(());
+    }
+
+    let client = EmbeddingClient::new(embeddings_config);
+    if !client.is_available().await {
+        eprintln!("Ollama unavailable — skipping embeddings");
+        println!(
+            "Reindex complete: notes {created} created / {synced} updated, \
+             {ref_synced} references synced, {diary_synced} diary entries synced"
+        );
+        return Ok(());
+    }
+
+    db::embeddings::delete_all_embeddings(db).await?;
+    let (embedded, _skipped) = crate::embeddings::pipeline::reconcile_embeddings(&client, db)
+        .await
+        .map_err(|e| match e {
+            crate::embeddings::pipeline::PipelineError::Embedding(e) => GhostError::Embedding(e),
+            crate::embeddings::pipeline::PipelineError::Database(e) => {
+                GhostError::Database(Box::new(e))
+            }
+        })?;
 
     println!(
         "Reindex complete: notes {created} created / {synced} updated, \
-         {ref_synced} references synced, {diary_synced} diary entries synced"
+         {ref_synced} references synced, {diary_synced} diary entries synced, \
+         {embedded} embeddings generated"
     );
     Ok(())
 }

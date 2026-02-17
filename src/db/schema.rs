@@ -90,6 +90,18 @@ DEFINE INDEX idx_interface ON interface_session FIELDS interface UNIQUE;
 DEFINE TABLE cited SCHEMAFULL TYPE RELATION;
 DEFINE FIELD created_at ON cited TYPE datetime;
 
+DEFINE TABLE embedding SCHEMAFULL;
+DEFINE FIELD source_table ON embedding TYPE string;
+DEFINE FIELD source_id ON embedding TYPE record;
+DEFINE FIELD chunk_index ON embedding TYPE int;
+DEFINE FIELD chunk_text ON embedding TYPE string;
+DEFINE FIELD content_hash ON embedding TYPE string;
+DEFINE FIELD vector ON embedding TYPE array<float>;
+DEFINE FIELD created_at ON embedding TYPE datetime;
+DEFINE INDEX idx_embedding_source ON embedding FIELDS source_id, chunk_index UNIQUE;
+DEFINE INDEX idx_embedding_vector ON embedding FIELDS vector
+    MTREE DIMENSION 1024 DIST COSINE;
+
 DEFINE ANALYZER note_analyzer TOKENIZERS blank, class FILTERS lowercase, snowball(english);
 DEFINE INDEX idx_note_title_fts ON note FIELDS title SEARCH ANALYZER note_analyzer BM25;
 DEFINE INDEX idx_note_body_fts ON note FIELDS body SEARCH ANALYZER note_analyzer BM25;

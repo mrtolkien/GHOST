@@ -107,6 +107,7 @@ pub struct EmbeddingsSettings {
     pub url: Option<String>,
     pub model: Option<String>,
     pub batch_size: Option<usize>,
+    pub dimension: Option<usize>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -169,6 +170,7 @@ pub struct EmbeddingsConfig {
     pub url: String,
     pub model: String,
     pub batch_size: usize,
+    pub dimension: usize,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -296,6 +298,11 @@ impl Config {
                     .as_ref()
                     .and_then(|e| e.batch_size)
                     .unwrap_or(32),
+                dimension: settings
+                    .embeddings
+                    .as_ref()
+                    .and_then(|e| e.dimension)
+                    .unwrap_or(1024),
             },
             timing: TimingConfig {
                 heartbeat_idle_minutes: settings
@@ -666,6 +673,7 @@ pub fn test_config(workspace: &std::path::Path) -> Config {
             url: "http://localhost:11434".to_string(),
             model: "test".to_string(),
             batch_size: 32,
+            dimension: 1024,
         },
         timing: TimingConfig {
             heartbeat_idle_minutes: 5,

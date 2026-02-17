@@ -11,8 +11,10 @@ clap = { version = "4", features = ["derive"] }
 dom_smoothie = "0.15"
 dotenvy = "0.15"
 gethostname = "1"
+hex = "0.4"
 htmd = "0.5"
 logfire = "0.9"
+notify = { version = "8", default-features = false, features = ["macos_fsevent"] }
 rand = "0.9"
 regex = "1"
 reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
