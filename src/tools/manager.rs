@@ -63,11 +63,14 @@ impl ToolManager {
 
     /// Create a `ToolManager` for reflection jobs.
     ///
-    /// Currently identical to `for_chat()`. Spec 13 will add knowledge-write
-    /// tools here.
+    /// Includes all chat tools plus knowledge-write tools (note_write,
+    /// reference_manage) for use during reflection.
     #[must_use]
     pub fn for_reflection() -> Self {
-        Self::for_chat()
+        let mut manager = Self::for_chat();
+        manager.register(Arc::new(super::note_write::NoteWrite));
+        manager.register(Arc::new(super::reference_manage::ReferenceManage));
+        manager
     }
 
     #[must_use]

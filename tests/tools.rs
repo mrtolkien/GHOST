@@ -39,13 +39,16 @@ async fn for_chat_registers_six_tools() {
 }
 
 #[tokio::test]
-async fn for_reflection_returns_same_tools() {
+async fn for_reflection_includes_knowledge_tools() {
     let chat = ToolManager::for_chat();
     let reflection = ToolManager::for_reflection();
-    assert_eq!(
-        chat.all_tool_schemas().len(),
-        reflection.all_tool_schemas().len()
-    );
+    assert_eq!(chat.all_tool_schemas().len(), 6);
+    assert_eq!(reflection.all_tool_schemas().len(), 8);
+
+    let schemas = reflection.all_tool_schemas();
+    let names: Vec<&str> = schemas.iter().map(|s| s.name.as_str()).collect();
+    assert!(names.contains(&"note_write"));
+    assert!(names.contains(&"reference_manage"));
 }
 
 #[tokio::test]
