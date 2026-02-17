@@ -98,6 +98,7 @@ mod tests {
     fn test_config(workspace: &std::path::Path) -> Config {
         use crate::config::{
             CompactionConfig, DiscordConfig, EmbeddingsConfig, ModelsConfig, TimingConfig,
+            WebConfig,
         };
         use std::collections::BTreeMap;
 
@@ -126,6 +127,9 @@ mod tests {
                 threshold: 0.7,
                 keep_window: 10,
                 mask_preview_chars: 200,
+            },
+            web: WebConfig {
+                search_max_results: 5,
             },
         }
     }

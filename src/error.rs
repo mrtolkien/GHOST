@@ -26,6 +26,9 @@ pub enum GhostError {
 
     #[error(transparent)]
     Discord(#[from] crate::interfaces::discord::DiscordError),
+
+    #[error(transparent)]
+    Web(#[from] crate::web::WebError),
 }
 
 impl From<crate::db::DatabaseError> for GhostError {

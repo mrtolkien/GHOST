@@ -35,6 +35,10 @@ enum Commands {
         #[command(subcommand)]
         command: ghost::cli::knowledge::KnowledgeCommand,
     },
+    Web {
+        #[command(subcommand)]
+        command: ghost::cli::web::WebCommand,
+    },
     Version,
 }
 
@@ -57,6 +61,7 @@ async fn dispatch(command: Commands) -> Result<(), GhostError> {
         Commands::Job { command } => ghost::cli::job::execute(command).await,
         Commands::Session { command } => ghost::cli::session::execute(command).await,
         Commands::Knowledge { command } => ghost::cli::knowledge::execute(command).await,
+        Commands::Web { command } => ghost::cli::web::execute(command).await,
         Commands::Version => {
             println!("{}", env!("CARGO_PKG_VERSION"));
             Ok(())

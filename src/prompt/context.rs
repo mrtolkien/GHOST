@@ -92,10 +92,45 @@ pub fn build_ghost_diary() -> String {
     String::new()
 }
 
-/// Placeholder for available CLI commands.
+/// CLI commands available via the shell tool.
 #[tracing::instrument(skip_all, level = "debug")]
 pub fn build_ghost_commands() -> String {
-    String::new()
+    r#"## Available Commands
+
+### Web Search
+```
+ghost web search "<query>" [-n <max_results>]
+```
+Search the web using Brave Search. Returns numbered results with title, URL, and
+snippet. Results are auto-cached to `.web-cache/` for later curation.
+
+### Web Fetch
+```
+ghost web fetch "<url>" [--max-chars <N>] [--readability] [--raw]
+```
+Fetch a URL and convert it to Markdown. Output goes to stdout; cache path to stderr.
+
+**Choosing the right mode:**
+
+- **Default** (no flags): converts full HTML to Markdown. All page content is
+  preserved — headings, links, lists, navigation, sidebars. Use this for:
+  - Documentation pages, API references
+  - Index/listing pages, homepages
+  - Search result pages, forums
+  - Any page where you need the complete content
+- **`--readability`**: extracts only the main article body, stripping navigation,
+  sidebars, headers, footers, and boilerplate. Use this for:
+  - Blog posts and news articles
+  - Essays, tutorials, long-form writing
+  - Any page with a single primary article you want to read cleanly
+- **`--raw`**: returns raw HTML with no conversion. Use when Markdown conversion
+  loses important structural information or you need to inspect the page source.
+
+Options:
+- `--max-chars <N>`: truncate output at N characters (default 50000)
+
+All results are auto-cached to `$WORKSPACE/.web-cache/`."#
+        .to_string()
 }
 
 fn read_optional_file(path: &Path) -> String {

@@ -8,8 +8,10 @@ async-trait = "0.1"
 base64 = "0.22"
 chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4", features = ["derive"] }
+dom_smoothie = "0.15"
 dotenvy = "0.15"
 gethostname = "1"
+htmd = "0.5"
 logfire = "0.9"
 rand = "0.9"
 reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
@@ -24,6 +26,7 @@ tokio = { version = "1", features = ["full"] }
 toml = "0.9"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+url = "2"
 
 [features]
 live-tests = []

@@ -5,3 +5,4 @@ pub mod init;
 pub mod job;
 pub mod knowledge;
 pub mod session;
+pub mod web;

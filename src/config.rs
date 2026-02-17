@@ -74,6 +74,7 @@ pub struct Settings {
     pub embeddings: Option<EmbeddingsSettings>,
     pub timing: Option<TimingSettings>,
     pub compaction: Option<CompactionSettings>,
+    pub web: Option<WebSettings>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -125,6 +126,12 @@ pub struct CompactionSettings {
     pub mask_preview_chars: Option<usize>,
 }
 
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct WebSettings {
+    pub search_max_results: Option<usize>,
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct Config {
     pub workspace: PathBuf,
@@ -133,6 +140,7 @@ pub struct Config {
     pub embeddings: EmbeddingsConfig,
     pub timing: TimingConfig,
     pub compaction: CompactionConfig,
+    pub web: WebConfig,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -176,6 +184,11 @@ pub struct CompactionConfig {
     pub threshold: f64,
     pub keep_window: usize,
     pub mask_preview_chars: usize,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct WebConfig {
+    pub search_max_results: usize,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
@@ -323,6 +336,13 @@ impl Config {
                     .and_then(|c| c.mask_preview_chars)
                     .unwrap_or(100),
             },
+            web: WebConfig {
+                search_max_results: settings
+                    .web
+                    .as_ref()
+                    .and_then(|w| w.search_max_results)
+                    .unwrap_or(5),
+            },
         })
     }
 }
@@ -465,6 +485,7 @@ fn empty_settings() -> Settings {
         embeddings: None,
         timing: None,
         compaction: None,
+        web: None,
     }
 }
 
@@ -641,6 +662,9 @@ pub fn test_config(workspace: &std::path::Path) -> Config {
             threshold: 0.85,
             keep_window: 20,
             mask_preview_chars: 100,
+        },
+        web: WebConfig {
+            search_max_results: 5,
         },
     }
 }
