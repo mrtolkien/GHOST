@@ -38,7 +38,8 @@ impl Tool for FileEdit {
                         "description": "The replacement string"
                     }
                 },
-                "required": ["path", "old_string", "new_string"]
+                "required": ["path", "old_string", "new_string"],
+                "additionalProperties": false
             }),
         }
     }

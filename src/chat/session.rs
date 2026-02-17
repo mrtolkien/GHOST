@@ -12,13 +12,12 @@ use crate::prompt::{PromptContext, PromptRenderer};
 use crate::providers::{
     ChatMessage, ChatRequest, ContentBlock, Provider, Role, StopReason, provider_for_alias,
 };
-use crate::tools::{ToolContext, ToolManager, ToolSet, format_todo_injection};
+use crate::tools::{RESPOND_TOOL_NAME, ToolContext, ToolManager, ToolSet, format_todo_injection};
 
 use super::convert::{
-    citation_response_format, citations_to_values, convert_stored_message_to_provider_message,
-    extract_latest_assistant_text, extract_text_content, extract_tool_use_blocks,
-    parse_session_thing, parse_structured_or_fallback, render_tool_error, resolve_web_cache_url,
-    tool_results_to_values,
+    citations_to_values, convert_stored_message_to_provider_message, extract_latest_assistant_text,
+    extract_text_content, extract_tool_use_blocks, parse_respond_call, parse_session_thing,
+    render_tool_error, resolve_web_cache_url, tool_results_to_values,
 };
 use super::types::{
     ChatError, ChatResult, ChatStopReason, Citation, DEFAULT_MAX_TOOL_ITERATIONS, JobTranscript,
@@ -112,7 +111,6 @@ impl SessionChat {
                 max_tokens: None,
                 temperature: None,
                 system: Some(prompt),
-                response_format: Some(citation_response_format()),
             };
             let response = self.provider.chat(request).await?;
 
@@ -133,6 +131,40 @@ impl SessionChat {
                     iterations += 1;
 
                     let tool_uses = extract_tool_use_blocks(&response.content);
+
+                    // Intercept the `respond` tool — it signals the final answer.
+                    if let Some((message, citations)) =
+                        parse_respond_call(RESPOND_TOOL_NAME, &tool_uses)
+                    {
+                        let mut citations = citations;
+                        self.resolve_citation_urls(&mut citations);
+                        let message_id = db::sessions::create_message_with_metadata(
+                            &self.db,
+                            &session_thing,
+                            "assistant",
+                            &message,
+                            Some(tool_uses),
+                            None,
+                            Some(citations_to_values(&citations)),
+                        )
+                        .await?;
+                        self.create_citation_edges(&message_id, &citations).await?;
+
+                        let result = ChatResult {
+                            message,
+                            citations,
+                            stop_reason: ChatStopReason::EndTurn,
+                        };
+                        logfire::info!(
+                            "chat complete (respond tool)",
+                            session_id = session_id.to_string(),
+                            iterations = iterations as u64,
+                            citation_count = result.citations.len() as u64,
+                            response_len = result.message.len() as u64,
+                        );
+                        return Ok(result);
+                    }
+
                     let assistant_text = extract_text_content(&response.content);
                     let assistant_msg = ChatMessage {
                         role: Role::Assistant,
@@ -169,16 +201,8 @@ impl SessionChat {
                     self.apply_masking_if_needed(&mut history);
                 }
                 StopReason::EndTurn | StopReason::MaxTokens => {
-                    let (message, mut citations) = parse_structured_or_fallback(&response.content);
-                    for citation in &mut citations {
-                        if citation.url.is_none() && citation.source.starts_with(".web-cache/") {
-                            citation.url =
-                                resolve_web_cache_url(&self.config.workspace, &citation.source);
-                        }
-                        if citation.url.is_none() && citation.source.starts_with("http") {
-                            citation.url = Some(citation.source.clone());
-                        }
-                    }
+                    // Fallback: model returned plain text without calling respond.
+                    let message = extract_text_content(&response.content);
 
                     let message_id = db::sessions::create_message_with_metadata(
                         &self.db,
@@ -187,14 +211,14 @@ impl SessionChat {
                         &message,
                         Some(extract_tool_use_blocks(&response.content)),
                         None,
-                        Some(citations_to_values(&citations)),
+                        None,
                     )
                     .await?;
-                    self.create_citation_edges(&message_id, &citations).await?;
+                    let _ = message_id; // no citations to link
 
                     let result = ChatResult {
                         message,
-                        citations,
+                        citations: Vec::new(),
                         stop_reason: if response.stop_reason == StopReason::MaxTokens {
                             ChatStopReason::MaxTokens
                         } else {
@@ -261,7 +285,6 @@ impl SessionChat {
                 max_tokens: None,
                 temperature: None,
                 system: Some(format!("Job: {job_name}")),
-                response_format: Some(citation_response_format()),
             };
             let response = self.provider.chat(request).await?;
 
@@ -278,6 +301,20 @@ impl SessionChat {
                     iterations += 1;
 
                     let tool_uses = extract_tool_use_blocks(&response.content);
+
+                    // Intercept the `respond` tool — it signals the final answer.
+                    if let Some((message, mut citations)) =
+                        parse_respond_call(RESPOND_TOOL_NAME, &tool_uses)
+                    {
+                        self.resolve_citation_urls(&mut citations);
+                        transcript_lines.push(format!("[assistant] {message}"));
+                        break ChatResult {
+                            message,
+                            citations,
+                            stop_reason: ChatStopReason::EndTurn,
+                        };
+                    }
+
                     let assistant_text = extract_text_content(&response.content);
                     if !assistant_text.is_empty() {
                         transcript_lines.push(format!("[assistant] {assistant_text}"));
@@ -298,20 +335,12 @@ impl SessionChat {
                     });
                 }
                 StopReason::EndTurn | StopReason::MaxTokens => {
-                    let (message, mut citations) = parse_structured_or_fallback(&response.content);
-                    for citation in &mut citations {
-                        if citation.url.is_none() && citation.source.starts_with(".web-cache/") {
-                            citation.url =
-                                resolve_web_cache_url(&self.config.workspace, &citation.source);
-                        }
-                        if citation.url.is_none() && citation.source.starts_with("http") {
-                            citation.url = Some(citation.source.clone());
-                        }
-                    }
+                    // Fallback: model returned plain text without calling respond.
+                    let message = extract_text_content(&response.content);
                     transcript_lines.push(format!("[assistant] {message}"));
                     break ChatResult {
                         message,
-                        citations,
+                        citations: Vec::new(),
                         stop_reason: if response.stop_reason == StopReason::MaxTokens {
                             ChatStopReason::MaxTokens
                         } else {
@@ -402,6 +431,17 @@ impl SessionChat {
             return Ok(None);
         }
         Ok(Some(format_todo_injection(&items)))
+    }
+
+    fn resolve_citation_urls(&self, citations: &mut [Citation]) {
+        for citation in citations.iter_mut() {
+            if citation.url.is_none() && citation.source.starts_with(".web-cache/") {
+                citation.url = resolve_web_cache_url(&self.config.workspace, &citation.source);
+            }
+            if citation.url.is_none() && citation.source.starts_with("http") {
+                citation.url = Some(citation.source.clone());
+            }
+        }
     }
 
     async fn execute_tool_calls(

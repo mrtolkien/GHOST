@@ -39,7 +39,8 @@ impl Tool for ReadFile {
                         "description": "Maximum number of lines to return (default: 2000)"
                     }
                 },
-                "required": ["path"]
+                "required": ["path"],
+                "additionalProperties": false
             }),
         }
     }

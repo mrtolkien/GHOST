@@ -119,41 +119,40 @@ pub(super) fn extract_latest_assistant_text(history: &[ChatMessage]) -> String {
         .unwrap_or_default()
 }
 
-pub(super) fn parse_structured_or_fallback(content: &[ContentBlock]) -> (String, Vec<Citation>) {
-    let text = extract_text_content(content);
-    let parsed = serde_json::from_str::<StructuredResponse>(&text);
-    match parsed {
-        Ok(structured) => (
-            structured.message,
-            structured
-                .citations
-                .into_iter()
-                .map(|citation| Citation {
-                    source: citation.source,
-                    url: None,
-                    context: citation.context,
-                })
-                .collect(),
-        ),
-        Err(e) => {
-            let looks_like_json =
-                text.trim_start().starts_with('{') && text.trim_end().ends_with('}');
-            if looks_like_json {
-                logfire::warn!(
-                    "structured response looks like JSON but failed to parse",
-                    error = e.to_string(),
-                    text_prefix = text.chars().take(300).collect::<String>(),
-                );
-            } else {
-                logfire::debug!(
-                    "structured response parse failed, using raw text",
-                    error = e.to_string(),
-                    text_len = text.len() as u64,
-                );
-            }
-            (text, Vec::new())
+/// Check if any tool call in `tool_uses` is the `respond` output tool.
+/// Returns `Some((message, citations))` if found, `None` otherwise.
+pub(super) fn parse_respond_call(
+    respond_name: &str,
+    tool_uses: &[Value],
+) -> Option<(String, Vec<Citation>)> {
+    for call in tool_uses {
+        let name = call.get("name").and_then(Value::as_str)?;
+        if name != respond_name {
+            continue;
         }
+        let input = call.get("input")?;
+        let parsed: StructuredResponse = match serde_json::from_value(input.clone()) {
+            Ok(v) => v,
+            Err(e) => {
+                logfire::warn!(
+                    "respond tool arguments failed to parse",
+                    error = e.to_string(),
+                );
+                return None;
+            }
+        };
+        let citations = parsed
+            .citations
+            .into_iter()
+            .map(|c| Citation {
+                source: c.source,
+                url: None,
+                context: c.context,
+            })
+            .collect();
+        return Some((parsed.message, citations));
     }
+    None
 }
 
 pub(super) fn citations_to_values(citations: &[Citation]) -> Vec<Value> {
@@ -185,32 +184,6 @@ pub(super) fn tool_results_to_values(results: &[ContentBlock]) -> Vec<Value> {
             _ => None,
         })
         .collect()
-}
-
-pub(super) fn citation_response_format() -> crate::providers::ResponseFormat {
-    crate::providers::ResponseFormat::JsonSchema {
-        name: "ghost_citation_response".to_string(),
-        schema: json!({
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-                "message": { "type": "string", "description": "The response to the OPERATOR" },
-                "citations": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "additionalProperties": false,
-                        "properties": {
-                            "source": { "type": "string", "description": "File path or URL" },
-                            "context": { "type": "string", "description": "What this source was used for" }
-                        },
-                        "required": ["source", "context"]
-                    }
-                }
-            },
-            "required": ["message", "citations"]
-        }),
-    }
 }
 
 pub(super) fn resolve_web_cache_url(workspace: &Path, source: &str) -> Option<String> {

@@ -41,7 +41,8 @@ impl Tool for RunShellCommand {
                         "description": "Working directory (relative to workspace, default: workspace root)"
                     }
                 },
-                "required": ["command"]
+                "required": ["command"],
+                "additionalProperties": false
             }),
         }
     }

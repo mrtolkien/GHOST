@@ -145,7 +145,8 @@ impl Tool for Todo {
                                 "title": { "type": "string" },
                                 "description": { "type": "string" }
                             },
-                            "required": ["title"]
+                            "required": ["title"],
+                            "additionalProperties": false
                         },
                         "description": "For 'plan': the items to create"
                     },
@@ -182,12 +183,14 @@ impl Tool for Todo {
                                 },
                                 "note": { "type": "string" }
                             },
-                            "required": ["index", "status"]
+                            "required": ["index", "status"],
+                            "additionalProperties": false
                         },
                         "description": "For 'batch_update': array of updates"
                     }
                 },
-                "required": ["action"]
+                "required": ["action"],
+                "additionalProperties": false
             }),
         }
     }

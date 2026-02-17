@@ -52,9 +52,6 @@ pub enum ChatError {
 
     #[error("invalid session id '{session_id}'")]
     InvalidSessionId { session_id: String },
-
-    #[error("failed to parse structured response json: {0}")]
-    InvalidStructuredResponse(#[from] serde_json::Error),
 }
 
 impl From<DatabaseError> for ChatError {

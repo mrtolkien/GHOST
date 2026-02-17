@@ -57,6 +57,7 @@ impl ToolManager {
         manager.register(Arc::new(super::write_file::WriteFile));
         manager.register(Arc::new(super::file_edit::FileEdit));
         manager.register(Arc::new(super::todo::Todo));
+        manager.register(Arc::new(super::respond::Respond));
         manager
     }
 

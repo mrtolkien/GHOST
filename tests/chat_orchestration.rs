@@ -89,6 +89,18 @@ fn response(content: Vec<ContentBlock>, stop_reason: StopReason) -> ChatResponse
     }
 }
 
+/// Build a mock response that calls the `respond` output tool.
+fn respond_response(message: &str, citations: Vec<serde_json::Value>) -> ChatResponse {
+    response(
+        vec![ContentBlock::ToolUse {
+            id: "respond_1".to_string(),
+            name: "respond".to_string(),
+            input: json!({"message": message, "citations": citations}),
+        }],
+        StopReason::ToolUse,
+    )
+}
+
 #[tokio::test]
 async fn chat_returns_response_text() {
     let (db, config, _workspace, _config_dir) = common::test_database().await;
@@ -96,11 +108,9 @@ async fn chat_returns_response_text() {
         .await
         .expect("create session");
 
-    let provider = Arc::new(MockProvider::new(vec![response(
-        vec![ContentBlock::Text {
-            text: r#"{"message":"hello from ghost","citations":[]}"#.to_string(),
-        }],
-        StopReason::EndTurn,
+    let provider = Arc::new(MockProvider::new(vec![respond_response(
+        "hello from ghost",
+        vec![],
     )]));
     let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config);
     let result = chat
@@ -128,12 +138,7 @@ async fn tool_loop_executes_and_sends_tool_result_back() {
             }],
             StopReason::ToolUse,
         ),
-        response(
-            vec![ContentBlock::Text {
-                text: r#"{"message":"done","citations":[]}"#.to_string(),
-            }],
-            StopReason::EndTurn,
-        ),
+        respond_response("done", vec![]),
     ]));
     let requests = provider.requests();
 
@@ -208,11 +213,9 @@ async fn chat_persists_user_and_assistant_messages() {
         .await
         .expect("create session");
 
-    let provider = Arc::new(MockProvider::new(vec![response(
-        vec![ContentBlock::Text {
-            text: r#"{"message":"persisted","citations":[]}"#.to_string(),
-        }],
-        StopReason::EndTurn,
+    let provider = Arc::new(MockProvider::new(vec![respond_response(
+        "persisted",
+        vec![],
     )]));
     let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config);
 
@@ -282,11 +285,11 @@ async fn structured_output_populates_citations_and_creates_edges() {
     .await
     .expect("create reference");
 
-    let provider = Arc::new(MockProvider::new(vec![response(
-        vec![ContentBlock::Text {
-            text: r#"{"message":"SurrealDB uses RELATE.","citations":[{"source":"knowledge/references/surrealdb/relate.md","context":"relate docs"}]}"#.to_string(),
-        }],
-        StopReason::EndTurn,
+    let provider = Arc::new(MockProvider::new(vec![respond_response(
+        "SurrealDB uses RELATE.",
+        vec![
+            json!({"source": "knowledge/references/surrealdb/relate.md", "context": "relate docs"}),
+        ],
     )]));
     let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config);
 
@@ -335,12 +338,9 @@ async fn web_cache_citation_resolves_url_from_frontmatter() {
     )
     .expect("write cache file");
 
-    let provider = Arc::new(MockProvider::new(vec![response(
-        vec![ContentBlock::Text {
-            text: r#"{"message":"cached","citations":[{"source":".web-cache/example.md"}]}"#
-                .to_string(),
-        }],
-        StopReason::EndTurn,
+    let provider = Arc::new(MockProvider::new(vec![respond_response(
+        "cached",
+        vec![json!({"source": ".web-cache/example.md"})],
     )]));
     let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config);
     let result = chat
@@ -373,12 +373,7 @@ async fn todo_state_is_injected_after_user_message() {
     .await
     .expect("set todo");
 
-    let provider = Arc::new(MockProvider::new(vec![response(
-        vec![ContentBlock::Text {
-            text: r#"{"message":"ok","citations":[]}"#.to_string(),
-        }],
-        StopReason::EndTurn,
-    )]));
+    let provider = Arc::new(MockProvider::new(vec![respond_response("ok", vec![])]));
     let requests = provider.requests();
     let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config);
     let _ = chat
@@ -466,12 +461,7 @@ async fn compaction_triggers_when_over_threshold() {
             }],
             StopReason::EndTurn,
         ),
-        response(
-            vec![ContentBlock::Text {
-                text: r#"{"message":"post-compaction","citations":[]}"#.to_string(),
-            }],
-            StopReason::EndTurn,
-        ),
+        respond_response("post-compaction", vec![]),
     ]));
     let requests = provider.requests();
     let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config);
@@ -528,12 +518,7 @@ async fn original_messages_preserved_after_compaction() {
             }],
             StopReason::EndTurn,
         ),
-        response(
-            vec![ContentBlock::Text {
-                text: r#"{"message":"ok","citations":[]}"#.to_string(),
-            }],
-            StopReason::EndTurn,
-        ),
+        respond_response("ok", vec![]),
     ]));
     let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config);
 
@@ -576,11 +561,9 @@ async fn no_compaction_below_threshold() {
         .await
         .expect("create session");
 
-    let provider = Arc::new(MockProvider::new(vec![response(
-        vec![ContentBlock::Text {
-            text: r#"{"message":"no compact","citations":[]}"#.to_string(),
-        }],
-        StopReason::EndTurn,
+    let provider = Arc::new(MockProvider::new(vec![respond_response(
+        "no compact",
+        vec![],
     )]));
     let requests = provider.requests();
     let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config);
@@ -630,12 +613,7 @@ async fn double_compaction_summary_of_summary() {
             StopReason::EndTurn,
         ),
         // Chat response for round 1
-        response(
-            vec![ContentBlock::Text {
-                text: r#"{"message":"round1","citations":[]}"#.to_string(),
-            }],
-            StopReason::EndTurn,
-        ),
+        respond_response("round1", vec![]),
     ]));
     let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config.clone());
     let r1 = chat
@@ -656,12 +634,7 @@ async fn double_compaction_summary_of_summary() {
             StopReason::EndTurn,
         ),
         // Chat response for round 2
-        response(
-            vec![ContentBlock::Text {
-                text: r#"{"message":"round2","citations":[]}"#.to_string(),
-            }],
-            StopReason::EndTurn,
-        ),
+        respond_response("round2", vec![]),
     ]));
     let requests2 = provider2.requests();
     let chat2 = SessionChat::new(db.clone(), provider2, ToolManager::empty(), config);

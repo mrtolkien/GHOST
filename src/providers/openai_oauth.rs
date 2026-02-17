@@ -11,8 +11,7 @@ use serde_json::Value;
 use crate::auth::openai_oauth::{OpenAiOAuthClient, TokenStore};
 use crate::providers::circuit_breaker::CircuitBreaker;
 use crate::providers::types::{
-    ChatRequest, ChatResponse, ContentBlock, Provider, ProviderError, ResponseFormat, StopReason,
-    Usage,
+    ChatRequest, ChatResponse, ContentBlock, Provider, ProviderError, StopReason, Usage,
 };
 
 const OPENAI_CODEX_RESPONSES_URL: &str = "https://chatgpt.com/backend-api/codex/responses";
@@ -37,34 +36,49 @@ struct CodexResponsesRequest {
     stream: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     instructions: Option<String>,
-    input: Vec<CodexInputMessage>,
+    input: Vec<CodexInputItem>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    text: Option<CodexTextOptions>,
+    tools: Option<Vec<CodexToolDefinition>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tool_choice: Option<String>,
 }
 
+/// Responses API uses a flat tool format (no nested `function` object).
+/// `strict` is omitted (defaults to false) because our tool schemas have
+/// optional parameters and OpenAI strict mode requires all properties in
+/// `required`.
 #[derive(Debug, Serialize)]
-struct CodexInputMessage {
-    role: String,
-    content: Vec<CodexInputPart>,
+struct CodexToolDefinition {
+    r#type: String,
+    name: String,
+    description: String,
+    parameters: Value,
+}
+
+/// Items in the Responses API `input` array. The array is heterogeneous:
+/// messages, function calls, and function call outputs are distinct item types.
+#[derive(Debug, Serialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+enum CodexInputItem {
+    Message {
+        role: String,
+        content: Vec<CodexInputPart>,
+    },
+    FunctionCall {
+        call_id: String,
+        name: String,
+        arguments: String,
+    },
+    FunctionCallOutput {
+        call_id: String,
+        output: String,
+    },
 }
 
 #[derive(Debug, Serialize)]
 struct CodexInputPart {
     r#type: String,
     text: String,
-}
-
-#[derive(Debug, Serialize)]
-struct CodexTextOptions {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    format: Option<CodexTextFormat>,
-}
-
-#[derive(Debug, Serialize)]
-struct CodexTextFormat {
-    r#type: String,
-    name: String,
-    schema: Value,
 }
 
 impl OpenAiOAuthProvider {
@@ -270,6 +284,8 @@ fn build_codex_request_body(request: &ChatRequest) -> Result<CodexResponsesReque
             crate::providers::Role::Assistant => ("assistant", "output_text"),
             crate::providers::Role::System => ("developer", "input_text"),
         };
+
+        // Collect text parts into a message item.
         let text = message
             .content
             .iter()
@@ -279,33 +295,65 @@ fn build_codex_request_body(request: &ChatRequest) -> Result<CodexResponsesReque
             })
             .collect::<Vec<_>>()
             .join("\n\n");
-        if text.trim().is_empty() {
-            continue;
+        if !text.trim().is_empty() {
+            input.push(CodexInputItem::Message {
+                role: role.to_string(),
+                content: vec![CodexInputPart {
+                    r#type: part_type.to_string(),
+                    text,
+                }],
+            });
         }
-        input.push(CodexInputMessage {
-            role: role.to_string(),
-            content: vec![CodexInputPart {
-                r#type: part_type.to_string(),
-                text,
-            }],
-        });
+
+        // Tool use and tool result blocks become separate input items.
+        for block in &message.content {
+            match block {
+                ContentBlock::ToolUse {
+                    id,
+                    name,
+                    input: tool_input,
+                } => {
+                    let arguments =
+                        serde_json::to_string(tool_input).unwrap_or_else(|_| "{}".to_string());
+                    input.push(CodexInputItem::FunctionCall {
+                        call_id: id.clone(),
+                        name: name.clone(),
+                        arguments,
+                    });
+                }
+                ContentBlock::ToolResult {
+                    tool_use_id,
+                    content,
+                    ..
+                } => {
+                    input.push(CodexInputItem::FunctionCallOutput {
+                        call_id: tool_use_id.clone(),
+                        output: content.clone(),
+                    });
+                }
+                ContentBlock::Text { .. } => {} // handled above
+            }
+        }
     }
 
     if input.is_empty() {
         return Err(ProviderError::InvalidResponse(
-            "request must include at least one text message".to_string(),
+            "request must include at least one input item".to_string(),
         ));
     }
 
-    let text = request.response_format.as_ref().map(|format| match format {
-        ResponseFormat::JsonSchema { name, schema } => CodexTextOptions {
-            format: Some(CodexTextFormat {
-                r#type: "json_schema".to_string(),
-                name: name.clone(),
-                schema: schema.clone(),
-            }),
-        },
+    let tools = request.tools.as_ref().map(|tools| {
+        tools
+            .iter()
+            .map(|tool| CodexToolDefinition {
+                r#type: "function".to_string(),
+                name: tool.name.clone(),
+                description: tool.description.clone(),
+                parameters: tool.input_schema.clone(),
+            })
+            .collect()
     });
+    let tool_choice = tools.as_ref().map(|_| "auto".to_string());
 
     Ok(CodexResponsesRequest {
         model: request.model.clone(),
@@ -313,7 +361,8 @@ fn build_codex_request_body(request: &ChatRequest) -> Result<CodexResponsesReque
         stream: true,
         instructions: request.system.clone(),
         input,
-        text,
+        tools,
+        tool_choice,
     })
 }
 
@@ -390,22 +439,43 @@ fn parse_codex_response_value(
     let mut content = Vec::new();
     if let Some(output) = value.get("output").and_then(Value::as_array) {
         for item in output {
-            if item.get("type").and_then(Value::as_str) != Some("message") {
-                continue;
-            }
-            if let Some(parts) = item.get("content").and_then(Value::as_array) {
-                for part in parts {
-                    if let Some(text) = part
-                        .get("text")
-                        .and_then(Value::as_str)
-                        .or_else(|| part.get("output_text").and_then(Value::as_str))
-                        && !text.trim().is_empty()
-                    {
-                        content.push(ContentBlock::Text {
-                            text: text.to_string(),
+            let item_type = item.get("type").and_then(Value::as_str).unwrap_or("");
+            match item_type {
+                "message" => {
+                    if let Some(parts) = item.get("content").and_then(Value::as_array) {
+                        for part in parts {
+                            if let Some(text) = part
+                                .get("text")
+                                .and_then(Value::as_str)
+                                .or_else(|| part.get("output_text").and_then(Value::as_str))
+                                && !text.trim().is_empty()
+                            {
+                                content.push(ContentBlock::Text {
+                                    text: text.to_string(),
+                                });
+                            }
+                        }
+                    }
+                }
+                "function_call" => {
+                    if let (Some(call_id), Some(name)) = (
+                        item.get("call_id").and_then(Value::as_str),
+                        item.get("name").and_then(Value::as_str),
+                    ) {
+                        let arguments = item
+                            .get("arguments")
+                            .and_then(Value::as_str)
+                            .unwrap_or("{}");
+                        let input = serde_json::from_str(arguments)
+                            .unwrap_or(Value::Object(serde_json::Map::new()));
+                        content.push(ContentBlock::ToolUse {
+                            id: call_id.to_string(),
+                            name: name.to_string(),
+                            input,
                         });
                     }
                 }
+                _ => {}
             }
         }
     }
@@ -423,6 +493,16 @@ fn parse_codex_response_value(
     if content.is_empty() {
         return Err(ProviderError::EmptyResponse);
     }
+
+    // Override stop_reason when the model made tool calls.
+    let has_tool_calls = content
+        .iter()
+        .any(|block| matches!(block, ContentBlock::ToolUse { .. }));
+    let stop_reason = if has_tool_calls {
+        StopReason::ToolUse
+    } else {
+        stop_reason
+    };
 
     let usage_value = value.get("usage");
     let input_tokens = usage_value
@@ -501,12 +581,14 @@ fn extract_account_id(access_token: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
+    use serde_json::json;
+
     use super::*;
-    use crate::providers::{ChatMessage, Role};
+    use crate::providers::{ChatMessage, Role, ToolDefinition};
 
     #[test]
     fn parses_account_id_from_jwt_claim() {
-        let payload = serde_json::json!({
+        let payload = json!({
             "https://api.openai.com/auth": { "chatgpt_account_id": "acc_123" }
         });
         let encoded = URL_SAFE_NO_PAD.encode(payload.to_string().as_bytes());
@@ -535,15 +617,162 @@ mod tests {
             max_tokens: None,
             temperature: None,
             system: None,
-            response_format: None,
             tools: None,
         };
 
         let body = build_codex_request_body(&request).expect("request body");
+        let json = serde_json::to_value(&body).expect("serialize");
+        assert_eq!(json["input"][0]["role"], "user");
+        assert_eq!(json["input"][0]["content"][0]["type"], "input_text");
+        assert_eq!(json["input"][1]["role"], "assistant");
+        assert_eq!(json["input"][1]["content"][0]["type"], "output_text");
+    }
 
-        assert_eq!(body.input[0].role, "user");
-        assert_eq!(body.input[0].content[0].r#type, "input_text");
-        assert_eq!(body.input[1].role, "assistant");
-        assert_eq!(body.input[1].content[0].r#type, "output_text");
+    #[test]
+    fn build_request_includes_tools_and_tool_choice() {
+        let request = ChatRequest {
+            messages: vec![ChatMessage {
+                role: Role::User,
+                content: vec![ContentBlock::Text {
+                    text: "run pwd".to_string(),
+                }],
+            }],
+            model: "gpt-5.3-codex".to_string(),
+            tools: Some(vec![ToolDefinition {
+                name: "run_shell_command".to_string(),
+                description: "Run a shell command".to_string(),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": { "command": { "type": "string" } },
+                    "required": ["command"]
+                }),
+            }]),
+            max_tokens: None,
+            temperature: None,
+            system: None,
+        };
+
+        let body = build_codex_request_body(&request).expect("request body");
+        let json = serde_json::to_value(&body).expect("serialize");
+
+        assert_eq!(json["tool_choice"], "auto");
+        assert_eq!(json["tools"][0]["type"], "function");
+        assert_eq!(json["tools"][0]["name"], "run_shell_command");
+        // Responses API flat format — no nested "function" object.
+        assert!(json["tools"][0].get("function").is_none());
+    }
+
+    #[test]
+    fn build_request_converts_tool_use_and_tool_result() {
+        let request = ChatRequest {
+            messages: vec![
+                ChatMessage {
+                    role: Role::User,
+                    content: vec![ContentBlock::Text {
+                        text: "run pwd".to_string(),
+                    }],
+                },
+                ChatMessage {
+                    role: Role::Assistant,
+                    content: vec![ContentBlock::ToolUse {
+                        id: "call_1".to_string(),
+                        name: "run_shell_command".to_string(),
+                        input: json!({"command": "pwd"}),
+                    }],
+                },
+                ChatMessage {
+                    role: Role::User,
+                    content: vec![ContentBlock::ToolResult {
+                        tool_use_id: "call_1".to_string(),
+                        content: "/home/user".to_string(),
+                        is_error: false,
+                    }],
+                },
+            ],
+            model: "gpt-5.3-codex".to_string(),
+            tools: None,
+            max_tokens: None,
+            temperature: None,
+            system: None,
+        };
+
+        let body = build_codex_request_body(&request).expect("request body");
+        let json = serde_json::to_value(&body).expect("serialize");
+
+        // message, function_call, function_call_output
+        assert_eq!(json["input"][0]["type"], "message");
+        assert_eq!(json["input"][1]["type"], "function_call");
+        assert_eq!(json["input"][1]["call_id"], "call_1");
+        assert_eq!(json["input"][1]["name"], "run_shell_command");
+        assert_eq!(json["input"][2]["type"], "function_call_output");
+        assert_eq!(json["input"][2]["call_id"], "call_1");
+        assert_eq!(json["input"][2]["output"], "/home/user");
+    }
+
+    #[test]
+    fn parse_response_extracts_function_call() {
+        let response_value = json!({
+            "model": "gpt-5.3-codex",
+            "status": "completed",
+            "output": [
+                {
+                    "type": "function_call",
+                    "call_id": "call_abc",
+                    "name": "run_shell_command",
+                    "arguments": "{\"command\":\"pwd\"}"
+                }
+            ],
+            "usage": {
+                "input_tokens": 100,
+                "output_tokens": 20
+            }
+        });
+
+        let parsed =
+            parse_codex_response_value(&response_value, "fallback").expect("parse response");
+
+        assert_eq!(parsed.stop_reason, StopReason::ToolUse);
+        assert_eq!(parsed.content.len(), 1);
+        match &parsed.content[0] {
+            ContentBlock::ToolUse { id, name, input } => {
+                assert_eq!(id, "call_abc");
+                assert_eq!(name, "run_shell_command");
+                assert_eq!(input["command"], "pwd");
+            }
+            other => panic!("expected ToolUse, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parse_response_handles_text_and_function_call() {
+        let response_value = json!({
+            "model": "gpt-5.3-codex",
+            "status": "completed",
+            "output": [
+                {
+                    "type": "message",
+                    "content": [{"type": "output_text", "text": "Let me check."}]
+                },
+                {
+                    "type": "function_call",
+                    "call_id": "call_xyz",
+                    "name": "read_file",
+                    "arguments": "{\"path\":\"src/main.rs\"}"
+                }
+            ],
+            "usage": { "input_tokens": 50, "output_tokens": 10 }
+        });
+
+        let parsed =
+            parse_codex_response_value(&response_value, "fallback").expect("parse response");
+
+        assert_eq!(parsed.stop_reason, StopReason::ToolUse);
+        assert_eq!(parsed.content.len(), 2);
+        assert!(
+            matches!(&parsed.content[0], ContentBlock::Text { text } if text == "Let me check.")
+        );
+        assert!(
+            matches!(&parsed.content[1], ContentBlock::ToolUse { name, .. } if name == "read_file")
+        );
     }
 }

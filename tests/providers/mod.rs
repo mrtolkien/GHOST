@@ -9,3 +9,5 @@ mod kimi_code_live;
 mod openai_oauth_live;
 #[cfg(feature = "live-tests")]
 mod openrouter_live;
+#[cfg(feature = "live-tests")]
+mod tool_use_live;
