@@ -117,6 +117,7 @@ pub struct TimingSettings {
     pub heartbeat_check_seconds: Option<u64>,
     pub heartbeat_continue_minutes: Option<u64>,
     pub reflection_idle_minutes: Option<u64>,
+    pub scheduler_tick_seconds: Option<u64>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -179,6 +180,7 @@ pub struct TimingConfig {
     pub heartbeat_check_seconds: u64,
     pub heartbeat_continue_minutes: u64,
     pub reflection_idle_minutes: u64,
+    pub scheduler_tick_seconds: u64,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -325,6 +327,11 @@ impl Config {
                     .as_ref()
                     .and_then(|t| t.reflection_idle_minutes)
                     .unwrap_or(15),
+                scheduler_tick_seconds: settings
+                    .timing
+                    .as_ref()
+                    .and_then(|t| t.scheduler_tick_seconds)
+                    .unwrap_or(10),
             },
             compaction: CompactionConfig {
                 threshold: settings
@@ -432,6 +439,7 @@ pub fn bootstrap_workspace(config: &Config) -> Result<(), ConfigError> {
         "jobs",
         "skills",
         ".web-cache",
+        ".state",
         "knowledge",
         "knowledge/notes",
         "knowledge/references",
@@ -680,6 +688,7 @@ pub fn test_config(workspace: &std::path::Path) -> Config {
             heartbeat_check_seconds: 60,
             heartbeat_continue_minutes: 30,
             reflection_idle_minutes: 15,
+            scheduler_tick_seconds: 10,
         },
         compaction: CompactionConfig {
             threshold: 0.85,

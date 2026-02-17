@@ -40,8 +40,11 @@ pub async fn run() -> Result<(), GhostError> {
         db.clone(),
         config.workspace.clone(),
         config.embeddings.clone(),
-        shutdown_rx,
+        shutdown_rx.clone(),
     );
+
+    // Spawn the job scheduler
+    let scheduler_handle = crate::jobs::spawn_scheduler(db.clone(), config.clone(), shutdown_rx);
 
     let session_chat = Arc::new(SessionChat::from_config(db.clone(), config.clone())?);
 
@@ -63,9 +66,10 @@ pub async fn run() -> Result<(), GhostError> {
         let _ = tokio::signal::ctrl_c().await;
     }
 
-    // Signal shutdown to watcher
+    // Signal shutdown to watcher and scheduler
     let _ = shutdown_tx.send(true);
     let _ = watcher_handle.await;
+    let _ = scheduler_handle.await;
 
     info!("GHOST daemon stopped");
     Ok(())

@@ -32,6 +32,9 @@ pub enum GhostError {
 
     #[error(transparent)]
     Web(#[from] crate::web::WebError),
+
+    #[error(transparent)]
+    Job(#[from] crate::jobs::JobError),
 }
 
 impl From<crate::db::DatabaseError> for GhostError {

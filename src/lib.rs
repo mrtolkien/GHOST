@@ -7,6 +7,7 @@ pub mod db;
 pub mod embeddings;
 pub mod error;
 pub mod interfaces;
+pub mod jobs;
 pub mod knowledge;
 pub mod observability;
 pub mod prompt;

@@ -123,6 +123,7 @@ mod tests {
                 heartbeat_check_seconds: 60,
                 heartbeat_continue_minutes: 5,
                 reflection_idle_minutes: 120,
+                scheduler_tick_seconds: 10,
             },
             compaction: CompactionConfig {
                 threshold: 0.7,

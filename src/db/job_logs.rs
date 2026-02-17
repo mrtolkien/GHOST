@@ -1,17 +1,24 @@
-//! TEMPORARY SCAFFOLDING
-//! These helpers provide minimal job_log support needed by spec 06 `chat_job`.
-//! They are expected to be rewritten when the full jobs subsystem (spec 16/17) lands.
-
 use serde::Deserialize;
 use surrealdb::Surreal;
 use surrealdb::engine::local::Db;
-use surrealdb::sql::Thing;
+use surrealdb::sql::{Datetime, Thing};
 
 use crate::db::error::DatabaseError;
 
 #[derive(Debug, Deserialize)]
 struct IdRow {
     id: Thing,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct JobLogRecord {
+    pub id: Thing,
+    pub job_name: String,
+    pub job_kind: String,
+    pub started_at: Datetime,
+    pub finished_at: Option<Datetime>,
+    pub status: String,
+    pub transcript: Option<String>,
 }
 
 #[tracing::instrument(skip_all, level = "debug", fields(job_name = job_name, job_kind = job_kind))]
@@ -84,4 +91,41 @@ pub async fn finish_job_log(
     })?;
 
     Ok(())
+}
+
+#[tracing::instrument(skip_all, level = "debug", fields(name = name, limit = limit))]
+pub async fn list_job_logs(
+    db: &Surreal<Db>,
+    name: Option<&str>,
+    limit: usize,
+) -> Result<Vec<JobLogRecord>, DatabaseError> {
+    let query = match name {
+        Some(_) => {
+            "SELECT * FROM job_log WHERE job_name = $name \
+             ORDER BY started_at DESC LIMIT $limit"
+        }
+        None => {
+            "SELECT * FROM job_log \
+             ORDER BY started_at DESC LIMIT $limit"
+        }
+    };
+
+    let mut response = db
+        .query(query)
+        .bind(("name", name.map(|n| n.to_string())))
+        .bind(("limit", limit))
+        .await
+        .map_err(|source| DatabaseError::Query {
+            table: "job_log",
+            operation: "list",
+            source,
+        })?;
+
+    let rows: Vec<JobLogRecord> = response.take(0).map_err(|source| DatabaseError::Query {
+        table: "job_log",
+        operation: "list/take",
+        source,
+    })?;
+
+    Ok(rows)
 }
