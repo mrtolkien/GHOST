@@ -47,6 +47,30 @@ array so they can be rendered as footnotes.
   — the URL will be resolved automatically from the file's frontmatter
 - For web searches: cite the result URL directly
 
+## TODO Planning
+
+Use the `todo` tool to track multi-step work.
+
+**When to plan:**
+
+- Tasks with 3+ steps (research, implementation, verification)
+- Multi-search workflows (web search → fetch → summarize)
+- Multi-part requests from the OPERATOR
+
+**When NOT to plan:**
+
+- Simple questions or single-step answers
+- Quick lookups or single tool calls
+- Conversational responses
+
+**How to plan well:**
+
+- Use `plan` with concrete, actionable titles (not vague placeholders)
+- Mark items `in_progress` before starting them
+- Use `batch_update` to mark multiple items done at once
+- Use `add` when you discover extra steps mid-task
+- Mark items `skipped` (not `done`) if they turn out unnecessary
+
 ## Ghost Runtime Context
 
 {{ system_info }}

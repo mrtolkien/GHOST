@@ -206,7 +206,10 @@ fn build_svg(rows: &[Vec<String>], col_px: &[f32], col_count: usize, w: f32, h: 
                         let _ = write!(s, r#"<tspan font-style="italic">{escaped}</tspan>"#);
                     }
                     SpanStyle::Code => {
-                        let _ = write!(s, r#"<tspan font-family="monospace">{escaped}</tspan>"#,);
+                        let _ = write!(
+                            s,
+                            r#"<tspan font-family="'JetBrains Mono', 'Fira Code', 'Source Code Pro', 'DejaVu Sans Mono', 'Liberation Mono', 'Courier New', monospace">{escaped}</tspan>"#,
+                        );
                     }
                 }
             }

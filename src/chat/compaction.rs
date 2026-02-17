@@ -39,7 +39,7 @@ pub fn estimate_tokens(text: &str) -> usize {
 #[must_use]
 pub fn estimate_block_tokens(block: &ContentBlock) -> usize {
     match block {
-        ContentBlock::Text(text) => estimate_tokens(text),
+        ContentBlock::Text { text } => estimate_tokens(text),
         ContentBlock::ToolUse { id, name, input } => {
             estimate_tokens(id) + estimate_tokens(name) + estimate_tokens(&input.to_string())
         }
@@ -286,7 +286,7 @@ fn render_messages_for_summary(messages: &[ChatMessage], preview_chars: usize) -
 
         for block in &msg.content {
             match block {
-                ContentBlock::Text(text) => {
+                ContentBlock::Text { text } => {
                     out.push_str(&format!("[{role}] {text}\n\n"));
                 }
                 ContentBlock::ToolUse { name, input, .. } => {
@@ -352,7 +352,9 @@ pub async fn summarize_older_messages(
             model: model.to_string(),
             messages: vec![ChatMessage {
                 role: Role::User,
-                content: vec![ContentBlock::Text(conversation_text)],
+                content: vec![ContentBlock::Text {
+                    text: conversation_text,
+                }],
             }],
             tools: None,
             max_tokens: Some(2048),
@@ -366,7 +368,7 @@ pub async fn summarize_older_messages(
         .content
         .iter()
         .filter_map(|block| match block {
-            ContentBlock::Text(text) => Some(text.as_str()),
+            ContentBlock::Text { text } => Some(text.as_str()),
             _ => None,
         })
         .collect::<Vec<_>>()
@@ -428,9 +430,7 @@ impl SessionChat {
             .unwrap_or(200_000);
 
         let compaction = &self.config().compaction;
-        let tools = self
-            .tool_manager()
-            .all_tool_schemas(crate::tools::ToolSet::Chat);
+        let tools = self.tool_manager().all_tool_schemas();
         let system_prompt = String::new(); // conservative: ignore system tokens
 
         let budget = compute_budget(
@@ -537,9 +537,7 @@ impl SessionChat {
             .unwrap_or(200_000);
 
         let compaction = &self.config().compaction;
-        let tools = self
-            .tool_manager()
-            .all_tool_schemas(crate::tools::ToolSet::Chat);
+        let tools = self.tool_manager().all_tool_schemas();
 
         let budget = compute_budget(context_window, "", &tools, history, compaction.threshold);
 
@@ -560,14 +558,18 @@ mod tests {
     fn user_text(text: &str) -> ChatMessage {
         ChatMessage {
             role: Role::User,
-            content: vec![ContentBlock::Text(text.to_string())],
+            content: vec![ContentBlock::Text {
+                text: text.to_string(),
+            }],
         }
     }
 
     fn assistant_text(text: &str) -> ChatMessage {
         ChatMessage {
             role: Role::Assistant,
-            content: vec![ContentBlock::Text(text.to_string())],
+            content: vec![ContentBlock::Text {
+                text: text.to_string(),
+            }],
         }
     }
 
@@ -575,7 +577,9 @@ mod tests {
         ChatMessage {
             role: Role::Assistant,
             content: vec![
-                ContentBlock::Text(text.to_string()),
+                ContentBlock::Text {
+                    text: text.to_string(),
+                },
                 ContentBlock::ToolUse {
                     id: tool_id.to_string(),
                     name: tool_name.to_string(),

@@ -97,12 +97,12 @@ async fn chat_returns_response_text() {
         .expect("create session");
 
     let provider = Arc::new(MockProvider::new(vec![response(
-        vec![ContentBlock::Text(
-            r#"{"message":"hello from ghost","citations":[]}"#.to_string(),
-        )],
+        vec![ContentBlock::Text {
+            text: r#"{"message":"hello from ghost","citations":[]}"#.to_string(),
+        }],
         StopReason::EndTurn,
     )]));
-    let chat = SessionChat::new(db.clone(), provider, ToolManager::new(), config);
+    let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config);
     let result = chat
         .chat(&session_id.to_string(), "hi")
         .await
@@ -129,15 +129,15 @@ async fn tool_loop_executes_and_sends_tool_result_back() {
             StopReason::ToolUse,
         ),
         response(
-            vec![ContentBlock::Text(
-                r#"{"message":"done","citations":[]}"#.to_string(),
-            )],
+            vec![ContentBlock::Text {
+                text: r#"{"message":"done","citations":[]}"#.to_string(),
+            }],
             StopReason::EndTurn,
         ),
     ]));
     let requests = provider.requests();
 
-    let mut tools = ToolManager::new();
+    let mut tools = ToolManager::empty();
     tools.register(Arc::new(EchoTool));
     let chat = SessionChat::new(db.clone(), provider, tools, config);
 
@@ -191,7 +191,7 @@ async fn max_iterations_stops_loop() {
         ),
     ]));
 
-    let mut tools = ToolManager::new();
+    let mut tools = ToolManager::empty();
     tools.register(Arc::new(EchoTool));
     let chat = SessionChat::new(db.clone(), provider, tools, config).with_max_tool_iterations(1);
     let result = chat
@@ -209,12 +209,12 @@ async fn chat_persists_user_and_assistant_messages() {
         .expect("create session");
 
     let provider = Arc::new(MockProvider::new(vec![response(
-        vec![ContentBlock::Text(
-            r#"{"message":"persisted","citations":[]}"#.to_string(),
-        )],
+        vec![ContentBlock::Text {
+            text: r#"{"message":"persisted","citations":[]}"#.to_string(),
+        }],
         StopReason::EndTurn,
     )]));
-    let chat = SessionChat::new(db.clone(), provider, ToolManager::new(), config);
+    let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config);
 
     let _ = chat
         .chat(&session_id.to_string(), "persist")
@@ -244,7 +244,7 @@ async fn reboot_marks_old_session_and_creates_new_one() {
     .expect("set mapping");
 
     let provider = Arc::new(MockProvider::new(vec![]));
-    let chat = SessionChat::new(db.clone(), provider, ToolManager::new(), config);
+    let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config);
     let new_session = chat
         .reboot_session(&old_session_id.to_string())
         .await
@@ -283,12 +283,12 @@ async fn structured_output_populates_citations_and_creates_edges() {
     .expect("create reference");
 
     let provider = Arc::new(MockProvider::new(vec![response(
-        vec![ContentBlock::Text(
-            r#"{"message":"SurrealDB uses RELATE.","citations":[{"source":"knowledge/references/surrealdb/relate.md","context":"relate docs"}]}"#.to_string(),
-        )],
+        vec![ContentBlock::Text {
+            text: r#"{"message":"SurrealDB uses RELATE.","citations":[{"source":"knowledge/references/surrealdb/relate.md","context":"relate docs"}]}"#.to_string(),
+        }],
         StopReason::EndTurn,
     )]));
-    let chat = SessionChat::new(db.clone(), provider, ToolManager::new(), config);
+    let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config);
 
     let result = chat
         .chat(&session_id.to_string(), "How do edges work?")
@@ -336,12 +336,13 @@ async fn web_cache_citation_resolves_url_from_frontmatter() {
     .expect("write cache file");
 
     let provider = Arc::new(MockProvider::new(vec![response(
-        vec![ContentBlock::Text(
-            r#"{"message":"cached","citations":[{"source":".web-cache/example.md"}]}"#.to_string(),
-        )],
+        vec![ContentBlock::Text {
+            text: r#"{"message":"cached","citations":[{"source":".web-cache/example.md"}]}"#
+                .to_string(),
+        }],
         StopReason::EndTurn,
     )]));
-    let chat = SessionChat::new(db.clone(), provider, ToolManager::new(), config);
+    let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config);
     let result = chat
         .chat(&session_id.to_string(), "cite web cache")
         .await
@@ -359,19 +360,27 @@ async fn todo_state_is_injected_after_user_message() {
     let session_id = ghost::db::sessions::create_session(&db)
         .await
         .expect("create session");
-    db.query("UPDATE $session_id SET todo_list = ['Step 1']")
-        .bind(("session_id", session_id.clone()))
-        .await
-        .expect("set todo");
+    ghost::db::sessions::set_session_todo_list(
+        &db,
+        &session_id,
+        Some(&[ghost::tools::TodoItem {
+            title: "Step 1".to_string(),
+            description: None,
+            status: ghost::tools::TodoStatus::Pending,
+            note: None,
+        }]),
+    )
+    .await
+    .expect("set todo");
 
     let provider = Arc::new(MockProvider::new(vec![response(
-        vec![ContentBlock::Text(
-            r#"{"message":"ok","citations":[]}"#.to_string(),
-        )],
+        vec![ContentBlock::Text {
+            text: r#"{"message":"ok","citations":[]}"#.to_string(),
+        }],
         StopReason::EndTurn,
     )]));
     let requests = provider.requests();
-    let chat = SessionChat::new(db.clone(), provider, ToolManager::new(), config);
+    let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config);
     let _ = chat
         .chat(&session_id.to_string(), "check todo")
         .await
@@ -389,7 +398,7 @@ async fn todo_state_is_injected_after_user_message() {
     let todo_message_index = first.messages.iter().position(|message| {
         message.role == ghost::providers::Role::System
             && message.content.iter().any(
-                |block| matches!(block, ContentBlock::Text(text) if text.contains("Current TODO")),
+                |block| matches!(block, ContentBlock::Text { text } if text.contains("Current TODO")),
             )
     });
     assert!(
@@ -403,10 +412,9 @@ async fn todo_state_is_injected_after_user_message() {
         .iter()
         .position(|message| {
             message.role == ghost::providers::Role::User
-                && message
-                    .content
-                    .iter()
-                    .any(|block| matches!(block, ContentBlock::Text(text) if text == "check todo"))
+                && message.content.iter().any(
+                    |block| matches!(block, ContentBlock::Text { text } if text == "check todo"),
+                )
         })
         .expect("user message");
     assert!(todo_message_index > user_message_index);
@@ -453,20 +461,20 @@ async fn compaction_triggers_when_over_threshold() {
     // Mock responses: 1st = compaction summary, 2nd = final answer
     let provider = Arc::new(MockProvider::new(vec![
         response(
-            vec![ContentBlock::Text(
-                "Summary of previous conversation.".to_string(),
-            )],
+            vec![ContentBlock::Text {
+                text: "Summary of previous conversation.".to_string(),
+            }],
             StopReason::EndTurn,
         ),
         response(
-            vec![ContentBlock::Text(
-                r#"{"message":"post-compaction","citations":[]}"#.to_string(),
-            )],
+            vec![ContentBlock::Text {
+                text: r#"{"message":"post-compaction","citations":[]}"#.to_string(),
+            }],
             StopReason::EndTurn,
         ),
     ]));
     let requests = provider.requests();
-    let chat = SessionChat::new(db.clone(), provider, ToolManager::new(), config);
+    let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config);
 
     let result = chat
         .chat(&session_id.to_string(), "new question")
@@ -485,7 +493,7 @@ async fn compaction_triggers_when_over_threshold() {
             && msg.content.iter().any(|block| {
                 matches!(
                     block,
-                    ContentBlock::Text(text) if text.contains("Summary of previous conversation")
+                    ContentBlock::Text { text } if text.contains("Summary of previous conversation")
                 )
             })
     });
@@ -515,17 +523,19 @@ async fn original_messages_preserved_after_compaction() {
 
     let provider = Arc::new(MockProvider::new(vec![
         response(
-            vec![ContentBlock::Text("Summary.".to_string())],
+            vec![ContentBlock::Text {
+                text: "Summary.".to_string(),
+            }],
             StopReason::EndTurn,
         ),
         response(
-            vec![ContentBlock::Text(
-                r#"{"message":"ok","citations":[]}"#.to_string(),
-            )],
+            vec![ContentBlock::Text {
+                text: r#"{"message":"ok","citations":[]}"#.to_string(),
+            }],
             StopReason::EndTurn,
         ),
     ]));
-    let chat = SessionChat::new(db.clone(), provider, ToolManager::new(), config);
+    let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config);
 
     let _ = chat
         .chat(&session_id.to_string(), "check")
@@ -567,13 +577,13 @@ async fn no_compaction_below_threshold() {
         .expect("create session");
 
     let provider = Arc::new(MockProvider::new(vec![response(
-        vec![ContentBlock::Text(
-            r#"{"message":"no compact","citations":[]}"#.to_string(),
-        )],
+        vec![ContentBlock::Text {
+            text: r#"{"message":"no compact","citations":[]}"#.to_string(),
+        }],
         StopReason::EndTurn,
     )]));
     let requests = provider.requests();
-    let chat = SessionChat::new(db.clone(), provider, ToolManager::new(), config);
+    let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config);
 
     let result = chat
         .chat(&session_id.to_string(), "short message")
@@ -614,18 +624,20 @@ async fn double_compaction_summary_of_summary() {
     let provider = Arc::new(MockProvider::new(vec![
         // Compaction summary for round 1
         response(
-            vec![ContentBlock::Text("First summary.".to_string())],
+            vec![ContentBlock::Text {
+                text: "First summary.".to_string(),
+            }],
             StopReason::EndTurn,
         ),
         // Chat response for round 1
         response(
-            vec![ContentBlock::Text(
-                r#"{"message":"round1","citations":[]}"#.to_string(),
-            )],
+            vec![ContentBlock::Text {
+                text: r#"{"message":"round1","citations":[]}"#.to_string(),
+            }],
             StopReason::EndTurn,
         ),
     ]));
-    let chat = SessionChat::new(db.clone(), provider, ToolManager::new(), config.clone());
+    let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config.clone());
     let r1 = chat
         .chat(&session_id.to_string(), "round1 question")
         .await
@@ -638,21 +650,21 @@ async fn double_compaction_summary_of_summary() {
     let provider2 = Arc::new(MockProvider::new(vec![
         // Compaction summary for round 2 (summarizes "First summary" + new msgs)
         response(
-            vec![ContentBlock::Text(
-                "Second summary, incorporating first.".to_string(),
-            )],
+            vec![ContentBlock::Text {
+                text: "Second summary, incorporating first.".to_string(),
+            }],
             StopReason::EndTurn,
         ),
         // Chat response for round 2
         response(
-            vec![ContentBlock::Text(
-                r#"{"message":"round2","citations":[]}"#.to_string(),
-            )],
+            vec![ContentBlock::Text {
+                text: r#"{"message":"round2","citations":[]}"#.to_string(),
+            }],
             StopReason::EndTurn,
         ),
     ]));
     let requests2 = provider2.requests();
-    let chat2 = SessionChat::new(db.clone(), provider2, ToolManager::new(), config);
+    let chat2 = SessionChat::new(db.clone(), provider2, ToolManager::empty(), config);
 
     let r2 = chat2
         .chat(&session_id.to_string(), "round2 question")
@@ -677,7 +689,7 @@ async fn double_compaction_summary_of_summary() {
             && msg.content.iter().any(|block| {
                 matches!(
                     block,
-                    ContentBlock::Text(text) if text.contains("Second summary")
+                    ContentBlock::Text { text } if text.contains("Second summary")
                 )
             })
     });

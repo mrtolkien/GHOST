@@ -118,7 +118,12 @@ mod tests {
             .expect("second response should succeed");
 
         assert_eq!(response.stop_reason, StopReason::EndTurn);
-        assert_eq!(response.content, vec![ContentBlock::Text("ok".to_string())]);
+        assert_eq!(
+            response.content,
+            vec![ContentBlock::Text {
+                text: "ok".to_string()
+            }]
+        );
     }
 
     #[tokio::test]

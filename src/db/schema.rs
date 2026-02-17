@@ -11,7 +11,8 @@ DEFINE FIELD last_activity_at ON session TYPE datetime;
 DEFINE FIELD status ON session TYPE string ASSERT $value IN ["active", "rebooted"];
 DEFINE FIELD compaction_summary ON session TYPE option<string>;
 DEFINE FIELD compaction_cursor_id ON session TYPE option<string>;
-DEFINE FIELD todo_list ON session TYPE option<array<string>>;
+DEFINE FIELD todo_list ON session TYPE option<array>;
+DEFINE FIELD todo_list.* ON session FLEXIBLE TYPE object;
 
 DEFINE TABLE message SCHEMAFULL;
 DEFINE FIELD session ON message TYPE record<session>;
@@ -32,7 +33,8 @@ DEFINE FIELD finished_at ON job_log TYPE option<datetime>;
 DEFINE FIELD status ON job_log TYPE string ASSERT $value IN ["running", "ok", "failed"];
 DEFINE FIELD transcript ON job_log TYPE option<string>;
 DEFINE FIELD handoff_note ON job_log TYPE option<string>;
-DEFINE FIELD todo_list ON job_log TYPE option<array<string>>;
+DEFINE FIELD todo_list ON job_log TYPE option<array>;
+DEFINE FIELD todo_list.* ON job_log FLEXIBLE TYPE object;
 
 DEFINE TABLE usage_log SCHEMAFULL;
 DEFINE FIELD session ON usage_log TYPE record<session>;

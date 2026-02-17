@@ -41,7 +41,9 @@ pub(super) fn convert_stored_message_to_provider_message(
     };
     let mut content = Vec::new();
     if !message.content.trim().is_empty() {
-        content.push(ContentBlock::Text(message.content));
+        content.push(ContentBlock::Text {
+            text: message.content,
+        });
     }
     if let Some(tool_calls) = message.tool_calls {
         for call in tool_calls {
@@ -96,7 +98,7 @@ pub(super) fn extract_text_content(content: &[ContentBlock]) -> String {
     content
         .iter()
         .filter_map(|block| match block {
-            ContentBlock::Text(text) => Some(text.as_str()),
+            ContentBlock::Text { text } => Some(text.as_str()),
             _ => None,
         })
         .collect::<Vec<_>>()
@@ -190,17 +192,19 @@ pub(super) fn citation_response_format() -> crate::providers::ResponseFormat {
         name: "ghost_citation_response".to_string(),
         schema: json!({
             "type": "object",
+            "additionalProperties": false,
             "properties": {
                 "message": { "type": "string", "description": "The response to the OPERATOR" },
                 "citations": {
                     "type": "array",
                     "items": {
                         "type": "object",
+                        "additionalProperties": false,
                         "properties": {
                             "source": { "type": "string", "description": "File path or URL" },
                             "context": { "type": "string", "description": "What this source was used for" }
                         },
-                        "required": ["source"]
+                        "required": ["source", "context"]
                     }
                 }
             },
@@ -239,8 +243,10 @@ pub(super) fn resolve_web_cache_url(workspace: &Path, source: &str) -> Option<St
 pub(super) fn render_tool_error(error: ToolError) -> String {
     match error {
         ToolError::NotFound { name } => format!("Tool not found: {name}"),
-        ToolError::ExecutionFailed { name, message } => {
-            format!("Tool {name} failed: {message}")
+        ToolError::InvalidParams(msg) => format!("Invalid parameters: {msg}"),
+        ToolError::ExecutionFailed(msg) => format!("Execution failed: {msg}"),
+        ToolError::PermissionDenied(msg) => {
+            format!("Permission denied: {msg}")
         }
     }
 }

@@ -151,8 +151,9 @@ impl OpenAiOAuthProvider {
             model = request.model.clone(),
             endpoint = self.endpoint.clone(),
             messages = body.input.len() as u64,
-            body = request_json,
+            body_len = request_json.len() as u64,
         );
+        logfire::debug!("provider request body", body = request_json);
         let http_response = self
             .client
             .post(&self.endpoint)
@@ -264,16 +265,16 @@ impl Provider for OpenAiOAuthProvider {
 fn build_codex_request_body(request: &ChatRequest) -> Result<CodexResponsesRequest, ProviderError> {
     let mut input = Vec::new();
     for message in &request.messages {
-        let role = match message.role {
-            crate::providers::Role::User => "user",
-            crate::providers::Role::Assistant => "assistant",
-            crate::providers::Role::System => "developer",
+        let (role, part_type) = match message.role {
+            crate::providers::Role::User => ("user", "input_text"),
+            crate::providers::Role::Assistant => ("assistant", "output_text"),
+            crate::providers::Role::System => ("developer", "input_text"),
         };
         let text = message
             .content
             .iter()
             .filter_map(|block| match block {
-                ContentBlock::Text(text) => Some(text.as_str()),
+                ContentBlock::Text { text } => Some(text.as_str()),
                 _ => None,
             })
             .collect::<Vec<_>>()
@@ -284,7 +285,7 @@ fn build_codex_request_body(request: &ChatRequest) -> Result<CodexResponsesReque
         input.push(CodexInputMessage {
             role: role.to_string(),
             content: vec![CodexInputPart {
-                r#type: "input_text".to_string(),
+                r#type: part_type.to_string(),
                 text,
             }],
         });
@@ -362,7 +363,7 @@ fn parse_codex_sse_response(
     }
     if !output_text.trim().is_empty() {
         return Ok(ChatResponse {
-            content: vec![ContentBlock::Text(output_text)],
+            content: vec![ContentBlock::Text { text: output_text }],
             usage: Usage::default(),
             stop_reason: StopReason::EndTurn,
             model: fallback_model.to_string(),
@@ -400,7 +401,9 @@ fn parse_codex_response_value(
                         .or_else(|| part.get("output_text").and_then(Value::as_str))
                         && !text.trim().is_empty()
                     {
-                        content.push(ContentBlock::Text(text.to_string()));
+                        content.push(ContentBlock::Text {
+                            text: text.to_string(),
+                        });
                     }
                 }
             }
@@ -412,7 +415,9 @@ fn parse_codex_response_value(
             .and_then(Value::as_str)
             .filter(|text| !text.trim().is_empty())
     {
-        content.push(ContentBlock::Text(text.to_string()));
+        content.push(ContentBlock::Text {
+            text: text.to_string(),
+        });
     }
 
     if content.is_empty() {
@@ -497,6 +502,7 @@ fn extract_account_id(access_token: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::providers::{ChatMessage, Role};
 
     #[test]
     fn parses_account_id_from_jwt_claim() {
@@ -506,5 +512,38 @@ mod tests {
         let encoded = URL_SAFE_NO_PAD.encode(payload.to_string().as_bytes());
         let token = format!("header.{encoded}.sig");
         assert_eq!(extract_account_id(&token).as_deref(), Some("acc_123"));
+    }
+
+    #[test]
+    fn build_request_uses_output_text_for_assistant_messages() {
+        let request = ChatRequest {
+            messages: vec![
+                ChatMessage {
+                    role: Role::User,
+                    content: vec![ContentBlock::Text {
+                        text: "user text".to_string(),
+                    }],
+                },
+                ChatMessage {
+                    role: Role::Assistant,
+                    content: vec![ContentBlock::Text {
+                        text: "assistant text".to_string(),
+                    }],
+                },
+            ],
+            model: "gpt-5.3-codex".to_string(),
+            max_tokens: None,
+            temperature: None,
+            system: None,
+            response_format: None,
+            tools: None,
+        };
+
+        let body = build_codex_request_body(&request).expect("request body");
+
+        assert_eq!(body.input[0].role, "user");
+        assert_eq!(body.input[0].content[0].r#type, "input_text");
+        assert_eq!(body.input[1].role, "assistant");
+        assert_eq!(body.input[1].content[0].r#type, "output_text");
     }
 }

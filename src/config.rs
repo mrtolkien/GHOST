@@ -602,3 +602,45 @@ fn render_value(value: &toml::Value) -> String {
         _ => value.to_string(),
     }
 }
+
+/// Create a minimal `Config` for unit tests that need a ToolContext but don't
+/// exercise any real config behavior. The workspace is set to the given path.
+pub fn test_config(workspace: &std::path::Path) -> Config {
+    let mut aliases = BTreeMap::new();
+    aliases.insert(
+        "primary".to_string(),
+        ModelConfig {
+            provider: "openrouter".to_string(),
+            model: "test/model".to_string(),
+            context_window: 200_000,
+            headers: BTreeMap::new(),
+        },
+    );
+    Config {
+        workspace: workspace.to_path_buf(),
+        models: ModelsConfig {
+            default: "primary".to_string(),
+            aliases,
+        },
+        discord: DiscordConfig {
+            enabled: false,
+            allowed_user_id: String::new(),
+        },
+        embeddings: EmbeddingsConfig {
+            url: "http://localhost:11434".to_string(),
+            model: "test".to_string(),
+            batch_size: 32,
+        },
+        timing: TimingConfig {
+            heartbeat_idle_minutes: 5,
+            heartbeat_check_seconds: 60,
+            heartbeat_continue_minutes: 30,
+            reflection_idle_minutes: 15,
+        },
+        compaction: CompactionConfig {
+            threshold: 0.85,
+            keep_window: 20,
+            mask_preview_chars: 100,
+        },
+    }
+}

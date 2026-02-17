@@ -99,8 +99,9 @@ impl OpenAiCompatibleProvider {
             endpoint = self.endpoint.clone(),
             messages = body.messages.len() as u64,
             tools = body.tools.as_ref().map_or(0, |tools| tools.len()) as u64,
-            body = request_json,
+            body_len = request_json.len() as u64,
         );
+        logfire::debug!("provider request body", body = request_json,);
         let http_response = self.client.post(&self.endpoint).json(&body).send().await?;
         let status = http_response.status();
 

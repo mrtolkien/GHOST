@@ -47,7 +47,9 @@ pub enum Role {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ContentBlock {
-    Text(String),
+    Text {
+        text: String,
+    },
     ToolUse {
         id: String,
         name: String,
@@ -181,6 +183,8 @@ pub fn provider_for_alias(
 pub fn user_message(content: impl Into<String>) -> ChatMessage {
     ChatMessage {
         role: Role::User,
-        content: vec![ContentBlock::Text(content.into())],
+        content: vec![ContentBlock::Text {
+            text: content.into(),
+        }],
     }
 }

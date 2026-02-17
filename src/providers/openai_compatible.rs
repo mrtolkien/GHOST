@@ -172,7 +172,7 @@ pub(crate) fn convert_messages(request: &ChatRequest) -> Vec<OpenAiMessage> {
 
         for block in &message.content {
             match block {
-                ContentBlock::Text(text) => text_parts.push(text.clone()),
+                ContentBlock::Text { text } => text_parts.push(text.clone()),
                 ContentBlock::ToolUse { id, name, input } => {
                     let arguments =
                         serde_json::to_string(input).unwrap_or_else(|_| "{}".to_string());
@@ -245,7 +245,7 @@ pub(crate) fn parse_response(
     if let Some(content_value) = choice.message.content {
         let text = extract_text_content(content_value);
         if !text.trim().is_empty() {
-            content.push(ContentBlock::Text(text));
+            content.push(ContentBlock::Text { text });
         }
     }
 
@@ -453,7 +453,7 @@ mod tests {
         assert_eq!(parsed.usage.output_tokens, 4);
         assert_eq!(parsed.usage.cache_read_tokens, Some(1));
         assert_eq!(parsed.usage.cache_creation_tokens, Some(2));
-        assert!(matches!(parsed.content[0], ContentBlock::Text(_)));
+        assert!(matches!(parsed.content[0], ContentBlock::Text { .. }));
         assert!(matches!(parsed.content[1], ContentBlock::ToolUse { .. }));
     }
 

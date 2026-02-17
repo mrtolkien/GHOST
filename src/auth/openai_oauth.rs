@@ -124,13 +124,11 @@ pub struct OpenAiOAuthClient {
 }
 
 impl OpenAiOAuthClient {
-    #[tracing::instrument(skip_all)]
     pub fn new() -> Result<Self, AuthError> {
         let client = reqwest::Client::builder().build()?;
         Ok(Self { client })
     }
 
-    #[tracing::instrument(skip_all)]
     pub fn build_authorization_request(&self) -> AuthorizationRequest {
         let code_verifier = random_urlsafe(32);
         let state = random_urlsafe(32);
@@ -194,7 +192,6 @@ impl OpenAiOAuthClient {
 }
 
 impl TokenStore {
-    #[tracing::instrument(skip_all)]
     pub fn new(path: PathBuf) -> Self {
         Self {
             path,
@@ -202,22 +199,18 @@ impl TokenStore {
         }
     }
 
-    #[tracing::instrument(skip_all)]
     pub fn default_openai_path() -> Result<PathBuf, AuthError> {
         Ok(config_dir()?.join("tokens").join(TOKEN_FILE_NAME))
     }
 
-    #[tracing::instrument(skip_all)]
     pub fn default_openai_store() -> Result<Self, AuthError> {
         Ok(Self::new(Self::default_openai_path()?))
     }
 
-    #[tracing::instrument(skip_all)]
     pub fn path(&self) -> &Path {
         &self.path
     }
 
-    #[tracing::instrument(skip_all)]
     pub async fn load(&self) -> Result<Option<StoredTokens>, AuthError> {
         if !self.path.exists() {
             *self.tokens.write().await = None;
@@ -238,7 +231,6 @@ impl TokenStore {
         Ok(Some(parsed))
     }
 
-    #[tracing::instrument(skip_all)]
     pub async fn save(&self, tokens: &StoredTokens) -> Result<(), AuthError> {
         let directory =
             self.path
@@ -269,7 +261,6 @@ impl TokenStore {
         Ok(())
     }
 
-    #[tracing::instrument(skip_all)]
     pub async fn revoke(&self) -> Result<(), AuthError> {
         if self.path.exists() {
             std::fs::remove_file(&self.path).map_err(|source| AuthError::DeleteTokenFile {
@@ -281,7 +272,6 @@ impl TokenStore {
         Ok(())
     }
 
-    #[tracing::instrument(skip_all)]
     pub async fn current(&self) -> Result<Option<StoredTokens>, AuthError> {
         if let Some(tokens) = self.tokens.read().await.clone() {
             return Ok(Some(tokens));
@@ -289,7 +279,6 @@ impl TokenStore {
         self.load().await
     }
 
-    #[tracing::instrument(skip_all)]
     pub async fn get_valid_access_token(
         &self,
         oauth_client: &OpenAiOAuthClient,
@@ -306,7 +295,6 @@ impl TokenStore {
     }
 }
 
-#[tracing::instrument(skip_all)]
 pub async fn run_codex_auth_flow() -> Result<PathBuf, AuthError> {
     let oauth_client = OpenAiOAuthClient::new()?;
     let token_store = TokenStore::default_openai_store()?;
@@ -339,12 +327,10 @@ pub async fn run_codex_auth_flow() -> Result<PathBuf, AuthError> {
     Ok(token_store.path().to_path_buf())
 }
 
-#[tracing::instrument(skip_all)]
 pub async fn auth_status() -> Result<Option<StoredTokens>, AuthError> {
     TokenStore::default_openai_store()?.current().await
 }
 
-#[tracing::instrument(skip_all)]
 pub async fn revoke_openai_tokens() -> Result<(), AuthError> {
     TokenStore::default_openai_store()?.revoke().await
 }

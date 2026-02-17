@@ -4,6 +4,7 @@ use surrealdb::engine::local::Db;
 use surrealdb::sql::{Datetime, Thing};
 
 use crate::db::error::DatabaseError;
+use crate::tools::TodoItem;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct SessionRecord {
@@ -14,7 +15,7 @@ pub struct SessionRecord {
     pub status: String,
     pub compaction_summary: Option<String>,
     pub compaction_cursor_id: Option<String>,
-    pub todo_list: Option<Vec<String>>,
+    pub todo_list: Option<Vec<serde_json::Value>>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -173,13 +174,10 @@ pub async fn update_activity(db: &Surreal<Db>, session_id: &Thing) -> Result<(),
 pub async fn get_session_todo_list(
     db: &Surreal<Db>,
     session_id: &Thing,
-) -> Result<Option<Vec<serde_json::Value>>, DatabaseError> {
-    // TEMPORARY SCAFFOLDING:
-    // Stored as array<string> for spec 06 unblock. Spec 10 TODO tool can replace this
-    // with a richer canonical representation.
+) -> Result<Option<Vec<TodoItem>>, DatabaseError> {
     #[derive(Debug, Deserialize)]
     struct TodoRow {
-        todo_list: Option<Vec<String>>,
+        todo_list: Option<Vec<serde_json::Value>>,
     }
 
     let mut response = db
@@ -204,49 +202,65 @@ pub async fn get_session_todo_list(
             operation: "get_todo_list",
         })?;
 
-    let Some(value) = row.todo_list else {
+    let Some(values) = row.todo_list else {
         return Ok(None);
     };
 
-    Ok(Some(
-        value.into_iter().map(serde_json::Value::String).collect(),
-    ))
+    let items = values
+        .into_iter()
+        .map(|v| {
+            serde_json::from_value::<TodoItem>(v).map_err(|source| DatabaseError::Query {
+                table: "session",
+                operation: "get_todo_list/deserialize",
+                source: surrealdb::Error::Db(surrealdb::error::Db::Serialization(
+                    source.to_string(),
+                )),
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+
+    Ok(Some(items))
 }
 
 #[tracing::instrument(skip_all, level = "debug", fields(session_id = %session_id))]
 pub async fn set_session_todo_list(
     db: &Surreal<Db>,
     session_id: &Thing,
-    todo_list: Option<Vec<serde_json::Value>>,
+    todo_list: Option<&[TodoItem]>,
 ) -> Result<(), DatabaseError> {
-    // TEMPORARY SCAFFOLDING:
-    // We currently serialize TODO items into strings to keep storage stable while
-    // spec 10 TODO semantics are still in progress.
     match todo_list {
-        Some(todo_items) => {
-            let serialized_items = todo_items
-                .into_iter()
-                .map(|item| item.to_string())
-                .collect::<Vec<_>>();
-            db.query("UPDATE $session_id SET todo_list = $todo_list, updated_at = time::now()")
-                .bind(("session_id", session_id.clone()))
-                .bind(("todo_list", serialized_items))
-                .await
-                .map_err(|source| DatabaseError::Query {
-                    table: "session",
-                    operation: "set_todo_list",
-                    source,
-                })?;
+        Some(items) => {
+            let values: Vec<serde_json::Value> = items
+                .iter()
+                .map(|item| serde_json::to_value(item).unwrap_or_default())
+                .collect();
+            db.query(
+                "UPDATE $session_id SET \
+                    todo_list = $todo_list, \
+                    updated_at = time::now()",
+            )
+            .bind(("session_id", session_id.clone()))
+            .bind(("todo_list", values))
+            .await
+            .map_err(|source| DatabaseError::Query {
+                table: "session",
+                operation: "set_todo_list",
+                source,
+            })?;
         }
         None => {
-            db.query("UPDATE $session_id SET todo_list = NONE, updated_at = time::now()")
-                .bind(("session_id", session_id.clone()))
-                .await
-                .map_err(|source| DatabaseError::Query {
-                    table: "session",
-                    operation: "set_todo_list",
-                    source,
-                })?;
+            db.query(
+                "UPDATE $session_id SET \
+                    todo_list = NONE, \
+                    updated_at = time::now()",
+            )
+            .bind(("session_id", session_id.clone()))
+            .await
+            .map_err(|source| DatabaseError::Query {
+                table: "session",
+                operation: "set_todo_list",
+                source,
+            })?;
         }
     }
 

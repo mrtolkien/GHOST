@@ -89,8 +89,19 @@ fn set_default_rust_log_filter() {
         return;
     }
 
+    // RUST_LOG controls both console output and what gets sent to logfire.
+    // logfire's ConsoleOptions::with_min_log_level has a bug (0.9.0) where
+    // log records bypass the min-level check, so RUST_LOG is the only
+    // reliable way to filter console output.
+    //
+    // To see provider request/response bodies, set:
+    //   RUST_LOG=warn,ghost=info,ghost::providers=debug,usvg=error
+    //
     // SAFETY: daemon startup sets process env before spawning runtime tasks.
     unsafe {
-        std::env::set_var("RUST_LOG", "warn,ghost=info");
+        std::env::set_var(
+            "RUST_LOG",
+            "warn,ghost=info,ghost::providers=debug,usvg=error",
+        );
     }
 }

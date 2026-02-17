@@ -36,7 +36,7 @@ async fn openrouter_live_chat_completion_returns_text() {
         response
             .content
             .iter()
-            .any(|block| matches!(block, ContentBlock::Text(text) if !text.trim().is_empty()))
+            .any(|block| matches!(block, ContentBlock::Text { text } if !text.trim().is_empty()))
     );
 }
 
@@ -82,7 +82,7 @@ async fn openrouter_live_chat_completion_with_response_format_returns_json() {
         .content
         .iter()
         .find_map(|block| match block {
-            ContentBlock::Text(text) if !text.trim().is_empty() => Some(text),
+            ContentBlock::Text { text } if !text.trim().is_empty() => Some(text),
             _ => None,
         })
         .expect("expected text content");

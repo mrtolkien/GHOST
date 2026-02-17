@@ -12,7 +12,7 @@ use crate::prompt::{PromptContext, PromptRenderer};
 use crate::providers::{
     ChatMessage, ChatRequest, ContentBlock, Provider, Role, StopReason, provider_for_alias,
 };
-use crate::tools::{ToolContext, ToolManager, ToolSet};
+use crate::tools::{ToolContext, ToolManager, ToolSet, format_todo_injection};
 
 use super::convert::{
     citation_response_format, citations_to_values, convert_stored_message_to_provider_message,
@@ -47,7 +47,7 @@ impl SessionChat {
     pub fn from_config(db: Surreal<Db>, config: Config) -> Result<Self, ChatError> {
         let provider = provider_for_alias(&config, None)?;
 
-        Ok(Self::new(db, provider, ToolManager::new(), config))
+        Ok(Self::new(db, provider, ToolManager::for_chat(), config))
     }
 
     #[must_use]
@@ -92,7 +92,7 @@ impl SessionChat {
         if let Some(todo_context) = self.todo_injection_message(&session_thing).await? {
             history.push(ChatMessage {
                 role: Role::System,
-                content: vec![ContentBlock::Text(todo_context)],
+                content: vec![ContentBlock::Text { text: todo_context }],
             });
         }
 
@@ -108,7 +108,7 @@ impl SessionChat {
             let request = ChatRequest {
                 model: model.clone(),
                 messages: history.clone(),
-                tools: Some(self.tool_manager.all_tool_schemas(ToolSet::Chat)),
+                tools: Some(self.tool_manager.all_tool_schemas()),
                 max_tokens: None,
                 temperature: None,
                 system: Some(prompt),
@@ -149,9 +149,7 @@ impl SessionChat {
                     )
                     .await?;
 
-                    let tool_results = self
-                        .execute_tool_calls(session_id, &tool_uses, ToolSet::Chat)
-                        .await;
+                    let tool_results = self.execute_tool_calls(session_id, &tool_uses).await;
                     db::sessions::create_message_with_metadata(
                         &self.db,
                         &session_thing,
@@ -218,7 +216,7 @@ impl SessionChat {
             if let Some(todo_context) = self.todo_injection_message(&session_thing).await? {
                 history.push(ChatMessage {
                     role: Role::System,
-                    content: vec![ContentBlock::Text(todo_context)],
+                    content: vec![ContentBlock::Text { text: todo_context }],
                 });
             }
             last_result = Some(ChatResult {
@@ -235,7 +233,7 @@ impl SessionChat {
         job_name: &str,
         session_id: &str,
         prompt: &str,
-        tool_set: ToolSet,
+        _tool_set: ToolSet,
     ) -> Result<JobTranscript, ChatError> {
         // TEMPORARY SCAFFOLDING:
         // This is a minimal spec 06 implementation. Jobs spec 16/17 is expected to
@@ -248,7 +246,9 @@ impl SessionChat {
         let model = self.default_model_name()?;
         let mut history = vec![ChatMessage {
             role: Role::User,
-            content: vec![ContentBlock::Text(prompt.to_string())],
+            content: vec![ContentBlock::Text {
+                text: prompt.to_string(),
+            }],
         }];
         let mut transcript_lines = vec![format!("[job:{job_name}] {prompt}")];
         let mut iterations = 0usize;
@@ -257,7 +257,7 @@ impl SessionChat {
             let request = ChatRequest {
                 model: model.clone(),
                 messages: history.clone(),
-                tools: Some(self.tool_manager.all_tool_schemas(tool_set.clone())),
+                tools: Some(self.tool_manager.all_tool_schemas()),
                 max_tokens: None,
                 temperature: None,
                 system: Some(format!("Job: {job_name}")),
@@ -286,9 +286,7 @@ impl SessionChat {
                         role: Role::Assistant,
                         content: response.content,
                     });
-                    let tool_results = self
-                        .execute_tool_calls(session_id, &tool_uses, tool_set.clone())
-                        .await;
+                    let tool_results = self.execute_tool_calls(session_id, &tool_uses).await;
                     transcript_lines.push(format!(
                         "[tools] {}",
                         serde_json::to_string(&tool_results_to_values(&tool_results))
@@ -371,7 +369,7 @@ impl SessionChat {
         {
             messages.push(ChatMessage {
                 role: Role::System,
-                content: vec![ContentBlock::Text(summary)],
+                content: vec![ContentBlock::Text { text: summary }],
             });
             ids.push(String::new());
         }
@@ -403,22 +401,13 @@ impl SessionChat {
         if items.is_empty() {
             return Ok(None);
         }
-        Ok(Some(format!(
-            "Current TODO:\n{}",
-            items
-                .iter()
-                .enumerate()
-                .map(|(index, item)| format!("{}. {}", index + 1, item))
-                .collect::<Vec<_>>()
-                .join("\n")
-        )))
+        Ok(Some(format_todo_injection(&items)))
     }
 
     async fn execute_tool_calls(
         &self,
         session_id: &str,
         tool_calls: &[Value],
-        tool_set: ToolSet,
     ) -> Vec<ContentBlock> {
         let mut results = Vec::new();
         for call in tool_calls {
@@ -429,9 +418,7 @@ impl SessionChat {
                 continue;
             };
             let input = call.get("input").cloned().unwrap_or_else(|| json!({}));
-            let tool_result = self
-                .execute_single_tool(session_id, name, id, input, tool_set.clone())
-                .await;
+            let tool_result = self.execute_single_tool(session_id, name, id, input).await;
             results.push(tool_result);
         }
         results
@@ -443,7 +430,6 @@ impl SessionChat {
         name: &str,
         tool_use_id: &str,
         input: Value,
-        _tool_set: ToolSet,
     ) -> ContentBlock {
         let tool_ctx = ToolContext {
             workspace: self.config.workspace.clone(),

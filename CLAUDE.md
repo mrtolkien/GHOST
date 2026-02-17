@@ -90,10 +90,11 @@ Prefer MCP-backed answers over assumptions for library/framework behavior.
 
 ### Observability (NON-NEGOTIABLE)
 
-Every meaningful public function MUST have a `tracing` span instrumented via
-`#[instrument]` or `logfire::span!()`. This is the single most important code quality
-rule. When there was a crash in the predecessor app, it was extremely hard to fix
-because logs were lackluster and there was no tracing.
+Instrument meaningful execution boundaries with `#[instrument]` or `logfire::span!()`,
+not every function. Prioritize operations where tracing materially helps debugging:
+database calls, external service calls (provider APIs, Discord, embeddings), and run
+entry points (for example, a received message/job tick handler). Keep small pure helpers
+uninstrumented.
 
 - Use `#[tracing::instrument(skip_all, fields(relevant_field = %value))]` on async
   functions
