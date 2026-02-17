@@ -70,6 +70,79 @@ pub fn save_search_cache(
     Ok(path)
 }
 
+pub fn scan_web_cache(workspace: &Path) -> Result<Option<String>, WebError> {
+    let cache_dir = workspace.join(WEB_CACHE_DIR);
+
+    if !cache_dir.exists() {
+        return Ok(None);
+    }
+
+    let mut entries: Vec<_> = std::fs::read_dir(&cache_dir)
+        .map_err(|source| WebError::CacheRead {
+            path: cache_dir.clone(),
+            source,
+        })?
+        .filter_map(|entry| {
+            let entry = entry.ok()?;
+            let path = entry.path();
+            if path.extension().and_then(|e| e.to_str()) == Some("md") {
+                Some(path)
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    if entries.is_empty() {
+        return Ok(None);
+    }
+
+    entries.sort();
+
+    let mut lines = Vec::with_capacity(entries.len());
+    for path in &entries {
+        let filename = path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("unknown");
+
+        let label = extract_frontmatter_label(path);
+        lines.push(format!("- `.web-cache/{filename}` — {label}"));
+    }
+
+    Ok(Some(lines.join("\n")))
+}
+
+fn extract_frontmatter_label(path: &Path) -> String {
+    let content = match std::fs::read_to_string(path) {
+        Ok(c) => c,
+        Err(_) => return "unknown".to_string(),
+    };
+
+    // Look for url: or query: in YAML frontmatter (between --- delimiters)
+    let mut in_frontmatter = false;
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if trimmed == "---" {
+            if in_frontmatter {
+                break;
+            }
+            in_frontmatter = true;
+            continue;
+        }
+        if in_frontmatter {
+            if let Some(url) = trimmed.strip_prefix("url: ") {
+                return url.to_string();
+            }
+            if let Some(query) = trimmed.strip_prefix("query: ") {
+                return format!("search: {query}");
+            }
+        }
+    }
+
+    "unknown".to_string()
+}
+
 fn slug_from_url(url: &str) -> String {
     let stripped = url
         .trim_start_matches("https://")
@@ -197,5 +270,44 @@ mod tests {
         assert!(!slug.contains('?'));
         assert!(!slug.contains('&'));
         assert!(!slug.contains('='));
+    }
+
+    #[test]
+    fn scan_web_cache_lists_files() {
+        let (workspace, _dir) = test_workspace();
+
+        let fetch_content = ExtractedContent {
+            title: Some("Rust Docs".to_string()),
+            text: "Content here".to_string(),
+            word_count: 2,
+            truncated: false,
+        };
+        save_fetch_cache(&workspace, "https://doc.rust-lang.org", &fetch_content).unwrap();
+
+        let results = vec![SearchResult {
+            title: "Result".to_string(),
+            url: "https://example.com".to_string(),
+            snippet: None,
+        }];
+        save_search_cache(&workspace, "rust tutorials", &results).unwrap();
+
+        let listing = scan_web_cache(&workspace).unwrap().unwrap();
+
+        assert!(listing.contains("https://doc.rust-lang.org"));
+        assert!(listing.contains("search: rust tutorials"));
+        assert!(listing.contains(".web-cache/"));
+        assert_eq!(listing.lines().count(), 2);
+    }
+
+    #[test]
+    fn scan_web_cache_empty_returns_none() {
+        let (workspace, _dir) = test_workspace();
+        assert!(scan_web_cache(&workspace).unwrap().is_none());
+    }
+
+    #[test]
+    fn scan_web_cache_missing_dir_returns_none() {
+        let dir = TempDir::new().unwrap();
+        assert!(scan_web_cache(dir.path()).unwrap().is_none());
     }
 }

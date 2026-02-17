@@ -2,7 +2,7 @@ mod cache;
 mod fetch;
 mod search;
 
-pub use cache::{save_fetch_cache, save_search_cache};
+pub use cache::{save_fetch_cache, save_search_cache, scan_web_cache};
 pub use fetch::fetch;
 pub use search::BraveSearchProvider;
 
@@ -30,6 +30,13 @@ pub enum WebError {
 
     #[error("failed to write cache file {path}: {source}")]
     CacheWrite {
+        path: std::path::PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
+
+    #[error("failed to read cache directory {path}: {source}")]
+    CacheRead {
         path: std::path::PathBuf,
         #[source]
         source: std::io::Error,
