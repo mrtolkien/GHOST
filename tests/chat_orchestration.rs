@@ -1,105 +1,13 @@
 mod common;
 
-use std::collections::VecDeque;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
-use async_trait::async_trait;
 use ghost::chat::{ChatStopReason, SessionChat};
-use ghost::providers::{
-    ChatRequest, ChatResponse, ContentBlock, Provider, ProviderError, StopReason, ToolDefinition,
-};
-use ghost::tools::{Tool, ToolContext, ToolError, ToolManager};
+use ghost::providers::{ContentBlock, StopReason};
+use ghost::tools::ToolManager;
 use serde_json::json;
 
-#[derive(Debug)]
-struct MockProvider {
-    responses: Arc<Mutex<VecDeque<ChatResponse>>>,
-    requests: Arc<Mutex<Vec<ChatRequest>>>,
-}
-
-impl MockProvider {
-    fn new(responses: Vec<ChatResponse>) -> Self {
-        Self {
-            responses: Arc::new(Mutex::new(VecDeque::from(responses))),
-            requests: Arc::new(Mutex::new(Vec::new())),
-        }
-    }
-
-    fn requests(&self) -> Arc<Mutex<Vec<ChatRequest>>> {
-        Arc::clone(&self.requests)
-    }
-}
-
-#[async_trait]
-impl Provider for MockProvider {
-    async fn chat(&self, request: ChatRequest) -> Result<ChatResponse, ProviderError> {
-        self.requests.lock().expect("lock requests").push(request);
-        self.responses
-            .lock()
-            .expect("lock responses")
-            .pop_front()
-            .ok_or_else(|| ProviderError::InvalidResponse("no mock response remaining".to_string()))
-    }
-
-    fn name(&self) -> &str {
-        "mock"
-    }
-}
-
-#[derive(Debug)]
-struct EchoTool;
-
-#[async_trait]
-impl Tool for EchoTool {
-    fn name(&self) -> &str {
-        "echo_tool"
-    }
-
-    fn schema(&self) -> ToolDefinition {
-        ToolDefinition {
-            name: "echo_tool".to_string(),
-            description: "echoes input".to_string(),
-            input_schema: json!({
-                "type": "object",
-                "properties": { "text": { "type": "string" } },
-                "required": ["text"]
-            }),
-        }
-    }
-
-    async fn execute(
-        &self,
-        params: serde_json::Value,
-        _ctx: &ToolContext,
-    ) -> Result<String, ToolError> {
-        let text = params
-            .get("text")
-            .and_then(serde_json::Value::as_str)
-            .unwrap_or_default();
-        Ok(format!("echo:{text}"))
-    }
-}
-
-fn response(content: Vec<ContentBlock>, stop_reason: StopReason) -> ChatResponse {
-    ChatResponse {
-        content,
-        usage: ghost::providers::Usage::default(),
-        stop_reason,
-        model: "mock-model".to_string(),
-    }
-}
-
-/// Build a mock response that calls the `respond` output tool.
-fn respond_response(message: &str, citations: Vec<serde_json::Value>) -> ChatResponse {
-    response(
-        vec![ContentBlock::ToolUse {
-            id: "respond_1".to_string(),
-            name: "respond".to_string(),
-            input: json!({"message": message, "citations": citations}),
-        }],
-        StopReason::ToolUse,
-    )
-}
+use common::{EchoTool, MockProvider, respond_response, response};
 
 #[tokio::test]
 async fn chat_returns_response_text() {

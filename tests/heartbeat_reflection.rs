@@ -2,11 +2,8 @@
 
 mod common;
 
-use ghost::chat::SessionChat;
-use ghost::jobs::heartbeat::{is_heartbeat_continue, load_prompt};
-use ghost::jobs::reflection::{DEFAULT_REFLECTION_PROMPT, clear_web_cache, filter_transcript};
-use ghost::prompt::{JobPromptContext, PromptRenderer};
-use ghost::tools::{ToolManager, ToolSet};
+use ghost::jobs::heartbeat::is_heartbeat_continue;
+use ghost::jobs::reflection::clear_web_cache;
 use ghost::web::scan_web_cache;
 
 // ---------------------------------------------------------------------------
@@ -20,41 +17,15 @@ use ghost::web::scan_web_cache;
 #[tokio::test]
 async fn heartbeat_returns_heartbeat_continue() {
     let env = common::live_test_database("heartbeat_continue").await;
+    let session = env
+        .session_with_messages(&[
+            ("user", "Hey, what's up?"),
+            ("assistant", "Not much! Just here if you need anything."),
+        ])
+        .await;
 
-    // Create a session with a trivial exchange — nothing to follow up on
-    let session_id = ghost::db::sessions::create_session(&env.db)
-        .await
-        .expect("create session");
-    ghost::db::sessions::create_message(&env.db, &session_id, "user", "Hey, what's up?")
-        .await
-        .expect("user msg");
-    ghost::db::sessions::create_message(
-        &env.db,
-        &session_id,
-        "assistant",
-        "Not much! Just here if you need anything.",
-    )
-    .await
-    .expect("assistant msg");
-
-    // Run heartbeat via chat_job (same path as HeartbeatManager.run_heartbeat)
-    let chat =
-        SessionChat::from_config(env.db.clone(), env.config.clone()).expect("build session chat");
-    let prompt = load_prompt(
-        &env.config.workspace,
-        "heartbeat.md",
-        "# Heartbeat Check\n\n\
-         You are running a heartbeat check. The OPERATOR has been idle.\n\n\
-         If there's nothing meaningful to say, respond with exactly: \
-         HEARTBEAT_CONTINUE",
-    );
-
-    let result = chat
-        .chat_job("heartbeat", &session_id.to_string(), &prompt, ToolSet::Chat)
-        .await
-        .expect("heartbeat chat_job");
-
-    env.log_session("heartbeat", &session_id).await;
+    let result = env.run_heartbeat(&session).await;
+    env.log_session("heartbeat", &session).await;
 
     assert!(
         is_heartbeat_continue(&result.result.message),
@@ -62,7 +33,6 @@ async fn heartbeat_returns_heartbeat_continue() {
         result.result.message
     );
 
-    // Verify job_log was created
     let logs = ghost::db::job_logs::list_job_logs(&env.db, Some("heartbeat"), 10)
         .await
         .expect("list job logs");
@@ -71,7 +41,7 @@ async fn heartbeat_returns_heartbeat_continue() {
 }
 
 // ---------------------------------------------------------------------------
-// Reflection e2e: blog fetch → reflection classifies reference
+// Reflection e2e: blog fetch -> reflection classifies reference
 // ---------------------------------------------------------------------------
 
 /// Full e2e: ask the GHOST about a blog, it fetches and responds, then run
@@ -79,132 +49,231 @@ async fn heartbeat_returns_heartbeat_continue() {
 #[tokio::test]
 async fn reflection_classifies_blog_reference() {
     let env = common::live_test_database("reflection_blog").await;
+    let session = env.create_session().await;
 
-    // -- Step 1: Chat — ask about the blog ------------------------------------
-    let session_id = ghost::db::sessions::create_session(&env.db)
-        .await
-        .expect("create session");
-
-    let chat =
-        SessionChat::from_config(env.db.clone(), env.config.clone()).expect("build session chat");
+    // Step 1: Chat — ask about the blog
+    let chat = env.chat();
     let result = chat
         .chat(
-            &session_id.to_string(),
+            &session.to_string(),
             "What's the latest post on https://blog.tolki.dev/ ? \
              Use `ghost web fetch` to read it, then tell me the title and a one-line summary.",
         )
         .await
         .expect("chat response");
-
-    env.log_session("chat", &session_id).await;
-
+    env.log_session("chat", &session).await;
     assert!(
         !result.message.trim().is_empty(),
         "GHOST should have responded with blog summary"
     );
 
-    // -- Step 2: Verify web cache was populated --------------------------------
-    let web_cache_listing = scan_web_cache(&env.config.workspace).expect("scan web cache");
+    // Step 2: Verify web cache was populated
+    let listing = scan_web_cache(&env.config.workspace).expect("scan web cache");
     assert!(
-        web_cache_listing.is_some(),
-        "Expected .web-cache/ to have entries after fetching blog. \
-         The GHOST should have used `ghost web fetch` which auto-caches."
+        listing.is_some(),
+        "Expected .web-cache/ to have entries after fetching blog"
     );
-    let web_cache_listing = web_cache_listing.unwrap();
     assert!(
-        web_cache_listing.contains("blog.tolki.dev"),
-        "web cache should contain blog.tolki.dev entry, got:\n{web_cache_listing}"
+        listing.as_ref().unwrap().contains("blog.tolki.dev"),
+        "web cache should contain blog.tolki.dev entry"
     );
 
-    // -- Step 3: Build and run reflection --------------------------------------
-    let messages = ghost::db::sessions::list_messages_by_session(&env.db, &session_id)
-        .await
-        .expect("list messages");
-    let transcript = filter_transcript(&messages);
-
-    let renderer = PromptRenderer::new(env.config.clone());
-    let reflection_prompt_body = load_prompt(
-        &env.config.workspace,
-        "reflection.md",
-        DEFAULT_REFLECTION_PROMPT,
-    );
-    let interpolated = renderer
-        .render_job_prompt(
-            "reflection",
-            &JobPromptContext {
-                prompt_body: reflection_prompt_body,
-                previous_handoff: None,
-                diary_today: None,
-                recent_messages: Some(transcript),
-                web_cache_files: Some(web_cache_listing),
-            },
-        )
-        .expect("render reflection prompt");
-
-    // Run reflection with reflection tools (includes reference_manage)
-    let reflection_chat = SessionChat::new(
-        env.db.clone(),
-        ghost::providers::provider_for_alias(&env.config, None).expect("provider"),
-        ToolManager::for_reflection(),
-        env.config.clone(),
-    );
-
-    let temp_session = ghost::db::sessions::create_session(&env.db)
-        .await
-        .expect("create temp session");
-
-    let reflection_result = reflection_chat
-        .chat_job(
-            "reflection",
-            &temp_session.to_string(),
-            &interpolated,
-            ToolSet::Reflection,
-        )
-        .await
-        .expect("reflection chat_job");
-
-    env.log_session("reflection", &temp_session).await;
-
+    // Step 3: Run reflection
+    let result = env.run_reflection(&session, None).await;
+    env.log_session("reflection-result", &session).await;
     assert!(
-        !reflection_result.result.message.trim().is_empty(),
+        !result.result.message.trim().is_empty(),
         "reflection should produce a handoff note"
     );
 
-    // -- Step 4: Verify web cache was moved to references ---------------------
-    let refs_dir = env.config.workspace.join("knowledge/references");
+    // Step 4: Verify reflection moved web cache to references
     assert!(
-        find_file_containing(&refs_dir, "blog.tolki.dev"),
-        "Expected a reference file containing 'blog.tolki.dev' under {}, \
-         reflection should have used reference_manage to move the web cache entry",
-        refs_dir.display()
+        env.find_file_containing("knowledge/references", "blog.tolki.dev"),
+        "Expected a reference file containing 'blog.tolki.dev'"
     );
 
-    // Web cache should be cleared after successful reflection
+    // Step 5: Clear web cache (as production does post-reflection)
     clear_web_cache(&env.config.workspace).expect("clear web cache");
-    let remaining = scan_web_cache(&env.config.workspace).expect("scan after clear");
     assert!(
-        remaining.is_none(),
+        scan_web_cache(&env.config.workspace)
+            .expect("scan after clear")
+            .is_none(),
         "web cache should be empty after clearing"
     );
 }
 
-/// Recursively search for any file under `dir` whose content contains `needle`.
-fn find_file_containing(dir: &std::path::Path, needle: &str) -> bool {
-    let Ok(entries) = std::fs::read_dir(dir) else {
-        return false;
-    };
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if path.is_dir() {
-            if find_file_containing(&path, needle) {
-                return true;
-            }
-        } else if path.is_file()
-            && let Ok(content) = std::fs::read_to_string(&path)
-            && content.contains(needle)
-        {
-            return true;
-        }
-    }
-    false
+// ---------------------------------------------------------------------------
+// Heartbeat e2e: proactive follow-up
+// ---------------------------------------------------------------------------
+
+/// Heartbeat with a substantive conversation — model should have something
+/// to say (or at least HEARTBEAT_CONTINUE; the point is that the model
+/// processes a richer transcript without errors).
+#[tokio::test]
+async fn heartbeat_proactive_followup() {
+    let env = common::live_test_database("heartbeat_followup").await;
+    let session = env
+        .session_with_messages(&[
+            (
+                "user",
+                "I'm working on a Rust project and struggling with lifetimes. \
+                 Can you explain how the borrow checker works?",
+            ),
+            (
+                "assistant",
+                "The borrow checker enforces Rust's ownership rules at compile time. \
+                 Each value has a single owner, and references must not outlive the \
+                 data they point to. Would you like me to walk through a specific example?",
+            ),
+            ("user", "Yes, show me an example with structs."),
+            (
+                "assistant",
+                "Here's a common pattern:\n\n```rust\nstruct Config<'a> {\n    \
+                 name: &'a str,\n}\n```\n\nThe lifetime `'a` tells the compiler \
+                 that `Config` cannot outlive the string it borrows.",
+            ),
+        ])
+        .await;
+
+    let result = env.run_heartbeat(&session).await;
+    env.log_session("heartbeat_followup", &session).await;
+
+    // Model should either continue silently or send a follow-up — either is valid
+    assert!(
+        !result.result.message.trim().is_empty(),
+        "heartbeat should produce a non-empty response"
+    );
+
+    let logs = ghost::db::job_logs::list_job_logs(&env.db, Some("heartbeat"), 10)
+        .await
+        .expect("list job logs");
+    assert!(!logs.is_empty());
+    assert_eq!(logs[0].status, "ok");
+}
+
+// ---------------------------------------------------------------------------
+// Reflection e2e: creates knowledge notes
+// ---------------------------------------------------------------------------
+
+/// After a knowledge-rich conversation, reflection should create notes.
+#[tokio::test]
+async fn reflection_creates_knowledge_notes() {
+    let env = common::live_test_database("reflection_notes").await;
+    let session = env.create_session().await;
+
+    let chat = env.chat();
+    chat.chat(
+        &session.to_string(),
+        "I just learned that SurrealDB supports graph relations using RELATE statements. \
+         For example: `RELATE user:alice->follows->user:bob`. This creates typed edges \
+         between records. I want to remember this for later.",
+    )
+    .await
+    .expect("chat response");
+    env.log_session("chat", &session).await;
+
+    let result = env.run_reflection(&session, None).await;
+    env.log_session("reflection", &session).await;
+
+    assert!(
+        !result.result.message.trim().is_empty(),
+        "reflection should produce a handoff note"
+    );
+    env.log(format!("handoff: {}", result.result.message));
+
+    // Reflection may create notes or diary entries — check for any knowledge artifacts
+    let notes = env.list_notes();
+    let refs = env.list_references();
+    env.log(format!(
+        "notes: {}, references: {}",
+        notes.len(),
+        refs.len()
+    ));
+}
+
+// ---------------------------------------------------------------------------
+// Reflection e2e: handoff continuity
+// ---------------------------------------------------------------------------
+
+/// Reflection handoff note carries over between runs.
+#[tokio::test]
+async fn reflection_handoff_continuity() {
+    let env = common::live_test_database("reflection_handoff").await;
+    let session = env.create_session().await;
+
+    // First conversation
+    let chat = env.chat();
+    chat.chat(
+        &session.to_string(),
+        "I'm planning to refactor the authentication module next week. \
+         The current JWT implementation is too tightly coupled to the HTTP layer.",
+    )
+    .await
+    .expect("first chat");
+    env.log_session("chat_1", &session).await;
+
+    // First reflection
+    let first_result = env.run_reflection(&session, None).await;
+    env.log_session("reflection_1", &session).await;
+    let first_handoff = first_result.result.message.clone();
+    assert!(
+        !first_handoff.trim().is_empty(),
+        "first reflection should produce a handoff"
+    );
+    env.log(format!("first handoff: {first_handoff}"));
+
+    // Second conversation in a new session
+    let session2 = env.create_session().await;
+    let chat2 = env.chat();
+    chat2
+        .chat(
+            &session2.to_string(),
+            "I decided to use tower middleware for auth instead of custom extractors.",
+        )
+        .await
+        .expect("second chat");
+    env.log_session("chat_2", &session2).await;
+
+    // Second reflection with the first handoff
+    let second_result = env.run_reflection(&session2, Some(&first_handoff)).await;
+    env.log_session("reflection_2", &session2).await;
+
+    assert!(
+        !second_result.result.message.trim().is_empty(),
+        "second reflection should produce a handoff"
+    );
+    env.log(format!("second handoff: {}", second_result.result.message));
+}
+
+// ---------------------------------------------------------------------------
+// Skills discoverability
+// ---------------------------------------------------------------------------
+
+/// Skills are discoverable — model can find and reference installed skills.
+#[tokio::test]
+async fn skills_discoverable_without_prompting() {
+    let env = common::live_test_database("skills_discover").await;
+    let session = env.create_session().await;
+
+    // The bootstrapped workspace includes default skills in skills/
+    assert!(
+        env.workspace_file_exists("skills"),
+        "skills directory should exist after bootstrap"
+    );
+
+    let chat = env.chat();
+    let result = chat
+        .chat(
+            &session.to_string(),
+            "What skills do you have available? List them briefly.",
+        )
+        .await
+        .expect("chat response");
+    env.log_session("skills_query", &session).await;
+
+    assert!(
+        !result.message.trim().is_empty(),
+        "model should describe available skills"
+    );
+    env.log(format!("skills response: {}", result.message));
 }

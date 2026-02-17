@@ -1,9 +1,20 @@
+use std::collections::VecDeque;
 use std::fs;
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 
+use async_trait::async_trait;
 use ghost::config::{self, Config};
 use ghost::db::{self, GhostDb};
 use ghost::knowledge::{NoteFrontMatter, serialize_note};
+use ghost::providers::{
+    ChatRequest, ChatResponse, ContentBlock, Provider, ProviderError, StopReason, ToolDefinition,
+    Usage,
+};
+use ghost::tools::{Tool, ToolContext, ToolError};
+use serde_json::json;
+#[cfg(feature = "live-tests")]
+use surrealdb::sql::Thing;
 use tempfile::TempDir;
 
 pub fn test_config() -> (Config, TempDir, TempDir) {
@@ -164,6 +175,151 @@ impl LiveTestEnv {
     pub fn log(&self, msg: impl std::fmt::Display) {
         self.diagnostic_log.borrow_mut().push(format!("# {msg}"));
     }
+
+    // -----------------------------------------------------------------
+    // Session helpers
+    // -----------------------------------------------------------------
+
+    /// Create a bare session.
+    pub async fn create_session(&self) -> Thing {
+        ghost::db::sessions::create_session(&self.db)
+            .await
+            .expect("create session")
+    }
+
+    /// Create a session with pre-filled messages.
+    pub async fn session_with_messages(&self, messages: &[(&str, &str)]) -> Thing {
+        let session_id = self.create_session().await;
+        for (role, content) in messages {
+            ghost::db::sessions::create_message(&self.db, &session_id, role, content)
+                .await
+                .expect("create message");
+        }
+        session_id
+    }
+
+    // -----------------------------------------------------------------
+    // Chat helpers
+    // -----------------------------------------------------------------
+
+    /// SessionChat with real provider + chat tools.
+    pub fn chat(&self) -> ghost::chat::SessionChat {
+        ghost::chat::SessionChat::from_config(self.db.clone(), self.config.clone())
+            .expect("build session chat")
+    }
+
+    /// SessionChat with real provider + reflection tools.
+    pub fn reflection_chat(&self) -> ghost::chat::SessionChat {
+        ghost::chat::SessionChat::new(
+            self.db.clone(),
+            ghost::providers::provider_for_alias(&self.config, None).expect("provider"),
+            ghost::tools::ToolManager::for_reflection(),
+            self.config.clone(),
+        )
+    }
+
+    // -----------------------------------------------------------------
+    // Job runners
+    // -----------------------------------------------------------------
+
+    /// Run heartbeat on a session (loads prompt, calls chat_job).
+    pub async fn run_heartbeat(&self, session_id: &Thing) -> ghost::chat::JobTranscript {
+        let chat = self.chat();
+        let prompt = ghost::jobs::heartbeat::load_prompt(
+            &self.config.workspace,
+            "heartbeat.md",
+            "# Heartbeat Check\n\n\
+             You are running a heartbeat check. The OPERATOR has been idle.\n\n\
+             If there's nothing meaningful to say, respond with exactly: \
+             HEARTBEAT_CONTINUE",
+        );
+        chat.chat_job(
+            "heartbeat",
+            &session_id.to_string(),
+            &prompt,
+            ghost::tools::ToolSet::Chat,
+        )
+        .await
+        .expect("heartbeat chat_job")
+    }
+
+    /// Run reflection on a session (loads prompt, interpolates template,
+    /// calls chat_job with reflection tools).
+    pub async fn run_reflection(
+        &self,
+        session_id: &Thing,
+        previous_handoff: Option<&str>,
+    ) -> ghost::chat::JobTranscript {
+        let messages = ghost::db::sessions::list_messages_by_session(&self.db, session_id)
+            .await
+            .expect("list messages");
+        let transcript = ghost::jobs::reflection::filter_transcript(&messages);
+
+        let renderer = ghost::prompt::PromptRenderer::new(self.config.clone());
+        let prompt_body = ghost::jobs::heartbeat::load_prompt(
+            &self.config.workspace,
+            "reflection.md",
+            ghost::jobs::reflection::DEFAULT_REFLECTION_PROMPT,
+        );
+        let web_cache_files =
+            ghost::web::scan_web_cache(&self.config.workspace).expect("scan web cache");
+
+        let interpolated = renderer
+            .render_job_prompt(
+                "reflection",
+                &ghost::prompt::JobPromptContext {
+                    prompt_body,
+                    previous_handoff: previous_handoff.map(String::from),
+                    diary_today: None,
+                    recent_messages: Some(transcript),
+                    web_cache_files,
+                },
+            )
+            .expect("render reflection prompt");
+
+        let reflection_chat = self.reflection_chat();
+        let temp_session = self.create_session().await;
+
+        reflection_chat
+            .chat_job(
+                "reflection",
+                &temp_session.to_string(),
+                &interpolated,
+                ghost::tools::ToolSet::Reflection,
+            )
+            .await
+            .expect("reflection chat_job")
+    }
+
+    // -----------------------------------------------------------------
+    // Assertion helpers
+    // -----------------------------------------------------------------
+
+    /// Check if a file exists under the workspace.
+    pub fn workspace_file_exists(&self, relative_path: &str) -> bool {
+        self.workspace.path().join(relative_path).exists()
+    }
+
+    /// Read a workspace file's content.
+    pub fn read_workspace_file(&self, relative_path: &str) -> Option<String> {
+        fs::read_to_string(self.workspace.path().join(relative_path)).ok()
+    }
+
+    /// List all notes in knowledge/notes/.
+    pub fn list_notes(&self) -> Vec<PathBuf> {
+        list_files_in(self.workspace.path(), "knowledge/notes")
+    }
+
+    /// List all references in knowledge/references/.
+    pub fn list_references(&self) -> Vec<PathBuf> {
+        list_files_in(self.workspace.path(), "knowledge/references")
+    }
+
+    /// Recursively search for any file under a workspace subdirectory
+    /// whose content contains a string.
+    pub fn find_file_containing(&self, dir: &str, needle: &str) -> bool {
+        find_file_containing_recursive(&self.workspace.path().join(dir), needle)
+    }
 }
 
 #[cfg(feature = "live-tests")]
@@ -281,6 +437,50 @@ pub async fn live_test_database(test_name: &str) -> LiveTestEnv {
 }
 
 #[cfg(feature = "live-tests")]
+fn list_files_in(workspace: &std::path::Path, subdir: &str) -> Vec<PathBuf> {
+    let dir = workspace.join(subdir);
+    let mut files = Vec::new();
+    collect_files_recursive(&dir, &mut files);
+    files
+}
+
+#[cfg(feature = "live-tests")]
+fn collect_files_recursive(dir: &std::path::Path, out: &mut Vec<PathBuf>) {
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            collect_files_recursive(&path, out);
+        } else if path.is_file() {
+            out.push(path);
+        }
+    }
+}
+
+#[cfg(feature = "live-tests")]
+fn find_file_containing_recursive(dir: &std::path::Path, needle: &str) -> bool {
+    let Ok(entries) = fs::read_dir(dir) else {
+        return false;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            if find_file_containing_recursive(&path, needle) {
+                return true;
+            }
+        } else if path.is_file()
+            && let Ok(content) = fs::read_to_string(&path)
+            && content.contains(needle)
+        {
+            return true;
+        }
+    }
+    false
+}
+
+#[cfg(feature = "live-tests")]
 fn truncate_str(s: &str, max: usize) -> String {
     if s.len() <= max {
         s.to_string()
@@ -302,4 +502,103 @@ fn copy_dir_all(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result
         }
     }
     Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Mock provider + test tool helpers (used by non-live tests)
+// ---------------------------------------------------------------------------
+
+#[derive(Debug)]
+#[allow(dead_code)]
+pub struct MockProvider {
+    responses: Arc<Mutex<VecDeque<ChatResponse>>>,
+    requests: Arc<Mutex<Vec<ChatRequest>>>,
+}
+
+#[allow(dead_code)]
+impl MockProvider {
+    pub fn new(responses: Vec<ChatResponse>) -> Self {
+        Self {
+            responses: Arc::new(Mutex::new(VecDeque::from(responses))),
+            requests: Arc::new(Mutex::new(Vec::new())),
+        }
+    }
+
+    pub fn requests(&self) -> Arc<Mutex<Vec<ChatRequest>>> {
+        Arc::clone(&self.requests)
+    }
+}
+
+#[async_trait]
+impl Provider for MockProvider {
+    async fn chat(&self, request: ChatRequest) -> Result<ChatResponse, ProviderError> {
+        self.requests.lock().expect("lock requests").push(request);
+        self.responses
+            .lock()
+            .expect("lock responses")
+            .pop_front()
+            .ok_or_else(|| ProviderError::InvalidResponse("no mock response remaining".to_string()))
+    }
+
+    fn name(&self) -> &str {
+        "mock"
+    }
+}
+
+#[derive(Debug)]
+#[allow(dead_code)]
+pub struct EchoTool;
+
+#[async_trait]
+impl Tool for EchoTool {
+    fn name(&self) -> &str {
+        "echo_tool"
+    }
+
+    fn schema(&self) -> ToolDefinition {
+        ToolDefinition {
+            name: "echo_tool".to_string(),
+            description: "echoes input".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": { "text": { "type": "string" } },
+                "required": ["text"]
+            }),
+        }
+    }
+
+    async fn execute(
+        &self,
+        params: serde_json::Value,
+        _ctx: &ToolContext,
+    ) -> Result<String, ToolError> {
+        let text = params
+            .get("text")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_default();
+        Ok(format!("echo:{text}"))
+    }
+}
+
+#[allow(dead_code)]
+pub fn response(content: Vec<ContentBlock>, stop_reason: StopReason) -> ChatResponse {
+    ChatResponse {
+        content,
+        usage: Usage::default(),
+        stop_reason,
+        model: "mock-model".to_string(),
+    }
+}
+
+/// Build a mock response that calls the `respond` output tool.
+#[allow(dead_code)]
+pub fn respond_response(message: &str, citations: Vec<serde_json::Value>) -> ChatResponse {
+    response(
+        vec![ContentBlock::ToolUse {
+            id: "respond_1".to_string(),
+            name: "respond".to_string(),
+            input: json!({"message": message, "citations": citations}),
+        }],
+        StopReason::ToolUse,
+    )
 }

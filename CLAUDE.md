@@ -178,6 +178,8 @@ Iterate until all spec items are built and tested:
   behaviors to validate.
 - Live tests (`--features live-tests`) are human-run only by default. If you need to run
   them, ask the user.
+- Test harness reference (all helpers, mock types, `LiveTestEnv` API):
+  `specs/notes/test-harness.md`
 
 ### Test Readability (NON-NEGOTIABLE)
 
