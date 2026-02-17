@@ -1,6 +1,7 @@
 mod error;
 mod files;
 mod parser;
+pub mod reconcile;
 mod types;
 
 pub use error::KnowledgeError;
