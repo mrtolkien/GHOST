@@ -128,16 +128,16 @@ pub async fn vector_search(
     query_vector: &[f32],
     limit: usize,
 ) -> Result<Vec<EmbeddingHit>, DatabaseError> {
+    let query = format!(
+        "SELECT source_id, source_table, chunk_text,
+                vector::similarity::cosine(vector, $query_vector) AS score
+         FROM embedding
+         WHERE vector <|{limit}|> $query_vector
+         ORDER BY score DESC"
+    );
     let mut response = db
-        .query(
-            "SELECT source_id, source_table, chunk_text,
-                    vector::similarity::cosine(vector, $query_vector) AS score
-             FROM embedding
-             WHERE vector <|$limit|> $query_vector
-             ORDER BY score DESC",
-        )
+        .query(&query)
         .bind(("query_vector", query_vector.to_vec()))
-        .bind(("limit", limit as i64))
         .await
         .map_err(|source| DatabaseError::Query {
             table: "embedding",
