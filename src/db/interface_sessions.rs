@@ -63,6 +63,34 @@ pub async fn set_active_session_for_interface(
     Ok(())
 }
 
+#[derive(Debug, Deserialize)]
+pub struct InterfaceSessionRecord {
+    pub interface: String,
+    pub session: Thing,
+}
+
+#[tracing::instrument(skip_all, level = "debug")]
+pub async fn list_all_interface_sessions(
+    db: &Surreal<Db>,
+) -> Result<Vec<InterfaceSessionRecord>, DatabaseError> {
+    let mut response = db
+        .query("SELECT interface, session FROM interface_session")
+        .await
+        .map_err(|source| DatabaseError::Query {
+            table: "interface_session",
+            operation: "list_all",
+            source,
+        })?;
+
+    response
+        .take::<Vec<InterfaceSessionRecord>>(0)
+        .map_err(|source| DatabaseError::Query {
+            table: "interface_session",
+            operation: "list_all/take",
+            source,
+        })
+}
+
 #[tracing::instrument(skip_all, level = "debug", fields(old_session_id = %old_session_id, new_session_id = %new_session_id))]
 pub async fn replace_session_everywhere(
     db: &Surreal<Db>,

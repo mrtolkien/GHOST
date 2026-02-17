@@ -41,8 +41,8 @@ later tasks may depend on earlier ones.
 
 ## Phase 6: Jobs
 
-- [ ] Job system: cron scheduling and execution — [16-jobs.md](16-jobs.md)
-- [ ] Heartbeat and reflection subsystems — [17-default-jobs.md](17-default-jobs.md)
+- [x] Job system: cron scheduling and execution — [16-jobs.md](16-jobs.md)
+- [x] Heartbeat and reflection subsystems — [17-default-jobs.md](17-default-jobs.md)
 
 ## Phase 7: Polish
 

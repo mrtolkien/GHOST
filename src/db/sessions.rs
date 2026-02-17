@@ -402,6 +402,36 @@ pub async fn count_messages_for_session(
 }
 
 #[tracing::instrument(skip_all, level = "debug", fields(session_id = %session_id))]
+pub async fn count_messages_since(
+    db: &Surreal<Db>,
+    session_id: &Thing,
+    since: &chrono::DateTime<chrono::Utc>,
+) -> Result<usize, DatabaseError> {
+    let surreal_since = Datetime::from(since.to_owned());
+    let mut response = db
+        .query(
+            "SELECT count() AS count FROM message \
+             WHERE session = $session_id AND created_at > $since \
+             GROUP ALL",
+        )
+        .bind(("session_id", session_id.clone()))
+        .bind(("since", surreal_since))
+        .await
+        .map_err(|source| DatabaseError::Query {
+            table: "message",
+            operation: "count_messages_since",
+            source,
+        })?;
+
+    let rows: Vec<CountRow> = response.take(0).map_err(|source| DatabaseError::Query {
+        table: "message",
+        operation: "count_messages_since/take",
+        source,
+    })?;
+    Ok(rows.first().map_or(0, |row| row.count.max(0) as usize))
+}
+
+#[tracing::instrument(skip_all, level = "debug", fields(session_id = %session_id))]
 pub async fn get_interface_for_session(
     db: &Surreal<Db>,
     session_id: &Thing,

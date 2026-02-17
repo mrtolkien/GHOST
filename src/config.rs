@@ -311,7 +311,7 @@ impl Config {
                     .timing
                     .as_ref()
                     .and_then(|t| t.heartbeat_idle_minutes)
-                    .unwrap_or(5),
+                    .unwrap_or(4),
                 heartbeat_check_seconds: settings
                     .timing
                     .as_ref()
@@ -326,7 +326,7 @@ impl Config {
                     .timing
                     .as_ref()
                     .and_then(|t| t.reflection_idle_minutes)
-                    .unwrap_or(15),
+                    .unwrap_or(4),
                 scheduler_tick_seconds: settings
                     .timing
                     .as_ref()
@@ -684,10 +684,10 @@ pub fn test_config(workspace: &std::path::Path) -> Config {
             dimension: 1024,
         },
         timing: TimingConfig {
-            heartbeat_idle_minutes: 5,
+            heartbeat_idle_minutes: 4,
             heartbeat_check_seconds: 60,
             heartbeat_continue_minutes: 30,
-            reflection_idle_minutes: 15,
+            reflection_idle_minutes: 4,
             scheduler_tick_seconds: 10,
         },
         compaction: CompactionConfig {

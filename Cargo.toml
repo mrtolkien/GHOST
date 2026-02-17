@@ -36,4 +36,6 @@ url = "2"
 live-tests = []
 
 [dev-dependencies]
+chrono = "0.4"
 tempfile = "3"
+toml = "0.9"

@@ -8,6 +8,7 @@ use crate::chat::SessionChat;
 use crate::embeddings::EmbeddingClient;
 use crate::error::GhostError;
 use crate::interfaces::discord;
+use crate::jobs::{HeartbeatManager, ReflectionManager};
 
 pub async fn run() -> Result<(), GhostError> {
     info!("loading config");
@@ -44,11 +45,27 @@ pub async fn run() -> Result<(), GhostError> {
     );
 
     // Spawn the job scheduler
-    let scheduler_handle = crate::jobs::spawn_scheduler(db.clone(), config.clone(), shutdown_rx);
+    let scheduler_handle =
+        crate::jobs::spawn_scheduler(db.clone(), config.clone(), shutdown_rx.clone());
 
     let session_chat = Arc::new(SessionChat::from_config(db.clone(), config.clone())?);
 
-    let discord_result = discord::start_discord(&config, session_chat, db).await?;
+    let discord_result = discord::start_discord(&config, session_chat.clone(), db.clone()).await?;
+
+    // Spawn heartbeat manager (only if Discord is available for sending)
+    let heartbeat_handle = if let Some((ref sender, _)) = discord_result {
+        let reflection = Arc::new(ReflectionManager::new(db.clone(), config.clone()));
+        let hb = HeartbeatManager::new(
+            db.clone(),
+            session_chat,
+            Arc::new(sender.clone()),
+            config.clone(),
+            reflection,
+        );
+        Some(hb.spawn(shutdown_rx))
+    } else {
+        None
+    };
 
     if let Some((_sender, handle)) = discord_result {
         info!("GHOST daemon running — press Ctrl+C to stop");
@@ -66,10 +83,13 @@ pub async fn run() -> Result<(), GhostError> {
         let _ = tokio::signal::ctrl_c().await;
     }
 
-    // Signal shutdown to watcher and scheduler
+    // Signal shutdown to watcher, scheduler, and heartbeat
     let _ = shutdown_tx.send(true);
     let _ = watcher_handle.await;
     let _ = scheduler_handle.await;
+    if let Some(hb_handle) = heartbeat_handle {
+        let _ = hb_handle.await;
+    }
 
     info!("GHOST daemon stopped");
     Ok(())
