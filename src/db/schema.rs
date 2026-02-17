@@ -89,6 +89,12 @@ DEFINE INDEX idx_interface ON interface_session FIELDS interface UNIQUE;
 -- Expected to be revisited in spec 13/15 knowledge and web-cache work.
 DEFINE TABLE cited SCHEMAFULL TYPE RELATION;
 DEFINE FIELD created_at ON cited TYPE datetime;
+
+DEFINE ANALYZER note_analyzer TOKENIZERS blank, class FILTERS lowercase, snowball(english);
+DEFINE INDEX idx_note_title_fts ON note FIELDS title SEARCH ANALYZER note_analyzer BM25;
+DEFINE INDEX idx_note_body_fts ON note FIELDS body SEARCH ANALYZER note_analyzer BM25;
+DEFINE INDEX idx_reference_fts ON reference FIELDS content SEARCH ANALYZER note_analyzer BM25;
+DEFINE INDEX idx_diary_fts ON diary FIELDS body SEARCH ANALYZER note_analyzer BM25;
 "#;
 
 #[tracing::instrument(skip_all)]
