@@ -88,12 +88,6 @@ struct CountRow {
 }
 
 #[derive(Debug, Deserialize)]
-struct TagCountRow {
-    tag: String,
-    count: i64,
-}
-
-#[derive(Debug, Deserialize)]
 struct NoteSearchRow {
     id: Thing,
     title: String,
@@ -416,11 +410,11 @@ pub async fn list_recent(db: &Surreal<Db>, limit: usize) -> Result<Vec<RecentIte
     let mut response = db
         .query(
             "SELECT id, title, 'note' AS kind, updated_at FROM note \
-             UNION ALL \
+             ORDER BY updated_at DESC LIMIT $limit; \
              SELECT id, topic AS title, 'reference' AS kind, created_at AS updated_at FROM reference \
-             UNION ALL \
+             ORDER BY updated_at DESC LIMIT $limit; \
              SELECT id, date AS title, 'diary' AS kind, updated_at FROM diary \
-             ORDER BY updated_at DESC LIMIT $limit",
+             ORDER BY updated_at DESC LIMIT $limit;",
         )
         .bind(("limit", limit as i64))
         .await
@@ -430,11 +424,28 @@ pub async fn list_recent(db: &Surreal<Db>, limit: usize) -> Result<Vec<RecentIte
             source,
         })?;
 
-    response.take(0).map_err(|source| DatabaseError::Query {
+    let notes: Vec<RecentItem> = response.take(0).map_err(|source| DatabaseError::Query {
         table: "knowledge",
-        operation: "list_recent/take",
+        operation: "list_recent/notes",
         source,
-    })
+    })?;
+    let refs: Vec<RecentItem> = response.take(1).map_err(|source| DatabaseError::Query {
+        table: "knowledge",
+        operation: "list_recent/refs",
+        source,
+    })?;
+    let diary: Vec<RecentItem> = response.take(2).map_err(|source| DatabaseError::Query {
+        table: "knowledge",
+        operation: "list_recent/diary",
+        source,
+    })?;
+
+    let mut all = notes;
+    all.extend(refs);
+    all.extend(diary);
+    all.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
+    all.truncate(limit);
+    Ok(all)
 }
 
 // --- Delete ---
@@ -754,8 +765,8 @@ pub async fn orphan_notes(db: &Surreal<Db>) -> Result<Vec<NoteRecord>, DatabaseE
     let mut response = db
         .query(
             "SELECT * FROM note WHERE \
-             id NOT IN (SELECT `in` FROM relates_to) AND \
-             id NOT IN (SELECT out FROM relates_to)",
+             count(->relates_to) = 0 AND \
+             count(<-relates_to) = 0",
         )
         .await
         .map_err(|source| DatabaseError::Query {
@@ -813,16 +824,15 @@ pub async fn count_stubs(db: &Surreal<Db>) -> Result<i64, DatabaseError> {
     Ok(rows.first().map_or(0, |r| r.count))
 }
 
+#[derive(Debug, Deserialize)]
+struct TagsRow {
+    tags: Vec<String>,
+}
+
 #[tracing::instrument(skip_all, level = "debug")]
 pub async fn list_tags_with_counts(db: &Surreal<Db>) -> Result<Vec<(String, i64)>, DatabaseError> {
     let mut response = db
-        .query(
-            "SELECT tags AS tag, count() AS count \
-             FROM note \
-             SPLIT tag \
-             GROUP BY tag \
-             ORDER BY count DESC",
-        )
+        .query("SELECT tags FROM note WHERE array::len(tags) > 0")
         .await
         .map_err(|source| DatabaseError::Query {
             table: "note",
@@ -830,13 +840,22 @@ pub async fn list_tags_with_counts(db: &Surreal<Db>) -> Result<Vec<(String, i64)
             source,
         })?;
 
-    let rows: Vec<TagCountRow> = response.take(0).map_err(|source| DatabaseError::Query {
+    let rows: Vec<TagsRow> = response.take(0).map_err(|source| DatabaseError::Query {
         table: "note",
         operation: "list_tags/take",
         source,
     })?;
 
-    Ok(rows.into_iter().map(|r| (r.tag, r.count)).collect())
+    let mut counts: std::collections::HashMap<String, i64> = std::collections::HashMap::new();
+    for row in rows {
+        for tag in row.tags {
+            *counts.entry(tag).or_insert(0) += 1;
+        }
+    }
+
+    let mut result: Vec<(String, i64)> = counts.into_iter().collect();
+    result.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+    Ok(result)
 }
 
 // --- Reference updates ---

@@ -542,6 +542,48 @@ impl SessionChat {
             return Ok(Some(row.id.clone()));
         }
 
+        // Check notes by path (e.g. "knowledge/notes/rust.md" -> title "Rust")
+        if source.starts_with("knowledge/notes/") {
+            let title = std::path::Path::new(source)
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .map(|s| {
+                    s.chars()
+                        .enumerate()
+                        .map(|(i, c)| {
+                            if i == 0 || s.as_bytes().get(i - 1) == Some(&b'_') {
+                                c.to_uppercase().next().unwrap_or(c)
+                            } else if c == '_' {
+                                ' '
+                            } else {
+                                c
+                            }
+                        })
+                        .collect::<String>()
+                });
+            if let Some(title) = title {
+                let mut note_resp = self
+                    .db
+                    .query("SELECT id FROM note WHERE title = $title LIMIT 1")
+                    .bind(("title", title))
+                    .await
+                    .map_err(|source| DatabaseError::Query {
+                        table: "note",
+                        operation: "lookup_by_title",
+                        source,
+                    })?;
+                let note_rows: Vec<IdRow> =
+                    note_resp.take(0).map_err(|source| DatabaseError::Query {
+                        table: "note",
+                        operation: "lookup_by_title/take",
+                        source,
+                    })?;
+                if let Some(row) = note_rows.first() {
+                    return Ok(Some(row.id.clone()));
+                }
+            }
+        }
+
         if source.starts_with(".web-cache/") {
             // TEMPORARY SCAFFOLDING:
             // For spec 06 we materialize web-cache citations as `reference` records.

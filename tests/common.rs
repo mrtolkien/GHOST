@@ -1,7 +1,9 @@
 use std::fs;
+use std::path::PathBuf;
 
 use ghost::config::{self, Config};
 use ghost::db::{self, GhostDb};
+use ghost::knowledge::{NoteFrontMatter, serialize_note};
 use tempfile::TempDir;
 
 pub fn test_config() -> (Config, TempDir, TempDir) {
@@ -43,4 +45,33 @@ pub async fn test_database() -> (GhostDb, Config, TempDir, TempDir) {
         .await
         .expect("connect surrealdb");
     (db, config, workspace, config_dir)
+}
+
+#[allow(dead_code)]
+pub fn write_test_note(workspace: &std::path::Path, title: &str, body: &str) -> PathBuf {
+    let front = NoteFrontMatter {
+        title: title.to_string(),
+        archetype: None,
+        tags: vec![],
+        trust: 5,
+    };
+    let content = serialize_note(&front, body).expect("serialize note");
+    let slug = ghost::knowledge::slug_from_title(title);
+    let path = workspace.join("knowledge/notes").join(format!("{slug}.md"));
+    fs::write(&path, content).expect("write test note");
+    path
+}
+
+#[allow(dead_code)]
+pub fn write_test_reference(
+    workspace: &std::path::Path,
+    topic: &str,
+    filename: &str,
+    content: &str,
+) -> PathBuf {
+    let dir = workspace.join("knowledge/references").join(topic);
+    fs::create_dir_all(&dir).expect("create reference dir");
+    let path = dir.join(filename);
+    fs::write(&path, content).expect("write test reference");
+    path
 }
