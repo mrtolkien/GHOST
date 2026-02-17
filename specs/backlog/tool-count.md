@@ -77,3 +77,8 @@ Promote a CLI command to a dedicated tool when:
 
 `ghost knowledge search`, `ghost knowledge get`, `ghost knowledge graph`,
 `ghost web search`, `ghost web fetch`
+
+## NOTES
+
+2026-02-17: in _one_ e2e run, the GHOST failed to call the right web fetch. It got it
+right 2/3 times.

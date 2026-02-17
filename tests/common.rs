@@ -82,8 +82,8 @@ pub fn write_test_reference(
 
 /// Environment for live e2e tests: fresh temp DB with real provider config.
 ///
-/// On drop, snapshots the workspace to `e2e-output/<timestamp>_<test_name>/`
-/// and restores env vars.
+/// On drop, snapshots the workspace and diagnostic log to
+/// `e2e-output/<timestamp>_<test_name>/`.
 #[cfg(feature = "live-tests")]
 #[allow(dead_code)]
 pub struct LiveTestEnv {
@@ -94,6 +94,76 @@ pub struct LiveTestEnv {
     test_name: String,
     prev_config_dir_env: Option<String>,
     prev_path_env: Option<String>,
+    diagnostic_log: std::cell::RefCell<Vec<String>>,
+}
+
+#[cfg(feature = "live-tests")]
+#[allow(dead_code)]
+impl LiveTestEnv {
+    /// Dump all messages from a session into the diagnostic log.
+    ///
+    /// Call this after each `chat()` or `chat_job()` to capture the full
+    /// conversation for post-mortem analysis.
+    pub async fn log_session(&self, label: &str, session_id: &surrealdb::sql::Thing) {
+        let messages = ghost::db::sessions::list_messages_by_session(&self.db, session_id)
+            .await
+            .unwrap_or_default();
+
+        let mut log = self.diagnostic_log.borrow_mut();
+        let sep = "=".repeat(60);
+        log.push(format!("\n{sep}\n=== {label} ({session_id})\n{sep}\n"));
+
+        for msg in &messages {
+            match msg.role.as_str() {
+                "user" if msg.tool_results.is_some() => {
+                    // Tool result message
+                    if let Some(ref results) = msg.tool_results {
+                        for result in results {
+                            let id = result
+                                .get("tool_use_id")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("?");
+                            let content =
+                                result.get("content").and_then(|v| v.as_str()).unwrap_or("");
+                            let is_error = result
+                                .get("is_error")
+                                .and_then(|v| v.as_bool())
+                                .unwrap_or(false);
+                            let tag = if is_error { "ERROR" } else { "ok" };
+                            log.push(format!("  ← tool_result [{id}] ({tag}):"));
+                            // Truncate long tool results
+                            for line in truncate_str(content, 1000).lines() {
+                                log.push(format!("    {line}"));
+                            }
+                        }
+                    }
+                }
+                role => {
+                    if !msg.content.trim().is_empty() {
+                        log.push(format!("[{role}] {}", msg.content));
+                    }
+                    if let Some(ref calls) = msg.tool_calls {
+                        for call in calls {
+                            let name = call.get("name").and_then(|v| v.as_str()).unwrap_or("?");
+                            let input = call.get("input");
+                            let input_str = input
+                                .map(|v| {
+                                    serde_json::to_string_pretty(v)
+                                        .unwrap_or_else(|_| v.to_string())
+                                })
+                                .unwrap_or_default();
+                            log.push(format!("  → {name}({})", truncate_str(&input_str, 500)));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// Add a custom note to the diagnostic log.
+    pub fn log(&self, msg: impl std::fmt::Display) {
+        self.diagnostic_log.borrow_mut().push(format!("# {msg}"));
+    }
 }
 
 #[cfg(feature = "live-tests")]
@@ -106,9 +176,23 @@ impl Drop for LiveTestEnv {
             .join(format!("{timestamp}_{}", self.test_name));
         if let Err(e) = copy_dir_all(self.workspace.path(), &dest) {
             eprintln!("warning: failed to snapshot workspace: {e}");
-        } else {
-            eprintln!("e2e snapshot: {}", dest.display());
         }
+
+        // Write diagnostic log
+        let log = self.diagnostic_log.borrow();
+        if !log.is_empty() {
+            let log_content = log.join("\n");
+            let log_path = dest.join("diagnostic.log");
+            if let Err(e) = fs::write(&log_path, &log_content) {
+                eprintln!("warning: failed to write diagnostic log: {e}");
+            }
+            // Also print to stderr so --nocapture shows it
+            eprintln!("\n--- diagnostic log ({}) ---", self.test_name);
+            eprintln!("{log_content}");
+            eprintln!("--- end diagnostic log ---\n");
+        }
+
+        eprintln!("e2e snapshot: {}", dest.display());
 
         // Restore env vars
         match &self.prev_config_dir_env {
@@ -192,6 +276,16 @@ pub async fn live_test_database(test_name: &str) -> LiveTestEnv {
         test_name: test_name.to_string(),
         prev_config_dir_env: prev_config_dir,
         prev_path_env: prev_path,
+        diagnostic_log: std::cell::RefCell::new(Vec::new()),
+    }
+}
+
+#[cfg(feature = "live-tests")]
+fn truncate_str(s: &str, max: usize) -> String {
+    if s.len() <= max {
+        s.to_string()
+    } else {
+        format!("{}…[{}b total]", &s[..max], s.len())
     }
 }
 

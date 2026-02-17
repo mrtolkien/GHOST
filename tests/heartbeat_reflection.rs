@@ -54,6 +54,8 @@ async fn heartbeat_returns_heartbeat_continue() {
         .await
         .expect("heartbeat chat_job");
 
+    env.log_session("heartbeat", &session_id).await;
+
     assert!(
         is_heartbeat_continue(&result.result.message),
         "Expected HEARTBEAT_CONTINUE, got: {:?}",
@@ -93,6 +95,8 @@ async fn reflection_classifies_blog_reference() {
         )
         .await
         .expect("chat response");
+
+    env.log_session("chat", &session_id).await;
 
     assert!(
         !result.message.trim().is_empty(),
@@ -158,6 +162,8 @@ async fn reflection_classifies_blog_reference() {
         )
         .await
         .expect("reflection chat_job");
+
+    env.log_session("reflection", &temp_session).await;
 
     assert!(
         !reflection_result.result.message.trim().is_empty(),

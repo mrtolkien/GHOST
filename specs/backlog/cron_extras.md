@@ -1,0 +1,2 @@
+- Cron jobs should be daily _at most_, this should be in the skill
+  - Each cron job uses tokens (atm), so it costs money. Be parcimonious!
