@@ -16,22 +16,7 @@ use crate::interfaces::discord::DiscordSender;
 
 use super::reflection::ReflectionManager;
 
-const DEFAULT_HEARTBEAT_PROMPT: &str = "\
-# Heartbeat Check
-
-You are running a heartbeat check. The OPERATOR has been idle for a few minutes.
-
-Review the recent conversation and decide:
-
-1. Is there something useful you can proactively share?
-2. Is there a follow-up question worth asking?
-3. Is there a task you can work on in the background?
-
-If you have something genuinely useful, send a brief message to the OPERATOR.
-
-If there's nothing meaningful to say, respond with exactly: HEARTBEAT_CONTINUE
-
-This will suppress any output and reschedule the next heartbeat.";
+const DEFAULT_HEARTBEAT_PROMPT: &str = include_str!("../../prompts/heartbeat.md");
 
 pub struct HeartbeatManager {
     db: Surreal<Db>,

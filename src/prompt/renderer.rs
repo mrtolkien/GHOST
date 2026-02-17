@@ -6,7 +6,7 @@ use super::context;
 use super::error::PromptError;
 use super::template::render_template;
 
-const BASE_SYSTEM_PROMPT: &str = include_str!("../../prompts/system-prompt.md");
+const BASE_SYSTEM_PROMPT: &str = include_str!("../../prompts/chat-system.md");
 
 /// Input context for rendering a system prompt.
 #[derive(Debug, Clone)]
@@ -45,7 +45,6 @@ impl PromptRenderer {
         let ghost_identity = context::build_ghost_identity(workspace);
         let operator_context = context::build_operator_context(workspace);
         let ghost_diary = context::build_ghost_diary();
-        let ghost_commands = context::build_ghost_commands();
         let ghost_skills = context::build_ghost_skills(workspace);
         let system_info = context::build_system_info(workspace);
         let model_info = context::build_model_info(&context.model, &context.provider);
@@ -54,7 +53,6 @@ impl PromptRenderer {
         vars.insert("ghost_identity", ghost_identity);
         vars.insert("operator_context", operator_context);
         vars.insert("ghost_diary", ghost_diary);
-        vars.insert("ghost_commands", ghost_commands);
         vars.insert("ghost_skills", ghost_skills);
         vars.insert("system_info", system_info);
         vars.insert("model_info", model_info);
