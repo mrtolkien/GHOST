@@ -8,6 +8,7 @@ use surrealdb::engine::local::Db;
 use surrealdb::sql::Thing;
 
 use crate::db::error::DatabaseError;
+use crate::db::query::{query_exec, take_many};
 
 #[derive(Debug, Deserialize)]
 struct SessionRow {
@@ -19,22 +20,15 @@ pub async fn get_active_session_for_interface(
     db: &Surreal<Db>,
     interface: &str,
 ) -> Result<Option<Thing>, DatabaseError> {
-    let mut response = db
-        .query("SELECT session FROM interface_session WHERE interface = $interface LIMIT 1")
-        .bind(("interface", interface.to_string()))
-        .await
-        .map_err(|source| DatabaseError::Query {
-            table: "interface_session",
-            operation: "get_active",
-            source,
-        })?;
+    let mut resp = query_exec(
+        db.query("SELECT session FROM interface_session WHERE interface = $interface LIMIT 1")
+            .bind(("interface", interface.to_string())),
+        "interface_session",
+        "get_active",
+    )
+    .await?;
 
-    let rows: Vec<SessionRow> = response.take(0).map_err(|source| DatabaseError::Query {
-        table: "interface_session",
-        operation: "get_active/take",
-        source,
-    })?;
-
+    let rows: Vec<SessionRow> = take_many(&mut resp, 0, "interface_session", "get_active")?;
     Ok(rows.first().map(|row| row.session.clone()))
 }
 
@@ -44,22 +38,20 @@ pub async fn set_active_session_for_interface(
     interface: &str,
     session_id: &Thing,
 ) -> Result<(), DatabaseError> {
-    db.query(
-        "UPSERT interface_session SET \
-            interface = $interface, \
-            session = $session_id, \
-            created_at = time::now() \
-         WHERE interface = $interface",
+    query_exec(
+        db.query(
+            "UPSERT interface_session SET \
+                interface = $interface, \
+                session = $session_id, \
+                created_at = time::now() \
+             WHERE interface = $interface",
+        )
+        .bind(("interface", interface.to_string()))
+        .bind(("session_id", session_id.clone())),
+        "interface_session",
+        "set_active",
     )
-    .bind(("interface", interface.to_string()))
-    .bind(("session_id", session_id.clone()))
-    .await
-    .map_err(|source| DatabaseError::Query {
-        table: "interface_session",
-        operation: "set_active",
-        source,
-    })?;
-
+    .await?;
     Ok(())
 }
 
@@ -73,22 +65,14 @@ pub struct InterfaceSessionRecord {
 pub async fn list_all_interface_sessions(
     db: &Surreal<Db>,
 ) -> Result<Vec<InterfaceSessionRecord>, DatabaseError> {
-    let mut response = db
-        .query("SELECT interface, session FROM interface_session")
-        .await
-        .map_err(|source| DatabaseError::Query {
-            table: "interface_session",
-            operation: "list_all",
-            source,
-        })?;
+    let mut resp = query_exec(
+        db.query("SELECT interface, session FROM interface_session"),
+        "interface_session",
+        "list_all",
+    )
+    .await?;
 
-    response
-        .take::<Vec<InterfaceSessionRecord>>(0)
-        .map_err(|source| DatabaseError::Query {
-            table: "interface_session",
-            operation: "list_all/take",
-            source,
-        })
+    take_many(&mut resp, 0, "interface_session", "list_all")
 }
 
 #[tracing::instrument(skip_all, level = "debug", fields(old_session_id = %old_session_id, new_session_id = %new_session_id))]
@@ -97,17 +81,15 @@ pub async fn replace_session_everywhere(
     old_session_id: &Thing,
     new_session_id: &Thing,
 ) -> Result<(), DatabaseError> {
-    db.query(
-        "UPDATE interface_session SET session = $new_session_id WHERE session = $old_session_id",
+    query_exec(
+        db.query(
+            "UPDATE interface_session SET session = $new_session_id WHERE session = $old_session_id",
+        )
+        .bind(("old_session_id", old_session_id.clone()))
+        .bind(("new_session_id", new_session_id.clone())),
+        "interface_session",
+        "replace_session_everywhere",
     )
-    .bind(("old_session_id", old_session_id.clone()))
-    .bind(("new_session_id", new_session_id.clone()))
-    .await
-    .map_err(|source| DatabaseError::Query {
-        table: "interface_session",
-        operation: "replace_session_everywhere",
-        source,
-    })?;
-
+    .await?;
     Ok(())
 }

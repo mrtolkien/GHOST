@@ -4,11 +4,7 @@ use surrealdb::engine::local::Db;
 use surrealdb::sql::{Datetime, Thing};
 
 use crate::db::error::DatabaseError;
-
-#[derive(Debug, Deserialize)]
-struct IdRow {
-    id: Thing,
-}
+use crate::db::query::{IdRow, query_exec, take_many, take_one};
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct JobLogRecord {
@@ -28,8 +24,8 @@ pub async fn create_running_job_log(
     job_kind: &str,
     session_id: Option<&Thing>,
 ) -> Result<Thing, DatabaseError> {
-    let mut response = db
-        .query(
+    let mut resp = query_exec(
+        db.query(
             "CREATE job_log SET \
                 job_name = $job_name, \
                 job_kind = $job_kind, \
@@ -44,27 +40,14 @@ pub async fn create_running_job_log(
         )
         .bind(("job_name", job_name.to_string()))
         .bind(("job_kind", job_kind.to_string()))
-        .bind(("session_id", session_id.cloned()))
-        .await
-        .map_err(|source| DatabaseError::Query {
-            table: "job_log",
-            operation: "create_running",
-            source,
-        })?;
+        .bind(("session_id", session_id.cloned())),
+        "job_log",
+        "create_running",
+    )
+    .await?;
 
-    let rows: Vec<IdRow> = response.take(0).map_err(|source| DatabaseError::Query {
-        table: "job_log",
-        operation: "create_running/take",
-        source,
-    })?;
-
-    rows.into_iter()
-        .next()
-        .map(|row| row.id)
-        .ok_or(DatabaseError::MissingRow {
-            table: "job_log",
-            operation: "create_running",
-        })
+    let row: IdRow = take_one(&mut resp, 0, "job_log", "create_running")?;
+    Ok(row.id)
 }
 
 #[tracing::instrument(skip_all, level = "debug", fields(job_log_id = %job_log_id, status = status))]
@@ -74,22 +57,20 @@ pub async fn finish_job_log(
     status: &str,
     transcript: &str,
 ) -> Result<(), DatabaseError> {
-    db.query(
-        "UPDATE $job_log_id SET \
-            status = $status, \
-            transcript = $transcript, \
-            finished_at = time::now()",
+    query_exec(
+        db.query(
+            "UPDATE $job_log_id SET \
+                status = $status, \
+                transcript = $transcript, \
+                finished_at = time::now()",
+        )
+        .bind(("job_log_id", job_log_id.clone()))
+        .bind(("status", status.to_string()))
+        .bind(("transcript", transcript.to_string())),
+        "job_log",
+        "finish",
     )
-    .bind(("job_log_id", job_log_id.clone()))
-    .bind(("status", status.to_string()))
-    .bind(("transcript", transcript.to_string()))
-    .await
-    .map_err(|source| DatabaseError::Query {
-        table: "job_log",
-        operation: "finish",
-        source,
-    })?;
-
+    .await?;
     Ok(())
 }
 
@@ -110,22 +91,14 @@ pub async fn list_job_logs(
         }
     };
 
-    let mut response = db
-        .query(query)
-        .bind(("name", name.map(|n| n.to_string())))
-        .bind(("limit", limit))
-        .await
-        .map_err(|source| DatabaseError::Query {
-            table: "job_log",
-            operation: "list",
-            source,
-        })?;
+    let mut resp = query_exec(
+        db.query(query)
+            .bind(("name", name.map(|n| n.to_string())))
+            .bind(("limit", limit)),
+        "job_log",
+        "list",
+    )
+    .await?;
 
-    let rows: Vec<JobLogRecord> = response.take(0).map_err(|source| DatabaseError::Query {
-        table: "job_log",
-        operation: "list/take",
-        source,
-    })?;
-
-    Ok(rows)
+    take_many(&mut resp, 0, "job_log", "list")
 }

@@ -4,6 +4,7 @@ use surrealdb::engine::local::Db;
 use surrealdb::sql::Thing;
 
 use super::error::DatabaseError;
+use super::query::{CountRow, query_exec, take_many};
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct EmbeddingHit {
@@ -11,11 +12,6 @@ pub struct EmbeddingHit {
     pub source_table: String,
     pub chunk_text: String,
     pub score: f64,
-}
-
-#[derive(Debug, Deserialize)]
-struct CountRow {
-    count: i64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -33,8 +29,9 @@ pub async fn upsert_embedding(
     content_hash: &str,
     vector: &[f32],
 ) -> Result<(), DatabaseError> {
-    db.query(
-        "INSERT INTO embedding {
+    query_exec(
+        db.query(
+            "INSERT INTO embedding {
             source_table: $source_table,
             source_id: $source_id,
             chunk_index: $chunk_index,
@@ -47,20 +44,17 @@ pub async fn upsert_embedding(
             content_hash = $input.content_hash,
             vector = $input.vector,
             created_at = time::now()",
+        )
+        .bind(("source_table", source_table.to_string()))
+        .bind(("source_id", source_id.clone()))
+        .bind(("chunk_index", chunk_index as i64))
+        .bind(("chunk_text", chunk_text.to_string()))
+        .bind(("content_hash", content_hash.to_string()))
+        .bind(("vector", vector.to_vec())),
+        "embedding",
+        "upsert",
     )
-    .bind(("source_table", source_table.to_string()))
-    .bind(("source_id", source_id.clone()))
-    .bind(("chunk_index", chunk_index as i64))
-    .bind(("chunk_text", chunk_text.to_string()))
-    .bind(("content_hash", content_hash.to_string()))
-    .bind(("vector", vector.to_vec()))
-    .await
-    .map_err(|source| DatabaseError::Query {
-        table: "embedding",
-        operation: "upsert",
-        source,
-    })?;
-
+    .await?;
     Ok(())
 }
 
@@ -69,26 +63,19 @@ pub async fn get_content_hash(
     db: &Surreal<Db>,
     source_id: &Thing,
 ) -> Result<Option<String>, DatabaseError> {
-    let mut response = db
-        .query(
+    let mut resp = query_exec(
+        db.query(
             "SELECT content_hash FROM embedding
              WHERE source_id = $source_id
              LIMIT 1",
         )
-        .bind(("source_id", source_id.clone()))
-        .await
-        .map_err(|source| DatabaseError::Query {
-            table: "embedding",
-            operation: "get_content_hash",
-            source,
-        })?;
+        .bind(("source_id", source_id.clone())),
+        "embedding",
+        "get_content_hash",
+    )
+    .await?;
 
-    let rows: Vec<HashRow> = response.take(0).map_err(|source| DatabaseError::Query {
-        table: "embedding",
-        operation: "get_content_hash_take",
-        source,
-    })?;
-
+    let rows: Vec<HashRow> = take_many(&mut resp, 0, "embedding", "get_content_hash")?;
     Ok(rows.first().map(|r| r.content_hash.clone()))
 }
 
@@ -97,28 +84,19 @@ pub async fn delete_embeddings_for_source(
     db: &Surreal<Db>,
     source_id: &Thing,
 ) -> Result<(), DatabaseError> {
-    db.query("DELETE FROM embedding WHERE source_id = $source_id")
-        .bind(("source_id", source_id.clone()))
-        .await
-        .map_err(|source| DatabaseError::Query {
-            table: "embedding",
-            operation: "delete_for_source",
-            source,
-        })?;
-
+    query_exec(
+        db.query("DELETE FROM embedding WHERE source_id = $source_id")
+            .bind(("source_id", source_id.clone())),
+        "embedding",
+        "delete_for_source",
+    )
+    .await?;
     Ok(())
 }
 
 #[tracing::instrument(skip_all)]
 pub async fn delete_all_embeddings(db: &Surreal<Db>) -> Result<(), DatabaseError> {
-    db.query("DELETE FROM embedding")
-        .await
-        .map_err(|source| DatabaseError::Query {
-            table: "embedding",
-            operation: "delete_all",
-            source,
-        })?;
-
+    query_exec(db.query("DELETE FROM embedding"), "embedding", "delete_all").await?;
     Ok(())
 }
 
@@ -135,41 +113,26 @@ pub async fn vector_search(
          WHERE vector <|{limit}|> $query_vector
          ORDER BY score DESC"
     );
-    let mut response = db
-        .query(&query)
-        .bind(("query_vector", query_vector.to_vec()))
-        .await
-        .map_err(|source| DatabaseError::Query {
-            table: "embedding",
-            operation: "vector_search",
-            source,
-        })?;
+    let mut resp = query_exec(
+        db.query(&query)
+            .bind(("query_vector", query_vector.to_vec())),
+        "embedding",
+        "vector_search",
+    )
+    .await?;
 
-    let hits: Vec<EmbeddingHit> = response.take(0).map_err(|source| DatabaseError::Query {
-        table: "embedding",
-        operation: "vector_search_take",
-        source,
-    })?;
-
-    Ok(hits)
+    take_many(&mut resp, 0, "embedding", "vector_search")
 }
 
 #[tracing::instrument(skip_all)]
 pub async fn count_embeddings(db: &Surreal<Db>) -> Result<i64, DatabaseError> {
-    let mut response = db
-        .query("SELECT count() AS count FROM embedding GROUP ALL")
-        .await
-        .map_err(|source| DatabaseError::Query {
-            table: "embedding",
-            operation: "count",
-            source,
-        })?;
+    let mut resp = query_exec(
+        db.query("SELECT count() AS count FROM embedding GROUP ALL"),
+        "embedding",
+        "count",
+    )
+    .await?;
 
-    let rows: Vec<CountRow> = response.take(0).map_err(|source| DatabaseError::Query {
-        table: "embedding",
-        operation: "count_take",
-        source,
-    })?;
-
+    let rows: Vec<CountRow> = take_many(&mut resp, 0, "embedding", "count")?;
     Ok(rows.first().map(|r| r.count).unwrap_or(0))
 }

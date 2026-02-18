@@ -1,13 +1,12 @@
 use std::sync::Arc;
 
-use serde::Deserialize;
 use serde_json::{Value, json};
 use surrealdb::Surreal;
 use surrealdb::engine::local::Db;
 use surrealdb::sql::Thing;
 
 use crate::config::{self, Config};
-use crate::db::{self, DatabaseError};
+use crate::db;
 use crate::prompt::{PromptContext, PromptRenderer};
 use crate::providers::{
     ChatMessage, ChatRequest, ContentBlock, Provider, Role, StopReason, provider_for_alias,
@@ -499,18 +498,19 @@ impl SessionChat {
         message_id: &Thing,
         citations: &[Citation],
     ) -> Result<(), ChatError> {
+        use crate::db::query::query_exec;
+
         for citation in citations {
             if let Some(target) = self.lookup_citation_target(&citation.source).await? {
-                self.db
-                    .query("RELATE $message_id->cited->$target SET created_at = time::now()")
-                    .bind(("message_id", message_id.clone()))
-                    .bind(("target", target))
-                    .await
-                    .map_err(|source| DatabaseError::Query {
-                        table: "cited",
-                        operation: "relate_message_to_source",
-                        source,
-                    })?;
+                query_exec(
+                    self.db
+                        .query("RELATE $message_id->cited->$target SET created_at = time::now()")
+                        .bind(("message_id", message_id.clone()))
+                        .bind(("target", target)),
+                    "cited",
+                    "relate_message_to_source",
+                )
+                .await?;
             }
         }
         Ok(())
@@ -518,26 +518,17 @@ impl SessionChat {
 
     #[tracing::instrument(skip_all, level = "debug", fields(source = source))]
     async fn lookup_citation_target(&self, source: &str) -> Result<Option<Thing>, ChatError> {
-        #[derive(Debug, Deserialize)]
-        struct IdRow {
-            id: Thing,
-        }
+        use crate::db::query::{IdRow, query_exec, take_many};
 
-        let mut response = self
-            .db
-            .query("SELECT id FROM reference WHERE path = $path LIMIT 1")
-            .bind(("path", source.to_string()))
-            .await
-            .map_err(|source| DatabaseError::Query {
-                table: "reference",
-                operation: "lookup_by_path",
-                source,
-            })?;
-        let rows: Vec<IdRow> = response.take(0).map_err(|source| DatabaseError::Query {
-            table: "reference",
-            operation: "lookup_by_path/take",
-            source,
-        })?;
+        let mut resp = query_exec(
+            self.db
+                .query("SELECT id FROM reference WHERE path = $path LIMIT 1")
+                .bind(("path", source.to_string())),
+            "reference",
+            "lookup_by_path",
+        )
+        .await?;
+        let rows: Vec<IdRow> = take_many(&mut resp, 0, "reference", "lookup_by_path")?;
         if let Some(row) = rows.first() {
             return Ok(Some(row.id.clone()));
         }
@@ -562,22 +553,16 @@ impl SessionChat {
                         .collect::<String>()
                 });
             if let Some(title) = title {
-                let mut note_resp = self
-                    .db
-                    .query("SELECT id FROM note WHERE title = $title LIMIT 1")
-                    .bind(("title", title))
-                    .await
-                    .map_err(|source| DatabaseError::Query {
-                        table: "note",
-                        operation: "lookup_by_title",
-                        source,
-                    })?;
+                let mut note_resp = query_exec(
+                    self.db
+                        .query("SELECT id FROM note WHERE title = $title LIMIT 1")
+                        .bind(("title", title)),
+                    "note",
+                    "lookup_by_title",
+                )
+                .await?;
                 let note_rows: Vec<IdRow> =
-                    note_resp.take(0).map_err(|source| DatabaseError::Query {
-                        table: "note",
-                        operation: "lookup_by_title/take",
-                        source,
-                    })?;
+                    take_many(&mut note_resp, 0, "note", "lookup_by_title")?;
                 if let Some(row) = note_rows.first() {
                     return Ok(Some(row.id.clone()));
                 }
@@ -590,31 +575,25 @@ impl SessionChat {
             // The full knowledge/reference ownership model in spec 13/15 may replace
             // this behavior entirely.
             let url = resolve_web_cache_url(&self.config.workspace, source);
-            let mut create = self
-                .db
-                .query(
-                    "CREATE reference SET \
-                        topic = 'web_cache', \
-                        path = $path, \
-                        content = '', \
-                        source_url = $source_url, \
-                        created_at = time::now() \
-                     RETURN id",
-                )
-                .bind(("path", source.to_string()))
-                .bind(("source_url", url))
-                .await
-                .map_err(|source| DatabaseError::Query {
-                    table: "reference",
-                    operation: "create_web_cache_reference",
-                    source,
-                })?;
+            let mut create = query_exec(
+                self.db
+                    .query(
+                        "CREATE reference SET \
+                            topic = 'web_cache', \
+                            path = $path, \
+                            content = '', \
+                            source_url = $source_url, \
+                            created_at = time::now() \
+                         RETURN id",
+                    )
+                    .bind(("path", source.to_string()))
+                    .bind(("source_url", url)),
+                "reference",
+                "create_web_cache_reference",
+            )
+            .await?;
             let created_rows: Vec<IdRow> =
-                create.take(0).map_err(|source| DatabaseError::Query {
-                    table: "reference",
-                    operation: "create_web_cache_reference/take",
-                    source,
-                })?;
+                take_many(&mut create, 0, "reference", "create_web_cache_reference")?;
             return Ok(created_rows.first().map(|row| row.id.clone()));
         }
 
