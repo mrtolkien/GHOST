@@ -533,8 +533,8 @@ impl SessionChat {
             return Ok(Some(row.id.clone()));
         }
 
-        // Check notes by path (e.g. "knowledge/notes/rust.md" -> title "Rust")
-        if source.starts_with("knowledge/notes/") {
+        // Check notes by path (e.g. "notes/rust.md" -> title "Rust")
+        if source.starts_with("notes/") {
             let title = std::path::Path::new(source)
                 .file_stem()
                 .and_then(|s| s.to_str())

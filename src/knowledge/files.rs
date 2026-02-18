@@ -6,31 +6,21 @@ use super::types::{NoteFrontMatter, ParsedNote};
 
 #[must_use]
 pub fn note_path(workspace: &Path, slug: &str) -> PathBuf {
-    workspace
-        .join("knowledge")
-        .join("notes")
-        .join(format!("{slug}.md"))
+    workspace.join("notes").join(format!("{slug}.md"))
 }
 
 #[must_use]
 pub fn reference_path(workspace: &Path, topic: &str, filename: &str) -> PathBuf {
-    workspace
-        .join("knowledge")
-        .join("references")
-        .join(topic)
-        .join(filename)
+    workspace.join("references").join(topic).join(filename)
 }
 
 #[must_use]
 pub fn diary_path(workspace: &Path, date: &str) -> PathBuf {
-    workspace
-        .join("knowledge")
-        .join("diary")
-        .join(format!("{date}.md"))
+    workspace.join("diary").join(format!("{date}.md"))
 }
 
 pub fn read_note(workspace: &Path, filename: &str) -> Result<ParsedNote, KnowledgeError> {
-    let path = workspace.join("knowledge").join("notes").join(filename);
+    let path = workspace.join("notes").join(filename);
     let content = std::fs::read_to_string(&path).map_err(|source| KnowledgeError::Io {
         path: path.clone(),
         source,
@@ -86,11 +76,11 @@ pub fn write_diary(workspace: &Path, date: &str, body: &str) -> Result<PathBuf, 
 }
 
 pub fn list_notes(workspace: &Path) -> Result<Vec<PathBuf>, KnowledgeError> {
-    list_md_files(&workspace.join("knowledge").join("notes"))
+    list_md_files(&workspace.join("notes"))
 }
 
 pub fn list_references(workspace: &Path) -> Result<Vec<PathBuf>, KnowledgeError> {
-    let base = workspace.join("knowledge").join("references");
+    let base = workspace.join("references");
     if !base.exists() {
         return Ok(Vec::new());
     }
@@ -101,7 +91,7 @@ pub fn list_references(workspace: &Path) -> Result<Vec<PathBuf>, KnowledgeError>
 }
 
 pub fn list_diary_entries(workspace: &Path) -> Result<Vec<PathBuf>, KnowledgeError> {
-    list_md_files(&workspace.join("knowledge").join("diary"))
+    list_md_files(&workspace.join("diary"))
 }
 
 fn list_md_files(dir: &Path) -> Result<Vec<PathBuf>, KnowledgeError> {
@@ -163,7 +153,7 @@ mod tests {
     #[test]
     fn write_then_read_roundtrip() {
         let workspace = TempDir::new().unwrap();
-        std::fs::create_dir_all(workspace.path().join("knowledge/notes")).unwrap();
+        std::fs::create_dir_all(workspace.path().join("notes")).unwrap();
 
         let front = NoteFrontMatter {
             title: "Test Note".to_string(),
@@ -186,7 +176,7 @@ mod tests {
     #[test]
     fn list_notes_finds_files() {
         let workspace = TempDir::new().unwrap();
-        let notes_dir = workspace.path().join("knowledge/notes");
+        let notes_dir = workspace.path().join("notes");
         std::fs::create_dir_all(&notes_dir).unwrap();
 
         std::fs::write(notes_dir.join("alpha.md"), "content").unwrap();
@@ -200,7 +190,7 @@ mod tests {
     #[test]
     fn list_references_recursive() {
         let workspace = TempDir::new().unwrap();
-        let refs_dir = workspace.path().join("knowledge/references/topic_a");
+        let refs_dir = workspace.path().join("references/topic_a");
         std::fs::create_dir_all(&refs_dir).unwrap();
 
         std::fs::write(refs_dir.join("ref1.md"), "content").unwrap();
@@ -212,7 +202,7 @@ mod tests {
     #[test]
     fn diary_write_and_read() {
         let workspace = TempDir::new().unwrap();
-        std::fs::create_dir_all(workspace.path().join("knowledge/diary")).unwrap();
+        std::fs::create_dir_all(workspace.path().join("diary")).unwrap();
 
         let path = write_diary(workspace.path(), "2026-02-17", "Today was good.\n").unwrap();
         assert!(path.exists());
@@ -231,15 +221,12 @@ mod tests {
     #[test]
     fn note_path_construction() {
         let p = note_path(Path::new("/workspace"), "rust");
-        assert_eq!(p, PathBuf::from("/workspace/knowledge/notes/rust.md"));
+        assert_eq!(p, PathBuf::from("/workspace/notes/rust.md"));
     }
 
     #[test]
     fn reference_path_construction() {
         let p = reference_path(Path::new("/workspace"), "ai", "paper.md");
-        assert_eq!(
-            p,
-            PathBuf::from("/workspace/knowledge/references/ai/paper.md")
-        );
+        assert_eq!(p, PathBuf::from("/workspace/references/ai/paper.md"));
     }
 }

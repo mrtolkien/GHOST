@@ -97,9 +97,9 @@ fn setup_watcher(
         }
     })?;
 
-    let notes_dir = workspace.join("knowledge/notes");
-    let refs_dir = workspace.join("knowledge/references");
-    let diary_dir = workspace.join("knowledge/diary");
+    let notes_dir = workspace.join("notes");
+    let refs_dir = workspace.join("references");
+    let diary_dir = workspace.join("diary");
 
     for dir in [&notes_dir, &refs_dir, &diary_dir] {
         if dir.exists() {
@@ -124,11 +124,11 @@ async fn process_change(
 
     let rel_str = rel.to_string_lossy();
 
-    if rel_str.starts_with("knowledge/notes/") {
+    if rel_str.starts_with("notes/") {
         process_note_change(db, workspace, client, path).await
-    } else if rel_str.starts_with("knowledge/references/") {
+    } else if rel_str.starts_with("references/") {
         process_reference_change(db, workspace, client, path).await
-    } else if rel_str.starts_with("knowledge/diary/") {
+    } else if rel_str.starts_with("diary/") {
         process_diary_change(db, client, path).await
     } else {
         Ok(())

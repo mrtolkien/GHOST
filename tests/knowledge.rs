@@ -275,7 +275,7 @@ async fn note_write_tool_creates_file_and_db_record() {
     assert!(result.contains("Edges: 1 created"));
 
     // Verify file on disk
-    let note_path = config.workspace.join("knowledge/notes/test_note.md");
+    let note_path = config.workspace.join("notes/test_note.md");
     assert!(note_path.exists());
 
     // Verify DB record
@@ -353,16 +353,14 @@ async fn reference_manage_move_preserves_cited_edges() {
     assert!(!cache_file.exists());
 
     // New file should exist
-    let new_path = config
-        .workspace
-        .join("knowledge/references/rust/article.md");
+    let new_path = config.workspace.join("references/rust/article.md");
     assert!(new_path.exists());
 
     // DB record should have the same ID but updated path
     let updated_ref = db::knowledge::get_reference(&db, &ref_id)
         .await
         .expect("get updated ref");
-    assert_eq!(updated_ref.path, "knowledge/references/rust/article.md");
+    assert_eq!(updated_ref.path, "references/rust/article.md");
 
     // Cited edge should still exist (same ref_id)
     let cited = db::knowledge::incoming_cited(&db, &ref_id)

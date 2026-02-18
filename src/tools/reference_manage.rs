@@ -21,7 +21,7 @@ impl Tool for ReferenceManage {
         ToolDefinition {
             name: self.name().to_string(),
             description: "Manage knowledge references. Move web-cache files into \
-                the knowledge/references directory (preserving citation edges) \
+                the references directory (preserving citation edges) \
                 or delete references."
                 .to_string(),
             input_schema: json!({
@@ -124,7 +124,7 @@ impl ReferenceManage {
                 ToolError::ExecutionFailed(format!("failed to write reference file: {e}"))
             })?;
 
-        let relative_target = format!("knowledge/references/{target_topic}/{target_filename}");
+        let relative_target = format!("references/{target_topic}/{target_filename}");
 
         // Update existing DB record or create a new one
         if let Some(ref_record) = db::knowledge::find_reference_by_path(&ctx.db, cache_file)

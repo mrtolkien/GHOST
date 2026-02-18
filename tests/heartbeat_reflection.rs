@@ -88,7 +88,7 @@ async fn reflection_classifies_blog_reference() {
 
     // Step 4: Verify reflection moved web cache to references
     assert!(
-        env.find_file_containing("knowledge/references", "blog.tolki.dev"),
+        env.find_file_containing("references", "blog.tolki.dev"),
         "Expected a reference file containing 'blog.tolki.dev'"
     );
 

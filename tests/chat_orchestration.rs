@@ -186,7 +186,7 @@ async fn structured_output_populates_citations_and_creates_edges() {
     let _reference_id = ghost::db::knowledge::create_reference(
         &db,
         "db",
-        "knowledge/references/surrealdb/relate.md",
+        "references/surrealdb/relate.md",
         "relate docs",
         Some("https://docs.surrealdb.com"),
     )
@@ -195,9 +195,7 @@ async fn structured_output_populates_citations_and_creates_edges() {
 
     let provider = Arc::new(MockProvider::new(vec![respond_response(
         "SurrealDB uses RELATE.",
-        vec![
-            json!({"source": "knowledge/references/surrealdb/relate.md", "context": "relate docs"}),
-        ],
+        vec![json!({"source": "references/surrealdb/relate.md", "context": "relate docs"})],
     )]));
     let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config);
 
@@ -206,10 +204,7 @@ async fn structured_output_populates_citations_and_creates_edges() {
         .await
         .expect("chat result");
     assert_eq!(result.citations.len(), 1);
-    assert_eq!(
-        result.citations[0].source,
-        "knowledge/references/surrealdb/relate.md"
-    );
+    assert_eq!(result.citations[0].source, "references/surrealdb/relate.md");
 
     let assistant = ghost::db::sessions::list_messages_by_session(&db, &session_id)
         .await
