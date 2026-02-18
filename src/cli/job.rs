@@ -85,7 +85,7 @@ async fn cmd_list() -> Result<(), GhostError> {
 
 async fn cmd_run(name: &str) -> Result<(), GhostError> {
     let config = crate::config::load()?;
-    crate::config::bootstrap_workspace(&config)?;
+    crate::config_workspace::bootstrap_workspace(&config)?;
     let db = crate::db::connect(&config.workspace).await?;
 
     println!("Running job '{name}'...");

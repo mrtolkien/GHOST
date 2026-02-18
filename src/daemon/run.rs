@@ -11,7 +11,7 @@ use crate::jobs::{HeartbeatManager, ReflectionManager};
 pub async fn run() -> Result<(), GhostError> {
     info!("loading config");
     let config = crate::config::load()?;
-    crate::config::bootstrap_workspace(&config)?;
+    crate::config_workspace::bootstrap_workspace(&config)?;
     info!(workspace = %config.workspace.display(), "config loaded");
     info!("connecting to database");
     let db = crate::db::connect(&config.workspace).await?;

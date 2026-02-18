@@ -45,7 +45,7 @@ context_window = 200000\n",
 
 pub fn test_workspace() -> (Config, TempDir, TempDir) {
     let (config, workspace, config_dir) = test_config();
-    config::bootstrap_workspace(&config).expect("bootstrap workspace");
+    ghost::config_workspace::bootstrap_workspace(&config).expect("bootstrap workspace");
     (config, workspace, config_dir)
 }
 
@@ -68,7 +68,7 @@ pub fn write_test_note(workspace: &std::path::Path, title: &str, body: &str) -> 
     };
     let content = serialize_note(&front, body).expect("serialize note");
     let slug = ghost::knowledge::slug_from_title(title);
-    let path = workspace.join("knowledge/notes").join(format!("{slug}.md"));
+    let path = workspace.join("notes").join(format!("{slug}.md"));
     fs::write(&path, content).expect("write test note");
     path
 }
@@ -80,7 +80,7 @@ pub fn write_test_reference(
     filename: &str,
     content: &str,
 ) -> PathBuf {
-    let dir = workspace.join("knowledge/references").join(topic);
+    let dir = workspace.join("references").join(topic);
     fs::create_dir_all(&dir).expect("create reference dir");
     let path = dir.join(filename);
     fs::write(&path, content).expect("write test reference");
@@ -305,14 +305,14 @@ impl LiveTestEnv {
         fs::read_to_string(self.workspace.path().join(relative_path)).ok()
     }
 
-    /// List all notes in knowledge/notes/.
+    /// List all notes in notes/.
     pub fn list_notes(&self) -> Vec<PathBuf> {
-        list_files_in(self.workspace.path(), "knowledge/notes")
+        list_files_in(self.workspace.path(), "notes")
     }
 
-    /// List all references in knowledge/references/.
+    /// List all references in references/.
     pub fn list_references(&self) -> Vec<PathBuf> {
-        list_files_in(self.workspace.path(), "knowledge/references")
+        list_files_in(self.workspace.path(), "references")
     }
 
     /// Recursively search for any file under a workspace subdirectory
@@ -419,7 +419,7 @@ pub async fn live_test_database(test_name: &str) -> LiveTestEnv {
 
     // Load config from temp dir + bootstrap + connect
     let config = config::load_from_dir(config_dir.path()).expect("load config from temp dir");
-    config::bootstrap_workspace(&config).expect("bootstrap temp workspace");
+    ghost::config_workspace::bootstrap_workspace(&config).expect("bootstrap temp workspace");
     let db = db::connect(&config.workspace)
         .await
         .expect("connect to fresh temp database");

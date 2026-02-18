@@ -12,12 +12,12 @@ pub enum ConfigCommand {
 pub async fn execute(command: ConfigCommand) -> Result<(), GhostError> {
     match command {
         ConfigCommand::Get { key } => {
-            let value = crate::config::get_resolved_value(&key)?;
+            let value = crate::config_cli::get_resolved_value(&key)?;
             println!("{value}");
             Ok(())
         }
         ConfigCommand::Set { key, value } => {
-            crate::config::set_value(&key, &value)?;
+            crate::config_cli::set_value(&key, &value)?;
             Ok(())
         }
     }

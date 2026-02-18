@@ -4,6 +4,7 @@ use std::fs;
 use std::sync::{Mutex, OnceLock};
 
 use ghost::config::{self, CONFIG_DIR_ENV};
+use ghost::config_cli;
 use tempfile::TempDir;
 
 fn env_lock() -> &'static Mutex<()> {
@@ -67,7 +68,7 @@ fn config_set_updates_toml_correctly() {
         "[models]\ndefault = \"primary\"\n\n[models.primary]\nprovider = \"openrouter\"\nmodel = \"anthropic/claude-sonnet-4-5-20250929\"\ncontext_window = 200000\n",
     )
     .expect("write config");
-    config::set_value_in_dir(config_dir.path(), "workspace", "/custom/path")
+    config_cli::set_value_in_dir(config_dir.path(), "workspace", "/custom/path")
         .expect("set workspace");
 
     let content = fs::read_to_string(config_dir.path().join("config.toml")).expect("read config");
@@ -83,7 +84,7 @@ fn config_set_rejects_unknown_key_paths() {
     )
     .expect("write config");
     let error =
-        config::set_value_in_dir(config_dir.path(), "web.unknown", "x").expect_err("must fail");
+        config_cli::set_value_in_dir(config_dir.path(), "web.unknown", "x").expect_err("must fail");
     let message = error.to_string();
 
     assert!(message.contains("invalid config in"));
@@ -99,7 +100,7 @@ fn config_set_can_create_new_model_alias_on_first_write() {
         "[models]\ndefault = \"primary\"\n\n[models.primary]\nprovider = \"openrouter\"\nmodel = \"anthropic/claude-sonnet-4-5-20250929\"\ncontext_window = 200000\n",
     )
     .expect("write config");
-    config::set_value_in_dir(
+    config_cli::set_value_in_dir(
         config_dir.path(),
         "models.experimental",
         "{ provider = \"openrouter\", model = \"anthropic/claude-sonnet-4-5-20250929\", context_window = 200000 }",
@@ -125,7 +126,7 @@ fn config_set_model_object_requires_provider_and_model() {
         "[models]\ndefault = \"primary\"\n\n[models.primary]\nprovider = \"openrouter\"\nmodel = \"anthropic/claude-sonnet-4-5-20250929\"\ncontext_window = 200000\n",
     )
     .expect("write config");
-    let error = config::set_value_in_dir(
+    let error = config_cli::set_value_in_dir(
         config_dir.path(),
         "models.partial",
         "{ provider = \"openrouter\" }",
@@ -144,7 +145,7 @@ fn config_set_model_provider_must_be_valid() {
         "[models]\ndefault = \"primary\"\n\n[models.primary]\nprovider = \"openrouter\"\nmodel = \"anthropic/claude-sonnet-4-5-20250929\"\ncontext_window = 200000\n",
     )
     .expect("write config");
-    let error = config::set_value_in_dir(
+    let error = config_cli::set_value_in_dir(
         config_dir.path(),
         "models.bad",
         "{ provider = \"invalid\", model = \"foo/bar\", context_window = 200000 }",
@@ -159,7 +160,7 @@ fn config_set_model_provider_must_be_valid() {
 #[test]
 fn config_get_prints_resolved_default_alias() {
     let (_config, _workspace, config_dir) = common::test_config();
-    let value = config::get_resolved_value_from_dir(config_dir.path(), "models.default")
+    let value = config_cli::get_resolved_value_from_dir(config_dir.path(), "models.default")
         .expect("get default model alias");
 
     assert_eq!(value, "primary");
@@ -175,7 +176,7 @@ fn workspace_bootstrap_creates_identity_files() {
     assert!(workspace.path().join("jobs").exists());
     assert!(workspace.path().join("skills").exists());
     assert!(workspace.path().join(".web-cache").exists());
-    assert!(workspace.path().join("knowledge").exists());
+    assert!(workspace.path().join("notes").exists());
 }
 
 #[test]

@@ -2,6 +2,8 @@ pub mod auth;
 pub mod chat;
 pub mod cli;
 pub mod config;
+pub mod config_cli;
+pub mod config_workspace;
 pub mod daemon;
 pub mod db;
 pub mod embeddings;

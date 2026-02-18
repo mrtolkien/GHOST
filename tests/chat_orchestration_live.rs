@@ -8,7 +8,7 @@ async fn session_chat_live_roundtrip_with_default_config() {
         ghost::observability::init_for_live_tests().expect("init live test observability");
 
     let config = ghost::config::load().expect("load config from ~/.config/ghost");
-    ghost::config::bootstrap_workspace(&config).expect("bootstrap workspace");
+    ghost::config_workspace::bootstrap_workspace(&config).expect("bootstrap workspace");
 
     assert_provider_ready(&config).await;
 

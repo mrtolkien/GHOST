@@ -18,7 +18,7 @@ pub enum SessionCommand {
 #[tracing::instrument(skip_all)]
 pub async fn execute(command: SessionCommand) -> Result<(), GhostError> {
     let config = crate::config::load()?;
-    crate::config::bootstrap_workspace(&config)?;
+    crate::config_workspace::bootstrap_workspace(&config)?;
     let db = crate::db::connect(&config.workspace).await?;
 
     match command {

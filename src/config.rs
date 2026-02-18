@@ -11,9 +11,6 @@ const CONFIG_FILE_NAME: &str = "config.toml";
 const DEFAULT_WORKSPACE: &str = "~/GHOST";
 const DEFAULT_EMBEDDINGS_URL: &str = "http://127.0.0.1:11434";
 const DEFAULT_EMBEDDINGS_MODEL: &str = "qwen3-embedding:8b";
-const DEFAULT_BOOT_TEMPLATE: &str =
-    "# BOOT\n\nYou are GHOST, a personal AI agent for your OPERATOR.\n";
-
 static DOTENV_INIT: Once = Once::new();
 
 #[derive(Debug, Error)]
@@ -373,106 +370,6 @@ pub fn load_from_dir(config_dir: &Path) -> Result<Config, ConfigError> {
     Config::from_settings(settings)
 }
 
-#[tracing::instrument(skip_all)]
-pub fn get_resolved_value(key: &str) -> Result<String, ConfigError> {
-    get_resolved_value_from_dir(&config_dir()?, key)
-}
-
-#[tracing::instrument(skip_all, fields(config_dir = %config_dir.display(), key = %key))]
-pub fn get_resolved_value_from_dir(config_dir: &Path, key: &str) -> Result<String, ConfigError> {
-    let config = load_from_dir(config_dir)?;
-    let value = toml::Value::try_from(&config).map_err(|source| ConfigError::Serialize {
-        path: config_dir.join(CONFIG_FILE_NAME),
-        source,
-    })?;
-
-    let found = get_by_key_path(&value, key)?;
-    Ok(render_value(found))
-}
-
-#[tracing::instrument(skip_all, fields(key = %key))]
-pub fn set_value(key: &str, value: &str) -> Result<(), ConfigError> {
-    set_value_in_dir(&config_dir()?, key, value)
-}
-
-#[tracing::instrument(skip_all, fields(config_dir = %config_dir.display(), key = %key))]
-pub fn set_value_in_dir(config_dir: &Path, key: &str, value: &str) -> Result<(), ConfigError> {
-    std::fs::create_dir_all(config_dir).map_err(|source| ConfigError::WriteFile {
-        path: config_dir.to_path_buf(),
-        source,
-    })?;
-
-    let path = config_dir.join(CONFIG_FILE_NAME);
-    let mut root = load_toml_value(&path)?;
-    let parsed_value = parse_cli_value(value);
-    validate_model_object_assignment(key, &parsed_value)?;
-    set_by_key_path(&mut root, key, parsed_value)?;
-
-    let serialized = toml::to_string_pretty(&root).map_err(|source| ConfigError::Serialize {
-        path: path.clone(),
-        source,
-    })?;
-
-    let settings =
-        toml::from_str::<Settings>(&serialized).map_err(|source| ConfigError::Parse {
-            path: path.clone(),
-            source,
-        })?;
-    let _ = Config::from_settings(settings)?;
-
-    std::fs::write(&path, serialized).map_err(|source| ConfigError::WriteFile {
-        path: path.clone(),
-        source,
-    })?;
-
-    Ok(())
-}
-
-#[tracing::instrument(skip_all, fields(workspace = %config.workspace.display()))]
-pub fn bootstrap_workspace(config: &Config) -> Result<(), ConfigError> {
-    std::fs::create_dir_all(&config.workspace).map_err(|source| ConfigError::WriteFile {
-        path: config.workspace.clone(),
-        source,
-    })?;
-
-    for dir in [
-        "jobs",
-        "skills",
-        ".web-cache",
-        ".state",
-        "knowledge",
-        "knowledge/notes",
-        "knowledge/references",
-        "knowledge/diary",
-    ] {
-        let path = config.workspace.join(dir);
-        std::fs::create_dir_all(&path).map_err(|source| ConfigError::WriteFile { path, source })?;
-    }
-
-    create_file_if_missing(&config.workspace.join("BOOT.md"), DEFAULT_BOOT_TEMPLATE)?;
-    create_file_if_missing(&config.workspace.join("SOUL.md"), "")?;
-    create_file_if_missing(&config.workspace.join("OPERATOR.md"), "")?;
-
-    crate::skills::install_default_skills(&config.workspace).map_err(|source| {
-        ConfigError::WriteFile {
-            path: config.workspace.join("skills"),
-            source,
-        }
-    })?;
-
-    Ok(())
-}
-
-fn create_file_if_missing(path: &Path, content: &str) -> Result<(), ConfigError> {
-    if path.exists() {
-        return Ok(());
-    }
-    std::fs::write(path, content).map_err(|source| ConfigError::WriteFile {
-        path: path.to_path_buf(),
-        source,
-    })
-}
-
 fn load_dotenv() {
     DOTENV_INIT.call_once(|| {
         let _ = dotenvy::dotenv();
@@ -480,7 +377,7 @@ fn load_dotenv() {
 }
 
 #[tracing::instrument(skip_all)]
-fn config_dir() -> Result<PathBuf, ConfigError> {
+pub(crate) fn config_dir() -> Result<PathBuf, ConfigError> {
     if let Some(path) = env::var_os(CONFIG_DIR_ENV) {
         return Ok(PathBuf::from(path));
     }
@@ -519,7 +416,7 @@ fn empty_settings() -> Settings {
     }
 }
 
-fn load_toml_value(path: &Path) -> Result<toml::Value, ConfigError> {
+pub(crate) fn load_toml_value(path: &Path) -> Result<toml::Value, ConfigError> {
     if !path.exists() {
         return Ok(toml::Value::Table(toml::map::Map::new()));
     }
@@ -552,106 +449,6 @@ fn expand_tilde(input: &str) -> Result<PathBuf, ConfigError> {
     }
 
     Ok(PathBuf::from(input))
-}
-
-fn parse_cli_value(raw: &str) -> toml::Value {
-    if raw.trim().is_empty() {
-        return toml::Value::String(String::new());
-    }
-
-    if let Ok(value) = raw.parse::<toml::Value>() {
-        return value;
-    }
-
-    toml::Value::String(raw.to_string())
-}
-
-fn set_by_key_path(
-    root: &mut toml::Value,
-    key: &str,
-    value: toml::Value,
-) -> Result<(), ConfigError> {
-    let segments = validate_key_path(key)?;
-    let mut cursor = root;
-
-    for segment in &segments[..segments.len() - 1] {
-        let table = cursor
-            .as_table_mut()
-            .ok_or_else(|| ConfigError::InvalidKey {
-                key: key.to_string(),
-            })?;
-        cursor = table
-            .entry((*segment).to_string())
-            .or_insert_with(|| toml::Value::Table(toml::map::Map::new()));
-    }
-
-    let table = cursor
-        .as_table_mut()
-        .ok_or_else(|| ConfigError::InvalidKey {
-            key: key.to_string(),
-        })?;
-    table.insert(segments[segments.len() - 1].to_string(), value);
-    Ok(())
-}
-
-fn get_by_key_path<'a>(root: &'a toml::Value, key: &str) -> Result<&'a toml::Value, ConfigError> {
-    let segments = validate_key_path(key)?;
-    let mut cursor = root;
-
-    for segment in segments {
-        let table = cursor.as_table().ok_or_else(|| ConfigError::InvalidKey {
-            key: key.to_string(),
-        })?;
-        cursor = table.get(segment).ok_or_else(|| ConfigError::KeyNotFound {
-            key: key.to_string(),
-        })?;
-    }
-
-    Ok(cursor)
-}
-
-fn validate_key_path(key: &str) -> Result<Vec<&str>, ConfigError> {
-    let segments = key
-        .split('.')
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-        .collect::<Vec<_>>();
-
-    if segments.is_empty() || key.starts_with('.') || key.ends_with('.') {
-        return Err(ConfigError::InvalidKey {
-            key: key.to_string(),
-        });
-    }
-
-    Ok(segments)
-}
-
-fn validate_model_object_assignment(key: &str, value: &toml::Value) -> Result<(), ConfigError> {
-    let segments = validate_key_path(key)?;
-    if segments.len() != 2 || segments[0] != "models" || segments[1] == "default" {
-        return Ok(());
-    }
-
-    let table = value.as_table().ok_or_else(|| ConfigError::InvalidKey {
-        key: format!(
-            "{key} must be set with an inline TOML object like {{ provider = \"openrouter\", model = \"...\" }}"
-        ),
-    })?;
-
-    if !table.contains_key("provider") || !table.contains_key("model") {
-        return Err(ConfigError::InvalidKey {
-            key: format!("{key} requires both provider and model"),
-        });
-    }
-
-    Ok(())
-}
-
-fn render_value(value: &toml::Value) -> String {
-    match value {
-        toml::Value::String(v) => v.clone(),
-        _ => value.to_string(),
-    }
 }
 
 /// Create a minimal `Config` for unit tests that need a ToolContext but don't
