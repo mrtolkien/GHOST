@@ -100,6 +100,7 @@ pub fn write_test_reference(
 pub struct LiveTestEnv {
     pub db: GhostDb,
     pub config: Config,
+    pub agent_runner: Arc<ghost::agents::AgentRunner>,
     workspace: TempDir,
     _config_dir: TempDir,
     test_name: String,
@@ -246,10 +247,11 @@ impl LiveTestEnv {
     // Chat helpers
     // -----------------------------------------------------------------
 
-    /// SessionChat with real provider + chat tools.
+    /// SessionChat with real provider + chat tools + agent runner.
     pub fn chat(&self) -> ghost::chat::SessionChat {
         ghost::chat::SessionChat::from_config(self.db.clone(), self.config.clone())
             .expect("build session chat")
+            .with_agent_runner(Arc::clone(&self.agent_runner))
     }
 
     /// SessionChat with real provider + reflection tools.
@@ -333,6 +335,88 @@ impl LiveTestEnv {
             )
             .await
             .expect("reflection chat_job")
+    }
+
+    // -----------------------------------------------------------------
+    // Agent helpers
+    // -----------------------------------------------------------------
+
+    /// Poll for all background agents to complete, inject their findings
+    /// into the parent session, trigger a follow-up chat turn, and return
+    /// the final response. Mirrors what the agent watcher does in the daemon.
+    ///
+    /// Times out after `timeout_secs` seconds.
+    pub async fn wait_for_agents(
+        &self,
+        session_id: &Thing,
+        timeout_secs: u64,
+    ) -> Option<ghost::chat::ChatResult> {
+        use std::time::{Duration, Instant};
+
+        let deadline = Instant::now() + Duration::from_secs(timeout_secs);
+        let poll_interval = Duration::from_secs(3);
+
+        loop {
+            if Instant::now() >= deadline {
+                self.log("TIMEOUT: agent did not complete in time");
+                return None;
+            }
+
+            let agent_ids = self.agent_runner.list_agent_ids().await;
+            if agent_ids.is_empty() {
+                self.log("no agents found (model may not have spawned one)");
+                return None;
+            }
+
+            for agent_id in &agent_ids {
+                if let Some((status, parent)) = self.agent_runner.take_completed(agent_id).await {
+                    let findings = status
+                        .findings
+                        .as_deref()
+                        .unwrap_or("Agent completed without producing findings.");
+
+                    self.log(format!(
+                        "agent '{}' completed ({} messages)",
+                        status.agent_name, status.message_count
+                    ));
+
+                    // Log the agent's session for diagnostics
+                    // agent_id is "session:xxxxx" — parse it back into a Thing
+                    if let Some((table, id)) = agent_id.split_once(':') {
+                        let agent_session_thing = surrealdb::sql::Thing::from((table, id));
+                        self.log_session("agent_session", &agent_session_thing)
+                            .await;
+                    }
+
+                    let parent_id = parent.unwrap_or_else(|| session_id.clone());
+
+                    // Inject findings as system message
+                    let system_msg =
+                        format!("[agent:{} completed]\n\n{findings}", status.agent_name);
+                    ghost::db::sessions::create_message(
+                        &self.db,
+                        &parent_id,
+                        "system",
+                        &system_msg,
+                    )
+                    .await
+                    .expect("inject agent findings");
+
+                    // Trigger follow-up chat turn
+                    let chat = self.chat();
+                    let trigger = "[system] Research agent completed.";
+                    match chat.chat(&parent_id.to_string(), trigger).await {
+                        Ok(result) => return Some(result),
+                        Err(e) => {
+                            self.log(format!("ERROR: follow-up chat turn failed: {e}"));
+                            return None;
+                        }
+                    }
+                }
+            }
+
+            tokio::time::sleep(poll_interval).await;
+        }
     }
 
     // -----------------------------------------------------------------
@@ -468,9 +552,12 @@ pub async fn live_test_database(test_name: &str) -> LiveTestEnv {
         .await
         .expect("connect to fresh temp database");
 
+    let agent_runner = Arc::new(ghost::agents::AgentRunner::new(db.clone(), config.clone()));
+
     LiveTestEnv {
         db,
         config,
+        agent_runner,
         workspace,
         _config_dir: config_dir,
         test_name: test_name.to_string(),

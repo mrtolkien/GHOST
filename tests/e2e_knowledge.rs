@@ -29,11 +29,11 @@ async fn e2e_tool_smoke() {
     env.log(format!("citations: {:?}", result.citations));
 }
 
-/// Full e2e: ask about enclosed 3D printers, then run reflection.
+/// Full e2e: ask about enclosed 3D printers, wait for agent, then reflect.
 ///
-/// This is a manual review script — run it, then inspect the output in
-/// `e2e-output/<timestamp>_e2e_3d_printers/` for the diagnostic log and
-/// workspace snapshot (notes, references, diary created by reflection).
+/// The model may spawn a deep-research agent. If it does, we poll until
+/// the agent finishes, inject findings into the session (like the daemon
+/// watcher would), and trigger a follow-up turn before running reflection.
 ///
 /// ```sh
 /// cargo test --features e2e-tests e2e_3d_printers -- --nocapture
@@ -43,7 +43,7 @@ async fn e2e_3d_printers() {
     let env = common::live_test_database("e2e_3d_printers").await;
     let session = env.create_session().await;
 
-    // Chat
+    // Initial chat — may spawn a deep-research agent or answer directly
     let chat = env.chat();
     let result = chat
         .chat(
@@ -52,8 +52,24 @@ async fn e2e_3d_printers() {
         )
         .await
         .expect("chat failed");
-    env.log_session("chat", &session).await;
-    env.log(format!("chat response: {}", result.message));
+    env.log_session("initial_chat", &session).await;
+    env.log(format!("initial response: {}", result.message));
+
+    // Wait for background agents (5-minute timeout for deep research)
+    let agent_ids = env.agent_runner.list_agent_ids().await;
+    if !agent_ids.is_empty() {
+        env.log(format!("agent(s) spawned: {}", agent_ids.join(", ")));
+
+        if let Some(agent_result) = env.wait_for_agents(&session, 300).await {
+            env.log_session("after_agent", &session).await;
+            env.log(format!(
+                "agent follow-up response: {}",
+                agent_result.message
+            ));
+        }
+    } else {
+        env.log("no agents spawned — model answered directly");
+    }
 
     // Reflection
     let reflection = env.run_reflection(&session, None).await;
