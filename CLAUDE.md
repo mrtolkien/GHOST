@@ -60,8 +60,8 @@ several things).
   graph edges and embeddings search.
 - **Skill**: agentskills.io-compatible files in `$WORKSPACE/skills/`. Read via standard
   file tools.
-- **Provider**: LLM backend. Provider trait with implementations for OpenRouter,
-  Kimi, and OpenAI OAuth (Codex Responses API).
+- **Provider**: LLM backend. Provider trait with implementations for OpenRouter, Kimi,
+  and OpenAI OAuth (Codex Responses API).
 
 ## Workspace and Flow
 

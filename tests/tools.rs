@@ -19,10 +19,10 @@ fn tool_ctx(
 }
 
 #[tokio::test]
-async fn for_chat_registers_six_tools() {
+async fn for_chat_registers_nine_tools() {
     let manager = ToolManager::for_chat();
     let schemas = manager.all_tool_schemas();
-    assert_eq!(schemas.len(), 6, "expected 6 tools, got {}", schemas.len());
+    assert_eq!(schemas.len(), 9, "expected 9 tools, got {}", schemas.len());
 
     let names: Vec<&str> = schemas.iter().map(|s| s.name.as_str()).collect();
     assert!(names.contains(&"run_shell_command"));
@@ -30,6 +30,9 @@ async fn for_chat_registers_six_tools() {
     assert!(names.contains(&"write_file"));
     assert!(names.contains(&"file_edit"));
     assert!(names.contains(&"todo"));
+    assert!(names.contains(&"knowledge_search"));
+    assert!(names.contains(&"web_search"));
+    assert!(names.contains(&"web_fetch"));
     assert!(names.contains(&"respond"));
 
     for schema in &schemas {
@@ -42,8 +45,8 @@ async fn for_chat_registers_six_tools() {
 async fn for_reflection_includes_knowledge_tools() {
     let chat = ToolManager::for_chat();
     let reflection = ToolManager::for_reflection();
-    assert_eq!(chat.all_tool_schemas().len(), 6);
-    assert_eq!(reflection.all_tool_schemas().len(), 8);
+    assert_eq!(chat.all_tool_schemas().len(), 9);
+    assert_eq!(reflection.all_tool_schemas().len(), 11);
 
     let schemas = reflection.all_tool_schemas();
     let names: Vec<&str> = schemas.iter().map(|s| s.name.as_str()).collect();

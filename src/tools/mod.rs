@@ -1,6 +1,7 @@
 pub mod context;
 pub mod error;
 pub mod file_edit;
+pub mod knowledge_search;
 pub mod manager;
 pub mod note_write;
 pub mod read_file;
@@ -8,6 +9,8 @@ pub mod reference_manage;
 pub mod respond;
 pub mod shell;
 pub mod todo;
+pub mod web_fetch;
+pub mod web_search;
 pub mod write_file;
 
 pub use context::ToolContext;

@@ -34,6 +34,7 @@ url = "2"
 
 [features]
 live-tests = []
+e2e-tests = ["live-tests"]
 
 [dev-dependencies]
 chrono = "0.4"

@@ -114,20 +114,38 @@ impl LiveTestEnv {
     /// Dump all messages from a session into the diagnostic log.
     ///
     /// Call this after each `chat()` or `chat_job()` to capture the full
-    /// conversation for post-mortem analysis.
+    /// conversation for post-mortem analysis. Produces a detailed,
+    /// human-readable transcript with numbered turns, full tool call
+    /// inputs/outputs, and timestamps.
     pub async fn log_session(&self, label: &str, session_id: &surrealdb::sql::Thing) {
         let messages = ghost::db::sessions::list_messages_by_session(&self.db, session_id)
             .await
             .unwrap_or_default();
 
         let mut log = self.diagnostic_log.borrow_mut();
-        let sep = "=".repeat(60);
-        log.push(format!("\n{sep}\n=== {label} ({session_id})\n{sep}\n"));
+        let sep = "=".repeat(72);
+        log.push(format!("\n{sep}"));
+        log.push(format!("  {label} (session:{session_id})"));
+        log.push(format!(
+            "  messages: {}  |  started: {}",
+            messages.len(),
+            messages
+                .first()
+                .map(|m| m.created_at.to_string())
+                .unwrap_or_else(|| "—".to_string()),
+        ));
+        log.push(sep.clone());
+
+        let mut turn = 0usize;
+        let mut tool_call_count = 0usize;
 
         for msg in &messages {
+            turn += 1;
+            let ts = &msg.created_at;
+
             match msg.role.as_str() {
+                // Tool results are stored as "user" messages with tool_results
                 "user" if msg.tool_results.is_some() => {
-                    // Tool result message
                     if let Some(ref results) = msg.tool_results {
                         for result in results {
                             let id = result
@@ -141,21 +159,35 @@ impl LiveTestEnv {
                                 .and_then(|v| v.as_bool())
                                 .unwrap_or(false);
                             let tag = if is_error { "ERROR" } else { "ok" };
-                            log.push(format!("  ← tool_result [{id}] ({tag}):"));
-                            // Truncate long tool results
-                            for line in truncate_str(content, 1000).lines() {
-                                log.push(format!("    {line}"));
+                            log.push(format!("\n  ◀ TOOL RESULT [{id}] ({tag}):"));
+                            log.push(format!("  {}", "─".repeat(60)));
+                            let truncated = truncate_str(content, 3000);
+                            for line in truncated.lines() {
+                                log.push(format!("  │ {line}"));
                             }
+                            log.push(format!("  {}", "─".repeat(60)));
                         }
                     }
                 }
                 role => {
+                    let role_upper = role.to_uppercase();
+                    log.push(format!("\n┌─ #{turn} [{role_upper}] {ts}"));
+
                     if !msg.content.trim().is_empty() {
-                        log.push(format!("[{role}] {}", msg.content));
+                        log.push("│".to_string());
+                        for line in msg.content.lines() {
+                            log.push(format!("│ {line}"));
+                        }
                     }
+
                     if let Some(ref calls) = msg.tool_calls {
+                        if !msg.content.trim().is_empty() {
+                            log.push("│".to_string());
+                        }
                         for call in calls {
+                            tool_call_count += 1;
                             let name = call.get("name").and_then(|v| v.as_str()).unwrap_or("?");
+                            let id = call.get("id").and_then(|v| v.as_str()).unwrap_or("?");
                             let input = call.get("input");
                             let input_str = input
                                 .map(|v| {
@@ -163,12 +195,24 @@ impl LiveTestEnv {
                                         .unwrap_or_else(|_| v.to_string())
                                 })
                                 .unwrap_or_default();
-                            log.push(format!("  → {name}({})", truncate_str(&input_str, 500)));
+                            log.push(format!("│  ▶ {name} [{id}]"));
+                            let truncated = truncate_str(&input_str, 2000);
+                            for line in truncated.lines() {
+                                log.push(format!("│    {line}"));
+                            }
                         }
                     }
+                    log.push("└─".to_string());
                 }
             }
         }
+
+        // Summary footer
+        log.push(format!("\n{}", "─".repeat(72)));
+        log.push(format!(
+            "  SUMMARY: {turn} messages, {tool_call_count} tool calls"
+        ));
+        log.push("─".repeat(72));
     }
 
     /// Add a custom note to the diagnostic log.
