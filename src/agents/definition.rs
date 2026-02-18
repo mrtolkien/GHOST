@@ -17,7 +17,7 @@ struct AgentFrontmatter {
 }
 
 fn default_max_iterations() -> usize {
-    40
+    50
 }
 
 #[derive(Debug, Clone)]
@@ -31,12 +31,15 @@ pub struct AgentDefinition {
 }
 
 impl AgentDefinition {
-    /// Interpolate `{{ query }}` in the system prompt template.
+    /// Interpolate `{{ query }}` and `{{ date }}` in the system prompt.
     #[must_use]
     pub fn render_system_prompt(&self, query: &str) -> String {
+        let date = chrono::Local::now().format("%Y-%m-%d").to_string();
         self.system_prompt_template
             .replace("{{ query }}", query)
             .replace("{{query}}", query)
+            .replace("{{ date }}", &date)
+            .replace("{{date}}", &date)
     }
 }
 
@@ -111,6 +114,55 @@ pub fn install_default_agents(workspace: &Path) -> Result<(), std::io::Error> {
     Ok(())
 }
 
+/// Minimal metadata for listing agents in the system prompt.
+#[derive(Debug, Clone)]
+pub struct AgentInfo {
+    pub name: String,
+    pub description: String,
+}
+
+/// Scan `$WORKSPACE/agents/` for agent definition files and return a sorted
+/// list of agent name + description pairs.
+#[tracing::instrument(skip_all, level = "debug", fields(workspace = %workspace.display()))]
+pub fn discover_agents(workspace: &Path) -> Vec<AgentInfo> {
+    let agents_dir = workspace.join("agents");
+
+    let entries = match std::fs::read_dir(&agents_dir) {
+        Ok(entries) => entries,
+        Err(_) => return Vec::new(),
+    };
+
+    let mut agents = Vec::new();
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.extension().and_then(|e| e.to_str()) != Some("md") {
+            continue;
+        }
+
+        let content = match std::fs::read_to_string(&path) {
+            Ok(c) => c,
+            Err(_) => continue,
+        };
+
+        match parse_agent_file(&content) {
+            Ok(def) => agents.push(AgentInfo {
+                name: def.name,
+                description: def.description,
+            }),
+            Err(e) => {
+                logfire::warn!(
+                    "Malformed agent definition in {path}: {error}",
+                    path = path.display().to_string(),
+                    error = e.to_string(),
+                );
+            }
+        }
+    }
+
+    agents.sort_by(|a, b| a.name.cmp(&b.name));
+    agents
+}
+
 /// Load an agent definition from the workspace agents directory.
 #[tracing::instrument(skip_all, fields(agent_name = name))]
 pub fn load_agent(workspace: &Path, name: &str) -> Result<AgentDefinition, AgentError> {
@@ -166,19 +218,19 @@ tools = ["todo"]
 Do the thing. {{ query }}
 "#;
         let def = parse_agent_file(content).unwrap();
-        assert_eq!(def.max_iterations, 40);
+        assert_eq!(def.max_iterations, 50);
         assert!(def.model.is_none());
     }
 
     #[test]
-    fn interpolate_query() {
+    fn interpolate_query_and_date() {
         let content = r#"+++
 name = "test"
 description = "test"
 tools = []
 +++
 
-Research: {{ query }}
+Today is {{ date }}. Research: {{ query }}
 
 Also: {{query}}
 "#;
@@ -186,6 +238,9 @@ Also: {{query}}
         let rendered = def.render_system_prompt("3D printers under $1000");
         assert!(rendered.contains("Research: 3D printers under $1000"));
         assert!(rendered.contains("Also: 3D printers under $1000"));
+        // Date should be interpolated as YYYY-MM-DD
+        let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+        assert!(rendered.contains(&today));
     }
 
     #[test]
@@ -242,6 +297,52 @@ Also: {{query}}
 
         let content = std::fs::read_to_string(&agent_file).unwrap();
         assert_eq!(content, "custom content");
+    }
+
+    #[test]
+    fn discover_agents_finds_and_sorts() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let agents_dir = dir.path().join("agents");
+        std::fs::create_dir_all(&agents_dir).unwrap();
+
+        std::fs::write(
+            agents_dir.join("zeta.md"),
+            "+++\nname = \"zeta\"\ndescription = \"Z agent\"\ntools = []\n+++\nBody\n",
+        )
+        .unwrap();
+        std::fs::write(
+            agents_dir.join("alpha.md"),
+            "+++\nname = \"alpha\"\ndescription = \"A agent\"\ntools = []\n+++\nBody\n",
+        )
+        .unwrap();
+
+        let found = discover_agents(dir.path());
+        assert_eq!(found.len(), 2);
+        assert_eq!(found[0].name, "alpha");
+        assert_eq!(found[0].description, "A agent");
+        assert_eq!(found[1].name, "zeta");
+    }
+
+    #[test]
+    fn discover_agents_skips_non_md_and_invalid() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let agents_dir = dir.path().join("agents");
+        std::fs::create_dir_all(&agents_dir).unwrap();
+
+        // Non-md file
+        std::fs::write(agents_dir.join("readme.txt"), "not an agent").unwrap();
+        // Invalid frontmatter
+        std::fs::write(agents_dir.join("broken.md"), "no frontmatter here").unwrap();
+        // Valid
+        std::fs::write(
+            agents_dir.join("valid.md"),
+            "+++\nname = \"valid\"\ndescription = \"works\"\ntools = []\n+++\nBody\n",
+        )
+        .unwrap();
+
+        let found = discover_agents(dir.path());
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].name, "valid");
     }
 
     #[test]

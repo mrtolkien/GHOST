@@ -46,6 +46,7 @@ impl PromptRenderer {
         let operator_context = context::build_operator_context(workspace);
         let ghost_diary = context::build_ghost_diary();
         let ghost_skills = context::build_ghost_skills(workspace);
+        let ghost_agents = context::build_ghost_agents(workspace);
         let system_info = context::build_system_info(workspace);
         let model_info = context::build_model_info(&context.model, &context.provider);
 
@@ -54,6 +55,7 @@ impl PromptRenderer {
         vars.insert("operator_context", operator_context);
         vars.insert("ghost_diary", ghost_diary);
         vars.insert("ghost_skills", ghost_skills);
+        vars.insert("ghost_agents", ghost_agents);
         vars.insert("system_info", system_info);
         vars.insert("model_info", model_info);
 

@@ -25,7 +25,7 @@ async fn heartbeat_returns_heartbeat_continue() {
         .await;
 
     let result = env.run_heartbeat(&session).await;
-    env.log_session("heartbeat", &session).await;
+    env.log_session_json("heartbeat", &session).await;
 
     assert!(
         is_heartbeat_continue(&result.result.message),
@@ -61,7 +61,7 @@ async fn reflection_classifies_blog_reference() {
         )
         .await
         .expect("chat response");
-    env.log_session("chat", &session).await;
+    env.log_session_json("chat", &session).await;
     assert!(
         !result.message.trim().is_empty(),
         "GHOST should have responded with blog summary"
@@ -80,7 +80,7 @@ async fn reflection_classifies_blog_reference() {
 
     // Step 3: Run reflection
     let result = env.run_reflection(&session, None).await;
-    env.log_session("reflection-result", &session).await;
+    env.log_session_json("reflection-result", &session).await;
     assert!(
         !result.result.message.trim().is_empty(),
         "reflection should produce a handoff note"
@@ -136,7 +136,7 @@ async fn heartbeat_proactive_followup() {
         .await;
 
     let result = env.run_heartbeat(&session).await;
-    env.log_session("heartbeat_followup", &session).await;
+    env.log_session_json("heartbeat_followup", &session).await;
 
     // Model should either continue silently or send a follow-up — either is valid
     assert!(
@@ -170,10 +170,10 @@ async fn reflection_creates_knowledge_notes() {
     )
     .await
     .expect("chat response");
-    env.log_session("chat", &session).await;
+    env.log_session_json("chat", &session).await;
 
     let result = env.run_reflection(&session, None).await;
-    env.log_session("reflection", &session).await;
+    env.log_session_json("reflection", &session).await;
 
     assert!(
         !result.result.message.trim().is_empty(),
@@ -210,11 +210,11 @@ async fn reflection_handoff_continuity() {
     )
     .await
     .expect("first chat");
-    env.log_session("chat_1", &session).await;
+    env.log_session_json("chat_1", &session).await;
 
     // First reflection
     let first_result = env.run_reflection(&session, None).await;
-    env.log_session("reflection_1", &session).await;
+    env.log_session_json("reflection_1", &session).await;
     let first_handoff = first_result.result.message.clone();
     assert!(
         !first_handoff.trim().is_empty(),
@@ -232,11 +232,11 @@ async fn reflection_handoff_continuity() {
         )
         .await
         .expect("second chat");
-    env.log_session("chat_2", &session2).await;
+    env.log_session_json("chat_2", &session2).await;
 
     // Second reflection with the first handoff
     let second_result = env.run_reflection(&session2, Some(&first_handoff)).await;
-    env.log_session("reflection_2", &session2).await;
+    env.log_session_json("reflection_2", &session2).await;
 
     assert!(
         !second_result.result.message.trim().is_empty(),
@@ -269,7 +269,7 @@ async fn skills_discoverable_without_prompting() {
         )
         .await
         .expect("chat response");
-    env.log_session("skills_query", &session).await;
+    env.log_session_json("skills_query", &session).await;
 
     assert!(
         !result.message.trim().is_empty(),

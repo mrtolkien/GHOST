@@ -50,7 +50,8 @@ pub fn build_operator_context(workspace: &Path) -> String {
 }
 
 /// Scan the `skills/` directory, parse frontmatter, and list available
-/// skills with descriptions. Returns empty string if no skills found.
+/// skills with descriptions in XML format (agentskills.io progressive
+/// disclosure). Returns empty string if no skills found.
 #[tracing::instrument(skip_all, level = "debug", fields(workspace = %workspace.display()))]
 pub fn build_ghost_skills(workspace: &Path) -> String {
     let skills = crate::skills::discover_skills(workspace);
@@ -59,17 +60,58 @@ pub fn build_ghost_skills(workspace: &Path) -> String {
         return String::new();
     }
 
-    let list = skills
+    let entries: Vec<String> = skills
         .iter()
-        .map(|s| format!("- **{}** — {}", s.name, s.description))
-        .collect::<Vec<_>>()
-        .join("\n");
+        .map(|s| {
+            let rel = s.path.strip_prefix(workspace).unwrap_or(&s.path).display();
+            format!(
+                "  <skill>\n    <name>{}</name>\n    \
+                 <description>{}</description>\n    \
+                 <location>{rel}</location>\n  </skill>",
+                s.name, s.description,
+            )
+        })
+        .collect();
 
     format!(
         "## Available Skills\n\n\
-         Use `read_file` to load the full instructions for any \
-         skill before using it.\n\n\
-         {list}"
+         ALWAYS read the full skill file with `read_file` before starting any task \
+         that matches a skill's description. Skills contain critical workflow \
+         instructions that you MUST follow.\n\n\
+         <available_skills>\n{}\n</available_skills>",
+        entries.join("\n"),
+    )
+}
+
+/// Scan the `agents/` directory for agent definitions and list available
+/// agents with descriptions in XML format. Returns empty string if no
+/// agents found.
+#[tracing::instrument(skip_all, level = "debug", fields(workspace = %workspace.display()))]
+pub fn build_ghost_agents(workspace: &Path) -> String {
+    let agents = crate::agents::discover_agents(workspace);
+
+    if agents.is_empty() {
+        return String::new();
+    }
+
+    let entries: Vec<String> = agents
+        .iter()
+        .map(|a| {
+            format!(
+                "  <agent>\n    <name>{}</name>\n    \
+                 <description>{}</description>\n    \
+                 <location>agents/{}.md</location>\n  </agent>",
+                a.name, a.description, a.name,
+            )
+        })
+        .collect();
+
+    format!(
+        "## Available Agents\n\n\
+         Use `agent_control` to spawn background agents. Read the agent file with \
+         `read_file` before spawning to understand when and how to use it.\n\n\
+         <available_agents>\n{}\n</available_agents>",
+        entries.join("\n"),
     )
 }
 
@@ -114,7 +156,7 @@ mod tests {
     }
 
     #[test]
-    fn skills_lists_sorted_entries_with_descriptions_and_skips_hidden() {
+    fn skills_uses_xml_format_with_location() {
         let dir = TempDir::new().unwrap();
         let skills = dir.path().join("skills");
 
@@ -146,14 +188,70 @@ mod tests {
 
         let result = build_ghost_skills(dir.path());
 
+        // XML structure
+        assert!(result.contains("<available_skills>"));
+        assert!(result.contains("<name>note-writer</name>"));
+        assert!(result.contains("<description>Create notes.</description>"));
+        assert!(result.contains("<location>skills/note-writer/skill.md</location>"));
+        assert!(result.contains("<name>researcher</name>"));
+        assert!(result.contains("<location>skills/researcher/skill.md</location>"));
         assert!(!result.contains("hidden"));
-        assert!(result.contains("**note-writer** — Create notes."));
-        assert!(result.contains("**researcher** — Research things."));
-        assert!(result.contains("## Available Skills"));
 
-        // Verify sorted order
+        // Sorted order
         let nw_pos = result.find("note-writer").unwrap();
         let rs_pos = result.find("researcher").unwrap();
         assert!(nw_pos < rs_pos);
+    }
+
+    #[test]
+    fn skills_instruction_pushes_reading() {
+        let dir = TempDir::new().unwrap();
+        let skill_dir = dir.path().join("skills").join("test");
+        fs::create_dir_all(&skill_dir).unwrap();
+        fs::write(
+            skill_dir.join("skill.md"),
+            "---\nname: test\ndescription: A test.\n---\n",
+        )
+        .unwrap();
+
+        let result = build_ghost_skills(dir.path());
+        assert!(result.contains("ALWAYS read the full skill file"));
+        assert!(result.contains("MUST follow"));
+    }
+
+    #[test]
+    fn agents_uses_xml_format_with_location() {
+        let dir = TempDir::new().unwrap();
+        let agents = dir.path().join("agents");
+        fs::create_dir_all(&agents).unwrap();
+
+        fs::write(
+            agents.join("zeta.md"),
+            "+++\nname = \"zeta\"\ndescription = \"Z agent\"\ntools = []\n+++\nBody\n",
+        )
+        .unwrap();
+        fs::write(
+            agents.join("alpha.md"),
+            "+++\nname = \"alpha\"\ndescription = \"A agent\"\ntools = []\n+++\nBody\n",
+        )
+        .unwrap();
+
+        let result = build_ghost_agents(dir.path());
+        assert!(result.contains("<available_agents>"));
+        assert!(result.contains("<name>alpha</name>"));
+        assert!(result.contains("<description>A agent</description>"));
+        assert!(result.contains("<location>agents/alpha.md</location>"));
+        assert!(result.contains("<name>zeta</name>"));
+        assert!(result.contains("agent_control"));
+
+        let alpha_pos = result.find("alpha").unwrap();
+        let zeta_pos = result.find("zeta").unwrap();
+        assert!(alpha_pos < zeta_pos);
+    }
+
+    #[test]
+    fn agents_empty_returns_empty_string() {
+        let dir = TempDir::new().unwrap();
+        assert!(build_ghost_agents(dir.path()).is_empty());
     }
 }

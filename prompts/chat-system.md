@@ -99,23 +99,6 @@ results (e.g. `["notes"]` or `["references"]`), and `read_file` to get full cont
 3. **Get full content**: use `read_file` with the note or reference path to read the
    complete content.
 
-### Research Workflow
-
-When the OPERATOR asks a question that requires factual accuracy:
-
-1. **Search knowledge first**: Use `knowledge_search` to check if you already have
-   relevant notes or references on the topic. This is your curated memory.
-2. **Web search for current information**: Use `web_search` to find up-to-date results.
-   This is essential for recommendations, product comparisons, current events, or
-   anything where your training data may be stale.
-3. **Web fetch promising results**: Use `web_fetch` to read full articles, reviews, and
-   documentation from the search results.
-4. **Respond with citations**: Use the `respond` tool with your answer and a citations
-   array listing every source you used.
-
-Do NOT skip steps 2-3 and answer from training data when the question involves facts
-that change over time (prices, product lineups, current best practices, recent events).
-
 ## Tool Usage Guidelines
 
 ### Knowledge Tools
@@ -153,6 +136,12 @@ workspace.
 file content exactly. Include surrounding context for uniqueness.
 
 **`run_shell_command`** — Execute shell commands for system operations.
+
+### Agent Tools
+
+**`agent_control`** — Spawn and manage background agents. Actions: `start` (spawn an
+agent by name with a prompt), `status` (check progress and TODO list), `stop` (terminate
+and retrieve partial findings). See the available agents list at the end of this prompt.
 
 ### Output Tools
 
@@ -212,3 +201,5 @@ When working on code tasks:
 {{ ghost_diary }}
 
 {{ ghost_skills }}
+
+{{ ghost_agents }}

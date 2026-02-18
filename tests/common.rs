@@ -107,118 +107,85 @@ pub struct LiveTestEnv {
     prev_config_dir_env: Option<String>,
     prev_path_env: Option<String>,
     diagnostic_log: std::cell::RefCell<Vec<String>>,
+    /// JSON diagnostic sections: keyed by label ("chat", "agent", "reflection").
+    diagnostic_json: std::cell::RefCell<serde_json::Map<String, serde_json::Value>>,
 }
 
 #[cfg(feature = "live-tests")]
 #[allow(dead_code)]
 impl LiveTestEnv {
-    /// Dump all messages from a session into the diagnostic log.
-    ///
-    /// Call this after each `chat()` or `chat_job()` to capture the full
-    /// conversation for post-mortem analysis. Produces a detailed,
-    /// human-readable transcript with numbered turns, full tool call
-    /// inputs/outputs, and timestamps.
-    pub async fn log_session(&self, label: &str, session_id: &surrealdb::sql::Thing) {
+    /// Collect messages from a session into a JSON array of simplified
+    /// message objects for the diagnostic log. Each message is
+    /// `{ "role", "content"?, "tool_calls"?, "tool_results"? }`.
+    pub async fn collect_session_json(
+        &self,
+        session_id: &surrealdb::sql::Thing,
+    ) -> Vec<serde_json::Value> {
         let messages = ghost::db::sessions::list_messages_by_session(&self.db, session_id)
             .await
             .unwrap_or_default();
 
-        let mut log = self.diagnostic_log.borrow_mut();
-        let sep = "=".repeat(72);
-        log.push(format!("\n{sep}"));
-        log.push(format!("  {label} (session:{session_id})"));
-        log.push(format!(
-            "  messages: {}  |  started: {}",
-            messages.len(),
-            messages
-                .first()
-                .map(|m| m.created_at.to_string())
-                .unwrap_or_else(|| "—".to_string()),
-        ));
-        log.push(sep.clone());
+        messages
+            .iter()
+            .map(|msg| {
+                let mut obj = serde_json::Map::new();
+                obj.insert("role".into(), json!(msg.role));
 
-        let mut turn = 0usize;
-        let mut tool_call_count = 0usize;
-
-        for msg in &messages {
-            turn += 1;
-            let ts = &msg.created_at;
-
-            match msg.role.as_str() {
-                // Tool results are stored as "user" messages with tool_results
-                "user" if msg.tool_results.is_some() => {
-                    if let Some(ref results) = msg.tool_results {
-                        for result in results {
-                            let id = result
-                                .get("tool_use_id")
-                                .and_then(|v| v.as_str())
-                                .unwrap_or("?");
-                            let content =
-                                result.get("content").and_then(|v| v.as_str()).unwrap_or("");
-                            let is_error = result
-                                .get("is_error")
-                                .and_then(|v| v.as_bool())
-                                .unwrap_or(false);
-                            let tag = if is_error { "ERROR" } else { "ok" };
-                            log.push(format!("\n  ◀ TOOL RESULT [{id}] ({tag}):"));
-                            log.push(format!("  {}", "─".repeat(60)));
-                            let truncated = truncate_str(content, 3000);
-                            for line in truncated.lines() {
-                                log.push(format!("  │ {line}"));
-                            }
-                            log.push(format!("  {}", "─".repeat(60)));
-                        }
-                    }
+                if !msg.content.trim().is_empty() {
+                    obj.insert("content".into(), json!(truncate_str(&msg.content, 3000)));
                 }
-                role => {
-                    let role_upper = role.to_uppercase();
-                    log.push(format!("\n┌─ #{turn} [{role_upper}] {ts}"));
 
-                    if !msg.content.trim().is_empty() {
-                        log.push("│".to_string());
-                        for line in msg.content.lines() {
-                            log.push(format!("│ {line}"));
-                        }
-                    }
-
-                    if let Some(ref calls) = msg.tool_calls {
-                        if !msg.content.trim().is_empty() {
-                            log.push("│".to_string());
-                        }
-                        for call in calls {
-                            tool_call_count += 1;
-                            let name = call.get("name").and_then(|v| v.as_str()).unwrap_or("?");
-                            let id = call.get("id").and_then(|v| v.as_str()).unwrap_or("?");
-                            let input = call.get("input");
-                            let input_str = input
-                                .map(|v| {
-                                    serde_json::to_string_pretty(v)
-                                        .unwrap_or_else(|_| v.to_string())
-                                })
-                                .unwrap_or_default();
-                            log.push(format!("│  ▶ {name} [{id}]"));
-                            let truncated = truncate_str(&input_str, 2000);
-                            for line in truncated.lines() {
-                                log.push(format!("│    {line}"));
-                            }
-                        }
-                    }
-                    log.push("└─".to_string());
+                if let Some(ref calls) = msg.tool_calls {
+                    let simplified: Vec<serde_json::Value> = calls
+                        .iter()
+                        .map(|c| {
+                            json!({
+                                "name": c.get("name").and_then(|v| v.as_str()).unwrap_or("?"),
+                                "id": c.get("id").and_then(|v| v.as_str()).unwrap_or("?"),
+                                "input": c.get("input").cloned().unwrap_or(json!(null)),
+                            })
+                        })
+                        .collect();
+                    obj.insert("tool_calls".into(), json!(simplified));
                 }
-            }
-        }
 
-        // Summary footer
-        log.push(format!("\n{}", "─".repeat(72)));
-        log.push(format!(
-            "  SUMMARY: {turn} messages, {tool_call_count} tool calls"
-        ));
-        log.push("─".repeat(72));
+                if let Some(ref results) = msg.tool_results {
+                    let simplified: Vec<serde_json::Value> = results
+                        .iter()
+                        .map(|r| {
+                            json!({
+                                "tool_use_id": r.get("tool_use_id")
+                                    .and_then(|v| v.as_str()).unwrap_or("?"),
+                                "is_error": r.get("is_error")
+                                    .and_then(|v| v.as_bool()).unwrap_or(false),
+                                "content": truncate_str(
+                                    r.get("content")
+                                        .and_then(|v| v.as_str()).unwrap_or(""),
+                                    2000,
+                                ),
+                            })
+                        })
+                        .collect();
+                    obj.insert("tool_results".into(), json!(simplified));
+                }
+
+                serde_json::Value::Object(obj)
+            })
+            .collect()
     }
 
     /// Add a custom note to the diagnostic log.
     pub fn log(&self, msg: impl std::fmt::Display) {
         self.diagnostic_log.borrow_mut().push(format!("# {msg}"));
+    }
+
+    /// Collect a session's messages and store them in the JSON diagnostic
+    /// output under the given label (e.g. "chat", "agent", "reflection").
+    pub async fn log_session_json(&self, label: &str, session_id: &surrealdb::sql::Thing) {
+        let messages = self.collect_session_json(session_id).await;
+        self.diagnostic_json
+            .borrow_mut()
+            .insert(label.to_string(), json!(messages));
     }
 
     // -----------------------------------------------------------------
@@ -384,8 +351,7 @@ impl LiveTestEnv {
                     // agent_id is "session:xxxxx" — parse it back into a Thing
                     if let Some((table, id)) = agent_id.split_once(':') {
                         let agent_session_thing = surrealdb::sql::Thing::from((table, id));
-                        self.log_session("agent_session", &agent_session_thing)
-                            .await;
+                        self.log_session_json("agent", &agent_session_thing).await;
                     }
 
                     let parent_id = parent.unwrap_or_else(|| session_id.clone());
@@ -462,7 +428,22 @@ impl Drop for LiveTestEnv {
             eprintln!("warning: failed to snapshot workspace: {e}");
         }
 
-        // Write diagnostic log
+        // Write JSON diagnostic (structured session data)
+        let json_map = self.diagnostic_json.borrow();
+        if !json_map.is_empty() {
+            let json_value = serde_json::Value::Object(json_map.clone());
+            let json_str = serde_json::to_string_pretty(&json_value).unwrap_or_default();
+            let json_path = dest.join("diagnostic.json");
+            if let Err(e) = fs::write(&json_path, &json_str) {
+                eprintln!("warning: failed to write diagnostic json: {e}");
+            }
+            // Also print to stderr so --nocapture shows it
+            eprintln!("\n--- diagnostic json ({}) ---", self.test_name);
+            eprintln!("{json_str}");
+            eprintln!("--- end diagnostic json ---\n");
+        }
+
+        // Write text log (freeform notes)
         let log = self.diagnostic_log.borrow();
         if !log.is_empty() {
             let log_content = log.join("\n");
@@ -470,7 +451,6 @@ impl Drop for LiveTestEnv {
             if let Err(e) = fs::write(&log_path, &log_content) {
                 eprintln!("warning: failed to write diagnostic log: {e}");
             }
-            // Also print to stderr so --nocapture shows it
             eprintln!("\n--- diagnostic log ({}) ---", self.test_name);
             eprintln!("{log_content}");
             eprintln!("--- end diagnostic log ---\n");
@@ -564,6 +544,7 @@ pub async fn live_test_database(test_name: &str) -> LiveTestEnv {
         prev_config_dir_env: prev_config_dir,
         prev_path_env: prev_path,
         diagnostic_log: std::cell::RefCell::new(Vec::new()),
+        diagnostic_json: std::cell::RefCell::new(serde_json::Map::new()),
     }
 }
 
@@ -616,7 +597,9 @@ fn truncate_str(s: &str, max: usize) -> String {
     if s.len() <= max {
         s.to_string()
     } else {
-        format!("{}…[{}b total]", &s[..max], s.len())
+        // Find a valid UTF-8 char boundary at or before `max`
+        let boundary = s.floor_char_boundary(max);
+        format!("{}…[{}b total]", &s[..boundary], s.len())
     }
 }
 

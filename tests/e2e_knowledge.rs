@@ -24,16 +24,14 @@ async fn e2e_tool_smoke() {
         )
         .await
         .expect("chat failed");
-    env.log_session("tool_smoke", &session).await;
+    env.log_session_json("chat", &session).await;
     env.log(format!("response: {}", result.message));
-    env.log(format!("citations: {:?}", result.citations));
 }
 
 /// Full e2e: ask about enclosed 3D printers, wait for agent, then reflect.
 ///
-/// The model may spawn a deep-research agent. If it does, we poll until
-/// the agent finishes, inject findings into the session (like the daemon
-/// watcher would), and trigger a follow-up turn before running reflection.
+/// 3-minute hard timeout. On completion (or timeout), writes a JSON
+/// diagnostic file with separate sections for chat, agent, and reflection.
 ///
 /// ```sh
 /// cargo test --features e2e-tests e2e_3d_printers -- --nocapture
@@ -43,7 +41,25 @@ async fn e2e_3d_printers() {
     let env = common::live_test_database("e2e_3d_printers").await;
     let session = env.create_session().await;
 
-    // Initial chat — may spawn a deep-research agent or answer directly
+    // Run the whole test under a 3-minute deadline
+    let result = tokio::time::timeout(
+        std::time::Duration::from_secs(180),
+        run_3d_printer_test(&env, &session),
+    )
+    .await;
+
+    // Always log whatever we have, even on timeout
+    env.log_session_json("chat", &session).await;
+
+    match result {
+        Ok(()) => env.log("test completed within timeout"),
+        Err(_) => env.log("TIMEOUT: test exceeded 3 minutes"),
+    }
+}
+
+#[cfg(feature = "e2e-tests")]
+async fn run_3d_printer_test(env: &common::LiveTestEnv, session: &surrealdb::sql::Thing) {
+    // Initial chat — should read research skill, then spawn agent
     let chat = env.chat();
     let result = chat
         .chat(
@@ -52,16 +68,14 @@ async fn e2e_3d_printers() {
         )
         .await
         .expect("chat failed");
-    env.log_session("initial_chat", &session).await;
     env.log(format!("initial response: {}", result.message));
 
-    // Wait for background agents (5-minute timeout for deep research)
+    // Wait for background agents (2-minute timeout within the 3-min envelope)
     let agent_ids = env.agent_runner.list_agent_ids().await;
     if !agent_ids.is_empty() {
         env.log(format!("agent(s) spawned: {}", agent_ids.join(", ")));
 
-        if let Some(agent_result) = env.wait_for_agents(&session, 300).await {
-            env.log_session("after_agent", &session).await;
+        if let Some(agent_result) = env.wait_for_agents(session, 120).await {
             env.log(format!(
                 "agent follow-up response: {}",
                 agent_result.message
@@ -71,12 +85,17 @@ async fn e2e_3d_printers() {
         env.log("no agents spawned — model answered directly");
     }
 
+    // Log chat session after agent completion (includes injected findings)
+    env.log_session_json("chat", session).await;
+
     // Reflection
-    let reflection = env.run_reflection(&session, None).await;
-    env.log_session("reflection", &session).await;
+    let reflection_session = env.create_session().await;
+    let reflection = env.run_reflection(session, None).await;
+    env.log_session_json("reflection", &reflection_session)
+        .await;
     env.log(format!("reflection handoff: {}", reflection.result.message));
 
-    // Log workspace artifacts for review
+    // Log workspace artifacts
     let notes = env.list_notes();
     let refs = env.list_references();
     env.log(format!(

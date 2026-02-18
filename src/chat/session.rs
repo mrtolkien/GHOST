@@ -518,12 +518,29 @@ impl ToolLoopHandler for ChatHandler<'_> {
         citations: Vec<Citation>,
         tool_uses: &[Value],
     ) -> Result<ChatResult, ChatError> {
+        // Filter out the respond tool_use — it's a control-flow tool, not a
+        // real tool call. Storing it without a matching tool_result would
+        // produce an orphaned tool_use that breaks history on session
+        // resumption (e.g. after agent completion injects findings).
+        let non_respond: Vec<Value> = tool_uses
+            .iter()
+            .filter(|v| {
+                v.get("name").and_then(Value::as_str) != Some(crate::tools::RESPOND_TOOL_NAME)
+            })
+            .cloned()
+            .collect();
+        let stored_tool_uses = if non_respond.is_empty() {
+            None
+        } else {
+            Some(non_respond)
+        };
+
         let message_id = db::sessions::create_message_with_metadata(
             self.session_chat.db(),
             self.session_thing,
             "assistant",
             &message,
-            Some(tool_uses.to_vec()),
+            stored_tool_uses,
             None,
             Some(citations_to_values(&citations)),
         )

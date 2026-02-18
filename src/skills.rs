@@ -21,13 +21,14 @@ const DEFAULT_SKILLS: &[(&str, &str)] = &[
 pub struct Skill {
     pub name: String,
     pub description: String,
-    pub triggers: Vec<String>,
     pub path: PathBuf,
 }
 
-/// Parse YAML frontmatter from a skill file. Extracts `name`, `description`,
-/// and `triggers`. Returns `None` for malformed frontmatter.
-pub fn parse_frontmatter(content: &str) -> Option<(String, String, Vec<String>)> {
+/// Parse YAML frontmatter from a skill file. Extracts `name` and
+/// `description` per the agentskills.io spec. Returns `None` for
+/// malformed frontmatter. Unknown fields (triggers, metadata, etc.)
+/// are silently ignored.
+pub fn parse_frontmatter(content: &str) -> Option<(String, String)> {
     let content = content.trim_start();
     if !content.starts_with("---") {
         return None;
@@ -39,9 +40,7 @@ pub fn parse_frontmatter(content: &str) -> Option<(String, String, Vec<String>)>
 
     let mut name = None;
     let mut description_parts: Vec<String> = Vec::new();
-    let mut triggers: Vec<String> = Vec::new();
     let mut in_description = false;
-    let mut in_triggers = false;
 
     for line in block.lines() {
         let trimmed = line.trim();
@@ -53,32 +52,21 @@ pub fn parse_frontmatter(content: &str) -> Option<(String, String, Vec<String>)>
             && !line.starts_with('\t')
         {
             in_description = false;
-            in_triggers = false;
         }
 
         if let Some(value) = trimmed.strip_prefix("name:") {
             name = Some(value.trim().to_string());
             in_description = false;
-            in_triggers = false;
         } else if trimmed.starts_with("description:") {
             in_description = true;
-            in_triggers = false;
             let value = trimmed.strip_prefix("description:").unwrap_or("").trim();
             if !value.is_empty() {
                 description_parts.push(value.to_string());
             }
-        } else if trimmed.starts_with("triggers:") {
-            in_triggers = true;
-            in_description = false;
         } else if in_description && (line.starts_with(' ') || line.starts_with('\t')) {
             let part = trimmed.to_string();
             if !part.is_empty() {
                 description_parts.push(part);
-            }
-        } else if in_triggers && let Some(item) = trimmed.strip_prefix('-') {
-            let item = item.trim();
-            if !item.is_empty() {
-                triggers.push(item.to_string());
             }
         }
     }
@@ -90,7 +78,7 @@ pub fn parse_frontmatter(content: &str) -> Option<(String, String, Vec<String>)>
         return None;
     }
 
-    Some((name, description, triggers))
+    Some((name, description))
 }
 
 /// Scan `$WORKSPACE/skills/` for subdirectories containing `skill.md`,
@@ -119,11 +107,10 @@ pub fn discover_skills(workspace: &Path) -> Vec<Skill> {
         };
 
         match parse_frontmatter(&content) {
-            Some((name, description, triggers)) => {
+            Some((name, description)) => {
                 skills.push(Skill {
                     name,
                     description,
-                    triggers,
                     path: skill_path,
                 });
             }
@@ -174,10 +161,9 @@ description: A test skill for testing.
 
 # Body
 ";
-        let (name, desc, triggers) = parse_frontmatter(content).unwrap();
+        let (name, desc) = parse_frontmatter(content).unwrap();
         assert_eq!(name, "test-skill");
         assert_eq!(desc, "A test skill for testing.");
-        assert!(triggers.is_empty());
     }
 
     #[test]
@@ -192,7 +178,7 @@ description:
 
 # Body
 ";
-        let (name, desc, _) = parse_frontmatter(content).unwrap();
+        let (name, desc) = parse_frontmatter(content).unwrap();
         assert_eq!(name, "multi-line");
         assert_eq!(
             desc,
@@ -201,20 +187,23 @@ description:
     }
 
     #[test]
-    fn parse_frontmatter_extracts_triggers() {
+    fn parse_frontmatter_ignores_unknown_fields() {
         let content = "\
 ---
-name: triggered
-description: A skill with triggers.
+name: with-extras
+description: Has extra fields.
 triggers:
   - hello world
   - do the thing
+metadata:
+  author: test
 ---
 
 # Body
 ";
-        let (_, _, triggers) = parse_frontmatter(content).unwrap();
-        assert_eq!(triggers, vec!["hello world", "do the thing"]);
+        let (name, desc) = parse_frontmatter(content).unwrap();
+        assert_eq!(name, "with-extras");
+        assert_eq!(desc, "Has extra fields.");
     }
 
     #[test]

@@ -1,34 +1,48 @@
 ---
 name: research
 description:
-  Research strategy, source evaluation, and citation discipline. Load before
-  any research task.
-triggers:
-  - research
-  - look up
-  - search
-  - find out
-  - recommend
-  - compare
-  - best
+  Research, recommendations, comparisons, buying decisions, product evaluations,
+  and any question requiring current web data. Read before searching or
+  recommending anything.
 ---
 
 # Research Skill
 
-## Research Workflow
+## When to Spawn a Deep Research Agent
 
-Follow this priority order for ANY research task:
+**ALWAYS** use `agent_control(action: 'start', agent: 'deep-research', ...)` for:
 
-1. **knowledge_search** — check existing notes, references, and diary entries first. You
-   may already have authoritative information saved.
-2. **web_search** — 2-3 searches with different angles to identify key sources.
-3. **web_fetch** — ALWAYS read at least 2-3 results in full. Never answer
-   product/recommendation questions from search snippets alone. Snippets are SEO bait;
-   the real content is on the page.
-4. **Synthesize and respond** — cite sources you actually read (web_fetch'd), not search
-   snippets.
+- **Product or service recommendations** — "what X should I buy", "best Y for Z"
+- **Comparative analysis** — "A vs B", "compare options for..."
+- **Current-data questions** — anything where the answer depends on what's available
+  right now (models, prices, specs change constantly)
+- **Multi-factor decisions** — questions involving tradeoffs across several dimensions
+  (price, quality, features, ecosystem, community)
+- **Technology evaluations** — "which framework/tool/platform for my use case"
 
-**Rule**: If you haven't web_fetch'd at least 2 sources, you haven't researched.
+These questions REQUIRE reading 3-8 full pages, cross-referencing claims, and checking
+publication dates. That volume of reading belongs in a background agent, not the main
+chat context.
+
+**Do NOT spawn an agent for:**
+
+- Simple factual lookups ("what is the capital of France")
+- Questions you can answer from existing knowledge (check knowledge_search first)
+- Quick definition or explanation requests
+- Questions where 1-2 web fetches are genuinely sufficient
+
+When in doubt, spawn the agent. It's better to over-research than to give shallow advice
+from search snippets.
+
+## Research Workflow (for non-agent research)
+
+For the subset of research tasks that don't need a full agent (simple lookups, quick
+facts, questions where 1-2 sources suffice):
+
+1. **knowledge_search** — check existing notes, references, and diary entries first.
+2. **web_search** — 1-2 targeted searches.
+3. **web_fetch** — read at least 1-2 results in full. Never answer from snippets alone.
+4. **Synthesize and respond** — cite sources you actually read.
 
 ## Source Evaluation
 
@@ -72,23 +86,13 @@ test data for a product category, that outweighs ten blog posts.
 - **Try different angles**: search for reviews, then comparisons, then community
   discussions. Each angle surfaces different sources.
 
-## Deep Research Escalation
+## Crafting a Good Agent Prompt
 
-For complex research tasks requiring:
-
-- Multiple full page reads (5+)
-- Comparative analysis across many sources
-- Cross-referencing claims
-- Product/technology recommendations with high stakes
-
-Use `agent_control(action: 'start', agent: 'deep-research', prompt: '...')`.
-
-### Crafting a Good Agent Prompt
-
-Include in your prompt:
+When spawning `agent_control(action: 'start', agent: 'deep-research', prompt: '...')`,
+include:
 
 - **Specific question** — what exactly needs to be answered
-- **Context** — budget, use case, constraints, preferences
+- **Context** — budget, use case, constraints, preferences the OPERATOR mentioned
 - **Scope** — what sub-questions to investigate
 - **Quality bar** — how many sources, what kind of sources
 
@@ -101,3 +105,6 @@ software ecosystem, community support. Focus on models released
 in the last 12 months. Prioritize rtings, all3dp, and reddit
 r/3dprinting consensus over blog posts.
 ```
+
+After spawning the agent, respond to the OPERATOR immediately: tell them you've started
+a background research task and you'll share the findings when it completes.
