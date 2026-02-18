@@ -1,0 +1,7 @@
+- Reflection agent: already there!
+- Coding agent: crucial!
+- Topic researcher agent: deep web research on a subject
+- Explore agent: analyses an existing codebase or project
+- Plan agent: create a detailed, complete plan for a feature/project
+- Validator agent?: takes X random notes, tries to validate them
+- ...

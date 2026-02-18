@@ -60,8 +60,8 @@ several things).
   graph edges and embeddings search.
 - **Skill**: agentskills.io-compatible files in `$WORKSPACE/skills/`. Read via standard
   file tools.
-- **Provider**: LLM backend (OpenRouter for PoC). Provider trait for future
-  extensibility.
+- **Provider**: LLM backend. Provider trait with implementations for OpenRouter,
+  Kimi, and OpenAI OAuth (Codex Responses API).
 
 ## Workspace and Flow
 
@@ -218,15 +218,22 @@ src/
 ├── cli/                 # CLI subcommands (thin — parse args, delegate)
 ├── daemon/              # Subsystem wiring, task spawning, graceful shutdown
 ├── config.rs            # Config types, loading, defaults
+├── config_cli.rs        # CLI config get/set operations
+├── config_workspace.rs  # Workspace bootstrapping
 ├── db/                  # SurrealDB schema, queries, connection
-├── providers/           # Provider trait + OpenRouter implementation
+│   ├── knowledge/       # Notes, references, diary (crud, search, graph, stats)
+│   └── query.rs         # Shared query helpers (take_one, take_many, query_exec)
+├── providers/           # Provider trait + implementations (OpenRouter, Kimi, OpenAI OAuth)
 ├── chat/                # Chat orchestration, session management, compaction
+│   └── tool_loop.rs     # Shared tool-use loop (ToolLoopHandler trait)
 ├── tools/               # Tool definitions and implementations
 ├── jobs/                # Cron scheduling, heartbeat, reflection
-├── knowledge/           # Knowledge types, search, graph operations
+├── knowledge/           # Knowledge types, wiki links, file operations
 ├── interfaces/discord/  # Discord bot transport, DiscordSender
 ├── prompt/              # System prompt rendering
 ├── web/                 # Web search, web fetch, web cache
+├── auth/                # Authentication helpers
+├── embeddings/          # Embedding pipeline (Ollama)
 └── observability.rs     # Logfire setup, tracing configuration
 ```
 
