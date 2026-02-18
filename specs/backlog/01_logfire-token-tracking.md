@@ -1,5 +1,14 @@
 # Logfire Token Tracking
 
+## SOURCE
+
+Autoritative source: https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-spans/
+
+```
+the nice display of messages comes from gen_ai.input.messages , gen_ai.output.messages , and gen_ai.system_instructions
+token badges are from gen_ai.usage.input_tokens and gen_ai.usage.output_tokens
+```
+
 ## Summary
 
 Review Logfire's built-in features for tracking LLM token usage and costs. The Rust SDK
