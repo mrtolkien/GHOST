@@ -15,14 +15,20 @@ fn tool_ctx(
         db: db.clone(),
         config: config.clone(),
         session_id: session_id.to_string(),
+        agent_runner: None,
     }
 }
 
 #[tokio::test]
-async fn for_chat_registers_nine_tools() {
+async fn for_chat_registers_ten_tools() {
     let manager = ToolManager::for_chat();
     let schemas = manager.all_tool_schemas();
-    assert_eq!(schemas.len(), 9, "expected 9 tools, got {}", schemas.len());
+    assert_eq!(
+        schemas.len(),
+        10,
+        "expected 10 tools, got {}",
+        schemas.len()
+    );
 
     let names: Vec<&str> = schemas.iter().map(|s| s.name.as_str()).collect();
     assert!(names.contains(&"run_shell_command"));
@@ -34,6 +40,7 @@ async fn for_chat_registers_nine_tools() {
     assert!(names.contains(&"web_search"));
     assert!(names.contains(&"web_fetch"));
     assert!(names.contains(&"respond"));
+    assert!(names.contains(&"agent_control"));
 
     for schema in &schemas {
         assert!(!schema.description.is_empty());
@@ -45,8 +52,8 @@ async fn for_chat_registers_nine_tools() {
 async fn for_reflection_includes_knowledge_tools() {
     let chat = ToolManager::for_chat();
     let reflection = ToolManager::for_reflection();
-    assert_eq!(chat.all_tool_schemas().len(), 9);
-    assert_eq!(reflection.all_tool_schemas().len(), 11);
+    assert_eq!(chat.all_tool_schemas().len(), 10);
+    assert_eq!(reflection.all_tool_schemas().len(), 12);
 
     let schemas = reflection.all_tool_schemas();
     let names: Vec<&str> = schemas.iter().map(|s| s.name.as_str()).collect();
@@ -275,6 +282,7 @@ async fn unknown_tool_returns_not_found() {
         db: surrealdb::Surreal::init(),
         config: ghost::config::test_config(std::path::Path::new("/tmp")),
         session_id: "test".to_string(),
+        agent_runner: None,
     };
 
     let result = manager.execute("nonexistent_tool", json!({}), &ctx).await;

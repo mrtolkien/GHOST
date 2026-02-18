@@ -175,8 +175,12 @@ fn workspace_bootstrap_creates_identity_files() {
     assert!(workspace.path().join("OPERATOR.md").exists());
     assert!(workspace.path().join("jobs").exists());
     assert!(workspace.path().join("skills").exists());
+    assert!(workspace.path().join("agents").exists());
     assert!(workspace.path().join(".web-cache").exists());
     assert!(workspace.path().join("notes").exists());
+
+    // Default agent installed
+    assert!(workspace.path().join("agents/deep-research.md").exists());
 }
 
 #[test]

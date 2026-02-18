@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use tracing::info;
 
+use crate::agents::AgentRunner;
 use crate::chat::SessionChat;
 use crate::embeddings::EmbeddingClient;
 use crate::error::GhostError;
@@ -46,23 +47,44 @@ pub async fn run() -> Result<(), GhostError> {
     let scheduler_handle =
         crate::jobs::spawn_scheduler(db.clone(), config.clone(), shutdown_rx.clone());
 
-    let session_chat = Arc::new(SessionChat::from_config(db.clone(), config.clone())?);
+    // Create agent runner (shared between SessionChat and agent watcher)
+    let agent_runner = Arc::new(AgentRunner::new(db.clone(), config.clone()));
+
+    let session_chat = Arc::new(
+        SessionChat::from_config(db.clone(), config.clone())?
+            .with_agent_runner(Arc::clone(&agent_runner)),
+    );
 
     let discord_result = discord::start_discord(&config, session_chat.clone(), db.clone()).await?;
 
-    // Spawn heartbeat manager (only if Discord is available for sending)
-    let heartbeat_handle = if let Some((ref sender, _)) = discord_result {
+    // Spawn heartbeat manager and agent watcher (only if Discord is available)
+    let heartbeat_handle;
+    let agent_watcher_handle;
+
+    if let Some((ref sender, _)) = discord_result {
+        let discord_sender = Arc::new(sender.clone());
+
+        // Agent watcher — polls for completed agents and injects findings
+        agent_watcher_handle = Some(crate::agents::watcher::spawn_agent_watcher(
+            Arc::clone(&agent_runner),
+            Arc::clone(&session_chat),
+            Arc::clone(&discord_sender),
+            db.clone(),
+            shutdown_rx.clone(),
+        ));
+
         let reflection = Arc::new(ReflectionManager::new(db.clone(), config.clone()));
         let hb = HeartbeatManager::new(
             db.clone(),
             session_chat,
-            Arc::new(sender.clone()),
+            discord_sender,
             config.clone(),
             reflection,
         );
-        Some(hb.spawn(shutdown_rx))
+        heartbeat_handle = Some(hb.spawn(shutdown_rx));
     } else {
-        None
+        heartbeat_handle = None;
+        agent_watcher_handle = None;
     };
 
     if let Some((_sender, handle)) = discord_result {
@@ -81,12 +103,15 @@ pub async fn run() -> Result<(), GhostError> {
         let _ = tokio::signal::ctrl_c().await;
     }
 
-    // Signal shutdown to watcher, scheduler, and heartbeat
+    // Signal shutdown to watcher, scheduler, heartbeat, and agent watcher
     let _ = shutdown_tx.send(true);
     let _ = watcher_handle.await;
     let _ = scheduler_handle.await;
     if let Some(hb_handle) = heartbeat_handle {
         let _ = hb_handle.await;
+    }
+    if let Some(aw_handle) = agent_watcher_handle {
+        let _ = aw_handle.await;
     }
 
     info!("GHOST daemon stopped");

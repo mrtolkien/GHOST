@@ -66,6 +66,29 @@ pub async fn create_session(db: &Surreal<Db>) -> Result<Thing, DatabaseError> {
     Ok(row.id)
 }
 
+#[tracing::instrument(skip_all, level = "debug")]
+pub async fn create_agent_session(db: &Surreal<Db>) -> Result<Thing, DatabaseError> {
+    let mut resp = query_exec(
+        db.query(
+            "CREATE session SET \
+                created_at = time::now(), \
+                updated_at = time::now(), \
+                last_activity_at = time::now(), \
+                status = 'agent', \
+                compaction_summary = NONE, \
+                compaction_cursor_id = NONE, \
+                todo_list = NONE \
+             RETURN id",
+        ),
+        "session",
+        "create_agent",
+    )
+    .await?;
+
+    let row: IdRow = take_one(&mut resp, 0, "session", "create_agent")?;
+    Ok(row.id)
+}
+
 #[tracing::instrument(skip_all, level = "debug", fields(session_id = %session_id))]
 pub async fn get_session(
     db: &Surreal<Db>,

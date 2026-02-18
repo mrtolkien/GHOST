@@ -47,4 +47,6 @@ later tasks may depend on earlier ones.
 ## Phase 7: Polish
 
 - [ ] Integration test harness — [18-integration-tests.md](18-integration-tests.md)
-- [ ] Coding agent — [19-coding-agent.md](19-coding-agent.md) _(NEEDS SPECS)_
+- [x] Research skill + agent infrastructure —
+      [19-research-agents.md](19-research-agents.md)
+- [ ] Coding agent — [20-coding-agent.md](20-coding-agent.md) _(NEEDS SPECS)_

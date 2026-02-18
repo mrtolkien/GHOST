@@ -10,17 +10,10 @@ const DEFAULT_SKILLS: &[(&str, &str)] = &[
         "note-writer",
         include_str!("../prompts/skills/note-writer.md"),
     ),
-    (
-        "reference-researcher",
-        include_str!("../prompts/skills/reference-researcher.md"),
-    ),
+    ("research", include_str!("../prompts/skills/research.md")),
     (
         "skill-creator",
         include_str!("../prompts/skills/skill-creator.md"),
-    ),
-    (
-        "web-search",
-        include_str!("../prompts/skills/web-search.md"),
     ),
 ];
 
@@ -323,7 +316,7 @@ name: no-desc
             assert!(content.contains("---"));
         }
 
-        assert_eq!(DEFAULT_SKILLS.len(), 5);
+        assert_eq!(DEFAULT_SKILLS.len(), 4);
     }
 
     #[test]

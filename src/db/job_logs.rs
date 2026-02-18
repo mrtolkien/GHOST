@@ -50,6 +50,43 @@ pub async fn create_running_job_log(
     Ok(row.id)
 }
 
+#[tracing::instrument(skip_all, level = "debug", fields(
+    job_name = job_name,
+    agent_session_id = %agent_session_id
+))]
+pub async fn create_agent_job_log(
+    db: &Surreal<Db>,
+    job_name: &str,
+    parent_session_id: Option<&Thing>,
+    agent_session_id: &Thing,
+) -> Result<Thing, DatabaseError> {
+    let mut resp = query_exec(
+        db.query(
+            "CREATE job_log SET \
+                job_name = $job_name, \
+                job_kind = 'agent', \
+                session = $parent_session_id, \
+                agent_session = $agent_session_id, \
+                started_at = time::now(), \
+                finished_at = NONE, \
+                status = 'running', \
+                transcript = NONE, \
+                handoff_note = NONE, \
+                todo_list = NONE \
+             RETURN id",
+        )
+        .bind(("job_name", job_name.to_string()))
+        .bind(("parent_session_id", parent_session_id.cloned()))
+        .bind(("agent_session_id", agent_session_id.clone())),
+        "job_log",
+        "create_agent",
+    )
+    .await?;
+
+    let row: IdRow = take_one(&mut resp, 0, "job_log", "create_agent")?;
+    Ok(row.id)
+}
+
 #[tracing::instrument(skip_all, level = "debug", fields(job_log_id = %job_log_id, status = status))]
 pub async fn finish_job_log(
     db: &Surreal<Db>,

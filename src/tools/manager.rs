@@ -61,6 +61,7 @@ impl ToolManager {
         manager.register(Arc::new(super::web_search::WebSearch));
         manager.register(Arc::new(super::web_fetch::WebFetch));
         manager.register(Arc::new(super::respond::Respond));
+        manager.register(Arc::new(super::agent_control::AgentControl));
         manager
     }
 
@@ -74,6 +75,26 @@ impl ToolManager {
         manager.register(Arc::new(super::note_write::NoteWrite));
         manager.register(Arc::new(super::reference_manage::ReferenceManage));
         manager
+    }
+
+    /// Create a `ToolManager` for an agent, restricted to a whitelist of
+    /// tool names. Unknown names are silently ignored.
+    #[must_use]
+    pub fn for_agent(allowed: &[String]) -> Self {
+        let full = Self::all_available();
+        let mut manager = Self::default();
+        for name in allowed {
+            if let Some(tool) = full.tools.get(name.as_str()) {
+                manager.tools.insert(name.clone(), Arc::clone(tool));
+            }
+        }
+        manager
+    }
+
+    /// Build a registry containing every tool the system knows about.
+    fn all_available() -> Self {
+        // Agent-only tools can be registered here in the future.
+        Self::for_reflection()
     }
 
     #[must_use]

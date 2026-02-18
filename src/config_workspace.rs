@@ -15,6 +15,7 @@ pub fn bootstrap_workspace(config: &Config) -> Result<(), ConfigError> {
     for dir in [
         "jobs",
         "skills",
+        "agents",
         ".web-cache",
         ".state",
         "notes",
@@ -32,6 +33,13 @@ pub fn bootstrap_workspace(config: &Config) -> Result<(), ConfigError> {
     crate::skills::install_default_skills(&config.workspace).map_err(|source| {
         ConfigError::WriteFile {
             path: config.workspace.join("skills"),
+            source,
+        }
+    })?;
+
+    crate::agents::definition::install_default_agents(&config.workspace).map_err(|source| {
+        ConfigError::WriteFile {
+            path: config.workspace.join("agents"),
             source,
         }
     })?;

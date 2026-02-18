@@ -120,6 +120,7 @@ mod tests {
             db: surrealdb::Surreal::init(),
             config: crate::config::test_config(workspace),
             session_id: "test".to_string(),
+            agent_runner: None,
         }
     }
 

@@ -253,6 +253,7 @@ async fn note_write_tool_creates_file_and_db_record() {
         db: db.clone(),
         config: config.clone(),
         session_id: session_id.to_string(),
+        agent_runner: None,
     };
     let manager = ToolManager::for_reflection();
 
@@ -301,6 +302,7 @@ async fn reference_manage_move_preserves_cited_edges() {
         db: db.clone(),
         config: config.clone(),
         session_id: session_id.to_string(),
+        agent_runner: None,
     };
 
     // Create a fake cache file

@@ -1,8 +1,10 @@
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use surrealdb::Surreal;
 use surrealdb::engine::local::Db;
 
+use crate::agents::AgentRunner;
 use crate::config::Config;
 
 use super::ToolError;
@@ -14,6 +16,7 @@ pub struct ToolContext {
     pub db: Surreal<Db>,
     pub config: Config,
     pub session_id: String,
+    pub agent_runner: Option<Arc<AgentRunner>>,
 }
 
 /// Resolve a path relative to a base directory and enforce that the result

@@ -1,3 +1,4 @@
+pub mod agent_control;
 pub mod context;
 pub mod error;
 pub mod file_edit;

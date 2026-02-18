@@ -28,6 +28,7 @@ pub struct SessionChat {
     config: Config,
     prompt_renderer: PromptRenderer,
     max_tool_iterations: usize,
+    agent_runner: Option<Arc<crate::agents::AgentRunner>>,
 }
 
 impl std::fmt::Debug for SessionChat {
@@ -62,12 +63,19 @@ impl SessionChat {
             config,
             prompt_renderer,
             max_tool_iterations: DEFAULT_MAX_TOOL_ITERATIONS,
+            agent_runner: None,
         }
     }
 
     #[must_use]
     pub fn with_max_tool_iterations(mut self, max_tool_iterations: usize) -> Self {
         self.max_tool_iterations = max_tool_iterations;
+        self
+    }
+
+    #[must_use]
+    pub fn with_agent_runner(mut self, runner: Arc<crate::agents::AgentRunner>) -> Self {
+        self.agent_runner = Some(runner);
         self
     }
 
@@ -163,6 +171,51 @@ impl SessionChat {
         .await?;
 
         Ok(JobTranscript { transcript, result })
+    }
+
+    /// Run an agent tool loop with a custom system prompt.
+    ///
+    /// Messages are persisted to the agent's own session. Returns the final
+    /// assistant message.
+    #[tracing::instrument(skip_all, fields(
+        agent_name = agent_name,
+        session_id = session_id
+    ))]
+    pub async fn chat_agent(
+        &self,
+        agent_name: &str,
+        session_id: &str,
+        prompt: &str,
+        system_prompt: String,
+        max_iterations: usize,
+    ) -> Result<ChatResult, ChatError> {
+        let session_thing = parse_session_thing(session_id)?;
+        db::sessions::create_message(&self.db, &session_thing, "user", prompt).await?;
+
+        let model = self.default_model_name()?;
+        let mut history = vec![ChatMessage {
+            role: Role::User,
+            content: vec![ContentBlock::Text {
+                text: prompt.to_string(),
+            }],
+        }];
+
+        let mut handler = AgentHandler {
+            session_chat: self,
+            session_thing: &session_thing,
+            system_prompt,
+            agent_name: agent_name.to_string(),
+        };
+
+        run_tool_loop(
+            self,
+            session_id,
+            &model,
+            max_iterations,
+            &mut handler,
+            &mut history,
+        )
+        .await
     }
 
     #[tracing::instrument(skip_all, fields(old_session_id = session_id))]
@@ -275,6 +328,7 @@ impl SessionChat {
             db: self.db.clone(),
             config: self.config.clone(),
             session_id: session_id.to_string(),
+            agent_runner: self.agent_runner.clone(),
         };
 
         match self.tool_manager.execute(name, input, &tool_ctx).await {
@@ -563,6 +617,131 @@ impl ToolLoopHandler for ChatHandler<'_> {
         Ok(())
     }
 }
+
+// ---------------------------------------------------------------------------
+// AgentHandler — persists to DB, uses agent's system prompt
+// ---------------------------------------------------------------------------
+
+struct AgentHandler<'a> {
+    session_chat: &'a SessionChat,
+    session_thing: &'a Thing,
+    system_prompt: String,
+    #[allow(dead_code)]
+    agent_name: String,
+}
+
+#[async_trait]
+impl ToolLoopHandler for AgentHandler<'_> {
+    fn system_prompt(&self) -> Result<String, ChatError> {
+        Ok(self.system_prompt.clone())
+    }
+
+    async fn on_respond(
+        &mut self,
+        message: String,
+        citations: Vec<Citation>,
+        tool_uses: &[Value],
+    ) -> Result<ChatResult, ChatError> {
+        db::sessions::create_message_with_metadata(
+            self.session_chat.db(),
+            self.session_thing,
+            "assistant",
+            &message,
+            Some(tool_uses.to_vec()),
+            None,
+            Some(citations_to_values(&citations)),
+        )
+        .await?;
+
+        Ok(ChatResult {
+            message,
+            citations,
+            stop_reason: ChatStopReason::EndTurn,
+        })
+    }
+
+    async fn on_assistant_tool_use(
+        &mut self,
+        text: &str,
+        tool_uses: &[Value],
+    ) -> Result<(), ChatError> {
+        db::sessions::create_message_with_metadata(
+            self.session_chat.db(),
+            self.session_thing,
+            "assistant",
+            text,
+            Some(tool_uses.to_vec()),
+            None,
+            None,
+        )
+        .await?;
+        Ok(())
+    }
+
+    async fn on_tool_results(&mut self, results: &[ContentBlock]) -> Result<(), ChatError> {
+        db::sessions::create_message_with_metadata(
+            self.session_chat.db(),
+            self.session_thing,
+            "user",
+            "",
+            None,
+            Some(tool_results_to_values(results)),
+            None,
+        )
+        .await?;
+        Ok(())
+    }
+
+    async fn on_end_turn(
+        &mut self,
+        message: String,
+        stop_reason: StopReason,
+        tool_uses: &[Value],
+    ) -> Result<ChatResult, ChatError> {
+        db::sessions::create_message_with_metadata(
+            self.session_chat.db(),
+            self.session_thing,
+            "assistant",
+            &message,
+            Some(tool_uses.to_vec()),
+            None,
+            None,
+        )
+        .await?;
+
+        Ok(ChatResult {
+            message,
+            citations: Vec::new(),
+            stop_reason: if stop_reason == StopReason::MaxTokens {
+                ChatStopReason::MaxTokens
+            } else {
+                ChatStopReason::EndTurn
+            },
+        })
+    }
+
+    async fn post_tool_iteration(
+        &mut self,
+        history: &mut Vec<ChatMessage>,
+    ) -> Result<(), ChatError> {
+        self.session_chat.apply_masking_if_needed(history);
+        if let Some(todo_context) = self
+            .session_chat
+            .todo_injection_message(self.session_thing)
+            .await?
+        {
+            history.push(ChatMessage {
+                role: Role::System,
+                content: vec![ContentBlock::Text { text: todo_context }],
+            });
+        }
+        Ok(())
+    }
+}
+
+// ---------------------------------------------------------------------------
+// JobHandler — appends to transcript string
+// ---------------------------------------------------------------------------
 
 struct JobHandler {
     job_name: String,
