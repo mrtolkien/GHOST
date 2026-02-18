@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use async_trait::async_trait;
 use serde_json::{Value, json};
 use surrealdb::Surreal;
 use surrealdb::engine::local::Db;
@@ -8,16 +9,14 @@ use surrealdb::sql::Thing;
 use crate::config::{self, Config};
 use crate::db;
 use crate::prompt::{PromptContext, PromptRenderer};
-use crate::providers::{
-    ChatMessage, ChatRequest, ContentBlock, Provider, Role, StopReason, provider_for_alias,
-};
-use crate::tools::{RESPOND_TOOL_NAME, ToolContext, ToolManager, ToolSet, format_todo_injection};
+use crate::providers::{ChatMessage, ContentBlock, Provider, Role, StopReason, provider_for_alias};
+use crate::tools::{ToolContext, ToolManager, ToolSet, format_todo_injection};
 
 use super::convert::{
-    citations_to_values, convert_stored_message_to_provider_message, extract_latest_assistant_text,
-    extract_text_content, extract_tool_use_blocks, parse_respond_call, parse_session_thing,
+    citations_to_values, convert_stored_message_to_provider_message, parse_session_thing,
     render_tool_error, resolve_web_cache_url, tool_results_to_values,
 };
+use super::tool_loop::{ToolLoopHandler, run_tool_loop};
 use super::types::{
     ChatError, ChatResult, ChatStopReason, Citation, DEFAULT_MAX_TOOL_ITERATIONS, JobTranscript,
 };
@@ -95,159 +94,20 @@ impl SessionChat {
         }
 
         let model = self.default_model_name()?;
-        let mut iterations = 0usize;
-        let mut last_result: Option<ChatResult> = None;
+        let mut handler = ChatHandler {
+            session_chat: self,
+            session_thing: &session_thing,
+        };
 
-        loop {
-            let prompt = self.prompt_renderer.render_system_prompt(&PromptContext {
-                model: model.clone(),
-                provider: self.provider.name().to_string(),
-            })?;
-            let request = ChatRequest {
-                model: model.clone(),
-                messages: history.clone(),
-                tools: Some(self.tool_manager.all_tool_schemas()),
-                max_tokens: None,
-                temperature: None,
-                system: Some(prompt),
-            };
-            let response = self.provider.chat(request).await?;
-
-            match response.stop_reason {
-                StopReason::ToolUse => {
-                    if iterations >= self.max_tool_iterations {
-                        let fallback = last_result.unwrap_or_else(|| ChatResult {
-                            message: "Hit tool iteration limit before completing response."
-                                .to_string(),
-                            citations: Vec::new(),
-                            stop_reason: ChatStopReason::MaxIterations,
-                        });
-                        return Ok(ChatResult {
-                            stop_reason: ChatStopReason::MaxIterations,
-                            ..fallback
-                        });
-                    }
-                    iterations += 1;
-
-                    let tool_uses = extract_tool_use_blocks(&response.content);
-
-                    // Intercept the `respond` tool — it signals the final answer.
-                    if let Some((message, citations)) =
-                        parse_respond_call(RESPOND_TOOL_NAME, &tool_uses)
-                    {
-                        let mut citations = citations;
-                        self.resolve_citation_urls(&mut citations);
-                        let message_id = db::sessions::create_message_with_metadata(
-                            &self.db,
-                            &session_thing,
-                            "assistant",
-                            &message,
-                            Some(tool_uses),
-                            None,
-                            Some(citations_to_values(&citations)),
-                        )
-                        .await?;
-                        self.create_citation_edges(&message_id, &citations).await?;
-
-                        let result = ChatResult {
-                            message,
-                            citations,
-                            stop_reason: ChatStopReason::EndTurn,
-                        };
-                        logfire::info!(
-                            "chat complete (respond tool)",
-                            session_id = session_id.to_string(),
-                            iterations = iterations as u64,
-                            citation_count = result.citations.len() as u64,
-                            response_len = result.message.len() as u64,
-                        );
-                        return Ok(result);
-                    }
-
-                    let assistant_text = extract_text_content(&response.content);
-                    let assistant_msg = ChatMessage {
-                        role: Role::Assistant,
-                        content: response.content,
-                    };
-                    db::sessions::create_message_with_metadata(
-                        &self.db,
-                        &session_thing,
-                        "assistant",
-                        &assistant_text,
-                        Some(tool_uses.clone()),
-                        None,
-                        None,
-                    )
-                    .await?;
-
-                    let tool_results = self.execute_tool_calls(session_id, &tool_uses).await;
-                    db::sessions::create_message_with_metadata(
-                        &self.db,
-                        &session_thing,
-                        "user",
-                        "",
-                        None,
-                        Some(tool_results_to_values(&tool_results)),
-                        None,
-                    )
-                    .await?;
-
-                    history.push(assistant_msg);
-                    history.push(ChatMessage {
-                        role: Role::User,
-                        content: tool_results,
-                    });
-                    self.apply_masking_if_needed(&mut history);
-                }
-                StopReason::EndTurn | StopReason::MaxTokens => {
-                    // Fallback: model returned plain text without calling respond.
-                    let message = extract_text_content(&response.content);
-
-                    let message_id = db::sessions::create_message_with_metadata(
-                        &self.db,
-                        &session_thing,
-                        "assistant",
-                        &message,
-                        Some(extract_tool_use_blocks(&response.content)),
-                        None,
-                        None,
-                    )
-                    .await?;
-                    let _ = message_id; // no citations to link
-
-                    let result = ChatResult {
-                        message,
-                        citations: Vec::new(),
-                        stop_reason: if response.stop_reason == StopReason::MaxTokens {
-                            ChatStopReason::MaxTokens
-                        } else {
-                            ChatStopReason::EndTurn
-                        },
-                    };
-                    logfire::info!(
-                        "chat complete",
-                        session_id = session_id.to_string(),
-                        iterations = iterations as u64,
-                        stop_reason = format!("{:?}", result.stop_reason),
-                        citation_count = result.citations.len() as u64,
-                        response_len = result.message.len() as u64,
-                    );
-                    return Ok(result);
-                }
-            }
-
-            if let Some(todo_context) = self.todo_injection_message(&session_thing).await? {
-                history.push(ChatMessage {
-                    role: Role::System,
-                    content: vec![ContentBlock::Text { text: todo_context }],
-                });
-            }
-            last_result = Some(ChatResult {
-                message: extract_latest_assistant_text(&history),
-                citations: Vec::new(),
-                stop_reason: ChatStopReason::EndTurn,
-            });
-        }
+        run_tool_loop(
+            self,
+            session_id,
+            &model,
+            self.max_tool_iterations,
+            &mut handler,
+            &mut history,
+        )
+        .await
     }
 
     #[tracing::instrument(skip_all, fields(job_name = job_name, session_id = session_id))]
@@ -273,84 +133,23 @@ impl SessionChat {
                 text: prompt.to_string(),
             }],
         }];
-        let mut transcript_lines = vec![format!("[job:{job_name}] {prompt}")];
-        let mut iterations = 0usize;
 
-        let result = loop {
-            let request = ChatRequest {
-                model: model.clone(),
-                messages: history.clone(),
-                tools: Some(self.tool_manager.all_tool_schemas()),
-                max_tokens: None,
-                temperature: None,
-                system: Some(format!("Job: {job_name}")),
-            };
-            let response = self.provider.chat(request).await?;
-
-            match response.stop_reason {
-                StopReason::ToolUse => {
-                    if iterations >= self.max_tool_iterations {
-                        break ChatResult {
-                            message: "Hit tool iteration limit before completing response."
-                                .to_string(),
-                            citations: Vec::new(),
-                            stop_reason: ChatStopReason::MaxIterations,
-                        };
-                    }
-                    iterations += 1;
-
-                    let tool_uses = extract_tool_use_blocks(&response.content);
-
-                    // Intercept the `respond` tool — it signals the final answer.
-                    if let Some((message, mut citations)) =
-                        parse_respond_call(RESPOND_TOOL_NAME, &tool_uses)
-                    {
-                        self.resolve_citation_urls(&mut citations);
-                        transcript_lines.push(format!("[assistant] {message}"));
-                        break ChatResult {
-                            message,
-                            citations,
-                            stop_reason: ChatStopReason::EndTurn,
-                        };
-                    }
-
-                    let assistant_text = extract_text_content(&response.content);
-                    if !assistant_text.is_empty() {
-                        transcript_lines.push(format!("[assistant] {assistant_text}"));
-                    }
-                    history.push(ChatMessage {
-                        role: Role::Assistant,
-                        content: response.content,
-                    });
-                    let tool_results = self.execute_tool_calls(session_id, &tool_uses).await;
-                    transcript_lines.push(format!(
-                        "[tools] {}",
-                        serde_json::to_string(&tool_results_to_values(&tool_results))
-                            .unwrap_or_else(|_| "[]".to_string())
-                    ));
-                    history.push(ChatMessage {
-                        role: Role::User,
-                        content: tool_results,
-                    });
-                }
-                StopReason::EndTurn | StopReason::MaxTokens => {
-                    // Fallback: model returned plain text without calling respond.
-                    let message = extract_text_content(&response.content);
-                    transcript_lines.push(format!("[assistant] {message}"));
-                    break ChatResult {
-                        message,
-                        citations: Vec::new(),
-                        stop_reason: if response.stop_reason == StopReason::MaxTokens {
-                            ChatStopReason::MaxTokens
-                        } else {
-                            ChatStopReason::EndTurn
-                        },
-                    };
-                }
-            }
+        let mut handler = JobHandler {
+            job_name: job_name.to_string(),
+            transcript_lines: vec![format!("[job:{job_name}] {prompt}")],
         };
 
-        let transcript = transcript_lines.join("\n");
+        let result = run_tool_loop(
+            self,
+            session_id,
+            &model,
+            self.max_tool_iterations,
+            &mut handler,
+            &mut history,
+        )
+        .await?;
+
+        let transcript = handler.transcript_lines.join("\n");
         db::job_logs::finish_job_log(
             &self.db,
             &job_log_id,
@@ -418,7 +217,7 @@ impl SessionChat {
     }
 
     #[tracing::instrument(skip_all, level = "debug", fields(session_id = %session_id))]
-    async fn todo_injection_message(
+    pub(super) async fn todo_injection_message(
         &self,
         session_id: &Thing,
     ) -> Result<Option<String>, ChatError> {
@@ -432,7 +231,7 @@ impl SessionChat {
         Ok(Some(format_todo_injection(&items)))
     }
 
-    fn resolve_citation_urls(&self, citations: &mut [Citation]) {
+    pub(super) fn resolve_citation_urls(&self, citations: &mut [Citation]) {
         for citation in citations.iter_mut() {
             if citation.url.is_none() && citation.source.starts_with(".web-cache/") {
                 citation.url = resolve_web_cache_url(&self.config.workspace, &citation.source);
@@ -443,7 +242,7 @@ impl SessionChat {
         }
     }
 
-    async fn execute_tool_calls(
+    pub(super) async fn execute_tool_calls(
         &self,
         session_id: &str,
         tool_calls: &[Value],
@@ -493,7 +292,7 @@ impl SessionChat {
     }
 
     #[tracing::instrument(skip_all, level = "debug", fields(message_id = %message_id))]
-    async fn create_citation_edges(
+    pub(super) async fn create_citation_edges(
         &self,
         message_id: &Thing,
         citations: &[Citation],
@@ -504,7 +303,10 @@ impl SessionChat {
             if let Some(target) = self.lookup_citation_target(&citation.source).await? {
                 query_exec(
                     self.db
-                        .query("RELATE $message_id->cited->$target SET created_at = time::now()")
+                        .query(
+                            "RELATE $message_id->cited->$target \
+                             SET created_at = time::now()",
+                        )
                         .bind(("message_id", message_id.clone()))
                         .bind(("target", target)),
                     "cited",
@@ -555,7 +357,10 @@ impl SessionChat {
             if let Some(title) = title {
                 let mut note_resp = query_exec(
                     self.db
-                        .query("SELECT id FROM note WHERE title = $title LIMIT 1")
+                        .query(
+                            "SELECT id FROM note \
+                             WHERE title = $title LIMIT 1",
+                        )
                         .bind(("title", title)),
                     "note",
                     "lookup_by_title",
@@ -571,9 +376,9 @@ impl SessionChat {
 
         if source.starts_with(".web-cache/") {
             // TEMPORARY SCAFFOLDING:
-            // For spec 06 we materialize web-cache citations as `reference` records.
-            // The full knowledge/reference ownership model in spec 13/15 may replace
-            // this behavior entirely.
+            // For spec 06 we materialize web-cache citations as `reference`
+            // records. The full knowledge/reference ownership model in
+            // spec 13/15 may replace this behavior entirely.
             let url = resolve_web_cache_url(&self.config.workspace, source);
             let mut create = query_exec(
                 self.db
@@ -624,5 +429,201 @@ impl SessionChat {
 
     pub(super) fn tool_manager(&self) -> &ToolManager {
         &self.tool_manager
+    }
+
+    pub(super) fn prompt_renderer(&self) -> &PromptRenderer {
+        &self.prompt_renderer
+    }
+}
+
+// ---------------------------------------------------------------------------
+// ToolLoopHandler implementations
+// ---------------------------------------------------------------------------
+
+struct ChatHandler<'a> {
+    session_chat: &'a SessionChat,
+    session_thing: &'a Thing,
+}
+
+#[async_trait]
+impl ToolLoopHandler for ChatHandler<'_> {
+    fn system_prompt(&self) -> Result<String, ChatError> {
+        let model = self.session_chat.default_model_name()?;
+        self.session_chat
+            .prompt_renderer()
+            .render_system_prompt(&PromptContext {
+                model,
+                provider: self.session_chat.provider().name().to_string(),
+            })
+            .map_err(ChatError::from)
+    }
+
+    async fn on_respond(
+        &mut self,
+        message: String,
+        citations: Vec<Citation>,
+        tool_uses: &[Value],
+    ) -> Result<ChatResult, ChatError> {
+        let message_id = db::sessions::create_message_with_metadata(
+            self.session_chat.db(),
+            self.session_thing,
+            "assistant",
+            &message,
+            Some(tool_uses.to_vec()),
+            None,
+            Some(citations_to_values(&citations)),
+        )
+        .await?;
+        self.session_chat
+            .create_citation_edges(&message_id, &citations)
+            .await?;
+
+        Ok(ChatResult {
+            message,
+            citations,
+            stop_reason: ChatStopReason::EndTurn,
+        })
+    }
+
+    async fn on_assistant_tool_use(
+        &mut self,
+        text: &str,
+        tool_uses: &[Value],
+    ) -> Result<(), ChatError> {
+        db::sessions::create_message_with_metadata(
+            self.session_chat.db(),
+            self.session_thing,
+            "assistant",
+            text,
+            Some(tool_uses.to_vec()),
+            None,
+            None,
+        )
+        .await?;
+        Ok(())
+    }
+
+    async fn on_tool_results(&mut self, results: &[ContentBlock]) -> Result<(), ChatError> {
+        db::sessions::create_message_with_metadata(
+            self.session_chat.db(),
+            self.session_thing,
+            "user",
+            "",
+            None,
+            Some(tool_results_to_values(results)),
+            None,
+        )
+        .await?;
+        Ok(())
+    }
+
+    async fn on_end_turn(
+        &mut self,
+        message: String,
+        stop_reason: StopReason,
+        tool_uses: &[Value],
+    ) -> Result<ChatResult, ChatError> {
+        db::sessions::create_message_with_metadata(
+            self.session_chat.db(),
+            self.session_thing,
+            "assistant",
+            &message,
+            Some(tool_uses.to_vec()),
+            None,
+            None,
+        )
+        .await?;
+
+        Ok(ChatResult {
+            message,
+            citations: Vec::new(),
+            stop_reason: if stop_reason == StopReason::MaxTokens {
+                ChatStopReason::MaxTokens
+            } else {
+                ChatStopReason::EndTurn
+            },
+        })
+    }
+
+    async fn post_tool_iteration(
+        &mut self,
+        history: &mut Vec<ChatMessage>,
+    ) -> Result<(), ChatError> {
+        self.session_chat.apply_masking_if_needed(history);
+        if let Some(todo_context) = self
+            .session_chat
+            .todo_injection_message(self.session_thing)
+            .await?
+        {
+            history.push(ChatMessage {
+                role: Role::System,
+                content: vec![ContentBlock::Text { text: todo_context }],
+            });
+        }
+        Ok(())
+    }
+}
+
+struct JobHandler {
+    job_name: String,
+    transcript_lines: Vec<String>,
+}
+
+#[async_trait]
+impl ToolLoopHandler for JobHandler {
+    fn system_prompt(&self) -> Result<String, ChatError> {
+        Ok(format!("Job: {}", self.job_name))
+    }
+
+    async fn on_respond(
+        &mut self,
+        message: String,
+        citations: Vec<Citation>,
+        _tool_uses: &[Value],
+    ) -> Result<ChatResult, ChatError> {
+        self.transcript_lines.push(format!("[assistant] {message}"));
+        Ok(ChatResult {
+            message,
+            citations,
+            stop_reason: ChatStopReason::EndTurn,
+        })
+    }
+
+    async fn on_assistant_tool_use(
+        &mut self,
+        text: &str,
+        _tool_uses: &[Value],
+    ) -> Result<(), ChatError> {
+        if !text.is_empty() {
+            self.transcript_lines.push(format!("[assistant] {text}"));
+        }
+        Ok(())
+    }
+
+    async fn on_tool_results(&mut self, results: &[ContentBlock]) -> Result<(), ChatError> {
+        self.transcript_lines.push(format!(
+            "[tools] {}",
+            serde_json::to_string(&tool_results_to_values(results))
+                .unwrap_or_else(|_| "[]".to_string())
+        ));
+        Ok(())
+    }
+
+    async fn on_end_turn(
+        &mut self,
+        message: String,
+        stop_reason: StopReason,
+        _tool_uses: &[Value],
+    ) -> Result<ChatResult, ChatError> {
+        self.transcript_lines.push(format!("[assistant] {message}"));
+        Ok(ChatResult {
+            message,
+            citations: Vec::new(),
+            stop_reason: if stop_reason == StopReason::MaxTokens {
+                ChatStopReason::MaxTokens
+            } else {
+                ChatStopReason::EndTurn
+            },
+        })
     }
 }
