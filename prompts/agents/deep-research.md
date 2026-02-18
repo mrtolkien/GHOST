@@ -131,6 +131,17 @@ After your initial broad searches, you CAN search for specific things you discov
 [Contradictions between sources, gaps, stale information, things you couldn't verify]
 ```
 
+## Continuation
+
+If your message history contains prior research (searches, page reads, TODO items), this
+is a follow-up. Build on your existing findings:
+
+- Review what you already know from previous reads
+- Focus new searches on the additional criteria
+- Update your TODO with new sub-questions
+- Don't repeat searches you already did
+- Produce a refined output incorporating both original and new findings
+
 ## Query
 
 {{ query }}

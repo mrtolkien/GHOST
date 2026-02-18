@@ -244,6 +244,72 @@ impl AgentRunner {
         ))
     }
 
+    /// Continue an existing agent session with a new prompt.
+    ///
+    /// Looks up the agent name from the job_log, loads the agent definition,
+    /// creates a new job_log entry for this continuation, and spawns a task
+    /// that resumes the existing session with full history.
+    #[tracing::instrument(skip_all, fields(agent_id = agent_id))]
+    pub async fn continue_agent(
+        &self,
+        agent_id: &str,
+        prompt: &str,
+        parent_session_id: Option<&Thing>,
+    ) -> Result<String, AgentError> {
+        // Parse agent_id as a session Thing
+        let agent_session_id = parse_agent_session_thing(agent_id)?;
+
+        // Look up agent name from job_log
+        let agent_name = db::job_logs::get_agent_name_for_session(&self.db, &agent_session_id)
+            .await?
+            .ok_or_else(|| AgentError::AgentSessionNotFound {
+                agent_session_id: agent_id.to_string(),
+            })?;
+
+        // Load agent definition from workspace
+        let definition = load_agent(&self.config.workspace, &agent_name)?;
+
+        // Create new job_log entry for this continuation
+        let job_log_id = db::job_logs::create_agent_job_log(
+            &self.db,
+            &agent_name,
+            parent_session_id,
+            &agent_session_id,
+        )
+        .await?;
+
+        let cancel_token = CancellationToken::new();
+
+        let handle = AgentHandle {
+            agent_id: agent_id.to_string(),
+            agent_name: agent_name.clone(),
+            parent_session_id: parent_session_id.cloned(),
+            agent_session_id: agent_session_id.clone(),
+            job_log_id: job_log_id.clone(),
+            task_handle: self.spawn_continue_task(
+                definition,
+                prompt.to_string(),
+                agent_session_id,
+                job_log_id,
+                cancel_token.clone(),
+            ),
+            cancel_token,
+        };
+
+        self.handles
+            .lock()
+            .await
+            .insert(agent_id.to_string(), handle);
+
+        logfire::info!(
+            "agent continued",
+            agent_name = agent_name.clone(),
+            agent_id = agent_id.to_string(),
+        );
+
+        Ok(agent_name)
+    }
+
     /// List all agent IDs (running and completed).
     pub async fn list_agent_ids(&self) -> Vec<String> {
         self.handles.lock().await.keys().cloned().collect()
@@ -276,6 +342,48 @@ impl AgentRunner {
                 Err(e) => {
                     logfire::error!(
                         "agent failed",
+                        agent_name = definition.name.clone(),
+                        error = e.to_string(),
+                    );
+                    ("failed", format!("Agent error: {e}"))
+                }
+            };
+
+            if let Err(e) =
+                db::job_logs::finish_job_log(&db, &job_log_id, status, &transcript).await
+            {
+                logfire::error!("failed to finish agent job_log", error = e.to_string(),);
+            }
+        })
+    }
+
+    fn spawn_continue_task(
+        &self,
+        definition: AgentDefinition,
+        prompt: String,
+        agent_session_id: Thing,
+        job_log_id: Thing,
+        cancel_token: CancellationToken,
+    ) -> JoinHandle<()> {
+        let db = self.db.clone();
+        let config = self.config.clone();
+
+        tokio::spawn(async move {
+            let result = continue_agent_run(
+                &db,
+                &config,
+                &definition,
+                &prompt,
+                &agent_session_id,
+                &cancel_token,
+            )
+            .await;
+
+            let (status, transcript) = match result {
+                Ok(findings) => ("ok", findings),
+                Err(e) => {
+                    logfire::error!(
+                        "agent continuation failed",
                         agent_name = definition.name.clone(),
                         error = e.to_string(),
                     );
@@ -353,6 +461,79 @@ async fn run_agent(
     };
 
     Ok(result.message)
+}
+
+/// Continue an existing agent session with a new prompt. Loads full history
+/// from DB instead of starting fresh.
+#[tracing::instrument(skip_all, fields(
+    agent_name = %definition.name,
+    agent_session_id = %agent_session_id
+))]
+async fn continue_agent_run(
+    db: &Surreal<Db>,
+    config: &Config,
+    definition: &AgentDefinition,
+    prompt: &str,
+    agent_session_id: &Thing,
+    cancel_token: &CancellationToken,
+) -> Result<String, AgentError> {
+    // For continuation, interpolate a generic marker instead of the new prompt
+    // into the system prompt template, since the original query is already in
+    // the session history.
+    let system_prompt = definition.render_system_prompt(prompt);
+
+    let provider = provider_for_alias(config, definition.model.as_deref())?;
+    let tool_manager = ToolManager::for_agent(&definition.tools);
+
+    let session_chat = SessionChat::new(db.clone(), provider, tool_manager, config.clone())
+        .with_max_tool_iterations(definition.max_iterations);
+
+    let session_id = agent_session_id.to_string();
+
+    let result = tokio::select! {
+        res = session_chat.continue_agent(
+            &definition.name,
+            &session_id,
+            prompt,
+            system_prompt,
+            definition.max_iterations,
+        ) => res?,
+        () = cancel_token.cancelled() => {
+            logfire::info!(
+                "agent continuation cancelled",
+                agent_name = definition.name.clone(),
+            );
+            let messages = db::sessions::list_messages_by_session(db, agent_session_id)
+                .await
+                .unwrap_or_default();
+            let last_assistant = messages
+                .iter()
+                .rev()
+                .find(|m| m.role == "assistant" && !m.content.is_empty())
+                .map(|m| m.content.clone())
+                .unwrap_or_else(|| {
+                    "Agent was cancelled before producing findings.".to_string()
+                });
+            return Ok(last_assistant);
+        }
+    };
+
+    Ok(result.message)
+}
+
+/// Parse an agent_id string (e.g. "session:abc123") into a Thing.
+fn parse_agent_session_thing(agent_id: &str) -> Result<Thing, AgentError> {
+    let (table, id) = agent_id
+        .split_once(':')
+        .ok_or_else(|| AgentError::AgentSessionNotFound {
+            agent_session_id: agent_id.to_string(),
+        })?;
+    if table.is_empty() || id.is_empty() {
+        return Err(AgentError::AgentSessionNotFound {
+            agent_session_id: agent_id.to_string(),
+        });
+    }
+    Ok(Thing::from((table, id)))
 }
 
 impl std::fmt::Debug for AgentHandle {

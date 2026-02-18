@@ -218,6 +218,51 @@ impl SessionChat {
         .await
     }
 
+    /// Continue an existing agent session with a new user message.
+    ///
+    /// Loads the full history from the agent's DB session (all previous
+    /// research + tool calls), appends the new user message, and runs the
+    /// tool loop again. This lets agents refine their work without
+    /// re-doing prior research.
+    #[tracing::instrument(skip_all, fields(
+        agent_name = agent_name,
+        session_id = session_id
+    ))]
+    pub async fn continue_agent(
+        &self,
+        agent_name: &str,
+        session_id: &str,
+        prompt: &str,
+        system_prompt: String,
+        max_iterations: usize,
+    ) -> Result<ChatResult, ChatError> {
+        let session_thing = parse_session_thing(session_id)?;
+
+        // Store new user message in the existing agent session
+        db::sessions::create_message(&self.db, &session_thing, "user", prompt).await?;
+
+        let model = self.default_model_name()?;
+        // Load FULL history (all previous research + new user message)
+        let (mut history, _stored_ids) = self.load_provider_history(&session_thing).await?;
+
+        let mut handler = AgentHandler {
+            session_chat: self,
+            session_thing: &session_thing,
+            system_prompt,
+            agent_name: agent_name.to_string(),
+        };
+
+        run_tool_loop(
+            self,
+            session_id,
+            &model,
+            max_iterations,
+            &mut handler,
+            &mut history,
+        )
+        .await
+    }
+
     #[tracing::instrument(skip_all, fields(old_session_id = session_id))]
     pub async fn reboot_session(&self, session_id: &str) -> Result<String, ChatError> {
         let old_session = parse_session_thing(session_id)?;

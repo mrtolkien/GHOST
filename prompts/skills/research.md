@@ -108,3 +108,22 @@ r/3dprinting consensus over blog posts.
 
 After spawning the agent, respond to the OPERATOR immediately: tell them you've started
 a background research task and you'll share the findings when it completes.
+
+## Continuing a Research Session
+
+When the OPERATOR provides follow-up criteria after seeing initial recommendations, use
+`agent_control(action: 'continue', agent_id: '<id from previous start>',
+prompt: '...')`
+to resume the same deep-research session.
+
+The agent keeps its full history (searches, page reads, TODO), so it can refine without
+redoing work. Compose the continuation prompt with the new constraints.
+
+Example flow:
+
+1. GHOST spawns agent -> agent researches -> findings delivered
+2. OPERATOR: "actually multicolor is important, budget ~$1000"
+3. GHOST:
+   `agent_control(action: 'continue', agent_id: 'session:xyz',
+   prompt: 'Refine recommendations: multicolor support is important,
+   budget ~$1000, mainly PLA/PETG')`

@@ -20,6 +20,9 @@ pub enum AgentError {
     #[error("agent not found: {agent_id}")]
     AgentNotFound { agent_id: String },
 
+    #[error("no agent session found for id: {agent_session_id}")]
+    AgentSessionNotFound { agent_session_id: String },
+
     #[error(transparent)]
     Chat(#[from] crate::chat::ChatError),
 

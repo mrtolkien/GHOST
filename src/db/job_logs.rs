@@ -15,6 +15,7 @@ pub struct JobLogRecord {
     pub finished_at: Option<Datetime>,
     pub status: String,
     pub transcript: Option<String>,
+    pub agent_session: Option<Thing>,
 }
 
 #[tracing::instrument(skip_all, level = "debug", fields(job_name = job_name, job_kind = job_kind))]
@@ -138,4 +139,33 @@ pub async fn list_job_logs(
     .await?;
 
     take_many(&mut resp, 0, "job_log", "list")
+}
+
+#[derive(Debug, Deserialize)]
+struct JobNameRow {
+    job_name: String,
+}
+
+/// Look up the agent name from a job_log record by agent session ID.
+#[tracing::instrument(skip_all, level = "debug", fields(
+    agent_session_id = %agent_session_id
+))]
+pub async fn get_agent_name_for_session(
+    db: &Surreal<Db>,
+    agent_session_id: &Thing,
+) -> Result<Option<String>, DatabaseError> {
+    let mut resp = query_exec(
+        db.query(
+            "SELECT job_name FROM job_log \
+             WHERE agent_session = $id AND job_kind = 'agent' \
+             ORDER BY started_at DESC LIMIT 1",
+        )
+        .bind(("id", agent_session_id.clone())),
+        "job_log",
+        "get_agent_name_for_session",
+    )
+    .await?;
+
+    let rows: Vec<JobNameRow> = take_many(&mut resp, 0, "job_log", "get_agent_name_for_session")?;
+    Ok(rows.into_iter().next().map(|r| r.job_name))
 }

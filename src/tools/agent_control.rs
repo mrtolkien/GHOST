@@ -19,14 +19,16 @@ impl Tool for AgentControl {
         ToolDefinition {
             name: self.name().to_string(),
             description: "Control background agents. Use 'start' to spawn \
-                an agent, 'status' to check progress, or 'stop' to terminate."
+                an agent, 'continue' to resume a completed agent with new \
+                instructions, 'status' to check progress, or 'stop' to \
+                terminate."
                 .to_string(),
             input_schema: json!({
                 "type": "object",
                 "properties": {
                     "action": {
                         "type": "string",
-                        "enum": ["start", "status", "stop"],
+                        "enum": ["start", "continue", "status", "stop"],
                         "description": "The action to perform"
                     },
                     "agent": {
@@ -35,11 +37,11 @@ impl Tool for AgentControl {
                     },
                     "prompt": {
                         "type": "string",
-                        "description": "For 'start': the research prompt or task description"
+                        "description": "For 'start'/'continue': the prompt or follow-up instructions"
                     },
                     "agent_id": {
                         "type": "string",
-                        "description": "For 'status'/'stop': the agent_id returned by 'start'"
+                        "description": "For 'continue'/'status'/'stop': the agent_id returned by 'start'"
                     }
                 },
                 "required": ["action"],
@@ -64,10 +66,12 @@ impl Tool for AgentControl {
 
         match action {
             "start" => self.action_start(&params, ctx, runner).await,
+            "continue" => self.action_continue(&params, ctx, runner).await,
             "status" => self.action_status(&params, runner).await,
             "stop" => self.action_stop(&params, runner).await,
             _ => Err(ToolError::InvalidParams(format!(
-                "unknown action '{action}': must be one of start, status, stop"
+                "unknown action '{action}': must be one of \
+                 start, continue, status, stop"
             ))),
         }
     }
@@ -99,6 +103,40 @@ impl AgentControl {
         Ok(format!(
             "Agent '{agent_name}' started (agent_id: {agent_id}). \
              Check progress with agent_control(action: 'status', agent_id: '{agent_id}')."
+        ))
+    }
+
+    async fn action_continue(
+        &self,
+        params: &Value,
+        ctx: &ToolContext,
+        runner: &crate::agents::AgentRunner,
+    ) -> Result<String, ToolError> {
+        let agent_id = params
+            .get("agent_id")
+            .and_then(Value::as_str)
+            .ok_or_else(|| {
+                ToolError::InvalidParams("'continue' requires an 'agent_id'".to_string())
+            })?;
+
+        let prompt = params
+            .get("prompt")
+            .and_then(Value::as_str)
+            .ok_or_else(|| {
+                ToolError::InvalidParams("'continue' requires a 'prompt'".to_string())
+            })?;
+
+        let parent_session_id = parse_session_thing_opt(&ctx.session_id);
+
+        let agent_name = runner
+            .continue_agent(agent_id, prompt, parent_session_id.as_ref())
+            .await
+            .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
+
+        Ok(format!(
+            "Agent '{agent_name}' continued (agent_id: {agent_id}). \
+             Check progress with agent_control(action: 'status', \
+             agent_id: '{agent_id}')."
         ))
     }
 
