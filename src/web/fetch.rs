@@ -7,17 +7,22 @@ use super::{ExtractedContent, FetchOptions, WebError};
 
 static HTTP_CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
 
-fn client() -> &'static reqwest::Client {
+pub(super) fn client() -> &'static reqwest::Client {
     HTTP_CLIENT.get_or_init(|| {
         reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(30))
+            .user_agent("Mozilla/5.0 (compatible; Ghost/0.1)")
             .build()
             .expect("failed to build HTTP client")
     })
 }
 
 #[tracing::instrument(skip_all, fields(url = %url))]
-pub async fn fetch(url: &str, options: &FetchOptions) -> Result<ExtractedContent, WebError> {
+pub async fn fetch(
+    url: &str,
+    options: &FetchOptions,
+    crawl4ai_url: Option<&str>,
+) -> Result<ExtractedContent, WebError> {
     let parsed = Url::parse(url).map_err(|_| WebError::InvalidUrl {
         url: url.to_string(),
     })?;
@@ -31,10 +36,28 @@ pub async fn fetch(url: &str, options: &FetchOptions) -> Result<ExtractedContent
         }
     }
 
-    let response = client().get(parsed).send().await?;
+    let response = client().get(parsed.clone()).send().await?;
     let status = response.status().as_u16();
 
     if !response.status().is_success() {
+        if let Some(c4ai_url) = crawl4ai_url {
+            logfire::info!(
+                "HTTP error, trying crawl4ai fallback",
+                url = url.to_string(),
+                status = status as u64,
+            );
+            match super::browser::fetch_with_crawl4ai(c4ai_url, url).await {
+                Ok(markdown) => return Ok(markdown_to_content(markdown, None, options)),
+                Err(e) => {
+                    logfire::warn!(
+                        "crawl4ai fallback also failed after HTTP error",
+                        url = url.to_string(),
+                        original_status = status as u64,
+                        crawl4ai_error = e.to_string(),
+                    );
+                }
+            }
+        }
         return Err(WebError::HttpStatus {
             status,
             url: url.to_string(),
@@ -67,7 +90,33 @@ pub async fn fetch(url: &str, options: &FetchOptions) -> Result<ExtractedContent
     );
 
     if is_html {
-        Ok(extract_content(&raw_text, url, options))
+        let mut content = extract_content(&raw_text, url, options);
+
+        if !options.raw
+            && content.word_count < 500
+            && let Some(c4ai_url) = crawl4ai_url
+        {
+            logfire::info!(
+                "reqwest extraction yielded low content, trying crawl4ai",
+                url = url.to_string(),
+                word_count = content.word_count as u64,
+            );
+
+            match super::browser::fetch_with_crawl4ai(c4ai_url, url).await {
+                Ok(markdown) => {
+                    content = markdown_to_content(markdown, content.title, options);
+                }
+                Err(e) => {
+                    logfire::warn!(
+                        "crawl4ai fallback failed, returning reqwest result",
+                        url = url.to_string(),
+                        error = e.to_string(),
+                    );
+                }
+            }
+        }
+
+        Ok(content)
     } else {
         let text = raw_text.replace('\0', "");
         let (text, truncated) = truncate(text, options.max_chars);
@@ -78,6 +127,22 @@ pub async fn fetch(url: &str, options: &FetchOptions) -> Result<ExtractedContent
             word_count,
             truncated,
         })
+    }
+}
+
+fn markdown_to_content(
+    markdown: String,
+    title: Option<String>,
+    options: &FetchOptions,
+) -> ExtractedContent {
+    let text = markdown.replace('\0', "");
+    let (text, truncated) = truncate(text, options.max_chars);
+    let word_count = text.split_whitespace().count();
+    ExtractedContent {
+        title,
+        text,
+        word_count,
+        truncated,
     }
 }
 

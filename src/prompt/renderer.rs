@@ -132,6 +132,7 @@ mod tests {
             },
             web: WebConfig {
                 search_max_results: 5,
+                crawl4ai_url: None,
             },
         }
     }

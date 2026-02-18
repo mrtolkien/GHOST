@@ -34,6 +34,32 @@ chat context.
 When in doubt, spawn the agent. It's better to over-research than to give shallow advice
 from search snippets.
 
+## Follow-Up Questions: ALWAYS Continue the Agent (NON-NEGOTIABLE)
+
+When the OPERATOR provides follow-up criteria, refinements, or new constraints after a
+research agent has delivered findings, you **MUST** continue the existing agent session:
+
+```
+agent_control(action: 'continue', agent_id: '<id from the original start>',
+  prompt: '<new constraints and follow-up question>')
+```
+
+**Why?** The agent has already read 5+ pages and built context. Continuing it lets it
+refine its answer with targeted follow-up searches instead of starting from scratch.
+
+**NEVER answer a research follow-up directly from the agent's findings.** The findings
+are a starting point. If the OPERATOR adds criteria like "actually multicolor is
+important" or "my budget is $1000", that changes the recommendation — continue the agent
+so it can research the new angle properly.
+
+**NEVER spawn a new agent for follow-ups.** Use `continue` on the existing one.
+
+Remember: the agent_id was returned when you first spawned the agent. You can also find
+it by calling `agent_control(action: 'status', agent_id: '<id>')`.
+
+After continuing the agent, tell the OPERATOR you've kicked off additional research with
+their new criteria.
+
 ## Research Workflow (for non-agent research)
 
 For the subset of research tasks that don't need a full agent (simple lookups, quick
@@ -108,22 +134,3 @@ r/3dprinting consensus over blog posts.
 
 After spawning the agent, respond to the OPERATOR immediately: tell them you've started
 a background research task and you'll share the findings when it completes.
-
-## Continuing a Research Session
-
-When the OPERATOR provides follow-up criteria after seeing initial recommendations, use
-`agent_control(action: 'continue', agent_id: '<id from previous start>',
-prompt: '...')`
-to resume the same deep-research session.
-
-The agent keeps its full history (searches, page reads, TODO), so it can refine without
-redoing work. Compose the continuation prompt with the new constraints.
-
-Example flow:
-
-1. GHOST spawns agent -> agent researches -> findings delivered
-2. OPERATOR: "actually multicolor is important, budget ~$1000"
-3. GHOST:
-   `agent_control(action: 'continue', agent_id: 'session:xyz',
-   prompt: 'Refine recommendations: multicolor support is important,
-   budget ~$1000, mainly PLA/PETG')`

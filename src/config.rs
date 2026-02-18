@@ -129,6 +129,7 @@ pub struct CompactionSettings {
 #[serde(deny_unknown_fields)]
 pub struct WebSettings {
     pub search_max_results: Option<usize>,
+    pub crawl4ai_url: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -190,6 +191,7 @@ pub struct CompactionConfig {
 #[derive(Debug, Clone, Serialize)]
 pub struct WebConfig {
     pub search_max_results: usize,
+    pub crawl4ai_url: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
@@ -353,6 +355,7 @@ impl Config {
                     .as_ref()
                     .and_then(|w| w.search_max_results)
                     .unwrap_or(5),
+                crawl4ai_url: settings.web.as_ref().and_then(|w| w.crawl4ai_url.clone()),
             },
         })
     }
@@ -494,6 +497,7 @@ pub fn test_config(workspace: &std::path::Path) -> Config {
         },
         web: WebConfig {
             search_max_results: 5,
+            crawl4ai_url: None,
         },
     }
 }

@@ -109,6 +109,8 @@ pub struct LiveTestEnv {
     diagnostic_log: std::cell::RefCell<Vec<String>>,
     /// JSON diagnostic sections: keyed by label ("chat", "agent", "reflection").
     diagnostic_json: std::cell::RefCell<serde_json::Map<String, serde_json::Value>>,
+    /// Per-session message count cursors for incremental logging.
+    session_cursors: std::cell::RefCell<std::collections::HashMap<String, usize>>,
 }
 
 #[cfg(feature = "live-tests")]
@@ -181,11 +183,38 @@ impl LiveTestEnv {
 
     /// Collect a session's messages and store them in the JSON diagnostic
     /// output under the given label (e.g. "chat", "agent", "reflection").
+    /// Records a cursor so the next call to `log_session_json_since` on
+    /// the same session only includes new messages.
     pub async fn log_session_json(&self, label: &str, session_id: &surrealdb::sql::Thing) {
         let messages = self.collect_session_json(session_id).await;
+        let count = messages.len();
         self.diagnostic_json
             .borrow_mut()
             .insert(label.to_string(), json!(messages));
+        self.session_cursors
+            .borrow_mut()
+            .insert(session_id.to_string(), count);
+    }
+
+    /// Like `log_session_json`, but only includes messages added since the
+    /// last `log_session_json` call for this session. Avoids duplicating
+    /// already-logged content.
+    pub async fn log_session_json_since(&self, label: &str, session_id: &surrealdb::sql::Thing) {
+        let all_messages = self.collect_session_json(session_id).await;
+        let cursor = self
+            .session_cursors
+            .borrow()
+            .get(&session_id.to_string())
+            .copied()
+            .unwrap_or(0);
+        let new_messages: Vec<_> = all_messages.into_iter().skip(cursor).collect();
+        let count_after = cursor + new_messages.len();
+        self.diagnostic_json
+            .borrow_mut()
+            .insert(label.to_string(), json!(new_messages));
+        self.session_cursors
+            .borrow_mut()
+            .insert(session_id.to_string(), count_after);
     }
 
     // -----------------------------------------------------------------
@@ -545,6 +574,7 @@ pub async fn live_test_database(test_name: &str) -> LiveTestEnv {
         prev_path_env: prev_path,
         diagnostic_log: std::cell::RefCell::new(Vec::new()),
         diagnostic_json: std::cell::RefCell::new(serde_json::Map::new()),
+        session_cursors: std::cell::RefCell::new(std::collections::HashMap::new()),
     }
 }
 

@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use serde_json::Value;
 
 use crate::providers::{ChatMessage, ChatRequest, ContentBlock, Role, StopReason};
-use crate::tools::RESPOND_TOOL_NAME;
+use crate::tools::{REPORT_FINDINGS_TOOL_NAME, RESPOND_TOOL_NAME};
 
 use super::convert::{
     extract_latest_assistant_text, extract_text_content, extract_tool_use_blocks,
@@ -94,6 +94,7 @@ pub(super) async fn run_tool_loop(
 
                 if let Some((message, mut citations)) =
                     parse_respond_call(RESPOND_TOOL_NAME, &tool_uses)
+                        .or_else(|| parse_respond_call(REPORT_FINDINGS_TOOL_NAME, &tool_uses))
                 {
                     session_chat.resolve_citation_urls(&mut citations);
                     let result = handler.on_respond(message, citations, &tool_uses).await?;

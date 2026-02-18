@@ -69,7 +69,7 @@ impl Tool for WebFetch {
             raw: false,
         };
 
-        let content = fetch(url, &options)
+        let content = fetch(url, &options, ctx.config.web.crawl4ai_url.as_deref())
             .await
             .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
 

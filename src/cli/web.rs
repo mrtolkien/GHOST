@@ -68,7 +68,7 @@ pub async fn execute(command: WebCommand) -> Result<(), GhostError> {
                 readability,
                 raw,
             };
-            let content = web::fetch(&url, &options).await?;
+            let content = web::fetch(&url, &options, config.web.crawl4ai_url.as_deref()).await?;
 
             match web::save_fetch_cache(&config.workspace, &url, &content) {
                 Ok(path) => {

@@ -204,12 +204,15 @@ impl Provider for OpenAiOAuthProvider {
             match self.send_request(&request).await {
                 Ok(response) => return Ok(response),
                 Err(ProviderError::EmptyResponse) if attempt + 1 < max_attempts => {
+                    let delay_secs = 2u64.pow(attempt as u32);
                     logfire::warn!(
-                        "provider returned empty response; retrying",
+                        "provider returned empty response; retrying after {delay_secs}s",
                         provider = "openai_oauth",
                         model = request.model.clone(),
-                        attempt = attempt + 1
+                        attempt = attempt + 1,
+                        delay_secs = delay_secs,
                     );
+                    tokio::time::sleep(std::time::Duration::from_secs(delay_secs)).await;
                 }
                 Err(error) => return Err(error),
             }

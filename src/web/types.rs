@@ -33,6 +33,9 @@ pub enum WebError {
         #[source]
         source: std::io::Error,
     },
+
+    #[error("crawl4ai failed for {url}: {detail}")]
+    Crawl4ai { url: String, detail: String },
 }
 
 #[derive(Debug, Clone)]

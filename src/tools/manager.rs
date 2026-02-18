@@ -93,8 +93,9 @@ impl ToolManager {
 
     /// Build a registry containing every tool the system knows about.
     fn all_available() -> Self {
-        // Agent-only tools can be registered here in the future.
-        Self::for_reflection()
+        let mut manager = Self::for_reflection();
+        manager.register(Arc::new(super::report_findings::ReportFindings));
+        manager
     }
 
     #[must_use]
