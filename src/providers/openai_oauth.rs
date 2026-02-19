@@ -9,7 +9,7 @@ use serde_json::Value;
 
 use crate::auth::openai_oauth::{OpenAiOAuthClient, TokenStore};
 use crate::providers::circuit_breaker::CircuitBreaker;
-use crate::providers::codex_responses::{build_codex_request_body, parse_codex_sse_response};
+use crate::providers::codex_responses::{build_codex_request_body, parse_codex_response};
 use crate::providers::types::{ChatRequest, ChatResponse, ContentBlock, Provider, ProviderError};
 
 const OPENAI_CODEX_RESPONSES_URL: &str = "https://chatgpt.com/backend-api/codex/responses";
@@ -157,16 +157,15 @@ impl OpenAiOAuthProvider {
             )));
         }
 
-        let parsed =
-            parse_codex_sse_response(&response_body, &request.model).inspect_err(|error| {
-                logfire::error!(
-                    "oauth provider response parse failed",
-                    provider = "openai_oauth",
-                    model = request.model.clone(),
-                    error = error.to_string(),
-                    raw_response = response_body.clone()
-                );
-            })?;
+        let parsed = parse_codex_response(&response_body, &request.model).inspect_err(|error| {
+            logfire::error!(
+                "oauth provider response parse failed",
+                provider = "openai_oauth",
+                model = request.model.clone(),
+                error = error.to_string(),
+                raw_response = response_body.clone()
+            );
+        })?;
         self.circuit_breaker.record_success(&request.model);
 
         let tool_call_summary: String = parsed

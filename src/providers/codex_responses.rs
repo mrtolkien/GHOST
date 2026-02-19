@@ -149,12 +149,64 @@ pub(super) fn build_codex_request_body(
     })
 }
 
-pub(super) fn parse_codex_sse_response(
+/// Parse a Codex Responses API response body.
+///
+/// With `stream: false` (our default), the body is a single JSON object.
+/// With `stream: true` (or if the server ignores the flag), the body is SSE.
+/// This function tries JSON first, then falls back to SSE parsing.
+pub(super) fn parse_codex_response(
+    raw: &str,
+    fallback_model: &str,
+) -> Result<ChatResponse, ProviderError> {
+    let trimmed = raw.trim();
+
+    // Non-streaming: body is a single JSON response object.
+    if trimmed.starts_with('{') {
+        return parse_codex_json_response(trimmed, fallback_model);
+    }
+
+    // Streaming fallback: body contains SSE events.
+    parse_codex_sse_response(trimmed, fallback_model)
+}
+
+/// Parse a non-streaming JSON response (the response object directly).
+fn parse_codex_json_response(
+    raw: &str,
+    fallback_model: &str,
+) -> Result<ChatResponse, ProviderError> {
+    let value: Value = serde_json::from_str(raw).map_err(|e| {
+        ProviderError::InvalidResponse(format!("failed to parse JSON response: {e}"))
+    })?;
+
+    // Check for failed status.
+    if value.get("status").and_then(Value::as_str) == Some("failed") {
+        let error_msg = value
+            .pointer("/error/message")
+            .and_then(Value::as_str)
+            .unwrap_or("unknown error");
+        logfire::error!(
+            "codex response failed",
+            error = error_msg.to_string(),
+            status = "failed",
+        );
+        return Err(ProviderError::InvalidResponse(format!(
+            "codex response failed: {error_msg}"
+        )));
+    }
+
+    parse_codex_response_value(&value, fallback_model)
+}
+
+/// Parse SSE streaming response (fallback if server sends SSE despite stream=false).
+fn parse_codex_sse_response(
     raw: &str,
     fallback_model: &str,
 ) -> Result<ChatResponse, ProviderError> {
     let mut completed_response: Option<Value> = None;
     let mut output_text = String::new();
+    // Fallback: collect completed output items in case response.completed is missing.
+    let mut done_items: Vec<Value> = Vec::new();
+    let mut event_types_seen: Vec<String> = Vec::new();
 
     for chunk in raw.split("\n\n") {
         for line in chunk.lines() {
@@ -174,25 +226,60 @@ pub(super) fn parse_codex_sse_response(
                 .get("type")
                 .and_then(Value::as_str)
                 .unwrap_or("");
+            event_types_seen.push(event_type.to_string());
             match event_type {
                 "response.output_text.delta" => {
                     if let Some(delta) = event_value.get("delta").and_then(Value::as_str) {
                         output_text.push_str(delta);
                     }
                 }
-                "response.completed" | "response.done" => {
+                "response.completed" | "response.incomplete" => {
                     if let Some(response) = event_value.get("response") {
                         completed_response = Some(response.clone());
                     }
+                }
+                // Collect completed output items as fallback data.
+                "response.output_item.done" => {
+                    if let Some(item) = event_value.get("item") {
+                        done_items.push(item.clone());
+                    }
+                }
+                "response.failed" => {
+                    let error_msg = event_value
+                        .pointer("/response/error/message")
+                        .and_then(Value::as_str)
+                        .unwrap_or("unknown error");
+                    logfire::error!("codex SSE: response.failed", error = error_msg.to_string(),);
+                    return Err(ProviderError::InvalidResponse(format!(
+                        "codex response failed: {error_msg}"
+                    )));
                 }
                 _ => {}
             }
         }
     }
 
+    // Primary path: use the authoritative response.completed/incomplete event.
     if let Some(value) = completed_response {
         return parse_codex_response_value(&value, fallback_model);
     }
+
+    // Fallback: reconstruct from individual done items if terminal event was missing.
+    if !done_items.is_empty() {
+        logfire::warn!(
+            "codex SSE: no terminal event, reconstructing from output_item.done events",
+            item_count = done_items.len() as u64,
+            events = event_types_seen.join(", "),
+        );
+        let synthetic = serde_json::json!({
+            "model": fallback_model,
+            "status": "completed",
+            "output": done_items,
+        });
+        return parse_codex_response_value(&synthetic, fallback_model);
+    }
+
+    // Fallback: use accumulated streaming text.
     if !output_text.trim().is_empty() {
         return Ok(ChatResponse {
             content: vec![ContentBlock::Text { text: output_text }],
@@ -201,6 +288,15 @@ pub(super) fn parse_codex_sse_response(
             model: fallback_model.to_string(),
         });
     }
+
+    let raw_head: String = raw.chars().take(500).collect();
+    let events = event_types_seen.join(", ");
+    logfire::warn!(
+        "codex SSE: empty response — no terminal event, no output items, no text",
+        events = events,
+        raw_len = raw.len() as u64,
+        raw_head = raw_head,
+    );
     Err(ProviderError::EmptyResponse)
 }
 
