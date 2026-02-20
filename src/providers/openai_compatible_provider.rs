@@ -151,15 +151,16 @@ impl OpenAiCompatibleProvider {
             })?;
         let mut parsed = match parse_response(response) {
             Ok(parsed) => parsed,
-            Err(ProviderError::EmptyResponse) => {
+            Err(ProviderError::EmptyResponse { detail }) => {
                 logfire::warn!(
                     "provider response parsed as empty",
                     provider = self.provider_name,
                     model = request.model.clone(),
                     status = status.as_u16() as u64,
+                    detail = detail.clone(),
                     raw_response = response_body.clone()
                 );
-                return Err(ProviderError::EmptyResponse);
+                return Err(ProviderError::EmptyResponse { detail });
             }
             Err(error) => {
                 logfire::error!(
@@ -223,7 +224,7 @@ impl Provider for OpenAiCompatibleProvider {
             }
             match self.send_request(&request).await {
                 Ok(response) => return Ok(response),
-                Err(ProviderError::EmptyResponse) if attempt + 1 < max_attempts => {
+                Err(ProviderError::EmptyResponse { ref detail }) if attempt + 1 < max_attempts => {
                     let delay_secs = 2u64.pow(attempt as u32);
                     logfire::warn!(
                         "provider returned empty response; retrying after {delay_secs}s",
@@ -231,6 +232,7 @@ impl Provider for OpenAiCompatibleProvider {
                         model = request.model.clone(),
                         attempt = attempt + 1,
                         delay_secs = delay_secs,
+                        detail = detail.clone(),
                     );
                     tokio::time::sleep(std::time::Duration::from_secs(delay_secs)).await;
                 }
@@ -244,7 +246,9 @@ impl Provider for OpenAiCompatibleProvider {
             model = request.model.clone(),
             max_attempts = max_attempts as u64
         );
-        Err(ProviderError::EmptyResponse)
+        Err(ProviderError::EmptyResponse {
+            detail: "exhausted retries".to_string(),
+        })
     }
 
     fn name(&self) -> &str {

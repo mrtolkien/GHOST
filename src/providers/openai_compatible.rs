@@ -208,7 +208,15 @@ pub(crate) fn parse_response(
         .choices
         .into_iter()
         .next()
-        .ok_or(ProviderError::EmptyResponse)?;
+        .ok_or(ProviderError::EmptyResponse {
+            detail: "choices array is empty".to_string(),
+        })?;
+
+    let finish_reason = choice
+        .finish_reason
+        .as_deref()
+        .unwrap_or("unknown")
+        .to_string();
 
     let mut content = Vec::new();
     if let Some(content_value) = choice.message.content {
@@ -234,7 +242,9 @@ pub(crate) fn parse_response(
     }
 
     if content.is_empty() {
-        return Err(ProviderError::EmptyResponse);
+        return Err(ProviderError::EmptyResponse {
+            detail: format!("no text or tool calls in response (finish_reason: {finish_reason})"),
+        });
     }
 
     let usage = response.usage.unwrap_or(UsageResponse {

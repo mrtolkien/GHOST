@@ -74,17 +74,28 @@ facts, questions where 1-2 sources suffice):
 
 Authority hierarchy (highest to lowest):
 
-1. **Official documentation** — manufacturer specs, API docs, project docs
-2. **Dedicated review sites** — rtings.com, all3dp.com, wirecutter.com, dpreview.com,
-   tomshardware.com, techpowerup.com
-3. **Community consensus** — reddit threads with multiple upvoted responses, Stack
-   Overflow accepted answers, HN discussions
-4. **Specialized blogs** — individual experts with demonstrated domain knowledge
-5. **General blogs and news** — useful for news, poor for recommendations
-6. **AI-generated summaries** — treat as unreliable; always verify claims
+1. **Domain specialists** — sites dedicated to ONE field (e.g. a site that only covers
+   3D printing, or only audio equipment) with testing methodology and measurements.
+   These beat generalist tech sites because depth of expertise matters more than brand
+   recognition. The agent discovers these via community threads during research.
+2. **Individual expert reviewers** — people known in the community for rigorous testing
+   in this specific domain (YouTube channels, personal sites, blogs)
+3. **Official documentation** — manufacturer specs, API docs, project docs
+4. **Community consensus** — reddit threads with multiple upvoted responses, Stack
+   Overflow accepted answers, HN discussions. Also the best way to discover tier-1 and
+   tier-2 sources.
+5. **Generalist tech publications** — sites that review many categories. Useful as
+   supplements but not primary sources when domain specialists exist.
+6. **SEO "best of" listicles** — usually AI-generated or affiliate-driven. Treat as
+   unreliable unless the site demonstrably does actual testing.
 
-When you find a high-quality source for a domain, note it. If rtings.com has definitive
-test data for a product category, that outweighs ten blog posts.
+What makes a source authoritative is NOT its name or SEO ranking but its domain focus
+and methodology: a site that ONLY covers one field and tests rigorously will always
+outperform a generalist that reviews everything.
+
+The GHOST's knowledge base accumulates source quality notes over time through
+reflection. When spawning a research agent, this prior knowledge helps it skip the
+source-discovery phase and go straight to trusted sources.
 
 ## Citation Discipline
 
@@ -122,14 +133,18 @@ include:
 - **Scope** — what sub-questions to investigate
 - **Quality bar** — how many sources, what kind of sources
 
+The agent will automatically discover authoritative sources for the domain before
+searching for answers. If past reflection has recorded trusted sources for this topic,
+mention them in the prompt — but the agent validates independently.
+
 Example:
 
 ```
 Research enclosed 3D printers for home use. Budget $500-$1500.
 Key questions: print quality, noise level, enclosed build volume,
-software ecosystem, community support. Focus on models released
-in the last 12 months. Prioritize rtings, all3dp, and reddit
-r/3dprinting consensus over blog posts.
+software ecosystem, community support. Focus on models currently
+available. Find which review sites the community trusts for 3D
+printer testing, then use those sources.
 ```
 
 After spawning the agent, respond to the OPERATOR immediately: tell them you've started

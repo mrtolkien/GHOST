@@ -202,7 +202,7 @@ impl Provider for OpenAiOAuthProvider {
         for attempt in 0..max_attempts {
             match self.send_request(&request).await {
                 Ok(response) => return Ok(response),
-                Err(ProviderError::EmptyResponse) if attempt + 1 < max_attempts => {
+                Err(ProviderError::EmptyResponse { ref detail }) if attempt + 1 < max_attempts => {
                     let delay_secs = 2u64.pow(attempt as u32);
                     logfire::warn!(
                         "provider returned empty response; retrying after {delay_secs}s",
@@ -210,13 +210,16 @@ impl Provider for OpenAiOAuthProvider {
                         model = request.model.clone(),
                         attempt = attempt + 1,
                         delay_secs = delay_secs,
+                        detail = detail.clone(),
                     );
                     tokio::time::sleep(std::time::Duration::from_secs(delay_secs)).await;
                 }
                 Err(error) => return Err(error),
             }
         }
-        Err(ProviderError::EmptyResponse)
+        Err(ProviderError::EmptyResponse {
+            detail: "exhausted retries".to_string(),
+        })
     }
 
     fn name(&self) -> &str {

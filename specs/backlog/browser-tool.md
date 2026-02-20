@@ -4,8 +4,8 @@
 
 ## Motivation
 
-`web_fetch` uses reqwest + readability with a crawl4ai fallback for JS-heavy pages.
-This covers ~90% of fetches. A browser tool would handle the remaining cases:
+`web_fetch` uses reqwest + readability with a crawl4ai fallback for JS-heavy pages. This
+covers ~90% of fetches. A browser tool would handle the remaining cases:
 
 - **Login-gated content** (paid articles, authenticated APIs)
 - **Multi-step navigation** (pagination, "Show more" buttons, form submission)
@@ -40,7 +40,8 @@ page (what a screen reader sees) rather than a DOM dump.
 Researched: Spider, Firecrawl, Codex CLI, Jina Reader, Trafilatura.
 
 - **Nobody maintains domain-specific extraction rules** except Spider (1000 curated
-  scrapers, proprietary). The industry consensus is generic extraction + LLM intelligence.
+  scrapers, proprietary). The industry consensus is generic extraction + LLM
+  intelligence.
 - **Firecrawl CLI** uses `jq` post-processing, not CSS selectors — the agent is the
   intelligence layer.
 - **Codex CLI** has zero client-side web fetching — entirely server-side via OpenAI API.
@@ -48,11 +49,11 @@ Researched: Spider, Firecrawl, Codex CLI, Jina Reader, Trafilatura.
 
 ## Recommended Rust Crate: `chromiumoxide`
 
-| Crate | Async | CDP Coverage | Accessibility Tree | Notes |
-|-------|-------|-------------|-------------------|-------|
-| **chromiumoxide** | tokio (native) | Full | `Accessibility.getFullAXTree` | Best fit |
-| headless_chrome | sync/blocking | Full | Types exist, no API | Needs spawn_blocking |
-| fantoccini | tokio | WebDriver only | Not available | Wrong protocol |
+| Crate             | Async          | CDP Coverage   | Accessibility Tree            | Notes                |
+| ----------------- | -------------- | -------------- | ----------------------------- | -------------------- |
+| **chromiumoxide** | tokio (native) | Full           | `Accessibility.getFullAXTree` | Best fit             |
+| headless_chrome   | sync/blocking  | Full           | Types exist, no API           | Needs spawn_blocking |
+| fantoccini        | tokio          | WebDriver only | Not available                 | Wrong protocol       |
 
 `chromiumoxide` matches our stack: tokio, thiserror, tracing. It supports arbitrary CDP
 command execution including the full Accessibility domain. Actively maintained (last
@@ -68,6 +69,7 @@ behind on Chrome releases.
 The browser tool requires a headless Chrome instance. Two options:
 
 **`chrome-headless-shell`** (recommended):
+
 - Old headless Chrome extracted as standalone binary
 - Docker image: `chromedp/headless-shell:stable` (~200 MB compressed)
 - RAM: ~150-250 MB idle, ~300-500 MB with a complex page loaded
@@ -75,6 +77,7 @@ The browser tool requires a headless Chrome instance. Two options:
 - Trade-off: not pixel-identical to real Chrome (bot detection can sometimes tell)
 
 **Full Chrome `--headless`** (if anti-bot matters):
+
 - New headless mode (Chrome 128+): identical to real Chrome
 - Docker image: ~400MB-1GB
 - More RAM, but better for anti-bot evasion
@@ -99,6 +102,7 @@ services:
 ```
 
 Critical requirements:
+
 - `shm_size: 2gb` — mandatory, Chrome crashes without it
 - `init: true` — mandatory, Chrome spawns helper processes that become zombies
 - Security: custom seccomp profile > `SYS_ADMIN` capability > `--no-sandbox`
@@ -129,8 +133,8 @@ One Chrome process, two clients. No duplicate instances.
 
 ```toml
 [web]
-crawl4ai_url = "http://localhost:11235"   # existing
-chrome_cdp_url = "ws://localhost:9222"     # new — None to disable browser tool
+crawl4ai_url = "http://localhost:11235" # existing
+chrome_cdp_url = "ws://localhost:9222" # new — None to disable browser tool
 ```
 
 ### Tool Schema
@@ -172,6 +176,7 @@ Single `browser` tool with flat action-based interface:
 5. **`screenshot`** — Capture page as image (useful for debugging)
 
 NOT in scope for MVP:
+
 - Chrome process management (require external sidecar)
 - Multiple profiles or extension relay
 - Multi-target routing
@@ -179,16 +184,16 @@ NOT in scope for MVP:
 
 ### Resource Budget
 
-| Component | Size / RAM | Notes |
-|-----------|-----------|-------|
-| `chromiumoxide` crate | Compile-time only | ~0 runtime cost |
-| Chrome sidecar | ~200 MB image, ~500 MB RAM | Shared with crawl4ai |
-| Per tab | ~100-300 MB additional | Depends on page complexity |
+| Component             | Size / RAM                 | Notes                      |
+| --------------------- | -------------------------- | -------------------------- |
+| `chromiumoxide` crate | Compile-time only          | ~0 runtime cost            |
+| Chrome sidecar        | ~200 MB image, ~500 MB RAM | Shared with crawl4ai       |
+| Per tab               | ~100-300 MB additional     | Depends on page complexity |
 
 ## Open Questions
 
-- Is this worth the operational complexity of a Chrome sidecar for the 10% of pages
-  that need it?
+- Is this worth the operational complexity of a Chrome sidecar for the 10% of pages that
+  need it?
 - Should the GHOST be able to decide when to use browser vs web_fetch, or should
   web_fetch auto-escalate?
 - Should we wait until there's a concrete use case that crawl4ai can't handle?

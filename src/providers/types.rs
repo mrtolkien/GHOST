@@ -96,8 +96,8 @@ pub enum ProviderError {
     #[error("model not found: {0}")]
     ModelNotFound(String),
 
-    #[error("empty response from provider")]
-    EmptyResponse,
+    #[error("empty response from provider: {detail}")]
+    EmptyResponse { detail: String },
 
     #[error("circuit breaker open for model '{model}' (retry after {retry_after_secs}s)")]
     CircuitOpen {

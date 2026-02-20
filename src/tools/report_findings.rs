@@ -22,10 +22,14 @@ impl Tool for ReportFindings {
     fn schema(&self) -> ToolDefinition {
         ToolDefinition {
             name: self.name().to_string(),
-            description: "Submit your COMPLETE research findings. Call this tool \
-                ONLY when your research is fully done: all sub-questions answered, \
-                all claims backed by fetched pages, all sources listed. This is \
-                how you deliver results — do not output findings as plain text."
+            description: "Submit your COMPLETE research findings. REQUIREMENTS: \
+                (1) You must have called web_fetch on at least 5 different URLs \
+                before calling this — if your citations array has fewer than 5 \
+                entries, STOP and go read more pages first. \
+                (2) At least 2 citations must be from domain-specialist sites or \
+                individual expert reviewers, not generalist publications. \
+                (3) All sub-questions must be answered with evidence from pages \
+                you actually read. Do not output findings as plain text."
                 .to_string(),
             input_schema: json!({
                 "type": "object",

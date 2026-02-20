@@ -141,6 +141,21 @@ c. **Curate web cache** — Web fetch and search results from the conversation a
 to `.web-cache/` in your workspace as plain files. The directory is automatically
 cleared after a successful reflection run.
 
+d. **Evaluate source quality** — For domains researched in this session, assess which
+web sources proved valuable and which were unreliable. Create or update notes tagged
+`sources/[domain]` (e.g. `sources/3d-printing`, `sources/audio`):
+
+- **Authoritative sources**: sites with testing methodology, multiple in-depth reviews,
+  measurements/benchmarks. Note: what the site covers, why it's trustworthy, and its
+  URL.
+- **Unreliable sources**: sites that returned AI-generated listicles, shallow affiliate
+  roundups, or stale/inaccurate information. Note: what was wrong and the URL.
+
+Both positive and negative assessments are valuable. The deep-research agent checks
+`knowledge_search` for source quality notes before starting, so building this library
+directly improves future research quality. Focus on the extremes — clearly authoritative
+or clearly unreliable sources. Don't create notes for every mediocre page.
+
 ### Your cached web results:
 
 {{ web_cache_files }}
@@ -159,14 +174,14 @@ For each file listed above:
    - Delete with `reference_manage(action="delete", cache_file=".web-cache/<filename>")`
    - Or skip — the directory is auto-cleared after reflection completes successfully.
 
-d. **Update diary** — Append to today's diary using `file_edit` on
+e. **Update diary** — Append to today's diary using `file_edit` on
 `diary/YYYY-MM-DD.md`. Create the file with `write_file` if it doesn't exist. Each entry
 is a timestamped bullet point:
 
 - `- 14:30 — Started exploring SurrealDB graph model`
 - `- 16:00 — OPERATOR decided to use typed wiki links`
 
-e. **Update identity** — Use `file_edit` for SOUL.md (self-model) or OPERATOR.md
+f. **Update identity** — Use `file_edit` for SOUL.md (self-model) or OPERATOR.md
 (OPERATOR knowledge) when the conversation reveals new insights. BOOT.md should only
 change when explicitly directed by the OPERATOR.
 
@@ -176,6 +191,7 @@ Your **final message** will be saved as the handoff note for your next reflectio
 Summarize:
 
 - Notes created/updated (with titles)
+- Source quality notes created/updated (which sources were authoritative or unreliable)
 - References curated (topics touched)
 - Web-cache status: list files curated or skipped
 - Unclear information from the OPERATOR that will need clarification
