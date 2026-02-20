@@ -17,6 +17,8 @@ pub(super) struct CodexResponsesRequest {
     pub tools: Option<Vec<CodexToolDefinition>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tool_choice: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub include: Option<Vec<String>>,
 }
 
 /// Responses API uses a flat tool format (no nested `function` object).
@@ -49,6 +51,10 @@ pub(super) enum CodexInputItem {
         call_id: String,
         output: String,
     },
+    /// Opaque item echoed back verbatim (e.g. reasoning items).
+    /// Serialized as raw JSON — the `type` tag comes from the value itself.
+    #[serde(untagged)]
+    Raw(Value),
 }
 
 #[derive(Debug, Serialize)]
@@ -67,6 +73,19 @@ pub(super) fn build_codex_request_body(
             crate::providers::Role::Assistant => ("assistant", "output_text"),
             crate::providers::Role::System => ("developer", "input_text"),
         };
+
+        // Collect raw output items (e.g. reasoning) — they must appear as
+        // top-level input items *before* the message they belong to.
+        let mut raw_items = Vec::new();
+        for block in &message.content {
+            if let ContentBlock::RawOutput { value, .. } = block {
+                raw_items.push(value.clone());
+            }
+        }
+        // Push raw items before the message (API expects reasoning → message).
+        for raw in raw_items {
+            input.push(CodexInputItem::Raw(raw));
+        }
 
         // Collect text parts into a message item.
         let text = message
@@ -114,7 +133,7 @@ pub(super) fn build_codex_request_body(
                         output: content.clone(),
                     });
                 }
-                ContentBlock::Text { .. } => {} // handled above
+                ContentBlock::Text { .. } | ContentBlock::RawOutput { .. } => {}
             }
         }
     }
@@ -146,6 +165,7 @@ pub(super) fn build_codex_request_body(
         input,
         tools,
         tool_choice,
+        include: Some(vec!["reasoning.encrypted_content".to_string()]),
     })
 }
 
@@ -304,6 +324,29 @@ fn parse_codex_sse_response(
     Err(ProviderError::EmptyResponse { detail })
 }
 
+/// Extract a human-readable summary from a reasoning output item.
+///
+/// Reads `item.summary[*].text`, joins with spaces, truncates to 200 chars.
+/// Used for logging only — the full value is preserved in `RawOutput`.
+pub(crate) fn extract_reasoning_summary(item: &Value) -> String {
+    let summary = item
+        .get("summary")
+        .and_then(Value::as_array)
+        .map(|parts| {
+            parts
+                .iter()
+                .filter_map(|p| p.get("text").and_then(Value::as_str))
+                .collect::<Vec<_>>()
+                .join(" ")
+        })
+        .unwrap_or_default();
+    if summary.len() > 200 {
+        format!("{}...", &summary[..200])
+    } else {
+        summary
+    }
+}
+
 pub(super) fn parse_codex_response_value(
     value: &Value,
     fallback_model: &str,
@@ -359,11 +402,16 @@ pub(super) fn parse_codex_response_value(
                     }
                 }
                 other => {
-                    logfire::debug!(
-                        "codex: skipping unknown output item type",
+                    let reasoning_summary = extract_reasoning_summary(item);
+                    logfire::info!(
+                        "codex: preserving opaque output item",
                         item_type = other.to_string(),
-                        item_json = item.to_string(),
+                        reasoning_summary = reasoning_summary,
                     );
+                    content.push(ContentBlock::RawOutput {
+                        original_type: other.to_string(),
+                        value: item.clone(),
+                    });
                 }
             }
         }
@@ -379,31 +427,48 @@ pub(super) fn parse_codex_response_value(
         });
     }
 
-    if content.is_empty() {
-        let status = value
-            .get("status")
-            .and_then(Value::as_str)
-            .unwrap_or("unknown");
-        let output_len = value
-            .get("output")
-            .and_then(Value::as_array)
-            .map_or(0, |a| a.len());
-        let output_text_present = value.get("output_text").is_some();
-        let raw_preview: String = value.to_string().chars().take(500).collect();
-        let status_owned = status.to_string();
-        logfire::warn!(
-            "codex response has no content blocks",
-            status = status_owned,
-            model = model.clone(),
-            output_items = output_len as u64,
-            output_text_present = output_text_present,
-            raw_preview = raw_preview,
-        );
+    let has_usable = content
+        .iter()
+        .any(|b| !matches!(b, ContentBlock::RawOutput { .. }));
+    if !has_usable {
+        if content.is_empty() {
+            let status = value
+                .get("status")
+                .and_then(Value::as_str)
+                .unwrap_or("unknown");
+            let output_len = value
+                .get("output")
+                .and_then(Value::as_array)
+                .map_or(0, |a| a.len());
+            let output_text_present = value.get("output_text").is_some();
+            let raw_preview: String = value.to_string().chars().take(500).collect();
+            let status_owned = status.to_string();
+            logfire::warn!(
+                "codex response has no content blocks",
+                status = status_owned,
+                model = model.clone(),
+                output_items = output_len as u64,
+                output_text_present = output_text_present,
+                raw_preview = raw_preview,
+            );
+            return Err(ProviderError::EmptyResponse {
+                detail: format!(
+                    "codex response has no content blocks (status: {status}, \
+                     model: {model}, output_items: {output_len})"
+                ),
+            });
+        }
+        // Content exists but only opaque items (e.g. reasoning) — no
+        // usable Text or ToolUse blocks.
+        let types: Vec<_> = content
+            .iter()
+            .filter_map(|b| match b {
+                ContentBlock::RawOutput { original_type, .. } => Some(original_type.as_str()),
+                _ => None,
+            })
+            .collect();
         return Err(ProviderError::EmptyResponse {
-            detail: format!(
-                "codex response has no content blocks (status: {status}, model: {model}, \
-                 output_items: {output_len})"
-            ),
+            detail: format!("no usable content (only opaque items: {types:?})"),
         });
     }
 
@@ -642,5 +707,156 @@ mod tests {
         assert!(
             matches!(&parsed.content[1], ContentBlock::ToolUse { name, .. } if name == "read_file")
         );
+    }
+
+    #[test]
+    fn parse_response_preserves_reasoning_with_function_call() {
+        let response_value = json!({
+            "model": "gpt-5.3-codex",
+            "status": "completed",
+            "output": [
+                {
+                    "type": "reasoning",
+                    "summary": [{"type": "summary_text", "text": "thinking about it"}]
+                },
+                {
+                    "type": "function_call",
+                    "call_id": "call_xyz",
+                    "name": "read_file",
+                    "arguments": "{\"path\":\"src/main.rs\"}"
+                }
+            ],
+            "usage": { "input_tokens": 50, "output_tokens": 10 }
+        });
+
+        let parsed =
+            parse_codex_response_value(&response_value, "fallback").expect("parse response");
+
+        assert_eq!(parsed.stop_reason, StopReason::ToolUse);
+        assert_eq!(parsed.content.len(), 2);
+        assert!(matches!(
+            &parsed.content[0],
+            ContentBlock::RawOutput { original_type, .. } if original_type == "reasoning"
+        ));
+        assert!(matches!(
+            &parsed.content[1],
+            ContentBlock::ToolUse { name, .. } if name == "read_file"
+        ));
+    }
+
+    #[test]
+    fn parse_response_reasoning_only_is_empty_response() {
+        let response_value = json!({
+            "model": "gpt-5.3-codex",
+            "status": "completed",
+            "output": [
+                {
+                    "type": "reasoning",
+                    "summary": [{"type": "summary_text", "text": "just thinking"}]
+                }
+            ],
+            "usage": { "input_tokens": 50, "output_tokens": 10 }
+        });
+
+        let err = parse_codex_response_value(&response_value, "fallback")
+            .expect_err("should be empty response");
+        let detail = match &err {
+            ProviderError::EmptyResponse { detail } => detail.clone(),
+            other => panic!("expected EmptyResponse, got {other:?}"),
+        };
+        assert!(
+            detail.contains("reasoning"),
+            "detail should mention reasoning: {detail}"
+        );
+    }
+
+    #[test]
+    fn build_request_echoes_raw_output_as_top_level_item() {
+        let reasoning_value = json!({
+            "type": "reasoning",
+            "id": "rs_abc",
+            "summary": [{"type": "summary_text", "text": "thought"}],
+            "encrypted_content": "enc_data_here"
+        });
+        let request = ChatRequest {
+            messages: vec![
+                ChatMessage {
+                    role: Role::User,
+                    content: vec![ContentBlock::Text {
+                        text: "hello".to_string(),
+                    }],
+                },
+                ChatMessage {
+                    role: Role::Assistant,
+                    content: vec![
+                        ContentBlock::RawOutput {
+                            original_type: "reasoning".to_string(),
+                            value: reasoning_value.clone(),
+                        },
+                        ContentBlock::Text {
+                            text: "I'll help.".to_string(),
+                        },
+                    ],
+                },
+            ],
+            model: "gpt-5.3-codex".to_string(),
+            tools: None,
+            max_tokens: None,
+            temperature: None,
+            system: None,
+        };
+
+        let body = build_codex_request_body(&request).expect("request body");
+        let json = serde_json::to_value(&body).expect("serialize");
+
+        // Raw reasoning item should appear as top-level input item before
+        // the assistant message.
+        assert_eq!(json["input"][1]["type"], "reasoning");
+        assert_eq!(json["input"][1]["id"], "rs_abc");
+        // The assistant text message should follow.
+        assert_eq!(json["input"][2]["type"], "message");
+        assert_eq!(json["input"][2]["role"], "assistant");
+    }
+
+    #[test]
+    fn extract_reasoning_summary_extracts_text() {
+        let item = json!({
+            "type": "reasoning",
+            "summary": [
+                {"type": "summary_text", "text": "first thought"},
+                {"type": "summary_text", "text": "second thought"}
+            ]
+        });
+        let summary = super::extract_reasoning_summary(&item);
+        assert_eq!(summary, "first thought second thought");
+    }
+
+    #[test]
+    fn extract_reasoning_summary_empty_for_no_summary() {
+        let item = json!({"type": "reasoning"});
+        let summary = super::extract_reasoning_summary(&item);
+        assert!(summary.is_empty());
+    }
+
+    #[test]
+    fn build_request_includes_reasoning_encrypted_content() {
+        let request = ChatRequest {
+            messages: vec![ChatMessage {
+                role: Role::User,
+                content: vec![ContentBlock::Text {
+                    text: "hello".to_string(),
+                }],
+            }],
+            model: "gpt-5.3-codex".to_string(),
+            tools: None,
+            max_tokens: None,
+            temperature: None,
+            system: None,
+        };
+
+        let body = build_codex_request_body(&request).expect("request body");
+        let json = serde_json::to_value(&body).expect("serialize");
+        let include = json["include"].as_array().expect("include array");
+        assert!(include.contains(&json!("reasoning.encrypted_content")));
     }
 }

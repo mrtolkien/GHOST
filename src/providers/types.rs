@@ -52,6 +52,14 @@ pub enum ContentBlock {
         content: String,
         is_error: bool,
     },
+    /// Opaque provider output item preserved for faithful echo-back.
+    /// `original_type` is the item's native type (e.g. "reasoning").
+    /// `value` is the complete raw JSON from the provider.
+    /// Tool loop ignores these — they flow through history untouched.
+    RawOutput {
+        original_type: String,
+        value: Value,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

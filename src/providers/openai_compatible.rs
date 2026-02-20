@@ -166,6 +166,22 @@ pub(crate) fn convert_messages(request: &ChatRequest) -> Vec<OpenAiMessage> {
                         tool_call_id: Some(tool_use_id.clone()),
                     });
                 }
+                ContentBlock::RawOutput {
+                    original_type,
+                    value,
+                } => {
+                    // Extract readable text from opaque items so context
+                    // survives cross-model transitions.
+                    let extracted = super::codex_responses::extract_reasoning_summary(value);
+                    if !extracted.is_empty() {
+                        text_parts.push(format!("[Previous model {original_type}]: {extracted}"));
+                    } else {
+                        logfire::debug!(
+                            "chat completions: skipping RawOutput block (no extractable text)",
+                            original_type = original_type.clone(),
+                        );
+                    }
+                }
             }
         }
 
@@ -443,5 +459,82 @@ mod tests {
         ]);
         let text = extract_text_content(content);
         assert!(text.contains("final answer"));
+    }
+
+    #[test]
+    fn convert_messages_extracts_reasoning_text_from_raw_output() {
+        let request = ChatRequest {
+            model: "test-model".to_string(),
+            messages: vec![ChatMessage {
+                role: Role::Assistant,
+                content: vec![
+                    ContentBlock::RawOutput {
+                        original_type: "reasoning".to_string(),
+                        value: json!({
+                            "type": "reasoning",
+                            "summary": [
+                                {"type": "summary_text", "text": "I considered the options"}
+                            ]
+                        }),
+                    },
+                    ContentBlock::Text {
+                        text: "Here is my answer.".to_string(),
+                    },
+                ],
+            }],
+            tools: None,
+            max_tokens: None,
+            temperature: None,
+            system: None,
+        };
+
+        let messages = convert_messages(&request);
+        assert_eq!(messages.len(), 1);
+        let content = messages[0].content.as_ref().unwrap();
+        let text = content.as_str().unwrap();
+        // Should contain the annotated reasoning text.
+        assert!(
+            text.contains("[Previous model reasoning]"),
+            "text should contain reasoning annotation: {text}"
+        );
+        assert!(
+            text.contains("I considered the options"),
+            "text should contain reasoning summary: {text}"
+        );
+        // Should also contain the regular text.
+        assert!(
+            text.contains("Here is my answer."),
+            "text should contain regular text: {text}"
+        );
+    }
+
+    #[test]
+    fn convert_messages_skips_raw_output_without_summary() {
+        let request = ChatRequest {
+            model: "test-model".to_string(),
+            messages: vec![ChatMessage {
+                role: Role::Assistant,
+                content: vec![
+                    ContentBlock::RawOutput {
+                        original_type: "unknown_opaque".to_string(),
+                        value: json!({"type": "unknown_opaque", "data": "blob"}),
+                    },
+                    ContentBlock::Text {
+                        text: "Answer here.".to_string(),
+                    },
+                ],
+            }],
+            tools: None,
+            max_tokens: None,
+            temperature: None,
+            system: None,
+        };
+
+        let messages = convert_messages(&request);
+        assert_eq!(messages.len(), 1);
+        let content = messages[0].content.as_ref().unwrap();
+        let text = content.as_str().unwrap();
+        // No reasoning annotation — just the regular text.
+        assert_eq!(text, "Answer here.");
     }
 }

@@ -562,6 +562,7 @@ impl ToolLoopHandler for ChatHandler<'_> {
         message: String,
         citations: Vec<Citation>,
         tool_uses: &[Value],
+        raw_output: Option<Vec<Value>>,
     ) -> Result<ChatResult, ChatError> {
         // Filter out terminal tool_uses (respond / report_findings) — they
         // are control-flow tools, not real tool calls. Storing one without a
@@ -589,6 +590,7 @@ impl ToolLoopHandler for ChatHandler<'_> {
             &message,
             stored_tool_uses,
             None,
+            raw_output,
             Some(citations_to_values(&citations)),
         )
         .await?;
@@ -607,6 +609,7 @@ impl ToolLoopHandler for ChatHandler<'_> {
         &mut self,
         text: &str,
         tool_uses: &[Value],
+        raw_output: Option<Vec<Value>>,
     ) -> Result<(), ChatError> {
         db::sessions::create_message_with_metadata(
             self.session_chat.db(),
@@ -615,6 +618,7 @@ impl ToolLoopHandler for ChatHandler<'_> {
             text,
             Some(tool_uses.to_vec()),
             None,
+            raw_output,
             None,
         )
         .await?;
@@ -630,6 +634,7 @@ impl ToolLoopHandler for ChatHandler<'_> {
             None,
             Some(tool_results_to_values(results)),
             None,
+            None,
         )
         .await?;
         Ok(())
@@ -640,6 +645,7 @@ impl ToolLoopHandler for ChatHandler<'_> {
         message: String,
         stop_reason: StopReason,
         tool_uses: &[Value],
+        raw_output: Option<Vec<Value>>,
     ) -> Result<ChatResult, ChatError> {
         db::sessions::create_message_with_metadata(
             self.session_chat.db(),
@@ -648,6 +654,7 @@ impl ToolLoopHandler for ChatHandler<'_> {
             &message,
             Some(tool_uses.to_vec()),
             None,
+            raw_output,
             None,
         )
         .await?;
@@ -705,6 +712,7 @@ impl ToolLoopHandler for AgentHandler<'_> {
         message: String,
         citations: Vec<Citation>,
         tool_uses: &[Value],
+        raw_output: Option<Vec<Value>>,
     ) -> Result<ChatResult, ChatError> {
         db::sessions::create_message_with_metadata(
             self.session_chat.db(),
@@ -713,6 +721,7 @@ impl ToolLoopHandler for AgentHandler<'_> {
             &message,
             Some(tool_uses.to_vec()),
             None,
+            raw_output,
             Some(citations_to_values(&citations)),
         )
         .await?;
@@ -728,6 +737,7 @@ impl ToolLoopHandler for AgentHandler<'_> {
         &mut self,
         text: &str,
         tool_uses: &[Value],
+        raw_output: Option<Vec<Value>>,
     ) -> Result<(), ChatError> {
         db::sessions::create_message_with_metadata(
             self.session_chat.db(),
@@ -736,6 +746,7 @@ impl ToolLoopHandler for AgentHandler<'_> {
             text,
             Some(tool_uses.to_vec()),
             None,
+            raw_output,
             None,
         )
         .await?;
@@ -751,6 +762,7 @@ impl ToolLoopHandler for AgentHandler<'_> {
             None,
             Some(tool_results_to_values(results)),
             None,
+            None,
         )
         .await?;
         Ok(())
@@ -761,6 +773,7 @@ impl ToolLoopHandler for AgentHandler<'_> {
         message: String,
         stop_reason: StopReason,
         tool_uses: &[Value],
+        raw_output: Option<Vec<Value>>,
     ) -> Result<ChatResult, ChatError> {
         db::sessions::create_message_with_metadata(
             self.session_chat.db(),
@@ -769,6 +782,7 @@ impl ToolLoopHandler for AgentHandler<'_> {
             &message,
             Some(tool_uses.to_vec()),
             None,
+            raw_output,
             None,
         )
         .await?;
@@ -823,6 +837,7 @@ impl ToolLoopHandler for JobHandler {
         message: String,
         citations: Vec<Citation>,
         _tool_uses: &[Value],
+        _raw_output: Option<Vec<Value>>,
     ) -> Result<ChatResult, ChatError> {
         self.transcript_lines.push(format!("[assistant] {message}"));
         Ok(ChatResult {
@@ -836,6 +851,7 @@ impl ToolLoopHandler for JobHandler {
         &mut self,
         text: &str,
         _tool_uses: &[Value],
+        _raw_output: Option<Vec<Value>>,
     ) -> Result<(), ChatError> {
         if !text.is_empty() {
             self.transcript_lines.push(format!("[assistant] {text}"));
@@ -857,6 +873,7 @@ impl ToolLoopHandler for JobHandler {
         message: String,
         stop_reason: StopReason,
         _tool_uses: &[Value],
+        _raw_output: Option<Vec<Value>>,
     ) -> Result<ChatResult, ChatError> {
         self.transcript_lines.push(format!("[assistant] {message}"));
         Ok(ChatResult {

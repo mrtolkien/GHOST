@@ -6,10 +6,15 @@ use crate::tools::{REPORT_FINDINGS_TOOL_NAME, RESPOND_TOOL_NAME};
 
 use super::convert::{
     extract_latest_assistant_text, extract_text_content, extract_tool_use_blocks,
-    parse_respond_call,
+    parse_respond_call, raw_output_to_values,
 };
 use super::session::SessionChat;
 use super::types::{ChatError, ChatResult, ChatStopReason, Citation};
+
+/// Minimum number of `web_fetch` calls required before `report_findings` is
+/// accepted. If the agent tries to report with fewer fetches, the report is
+/// rejected and the agent is told to read more pages.
+const MIN_REPORT_FETCHES: usize = 5;
 
 /// Handler for tool loop events.
 ///
@@ -25,12 +30,14 @@ pub(super) trait ToolLoopHandler: Send {
         message: String,
         citations: Vec<Citation>,
         tool_uses: &[Value],
+        raw_output: Option<Vec<Value>>,
     ) -> Result<ChatResult, ChatError>;
 
     async fn on_assistant_tool_use(
         &mut self,
         text: &str,
         tool_uses: &[Value],
+        raw_output: Option<Vec<Value>>,
     ) -> Result<(), ChatError>;
 
     async fn on_tool_results(&mut self, results: &[ContentBlock]) -> Result<(), ChatError>;
@@ -40,6 +47,7 @@ pub(super) trait ToolLoopHandler: Send {
         message: String,
         stop_reason: StopReason,
         tool_uses: &[Value],
+        raw_output: Option<Vec<Value>>,
     ) -> Result<ChatResult, ChatError>;
 
     async fn post_tool_iteration(
@@ -73,7 +81,11 @@ pub(super) async fn run_tool_loop(
             temperature: None,
             system: Some(prompt),
         };
-        let response = session_chat.provider().chat(request).await?;
+        let response = session_chat
+            .provider()
+            .chat(request)
+            .await
+            .map_err(ChatError::from)?;
 
         match response.stop_reason {
             StopReason::ToolUse => {
@@ -91,13 +103,16 @@ pub(super) async fn run_tool_loop(
                 iterations += 1;
 
                 let tool_uses = extract_tool_use_blocks(&response.content);
+                let raw_output = raw_output_to_values(&response.content);
 
+                // Check for `respond` first (always accepted)
                 if let Some((message, mut citations)) =
                     parse_respond_call(RESPOND_TOOL_NAME, &tool_uses)
-                        .or_else(|| parse_respond_call(REPORT_FINDINGS_TOOL_NAME, &tool_uses))
                 {
                     session_chat.resolve_citation_urls(&mut citations);
-                    let result = handler.on_respond(message, citations, &tool_uses).await?;
+                    let result = handler
+                        .on_respond(message, citations, &tool_uses, raw_output.clone())
+                        .await?;
                     logfire::info!(
                         "tool loop complete (respond)",
                         iterations = iterations as u64,
@@ -107,9 +122,52 @@ pub(super) async fn run_tool_loop(
                     return Ok(result);
                 }
 
+                // Check for `report_findings` — enforce minimum web_fetch count
+                if let Some((message, mut citations)) =
+                    parse_respond_call(REPORT_FINDINGS_TOOL_NAME, &tool_uses)
+                {
+                    let fetch_count = count_web_fetches(history);
+                    if fetch_count < MIN_REPORT_FETCHES {
+                        // Reject the report and tell the agent to read more
+                        logfire::warn!(
+                            "report_findings rejected: insufficient web_fetch calls",
+                            fetch_count = fetch_count,
+                            min_required = MIN_REPORT_FETCHES,
+                        );
+                        history.push(ChatMessage {
+                            role: Role::Assistant,
+                            content: response.content,
+                        });
+                        history.push(ChatMessage {
+                            role: Role::User,
+                            content: vec![ContentBlock::Text {
+                                text: format!(
+                                    "REJECTED: You have only called web_fetch {fetch_count} \
+                                     times. You must read at least {MIN_REPORT_FETCHES} \
+                                     different pages before reporting. Go back to Step 3 and \
+                                     read more pages from the specialist sources you identified."
+                                ),
+                            }],
+                        });
+                        continue;
+                    }
+                    session_chat.resolve_citation_urls(&mut citations);
+                    let result = handler
+                        .on_respond(message, citations, &tool_uses, raw_output.clone())
+                        .await?;
+                    logfire::info!(
+                        "tool loop complete (report_findings)",
+                        iterations = iterations,
+                        citation_count = result.citations.len(),
+                        response_len = result.message.len(),
+                        web_fetches = fetch_count,
+                    );
+                    return Ok(result);
+                }
+
                 let assistant_text = extract_text_content(&response.content);
                 handler
-                    .on_assistant_tool_use(&assistant_text, &tool_uses)
+                    .on_assistant_tool_use(&assistant_text, &tool_uses, raw_output)
                     .await?;
 
                 history.push(ChatMessage {
@@ -131,9 +189,10 @@ pub(super) async fn run_tool_loop(
             }
             StopReason::EndTurn | StopReason::MaxTokens => {
                 let tool_uses = extract_tool_use_blocks(&response.content);
+                let raw_output = raw_output_to_values(&response.content);
                 let message = extract_text_content(&response.content);
                 let result = handler
-                    .on_end_turn(message, response.stop_reason, &tool_uses)
+                    .on_end_turn(message, response.stop_reason, &tool_uses, raw_output)
                     .await?;
                 logfire::info!(
                     "tool loop complete",
@@ -151,4 +210,13 @@ pub(super) async fn run_tool_loop(
             stop_reason: ChatStopReason::EndTurn,
         });
     }
+}
+
+/// Count how many `web_fetch` tool calls appear in the conversation history.
+fn count_web_fetches(history: &[ChatMessage]) -> usize {
+    history
+        .iter()
+        .flat_map(|msg| msg.content.iter())
+        .filter(|block| matches!(block, ContentBlock::ToolUse { name, .. } if name == "web_fetch"))
+        .count()
 }

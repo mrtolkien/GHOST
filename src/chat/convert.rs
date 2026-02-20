@@ -77,6 +77,17 @@ pub(super) fn convert_stored_message_to_provider_message(
             }
         }
     }
+    if let Some(raw_output) = message.raw_output {
+        for item in raw_output {
+            if let Some(original_type) = item.get("original_type").and_then(Value::as_str) {
+                let value = item.get("value").cloned().unwrap_or(Value::Null);
+                content.push(ContentBlock::RawOutput {
+                    original_type: original_type.to_string(),
+                    value,
+                });
+            }
+        }
+    }
     ChatMessage { role, content }
 }
 
@@ -166,6 +177,27 @@ pub(super) fn citations_to_values(citations: &[Citation]) -> Vec<Value> {
             })
         })
         .collect()
+}
+
+pub(super) fn raw_output_to_values(content: &[ContentBlock]) -> Option<Vec<Value>> {
+    let values: Vec<Value> = content
+        .iter()
+        .filter_map(|block| match block {
+            ContentBlock::RawOutput {
+                original_type,
+                value,
+            } => Some(json!({
+                "original_type": original_type,
+                "value": value,
+            })),
+            _ => None,
+        })
+        .collect();
+    if values.is_empty() {
+        None
+    } else {
+        Some(values)
+    }
 }
 
 pub(super) fn tool_results_to_values(results: &[ContentBlock]) -> Vec<Value> {

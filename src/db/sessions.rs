@@ -27,6 +27,7 @@ pub struct MessageRecord {
     pub content: String,
     pub tool_calls: Option<Vec<serde_json::Value>>,
     pub tool_results: Option<Vec<serde_json::Value>>,
+    pub raw_output: Option<Vec<serde_json::Value>>,
     pub citations: Option<Vec<serde_json::Value>>,
     pub created_at: Datetime,
 }
@@ -249,9 +250,10 @@ pub async fn create_message(
     role: &str,
     content: &str,
 ) -> Result<Thing, DatabaseError> {
-    create_message_with_metadata(db, session_id, role, content, None, None, None).await
+    create_message_with_metadata(db, session_id, role, content, None, None, None, None).await
 }
 
+#[allow(clippy::too_many_arguments)]
 #[tracing::instrument(skip_all, level = "debug", fields(session_id = %session_id, role = %role))]
 pub async fn create_message_with_metadata(
     db: &Surreal<Db>,
@@ -260,6 +262,7 @@ pub async fn create_message_with_metadata(
     content: &str,
     tool_calls: Option<Vec<serde_json::Value>>,
     tool_results: Option<Vec<serde_json::Value>>,
+    raw_output: Option<Vec<serde_json::Value>>,
     citations: Option<Vec<serde_json::Value>>,
 ) -> Result<Thing, DatabaseError> {
     let role = role.to_owned();
@@ -273,6 +276,7 @@ pub async fn create_message_with_metadata(
                 content = $content, \
                 tool_calls = $tool_calls, \
                 tool_results = $tool_results, \
+                raw_output = $raw_output, \
                 citations = $citations, \
                 created_at = time::now() \
              RETURN id",
@@ -282,6 +286,7 @@ pub async fn create_message_with_metadata(
         .bind(("content", content))
         .bind(("tool_calls", tool_calls))
         .bind(("tool_results", tool_results))
+        .bind(("raw_output", raw_output))
         .bind(("citations", citations)),
         "message",
         "create",
