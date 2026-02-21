@@ -107,12 +107,14 @@ source-discovery phase and go straight to trusted sources.
 
 ## Web Fetch Modes
 
-- **`--readability`**: Best for articles, blog posts, reviews. Strips navigation and
+- **`readability: true`**: Best for articles, blog posts, reviews. Strips navigation and
   sidebars, gives you the article body.
-- **Default** (no flags): Best for documentation, index pages, forums, search results.
-  Preserves full page structure.
-- **`--max-chars <N>`**: Use for very large pages. `--max-chars 30000` for long docs,
-  `--max-chars 10000` for quick overview.
+- **Default (no readability)**: Best for documentation, index pages, forums, product
+  listings, and price trackers. Preserves full page structure — important when you need
+  to see all items on the page.
+- **`max_chars`**: Only useful for genuinely enormous pages. The default limit is
+  generous enough for most pages. **Never truncate product listing or price tracker
+  pages** — you risk missing items listed further down.
 
 ## Query Crafting
 

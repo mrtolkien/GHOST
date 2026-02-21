@@ -61,70 +61,12 @@ async fn deep_research_agent_produces_findings() {
         result.message
     ));
 
-    // --- Assertions ---
-
-    // Non-trivial findings
-    assert!(
-        result.message.len() > 200,
-        "expected substantial findings (>200 chars), got {} chars",
-        result.message.len()
-    );
-
-    // Count web_fetch tool calls and collect URLs
-    let messages = ghost::db::sessions::list_messages_by_session(&env.db, &session)
-        .await
-        .expect("list agent messages");
-
-    let mut web_fetch_count = 0u32;
-    let mut web_fetch_urls: Vec<String> = Vec::new();
-
-    for msg in &messages {
-        if let Some(ref calls) = msg.tool_calls {
-            for call in calls {
-                let name = call
-                    .get("name")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or_default();
-                if name == "web_fetch" {
-                    web_fetch_count += 1;
-                    if let Some(url) = call
-                        .get("input")
-                        .and_then(|v| v.get("url"))
-                        .and_then(|v| v.as_str())
-                    {
-                        web_fetch_urls.push(url.to_string());
-                    }
-                }
-            }
-        }
-    }
-
-    env.log(format!("web_fetch calls: {web_fetch_count}"));
-    env.log(format!("web_fetch urls: {web_fetch_urls:?}"));
-
-    // Process quality: agent should fetch multiple pages
-    assert!(
-        web_fetch_count >= 5,
-        "expected >= 5 web_fetch calls, got {web_fetch_count}"
-    );
-
-    // Domain specialist check
-    let has_all3dp = web_fetch_urls.iter().any(|url| url.contains("all3dp.com"));
-    assert!(has_all3dp, "expected at least one all3dp.com fetch");
-
-    // Second domain specialist check (reddit favorite, best independant)
-    let has_aurora = web_fetch_urls
-        .iter()
-        .any(|url| url.contains("auroratechchannel.com"));
-    assert!(
-        has_aurora,
-        "expected at least one aurora tech channel fetch"
-    );
-
-    // Correct recommendation: the P2S should be in the list
-    let findings_lower = result.message.to_lowercase();
-    assert!(
-        findings_lower.contains("p2s"),
-        "expected 'P2S' in findings (case-insensitive)"
+    // --- Assertions (shared with e2e_research) ---
+    let metrics = env.collect_web_fetch_metrics(&session).await;
+    env.assert_research_quality(
+        &result.message,
+        &metrics,
+        &["all3dp.com", "auroratechchannel.com"],
+        &["p2s"],
     );
 }

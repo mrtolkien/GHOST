@@ -91,6 +91,26 @@ pub fn write_test_reference(
 // Live test infrastructure
 // ---------------------------------------------------------------------------
 
+/// Result from waiting for a background agent to complete.
+#[cfg(feature = "live-tests")]
+#[allow(dead_code)]
+pub struct AgentOutcome {
+    /// GHOST's follow-up response after receiving agent findings.
+    pub chat_result: ghost::chat::ChatResult,
+    /// The agent's session ID (for querying its messages/metrics).
+    pub agent_session: Thing,
+    /// The raw findings text from the agent.
+    pub findings: String,
+}
+
+/// Metrics collected from an agent session's web_fetch tool calls.
+#[cfg(feature = "live-tests")]
+#[allow(dead_code)]
+pub struct WebFetchMetrics {
+    pub count: u32,
+    pub urls: Vec<String>,
+}
+
 /// Environment for live e2e tests: fresh temp DB with real provider config.
 ///
 /// On drop, snapshots the workspace and diagnostic log to
@@ -346,7 +366,7 @@ impl LiveTestEnv {
         &self,
         session_id: &Thing,
         timeout_secs: u64,
-    ) -> Option<ghost::chat::ChatResult> {
+    ) -> Option<AgentOutcome> {
         use std::time::{Duration, Instant};
 
         let deadline = Instant::now() + Duration::from_secs(timeout_secs);
@@ -376,11 +396,13 @@ impl LiveTestEnv {
                         status.agent_name, status.message_count
                     ));
 
-                    // Log the agent's session for diagnostics
                     // agent_id is "session:xxxxx" — parse it back into a Thing
-                    if let Some((table, id)) = agent_id.split_once(':') {
-                        let agent_session_thing = surrealdb::sql::Thing::from((table, id));
-                        self.log_session_json("agent", &agent_session_thing).await;
+                    let agent_session = agent_id
+                        .split_once(':')
+                        .map(|(table, id)| Thing::from((table, id)));
+
+                    if let Some(ref thing) = agent_session {
+                        self.log_session_json("agent", thing).await;
                     }
 
                     let parent_id = parent.unwrap_or_else(|| session_id.clone());
@@ -401,7 +423,13 @@ impl LiveTestEnv {
                     let chat = self.chat();
                     let trigger = "[system] Research agent completed.";
                     match chat.chat(&parent_id.to_string(), trigger).await {
-                        Ok(result) => return Some(result),
+                        Ok(result) => {
+                            return Some(AgentOutcome {
+                                chat_result: result,
+                                agent_session: agent_session.unwrap_or_else(|| session_id.clone()),
+                                findings: findings.to_string(),
+                            });
+                        }
                         Err(e) => {
                             self.log(format!("ERROR: follow-up chat turn failed: {e}"));
                             return None;
@@ -417,6 +445,78 @@ impl LiveTestEnv {
     // -----------------------------------------------------------------
     // Assertion helpers
     // -----------------------------------------------------------------
+
+    /// Collect web_fetch metrics from an agent session's messages.
+    pub async fn collect_web_fetch_metrics(&self, session_id: &Thing) -> WebFetchMetrics {
+        let messages = ghost::db::sessions::list_messages_by_session(&self.db, session_id)
+            .await
+            .expect("list session messages for metrics");
+
+        let mut count = 0u32;
+        let mut urls = Vec::new();
+
+        for msg in &messages {
+            if let Some(ref calls) = msg.tool_calls {
+                for call in calls {
+                    let name = call
+                        .get("name")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or_default();
+                    if name == "web_fetch" {
+                        count += 1;
+                        if let Some(url) = call
+                            .get("input")
+                            .and_then(|v| v.get("url"))
+                            .and_then(|v| v.as_str())
+                        {
+                            urls.push(url.to_string());
+                        }
+                    }
+                }
+            }
+        }
+
+        WebFetchMetrics { count, urls }
+    }
+
+    /// Assert that research findings meet quality bar: substantial text,
+    /// minimum web_fetch count, expected domains fetched, expected keywords
+    /// present in findings. Panics with descriptive messages on failure.
+    pub fn assert_research_quality(
+        &self,
+        findings: &str,
+        metrics: &WebFetchMetrics,
+        expected_domains: &[&str],
+        expected_keywords: &[&str],
+    ) {
+        assert!(
+            findings.len() > 200,
+            "expected substantial findings (>200 chars), got {} chars",
+            findings.len()
+        );
+
+        self.log(format!("web_fetch calls: {}", metrics.count));
+        self.log(format!("web_fetch urls: {:?}", metrics.urls));
+
+        assert!(
+            metrics.count >= 5,
+            "expected >= 5 web_fetch calls, got {}",
+            metrics.count
+        );
+
+        for domain in expected_domains {
+            let found = metrics.urls.iter().any(|url| url.contains(domain));
+            assert!(found, "expected at least one fetch from {domain}");
+        }
+
+        let findings_lower = findings.to_lowercase();
+        for keyword in expected_keywords {
+            assert!(
+                findings_lower.contains(&keyword.to_lowercase()),
+                "expected '{keyword}' in findings (case-insensitive)"
+            );
+        }
+    }
 
     /// Check if a file exists under the workspace.
     pub fn workspace_file_exists(&self, relative_path: &str) -> bool {

@@ -30,8 +30,9 @@ async fn e2e_tool_smoke() {
 
 /// Initial research: ask about enclosed 3D printers, wait for agent findings.
 ///
-/// 3-minute hard timeout. Tests that the GHOST spawns a deep-research agent
-/// and the agent produces complete findings via `report_findings`.
+/// 6-minute hard timeout. Tests that the GHOST spawns a deep-research agent
+/// and the agent produces complete findings with quality assertions matching
+/// the direct `deep_research_agent_produces_findings` test.
 ///
 /// ```sh
 /// cargo test --features e2e-tests e2e_research -- --nocapture
@@ -49,10 +50,23 @@ async fn e2e_research() {
 
     env.log_session_json("chat", &session).await;
 
-    match result {
-        Ok(()) => env.log("test completed within timeout"),
-        Err(_) => env.log("TIMEOUT: test exceeded 3 minutes"),
-    }
+    let outcome = result
+        .expect("TIMEOUT: test exceeded 6 minutes")
+        .expect("no agent outcome — model didn't spawn an agent");
+
+    env.log(format!(
+        "agent findings ({} chars): {}",
+        outcome.findings.len(),
+        outcome.findings
+    ));
+
+    let metrics = env.collect_web_fetch_metrics(&outcome.agent_session).await;
+    env.assert_research_quality(
+        &outcome.findings,
+        &metrics,
+        &["all3dp.com", "auroratechchannel.com"],
+        &["p2s"],
+    );
 }
 
 /// Follow-up: run initial research, then send a refinement and test agent
@@ -83,37 +97,38 @@ async fn e2e_research_followup() {
 }
 
 #[cfg(feature = "e2e-tests")]
-async fn run_initial_research(env: &common::LiveTestEnv, session: &surrealdb::sql::Thing) {
+async fn run_initial_research(
+    env: &common::LiveTestEnv,
+    session: &surrealdb::sql::Thing,
+) -> Option<common::AgentOutcome> {
     let chat = env.chat();
     let result = chat
         .chat(
             &session.to_string(),
-            "I want to buy a new 3d printer. Enclosed, for home use. What do you recommend?",
+            "I want to buy a new enclosed 3D printer for home use, budget \
+             around $1000. Check specialist sites like all3dp.com and \
+             auroratechchannel.com, plus reddit discussions. I want specific \
+             model recommendations with prices, including any recently \
+             released models I might not know about.",
         )
         .await
         .expect("chat failed");
     env.log(format!("initial response: {}", result.message));
 
     let agent_ids = env.agent_runner.list_agent_ids().await;
-    if !agent_ids.is_empty() {
-        env.log(format!("agent(s) spawned: {}", agent_ids.join(", ")));
-
-        if let Some(agent_result) = env.wait_for_agents(session, 300).await {
-            env.log(format!(
-                "agent findings ({} chars): {}",
-                agent_result.message.len(),
-                agent_result.message
-            ));
-        }
-    } else {
+    if agent_ids.is_empty() {
         env.log("no agents spawned — model answered directly");
+        return None;
     }
+
+    env.log(format!("agent(s) spawned: {}", agent_ids.join(", ")));
+    env.wait_for_agents(session, 300).await
 }
 
 #[cfg(feature = "e2e-tests")]
 async fn run_research_with_followup(env: &common::LiveTestEnv, session: &surrealdb::sql::Thing) {
     // Phase 1: initial research
-    run_initial_research(env, session).await;
+    let _outcome = run_initial_research(env, session).await;
     env.log_session_json("chat_after_initial", session).await;
 
     // Phase 2: follow-up — should trigger agent continuation
@@ -134,8 +149,11 @@ async fn run_research_with_followup(env: &common::LiveTestEnv, session: &surreal
             "continuation agent(s): {}",
             cont_agent_ids.join(", ")
         ));
-        if let Some(cont_result) = env.wait_for_agents(session, 120).await {
-            env.log(format!("continuation result: {}", cont_result.message));
+        if let Some(cont_outcome) = env.wait_for_agents(session, 120).await {
+            env.log(format!(
+                "continuation result: {}",
+                cont_outcome.chat_result.message
+            ));
         }
     } else {
         env.log("no continuation agent spawned — model answered directly");
