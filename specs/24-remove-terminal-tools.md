@@ -13,13 +13,9 @@ solve:
 2. **Fragile interception**: the tool loop has special-case code to detect these tools,
    parse their arguments, filter them from stored tool_calls, and handle rejection
    (report_findings minimum fetch check). This adds ~60 lines of branching logic.
-3. **Agent prompt coupling**: the deep research agent prompt has 9 references to
-   `report_findings`. When the tool was available, the model used it. When removed from
-   `all_available()` but still in the prompt, the model tried and failed. The prompt
-   should just say "write your report as plain text."
-4. **Citations work without a tool**: citations can be extracted from tool_use history
+3. **Citations work without a tool**: citations can be extracted from tool_use history
    (web_fetch URLs, knowledge_search results) rather than requiring the model to
-   enumerate them in a tool call.
+   enumerate them in a tool call. It will be done at a later date.
 
 ## Changes
 

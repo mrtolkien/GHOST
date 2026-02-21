@@ -328,7 +328,6 @@ mod tests {
             tool_calls,
             tool_results,
             raw_output: None,
-            citations: None,
             created_at: Datetime::default(),
         }
     }

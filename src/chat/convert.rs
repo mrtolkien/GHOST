@@ -1,5 +1,3 @@
-use std::path::Path;
-
 use serde_json::{Value, json};
 use surrealdb::sql::Thing;
 
@@ -7,7 +5,7 @@ use crate::db;
 use crate::providers::{ChatMessage, ContentBlock, Role};
 use crate::tools::ToolError;
 
-use super::types::{ChatError, Citation, StructuredResponse};
+use super::types::ChatError;
 
 pub(super) fn parse_session_thing(session_id: &str) -> Result<Thing, ChatError> {
     if session_id.contains(':') {
@@ -130,55 +128,6 @@ pub(super) fn extract_latest_assistant_text(history: &[ChatMessage]) -> String {
         .unwrap_or_default()
 }
 
-/// Check if any tool call in `tool_uses` is the `respond` output tool.
-/// Returns `Some((message, citations))` if found, `None` otherwise.
-pub(super) fn parse_respond_call(
-    respond_name: &str,
-    tool_uses: &[Value],
-) -> Option<(String, Vec<Citation>)> {
-    for call in tool_uses {
-        let name = call.get("name").and_then(Value::as_str)?;
-        if name != respond_name {
-            continue;
-        }
-        let input = call.get("input")?;
-        let parsed: StructuredResponse = match serde_json::from_value(input.clone()) {
-            Ok(v) => v,
-            Err(e) => {
-                logfire::warn!(
-                    "respond tool arguments failed to parse",
-                    error = e.to_string(),
-                );
-                return None;
-            }
-        };
-        let citations = parsed
-            .citations
-            .into_iter()
-            .map(|c| Citation {
-                source: c.source,
-                url: None,
-                context: c.context,
-            })
-            .collect();
-        return Some((parsed.message, citations));
-    }
-    None
-}
-
-pub(super) fn citations_to_values(citations: &[Citation]) -> Vec<Value> {
-    citations
-        .iter()
-        .map(|citation| {
-            json!({
-                "source": citation.source,
-                "url": citation.url,
-                "context": citation.context
-            })
-        })
-        .collect()
-}
-
 pub(super) fn raw_output_to_values(content: &[ContentBlock]) -> Option<Vec<Value>> {
     let values: Vec<Value> = content
         .iter()
@@ -216,33 +165,6 @@ pub(super) fn tool_results_to_values(results: &[ContentBlock]) -> Vec<Value> {
             _ => None,
         })
         .collect()
-}
-
-pub(super) fn resolve_web_cache_url(workspace: &Path, source: &str) -> Option<String> {
-    let path = workspace.join(source);
-    let content = std::fs::read_to_string(path).ok()?;
-    let mut lines = content.lines();
-    if lines.next()? != "---" {
-        return None;
-    }
-    for line in lines {
-        if line == "---" {
-            break;
-        }
-        if let Some(value) = line.strip_prefix("url:") {
-            let url = value.trim().trim_matches('"');
-            if !url.is_empty() {
-                return Some(url.to_string());
-            }
-        }
-        if let Some(value) = line.strip_prefix("source_url:") {
-            let url = value.trim().trim_matches('"');
-            if !url.is_empty() {
-                return Some(url.to_string());
-            }
-        }
-    }
-    None
 }
 
 pub(super) fn render_tool_error(error: ToolError) -> String {

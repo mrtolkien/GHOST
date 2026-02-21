@@ -12,7 +12,7 @@ use surrealdb::engine::local::Db;
 use tokio::task::JoinHandle;
 use tracing::{error, info, warn};
 
-use crate::chat::{ChatStopReason, Citation, SessionChat};
+use crate::chat::{ChatStopReason, SessionChat};
 use crate::config::Config;
 use crate::db;
 
@@ -200,27 +200,6 @@ impl Handler {
     }
 }
 
-/// Format citation footnotes for display after the response.
-fn format_citations(citations: &[Citation]) -> String {
-    if citations.is_empty() {
-        return String::new();
-    }
-
-    let mut lines = Vec::with_capacity(citations.len() + 2);
-    lines.push("\n---\nSources:".to_string());
-
-    for (i, citation) in citations.iter().enumerate() {
-        let label = if let Some(url) = &citation.url {
-            format!("[{}] <{url}>", i + 1)
-        } else {
-            format!("[{}] {}", i + 1, citation.source)
-        };
-        lines.push(label);
-    }
-
-    lines.join("\n")
-}
-
 #[async_trait]
 impl EventHandler for Handler {
     #[tracing::instrument(skip_all, fields(
@@ -323,10 +302,8 @@ impl EventHandler for Handler {
         // Chat with GHOST
         match self.session_chat.chat(&session_id, &full_content).await {
             Ok(result) => {
-                let mut response = result.message;
-                response.push_str(&format_citations(&result.citations));
-
-                if let Err(e) = send_assistant_v2(&ctx.http, msg.channel_id, &response).await {
+                if let Err(e) = send_assistant_v2(&ctx.http, msg.channel_id, &result.message).await
+                {
                     error!(
                         session_id = %session_id,
                         error = %e,

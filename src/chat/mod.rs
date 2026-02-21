@@ -5,4 +5,4 @@ mod tool_loop;
 mod types;
 
 pub use session::SessionChat;
-pub use types::{ChatError, ChatResult, ChatStopReason, Citation, JobTranscript};
+pub use types::{ChatError, ChatResult, ChatStopReason, JobTranscript};

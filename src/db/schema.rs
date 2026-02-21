@@ -24,8 +24,6 @@ DEFINE FIELD tool_results ON message TYPE option<array>;
 DEFINE FIELD tool_results.* ON message FLEXIBLE TYPE object;
 DEFINE FIELD raw_output ON message TYPE option<array>;
 DEFINE FIELD raw_output.* ON message FLEXIBLE TYPE object;
-DEFINE FIELD citations ON message TYPE option<array>;
-DEFINE FIELD citations.* ON message FLEXIBLE TYPE object;
 DEFINE FIELD created_at ON message TYPE datetime;
 DEFINE INDEX idx_message_session ON message FIELDS session, created_at;
 

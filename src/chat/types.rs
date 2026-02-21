@@ -6,13 +6,6 @@ use crate::providers::{ProviderError, ProviderInitError};
 
 pub const DEFAULT_MAX_TOOL_ITERATIONS: usize = 25;
 
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
-pub struct Citation {
-    pub source: String,
-    pub url: Option<String>,
-    pub context: Option<String>,
-}
-
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
 pub enum ChatStopReason {
     EndTurn,
@@ -23,7 +16,6 @@ pub enum ChatStopReason {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ChatResult {
     pub message: String,
-    pub citations: Vec<Citation>,
     pub stop_reason: ChatStopReason,
 }
 
@@ -58,17 +50,4 @@ impl From<DatabaseError> for ChatError {
     fn from(e: DatabaseError) -> Self {
         ChatError::Database(Box::new(e))
     }
-}
-
-#[derive(Debug, Deserialize)]
-pub(super) struct StructuredResponse {
-    pub message: String,
-    #[serde(default)]
-    pub citations: Vec<StructuredCitation>,
-}
-
-#[derive(Debug, Deserialize)]
-pub(super) struct StructuredCitation {
-    pub source: String,
-    pub context: Option<String>,
 }

@@ -735,15 +735,13 @@ pub fn response(content: Vec<ContentBlock>, stop_reason: StopReason) -> ChatResp
     }
 }
 
-/// Build a mock response that calls the `respond` output tool.
+/// Build a mock response that ends the turn with a plain text message.
 #[allow(dead_code)]
-pub fn respond_response(message: &str, citations: Vec<serde_json::Value>) -> ChatResponse {
+pub fn respond_response(message: &str, _citations: Vec<serde_json::Value>) -> ChatResponse {
     response(
-        vec![ContentBlock::ToolUse {
-            id: "respond_1".to_string(),
-            name: "respond".to_string(),
-            input: json!({"message": message, "citations": citations}),
+        vec![ContentBlock::Text {
+            text: message.to_string(),
         }],
-        StopReason::ToolUse,
+        StopReason::EndTurn,
     )
 }

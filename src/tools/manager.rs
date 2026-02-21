@@ -60,7 +60,6 @@ impl ToolManager {
         manager.register(Arc::new(super::knowledge_search::KnowledgeSearch));
         manager.register(Arc::new(super::web_search::WebSearch));
         manager.register(Arc::new(super::web_fetch::WebFetch));
-        manager.register(Arc::new(super::respond::Respond));
         manager.register(Arc::new(super::agent_control::AgentControl));
         manager
     }
@@ -93,9 +92,7 @@ impl ToolManager {
 
     /// Build a registry containing every tool the system knows about.
     fn all_available() -> Self {
-        let mut manager = Self::for_reflection();
-        manager.register(Arc::new(super::report_findings::ReportFindings));
-        manager
+        Self::for_reflection()
     }
 
     #[must_use]

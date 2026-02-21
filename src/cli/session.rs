@@ -97,15 +97,6 @@ pub async fn execute(command: SessionCommand) -> Result<(), GhostError> {
                             .unwrap_or_else(|_| "<invalid tool payload>".to_string())
                     );
                 }
-                if let Some(citations) = message.citations
-                    && !citations.is_empty()
-                {
-                    println!(
-                        "         cited: {}",
-                        serde_json::to_string(&citations)
-                            .unwrap_or_else(|_| "<invalid citation payload>".to_string())
-                    );
-                }
             }
             Ok(())
         }
