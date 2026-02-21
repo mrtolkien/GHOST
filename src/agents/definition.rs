@@ -353,6 +353,6 @@ Also: {{query}}
         assert!(def.tools.contains(&"web_search".to_string()));
         assert!(def.tools.contains(&"web_fetch".to_string()));
         assert!(def.tools.contains(&"todo".to_string()));
-        assert!(def.system_prompt_template.contains("{{ query }}"));
+        assert!(def.system_prompt_template.contains("{{ date }}"));
     }
 }

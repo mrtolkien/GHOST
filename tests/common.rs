@@ -438,6 +438,13 @@ impl LiveTestEnv {
         list_files_in(self.workspace.path(), "references")
     }
 
+    /// Load an agent definition from the temp workspace (populated by
+    /// `install_default_agents()` during bootstrap).
+    pub fn load_agent(&self, name: &str) -> ghost::agents::AgentDefinition {
+        ghost::agents::load_agent(&self.config.workspace, name)
+            .unwrap_or_else(|e| panic!("load agent '{name}': {e}"))
+    }
+
     /// Recursively search for any file under a workspace subdirectory
     /// whose content contains a string.
     pub fn find_file_containing(&self, dir: &str, needle: &str) -> bool {

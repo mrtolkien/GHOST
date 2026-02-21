@@ -51,6 +51,12 @@ creates a fresh temp workspace and database. On drop it snapshots the workspace 
 | `env.run_heartbeat(&session_id)`                    | Load prompt, run heartbeat via `chat_job`, return `JobTranscript` |
 | `env.run_reflection(&session_id, previous_handoff)` | Load + interpolate reflection prompt, run with reflection tools   |
 
+### Agent Helpers
+
+| Method                   | Purpose                                                       |
+| ------------------------ | ------------------------------------------------------------- |
+| `env.load_agent("name")` | Load agent definition from temp workspace (repo-current copy) |
+
 ### Assertion Helpers
 
 | Method                                         | Purpose                                           |
@@ -88,3 +94,10 @@ async fn my_live_test() {
     assert!(!result.result.message.trim().is_empty());
 }
 ```
+
+## Isolation Rule
+
+Live tests must **never** load data from the user's real workspace (`~/GHOST/`). Always
+use `LiveTestEnv` which provides a fresh temp workspace with repo-current agent
+definitions (via `include_str!` + `install_default_agents()`). The real workspace may
+contain stale agent prompts referencing deleted tools.

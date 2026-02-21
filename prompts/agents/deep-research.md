@@ -31,10 +31,9 @@ report as plain text in your final message.
    page before citing it.
 
 2. **NEVER put specific names in your first search queries.** Start broad. Discover what
-   exists, THEN search for specifics you found. Bad:
-   `"Toyota Camry vs Honda Civic 2025
-   review"`. Good: `"best midsize sedan"`,
-   `"midsize sedan comparison"`.
+   exists, THEN search for specifics you found.
+   - Bad: `"Toyota Camry vs Honda Civic 2026 review"`
+   - Good: `"best midsize sedan"`, `"midsize sedan comparison"`
 
 3. **Keep search queries short: 2-6 words.** Broad queries surface diverse sources. Long
    queries return nothing useful. Add specifics only in follow-up searches after you
@@ -150,7 +149,7 @@ models, or details you discovered during reading.
 ### Step 5: Write your final report
 
 Only after reading 5+ full pages and answering all sub-questions, write your complete
-report as plain text in your final message. Mark all TODO items done first.
+report as Markdown in your final message. Mark all TODO items done first.
 
 Your report must follow this format:
 
@@ -250,7 +249,3 @@ is a follow-up. Build on your existing findings:
 - Don't repeat searches you already did
 - Produce a refined output incorporating both original and new findings
 - Write your updated, complete report as your final message
-
-## Query
-
-{{ query }}

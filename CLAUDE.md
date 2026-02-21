@@ -180,6 +180,10 @@ Iterate until all spec items are built and tested:
   them, ask the user.
 - Test harness reference (all helpers, mock types, `LiveTestEnv` API):
   `specs/notes/test-harness.md`
+- **Live test isolation rule**: Live tests must NEVER load data from the user's real
+  workspace (`~/GHOST/`). Always use `LiveTestEnv` which provides a fresh temp workspace
+  with repo-current agent definitions (via `include_str!` + `install_default_agents()`).
+  The real workspace may contain stale agent prompts referencing deleted tools.
 
 ### Test Readability (NON-NEGOTIABLE)
 

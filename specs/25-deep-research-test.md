@@ -1,4 +1,4 @@
-# Spec 23: Deep Research Agent Live Test
+# Spec 25: Deep Research Agent Live Test
 
 ## Problem
 
@@ -79,7 +79,8 @@ definitions. The real workspace retains agent files from first install
 (`install_default_agents` only writes if file doesn't exist), so it may contain stale
 prompts referencing deleted tools.
 
-This should be added to CLAUDE.md under Testing Strategy.
+This should be added to CLAUDE.md under Testing Strategy, or in a dedicated notes in
+specs/notes that is referenced in CLAUDE.md.
 
 ## Files
 
