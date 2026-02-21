@@ -15,7 +15,6 @@ use crate::providers::types::{ChatRequest, ChatResponse, ContentBlock, Provider,
 
 const OPENAI_CODEX_RESPONSES_URL: &str = "https://chatgpt.com/backend-api/codex/responses";
 const JWT_AUTH_CLAIM_PATH: &str = "https://api.openai.com/auth";
-const DEFAULT_EMPTY_RESPONSE_RETRIES: u8 = 2;
 
 #[derive(Debug)]
 pub struct OpenAiOAuthProvider {
@@ -23,7 +22,6 @@ pub struct OpenAiOAuthProvider {
     oauth_client: OpenAiOAuthClient,
     token_store: TokenStore,
     circuit_breaker: CircuitBreaker,
-    empty_response_retries: u8,
     endpoint: String,
     static_headers: HeaderMap,
     debug_save_requests: bool,
@@ -63,7 +61,6 @@ impl OpenAiOAuthProvider {
             oauth_client,
             token_store,
             circuit_breaker: CircuitBreaker::default(),
-            empty_response_retries: DEFAULT_EMPTY_RESPONSE_RETRIES,
             endpoint: OPENAI_CODEX_RESPONSES_URL.to_string(),
             static_headers,
             debug_save_requests: false,
@@ -216,6 +213,8 @@ impl OpenAiOAuthProvider {
             model = parsed.model.clone(),
             input_tokens = parsed.usage.input_tokens,
             output_tokens = parsed.usage.output_tokens,
+            cache_read_tokens = parsed.usage.cache_read_tokens.unwrap_or(0),
+            cache_creation_tokens = parsed.usage.cache_creation_tokens.unwrap_or(0),
             duration_ms = started.elapsed().as_millis() as u64,
             stop_reason = format!("{:?}", parsed.stop_reason),
             tool_calls = tool_call_summary,
@@ -228,28 +227,7 @@ impl OpenAiOAuthProvider {
 #[async_trait]
 impl Provider for OpenAiOAuthProvider {
     async fn chat(&self, request: ChatRequest) -> Result<ChatResponse, ProviderError> {
-        let max_attempts = usize::from(self.empty_response_retries) + 1;
-        for attempt in 0..max_attempts {
-            match self.send_request(&request).await {
-                Ok(response) => return Ok(response),
-                Err(ProviderError::EmptyResponse { ref detail }) if attempt + 1 < max_attempts => {
-                    let delay_secs = 2u64.pow(attempt as u32);
-                    logfire::warn!(
-                        "provider returned empty response; retrying after {delay_secs}s",
-                        provider = "openai_oauth",
-                        model = request.model.clone(),
-                        attempt = attempt + 1,
-                        delay_secs = delay_secs,
-                        detail = detail.clone(),
-                    );
-                    tokio::time::sleep(std::time::Duration::from_secs(delay_secs)).await;
-                }
-                Err(error) => return Err(error),
-            }
-        }
-        Err(ProviderError::EmptyResponse {
-            detail: "exhausted retries".to_string(),
-        })
+        self.send_request(&request).await
     }
 
     fn name(&self) -> &str {

@@ -368,6 +368,7 @@ pub(super) fn parse_codex_response_value(
             let item_type = item.get("type").and_then(Value::as_str).unwrap_or("");
             match item_type {
                 "message" => {
+                    let mut found_text = false;
                     if let Some(parts) = item.get("content").and_then(Value::as_array) {
                         for part in parts {
                             if let Some(text) = part
@@ -379,8 +380,15 @@ pub(super) fn parse_codex_response_value(
                                 content.push(ContentBlock::Text {
                                     text: text.to_string(),
                                 });
+                                found_text = true;
                             }
                         }
+                    }
+                    if !found_text {
+                        content.push(ContentBlock::RawOutput {
+                            original_type: "message".to_string(),
+                            value: item.clone(),
+                        });
                     }
                 }
                 "function_call" => {
@@ -398,6 +406,15 @@ pub(super) fn parse_codex_response_value(
                             id: call_id.to_string(),
                             name: name.to_string(),
                             input,
+                        });
+                    } else {
+                        logfire::warn!(
+                            "codex: malformed function_call item (missing call_id or name)",
+                            item = item.to_string(),
+                        );
+                        content.push(ContentBlock::RawOutput {
+                            original_type: "function_call".to_string(),
+                            value: item.clone(),
                         });
                     }
                 }
@@ -427,48 +444,31 @@ pub(super) fn parse_codex_response_value(
         });
     }
 
-    let has_usable = content
-        .iter()
-        .any(|b| !matches!(b, ContentBlock::RawOutput { .. }));
-    if !has_usable {
-        if content.is_empty() {
-            let status = value
-                .get("status")
-                .and_then(Value::as_str)
-                .unwrap_or("unknown");
-            let output_len = value
-                .get("output")
-                .and_then(Value::as_array)
-                .map_or(0, |a| a.len());
-            let output_text_present = value.get("output_text").is_some();
-            let raw_preview: String = value.to_string().chars().take(500).collect();
-            let status_owned = status.to_string();
-            logfire::warn!(
-                "codex response has no content blocks",
-                status = status_owned,
-                model = model.clone(),
-                output_items = output_len as u64,
-                output_text_present = output_text_present,
-                raw_preview = raw_preview,
-            );
-            return Err(ProviderError::EmptyResponse {
-                detail: format!(
-                    "codex response has no content blocks (status: {status}, \
-                     model: {model}, output_items: {output_len})"
-                ),
-            });
-        }
-        // Content exists but only opaque items (e.g. reasoning) — no
-        // usable Text or ToolUse blocks.
-        let types: Vec<_> = content
-            .iter()
-            .filter_map(|b| match b {
-                ContentBlock::RawOutput { original_type, .. } => Some(original_type.as_str()),
-                _ => None,
-            })
-            .collect();
+    if content.is_empty() {
+        let status = value
+            .get("status")
+            .and_then(Value::as_str)
+            .unwrap_or("unknown");
+        let output_len = value
+            .get("output")
+            .and_then(Value::as_array)
+            .map_or(0, |a| a.len());
+        let output_text_present = value.get("output_text").is_some();
+        let raw_preview: String = value.to_string().chars().take(500).collect();
+        let status_owned = status.to_string();
+        logfire::warn!(
+            "codex response has no content blocks",
+            status = status_owned,
+            model = model.clone(),
+            output_items = output_len as u64,
+            output_text_present = output_text_present,
+            raw_preview = raw_preview,
+        );
         return Err(ProviderError::EmptyResponse {
-            detail: format!("no usable content (only opaque items: {types:?})"),
+            detail: format!(
+                "codex response has no content blocks (status: {status}, \
+                 model: {model}, output_items: {output_len})"
+            ),
         });
     }
 
@@ -748,7 +748,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_response_reasoning_only_is_empty_response() {
+    fn parse_response_reasoning_only_returns_raw_output() {
         let response_value = json!({
             "model": "gpt-5.3-codex",
             "status": "completed",
@@ -761,16 +761,14 @@ mod tests {
             "usage": { "input_tokens": 50, "output_tokens": 10 }
         });
 
-        let err = parse_codex_response_value(&response_value, "fallback")
-            .expect_err("should be empty response");
-        let detail = match &err {
-            ProviderError::EmptyResponse { detail } => detail.clone(),
-            other => panic!("expected EmptyResponse, got {other:?}"),
-        };
-        assert!(
-            detail.contains("reasoning"),
-            "detail should mention reasoning: {detail}"
-        );
+        let parsed = parse_codex_response_value(&response_value, "fallback")
+            .expect("reasoning-only should succeed");
+        assert_eq!(parsed.content.len(), 1);
+        assert!(matches!(
+            &parsed.content[0],
+            ContentBlock::RawOutput { original_type, .. } if original_type == "reasoning"
+        ));
+        assert_eq!(parsed.stop_reason, StopReason::EndTurn);
     }
 
     #[test]

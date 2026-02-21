@@ -15,7 +15,6 @@ use crate::providers::types::{ChatRequest, ChatResponse, Provider, ProviderError
 pub struct OpenAiCompatibleProvider {
     client: reqwest::Client,
     circuit_breaker: CircuitBreaker,
-    empty_response_retries: u8,
     endpoint: String,
     provider_name: &'static str,
     debug_save_requests: bool,
@@ -30,7 +29,6 @@ impl OpenAiCompatibleProvider {
         auth_env_var: &'static str,
         mut default_headers: HeaderMap,
         extra_headers: BTreeMap<String, String>,
-        empty_response_retries: u8,
     ) -> Result<Self, ProviderError> {
         let api_key = std::env::var(auth_env_var)
             .map_err(|_| ProviderError::Auth(format!("{auth_env_var} is not set")))?;
@@ -61,7 +59,6 @@ impl OpenAiCompatibleProvider {
         Ok(Self {
             client,
             circuit_breaker: CircuitBreaker::default(),
-            empty_response_retries,
             endpoint: endpoint.to_string(),
             provider_name,
             debug_save_requests: false,
@@ -77,15 +74,10 @@ impl OpenAiCompatibleProvider {
     }
 
     #[cfg(test)]
-    pub(crate) fn new_for_tests(
-        provider_name: &'static str,
-        endpoint: impl Into<String>,
-        empty_response_retries: u8,
-    ) -> Self {
+    pub(crate) fn new_for_tests(provider_name: &'static str, endpoint: impl Into<String>) -> Self {
         Self {
             client: reqwest::Client::new(),
             circuit_breaker: CircuitBreaker::new(2, std::time::Duration::from_secs(10)),
-            empty_response_retries,
             endpoint: endpoint.into(),
             provider_name,
             debug_save_requests: false,
@@ -227,6 +219,8 @@ impl OpenAiCompatibleProvider {
             model = parsed.model.clone(),
             input_tokens = parsed.usage.input_tokens,
             output_tokens = parsed.usage.output_tokens,
+            cache_read_tokens = parsed.usage.cache_read_tokens.unwrap_or(0),
+            cache_creation_tokens = parsed.usage.cache_creation_tokens.unwrap_or(0),
             duration_ms = started.elapsed().as_millis() as u64,
             stop_reason = format!("{:?}", parsed.stop_reason),
             tool_calls = tool_call_summary,
@@ -240,44 +234,7 @@ impl OpenAiCompatibleProvider {
 #[async_trait]
 impl Provider for OpenAiCompatibleProvider {
     async fn chat(&self, request: ChatRequest) -> Result<ChatResponse, ProviderError> {
-        let max_attempts = usize::from(self.empty_response_retries) + 1;
-        for attempt in 0..max_attempts {
-            if attempt > 0 {
-                logfire::info!(
-                    "provider chat retry",
-                    provider = self.provider_name,
-                    model = request.model.clone(),
-                    attempt = (attempt + 1) as u64,
-                    max_attempts = max_attempts as u64
-                );
-            }
-            match self.send_request(&request).await {
-                Ok(response) => return Ok(response),
-                Err(ProviderError::EmptyResponse { ref detail }) if attempt + 1 < max_attempts => {
-                    let delay_secs = 2u64.pow(attempt as u32);
-                    logfire::warn!(
-                        "provider returned empty response; retrying after {delay_secs}s",
-                        provider = self.provider_name,
-                        model = request.model.clone(),
-                        attempt = attempt + 1,
-                        delay_secs = delay_secs,
-                        detail = detail.clone(),
-                    );
-                    tokio::time::sleep(std::time::Duration::from_secs(delay_secs)).await;
-                }
-                Err(error) => return Err(error),
-            }
-        }
-
-        logfire::error!(
-            "provider exhausted empty-response retries",
-            provider = self.provider_name,
-            model = request.model.clone(),
-            max_attempts = max_attempts as u64
-        );
-        Err(ProviderError::EmptyResponse {
-            detail: "exhausted retries".to_string(),
-        })
+        self.send_request(&request).await
     }
 
     fn name(&self) -> &str {

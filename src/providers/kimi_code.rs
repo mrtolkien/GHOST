@@ -9,7 +9,6 @@ use crate::providers::types::{ChatRequest, ChatResponse, Provider, ProviderError
 const KIMI_CHAT_COMPLETIONS_URL: &str = "https://api.kimi.com/coding/v1/chat/completions";
 const KIMI_API_KEY_ENV: &str = "KIMI_API_KEY";
 const DEFAULT_KIMI_USER_AGENT: &str = "KimiCLI/1.12.0";
-const DEFAULT_EMPTY_RESPONSE_RETRIES: u8 = 2;
 
 #[derive(Debug)]
 pub struct KimiCodeProvider {
@@ -31,7 +30,6 @@ impl KimiCodeProvider {
             KIMI_API_KEY_ENV,
             headers,
             extra_headers,
-            DEFAULT_EMPTY_RESPONSE_RETRIES,
         )?;
         Ok(Self { inner })
     }

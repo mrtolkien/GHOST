@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use serde_json::Value;
 
-use crate::providers::types::DebugContext;
+use crate::providers::types::{DebugContext, ProviderError};
 use crate::providers::{ChatMessage, ChatRequest, ContentBlock, Role, StopReason};
 use crate::tools::{REPORT_FINDINGS_TOOL_NAME, RESPOND_TOOL_NAME};
 
@@ -71,6 +71,7 @@ pub(super) async fn run_tool_loop(
 ) -> Result<ChatResult, ChatError> {
     let mut iterations = 0usize;
     let mut last_result: Option<ChatResult> = None;
+    let mut retried_empty = false;
 
     loop {
         let prompt = handler.system_prompt()?;
@@ -194,8 +195,34 @@ pub(super) async fn run_tool_loop(
             }
             StopReason::EndTurn | StopReason::MaxTokens => {
                 let tool_uses = extract_tool_use_blocks(&response.content);
-                let raw_output = raw_output_to_values(&response.content);
                 let message = extract_text_content(&response.content);
+
+                // Detect empty EndTurn: no text and no tool calls.
+                if message.is_empty() && tool_uses.is_empty() {
+                    let content_json = serde_json::to_string(&response.content)
+                        .unwrap_or_else(|e| format!("<serialization failed: {e}>"));
+                    if !retried_empty {
+                        logfire::warn!(
+                            "empty EndTurn response, retrying",
+                            iterations = iterations as u64,
+                            stop_reason = format!("{:?}", response.stop_reason),
+                            content = content_json,
+                        );
+                        retried_empty = true;
+                        continue;
+                    }
+                    logfire::error!(
+                        "empty EndTurn response after retry",
+                        iterations = iterations as u64,
+                        stop_reason = format!("{:?}", response.stop_reason),
+                        content = content_json,
+                    );
+                    return Err(ChatError::Provider(ProviderError::EmptyResponse {
+                        detail: "provider returned empty EndTurn twice".to_string(),
+                    }));
+                }
+
+                let raw_output = raw_output_to_values(&response.content);
                 let result = handler
                     .on_end_turn(message, response.stop_reason, &tool_uses, raw_output)
                     .await?;

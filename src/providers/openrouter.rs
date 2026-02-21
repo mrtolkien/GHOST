@@ -8,7 +8,6 @@ use crate::providers::types::{ChatRequest, ChatResponse, Provider, ProviderError
 
 const OPENROUTER_CHAT_COMPLETIONS_URL: &str = "https://openrouter.ai/api/v1/chat/completions";
 const OPENROUTER_API_KEY_ENV: &str = "OPENROUTER_API_KEY";
-const DEFAULT_EMPTY_RESPONSE_RETRIES: u8 = 2;
 
 #[derive(Debug)]
 pub struct OpenRouterProvider {
@@ -27,7 +26,6 @@ impl OpenRouterProvider {
             OPENROUTER_API_KEY_ENV,
             headers,
             extra_headers,
-            DEFAULT_EMPTY_RESPONSE_RETRIES,
         )?;
         Ok(Self { inner })
     }
@@ -37,13 +35,9 @@ impl OpenRouterProvider {
     }
 
     #[cfg(test)]
-    fn new_for_tests(endpoint: impl Into<String>, empty_response_retries: u8) -> Self {
+    fn new_for_tests(endpoint: impl Into<String>) -> Self {
         Self {
-            inner: OpenAiCompatibleProvider::new_for_tests(
-                "openrouter",
-                endpoint,
-                empty_response_retries,
-            ),
+            inner: OpenAiCompatibleProvider::new_for_tests("openrouter", endpoint),
         }
     }
 }
@@ -70,7 +64,7 @@ mod tests {
     use tokio::net::{TcpListener, TcpStream};
 
     use super::*;
-    use crate::providers::types::{ContentBlock, StopReason, user_message};
+    use crate::providers::types::user_message;
 
     #[tokio::test]
     async fn maps_rate_limits_to_provider_error() {
@@ -81,7 +75,7 @@ mod tests {
         )])
         .await;
 
-        let provider = OpenRouterProvider::new_for_tests(server.url(), 0);
+        let provider = OpenRouterProvider::new_for_tests(server.url());
         let request = request_without_tools();
         let error = provider.chat(request).await.expect_err("expected 429");
         match error {
@@ -93,44 +87,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn retries_empty_response() {
-        let server = MockServer::start(vec![
-            MockResponse::json(
-                200,
-                None,
-                json!({
-                    "model": "moonshotai/kimi-k2.5",
-                    "choices": [{"message": {"role": "assistant", "content": ""}, "finish_reason": "stop"}]
-                }),
-            ),
-            MockResponse::json(
-                200,
-                None,
-                json!({
-                    "model": "moonshotai/kimi-k2.5",
-                    "choices": [{"message": {"role": "assistant", "content": "ok"}, "finish_reason": "stop"}],
-                    "usage": {"prompt_tokens": 2, "completion_tokens": 1}
-                }),
-            ),
-        ])
-        .await;
-
-        let provider = OpenRouterProvider::new_for_tests(server.url(), 1);
-        let response = provider
-            .chat(request_without_tools())
-            .await
-            .expect("second response should succeed");
-
-        assert_eq!(response.stop_reason, StopReason::EndTurn);
-        assert_eq!(
-            response.content,
-            vec![ContentBlock::Text {
-                text: "ok".to_string()
-            }]
-        );
-    }
-
-    #[tokio::test]
     async fn circuit_breaker_opens_after_consecutive_failures() {
         let server = MockServer::start(vec![
             MockResponse::json(500, None, json!({"error": {"message": "boom"}})),
@@ -138,7 +94,7 @@ mod tests {
         ])
         .await;
 
-        let provider = OpenRouterProvider::new_for_tests(server.url(), 0);
+        let provider = OpenRouterProvider::new_for_tests(server.url());
         let request = request_without_tools();
         let _ = provider
             .chat(request.clone())
