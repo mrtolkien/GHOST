@@ -551,6 +551,7 @@ mod tests {
             temperature: None,
             system: None,
             tools: None,
+            debug_context: None,
         };
 
         let body = build_codex_request_body(&request).expect("request body");
@@ -583,6 +584,7 @@ mod tests {
             max_tokens: None,
             temperature: None,
             system: None,
+            debug_context: None,
         };
 
         let body = build_codex_request_body(&request).expect("request body");
@@ -627,6 +629,7 @@ mod tests {
             max_tokens: None,
             temperature: None,
             system: None,
+            debug_context: None,
         };
 
         let body = build_codex_request_body(&request).expect("request body");
@@ -804,6 +807,7 @@ mod tests {
             max_tokens: None,
             temperature: None,
             system: None,
+            debug_context: None,
         };
 
         let body = build_codex_request_body(&request).expect("request body");
@@ -852,6 +856,7 @@ mod tests {
             max_tokens: None,
             temperature: None,
             system: None,
+            debug_context: None,
         };
 
         let body = build_codex_request_body(&request).expect("request body");

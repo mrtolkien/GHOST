@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::path::PathBuf;
 use std::time::Instant;
 
 use async_trait::async_trait;
@@ -25,6 +26,8 @@ pub struct OpenAiOAuthProvider {
     empty_response_retries: u8,
     endpoint: String,
     static_headers: HeaderMap,
+    debug_save_requests: bool,
+    debug_dir: Option<PathBuf>,
 }
 
 impl OpenAiOAuthProvider {
@@ -63,7 +66,16 @@ impl OpenAiOAuthProvider {
             empty_response_retries: DEFAULT_EMPTY_RESPONSE_RETRIES,
             endpoint: OPENAI_CODEX_RESPONSES_URL.to_string(),
             static_headers,
+            debug_save_requests: false,
+            debug_dir: None,
         })
+    }
+
+    pub fn set_debug(&mut self, save: bool, workspace: &std::path::Path) {
+        self.debug_save_requests = save;
+        if save {
+            self.debug_dir = Some(workspace.join("debug/requests"));
+        }
     }
 
     #[tracing::instrument(skip_all, fields(provider = "openai_oauth", model = %request.model))]
@@ -113,7 +125,7 @@ impl OpenAiOAuthProvider {
             messages = body.input.len() as u64,
             body_len = request_json.len() as u64,
         );
-        logfire::debug!("provider request body", body = request_json);
+        logfire::debug!("provider request body", body = request_json.clone());
         let http_response = self
             .client
             .post(&self.endpoint)
@@ -129,6 +141,24 @@ impl OpenAiOAuthProvider {
                 .and_then(|value| value.to_str().ok()),
         );
         let response_body = http_response.text().await?;
+        let duration_ms = started.elapsed().as_millis() as u64;
+
+        if self.debug_save_requests
+            && let Some(ref dir) = self.debug_dir
+        {
+            crate::providers::debug::save_debug_request(
+                &crate::providers::debug::DebugRequestData {
+                    dir,
+                    provider_name: "openai_oauth",
+                    model: &request.model,
+                    request_body: &request_json,
+                    response_body: &response_body,
+                    status: status.as_u16(),
+                    duration_ms,
+                    debug_context: request.debug_context.as_ref(),
+                },
+            );
+        }
 
         if status == reqwest::StatusCode::TOO_MANY_REQUESTS {
             self.circuit_breaker.record_failure(&request.model);

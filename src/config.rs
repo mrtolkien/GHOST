@@ -72,6 +72,7 @@ pub struct Settings {
     pub timing: Option<TimingSettings>,
     pub compaction: Option<CompactionSettings>,
     pub web: Option<WebSettings>,
+    pub debug: Option<DebugSettings>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -132,6 +133,12 @@ pub struct WebSettings {
     pub crawl4ai_url: Option<String>,
 }
 
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct DebugSettings {
+    pub save_requests: Option<bool>,
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct Config {
     pub workspace: PathBuf,
@@ -141,6 +148,7 @@ pub struct Config {
     pub timing: TimingConfig,
     pub compaction: CompactionConfig,
     pub web: WebConfig,
+    pub debug: DebugConfig,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -192,6 +200,11 @@ pub struct CompactionConfig {
 pub struct WebConfig {
     pub search_max_results: usize,
     pub crawl4ai_url: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct DebugConfig {
+    pub save_requests: bool,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
@@ -357,6 +370,13 @@ impl Config {
                     .unwrap_or(5),
                 crawl4ai_url: settings.web.as_ref().and_then(|w| w.crawl4ai_url.clone()),
             },
+            debug: DebugConfig {
+                save_requests: settings
+                    .debug
+                    .as_ref()
+                    .and_then(|d| d.save_requests)
+                    .unwrap_or(false),
+            },
         })
     }
 }
@@ -416,6 +436,7 @@ fn empty_settings() -> Settings {
         timing: None,
         compaction: None,
         web: None,
+        debug: None,
     }
 }
 
@@ -498,6 +519,9 @@ pub fn test_config(workspace: &std::path::Path) -> Config {
         web: WebConfig {
             search_max_results: 5,
             crawl4ai_url: None,
+        },
+        debug: DebugConfig {
+            save_requests: false,
         },
     }
 }

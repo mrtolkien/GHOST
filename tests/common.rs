@@ -555,7 +555,8 @@ pub async fn live_test_database(test_name: &str) -> LiveTestEnv {
     }
 
     // Load config from temp dir + bootstrap + connect
-    let config = config::load_from_dir(config_dir.path()).expect("load config from temp dir");
+    let mut config = config::load_from_dir(config_dir.path()).expect("load config from temp dir");
+    config.debug.save_requests = true;
     ghost::config_workspace::bootstrap_workspace(&config).expect("bootstrap temp workspace");
     let db = db::connect(&config.workspace)
         .await

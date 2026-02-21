@@ -35,6 +35,10 @@ impl KimiCodeProvider {
         )?;
         Ok(Self { inner })
     }
+
+    pub fn set_debug(&mut self, save: bool, workspace: &std::path::Path) {
+        self.inner.set_debug(save, workspace);
+    }
 }
 
 #[async_trait]

@@ -32,6 +32,10 @@ impl OpenRouterProvider {
         Ok(Self { inner })
     }
 
+    pub fn set_debug(&mut self, save: bool, workspace: &std::path::Path) {
+        self.inner.set_debug(save, workspace);
+    }
+
     #[cfg(test)]
     fn new_for_tests(endpoint: impl Into<String>, empty_response_retries: u8) -> Self {
         Self {
@@ -160,6 +164,7 @@ mod tests {
             max_tokens: Some(32),
             temperature: Some(0.0),
             system: None,
+            debug_context: None,
         }
     }
 

@@ -399,6 +399,7 @@ mod tests {
             max_tokens: None,
             temperature: None,
             system: Some("be concise".to_string()),
+            debug_context: None,
         };
 
         let messages = convert_messages(&request);
@@ -486,6 +487,7 @@ mod tests {
             max_tokens: None,
             temperature: None,
             system: None,
+            debug_context: None,
         };
 
         let messages = convert_messages(&request);
@@ -528,6 +530,7 @@ mod tests {
             max_tokens: None,
             temperature: None,
             system: None,
+            debug_context: None,
         };
 
         let messages = convert_messages(&request);

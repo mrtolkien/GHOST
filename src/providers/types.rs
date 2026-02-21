@@ -6,6 +6,12 @@ use serde_json::Value;
 
 use crate::config::{Config, ModelConfig};
 
+#[derive(Debug, Clone, Default)]
+pub struct DebugContext {
+    pub session_id: String,
+    pub iteration: usize,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ChatRequest {
     pub model: String,
@@ -19,6 +25,8 @@ pub struct ChatRequest {
     pub temperature: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub system: Option<String>,
+    #[serde(skip)]
+    pub debug_context: Option<DebugContext>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -164,15 +172,24 @@ pub fn provider_for_alias(
     let (_alias, model) = model_from_alias(config, alias)?;
 
     match model.provider.as_str() {
-        "openrouter" => Ok(Arc::new(
-            crate::providers::openrouter::OpenRouterProvider::new(model.headers.clone())?,
-        )),
-        "kimi_code" | "kimi" => Ok(Arc::new(
-            crate::providers::kimi_code::KimiCodeProvider::new(model.headers.clone())?,
-        )),
-        "openai_oauth" => Ok(Arc::new(
-            crate::providers::openai_oauth::OpenAiOAuthProvider::new(model.headers.clone())?,
-        )),
+        "openrouter" => {
+            let mut provider =
+                crate::providers::openrouter::OpenRouterProvider::new(model.headers.clone())?;
+            provider.set_debug(config.debug.save_requests, &config.workspace);
+            Ok(Arc::new(provider))
+        }
+        "kimi_code" | "kimi" => {
+            let mut provider =
+                crate::providers::kimi_code::KimiCodeProvider::new(model.headers.clone())?;
+            provider.set_debug(config.debug.save_requests, &config.workspace);
+            Ok(Arc::new(provider))
+        }
+        "openai_oauth" => {
+            let mut provider =
+                crate::providers::openai_oauth::OpenAiOAuthProvider::new(model.headers.clone())?;
+            provider.set_debug(config.debug.save_requests, &config.workspace);
+            Ok(Arc::new(provider))
+        }
         unsupported => Err(ProviderInitError::UnsupportedProvider {
             provider: unsupported.to_string(),
         }),

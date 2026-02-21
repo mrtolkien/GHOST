@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::path::PathBuf;
 use std::time::Instant;
 
 use async_trait::async_trait;
@@ -17,6 +18,8 @@ pub struct OpenAiCompatibleProvider {
     empty_response_retries: u8,
     endpoint: String,
     provider_name: &'static str,
+    debug_save_requests: bool,
+    debug_dir: Option<PathBuf>,
 }
 
 impl OpenAiCompatibleProvider {
@@ -61,7 +64,16 @@ impl OpenAiCompatibleProvider {
             empty_response_retries,
             endpoint: endpoint.to_string(),
             provider_name,
+            debug_save_requests: false,
+            debug_dir: None,
         })
+    }
+
+    pub fn set_debug(&mut self, save: bool, workspace: &std::path::Path) {
+        self.debug_save_requests = save;
+        if save {
+            self.debug_dir = Some(workspace.join("debug/requests"));
+        }
     }
 
     #[cfg(test)]
@@ -76,6 +88,8 @@ impl OpenAiCompatibleProvider {
             empty_response_retries,
             endpoint: endpoint.into(),
             provider_name,
+            debug_save_requests: false,
+            debug_dir: None,
         }
     }
 
@@ -101,27 +115,43 @@ impl OpenAiCompatibleProvider {
             tools = body.tools.as_ref().map_or(0, |tools| tools.len()) as u64,
             body_len = request_json.len() as u64,
         );
-        logfire::debug!("provider request body", body = request_json,);
+        logfire::debug!("provider request body", body = request_json.clone(),);
         let http_response = self.client.post(&self.endpoint).json(&body).send().await?;
         let status = http_response.status();
+        let retry_after_secs = parse_retry_after_secs(
+            http_response
+                .headers()
+                .get("Retry-After")
+                .and_then(|value| value.to_str().ok()),
+        );
+        let response_body = http_response.text().await?;
+        let duration_ms = started.elapsed().as_millis() as u64;
+
+        if self.debug_save_requests
+            && let Some(ref dir) = self.debug_dir
+        {
+            crate::providers::debug::save_debug_request(
+                &crate::providers::debug::DebugRequestData {
+                    dir,
+                    provider_name: self.provider_name,
+                    model: &request.model,
+                    request_body: &request_json,
+                    response_body: &response_body,
+                    status: status.as_u16(),
+                    duration_ms,
+                    debug_context: request.debug_context.as_ref(),
+                },
+            );
+        }
 
         if status == reqwest::StatusCode::TOO_MANY_REQUESTS {
             self.circuit_breaker.record_failure(&request.model);
-            return Err(ProviderError::RateLimited {
-                retry_after_secs: parse_retry_after_secs(
-                    http_response
-                        .headers()
-                        .get("Retry-After")
-                        .and_then(|value| value.to_str().ok()),
-                ),
-            });
+            return Err(ProviderError::RateLimited { retry_after_secs });
         }
 
         if status == reqwest::StatusCode::UNAUTHORIZED || status == reqwest::StatusCode::FORBIDDEN {
             self.circuit_breaker.record_failure(&request.model);
-            return Err(ProviderError::Auth(
-                extract_error_message(http_response).await,
-            ));
+            return Err(ProviderError::Auth(extract_error_message(&response_body)));
         }
 
         if status == reqwest::StatusCode::NOT_FOUND {
@@ -133,11 +163,10 @@ impl OpenAiCompatibleProvider {
             self.circuit_breaker.record_failure(&request.model);
             return Err(ProviderError::InvalidResponse(format!(
                 "http status {status}: {}",
-                extract_error_message(http_response).await
+                extract_error_message(&response_body)
             )));
         }
 
-        let response_body = http_response.text().await?;
         let response: ChatCompletionsResponse =
             serde_json::from_str(&response_body).map_err(|error| {
                 logfire::error!(
@@ -260,13 +289,12 @@ fn parse_retry_after_secs(retry_after: Option<&str>) -> Option<u64> {
     retry_after.and_then(|value| value.trim().parse::<u64>().ok())
 }
 
-async fn extract_error_message(response: reqwest::Response) -> String {
-    let body = response.text().await.unwrap_or_default();
+fn extract_error_message(body: &str) -> String {
     if body.trim().is_empty() {
         return "empty error response".to_string();
     }
 
-    if let Ok(error_body) = serde_json::from_str::<ProviderErrorBody>(&body)
+    if let Ok(error_body) = serde_json::from_str::<ProviderErrorBody>(body)
         && let Some(payload) = error_body.error
         && let Some(message) = payload.message
         && !message.trim().is_empty()
@@ -274,5 +302,5 @@ async fn extract_error_message(response: reqwest::Response) -> String {
         return message;
     }
 
-    body
+    body.to_string()
 }

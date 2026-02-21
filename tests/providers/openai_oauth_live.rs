@@ -44,6 +44,7 @@ async fn openai_oauth_live_calls_respond_tool() {
             "You are a precise assistant. You MUST call the respond tool to deliver your answer."
                 .to_string(),
         ),
+        debug_context: None,
     };
 
     let response = provider
@@ -105,6 +106,7 @@ async fn openai_oauth_multi_turn_with_history() {
         max_tokens: None,
         temperature: None,
         system: Some("You are a concise assistant.".to_string()),
+        debug_context: None,
     };
 
     let response1 = provider.chat(request1).await.expect("turn 1 chat response");
@@ -147,6 +149,7 @@ async fn openai_oauth_multi_turn_with_history() {
         max_tokens: None,
         temperature: None,
         system: Some("You are a concise assistant.".to_string()),
+        debug_context: None,
     };
 
     let response2 = provider.chat(request2).await.expect("turn 2 chat response");

@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use serde_json::Value;
 
+use crate::providers::types::DebugContext;
 use crate::providers::{ChatMessage, ChatRequest, ContentBlock, Role, StopReason};
 use crate::tools::{REPORT_FINDINGS_TOOL_NAME, RESPOND_TOOL_NAME};
 
@@ -80,6 +81,10 @@ pub(super) async fn run_tool_loop(
             max_tokens: None,
             temperature: None,
             system: Some(prompt),
+            debug_context: Some(DebugContext {
+                session_id: session_id.to_string(),
+                iteration: iterations,
+            }),
         };
         let response = session_chat
             .provider()

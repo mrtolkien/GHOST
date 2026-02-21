@@ -344,6 +344,7 @@ pub async fn summarize_older_messages(
             max_tokens: Some(2048),
             temperature: Some(0.3),
             system: Some(COMPACTION_PROMPT.to_string()),
+            debug_context: None,
         })
         .await?;
 
