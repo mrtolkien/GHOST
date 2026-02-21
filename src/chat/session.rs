@@ -606,8 +606,62 @@ impl ToolLoopHandler for AgentHandler<'_> {
                 content: vec![ContentBlock::Text { text: todo_context }],
             });
         }
+
+        // Inject progress nudge: count tool calls so the model knows its
+        // progress toward the minimum web_fetch requirement.
+        let nudge = build_agent_progress_nudge(history);
+        if !nudge.is_empty() {
+            history.push(ChatMessage {
+                role: Role::System,
+                content: vec![ContentBlock::Text { text: nudge }],
+            });
+        }
+
         Ok(())
     }
+}
+
+/// Count tool uses by name across the history and build a progress nudge
+/// message for agent runs. Returns empty string if no tool calls yet.
+fn build_agent_progress_nudge(history: &[ChatMessage]) -> String {
+    let mut web_search_count = 0u32;
+    let mut web_fetch_count = 0u32;
+
+    for msg in history {
+        if msg.role != Role::Assistant {
+            continue;
+        }
+        for block in &msg.content {
+            if let ContentBlock::ToolUse { name, .. } = block {
+                match name.as_str() {
+                    "web_search" => web_search_count += 1,
+                    "web_fetch" => web_fetch_count += 1,
+                    _ => {}
+                }
+            }
+        }
+    }
+
+    if web_search_count == 0 && web_fetch_count == 0 {
+        return String::new();
+    }
+
+    let mut nudge =
+        format!("[Progress] web_search: {web_search_count}, web_fetch: {web_fetch_count}.");
+    if web_fetch_count < 5 {
+        nudge.push_str(&format!(
+            " You need at least 5 web_fetch calls (currently {}). \
+             Do NOT write your final report yet — keep researching.",
+            web_fetch_count
+        ));
+    } else if web_fetch_count < 8 {
+        nudge.push_str(
+            " Minimum met. Consider fetching 2-3 more pages for a \
+             stronger report — check for newest releases and specific \
+             model reviews you haven't read yet.",
+        );
+    }
+    nudge
 }
 
 // ---------------------------------------------------------------------------

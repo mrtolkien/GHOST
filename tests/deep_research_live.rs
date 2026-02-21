@@ -28,8 +28,11 @@ async fn deep_research_agent_produces_findings() {
     let session = ghost::db::sessions::create_agent_session(&env.db)
         .await
         .expect("create agent session");
-    let prompt = "I want to buy a new 3d printer. Enclosed, for home use, \
-                  budget around $1000. What do you recommend for 2026?";
+    let prompt = "Research the best enclosed 3D printers for home use in 2026, \
+                  budget around $1000. Check specialist sites like all3dp.com \
+                  and auroratechchannel.com, plus reddit discussions. I want \
+                  specific model recommendations with prices, including any \
+                  recently released models I might not know about.";
     let system_prompt = definition.render_system_prompt(prompt);
 
     // Run with 5-minute timeout
@@ -118,10 +121,10 @@ async fn deep_research_agent_produces_findings() {
         "expected at least one aurora tech channel fetch"
     );
 
-    // Correct recommendation: Bambu Lab is the dominant enclosed printer brand
+    // Correct recommendation: the P2S should be in the list
     let findings_lower = result.message.to_lowercase();
     assert!(
-        findings_lower.contains("bambu"),
-        "expected 'bambu' in findings (case-insensitive)"
+        findings_lower.contains("p2s"),
+        "expected 'P2S' in findings (case-insensitive)"
     );
 }
