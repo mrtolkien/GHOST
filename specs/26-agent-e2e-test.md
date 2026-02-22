@@ -23,9 +23,9 @@ Assert:
 There are two things to work on:
 
 - Agent and reflection integration
-  - Try running reflection on the agent chat after it finishes
-  - If the results are not satisfying, try running it only from the main chat, it will
-    be able to check the web cache itself
+  - Try running reflection on the agent session after it finishes
+  - If the results are not satisfying, try running the reflection from the main chat, it
+    will be able to check the web cache itself
 - Reflection prompt engineering and nudges
   - Just like the deep research agent, we need to make sure the reflection agent follows
     the instructions _well_ by validating the quality of the notes that were created
