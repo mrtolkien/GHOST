@@ -3,17 +3,21 @@
 ## Context
 
 The deep research agent needs runtime feedback to enforce minimum tool call counts
-(e.g., "call `web_fetch` at least 5 times"). This is currently hardcoded in
-`build_agent_progress_nudge()` in `session.rs` which counts `web_fetch`/`web_search`
-with magic numbers (5, 8). Can't scale to other agents.
+(e.g., "call `web_fetch` at least 5 times"). Currently `build_agent_progress_nudge()` in
+`session.rs` reports generic tool call counts (e.g.
+`[Progress] web_fetch: 3,
+web_search: 4`) — the prompt is responsible for interpreting
+thresholds.
 
 **Experimentally proven**: Prompt engineering alone cannot enforce this. Three different
 prompt approaches (running totals, TODO self-tracking, STOP gates) all failed — the
 model consistently stops at 3 fetches regardless of instructions. Runtime feedback is
 necessary.
 
-**Goal**: Move the rules into the agent definition file (TOML frontmatter) so any agent
-can declare progress rules without code changes.
+**Goal**: Move threshold-based rules into the agent definition file (TOML frontmatter)
+so agents can declare progress rules with custom below/met messages without code
+changes. Currently the nudge is a generic counter; per-agent rules would add
+threshold-aware guidance.
 
 ## Agent Definition Format
 

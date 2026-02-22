@@ -53,17 +53,8 @@ pub struct ExtractedContent {
     pub truncated: bool,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct FetchOptions {
     pub readability: bool,
     pub raw: bool,
-}
-
-impl Default for FetchOptions {
-    fn default() -> Self {
-        Self {
-            readability: false,
-            raw: false,
-        }
-    }
 }

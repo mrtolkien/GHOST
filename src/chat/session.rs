@@ -6,6 +6,7 @@ use surrealdb::Surreal;
 use surrealdb::engine::local::Db;
 use surrealdb::sql::Thing;
 
+use crate::agents::ProgressRule;
 use crate::config::{self, Config};
 use crate::db;
 use crate::prompt::{PromptContext, PromptRenderer};
@@ -188,6 +189,7 @@ impl SessionChat {
         prompt: &str,
         system_prompt: String,
         max_iterations: usize,
+        progress_rules: Vec<ProgressRule>,
     ) -> Result<ChatResult, ChatError> {
         let session_thing = parse_session_thing(session_id)?;
         db::sessions::create_message(&self.db, &session_thing, "user", prompt).await?;
@@ -205,6 +207,7 @@ impl SessionChat {
             session_thing: &session_thing,
             system_prompt,
             agent_name: agent_name.to_string(),
+            progress_rules,
         };
 
         run_tool_loop(
@@ -235,6 +238,7 @@ impl SessionChat {
         prompt: &str,
         system_prompt: String,
         max_iterations: usize,
+        progress_rules: Vec<ProgressRule>,
     ) -> Result<ChatResult, ChatError> {
         let session_thing = parse_session_thing(session_id)?;
 
@@ -250,6 +254,7 @@ impl SessionChat {
             session_thing: &session_thing,
             system_prompt,
             agent_name: agent_name.to_string(),
+            progress_rules,
         };
 
         run_tool_loop(
@@ -522,6 +527,7 @@ struct AgentHandler<'a> {
     system_prompt: String,
     #[allow(dead_code)]
     agent_name: String,
+    progress_rules: Vec<ProgressRule>,
 }
 
 #[async_trait]
@@ -607,10 +613,8 @@ impl ToolLoopHandler for AgentHandler<'_> {
             });
         }
 
-        // Inject progress nudge: count tool calls so the model knows its
-        // progress toward the minimum web_fetch requirement.
-        let nudge = build_agent_progress_nudge(history);
-        if !nudge.is_empty() {
+        // Inject progress nudge based on declared rules.
+        if let Some(nudge) = build_progress_nudge(&self.progress_rules, history) {
             history.push(ChatMessage {
                 role: Role::System,
                 content: vec![ContentBlock::Text { text: nudge }],
@@ -621,47 +625,61 @@ impl ToolLoopHandler for AgentHandler<'_> {
     }
 }
 
-/// Count tool uses by name across the history and build a progress nudge
-/// message for agent runs. Returns empty string if no tool calls yet.
-fn build_agent_progress_nudge(history: &[ChatMessage]) -> String {
-    let mut web_search_count = 0u32;
-    let mut web_fetch_count = 0u32;
+/// Build a progress nudge from declared rules.
+///
+/// Returns `None` if there are no rules or no tracked tools have been
+/// called yet. Otherwise returns a `[Progress]` line with per-rule
+/// counts and threshold-aware guidance messages.
+fn build_progress_nudge(rules: &[ProgressRule], history: &[ChatMessage]) -> Option<String> {
+    if rules.is_empty() {
+        return None;
+    }
 
+    // Count calls to each tracked tool
+    let mut counts = std::collections::HashMap::<&str, u32>::new();
     for msg in history {
         if msg.role != Role::Assistant {
             continue;
         }
         for block in &msg.content {
-            if let ContentBlock::ToolUse { name, .. } = block {
-                match name.as_str() {
-                    "web_search" => web_search_count += 1,
-                    "web_fetch" => web_fetch_count += 1,
-                    _ => {}
-                }
+            if let ContentBlock::ToolUse { name, .. } = block
+                && rules.iter().any(|r| r.tool == name.as_str())
+            {
+                *counts.entry(name.as_str()).or_default() += 1;
             }
         }
     }
 
-    if web_search_count == 0 && web_fetch_count == 0 {
-        return String::new();
+    // Don't nudge before any tracked tool has been called
+    if counts.is_empty() {
+        return None;
     }
 
-    let mut nudge =
-        format!("[Progress] web_search: {web_search_count}, web_fetch: {web_fetch_count}.");
-    if web_fetch_count < 5 {
-        nudge.push_str(&format!(
-            " You need at least 5 web_fetch calls (currently {}). \
-             Do NOT write your final report yet — keep researching.",
-            web_fetch_count
-        ));
-    } else if web_fetch_count < 8 {
-        nudge.push_str(
-            " Minimum met but research may still be thin. Before reporting: \
-             did you complete Step 4 (brand-specific newest-model searches)? \
-             Did you fetch from EVERY specialist site you identified?",
-        );
+    let mut parts = Vec::new();
+    for rule in rules {
+        let count = counts.get(rule.tool.as_str()).copied().unwrap_or(0);
+        parts.push(format!("{}: {}/{}.", rule.tool, count, rule.min));
+
+        let message = if count < rule.min {
+            rule.below.as_deref().unwrap_or(
+                "You need at least {min} {tool} calls (currently {count}). \
+                 Keep going — do NOT write your final output yet.",
+            )
+        } else {
+            rule.met.as_deref().unwrap_or(
+                "{tool} minimum reached ({count}/{min}). \
+                 You may continue for thoroughness or wrap up.",
+            )
+        };
+
+        let interpolated = message
+            .replace("{tool}", &rule.tool)
+            .replace("{min}", &rule.min.to_string())
+            .replace("{count}", &count.to_string());
+        parts.push(interpolated);
     }
-    nudge
+
+    Some(format!("[Progress] {}", parts.join(" ")))
 }
 
 // ---------------------------------------------------------------------------
@@ -716,5 +734,130 @@ impl ToolLoopHandler for JobHandler {
                 ChatStopReason::EndTurn
             },
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn rule(tool: &str, min: u32) -> ProgressRule {
+        ProgressRule {
+            tool: tool.to_string(),
+            min,
+            below: None,
+            met: None,
+        }
+    }
+
+    fn rule_with_messages(tool: &str, min: u32, below: &str, met: &str) -> ProgressRule {
+        ProgressRule {
+            tool: tool.to_string(),
+            min,
+            below: Some(below.to_string()),
+            met: Some(met.to_string()),
+        }
+    }
+
+    fn assistant_tool_use(name: &str) -> ChatMessage {
+        ChatMessage {
+            role: Role::Assistant,
+            content: vec![ContentBlock::ToolUse {
+                id: "test".to_string(),
+                name: name.to_string(),
+                input: json!({}),
+            }],
+        }
+    }
+
+    #[test]
+    fn no_rules_returns_none() {
+        let history = vec![assistant_tool_use("web_fetch")];
+        assert!(build_progress_nudge(&[], &history).is_none());
+    }
+
+    #[test]
+    fn no_tool_calls_returns_none() {
+        let rules = vec![rule("web_fetch", 5)];
+        let history = vec![ChatMessage {
+            role: Role::User,
+            content: vec![ContentBlock::Text {
+                text: "hello".to_string(),
+            }],
+        }];
+        assert!(build_progress_nudge(&rules, &history).is_none());
+    }
+
+    #[test]
+    fn below_minimum_shows_below_message() {
+        let rules = vec![rule("web_fetch", 5)];
+        let history = vec![
+            assistant_tool_use("web_fetch"),
+            assistant_tool_use("web_fetch"),
+        ];
+        let nudge = build_progress_nudge(&rules, &history).unwrap();
+        assert!(nudge.contains("[Progress]"));
+        assert!(nudge.contains("2/5"));
+        assert!(nudge.contains("do NOT write your final output"));
+    }
+
+    #[test]
+    fn at_minimum_shows_met_message() {
+        let rules = vec![rule("web_fetch", 2)];
+        let history = vec![
+            assistant_tool_use("web_fetch"),
+            assistant_tool_use("web_fetch"),
+        ];
+        let nudge = build_progress_nudge(&rules, &history).unwrap();
+        assert!(nudge.contains("minimum reached"));
+        assert!(nudge.contains("2/2"));
+    }
+
+    #[test]
+    fn above_minimum_shows_met_message() {
+        let rules = vec![rule("web_fetch", 2)];
+        let history = vec![
+            assistant_tool_use("web_fetch"),
+            assistant_tool_use("web_fetch"),
+            assistant_tool_use("web_fetch"),
+        ];
+        let nudge = build_progress_nudge(&rules, &history).unwrap();
+        assert!(nudge.contains("minimum reached"));
+        assert!(nudge.contains("3/2"));
+    }
+
+    #[test]
+    fn custom_messages_with_interpolation() {
+        let rules = vec![rule_with_messages(
+            "web_fetch",
+            5,
+            "Need {min} {tool} (have {count}).",
+            "Done: {count}/{min} {tool}.",
+        )];
+        let history = vec![
+            assistant_tool_use("web_fetch"),
+            assistant_tool_use("web_fetch"),
+        ];
+        let nudge = build_progress_nudge(&rules, &history).unwrap();
+        assert!(nudge.contains("Need 5 web_fetch (have 2)."));
+
+        // Now test met
+        let mut history_met = history.clone();
+        for _ in 0..3 {
+            history_met.push(assistant_tool_use("web_fetch"));
+        }
+        let nudge_met = build_progress_nudge(&rules, &history_met).unwrap();
+        assert!(nudge_met.contains("Done: 5/5 web_fetch."));
+    }
+
+    #[test]
+    fn ignores_untracked_tools() {
+        let rules = vec![rule("web_fetch", 3)];
+        let history = vec![
+            assistant_tool_use("web_search"),
+            assistant_tool_use("web_search"),
+        ];
+        // web_search isn't tracked, so no tracked calls → None
+        assert!(build_progress_nudge(&rules, &history).is_none());
     }
 }

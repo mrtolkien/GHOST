@@ -6,6 +6,21 @@ use super::error::AgentError;
 
 const DELIMITER: &str = "+++";
 
+/// A progress rule declared in agent TOML frontmatter.
+///
+/// Agents can declare minimum tool call counts with custom feedback
+/// messages. The runtime injects these as `[Progress]` system messages
+/// after each tool iteration.
+#[derive(Debug, Clone, Deserialize)]
+pub struct ProgressRule {
+    pub tool: String,
+    pub min: u32,
+    #[serde(default)]
+    pub below: Option<String>,
+    #[serde(default)]
+    pub met: Option<String>,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 struct AgentFrontmatter {
     name: String,
@@ -14,6 +29,8 @@ struct AgentFrontmatter {
     #[serde(default = "default_max_iterations")]
     max_iterations: usize,
     model: Option<String>,
+    #[serde(default)]
+    progress: Vec<ProgressRule>,
 }
 
 fn default_max_iterations() -> usize {
@@ -27,6 +44,7 @@ pub struct AgentDefinition {
     pub tools: Vec<String>,
     pub max_iterations: usize,
     pub model: Option<String>,
+    pub progress_rules: Vec<ProgressRule>,
     pub system_prompt_template: String,
 }
 
@@ -89,6 +107,7 @@ pub fn parse_agent_file(content: &str) -> Result<AgentDefinition, AgentError> {
         tools: front.tools,
         max_iterations: front.max_iterations,
         model: front.model,
+        progress_rules: front.progress,
         system_prompt_template: body,
     })
 }
@@ -354,5 +373,85 @@ Also: {{query}}
         assert!(def.tools.contains(&"web_fetch".to_string()));
         assert!(def.tools.contains(&"todo".to_string()));
         assert!(def.system_prompt_template.contains("{{ date }}"));
+        assert!(
+            !def.progress_rules.is_empty(),
+            "deep-research should declare progress rules"
+        );
+        let rule = &def.progress_rules[0];
+        assert_eq!(rule.tool, "web_fetch");
+        assert_eq!(rule.min, 5);
+        assert!(rule.below.is_some());
+        assert!(rule.met.is_some());
+    }
+
+    #[test]
+    fn parse_agent_with_progress_rules() {
+        let content = r#"+++
+name = "test-agent"
+description = "Test agent with progress"
+tools = ["web_fetch"]
+
+[[progress]]
+tool = "web_fetch"
+min = 3
+below = "Need {min} {tool} calls (have {count}). Keep going."
+met = "Done! {count}/{min} reached."
++++
+
+Body here.
+"#;
+        let def = parse_agent_file(content).unwrap();
+        assert_eq!(def.progress_rules.len(), 1);
+        let rule = &def.progress_rules[0];
+        assert_eq!(rule.tool, "web_fetch");
+        assert_eq!(rule.min, 3);
+        assert_eq!(
+            rule.below.as_deref(),
+            Some("Need {min} {tool} calls (have {count}). Keep going.")
+        );
+        assert_eq!(rule.met.as_deref(), Some("Done! {count}/{min} reached."));
+    }
+
+    #[test]
+    fn parse_agent_with_multiple_progress_rules() {
+        let content = r#"+++
+name = "multi"
+description = "Multiple rules"
+tools = ["web_fetch", "web_search"]
+
+[[progress]]
+tool = "web_fetch"
+min = 5
+
+[[progress]]
+tool = "web_search"
+min = 3
+below = "Search more."
++++
+
+Body.
+"#;
+        let def = parse_agent_file(content).unwrap();
+        assert_eq!(def.progress_rules.len(), 2);
+        assert_eq!(def.progress_rules[0].tool, "web_fetch");
+        assert_eq!(def.progress_rules[0].min, 5);
+        assert!(def.progress_rules[0].below.is_none());
+        assert_eq!(def.progress_rules[1].tool, "web_search");
+        assert_eq!(def.progress_rules[1].min, 3);
+        assert_eq!(def.progress_rules[1].below.as_deref(), Some("Search more."));
+    }
+
+    #[test]
+    fn parse_agent_without_progress_rules() {
+        let content = r#"+++
+name = "simple"
+description = "No progress rules"
+tools = ["todo"]
++++
+
+Body.
+"#;
+        let def = parse_agent_file(content).unwrap();
+        assert!(def.progress_rules.is_empty());
     }
 }

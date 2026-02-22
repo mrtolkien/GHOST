@@ -43,6 +43,7 @@ async fn deep_research_agent_produces_findings() {
             prompt,
             system_prompt,
             definition.max_iterations,
+            definition.progress_rules.clone(),
         ),
     )
     .await;

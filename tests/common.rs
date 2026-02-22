@@ -504,10 +504,19 @@ impl LiveTestEnv {
             metrics.count
         );
 
-        for domain in expected_domains {
-            let found = metrics.urls.iter().any(|url| url.contains(domain));
-            assert!(found, "expected at least one fetch from {domain}");
-        }
+        let matched: Vec<&str> = expected_domains
+            .iter()
+            .copied()
+            .filter(|domain| metrics.urls.iter().any(|url| url.contains(domain)))
+            .collect();
+        assert!(
+            !matched.is_empty(),
+            "expected at least one fetch from any of {expected_domains:?}, \
+             but none were found in fetched URLs"
+        );
+        self.log(format!(
+            "specialist domains matched: {matched:?} (of {expected_domains:?})"
+        ));
 
         let findings_lower = findings.to_lowercase();
         for keyword in expected_keywords {

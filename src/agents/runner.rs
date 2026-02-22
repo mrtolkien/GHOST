@@ -443,6 +443,7 @@ async fn run_agent(
             prompt,
             system_prompt,
             definition.max_iterations,
+            definition.progress_rules.clone(),
         ) => res?,
         () = cancel_token.cancelled() => {
             logfire::info!("agent cancelled", agent_name = definition.name.clone());
@@ -497,6 +498,7 @@ async fn continue_agent_run(
             prompt,
             system_prompt,
             definition.max_iterations,
+            definition.progress_rules.clone(),
         ) => res?,
         () = cancel_token.cancelled() => {
             logfire::info!(
