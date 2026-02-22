@@ -656,9 +656,9 @@ fn build_agent_progress_nudge(history: &[ChatMessage]) -> String {
         ));
     } else if web_fetch_count < 8 {
         nudge.push_str(
-            " Minimum met. Consider fetching 2-3 more pages for a \
-             stronger report — check for newest releases and specific \
-             model reviews you haven't read yet.",
+            " Minimum met but research may still be thin. Before reporting: \
+             did you complete Step 4 (brand-specific newest-model searches)? \
+             Did you fetch from EVERY specialist site you identified?",
         );
     }
     nudge

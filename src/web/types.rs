@@ -55,7 +55,6 @@ pub struct ExtractedContent {
 
 #[derive(Debug, Clone)]
 pub struct FetchOptions {
-    pub max_chars: usize,
     pub readability: bool,
     pub raw: bool,
 }
@@ -63,7 +62,6 @@ pub struct FetchOptions {
 impl Default for FetchOptions {
     fn default() -> Self {
         Self {
-            max_chars: 50_000,
             readability: false,
             raw: false,
         }

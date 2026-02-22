@@ -31,15 +31,14 @@ impl Tool for WebFetch {
                         "type": "string",
                         "description": "The URL to fetch."
                     },
-                    "max_chars": {
-                        "type": "integer",
-                        "description": "Maximum characters to extract (default: 50000)."
-                    },
                     "readability": {
                         "type": "boolean",
                         "description": "Use Readability to extract article content \
                                         only, stripping navigation and sidebars. \
-                                        ALWAYS USE IT FOR SINGLE ARTICLES (default: false)."
+                                        Best for single articles. Do NOT use for \
+                                        pages that list many items (catalogs, price \
+                                        trackers, comparison tables) — you need the \
+                                        full page for those (default: false)."
                     }
                 },
                 "required": ["url"]
@@ -52,19 +51,12 @@ impl Tool for WebFetch {
             ToolError::InvalidParams("missing required parameter: url".to_string())
         })?;
 
-        let max_chars = params
-            .get("max_chars")
-            .and_then(Value::as_u64)
-            .map(|n| n as usize)
-            .unwrap_or(50_000);
-
         let readability = params
             .get("readability")
             .and_then(Value::as_bool)
             .unwrap_or(false);
 
         let options = FetchOptions {
-            max_chars,
             readability,
             raw: false,
         };

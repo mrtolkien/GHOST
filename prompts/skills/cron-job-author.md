@@ -42,7 +42,7 @@ schedule = "0 8 * * *"
 enabled = true
 carry_last_output = true
 pre_tools = [
-  { name = "web_fetch", input = { url = "https://example.com/feed.xml", mode = "text", max_chars = 12000 } }
+  { name = "web_fetch", input = { url = "https://example.com/feed.xml" } }
 ]
 +++
 

@@ -113,7 +113,6 @@ auto-cached to `.web-cache/` for later reference curation.
 
 - Default mode: converts full HTML to Markdown — all page content preserved
 - Set `readability: true` for articles/blog posts — strips navigation and boilerplate
-- `max_chars`: truncate output (default: 50000)
 
 ### Filesystem Tools
 

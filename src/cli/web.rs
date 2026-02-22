@@ -1,7 +1,7 @@
 use clap::Subcommand;
 
 use crate::error::GhostError;
-use crate::web::{self, BraveSearchProvider, FetchOptions};
+use crate::web::{self, BraveSearchProvider};
 
 #[derive(Debug, Subcommand)]
 pub enum WebCommand {
@@ -15,9 +15,6 @@ pub enum WebCommand {
     /// Fetch and extract content from a URL
     Fetch {
         url: String,
-        /// Maximum characters to extract
-        #[arg(long, default_value = "50000")]
-        max_chars: usize,
         /// Use Mozilla Readability to extract article content only
         /// (strips navigation, sidebars, etc. — best for single articles)
         #[arg(long, conflicts_with = "raw")]
@@ -59,15 +56,10 @@ pub async fn execute(command: WebCommand) -> Result<(), GhostError> {
         }
         WebCommand::Fetch {
             url,
-            max_chars,
             readability,
             raw,
         } => {
-            let options = FetchOptions {
-                max_chars,
-                readability,
-                raw,
-            };
+            let options = web::FetchOptions { readability, raw };
             let content = web::fetch(&url, &options, config.web.crawl4ai_url.as_deref()).await?;
 
             match web::save_fetch_cache(&config.workspace, &url, &content) {

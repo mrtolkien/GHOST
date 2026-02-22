@@ -76,6 +76,7 @@ fn build_progress_nudge(rules: &[ProgressRule], history: &[ChatMessage]) -> Opti
 ```
 
 Logic:
+
 1. If no rules, return `None`
 2. For each rule, count calls to `rule.tool` in assistant messages
 3. If no tracked tools have been called yet, return `None`
@@ -84,11 +85,15 @@ Logic:
 6. If `count >= min`: append rule's `met` message (or default)
 7. Return `Some(nudge)`
 
-Interpolation: simple `.replace("{count}", ...).replace("{min}", ...).replace("{tool}", ...)`
+Interpolation: simple
+`.replace("{count}", ...).replace("{min}", ...).replace("{tool}", ...)`
 
 Default messages:
-- below: `"You need at least {min} {tool} calls (currently {count}). Keep going — do NOT write your final output yet."`
-- met: `"{tool} minimum reached ({count}/{min}). You may continue for thoroughness or wrap up."`
+
+- below:
+  `"You need at least {min} {tool} calls (currently {count}). Keep going — do NOT write your final output yet."`
+- met:
+  `"{tool} minimum reached ({count}/{min}). You may continue for thoroughness or wrap up."`
 
 **Why in `session.rs` (not `definition.rs`)**: The function operates on `ChatMessage` /
 `ContentBlock` (provider types). Keeping it in `session.rs` avoids adding a provider
@@ -111,8 +116,8 @@ pub async fn chat_agent(
 
 ### 3. `src/agents/runner.rs` — Pass rules through
 
-Both `run_agent()` and `continue_agent_run()` pass
-`definition.progress_rules.clone()` to the new parameter.
+Both `run_agent()` and `continue_agent_run()` pass `definition.progress_rules.clone()`
+to the new parameter.
 
 ### 4. `prompts/agents/deep-research.md` — Declare rule in frontmatter
 
@@ -155,22 +160,24 @@ re-exported and follow the pattern).
 
 ### Live test
 
-Existing `deep_research_agent_produces_findings` validates end-to-end behavior.
-Run after all changes: `cargo test --features live-tests deep_research_agent_produces_findings`
+Existing `deep_research_agent_produces_findings` validates end-to-end behavior. Run
+after all changes:
+`cargo test --features live-tests deep_research_agent_produces_findings`
 
 ## Files
 
-| File | Change |
-|------|--------|
-| `src/agents/definition.rs` | Add `ProgressRule`, parsing, unit tests |
-| `src/agents/mod.rs` | Re-export `ProgressRule` |
-| `src/chat/session.rs` | Generic `build_progress_nudge`, `AgentHandler` plumbing, delete old function |
-| `src/agents/runner.rs` | Pass `progress_rules` to `chat_agent`/`continue_agent` |
-| `prompts/agents/deep-research.md` | `[[progress]]` in frontmatter |
-| `tests/deep_research_live.rs` | Pass `progress_rules` to `chat_agent` |
+| File                              | Change                                                                       |
+| --------------------------------- | ---------------------------------------------------------------------------- |
+| `src/agents/definition.rs`        | Add `ProgressRule`, parsing, unit tests                                      |
+| `src/agents/mod.rs`               | Re-export `ProgressRule`                                                     |
+| `src/chat/session.rs`             | Generic `build_progress_nudge`, `AgentHandler` plumbing, delete old function |
+| `src/agents/runner.rs`            | Pass `progress_rules` to `chat_agent`/`continue_agent`                       |
+| `prompts/agents/deep-research.md` | `[[progress]]` in frontmatter                                                |
+| `tests/deep_research_live.rs`     | Pass `progress_rules` to `chat_agent`                                        |
 
 ## Verification
 
 1. `just ci` — all tests pass, no new warnings
 2. `cargo test -- progress` — new unit tests pass
-3. `cargo test --features live-tests deep_research_agent_produces_findings` — live test still passes (5+ fetches, all3dp, aurora, P2S)
+3. `cargo test --features live-tests deep_research_agent_produces_findings` — live test
+   still passes (5+ fetches, all3dp, aurora, P2S)

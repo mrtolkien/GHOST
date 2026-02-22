@@ -29,10 +29,9 @@ async fn deep_research_agent_produces_findings() {
         .await
         .expect("create agent session");
     let prompt = "Research the best enclosed 3D printers for home use in 2026, \
-                  budget around $1000. Check specialist sites like all3dp.com \
-                  and auroratechchannel.com, plus reddit discussions. I want \
-                  specific model recommendations with prices, including any \
-                  recently released models I might not know about.";
+                  budget around $1000. I want specific model recommendations \
+                  with prices, including any recently released models I might \
+                  not know about.";
     let system_prompt = definition.render_system_prompt(prompt);
 
     // Run with 5-minute timeout

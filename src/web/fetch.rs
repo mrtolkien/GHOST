@@ -5,6 +5,11 @@ use url::Url;
 
 use super::{ExtractedContent, FetchOptions, WebError};
 
+/// Internal safety cap for extracted text. Pages exceeding this are truncated.
+/// This is intentionally very high — we never want to lose information during
+/// research. The agent has no control over this value.
+const MAX_EXTRACT_CHARS: usize = 200_000;
+
 static HTTP_CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
 
 pub(super) fn client() -> &'static reqwest::Client {
@@ -47,7 +52,7 @@ pub async fn fetch(
                 status = status as u64,
             );
             match super::browser::fetch_with_crawl4ai(c4ai_url, url).await {
-                Ok(markdown) => return Ok(markdown_to_content(markdown, None, options)),
+                Ok(markdown) => return Ok(markdown_to_content(markdown, None)),
                 Err(e) => {
                     logfire::warn!(
                         "crawl4ai fallback also failed after HTTP error",
@@ -104,7 +109,7 @@ pub async fn fetch(
 
             match super::browser::fetch_with_crawl4ai(c4ai_url, url).await {
                 Ok(markdown) => {
-                    content = markdown_to_content(markdown, content.title, options);
+                    content = markdown_to_content(markdown, content.title);
                 }
                 Err(e) => {
                     logfire::warn!(
@@ -119,7 +124,7 @@ pub async fn fetch(
         Ok(content)
     } else {
         let text = raw_text.replace('\0', "");
-        let (text, truncated) = truncate(text, options.max_chars);
+        let (text, truncated) = truncate(text, MAX_EXTRACT_CHARS);
         let word_count = text.split_whitespace().count();
         Ok(ExtractedContent {
             title: None,
@@ -130,13 +135,9 @@ pub async fn fetch(
     }
 }
 
-fn markdown_to_content(
-    markdown: String,
-    title: Option<String>,
-    options: &FetchOptions,
-) -> ExtractedContent {
+fn markdown_to_content(markdown: String, title: Option<String>) -> ExtractedContent {
     let text = markdown.replace('\0', "");
-    let (text, truncated) = truncate(text, options.max_chars);
+    let (text, truncated) = truncate(text, MAX_EXTRACT_CHARS);
     let word_count = text.split_whitespace().count();
     ExtractedContent {
         title,
@@ -149,7 +150,7 @@ fn markdown_to_content(
 fn extract_content(html: &str, page_url: &str, options: &FetchOptions) -> ExtractedContent {
     if options.raw {
         let text = html.replace('\0', "");
-        let (text, truncated) = truncate(text, options.max_chars);
+        let (text, truncated) = truncate(text, MAX_EXTRACT_CHARS);
         let word_count = text.split_whitespace().count();
         return ExtractedContent {
             title: None,
@@ -166,7 +167,7 @@ fn extract_content(html: &str, page_url: &str, options: &FetchOptions) -> Extrac
     };
 
     let text = text.replace('\0', "");
-    let (text, truncated) = truncate(text, options.max_chars);
+    let (text, truncated) = truncate(text, MAX_EXTRACT_CHARS);
     let word_count = text.split_whitespace().count();
 
     ExtractedContent {
@@ -295,15 +296,12 @@ mod tests {
     }
 
     #[test]
-    fn truncation_at_max_chars() {
-        let html = "<p>Hello world this is a test</p>";
-        let options = FetchOptions {
-            max_chars: 10,
-            ..Default::default()
-        };
-        let result = extract_content(html, "http://example.com", &options);
-        assert!(result.text.chars().count() <= 10);
-        assert!(result.truncated);
+    fn truncation_at_internal_limit() {
+        // The internal safety cap truncates extremely long content
+        let (text, was_truncated) =
+            truncate("a".repeat(MAX_EXTRACT_CHARS + 100), MAX_EXTRACT_CHARS);
+        assert_eq!(text.len(), MAX_EXTRACT_CHARS);
+        assert!(was_truncated);
     }
 
     #[test]
