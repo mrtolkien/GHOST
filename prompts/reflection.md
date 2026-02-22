@@ -11,6 +11,10 @@ These principles apply to all note creation and editing during reflection.
 
 - **Atomic**: Each note covers one concept (100-400 words typical, 1000 max).
 - **Information-dense**: No filler. Every sentence should carry meaning.
+- **Specific over abstract**: Preserve concrete details — exact names, model numbers,
+  versions, prices, URLs, dates. A note saying "newer models exist" is useless; a note
+  naming the exact model, its price, and what it replaces is searchable and actionable.
+  If the transcript contains specific identifiers, your notes must too.
 - **Discoverable**: Titles should be clear search queries. The first paragraph is what
   embedding search sees first — make it count.
 - **Linked**: Use `[[Title]]` wiki links to connect related notes, even if the target

@@ -1,9 +1,12 @@
 ---
 name: research
 description:
-  Research, recommendations, comparisons, buying decisions, product evaluations,
-  and any question requiring current web data. Read before searching or
-  recommending anything.
+  MANDATORY for any question involving recommendations, comparisons, buying decisions,
+  evaluations, or current web data. You MUST call
+  read_file("skills/research/skill.md") BEFORE generating any response to these
+  questions. Do NOT answer from training data — it produces dangerously outdated
+  advice. This skill contains non-negotiable workflow rules including when to use
+  background agents for multi-source research vs direct tools for simple lookups.
 ---
 
 # Research Skill
@@ -132,11 +135,12 @@ include:
 - **Specific question** — what exactly needs to be answered
 - **Context** — budget, use case, constraints, preferences the OPERATOR mentioned
 - **Scope** — what sub-questions to investigate
-- **Quality bar** — how many sources, what kind of sources
-
-The agent will automatically discover authoritative sources for the domain before
-searching for answers. If past reflection has recorded trusted sources for this topic,
-mention them in the prompt — but the agent validates independently.
+- **Recency** — remind the agent to look for recently released models/versions/products
+  the OPERATOR might not know about. The agent's training data is outdated.
+- **Quality bar** — how many sources, what kind of sources The agent will automatically
+  discover authoritative sources for the domain before searching for answers. If past
+  reflection has recorded trusted sources for this topic, mention them in the prompt —
+  but the agent validates independently.
 
 Example:
 

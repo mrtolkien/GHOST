@@ -379,7 +379,7 @@ Also: {{query}}
         );
         let rule = &def.progress_rules[0];
         assert_eq!(rule.tool, "web_fetch");
-        assert_eq!(rule.min, 5);
+        assert_eq!(rule.min, 7);
         assert!(rule.below.is_some());
         assert!(rule.met.is_some());
     }

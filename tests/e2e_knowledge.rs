@@ -67,6 +67,42 @@ async fn e2e_research() {
         &["all3dp.com", "auroratechchannel.com"],
         &["p2s"],
     );
+
+    // --- Reflection phase (3 min timeout each) ---
+
+    // Agent session: has full research transcript + web fetches
+    let _agent_reflection = tokio::time::timeout(
+        std::time::Duration::from_secs(180),
+        env.run_reflection(&outcome.agent_session, None),
+    )
+    .await
+    .expect("TIMEOUT: agent reflection did not complete within 3 minutes");
+
+    env.log_session_json_since("agent_reflection", &outcome.agent_session)
+        .await;
+
+    // Main session: has the user question + injected findings summary
+    let _chat_reflection = tokio::time::timeout(
+        std::time::Duration::from_secs(180),
+        env.run_reflection(&session, None),
+    )
+    .await
+    .expect("TIMEOUT: chat reflection did not complete within 3 minutes");
+
+    env.log_session_json_since("chat_reflection", &session)
+        .await;
+
+    // Product note for P2S
+    assert!(
+        env.find_file_containing("notes", "P2S") || env.find_file_containing("notes", "p2s"),
+        "expected a note mentioning the Bambu Lab P2S"
+    );
+
+    // Source quality note for all3dp or aurora tech channel
+    assert!(
+        env.find_file_containing("notes", "all3dp") || env.find_file_containing("notes", "aurora"),
+        "expected a source note for all3dp.com or Aurora Tech Channel"
+    );
 }
 
 #[cfg(feature = "e2e-tests")]
@@ -78,11 +114,7 @@ async fn run_initial_research(
     let result = chat
         .chat(
             &session.to_string(),
-            "I want to buy a new enclosed 3D printer for home use, budget \
-             around $1000. Check specialist sites like all3dp.com and \
-             auroratechchannel.com, plus reddit discussions. I want specific \
-             model recommendations with prices, including any recently \
-             released models I might not know about.",
+            "I want to buy a new enclosed 3D printer for home use, around $1000. What do you recommend?",
         )
         .await
         .expect("chat failed");
