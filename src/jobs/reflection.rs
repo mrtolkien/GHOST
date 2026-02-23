@@ -8,6 +8,7 @@ use surrealdb::engine::local::Db;
 use surrealdb::sql::Thing;
 use tokio::sync::Mutex;
 
+use crate::agents::ProgressRule;
 use crate::chat::SessionChat;
 use crate::config::Config;
 use crate::db;
@@ -18,6 +19,44 @@ use crate::tools::{ToolManager, ToolSet};
 use crate::web::scan_web_cache;
 
 use super::heartbeat::load_prompt;
+
+/// Progress rules for reflection: nudge the model to keep creating notes
+/// and curating references instead of stopping early with a text handoff.
+pub fn reflection_progress_rules() -> Vec<ProgressRule> {
+    vec![
+        ProgressRule {
+            tool: "note_write".to_string(),
+            min: 3,
+            below: Some(
+                "You have only created {count}/{min} notes. \
+                 Keep going — create entity notes for each product/concept \
+                 found in the transcript. Do NOT write your handoff yet."
+                    .to_string(),
+            ),
+            met: Some(
+                "Note minimum met ({count}/{min}). \
+                 Continue if there are more entities to capture, \
+                 otherwise proceed to source quality notes and handoff."
+                    .to_string(),
+            ),
+        },
+        ProgressRule {
+            tool: "reference_manage".to_string(),
+            min: 3,
+            below: Some(
+                "You have only curated {count}/{min} references. \
+                 Process more web cache files before moving on. \
+                 Use reference_manage(action=\"move\") for useful files."
+                    .to_string(),
+            ),
+            met: Some(
+                "Reference curation minimum met ({count}/{min}). \
+                 Continue curating remaining cache files or proceed."
+                    .to_string(),
+            ),
+        },
+    ]
+}
 
 pub const DEFAULT_REFLECTION_PROMPT: &str = include_str!("../../prompts/reflection.md");
 
@@ -177,11 +216,12 @@ impl ReflectionManager {
         let temp_session_id = temp_session.to_string();
 
         match session_chat
-            .chat_job(
+            .chat_job_with_rules(
                 "reflection",
                 &temp_session_id,
                 &interpolated,
                 ToolSet::Reflection,
+                reflection_progress_rules(),
             )
             .await
         {

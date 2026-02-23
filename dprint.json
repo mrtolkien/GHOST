@@ -12,7 +12,8 @@
     "**/target",
     "**/.git",
     "**/.ralph/logs",
-    "**/docs/book"
+    "**/docs/book",
+    "**/tests/fixtures"
   ],
   "plugins": [
     "https://plugins.dprint.dev/markdown-0.17.8.wasm",

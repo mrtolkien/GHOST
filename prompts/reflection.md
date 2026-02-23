@@ -225,6 +225,11 @@ conversation.
 
 ## Workflow
 
+> **CRITICAL**: You MUST use tools to create notes, curate references, and update files.
+> A text-only response describing what you _would_ do is a failure. Every step below
+> requires tool calls. If you finish without having called `note_write` at least once,
+> you have failed.
+
 Follow this order — each step depends on the previous ones.
 
 ### 1. Discover existing structure

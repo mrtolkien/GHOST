@@ -127,6 +127,21 @@ impl SessionChat {
         prompt: &str,
         _tool_set: ToolSet,
     ) -> Result<JobTranscript, ChatError> {
+        self.chat_job_with_rules(job_name, session_id, prompt, _tool_set, vec![])
+            .await
+    }
+
+    /// Like `chat_job`, but with progress rules that inject system nudges
+    /// after each tool iteration (same mechanism as agent progress rules).
+    #[tracing::instrument(skip_all, fields(job_name = job_name, session_id = session_id))]
+    pub async fn chat_job_with_rules(
+        &self,
+        job_name: &str,
+        session_id: &str,
+        prompt: &str,
+        _tool_set: ToolSet,
+        progress_rules: Vec<ProgressRule>,
+    ) -> Result<JobTranscript, ChatError> {
         // TEMPORARY SCAFFOLDING:
         // This is a minimal spec 06 implementation. Jobs spec 16/17 is expected to
         // redesign transcript shape, status handling, and storage boundaries.
@@ -146,6 +161,7 @@ impl SessionChat {
         let mut handler = JobHandler {
             job_name: job_name.to_string(),
             transcript_lines: vec![format!("[job:{job_name}] {prompt}")],
+            progress_rules,
         };
 
         let result = run_tool_loop(
@@ -689,6 +705,7 @@ fn build_progress_nudge(rules: &[ProgressRule], history: &[ChatMessage]) -> Opti
 struct JobHandler {
     job_name: String,
     transcript_lines: Vec<String>,
+    progress_rules: Vec<ProgressRule>,
 }
 
 #[async_trait]
@@ -734,6 +751,19 @@ impl ToolLoopHandler for JobHandler {
                 ChatStopReason::EndTurn
             },
         })
+    }
+
+    async fn post_tool_iteration(
+        &mut self,
+        history: &mut Vec<ChatMessage>,
+    ) -> Result<(), ChatError> {
+        if let Some(nudge) = build_progress_nudge(&self.progress_rules, history) {
+            history.push(ChatMessage {
+                role: Role::System,
+                content: vec![ContentBlock::Text { text: nudge }],
+            });
+        }
+        Ok(())
     }
 }
 

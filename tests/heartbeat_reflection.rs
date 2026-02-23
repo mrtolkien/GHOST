@@ -5,6 +5,7 @@ mod common;
 use ghost::jobs::heartbeat::is_heartbeat_continue;
 use ghost::jobs::reflection::clear_web_cache;
 use ghost::web::scan_web_cache;
+use std::path::PathBuf;
 
 // ---------------------------------------------------------------------------
 // Heartbeat e2e: HEARTBEAT_CONTINUE flow
@@ -276,4 +277,87 @@ async fn skills_discoverable_without_prompting() {
         "model should describe available skills"
     );
     env.log(format!("skills response: {}", result.message));
+}
+
+// ---------------------------------------------------------------------------
+// Reflection isolation: replay agent transcript + web cache, run reflection
+// ---------------------------------------------------------------------------
+
+/// Isolated reflection test using a pre-captured agent transcript and web
+/// cache from a successful deep-research run. Tests ONLY the reflection
+/// pipeline — no chat, no agent spawning.
+///
+/// Uses fixture: `tests/fixtures/e2e_research_post_agent/`
+///   - `agent_transcript.json`: 16-message agent session (3D printer research)
+///   - `web-cache/`: 25 cached web pages from the agent's research
+///
+/// ```sh
+/// cargo test --features live-tests reflection_on_agent_transcript -- --nocapture
+/// ```
+#[tokio::test]
+async fn reflection_on_agent_transcript() {
+    let env = common::live_test_database("reflection_agent_transcript").await;
+
+    // Load fixture: agent transcript + web cache
+    let fixture_dir =
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/e2e_research_post_agent");
+
+    let transcript_json = std::fs::read_to_string(fixture_dir.join("agent_transcript.json"))
+        .expect("read agent transcript fixture");
+    let transcript: Vec<serde_json::Value> =
+        serde_json::from_str(&transcript_json).expect("parse agent transcript");
+
+    // Replay agent messages into a session
+    let session = env.session_from_transcript(&transcript).await;
+    env.log(format!("replayed {} agent messages", transcript.len()));
+
+    // Install web cache fixture
+    env.install_web_cache_fixture(&fixture_dir.join("web-cache"));
+    let listing = scan_web_cache(&env.config.workspace).expect("scan web cache");
+    env.log(format!(
+        "web cache: {} chars",
+        listing.as_deref().unwrap_or("").len()
+    ));
+
+    // Run reflection on the agent session
+    let result = tokio::time::timeout(
+        std::time::Duration::from_secs(180),
+        env.run_reflection(&session, None),
+    )
+    .await
+    .expect("TIMEOUT: reflection did not complete within 3 minutes");
+
+    env.log_session_json("agent_reflection", &session).await;
+    env.log(format!("handoff: {}", result.result.message));
+
+    // Assertions: reflection should produce meaningful output
+    assert!(
+        !result.result.message.trim().is_empty(),
+        "reflection should produce a non-empty handoff note"
+    );
+
+    // Check for knowledge artifacts
+    let notes = env.list_notes();
+    let refs = env.list_references();
+    env.log(format!(
+        "notes: {}, references: {}",
+        notes.len(),
+        refs.len()
+    ));
+
+    // Reflection on a rich research transcript should create at least one note
+    assert!(
+        !notes.is_empty() || !refs.is_empty(),
+        "reflection should create at least one note or reference"
+    );
+
+    // Check for P2S mention (the agent findings included it)
+    let has_p2s =
+        env.find_file_containing("notes", "P2S") || env.find_file_containing("notes", "p2s");
+    env.log(format!("P2S note found: {has_p2s}"));
+
+    // Check for source quality note
+    let has_source_note =
+        env.find_file_containing("notes", "all3dp") || env.find_file_containing("notes", "aurora");
+    env.log(format!("source quality note found: {has_source_note}"));
 }

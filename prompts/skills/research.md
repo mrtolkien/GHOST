@@ -27,6 +27,12 @@ These questions REQUIRE reading 3-8 full pages, cross-referencing claims, and ch
 publication dates. That volume of reading belongs in a background agent, not the main
 chat context.
 
+> **CRITICAL**: Spawn the agent IMMEDIATELY — in your very first tool-use turn after
+> reading this skill. Do NOT ask clarifying questions first, do NOT respond with text
+> first. Call `agent_control` as your next tool call. You can ask clarifying questions
+> in your text response ALONGSIDE the agent spawn — the agent works in the background
+> while you wait for answers.
+
 **Do NOT spawn an agent for:**
 
 - Simple factual lookups ("what is the capital of France")

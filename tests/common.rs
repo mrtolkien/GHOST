@@ -259,6 +259,46 @@ impl LiveTestEnv {
         session_id
     }
 
+    /// Replay a diagnostic-format JSON transcript into a fresh session.
+    ///
+    /// Each entry has `role`, optional `content`, optional `tool_calls`,
+    /// optional `tool_results`. Returns the session ID with all messages stored.
+    pub async fn session_from_transcript(&self, transcript: &[serde_json::Value]) -> Thing {
+        let session_id = self.create_session().await;
+        for msg in transcript {
+            let role = msg.get("role").and_then(|v| v.as_str()).unwrap_or("user");
+            let content = msg.get("content").and_then(|v| v.as_str()).unwrap_or("");
+            let tool_calls: Option<Vec<serde_json::Value>> =
+                msg.get("tool_calls").and_then(|v| v.as_array()).cloned();
+            let tool_results: Option<Vec<serde_json::Value>> =
+                msg.get("tool_results").and_then(|v| v.as_array()).cloned();
+            ghost::db::sessions::create_message_with_metadata(
+                &self.db,
+                &session_id,
+                role,
+                content,
+                tool_calls,
+                tool_results,
+                None,
+            )
+            .await
+            .expect("replay message");
+        }
+        session_id
+    }
+
+    /// Copy a fixture directory into the workspace's `.web-cache/`.
+    pub fn install_web_cache_fixture(&self, fixture_dir: &std::path::Path) {
+        let dest = self.workspace.path().join(".web-cache");
+        fs::create_dir_all(&dest).expect("create .web-cache dir");
+        for entry in fs::read_dir(fixture_dir).expect("read fixture dir") {
+            let entry = entry.expect("read dir entry");
+            if entry.file_type().expect("file type").is_file() {
+                fs::copy(entry.path(), dest.join(entry.file_name())).expect("copy fixture file");
+            }
+        }
+    }
+
     // -----------------------------------------------------------------
     // Chat helpers
     // -----------------------------------------------------------------
@@ -343,14 +383,15 @@ impl LiveTestEnv {
         let temp_session = self.create_session().await;
 
         reflection_chat
-            .chat_job(
+            .chat_job_with_rules(
                 "reflection",
                 &temp_session.to_string(),
                 &interpolated,
                 ghost::tools::ToolSet::Reflection,
+                ghost::jobs::reflection::reflection_progress_rules(),
             )
             .await
-            .expect("reflection chat_job")
+            .expect("reflection chat_job_with_rules")
     }
 
     // -----------------------------------------------------------------
