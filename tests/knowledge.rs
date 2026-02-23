@@ -5,6 +5,24 @@ use ghost::knowledge;
 use ghost::tools::{ToolContext, ToolManager};
 use serde_json::json;
 
+fn reflection_tools() -> Vec<String> {
+    vec![
+        "run_shell_command",
+        "read_file",
+        "write_file",
+        "file_edit",
+        "todo",
+        "knowledge_search",
+        "web_search",
+        "web_fetch",
+        "note_write",
+        "reference_manage",
+    ]
+    .into_iter()
+    .map(String::from)
+    .collect()
+}
+
 // --- DB CRUD & field verification ---
 
 #[tokio::test]
@@ -260,9 +278,9 @@ async fn note_write_tool_creates_file_and_db_record() {
         db: db.clone(),
         config: config.clone(),
         session_id: session_id.to_string(),
-        agent_runner: None,
+        task_runner: None,
     };
-    let manager = ToolManager::for_reflection();
+    let manager = ToolManager::for_agent(&reflection_tools());
 
     let result = manager
         .execute(
@@ -309,7 +327,7 @@ async fn reference_manage_move_preserves_cited_edges() {
         db: db.clone(),
         config: config.clone(),
         session_id: session_id.to_string(),
-        agent_runner: None,
+        task_runner: None,
     };
 
     // Create a fake cache file
@@ -341,7 +359,7 @@ async fn reference_manage_move_preserves_cited_edges() {
         .expect("create cited edge");
 
     // Move via tool
-    let manager = ToolManager::for_reflection();
+    let manager = ToolManager::for_agent(&reflection_tools());
     let result = manager
         .execute(
             "reference_manage",

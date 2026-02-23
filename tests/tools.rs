@@ -15,7 +15,7 @@ fn tool_ctx(
         db: db.clone(),
         config: config.clone(),
         session_id: session_id.to_string(),
-        agent_runner: None,
+        task_runner: None,
     }
 }
 
@@ -43,16 +43,32 @@ async fn for_chat_registers_nine_tools() {
 }
 
 #[tokio::test]
-async fn for_reflection_includes_knowledge_tools() {
-    let chat = ToolManager::for_chat();
-    let reflection = ToolManager::for_reflection();
-    assert_eq!(chat.all_tool_schemas().len(), 9);
-    assert_eq!(reflection.all_tool_schemas().len(), 10);
+async fn for_agent_includes_knowledge_tools() {
+    let tools: Vec<String> = vec![
+        "run_shell_command",
+        "read_file",
+        "write_file",
+        "file_edit",
+        "todo",
+        "knowledge_search",
+        "web_search",
+        "web_fetch",
+        "note_write",
+        "reference_manage",
+    ]
+    .into_iter()
+    .map(String::from)
+    .collect();
 
-    let schemas = reflection.all_tool_schemas();
+    let agent_manager = ToolManager::for_agent(&tools);
+    assert_eq!(agent_manager.all_tool_schemas().len(), 10);
+
+    let schemas = agent_manager.all_tool_schemas();
     let names: Vec<&str> = schemas.iter().map(|s| s.name.as_str()).collect();
     assert!(names.contains(&"note_write"));
     assert!(names.contains(&"reference_manage"));
+    // agent_control should NOT be included
+    assert!(!names.contains(&"agent_control"));
 }
 
 #[tokio::test]
@@ -276,7 +292,7 @@ async fn unknown_tool_returns_not_found() {
         db: surrealdb::Surreal::init(),
         config: ghost::config::test_config(std::path::Path::new("/tmp")),
         session_id: "test".to_string(),
-        agent_runner: None,
+        task_runner: None,
     };
 
     let result = manager.execute("nonexistent_tool", json!({}), &ctx).await;

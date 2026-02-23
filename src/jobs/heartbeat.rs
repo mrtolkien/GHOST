@@ -9,18 +9,17 @@ use surrealdb::engine::local::Db;
 use tokio::sync::watch;
 use tokio::task::JoinHandle;
 
-use crate::chat::SessionChat;
+use crate::agents::TaskRunner;
 use crate::config::Config;
 use crate::db;
+use crate::db::sessions::MessageRecord;
 use crate::interfaces::discord::DiscordSender;
 
 use super::reflection::ReflectionManager;
 
-const DEFAULT_HEARTBEAT_PROMPT: &str = include_str!("../../prompts/heartbeat.md");
-
 pub struct HeartbeatManager {
     db: Surreal<Db>,
-    session_chat: Arc<SessionChat>,
+    task_runner: Arc<TaskRunner>,
     discord_sender: Arc<DiscordSender>,
     config: Config,
     reflection: Arc<ReflectionManager>,
@@ -31,14 +30,14 @@ impl HeartbeatManager {
     #[must_use]
     pub fn new(
         db: Surreal<Db>,
-        session_chat: Arc<SessionChat>,
+        task_runner: Arc<TaskRunner>,
         discord_sender: Arc<DiscordSender>,
         config: Config,
         reflection: Arc<ReflectionManager>,
     ) -> Self {
         Self {
             db,
-            session_chat,
+            task_runner,
             discord_sender,
             config,
             reflection,
@@ -150,26 +149,27 @@ impl HeartbeatManager {
     ) {
         logfire::info!("heartbeat started", session_id = session_id.to_string(),);
 
-        let prompt = load_prompt(
-            &self.config.workspace,
-            "heartbeat.md",
-            DEFAULT_HEARTBEAT_PROMPT,
-        );
-
-        let result = match self
-            .session_chat
-            .chat_job(
-                "heartbeat",
-                session_id,
-                &prompt,
-                crate::tools::ToolSet::Chat,
-            )
-            .await
-        {
-            Ok(t) => t,
+        // Build user message with recent conversation context
+        let user_message = match self.build_user_message(session_thing).await {
+            Ok(msg) => msg,
             Err(e) => {
                 logfire::error!(
-                    "heartbeat chat_job failed",
+                    "heartbeat: failed to build user message",
+                    error = e.to_string(),
+                );
+                return;
+            }
+        };
+
+        let response = match self
+            .task_runner
+            .run_to_completion("heartbeat", &user_message, Some(session_thing))
+            .await
+        {
+            Ok(findings) => findings,
+            Err(e) => {
+                logfire::error!(
+                    "heartbeat agent failed",
                     session_id = session_id.to_string(),
                     error = e.to_string(),
                 );
@@ -181,7 +181,7 @@ impl HeartbeatManager {
         let state_dir = self.config.workspace.join(".state");
         let _ = std::fs::create_dir_all(&state_dir);
         let state_path = state_dir.join("heartbeat.last.md");
-        if let Err(e) = std::fs::write(&state_path, &result.result.message) {
+        if let Err(e) = std::fs::write(&state_path, &response) {
             logfire::warn!(
                 "heartbeat: failed to write state file",
                 error = e.to_string(),
@@ -190,7 +190,7 @@ impl HeartbeatManager {
 
         let now = Utc::now();
 
-        if is_heartbeat_continue(&result.result.message) {
+        if is_heartbeat_continue(&response) {
             self.cooldowns.insert(session_id.to_string(), now);
             logfire::info!(
                 "heartbeat completed",
@@ -202,7 +202,7 @@ impl HeartbeatManager {
             if let Some(channel_id) = extract_discord_channel_id(interface) {
                 if let Err(e) = self
                     .discord_sender
-                    .send_to_channel(channel_id, &result.result.message)
+                    .send_to_channel(channel_id, &response)
                     .await
                 {
                     logfire::error!(
@@ -233,6 +233,68 @@ impl HeartbeatManager {
         tokio::spawn(async move {
             reflection.run_after_heartbeat(&sid, &st).await;
         });
+    }
+
+    async fn build_user_message(
+        &self,
+        session_thing: &surrealdb::sql::Thing,
+    ) -> Result<String, db::DatabaseError> {
+        let messages = db::sessions::list_messages_by_session(&self.db, session_thing).await?;
+        let transcript = format_recent_messages(&messages, 20);
+        Ok(build_heartbeat_user_message(&transcript))
+    }
+}
+
+/// Build the user message for the heartbeat agent.
+#[must_use]
+pub fn build_heartbeat_user_message(recent_messages: &str) -> String {
+    format!(
+        "## Recent Conversation\n\
+         {recent_messages}"
+    )
+}
+
+/// Format recent messages for heartbeat context.
+///
+/// Takes the last `max` messages, preserving user and assistant text.
+/// Tool calls and results are summarized briefly.
+#[must_use]
+pub fn format_recent_messages(messages: &[MessageRecord], max: usize) -> String {
+    let start = messages.len().saturating_sub(max);
+    let mut lines = Vec::new();
+
+    for msg in &messages[start..] {
+        match msg.role.as_str() {
+            "user" => {
+                if msg.tool_results.is_some() {
+                    continue;
+                }
+                if !msg.content.trim().is_empty() {
+                    lines.push(format!("[user] {}", msg.content));
+                }
+            }
+            "assistant" => {
+                if !msg.content.trim().is_empty() {
+                    lines.push(format!("[assistant] {}", msg.content));
+                }
+                if let Some(ref calls) = msg.tool_calls {
+                    for call in calls {
+                        let name = call
+                            .get("name")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("unknown");
+                        lines.push(format!("[tool_call] {name}"));
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    if lines.is_empty() {
+        "No recent messages.".to_string()
+    } else {
+        lines.join("\n")
     }
 }
 
@@ -266,7 +328,21 @@ pub fn load_prompt(workspace: &Path, filename: &str, default: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use surrealdb::sql::{Datetime, Thing};
     use tempfile::TempDir;
+
+    fn make_message(role: &str, content: &str) -> MessageRecord {
+        MessageRecord {
+            id: Thing::from(("message", "test")),
+            session: Thing::from(("session", "test")),
+            role: role.to_string(),
+            content: content.to_string(),
+            tool_calls: None,
+            tool_results: None,
+            raw_output: None,
+            created_at: Datetime::default(),
+        }
+    }
 
     #[test]
     fn heartbeat_continue_exact_match() {
@@ -344,5 +420,42 @@ mod tests {
 
         let prompt = load_prompt(dir.path(), "heartbeat.md", "default prompt");
         assert_eq!(prompt, "default prompt");
+    }
+
+    #[test]
+    fn format_recent_messages_basic() {
+        let messages = vec![
+            make_message("user", "Hello"),
+            make_message("assistant", "Hi there!"),
+        ];
+        let result = format_recent_messages(&messages, 20);
+        assert!(result.contains("[user] Hello"));
+        assert!(result.contains("[assistant] Hi there!"));
+    }
+
+    #[test]
+    fn format_recent_messages_limits_count() {
+        let messages = vec![
+            make_message("user", "First"),
+            make_message("assistant", "Second"),
+            make_message("user", "Third"),
+        ];
+        let result = format_recent_messages(&messages, 2);
+        assert!(!result.contains("First"));
+        assert!(result.contains("Second"));
+        assert!(result.contains("Third"));
+    }
+
+    #[test]
+    fn format_recent_messages_empty() {
+        let result = format_recent_messages(&[], 20);
+        assert_eq!(result, "No recent messages.");
+    }
+
+    #[test]
+    fn build_heartbeat_user_message_includes_section() {
+        let msg = build_heartbeat_user_message("[user] Hello\n[assistant] Hi");
+        assert!(msg.contains("## Recent Conversation"));
+        assert!(msg.contains("[user] Hello"));
     }
 }

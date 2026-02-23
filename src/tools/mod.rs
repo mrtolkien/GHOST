@@ -15,5 +15,5 @@ pub mod write_file;
 
 pub use context::ToolContext;
 pub use error::ToolError;
-pub use manager::{Tool, ToolManager, ToolSet};
+pub use manager::{Tool, ToolManager};
 pub use todo::{TodoItem, TodoStatus, format_todo_injection, format_todo_list};

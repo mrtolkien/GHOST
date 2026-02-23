@@ -14,7 +14,7 @@ mod common;
 #[tokio::test]
 async fn deep_research_agent_produces_findings() {
     let env = common::live_test_database("deep_research").await;
-    let definition = env.load_agent("deep-research");
+    let definition = env.load_task("deep-research");
 
     // Build provider + tool manager from agent definition
     let provider = ghost::providers::provider_for_alias(&env.config, definition.model.as_deref())

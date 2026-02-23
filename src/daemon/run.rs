@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use tracing::info;
 
-use crate::agents::AgentRunner;
+use crate::agents::TaskRunner;
 use crate::chat::SessionChat;
 use crate::embeddings::EmbeddingClient;
 use crate::error::GhostError;
@@ -43,16 +43,19 @@ pub async fn run() -> Result<(), GhostError> {
         shutdown_rx.clone(),
     );
 
-    // Spawn the job scheduler
-    let scheduler_handle =
-        crate::jobs::spawn_scheduler(db.clone(), config.clone(), shutdown_rx.clone());
+    // Create agent runner (shared between SessionChat, scheduler, heartbeat, agent watcher)
+    let task_runner = Arc::new(TaskRunner::new(db.clone(), config.clone()));
 
-    // Create agent runner (shared between SessionChat and agent watcher)
-    let agent_runner = Arc::new(AgentRunner::new(db.clone(), config.clone()));
+    // Spawn the job scheduler
+    let scheduler_handle = crate::jobs::spawn_scheduler(
+        Arc::clone(&task_runner),
+        config.clone(),
+        shutdown_rx.clone(),
+    );
 
     let session_chat = Arc::new(
         SessionChat::from_config(db.clone(), config.clone())?
-            .with_agent_runner(Arc::clone(&agent_runner)),
+            .with_task_runner(Arc::clone(&task_runner)),
     );
 
     let discord_result = discord::start_discord(&config, session_chat.clone(), db.clone()).await?;
@@ -65,18 +68,22 @@ pub async fn run() -> Result<(), GhostError> {
         let discord_sender = Arc::new(sender.clone());
 
         // Agent watcher — polls for completed agents and injects findings
-        agent_watcher_handle = Some(crate::agents::watcher::spawn_agent_watcher(
-            Arc::clone(&agent_runner),
+        agent_watcher_handle = Some(crate::agents::watcher::spawn_task_watcher(
+            Arc::clone(&task_runner),
             Arc::clone(&session_chat),
             Arc::clone(&discord_sender),
             db.clone(),
             shutdown_rx.clone(),
         ));
 
-        let reflection = Arc::new(ReflectionManager::new(db.clone(), config.clone()));
+        let reflection = Arc::new(ReflectionManager::new(
+            db.clone(),
+            config.clone(),
+            Arc::clone(&task_runner),
+        ));
         let hb = HeartbeatManager::new(
             db.clone(),
-            session_chat,
+            Arc::clone(&task_runner),
             discord_sender,
             config.clone(),
             reflection,

@@ -2,27 +2,33 @@ use std::path::Path;
 
 use serde::Deserialize;
 
-use super::error::AgentError;
+use super::error::TaskError;
 
 const DELIMITER: &str = "+++";
 
 /// A progress rule declared in agent TOML frontmatter.
 ///
 /// Agents can declare minimum tool call counts with custom feedback
-/// messages. The runtime injects these as `[Progress]` system messages
-/// after each tool iteration.
+/// messages. The runtime injects these as XML `<progress>` system
+/// reminders after each tool iteration.
+///
+/// | `min` | `nudge` | Behavior                                     |
+/// | ----- | ------- | -------------------------------------------- |
+/// | set   | set     | Count shown; nudge printed while count < min |
+/// | unset | set     | Count shown; nudge always printed            |
+/// | set   | unset   | Count shown; nothing else                    |
+/// | unset | unset   | Count shown; nothing else                    |
 #[derive(Debug, Clone, Deserialize)]
 pub struct ProgressRule {
     pub tool: String,
-    pub min: u32,
     #[serde(default)]
-    pub below: Option<String>,
+    pub min: Option<u32>,
     #[serde(default)]
-    pub met: Option<String>,
+    pub nudge: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
-struct AgentFrontmatter {
+struct TaskFrontmatter {
     name: String,
     description: String,
     tools: Vec<String>,
@@ -38,7 +44,7 @@ fn default_max_iterations() -> usize {
 }
 
 #[derive(Debug, Clone)]
-pub struct AgentDefinition {
+pub struct TaskDefinition {
     pub name: String,
     pub description: String,
     pub tools: Vec<String>,
@@ -48,7 +54,7 @@ pub struct AgentDefinition {
     pub system_prompt_template: String,
 }
 
-impl AgentDefinition {
+impl TaskDefinition {
     /// Interpolate `{{ query }}` and `{{ date }}` in the system prompt.
     #[must_use]
     pub fn render_system_prompt(&self, query: &str) -> String {
@@ -75,18 +81,18 @@ impl AgentDefinition {
 /// # System prompt body here
 /// {{ query }}
 /// ```
-pub fn parse_agent_file(content: &str) -> Result<AgentDefinition, AgentError> {
+pub fn parse_task_file(content: &str) -> Result<TaskDefinition, TaskError> {
     let trimmed = content.trim_start();
 
     if !trimmed.starts_with(DELIMITER) {
-        return Err(AgentError::InvalidFrontMatter {
+        return Err(TaskError::InvalidFrontMatter {
             reason: "missing opening +++ delimiter".to_string(),
         });
     }
 
     let after_open = &trimmed[DELIMITER.len()..];
     let Some(end_pos) = after_open.find(DELIMITER) else {
-        return Err(AgentError::InvalidFrontMatter {
+        return Err(TaskError::InvalidFrontMatter {
             reason: "missing closing +++ delimiter".to_string(),
         });
     };
@@ -98,10 +104,10 @@ pub fn parse_agent_file(content: &str) -> Result<AgentDefinition, AgentError> {
         .unwrap_or(&trimmed[body_start..])
         .to_string();
 
-    let front: AgentFrontmatter = toml::from_str(frontmatter_str)
-        .map_err(|source| AgentError::FrontMatterParse { source })?;
+    let front: TaskFrontmatter =
+        toml::from_str(frontmatter_str).map_err(|source| TaskError::FrontMatterParse { source })?;
 
-    Ok(AgentDefinition {
+    Ok(TaskDefinition {
         name: front.name,
         description: front.description,
         tools: front.tools,
@@ -112,18 +118,28 @@ pub fn parse_agent_file(content: &str) -> Result<AgentDefinition, AgentError> {
     })
 }
 
-const DEFAULT_AGENTS: &[(&str, &str)] = &[(
-    "deep-research",
-    include_str!("../../prompts/agents/deep-research.md"),
-)];
+const DEFAULT_TASKS: &[(&str, &str)] = &[
+    (
+        "deep-research",
+        include_str!("../../prompts/agents/deep-research.md"),
+    ),
+    (
+        "heartbeat",
+        include_str!("../../prompts/agents/heartbeat.md"),
+    ),
+    (
+        "reflection",
+        include_str!("../../prompts/agents/reflection.md"),
+    ),
+];
 
 /// Install default agent definitions into `$WORKSPACE/agents/` if they don't
 /// already exist.
-pub fn install_default_agents(workspace: &Path) -> Result<(), std::io::Error> {
+pub fn install_default_tasks(workspace: &Path) -> Result<(), std::io::Error> {
     let agents_dir = workspace.join("agents");
     std::fs::create_dir_all(&agents_dir)?;
 
-    for (name, content) in DEFAULT_AGENTS {
+    for (name, content) in DEFAULT_TASKS {
         let agent_file = agents_dir.join(format!("{name}.md"));
         if !agent_file.exists() {
             std::fs::write(&agent_file, content)?;
@@ -135,7 +151,7 @@ pub fn install_default_agents(workspace: &Path) -> Result<(), std::io::Error> {
 
 /// Minimal metadata for listing agents in the system prompt.
 #[derive(Debug, Clone)]
-pub struct AgentInfo {
+pub struct TaskInfo {
     pub name: String,
     pub description: String,
 }
@@ -143,7 +159,7 @@ pub struct AgentInfo {
 /// Scan `$WORKSPACE/agents/` for agent definition files and return a sorted
 /// list of agent name + description pairs.
 #[tracing::instrument(skip_all, level = "debug", fields(workspace = %workspace.display()))]
-pub fn discover_agents(workspace: &Path) -> Vec<AgentInfo> {
+pub fn discover_tasks(workspace: &Path) -> Vec<TaskInfo> {
     let agents_dir = workspace.join("agents");
 
     let entries = match std::fs::read_dir(&agents_dir) {
@@ -163,8 +179,8 @@ pub fn discover_agents(workspace: &Path) -> Vec<AgentInfo> {
             Err(_) => continue,
         };
 
-        match parse_agent_file(&content) {
-            Ok(def) => agents.push(AgentInfo {
+        match parse_task_file(&content) {
+            Ok(def) => agents.push(TaskInfo {
                 name: def.name,
                 description: def.description,
             }),
@@ -184,14 +200,14 @@ pub fn discover_agents(workspace: &Path) -> Vec<AgentInfo> {
 
 /// Load an agent definition from the workspace agents directory.
 #[tracing::instrument(skip_all, fields(agent_name = name))]
-pub fn load_agent(workspace: &Path, name: &str) -> Result<AgentDefinition, AgentError> {
+pub fn load_task(workspace: &Path, name: &str) -> Result<TaskDefinition, TaskError> {
     let path = workspace.join("agents").join(format!("{name}.md"));
 
-    let content = std::fs::read_to_string(&path).map_err(|_| AgentError::NotFound {
+    let content = std::fs::read_to_string(&path).map_err(|_| TaskError::NotFound {
         name: name.to_string(),
     })?;
 
-    parse_agent_file(&content)
+    parse_task_file(&content)
 }
 
 #[cfg(test)]
@@ -214,7 +230,7 @@ You are a research specialist.
 
 Query: {{ query }}
 "#;
-        let def = parse_agent_file(content).unwrap();
+        let def = parse_task_file(content).unwrap();
         assert_eq!(def.name, "deep-research");
         assert_eq!(def.description, "Iterative web research");
         assert_eq!(
@@ -236,7 +252,7 @@ tools = ["todo"]
 
 Do the thing. {{ query }}
 "#;
-        let def = parse_agent_file(content).unwrap();
+        let def = parse_task_file(content).unwrap();
         assert_eq!(def.max_iterations, 50);
         assert!(def.model.is_none());
     }
@@ -253,7 +269,7 @@ Today is {{ date }}. Research: {{ query }}
 
 Also: {{query}}
 "#;
-        let def = parse_agent_file(content).unwrap();
+        let def = parse_task_file(content).unwrap();
         let rendered = def.render_system_prompt("3D printers under $1000");
         assert!(rendered.contains("Research: 3D printers under $1000"));
         assert!(rendered.contains("Also: 3D printers under $1000"));
@@ -264,62 +280,62 @@ Also: {{query}}
 
     #[test]
     fn parse_missing_opening_delimiter() {
-        let err = parse_agent_file("name = \"oops\"").unwrap_err();
+        let err = parse_task_file("name = \"oops\"").unwrap_err();
         assert!(err.to_string().contains("missing opening"));
     }
 
     #[test]
     fn parse_missing_closing_delimiter() {
-        let err = parse_agent_file("+++\nname = \"oops\"").unwrap_err();
+        let err = parse_task_file("+++\nname = \"oops\"").unwrap_err();
         assert!(err.to_string().contains("missing closing"));
     }
 
     #[test]
     fn parse_missing_required_field() {
         let content = "+++\nname = \"x\"\n+++\nBody\n";
-        let err = parse_agent_file(content).unwrap_err();
-        assert!(matches!(err, AgentError::FrontMatterParse { .. }));
+        let err = parse_task_file(content).unwrap_err();
+        assert!(matches!(err, TaskError::FrontMatterParse { .. }));
     }
 
     #[test]
-    fn load_agent_not_found() {
-        let err = load_agent(Path::new("/nonexistent"), "nope").unwrap_err();
-        assert!(matches!(err, AgentError::NotFound { .. }));
+    fn load_task_not_found() {
+        let err = load_task(Path::new("/nonexistent"), "nope").unwrap_err();
+        assert!(matches!(err, TaskError::NotFound { .. }));
     }
 
     #[test]
-    fn install_default_agents_creates_files() {
+    fn install_default_tasks_creates_files() {
         let dir = tempfile::TempDir::new().unwrap();
-        install_default_agents(dir.path()).unwrap();
+        install_default_tasks(dir.path()).unwrap();
 
-        for (name, _) in DEFAULT_AGENTS {
+        for (name, _) in DEFAULT_TASKS {
             let agent_file = dir.path().join("agents").join(format!("{name}.md"));
             assert!(agent_file.exists(), "expected {agent_file:?} to exist");
 
-            let def = load_agent(dir.path(), name).unwrap();
+            let def = load_task(dir.path(), name).unwrap();
             assert_eq!(def.name, *name);
         }
     }
 
     #[test]
-    fn install_default_agents_does_not_overwrite() {
+    fn install_default_tasks_does_not_overwrite() {
         let dir = tempfile::TempDir::new().unwrap();
-        install_default_agents(dir.path()).unwrap();
+        install_default_tasks(dir.path()).unwrap();
 
         let agent_file = dir
             .path()
             .join("agents")
-            .join(format!("{}.md", DEFAULT_AGENTS[0].0));
+            .join(format!("{}.md", DEFAULT_TASKS[0].0));
         std::fs::write(&agent_file, "custom content").unwrap();
 
-        install_default_agents(dir.path()).unwrap();
+        install_default_tasks(dir.path()).unwrap();
 
         let content = std::fs::read_to_string(&agent_file).unwrap();
         assert_eq!(content, "custom content");
     }
 
     #[test]
-    fn discover_agents_finds_and_sorts() {
+    fn discover_tasks_finds_and_sorts() {
         let dir = tempfile::TempDir::new().unwrap();
         let agents_dir = dir.path().join("agents");
         std::fs::create_dir_all(&agents_dir).unwrap();
@@ -335,7 +351,7 @@ Also: {{query}}
         )
         .unwrap();
 
-        let found = discover_agents(dir.path());
+        let found = discover_tasks(dir.path());
         assert_eq!(found.len(), 2);
         assert_eq!(found[0].name, "alpha");
         assert_eq!(found[0].description, "A agent");
@@ -343,7 +359,7 @@ Also: {{query}}
     }
 
     #[test]
-    fn discover_agents_skips_non_md_and_invalid() {
+    fn discover_tasks_skips_non_md_and_invalid() {
         let dir = tempfile::TempDir::new().unwrap();
         let agents_dir = dir.path().join("agents");
         std::fs::create_dir_all(&agents_dir).unwrap();
@@ -359,7 +375,7 @@ Also: {{query}}
         )
         .unwrap();
 
-        let found = discover_agents(dir.path());
+        let found = discover_tasks(dir.path());
         assert_eq!(found.len(), 1);
         assert_eq!(found[0].name, "valid");
     }
@@ -367,7 +383,7 @@ Also: {{query}}
     #[test]
     fn default_deep_research_agent_parses() {
         let content = include_str!("../../prompts/agents/deep-research.md");
-        let def = parse_agent_file(content).unwrap();
+        let def = parse_task_file(content).unwrap();
         assert_eq!(def.name, "deep-research");
         assert!(def.tools.contains(&"web_search".to_string()));
         assert!(def.tools.contains(&"web_fetch".to_string()));
@@ -379,9 +395,42 @@ Also: {{query}}
         );
         let rule = &def.progress_rules[0];
         assert_eq!(rule.tool, "web_fetch");
-        assert_eq!(rule.min, 7);
-        assert!(rule.below.is_some());
-        assert!(rule.met.is_some());
+        assert_eq!(rule.min, Some(7));
+        assert!(rule.nudge.is_some());
+    }
+
+    #[test]
+    fn default_heartbeat_agent_parses() {
+        let content = include_str!("../../prompts/agents/heartbeat.md");
+        let def = parse_task_file(content).unwrap();
+        assert_eq!(def.name, "heartbeat");
+        assert!(def.tools.contains(&"read_file".to_string()));
+        assert!(def.tools.contains(&"agent_control".to_string()));
+        assert!(def.system_prompt_template.contains("{{ date }}"));
+        assert!(def.system_prompt_template.contains("HEARTBEAT_CONTINUE"));
+        assert!(def.progress_rules.is_empty());
+        assert_eq!(def.max_iterations, 10);
+    }
+
+    #[test]
+    fn default_reflection_agent_parses() {
+        let content = include_str!("../../prompts/agents/reflection.md");
+        let def = parse_task_file(content).unwrap();
+        assert_eq!(def.name, "reflection");
+        assert!(def.tools.contains(&"note_write".to_string()));
+        assert!(def.tools.contains(&"reference_manage".to_string()));
+        assert!(def.system_prompt_template.contains("{{ date }}"));
+        assert_eq!(def.progress_rules.len(), 2);
+
+        let note_rule = &def.progress_rules[0];
+        assert_eq!(note_rule.tool, "note_write");
+        assert!(note_rule.min.is_none());
+        assert!(note_rule.nudge.is_some());
+
+        let ref_rule = &def.progress_rules[1];
+        assert_eq!(ref_rule.tool, "reference_manage");
+        assert!(ref_rule.min.is_none());
+        assert!(ref_rule.nudge.is_none());
     }
 
     #[test]
@@ -394,22 +443,20 @@ tools = ["web_fetch"]
 [[progress]]
 tool = "web_fetch"
 min = 3
-below = "Need {min} {tool} calls (have {count}). Keep going."
-met = "Done! {count}/{min} reached."
+nudge = "Need {min} {tool} calls (have {count}). Keep going."
 +++
 
 Body here.
 "#;
-        let def = parse_agent_file(content).unwrap();
+        let def = parse_task_file(content).unwrap();
         assert_eq!(def.progress_rules.len(), 1);
         let rule = &def.progress_rules[0];
         assert_eq!(rule.tool, "web_fetch");
-        assert_eq!(rule.min, 3);
+        assert_eq!(rule.min, Some(3));
         assert_eq!(
-            rule.below.as_deref(),
+            rule.nudge.as_deref(),
             Some("Need {min} {tool} calls (have {count}). Keep going.")
         );
-        assert_eq!(rule.met.as_deref(), Some("Done! {count}/{min} reached."));
     }
 
     #[test]
@@ -426,19 +473,19 @@ min = 5
 [[progress]]
 tool = "web_search"
 min = 3
-below = "Search more."
+nudge = "Search more."
 +++
 
 Body.
 "#;
-        let def = parse_agent_file(content).unwrap();
+        let def = parse_task_file(content).unwrap();
         assert_eq!(def.progress_rules.len(), 2);
         assert_eq!(def.progress_rules[0].tool, "web_fetch");
-        assert_eq!(def.progress_rules[0].min, 5);
-        assert!(def.progress_rules[0].below.is_none());
+        assert_eq!(def.progress_rules[0].min, Some(5));
+        assert!(def.progress_rules[0].nudge.is_none());
         assert_eq!(def.progress_rules[1].tool, "web_search");
-        assert_eq!(def.progress_rules[1].min, 3);
-        assert_eq!(def.progress_rules[1].below.as_deref(), Some("Search more."));
+        assert_eq!(def.progress_rules[1].min, Some(3));
+        assert_eq!(def.progress_rules[1].nudge.as_deref(), Some("Search more."));
     }
 
     #[test]
@@ -451,7 +498,7 @@ tools = ["todo"]
 
 Body.
 "#;
-        let def = parse_agent_file(content).unwrap();
+        let def = parse_task_file(content).unwrap();
         assert!(def.progress_rules.is_empty());
     }
 }

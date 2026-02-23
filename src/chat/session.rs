@@ -11,16 +11,14 @@ use crate::config::{self, Config};
 use crate::db;
 use crate::prompt::{PromptContext, PromptRenderer};
 use crate::providers::{ChatMessage, ContentBlock, Provider, Role, StopReason, provider_for_alias};
-use crate::tools::{ToolContext, ToolManager, ToolSet, format_todo_injection};
+use crate::tools::{ToolContext, ToolManager, format_todo_injection};
 
 use super::convert::{
     convert_stored_message_to_provider_message, parse_session_thing, render_tool_error,
     tool_results_to_values,
 };
 use super::tool_loop::{ToolLoopHandler, run_tool_loop};
-use super::types::{
-    ChatError, ChatResult, ChatStopReason, DEFAULT_MAX_TOOL_ITERATIONS, JobTranscript,
-};
+use super::types::{ChatError, ChatResult, ChatStopReason, DEFAULT_MAX_TOOL_ITERATIONS};
 
 pub struct SessionChat {
     db: Surreal<Db>,
@@ -29,7 +27,7 @@ pub struct SessionChat {
     config: Config,
     prompt_renderer: PromptRenderer,
     max_tool_iterations: usize,
-    agent_runner: Option<Arc<crate::agents::AgentRunner>>,
+    task_runner: Option<Arc<crate::agents::TaskRunner>>,
 }
 
 impl std::fmt::Debug for SessionChat {
@@ -64,7 +62,7 @@ impl SessionChat {
             config,
             prompt_renderer,
             max_tool_iterations: DEFAULT_MAX_TOOL_ITERATIONS,
-            agent_runner: None,
+            task_runner: None,
         }
     }
 
@@ -75,8 +73,8 @@ impl SessionChat {
     }
 
     #[must_use]
-    pub fn with_agent_runner(mut self, runner: Arc<crate::agents::AgentRunner>) -> Self {
-        self.agent_runner = Some(runner);
+    pub fn with_task_runner(mut self, runner: Arc<crate::agents::TaskRunner>) -> Self {
+        self.task_runner = Some(runner);
         self
     }
 
@@ -119,77 +117,6 @@ impl SessionChat {
         .await
     }
 
-    #[tracing::instrument(skip_all, fields(job_name = job_name, session_id = session_id))]
-    pub async fn chat_job(
-        &self,
-        job_name: &str,
-        session_id: &str,
-        prompt: &str,
-        _tool_set: ToolSet,
-    ) -> Result<JobTranscript, ChatError> {
-        self.chat_job_with_rules(job_name, session_id, prompt, _tool_set, vec![])
-            .await
-    }
-
-    /// Like `chat_job`, but with progress rules that inject system nudges
-    /// after each tool iteration (same mechanism as agent progress rules).
-    #[tracing::instrument(skip_all, fields(job_name = job_name, session_id = session_id))]
-    pub async fn chat_job_with_rules(
-        &self,
-        job_name: &str,
-        session_id: &str,
-        prompt: &str,
-        _tool_set: ToolSet,
-        progress_rules: Vec<ProgressRule>,
-    ) -> Result<JobTranscript, ChatError> {
-        // TEMPORARY SCAFFOLDING:
-        // This is a minimal spec 06 implementation. Jobs spec 16/17 is expected to
-        // redesign transcript shape, status handling, and storage boundaries.
-        let session_thing = parse_session_thing(session_id)?;
-        let job_log_id =
-            db::job_logs::create_running_job_log(&self.db, job_name, "job", Some(&session_thing))
-                .await?;
-
-        let model = self.default_model_name()?;
-        let mut history = vec![ChatMessage {
-            role: Role::User,
-            content: vec![ContentBlock::Text {
-                text: prompt.to_string(),
-            }],
-        }];
-
-        let mut handler = JobHandler {
-            job_name: job_name.to_string(),
-            transcript_lines: vec![format!("[job:{job_name}] {prompt}")],
-            progress_rules,
-        };
-
-        let result = run_tool_loop(
-            self,
-            session_id,
-            &model,
-            self.max_tool_iterations,
-            &mut handler,
-            &mut history,
-        )
-        .await?;
-
-        let transcript = handler.transcript_lines.join("\n");
-        db::job_logs::finish_job_log(
-            &self.db,
-            &job_log_id,
-            if result.stop_reason == ChatStopReason::MaxIterations {
-                "failed"
-            } else {
-                "ok"
-            },
-            &transcript,
-        )
-        .await?;
-
-        Ok(JobTranscript { transcript, result })
-    }
-
     /// Run an agent tool loop with a custom system prompt.
     ///
     /// Messages are persisted to the agent's own session. Returns the final
@@ -218,11 +145,11 @@ impl SessionChat {
             }],
         }];
 
-        let mut handler = AgentHandler {
+        let mut handler = TaskHandler {
             session_chat: self,
             session_thing: &session_thing,
             system_prompt,
-            agent_name: agent_name.to_string(),
+            task_name: agent_name.to_string(),
             progress_rules,
         };
 
@@ -247,7 +174,7 @@ impl SessionChat {
         agent_name = agent_name,
         session_id = session_id
     ))]
-    pub async fn continue_agent(
+    pub async fn continue_task(
         &self,
         agent_name: &str,
         session_id: &str,
@@ -265,11 +192,11 @@ impl SessionChat {
         // Load FULL history (all previous research + new user message)
         let (mut history, _stored_ids) = self.load_provider_history(&session_thing).await?;
 
-        let mut handler = AgentHandler {
+        let mut handler = TaskHandler {
             session_chat: self,
             session_thing: &session_thing,
             system_prompt,
-            agent_name: agent_name.to_string(),
+            task_name: agent_name.to_string(),
             progress_rules,
         };
 
@@ -383,7 +310,7 @@ impl SessionChat {
             db: self.db.clone(),
             config: self.config.clone(),
             session_id: session_id.to_string(),
-            agent_runner: self.agent_runner.clone(),
+            task_runner: self.task_runner.clone(),
         };
 
         match self.tool_manager.execute(name, input, &tool_ctx).await {
@@ -534,20 +461,20 @@ impl ToolLoopHandler for ChatHandler<'_> {
 }
 
 // ---------------------------------------------------------------------------
-// AgentHandler — persists to DB, uses agent's system prompt
+// TaskHandler — persists to DB, uses agent's system prompt
 // ---------------------------------------------------------------------------
 
-struct AgentHandler<'a> {
+struct TaskHandler<'a> {
     session_chat: &'a SessionChat,
     session_thing: &'a Thing,
     system_prompt: String,
     #[allow(dead_code)]
-    agent_name: String,
+    task_name: String,
     progress_rules: Vec<ProgressRule>,
 }
 
 #[async_trait]
-impl ToolLoopHandler for AgentHandler<'_> {
+impl ToolLoopHandler for TaskHandler<'_> {
     fn system_prompt(&self) -> Result<String, ChatError> {
         Ok(self.system_prompt.clone())
     }
@@ -644,8 +571,14 @@ impl ToolLoopHandler for AgentHandler<'_> {
 /// Build a progress nudge from declared rules.
 ///
 /// Returns `None` if there are no rules or no tracked tools have been
-/// called yet. Otherwise returns a `[Progress]` line with per-rule
-/// counts and threshold-aware guidance messages.
+/// called yet. Otherwise returns an XML `<progress>` block wrapped in
+/// `<system-reminder>`.
+///
+/// Rules:
+/// - Self-closing `<tool />` when no nudge to display
+/// - Inner text when nudge fires (count < min, or no min set)
+/// - `min` attribute only present when min is set
+/// - Interpolates `{tool}`, `{count}`, `{min}` in nudge template
 fn build_progress_nudge(rules: &[ProgressRule], history: &[ChatMessage]) -> Option<String> {
     if rules.is_empty() {
         return None;
@@ -671,101 +604,53 @@ fn build_progress_nudge(rules: &[ProgressRule], history: &[ChatMessage]) -> Opti
         return None;
     }
 
-    let mut parts = Vec::new();
+    let mut tool_elements = Vec::new();
     for rule in rules {
         let count = counts.get(rule.tool.as_str()).copied().unwrap_or(0);
-        parts.push(format!("{}: {}/{}.", rule.tool, count, rule.min));
 
-        let message = if count < rule.min {
-            Some(rule.below.as_deref().unwrap_or(
-                "You need at least {min} {tool} calls (currently {count}). \
-                     Keep going — do NOT write your final output yet.",
-            ))
-        } else {
-            // Only nudge when met is explicitly set. When None, the count
-            // line alone is enough — no message that invites wrapping up.
-            rule.met.as_deref()
+        // Determine whether to fire the nudge
+        let nudge_text = match (&rule.min, &rule.nudge) {
+            (Some(min), Some(nudge)) if count < *min => {
+                // Below minimum with nudge → fire it
+                let interpolated = nudge
+                    .replace("{tool}", &rule.tool)
+                    .replace("{count}", &count.to_string())
+                    .replace("{min}", &min.to_string());
+                Some(interpolated)
+            }
+            (None, Some(nudge)) => {
+                // No minimum, nudge always fires
+                let interpolated = nudge
+                    .replace("{tool}", &rule.tool)
+                    .replace("{count}", &count.to_string())
+                    .replace("{min}", "");
+                Some(interpolated)
+            }
+            _ => None, // min met, or no nudge defined
         };
 
-        if let Some(message) = message {
-            let interpolated = message
-                .replace("{tool}", &rule.tool)
-                .replace("{min}", &rule.min.to_string())
-                .replace("{count}", &count.to_string());
-            parts.push(interpolated);
+        let min_attr = rule
+            .min
+            .map(|m| format!(" min=\"{m}\""))
+            .unwrap_or_default();
+
+        if let Some(text) = nudge_text {
+            tool_elements.push(format!(
+                "<tool name=\"{}\" count=\"{count}\"{min_attr}>\n{text}\n</tool>",
+                rule.tool
+            ));
+        } else {
+            tool_elements.push(format!(
+                "<tool name=\"{}\" count=\"{count}\"{min_attr} />",
+                rule.tool
+            ));
         }
     }
 
-    Some(format!("[Progress] {}", parts.join(" ")))
-}
-
-// ---------------------------------------------------------------------------
-// JobHandler — appends to transcript string
-// ---------------------------------------------------------------------------
-
-struct JobHandler {
-    job_name: String,
-    transcript_lines: Vec<String>,
-    progress_rules: Vec<ProgressRule>,
-}
-
-#[async_trait]
-impl ToolLoopHandler for JobHandler {
-    fn system_prompt(&self) -> Result<String, ChatError> {
-        Ok(format!("Job: {}", self.job_name))
-    }
-
-    async fn on_assistant_tool_use(
-        &mut self,
-        text: &str,
-        _tool_uses: &[Value],
-        _raw_output: Option<Vec<Value>>,
-    ) -> Result<(), ChatError> {
-        if !text.is_empty() {
-            self.transcript_lines.push(format!("[assistant] {text}"));
-        }
-        Ok(())
-    }
-
-    async fn on_tool_results(&mut self, results: &[ContentBlock]) -> Result<(), ChatError> {
-        self.transcript_lines.push(format!(
-            "[tools] {}",
-            serde_json::to_string(&tool_results_to_values(results))
-                .unwrap_or_else(|_| "[]".to_string())
-        ));
-        Ok(())
-    }
-
-    async fn on_end_turn(
-        &mut self,
-        message: String,
-        stop_reason: StopReason,
-        _tool_uses: &[Value],
-        _raw_output: Option<Vec<Value>>,
-    ) -> Result<ChatResult, ChatError> {
-        self.transcript_lines.push(format!("[assistant] {message}"));
-        Ok(ChatResult {
-            message,
-            stop_reason: if stop_reason == StopReason::MaxTokens {
-                ChatStopReason::MaxTokens
-            } else {
-                ChatStopReason::EndTurn
-            },
-        })
-    }
-
-    async fn post_tool_iteration(
-        &mut self,
-        history: &mut Vec<ChatMessage>,
-    ) -> Result<(), ChatError> {
-        if let Some(nudge) = build_progress_nudge(&self.progress_rules, history) {
-            history.push(ChatMessage {
-                role: Role::System,
-                content: vec![ContentBlock::Text { text: nudge }],
-            });
-        }
-        Ok(())
-    }
+    Some(format!(
+        "<system-reminder>\n<progress>\n{}\n</progress>\n</system-reminder>",
+        tool_elements.join("\n")
+    ))
 }
 
 #[cfg(test)]
@@ -775,18 +660,16 @@ mod tests {
     fn rule(tool: &str, min: u32) -> ProgressRule {
         ProgressRule {
             tool: tool.to_string(),
-            min,
-            below: None,
-            met: None,
+            min: Some(min),
+            nudge: None,
         }
     }
 
-    fn rule_with_messages(tool: &str, min: u32, below: &str, met: &str) -> ProgressRule {
+    fn rule_with_nudge(tool: &str, min: Option<u32>, nudge: &str) -> ProgressRule {
         ProgressRule {
             tool: tool.to_string(),
             min,
-            below: Some(below.to_string()),
-            met: Some(met.to_string()),
+            nudge: Some(nudge.to_string()),
         }
     }
 
@@ -820,51 +703,41 @@ mod tests {
     }
 
     #[test]
-    fn below_minimum_shows_below_message() {
-        let rules = vec![rule("web_fetch", 5)];
-        let history = vec![
-            assistant_tool_use("web_fetch"),
-            assistant_tool_use("web_fetch"),
-        ];
-        let nudge = build_progress_nudge(&rules, &history).unwrap();
-        assert!(nudge.contains("[Progress]"));
-        assert!(nudge.contains("2/5"));
-        assert!(nudge.contains("do NOT write your final output"));
-    }
-
-    #[test]
-    fn at_minimum_without_met_shows_count_only() {
-        let rules = vec![rule("web_fetch", 2)];
-        let history = vec![
-            assistant_tool_use("web_fetch"),
-            assistant_tool_use("web_fetch"),
-        ];
-        let nudge = build_progress_nudge(&rules, &history).unwrap();
-        assert!(nudge.contains("2/2"));
-        // No met message when met is None — just the count line
-        assert!(!nudge.contains("Keep going"));
-        assert!(!nudge.contains("do NOT"));
-    }
-
-    #[test]
-    fn at_minimum_with_explicit_met_shows_message() {
-        let rules = vec![rule_with_messages(
+    fn below_minimum_default_nudge_shows_xml() {
+        let rules = vec![rule_with_nudge(
             "web_fetch",
-            2,
-            "below",
-            "Keep researching — {count}/{min} done but check for newer models.",
+            Some(5),
+            "Need {min} {tool} (have {count}). Keep going.",
         )];
         let history = vec![
             assistant_tool_use("web_fetch"),
             assistant_tool_use("web_fetch"),
         ];
         let nudge = build_progress_nudge(&rules, &history).unwrap();
-        assert!(nudge.contains("Keep researching"));
-        assert!(nudge.contains("2/2"));
+        assert!(nudge.contains("<system-reminder>"));
+        assert!(nudge.contains("<progress>"));
+        assert!(nudge.contains("count=\"2\""));
+        assert!(nudge.contains("min=\"5\""));
+        assert!(nudge.contains("Need 5 web_fetch (have 2). Keep going."));
     }
 
     #[test]
-    fn above_minimum_without_met_shows_count_only() {
+    fn at_minimum_no_nudge_self_closing() {
+        let rules = vec![rule("web_fetch", 2)];
+        let history = vec![
+            assistant_tool_use("web_fetch"),
+            assistant_tool_use("web_fetch"),
+        ];
+        let nudge = build_progress_nudge(&rules, &history).unwrap();
+        assert!(nudge.contains("count=\"2\""));
+        assert!(nudge.contains("min=\"2\""));
+        assert!(nudge.contains("/>"));
+        // No nudge text when no nudge is defined and min is met
+        assert!(!nudge.contains("Keep going"));
+    }
+
+    #[test]
+    fn above_minimum_no_nudge_self_closing() {
         let rules = vec![rule("web_fetch", 2)];
         let history = vec![
             assistant_tool_use("web_fetch"),
@@ -872,17 +745,63 @@ mod tests {
             assistant_tool_use("web_fetch"),
         ];
         let nudge = build_progress_nudge(&rules, &history).unwrap();
-        assert!(nudge.contains("3/2"));
-        assert!(!nudge.contains("Keep going"));
+        assert!(nudge.contains("count=\"3\""));
+        assert!(nudge.contains("/>"));
     }
 
     #[test]
-    fn custom_messages_with_interpolation() {
-        let rules = vec![rule_with_messages(
+    fn at_minimum_with_nudge_stops_nudging() {
+        let rules = vec![rule_with_nudge(
             "web_fetch",
-            5,
+            Some(2),
+            "Below minimum — keep going.",
+        )];
+        let history = vec![
+            assistant_tool_use("web_fetch"),
+            assistant_tool_use("web_fetch"),
+        ];
+        let nudge = build_progress_nudge(&rules, &history).unwrap();
+        // min is met → nudge should NOT fire, self-closing
+        assert!(nudge.contains("/>"));
+        assert!(!nudge.contains("Below minimum"));
+    }
+
+    #[test]
+    fn no_min_with_nudge_always_fires() {
+        let rules = vec![rule_with_nudge(
+            "note_write",
+            None,
+            "You have created {count} notes so far.",
+        )];
+        let history = vec![
+            assistant_tool_use("note_write"),
+            assistant_tool_use("note_write"),
+        ];
+        let nudge = build_progress_nudge(&rules, &history).unwrap();
+        assert!(nudge.contains("count=\"2\""));
+        assert!(!nudge.contains("min="));
+        assert!(nudge.contains("You have created 2 notes so far."));
+    }
+
+    #[test]
+    fn no_min_no_nudge_self_closing() {
+        let rules = vec![ProgressRule {
+            tool: "note_write".to_string(),
+            min: None,
+            nudge: None,
+        }];
+        let history = vec![assistant_tool_use("note_write")];
+        let nudge = build_progress_nudge(&rules, &history).unwrap();
+        assert!(nudge.contains("count=\"1\""));
+        assert!(nudge.contains("/>"));
+    }
+
+    #[test]
+    fn custom_nudge_with_interpolation() {
+        let rules = vec![rule_with_nudge(
+            "web_fetch",
+            Some(5),
             "Need {min} {tool} (have {count}).",
-            "Done: {count}/{min} {tool}.",
         )];
         let history = vec![
             assistant_tool_use("web_fetch"),
@@ -891,13 +810,15 @@ mod tests {
         let nudge = build_progress_nudge(&rules, &history).unwrap();
         assert!(nudge.contains("Need 5 web_fetch (have 2)."));
 
-        // Now test met
+        // Now at minimum — nudge should stop
         let mut history_met = history.clone();
         for _ in 0..3 {
             history_met.push(assistant_tool_use("web_fetch"));
         }
         let nudge_met = build_progress_nudge(&rules, &history_met).unwrap();
-        assert!(nudge_met.contains("Done: 5/5 web_fetch."));
+        assert!(nudge_met.contains("count=\"5\""));
+        assert!(nudge_met.contains("/>"));
+        assert!(!nudge_met.contains("Need 5"));
     }
 
     #[test]

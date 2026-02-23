@@ -197,7 +197,8 @@ separate because it has different needs (compaction, Discord message callbacks, 
 - Refactor `ProgressRule` struct: remove `below`/`met`, add optional `min` + `nudge`
 - Refactor `build_progress_nudge()` to emit `<system-reminder><progress>` XML format
 - **Test**: `deep_research_agent_produces_findings` still passes — validates the XML
-  injection format doesn't break the existing agent that relies on progress nudges
+  injection format doesn't break the existing agent that relies on progress nudges. If
+  there are issues, inform the user, do not change the specs or behaviour.
 - **Test**: isolated reflection test still passes
 
 ### Phase 2: Make heartbeat an agent definition

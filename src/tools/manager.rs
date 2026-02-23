@@ -9,12 +9,6 @@ use crate::providers::ToolDefinition;
 use super::context::ToolContext;
 use super::error::ToolError;
 
-#[derive(Debug, Clone)]
-pub enum ToolSet {
-    Chat,
-    Reflection,
-}
-
 #[async_trait]
 pub trait Tool: Send + Sync {
     fn name(&self) -> &str;
@@ -64,26 +58,6 @@ impl ToolManager {
         manager
     }
 
-    /// Create a `ToolManager` for reflection jobs.
-    ///
-    /// Explicit tool list: all chat tools except `agent_control`, plus
-    /// knowledge-write tools (`note_write`, `reference_manage`).
-    #[must_use]
-    pub fn for_reflection() -> Self {
-        let mut manager = Self::default();
-        manager.register(Arc::new(super::shell::RunShellCommand));
-        manager.register(Arc::new(super::read_file::ReadFile));
-        manager.register(Arc::new(super::write_file::WriteFile));
-        manager.register(Arc::new(super::file_edit::FileEdit));
-        manager.register(Arc::new(super::todo::Todo));
-        manager.register(Arc::new(super::knowledge_search::KnowledgeSearch));
-        manager.register(Arc::new(super::web_search::WebSearch));
-        manager.register(Arc::new(super::web_fetch::WebFetch));
-        manager.register(Arc::new(super::note_write::NoteWrite));
-        manager.register(Arc::new(super::reference_manage::ReferenceManage));
-        manager
-    }
-
     /// Create a `ToolManager` for an agent, restricted to a whitelist of
     /// tool names. Unknown names are silently ignored.
     #[must_use]
@@ -100,7 +74,17 @@ impl ToolManager {
 
     /// Build a registry containing every tool the system knows about.
     fn all_available() -> Self {
-        let mut manager = Self::for_reflection();
+        let mut manager = Self::default();
+        manager.register(Arc::new(super::shell::RunShellCommand));
+        manager.register(Arc::new(super::read_file::ReadFile));
+        manager.register(Arc::new(super::write_file::WriteFile));
+        manager.register(Arc::new(super::file_edit::FileEdit));
+        manager.register(Arc::new(super::todo::Todo));
+        manager.register(Arc::new(super::knowledge_search::KnowledgeSearch));
+        manager.register(Arc::new(super::web_search::WebSearch));
+        manager.register(Arc::new(super::web_fetch::WebFetch));
+        manager.register(Arc::new(super::note_write::NoteWrite));
+        manager.register(Arc::new(super::reference_manage::ReferenceManage));
         manager.register(Arc::new(super::agent_control::AgentControl));
         manager
     }

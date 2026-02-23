@@ -120,7 +120,7 @@ pub struct WebFetchMetrics {
 pub struct LiveTestEnv {
     pub db: GhostDb,
     pub config: Config,
-    pub agent_runner: Arc<ghost::agents::AgentRunner>,
+    pub task_runner: Arc<ghost::agents::TaskRunner>,
     workspace: TempDir,
     _config_dir: TempDir,
     test_name: String,
@@ -307,91 +307,59 @@ impl LiveTestEnv {
     pub fn chat(&self) -> ghost::chat::SessionChat {
         ghost::chat::SessionChat::from_config(self.db.clone(), self.config.clone())
             .expect("build session chat")
-            .with_agent_runner(Arc::clone(&self.agent_runner))
-    }
-
-    /// SessionChat with real provider + reflection tools.
-    pub fn reflection_chat(&self) -> ghost::chat::SessionChat {
-        ghost::chat::SessionChat::new(
-            self.db.clone(),
-            ghost::providers::provider_for_alias(&self.config, None).expect("provider"),
-            ghost::tools::ToolManager::for_reflection(),
-            self.config.clone(),
-        )
+            .with_task_runner(Arc::clone(&self.task_runner))
     }
 
     // -----------------------------------------------------------------
     // Job runners
     // -----------------------------------------------------------------
 
-    /// Run heartbeat on a session (loads prompt, calls chat_job).
-    pub async fn run_heartbeat(&self, session_id: &Thing) -> ghost::chat::JobTranscript {
-        let chat = self.chat();
-        let prompt = ghost::jobs::heartbeat::load_prompt(
-            &self.config.workspace,
-            "heartbeat.md",
-            "# Heartbeat Check\n\n\
-             You are running a heartbeat check. The OPERATOR has been idle.\n\n\
-             If there's nothing meaningful to say, respond with exactly: \
-             HEARTBEAT_CONTINUE",
-        );
-        chat.chat_job(
-            "heartbeat",
-            &session_id.to_string(),
-            &prompt,
-            ghost::tools::ToolSet::Chat,
-        )
-        .await
-        .expect("heartbeat chat_job")
+    /// Run heartbeat on a session via the agent runner.
+    ///
+    /// Returns the heartbeat response string (either a message or
+    /// "HEARTBEAT_CONTINUE").
+    pub async fn run_heartbeat(&self, session_id: &Thing) -> String {
+        let messages = ghost::db::sessions::list_messages_by_session(&self.db, session_id)
+            .await
+            .expect("list messages");
+        let transcript = ghost::jobs::heartbeat::format_recent_messages(&messages, 20);
+        let user_message = ghost::jobs::heartbeat::build_heartbeat_user_message(&transcript);
+
+        self.task_runner
+            .run_to_completion("heartbeat", &user_message, Some(session_id))
+            .await
+            .expect("heartbeat run_to_completion")
     }
 
-    /// Run reflection on a session (loads prompt, interpolates template,
-    /// calls chat_job with reflection tools).
+    /// Run reflection on a session via the agent runner.
+    ///
+    /// Returns the findings string (the agent's final message, saved as
+    /// the handoff note in production).
     pub async fn run_reflection(
         &self,
         session_id: &Thing,
         previous_handoff: Option<&str>,
-    ) -> ghost::chat::JobTranscript {
+    ) -> String {
         let messages = ghost::db::sessions::list_messages_by_session(&self.db, session_id)
             .await
             .expect("list messages");
         let transcript = ghost::jobs::reflection::filter_transcript(&messages);
 
-        let renderer = ghost::prompt::PromptRenderer::new(self.config.clone());
-        let prompt_body = ghost::jobs::heartbeat::load_prompt(
-            &self.config.workspace,
-            "reflection.md",
-            ghost::jobs::reflection::DEFAULT_REFLECTION_PROMPT,
+        let web_cache_files = ghost::web::scan_web_cache(&self.config.workspace)
+            .expect("scan web cache")
+            .unwrap_or_else(|| "No cached files.".to_string());
+
+        let user_message = ghost::jobs::reflection::build_reflection_user_message(
+            previous_handoff.unwrap_or("No previous handoff."),
+            "No diary entry for today.",
+            &transcript,
+            &web_cache_files,
         );
-        let web_cache_files =
-            ghost::web::scan_web_cache(&self.config.workspace).expect("scan web cache");
 
-        let interpolated = renderer
-            .render_job_prompt(
-                "reflection",
-                &ghost::prompt::JobPromptContext {
-                    prompt_body,
-                    previous_handoff: previous_handoff.map(String::from),
-                    diary_today: None,
-                    recent_messages: Some(transcript),
-                    web_cache_files,
-                },
-            )
-            .expect("render reflection prompt");
-
-        let reflection_chat = self.reflection_chat();
-        let temp_session = self.create_session().await;
-
-        reflection_chat
-            .chat_job_with_rules(
-                "reflection",
-                &temp_session.to_string(),
-                &interpolated,
-                ghost::tools::ToolSet::Reflection,
-                ghost::jobs::reflection::reflection_progress_rules(),
-            )
+        self.task_runner
+            .run_to_completion("reflection", &user_message, Some(session_id))
             .await
-            .expect("reflection chat_job_with_rules")
+            .expect("reflection run_to_completion")
     }
 
     // -----------------------------------------------------------------
@@ -419,14 +387,14 @@ impl LiveTestEnv {
                 return None;
             }
 
-            let agent_ids = self.agent_runner.list_agent_ids().await;
+            let agent_ids = self.task_runner.list_task_ids().await;
             if agent_ids.is_empty() {
                 self.log("no agents found (model may not have spawned one)");
                 return None;
             }
 
             for agent_id in &agent_ids {
-                if let Some((status, parent)) = self.agent_runner.take_completed(agent_id).await {
+                if let Some((status, parent)) = self.task_runner.take_completed(agent_id).await {
                     let findings = status
                         .findings
                         .as_deref()
@@ -589,10 +557,10 @@ impl LiveTestEnv {
     }
 
     /// Load an agent definition from the temp workspace (populated by
-    /// `install_default_agents()` during bootstrap).
-    pub fn load_agent(&self, name: &str) -> ghost::agents::AgentDefinition {
-        ghost::agents::load_agent(&self.config.workspace, name)
-            .unwrap_or_else(|e| panic!("load agent '{name}': {e}"))
+    /// `install_default_tasks()` during bootstrap).
+    pub fn load_task(&self, name: &str) -> ghost::agents::TaskDefinition {
+        ghost::agents::load_task(&self.config.workspace, name)
+            .unwrap_or_else(|e| panic!("load task '{name}': {e}"))
     }
 
     /// Recursively search for any file under a workspace subdirectory
@@ -719,12 +687,12 @@ pub async fn live_test_database(test_name: &str) -> LiveTestEnv {
         .await
         .expect("connect to fresh temp database");
 
-    let agent_runner = Arc::new(ghost::agents::AgentRunner::new(db.clone(), config.clone()));
+    let task_runner = Arc::new(ghost::agents::TaskRunner::new(db.clone(), config.clone()));
 
     LiveTestEnv {
         db,
         config,
-        agent_runner,
+        task_runner,
         workspace,
         _config_dir: config_dir,
         test_name: test_name.to_string(),

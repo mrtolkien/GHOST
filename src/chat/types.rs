@@ -19,12 +19,6 @@ pub struct ChatResult {
     pub stop_reason: ChatStopReason,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct JobTranscript {
-    pub transcript: String,
-    pub result: ChatResult,
-}
-
 #[derive(Debug, thiserror::Error)]
 pub enum ChatError {
     #[error(transparent)]

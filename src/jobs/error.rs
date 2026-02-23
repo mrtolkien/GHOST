@@ -30,10 +30,7 @@ pub enum JobError {
     JobNotFound { name: String },
 
     #[error(transparent)]
-    Chat(#[from] crate::chat::ChatError),
-
-    #[error(transparent)]
-    ProviderInit(#[from] crate::providers::ProviderInitError),
+    Agent(#[from] crate::agents::TaskError),
 
     #[error(transparent)]
     Database(Box<crate::db::DatabaseError>),

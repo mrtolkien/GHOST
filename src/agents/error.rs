@@ -1,7 +1,7 @@
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum AgentError {
+pub enum TaskError {
     #[error("agent '{name}' not found")]
     NotFound { name: String },
 
@@ -23,6 +23,9 @@ pub enum AgentError {
     #[error("no agent session found for id: {agent_session_id}")]
     AgentSessionNotFound { agent_session_id: String },
 
+    #[error("agent execution failed: {message}")]
+    ExecutionFailed { message: String },
+
     #[error(transparent)]
     Chat(#[from] crate::chat::ChatError),
 
@@ -36,8 +39,8 @@ pub enum AgentError {
     Io(#[from] std::io::Error),
 }
 
-impl From<crate::db::DatabaseError> for AgentError {
+impl From<crate::db::DatabaseError> for TaskError {
     fn from(e: crate::db::DatabaseError) -> Self {
-        AgentError::Database(Box::new(e))
+        TaskError::Database(Box::new(e))
     }
 }

@@ -37,7 +37,7 @@ pub fn bootstrap_workspace(config: &Config) -> Result<(), ConfigError> {
         }
     })?;
 
-    crate::agents::definition::install_default_agents(&config.workspace).map_err(|source| {
+    crate::agents::definition::install_default_tasks(&config.workspace).map_err(|source| {
         ConfigError::WriteFile {
             path: config.workspace.join("agents"),
             source,

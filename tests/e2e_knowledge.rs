@@ -120,7 +120,7 @@ async fn run_initial_research(
         .expect("chat failed");
     env.log(format!("initial response: {}", result.message));
 
-    let agent_ids = env.agent_runner.list_agent_ids().await;
+    let agent_ids = env.task_runner.list_task_ids().await;
     if agent_ids.is_empty() {
         env.log("no agents spawned — model answered directly");
         return None;

@@ -5,6 +5,7 @@ mod common;
 use ghost::jobs::heartbeat::is_heartbeat_continue;
 use ghost::jobs::reflection::clear_web_cache;
 use ghost::web::scan_web_cache;
+#[allow(unused_imports)]
 use std::path::PathBuf;
 
 // ---------------------------------------------------------------------------
@@ -25,13 +26,13 @@ async fn heartbeat_returns_heartbeat_continue() {
         ])
         .await;
 
-    let result = env.run_heartbeat(&session).await;
+    let response = env.run_heartbeat(&session).await;
     env.log_session_json("heartbeat", &session).await;
 
     assert!(
-        is_heartbeat_continue(&result.result.message),
+        is_heartbeat_continue(&response),
         "Expected HEARTBEAT_CONTINUE, got: {:?}",
-        result.result.message
+        response
     );
 
     let logs = ghost::db::job_logs::list_job_logs(&env.db, Some("heartbeat"), 10)
@@ -80,10 +81,10 @@ async fn reflection_classifies_blog_reference() {
     );
 
     // Step 3: Run reflection
-    let result = env.run_reflection(&session, None).await;
-    env.log_session_json("reflection-result", &session).await;
+    let findings = env.run_reflection(&session, None).await;
+    env.log(format!("reflection findings: {findings}"));
     assert!(
-        !result.result.message.trim().is_empty(),
+        !findings.trim().is_empty(),
         "reflection should produce a handoff note"
     );
 
@@ -136,12 +137,12 @@ async fn heartbeat_proactive_followup() {
         ])
         .await;
 
-    let result = env.run_heartbeat(&session).await;
+    let response = env.run_heartbeat(&session).await;
     env.log_session_json("heartbeat_followup", &session).await;
 
     // Model should either continue silently or send a follow-up — either is valid
     assert!(
-        !result.result.message.trim().is_empty(),
+        !response.trim().is_empty(),
         "heartbeat should produce a non-empty response"
     );
 
@@ -173,14 +174,14 @@ async fn reflection_creates_knowledge_notes() {
     .expect("chat response");
     env.log_session_json("chat", &session).await;
 
-    let result = env.run_reflection(&session, None).await;
+    let findings = env.run_reflection(&session, None).await;
     env.log_session_json("reflection", &session).await;
 
     assert!(
-        !result.result.message.trim().is_empty(),
+        !findings.trim().is_empty(),
         "reflection should produce a handoff note"
     );
-    env.log(format!("handoff: {}", result.result.message));
+    env.log(format!("handoff: {findings}"));
 
     // Reflection may create notes or diary entries — check for any knowledge artifacts
     let notes = env.list_notes();
@@ -214,9 +215,8 @@ async fn reflection_handoff_continuity() {
     env.log_session_json("chat_1", &session).await;
 
     // First reflection
-    let first_result = env.run_reflection(&session, None).await;
+    let first_handoff = env.run_reflection(&session, None).await;
     env.log_session_json("reflection_1", &session).await;
-    let first_handoff = first_result.result.message.clone();
     assert!(
         !first_handoff.trim().is_empty(),
         "first reflection should produce a handoff"
@@ -236,14 +236,14 @@ async fn reflection_handoff_continuity() {
     env.log_session_json("chat_2", &session2).await;
 
     // Second reflection with the first handoff
-    let second_result = env.run_reflection(&session2, Some(&first_handoff)).await;
+    let second_findings = env.run_reflection(&session2, Some(&first_handoff)).await;
     env.log_session_json("reflection_2", &session2).await;
 
     assert!(
-        !second_result.result.message.trim().is_empty(),
+        !second_findings.trim().is_empty(),
         "second reflection should produce a handoff"
     );
-    env.log(format!("second handoff: {}", second_result.result.message));
+    env.log(format!("second handoff: {second_findings}"));
 }
 
 // ---------------------------------------------------------------------------
@@ -320,7 +320,7 @@ async fn reflection_on_agent_transcript() {
     ));
 
     // Run reflection on the agent session
-    let result = tokio::time::timeout(
+    let findings = tokio::time::timeout(
         std::time::Duration::from_secs(180),
         env.run_reflection(&session, None),
     )
@@ -328,11 +328,11 @@ async fn reflection_on_agent_transcript() {
     .expect("TIMEOUT: reflection did not complete within 3 minutes");
 
     env.log_session_json("agent_reflection", &session).await;
-    env.log(format!("handoff: {}", result.result.message));
+    env.log(format!("handoff: {findings}"));
 
     // Assertions: reflection should produce meaningful output
     assert!(
-        !result.result.message.trim().is_empty(),
+        !findings.trim().is_empty(),
         "reflection should produce a non-empty handoff note"
     );
 

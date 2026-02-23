@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::time::Duration;
 
 use chrono::{DateTime, Utc};
@@ -7,11 +8,8 @@ use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use tokio::sync::mpsc;
 use tracing::info;
 
-use crate::chat::SessionChat;
+use crate::agents::{TaskDefinition, TaskRunner};
 use crate::config::Config;
-use crate::db::GhostDb;
-use crate::providers::provider_for_alias;
-use crate::tools::{ToolManager, ToolSet};
 
 use super::definition::{JobDefinition, JobToolSet, next_run_after, parse_job_file};
 use super::error::JobError;
@@ -90,7 +88,7 @@ pub fn load_all_jobs(workspace: &Path) -> Vec<LoadedJob> {
 
 #[tracing::instrument(skip_all)]
 pub fn spawn_scheduler(
-    db: GhostDb,
+    task_runner: Arc<TaskRunner>,
     config: Config,
     mut shutdown: tokio::sync::watch::Receiver<bool>,
 ) -> tokio::task::JoinHandle<()> {
@@ -122,7 +120,7 @@ pub fn spawn_scheduler(
         loop {
             tokio::select! {
                 _ = interval.tick() => {
-                    tick(&db, &config, &mut job_map).await;
+                    tick(&task_runner, &config, &mut job_map).await;
                 }
                 path = fs_rx.recv() => {
                     if let Some(_path) = path {
@@ -152,7 +150,7 @@ fn build_job_map(workspace: &Path) -> HashMap<String, LoadedJob> {
         .collect()
 }
 
-async fn tick(db: &GhostDb, config: &Config, jobs: &mut HashMap<String, LoadedJob>) {
+async fn tick(task_runner: &TaskRunner, config: &Config, jobs: &mut HashMap<String, LoadedJob>) {
     let now = Utc::now();
 
     for job in jobs.values_mut() {
@@ -171,7 +169,7 @@ async fn tick(db: &GhostDb, config: &Config, jobs: &mut HashMap<String, LoadedJo
         let job_name = job.definition.name.clone();
         logfire::info!("executing scheduled job", job_name = job_name.clone());
 
-        match execute_job(db, config, &job.definition).await {
+        match execute_job(task_runner, config, &job.definition).await {
             Ok(()) => {
                 logfire::info!("job completed", job_name = job_name,);
             }
@@ -185,12 +183,50 @@ async fn tick(db: &GhostDb, config: &Config, jobs: &mut HashMap<String, LoadedJo
     }
 }
 
+/// Convert a `JobDefinition` into an `TaskDefinition` for execution.
+fn job_to_task_definition(def: &JobDefinition) -> TaskDefinition {
+    let tools = match def.tools {
+        JobToolSet::Chat => vec![
+            "run_shell_command",
+            "read_file",
+            "write_file",
+            "file_edit",
+            "todo",
+            "knowledge_search",
+            "web_search",
+            "web_fetch",
+        ]
+        .into_iter()
+        .map(String::from)
+        .collect(),
+        JobToolSet::None => vec![],
+    };
+
+    TaskDefinition {
+        name: def.name.clone(),
+        description: format!("Scheduled job: {}", def.name),
+        tools,
+        max_iterations: 25,
+        model: if def.model == "default" {
+            None
+        } else {
+            Some(def.model.clone())
+        },
+        progress_rules: vec![],
+        system_prompt_template: def.prompt.clone(),
+    }
+}
+
 #[tracing::instrument(skip_all, fields(
     job_name = %def.name,
     model = %def.model,
 ))]
-async fn execute_job(db: &GhostDb, config: &Config, def: &JobDefinition) -> Result<(), JobError> {
-    let mut prompt = String::new();
+async fn execute_job(
+    task_runner: &TaskRunner,
+    config: &Config,
+    def: &JobDefinition,
+) -> Result<(), JobError> {
+    let mut user_message = String::new();
 
     // Load carry_last_output state if enabled
     if def.carry_last_output {
@@ -201,9 +237,9 @@ async fn execute_job(db: &GhostDb, config: &Config, def: &JobDefinition) -> Resu
         if state_path.exists() {
             match std::fs::read_to_string(&state_path) {
                 Ok(previous) => {
-                    prompt.push_str("## Previous output\n\n");
-                    prompt.push_str(&previous);
-                    prompt.push_str("\n\n---\n\n");
+                    user_message.push_str("## Previous output\n\n");
+                    user_message.push_str(&previous);
+                    user_message.push_str("\n\n---\n\n");
                 }
                 Err(e) => {
                     logfire::warn!(
@@ -216,33 +252,11 @@ async fn execute_job(db: &GhostDb, config: &Config, def: &JobDefinition) -> Resu
         }
     }
 
-    prompt.push_str(&def.prompt);
+    user_message.push_str("Execute the scheduled job.");
 
-    // Resolve provider for the job's model alias
-    let model_alias = if def.model == "default" {
-        None
-    } else {
-        Some(def.model.as_str())
-    };
-    let provider = provider_for_alias(config, model_alias)?;
-
-    let tool_manager = match def.tools {
-        JobToolSet::Chat => ToolManager::for_chat(),
-        JobToolSet::None => ToolManager::empty(),
-    };
-
-    let tool_set = match def.tools {
-        JobToolSet::Chat => ToolSet::Chat,
-        JobToolSet::None => ToolSet::Chat, // ToolSet is unused by chat_job currently
-    };
-
-    let session_chat = SessionChat::new(db.clone(), provider, tool_manager, config.clone());
-
-    let session_id = crate::db::sessions::create_session(db).await?;
-    let session_id_str = session_id.to_string();
-
-    let transcript = session_chat
-        .chat_job(&def.name, &session_id_str, &prompt, tool_set)
+    let task_def = job_to_task_definition(def);
+    let response = task_runner
+        .run_definition_to_completion(&task_def, &user_message, None)
         .await?;
 
     // Save output for carry_last_output
@@ -252,7 +266,7 @@ async fn execute_job(db: &GhostDb, config: &Config, def: &JobDefinition) -> Resu
             logfire::warn!("could not create .state directory", error = e.to_string(),);
         } else {
             let state_path = state_dir.join(format!("{}.last.md", def.file_stem));
-            if let Err(e) = std::fs::write(&state_path, &transcript.result.message) {
+            if let Err(e) = std::fs::write(&state_path, &response) {
                 logfire::warn!(
                     "could not write state file",
                     path = state_path.display().to_string(),
@@ -267,7 +281,11 @@ async fn execute_job(db: &GhostDb, config: &Config, def: &JobDefinition) -> Resu
 
 /// Run a single job by name (for `ghost job run <name>`).
 #[tracing::instrument(skip_all, fields(job_name = %name))]
-pub async fn run_job(db: &GhostDb, config: &Config, name: &str) -> Result<(), JobError> {
+pub async fn run_job(
+    task_runner: &TaskRunner,
+    config: &Config,
+    name: &str,
+) -> Result<(), JobError> {
     let jobs = load_all_jobs(&config.workspace);
     let job = jobs
         .into_iter()
@@ -276,7 +294,7 @@ pub async fn run_job(db: &GhostDb, config: &Config, name: &str) -> Result<(), Jo
             name: name.to_string(),
         })?;
 
-    execute_job(db, config, &job.definition).await
+    execute_job(task_runner, config, &job.definition).await
 }
 
 fn setup_jobs_watcher(

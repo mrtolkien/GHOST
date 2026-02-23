@@ -10,13 +10,13 @@ use crate::chat::SessionChat;
 use crate::db;
 use crate::interfaces::discord::DiscordSender;
 
-use super::runner::AgentRunner;
+use super::runner::TaskRunner;
 
 const POLL_INTERVAL_SECS: u64 = 3;
 
 /// Poll for completed agents and inject their findings into parent sessions.
-pub fn spawn_agent_watcher(
-    agent_runner: Arc<AgentRunner>,
+pub fn spawn_task_watcher(
+    task_runner: Arc<TaskRunner>,
     session_chat: Arc<SessionChat>,
     discord_sender: Arc<DiscordSender>,
     db: Surreal<Db>,
@@ -30,8 +30,8 @@ pub fn spawn_agent_watcher(
         loop {
             tokio::select! {
                 _ = interval.tick() => {
-                    check_completed_agents(
-                        &agent_runner,
+                    check_completed_tasks(
+                        &task_runner,
                         &session_chat,
                         &discord_sender,
                         &db,
@@ -46,16 +46,16 @@ pub fn spawn_agent_watcher(
     })
 }
 
-async fn check_completed_agents(
-    agent_runner: &AgentRunner,
+async fn check_completed_tasks(
+    task_runner: &TaskRunner,
     session_chat: &SessionChat,
     discord_sender: &DiscordSender,
     db: &Surreal<Db>,
 ) {
-    let agent_ids = agent_runner.list_agent_ids().await;
+    let agent_ids = task_runner.list_task_ids().await;
 
     for agent_id in agent_ids {
-        let Some((status, parent_session)) = agent_runner.take_completed(&agent_id).await else {
+        let Some((status, parent_session)) = task_runner.take_completed(&agent_id).await else {
             continue;
         };
 

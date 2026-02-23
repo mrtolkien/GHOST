@@ -1,8 +1,17 @@
-# Heartbeat Check
++++
+name = "heartbeat"
+description = "Proactive check-in when the OPERATOR is idle"
+tools = ["run_shell_command", "read_file", "write_file", "file_edit",
+         "todo", "knowledge_search", "web_search", "web_fetch",
+         "agent_control"]
+max_iterations = 10
++++
+
+# Heartbeat Check — {{ date }}
 
 You are running a heartbeat check. The OPERATOR has been idle for a few minutes.
 
-Review the recent conversation and decide:
+Review the recent conversation provided below and decide:
 
 1. Is there something useful you can proactively share?
 2. Is there a follow-up question worth asking?

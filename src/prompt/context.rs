@@ -88,7 +88,7 @@ pub fn build_ghost_skills(workspace: &Path) -> String {
 /// agents found.
 #[tracing::instrument(skip_all, level = "debug", fields(workspace = %workspace.display()))]
 pub fn build_ghost_agents(workspace: &Path) -> String {
-    let agents = crate::agents::discover_agents(workspace);
+    let agents = crate::agents::discover_tasks(workspace);
 
     if agents.is_empty() {
         return String::new();

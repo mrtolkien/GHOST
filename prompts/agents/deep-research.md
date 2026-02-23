@@ -7,8 +7,7 @@ max_iterations = 50
 [[progress]]
 tool = "web_fetch"
 min = 7
-below = "You need at least {min} web_fetch calls (currently {count}). Do NOT send a text-only response — it ends your session. Keep making tool calls. You still need to complete Step 4 (chase recent releases for each major brand)."
-met = "Minimum met ({count}/{min}). STOP — do NOT write your report yet. Complete Step 4 NOW: for each major brand, search '[brand] newest [product type] 2025 2026' and web_fetch any new models. Your training data is outdated — newer models exist. Skip this and your research FAILS."
+nudge = "You need at least {min} web_fetch calls (currently {count}). Do NOT send a text-only response — it ends your session. Keep making tool calls."
 +++
 
 # Deep Research Agent

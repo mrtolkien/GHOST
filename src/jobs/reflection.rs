@@ -8,61 +8,26 @@ use surrealdb::engine::local::Db;
 use surrealdb::sql::Thing;
 use tokio::sync::Mutex;
 
-use crate::agents::ProgressRule;
-use crate::chat::SessionChat;
+use crate::agents::TaskRunner;
 use crate::config::Config;
 use crate::db;
 use crate::db::sessions::MessageRecord;
-use crate::prompt::{JobPromptContext, PromptRenderer};
-use crate::providers::provider_for_alias;
-use crate::tools::{ToolManager, ToolSet};
 use crate::web::scan_web_cache;
-
-use super::heartbeat::load_prompt;
-
-/// Progress rules for reflection: nudge the model to keep creating notes
-/// and curating references instead of stopping early with a text handoff.
-pub fn reflection_progress_rules() -> Vec<ProgressRule> {
-    vec![
-        ProgressRule {
-            tool: "note_write".to_string(),
-            min: 3,
-            below: Some(
-                "You have only created {count}/{min} notes. \
-                 Keep going — create entity notes for each product/concept \
-                 found in the transcript. Do NOT write your handoff yet."
-                    .to_string(),
-            ),
-            met: None,
-        },
-        ProgressRule {
-            tool: "reference_manage".to_string(),
-            min: 3,
-            below: Some(
-                "You have only curated {count}/{min} references. \
-                 Process more web cache files before moving on. \
-                 Use reference_manage(action=\"move\") for useful files."
-                    .to_string(),
-            ),
-            met: None,
-        },
-    ]
-}
-
-pub const DEFAULT_REFLECTION_PROMPT: &str = include_str!("../../prompts/reflection.md");
 
 pub struct ReflectionManager {
     db: Surreal<Db>,
     config: Config,
+    task_runner: Arc<TaskRunner>,
     running: Arc<Mutex<()>>,
 }
 
 impl ReflectionManager {
     #[must_use]
-    pub fn new(db: Surreal<Db>, config: Config) -> Self {
+    pub fn new(db: Surreal<Db>, config: Config, task_runner: Arc<TaskRunner>) -> Self {
         Self {
             db,
             config,
+            task_runner,
             running: Arc::new(Mutex::new(())),
         }
     }
@@ -128,100 +93,29 @@ impl ReflectionManager {
 
         logfire::info!("reflection started", session_id = session_id.to_string(),);
 
-        let prompt_body = load_prompt(
-            &self.config.workspace,
-            "reflection.md",
-            DEFAULT_REFLECTION_PROMPT,
-        );
-
-        // Load template variables
-        let previous_handoff = load_state_file(&self.config.workspace, "reflection.last.md");
-        let diary_today = load_diary_today(&self.config.workspace);
-        let recent_messages = match self.load_filtered_transcript(session_thing).await {
-            Ok(t) => Some(t),
-            Err(e) => {
-                logfire::warn!(
-                    "reflection: failed to load transcript",
-                    error = e.to_string(),
-                );
-                None
-            }
-        };
-        let web_cache_files = match scan_web_cache(&self.config.workspace) {
-            Ok(files) => files,
-            Err(e) => {
-                logfire::warn!(
-                    "reflection: failed to scan web cache",
-                    error = e.to_string(),
-                );
-                None
-            }
-        };
-
-        // Render prompt with template variables
-        let renderer = PromptRenderer::new(self.config.clone());
-        let interpolated = match renderer.render_job_prompt(
-            "reflection",
-            &JobPromptContext {
-                prompt_body,
-                previous_handoff,
-                diary_today,
-                recent_messages: recent_messages.clone(),
-                web_cache_files,
-            },
-        ) {
-            Ok(p) => p,
-            Err(e) => {
-                logfire::error!("reflection: failed to render prompt", error = e.to_string(),);
-                return;
-            }
-        };
-
-        // Create a SessionChat with reflection tools
-        let provider = match provider_for_alias(&self.config, None) {
-            Ok(p) => p,
-            Err(e) => {
-                logfire::error!("reflection: failed to init provider", error = e.to_string(),);
-                return;
-            }
-        };
-
-        let session_chat = SessionChat::new(
-            self.db.clone(),
-            provider,
-            ToolManager::for_reflection(),
-            self.config.clone(),
-        );
-
-        // Create a temporary session for the reflection job
-        let temp_session = match db::sessions::create_session(&self.db).await {
-            Ok(s) => s,
+        // Build user message from context variables
+        let user_message = match self.build_user_message(session_thing).await {
+            Ok(msg) => msg,
             Err(e) => {
                 logfire::error!(
-                    "reflection: failed to create temp session",
+                    "reflection: failed to build user message",
                     error = e.to_string(),
                 );
                 return;
             }
         };
-        let temp_session_id = temp_session.to_string();
 
-        match session_chat
-            .chat_job_with_rules(
-                "reflection",
-                &temp_session_id,
-                &interpolated,
-                ToolSet::Reflection,
-                reflection_progress_rules(),
-            )
+        match self
+            .task_runner
+            .run_to_completion("reflection", &user_message, Some(session_thing))
             .await
         {
-            Ok(transcript) => {
+            Ok(findings) => {
                 // Save handoff note
                 let state_dir = self.config.workspace.join(".state");
                 let _ = std::fs::create_dir_all(&state_dir);
                 let state_path = state_dir.join("reflection.last.md");
-                if let Err(e) = std::fs::write(&state_path, &transcript.result.message) {
+                if let Err(e) = std::fs::write(&state_path, &findings) {
                     logfire::warn!("reflection: failed to write state", error = e.to_string(),);
                 }
 
@@ -245,13 +139,53 @@ impl ReflectionManager {
         }
     }
 
-    async fn load_filtered_transcript(
-        &self,
-        session_thing: &Thing,
-    ) -> Result<String, db::DatabaseError> {
+    async fn build_user_message(&self, session_thing: &Thing) -> Result<String, db::DatabaseError> {
+        let previous_handoff = load_state_file(&self.config.workspace, "reflection.last.md")
+            .unwrap_or_else(|| "No previous handoff.".to_string());
+
+        let diary_today = load_diary_today(&self.config.workspace)
+            .unwrap_or_else(|| "No diary entry for today.".to_string());
+
         let messages = db::sessions::list_messages_by_session(&self.db, session_thing).await?;
-        Ok(filter_transcript(&messages))
+        let transcript = filter_transcript(&messages);
+
+        let web_cache_files = scan_web_cache(&self.config.workspace)
+            .unwrap_or(None)
+            .unwrap_or_else(|| "No cached files.".to_string());
+
+        Ok(build_reflection_user_message(
+            &previous_handoff,
+            &diary_today,
+            &transcript,
+            &web_cache_files,
+        ))
     }
+}
+
+/// Build the user message for the reflection agent from context variables.
+#[must_use]
+pub fn build_reflection_user_message(
+    previous_handoff: &str,
+    diary_today: &str,
+    transcript: &str,
+    web_cache_files: &str,
+) -> String {
+    format!(
+        "## Previous Handoff Note\n\
+         {previous_handoff}\n\
+         \n\
+         ## Today's Diary\n\
+         {diary_today}\n\
+         \n\
+         ## Conversation Transcript (filtered)\n\
+         Tool results are stripped — use `read_file` to retrieve content \
+         saved during the conversation.\n\
+         \n\
+         {transcript}\n\
+         \n\
+         ## Web Cache Files\n\
+         {web_cache_files}"
+    )
 }
 
 /// Filter a transcript for reflection: preserve user/assistant text,
@@ -470,5 +404,36 @@ mod tests {
 
         let result = load_state_file(dir.path(), "empty.md");
         assert_eq!(result, None);
+    }
+
+    #[test]
+    fn build_user_message_includes_all_sections() {
+        let msg = build_reflection_user_message(
+            "Previous handoff content",
+            "Diary entry today",
+            "[user] Hello\n[assistant] Hi",
+            "file1.md\nfile2.md",
+        );
+        assert!(msg.contains("## Previous Handoff Note"));
+        assert!(msg.contains("Previous handoff content"));
+        assert!(msg.contains("## Today's Diary"));
+        assert!(msg.contains("Diary entry today"));
+        assert!(msg.contains("## Conversation Transcript"));
+        assert!(msg.contains("[user] Hello"));
+        assert!(msg.contains("## Web Cache Files"));
+        assert!(msg.contains("file1.md"));
+    }
+
+    #[test]
+    fn build_user_message_defaults() {
+        let msg = build_reflection_user_message(
+            "No previous handoff.",
+            "No diary entry for today.",
+            "",
+            "No cached files.",
+        );
+        assert!(msg.contains("No previous handoff."));
+        assert!(msg.contains("No diary entry for today."));
+        assert!(msg.contains("No cached files."));
     }
 }
