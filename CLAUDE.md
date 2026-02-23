@@ -76,6 +76,19 @@ several things).
 - Add a dedicated tool only when text + existing tools + CLI cannot deliver the feature
   safely or ergonomically. Always ask the user before adding a tool.
 
+## Prompt Design
+
+See `specs/notes/prompt-design.md` for the full philosophy. Key rules:
+
+- **System prompt stays generic** — never add specialist knowledge or domain-specific
+  workflows. Conciseness reduces context fatigue.
+- **Specific workflows live in skills** — the skill's frontmatter `description` must be
+  strong enough to trigger the model to read it.
+- **Complex workflows get dedicated agents** — with their own prompts and optional
+  progress rules for runtime enforcement.
+- When debugging flaky model behavior, check the prompt layer (system/skill/agent) and
+  skill description strength before adding runtime hacks.
+
 ## MCPs
 
 Make extensive use of MCPs available to you:
