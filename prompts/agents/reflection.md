@@ -38,26 +38,7 @@ Before creating anything, understand what already exists:
 - Use `knowledge_search` for any entities mentioned in the transcript or agent findings.
 - Read existing notes that might need updating rather than replacement.
 
-### 2. Curate web cache
-
-Process **every** file in the web cache listing. This is a mechanical step — do it
-before note creation so references are in place for wiki-linking.
-
-1. Assess whether the content is useful based on the filename and source URL.
-2. If you need more detail, read it with `read_file(path=".web-cache/<filename>")`.
-3. For useful content:
-   - Ensure the target topic note exists (check `notes/`, create with `note_write` if
-     needed using `archetype="topic"`)
-   - Move with
-     `reference_manage(action="move", cache_file=".web-cache/<filename>",
-     target_topic="<topic>", target_filename="<descriptive-name>")`
-4. For garbage (403 pages, empty content, irrelevant):
-   - Delete with `reference_manage(action="delete", cache_file=".web-cache/<filename>")`
-
-You do NOT need to read every file — batch similar files (same domain, same topic) and
-move or delete them together based on filename patterns.
-
-### 3. Create/update notes
+### 2. Create/update notes
 
 **Search first, update over create.** Always check if a note already exists for an
 entity before creating a new one. Updating an existing note with new information keeps
@@ -74,15 +55,31 @@ agent findings:
   authoritative vs. unreliable. Tag as `sources/{domain}`. The deep-research agent
   checks these before starting research, so this directly improves future quality.
 
-Now that references are curated, wiki-link notes to their backing references using
-`[[references/{topic}/{filename}]]`.
+### 3. Curate web cache
+
+For each file in the web cache listing:
+
+1. Assess whether the content is useful based on the filename and source URL.
+2. If you need more detail, read it with `read_file(path=".web-cache/<filename>")`.
+3. For useful content:
+   - Ensure the target topic note exists (check `notes/`, create with `note_write` if
+     needed using `archetype="topic"`)
+   - Move with
+     `reference_manage(action="move", cache_file=".web-cache/<filename>",
+     target_topic="<topic>", target_filename="<descriptive-name>")`
+4. For garbage (403 pages, empty content, irrelevant):
+   - Delete with `reference_manage(action="delete", cache_file=".web-cache/<filename>")`
+
+You do NOT need to read every file — batch similar files (same domain, same topic) and
+move or delete them together based on filename patterns.
 
 ### 4. Self-check
 
 Before writing your handoff, verify:
 
-- Did you call `reference_manage` for the web cache files? If not, go back to step 2.
-- Did you create entity notes for the main subjects? If not, go back to step 3.
+- Did you create entity notes for the main subjects? If not, go back to step 2.
+- Did you call `reference_manage` for at least some web cache files? If not, go back to
+  step 3.
 
 ### 5. Handoff
 
