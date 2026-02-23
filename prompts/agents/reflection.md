@@ -57,21 +57,26 @@ agent findings:
 
 ### 3. Curate web cache
 
-For each file in the web cache listing:
+The web cache listing is pre-classified into **cited** (referenced in the agent report)
+and **uncited** files.
 
-1. Assess whether the content is useful based on the filename and source URL.
-2. If you need more detail, read it with `read_file(path=".web-cache/<filename>")`.
-3. For useful content:
-   - Ensure the target topic note exists (check `notes/`, create with `note_write` if
-     needed using `archetype="topic"`)
-   - Move with
-     `reference_manage(action="move", cache_file=".web-cache/<filename>",
-     target_topic="<topic>", target_filename="<descriptive-name>")`
-4. For garbage (403 pages, empty content, irrelevant):
-   - Delete with `reference_manage(action="delete", cache_file=".web-cache/<filename>")`
+**Cited files** — move these to references BEFORE writing notes that link to them:
 
-You do NOT need to read every file — batch similar files (same domain, same topic) and
-move or delete them together based on filename patterns.
+1. Create the target topic note if needed (`note_write(archetype="topic")`)
+2. Move with
+   `reference_manage(action="move", cache_file="...", target_topic="...",
+   target_filename="<descriptive-name>")`
+3. Use the preview content to inform your entity notes
+
+**Uncited files** — review filenames and decide:
+
+- **Delete** junk: 403 pages, empty content, search result listings
+- **Move** anything with useful content you want to preserve
+- Batch similar files (same domain) together
+
+**IMPORTANT**: `note_write` will reject `[[references/...]]` wiki links pointing to
+files that don't exist. You MUST move cache files to references BEFORE citing them in
+notes.
 
 ### 4. Self-check
 

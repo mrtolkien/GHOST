@@ -112,6 +112,43 @@ impl Tool for NoteWrite {
 }
 
 impl NoteWrite {
+    /// Reject wiki links to `references/...` paths that don't exist on disk.
+    ///
+    /// Regular wiki links (e.g. `[[Bambu Lab]]`) are fine — those create stubs.
+    /// But `[[references/topic/filename]]` pointing to a non-existent file is a
+    /// broken citation. The model must create the reference first (via
+    /// `reference_manage`) before linking to it.
+    fn validate_reference_links(workspace: &std::path::Path, body: &str) -> Result<(), ToolError> {
+        let links = extract_wiki_links(body);
+        let missing: Vec<&str> = links
+            .iter()
+            .filter(|link| link.target.starts_with("references/"))
+            .filter(|link| {
+                // Check with and without .md extension
+                let path = workspace.join(&link.target);
+                let path_md = workspace.join(format!("{}.md", link.target));
+                !path.exists() && !path_md.exists()
+            })
+            .map(|link| link.target.as_str())
+            .collect();
+
+        if !missing.is_empty() {
+            return Err(ToolError::ExecutionFailed(format!(
+                "Note contains wiki links to references that don't exist on disk. \
+                 Use `reference_manage` to move web-cache files into references/ \
+                 BEFORE linking to them from notes.\n\
+                 Missing references:\n{}",
+                missing
+                    .iter()
+                    .map(|p| format!("  - [[{p}]]"))
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            )));
+        }
+
+        Ok(())
+    }
+
     async fn create_note(
         &self,
         ctx: &ToolContext,
@@ -121,6 +158,8 @@ impl NoteWrite {
         tags: &[String],
         trust: i64,
     ) -> Result<String, ToolError> {
+        Self::validate_reference_links(&ctx.workspace, body)?;
+
         let front = NoteFrontMatter {
             title: title.to_string(),
             archetype: archetype
@@ -184,6 +223,8 @@ impl NoteWrite {
         tags: &[String],
         trust: i64,
     ) -> Result<String, ToolError> {
+        Self::validate_reference_links(&ctx.workspace, body)?;
+
         let existing = db::knowledge::find_note_by_title(&ctx.db, title)
             .await
             .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?

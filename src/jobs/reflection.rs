@@ -8,11 +8,14 @@ use surrealdb::engine::local::Db;
 use surrealdb::sql::Thing;
 use tokio::sync::Mutex;
 
+use regex::Regex;
+use std::sync::LazyLock;
+
 use crate::agents::TaskRunner;
 use crate::config::Config;
 use crate::db;
 use crate::db::sessions::MessageRecord;
-use crate::web::scan_web_cache;
+use crate::web::slug_from_url;
 
 pub struct ReflectionManager {
     db: Surreal<Db>,
@@ -150,16 +153,16 @@ impl ReflectionManager {
         let agent_findings = extract_agent_findings(&messages);
         let transcript = filter_transcript(&messages);
 
-        let web_cache_files = scan_web_cache(&self.config.workspace)
-            .unwrap_or(None)
-            .unwrap_or_else(|| "No cached files.".to_string());
+        let classified =
+            classify_web_cache(&self.config.workspace, agent_findings.as_deref(), 1000);
+        let web_cache_section = format_classified_cache(&classified);
 
         Ok(build_reflection_user_message(
             &previous_handoff,
             &diary_today,
             &transcript,
             agent_findings.as_deref(),
-            &web_cache_files,
+            &web_cache_section,
         ))
     }
 }
@@ -219,6 +222,211 @@ pub fn extract_agent_findings(messages: &[MessageRecord]) -> Option<String> {
         .rev()
         .find(|m| m.role == "assistant" && m.content.len() >= 500)
         .map(|m| m.content.clone())
+}
+
+/// A web cache file classified by whether it was cited in agent findings.
+#[derive(Debug, Clone)]
+pub struct ClassifiedCacheFile {
+    pub filename: String,
+    pub url: String,
+    pub cited: bool,
+    /// First N chars of the file content (for cited files).
+    pub preview: Option<String>,
+}
+
+static URL_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"https?://[^\s\]\)>,]+").expect("url regex"));
+
+/// Extract URLs from the `## Sources` section of agent findings.
+#[must_use]
+pub fn extract_source_urls(agent_findings: &str) -> Vec<String> {
+    // Find the Sources section — look for "## Sources" or "Sources:" heading
+    let sources_start = agent_findings
+        .find("## Sources")
+        .or_else(|| agent_findings.find("## sources"))
+        .or_else(|| agent_findings.rfind("Sources:\n"));
+
+    let section = match sources_start {
+        Some(pos) => &agent_findings[pos..],
+        None => return Vec::new(),
+    };
+
+    URL_RE
+        .find_iter(section)
+        .map(|m| m.as_str().trim_end_matches(|c: char| ".,;:)".contains(c)))
+        .map(String::from)
+        .collect()
+}
+
+/// Classify web cache files as cited or uncited based on agent findings.
+///
+/// Matches URLs from the findings' Sources section against cache filenames
+/// using `slug_from_url`. Also reads the first `preview_chars` of cited
+/// files so reflection has content for writing notes.
+#[must_use]
+pub fn classify_web_cache(
+    workspace: &Path,
+    agent_findings: Option<&str>,
+    preview_chars: usize,
+) -> Vec<ClassifiedCacheFile> {
+    let cache_dir = workspace.join(".web-cache");
+    if !cache_dir.exists() {
+        return Vec::new();
+    }
+
+    let source_urls = agent_findings.map(extract_source_urls).unwrap_or_default();
+
+    // Build a set of URL slugs for matching
+    let source_slugs: Vec<String> = source_urls.iter().map(|u| slug_from_url(u)).collect();
+
+    let mut entries: Vec<_> = match std::fs::read_dir(&cache_dir) {
+        Ok(rd) => rd
+            .filter_map(|e| e.ok())
+            .filter(|e| {
+                e.path()
+                    .extension()
+                    .and_then(|x| x.to_str())
+                    .is_some_and(|x| x == "md")
+            })
+            .collect(),
+        Err(_) => return Vec::new(),
+    };
+    entries.sort_by_key(|e| e.path());
+
+    entries
+        .iter()
+        .map(|entry| {
+            let path = entry.path();
+            let filename = path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("unknown")
+                .to_string();
+
+            // Extract URL from frontmatter
+            let content = std::fs::read_to_string(&path).unwrap_or_default();
+            let url = extract_frontmatter_url(&content);
+
+            // Check if this file's URL slug matches any source URL slug
+            let file_slug = if !url.is_empty() {
+                slug_from_url(&url)
+            } else {
+                // Fallback: extract slug from filename (strip timestamp prefix)
+                filename
+                    .split('_')
+                    .skip(1)
+                    .collect::<Vec<_>>()
+                    .join("_")
+                    .trim_end_matches(".md")
+                    .to_string()
+            };
+
+            let cited = source_slugs.iter().any(|slug| {
+                slug == &file_slug || file_slug.starts_with(slug) || slug.starts_with(&file_slug)
+            });
+
+            let preview = if cited && preview_chars > 0 {
+                // Skip frontmatter, take first N chars of body
+                let body_start = content
+                    .find("---")
+                    .and_then(|first| {
+                        content[first + 3..]
+                            .find("---")
+                            .map(|second| first + 3 + second + 3)
+                    })
+                    .unwrap_or(0);
+                let body = content[body_start..].trim_start();
+                Some(body.chars().take(preview_chars).collect())
+            } else {
+                None
+            };
+
+            ClassifiedCacheFile {
+                filename,
+                url,
+                cited,
+                preview,
+            }
+        })
+        .collect()
+}
+
+fn extract_frontmatter_url(content: &str) -> String {
+    let mut in_frontmatter = false;
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if trimmed == "---" {
+            if in_frontmatter {
+                break;
+            }
+            in_frontmatter = true;
+            continue;
+        }
+        if in_frontmatter && let Some(url) = trimmed.strip_prefix("url: ") {
+            return url.to_string();
+        }
+    }
+    String::new()
+}
+
+/// Format classified cache files into sections for the reflection prompt.
+#[must_use]
+pub fn format_classified_cache(files: &[ClassifiedCacheFile]) -> String {
+    let cited: Vec<_> = files.iter().filter(|f| f.cited).collect();
+    let uncited: Vec<_> = files.iter().filter(|f| !f.cited).collect();
+
+    let mut output = String::new();
+
+    if !cited.is_empty() {
+        output.push_str("### Cited in Agent Report (move to references)\n\n");
+        output.push_str(
+            "These files were cited in the agent's research report. \
+             Move them with `reference_manage` and link to them from notes.\n\n",
+        );
+        for file in &cited {
+            output.push_str(&format!(
+                "- `.web-cache/{filename}` — {url}\n",
+                filename = file.filename,
+                url = file.url,
+            ));
+            if let Some(preview) = &file.preview {
+                // Indent preview as a block
+                output.push_str(&format!(
+                    "  > {preview}\n",
+                    preview = preview.lines().next().unwrap_or("")
+                ));
+            }
+        }
+    }
+
+    if !uncited.is_empty() {
+        if !cited.is_empty() {
+            output.push('\n');
+        }
+        output.push_str("### Uncited (review and decide)\n\n");
+        output.push_str(
+            "These files were NOT cited in the agent's report. \
+             Review filenames — delete junk (403 pages, empty, search result listings) \
+             and move anything useful.\n\n",
+        );
+        for file in &uncited {
+            output.push_str(&format!(
+                "- `.web-cache/{filename}` — {url}\n",
+                filename = file.filename,
+                url = if file.url.is_empty() {
+                    "search results".to_string()
+                } else {
+                    file.url.clone()
+                },
+            ));
+        }
+    }
+
+    if output.is_empty() {
+        output.push_str("No cached files.");
+    }
+
+    output
 }
 
 /// Filter a transcript for reflection: preserve user/assistant text,
@@ -506,5 +714,94 @@ mod tests {
             make_message("assistant", "Short", None, None),
         ];
         assert!(extract_agent_findings(&messages).is_none());
+    }
+
+    #[test]
+    fn extract_source_urls_from_sources_section() {
+        let findings = "\
+## Summary\nSome summary.\n\n\
+## Sources\n\
+1. https://tomshardware.com/reviews/bambu-lab-p1s — detailed review\n\
+2. https://all3dp.com/1/best-enclosed-3d-printers/ — comparison\n\
+3. https://www.prusa3d.com/product/prusa-core-one — product page\n";
+
+        let urls = extract_source_urls(findings);
+        assert_eq!(urls.len(), 3);
+        assert!(urls[0].contains("tomshardware.com"));
+        assert!(urls[1].contains("all3dp.com"));
+        assert!(urls[2].contains("prusa3d.com"));
+    }
+
+    #[test]
+    fn extract_source_urls_no_sources_section() {
+        let findings = "## Summary\nJust a summary, no sources.\n";
+        assert!(extract_source_urls(findings).is_empty());
+    }
+
+    #[test]
+    fn classify_web_cache_matches_cited() {
+        let dir = TempDir::new().unwrap();
+        let cache_dir = dir.path().join(".web-cache");
+        std::fs::create_dir_all(&cache_dir).unwrap();
+
+        // Write a cache file with a URL in frontmatter
+        std::fs::write(
+            cache_dir.join("2026-02-23T07-36-01_tomshardware-com-reviews-bambu-lab-p1s.md"),
+            "---\nurl: https://www.tomshardware.com/reviews/bambu-lab-p1s\nfetched_at: 2026-02-23\n---\n\n# Review\nGreat printer.\n",
+        ).unwrap();
+
+        // Write an uncited cache file
+        std::fs::write(
+            cache_dir.join("2026-02-23T07-35-33_search-results.md"),
+            "---\nquery: best printers\nsearched_at: 2026-02-23\n---\n\n1. Result\n",
+        )
+        .unwrap();
+
+        let findings =
+            "## Sources\n1. https://www.tomshardware.com/reviews/bambu-lab-p1s — review\n";
+        let classified = classify_web_cache(dir.path(), Some(findings), 500);
+
+        assert_eq!(classified.len(), 2);
+        let cited: Vec<_> = classified.iter().filter(|f| f.cited).collect();
+        let uncited: Vec<_> = classified.iter().filter(|f| !f.cited).collect();
+
+        assert_eq!(cited.len(), 1);
+        assert!(cited[0].filename.contains("tomshardware"));
+        assert!(cited[0].preview.is_some());
+        assert!(cited[0].preview.as_ref().unwrap().contains("Review"));
+
+        assert_eq!(uncited.len(), 1);
+        assert!(uncited[0].preview.is_none());
+    }
+
+    #[test]
+    fn classify_web_cache_empty_dir() {
+        let dir = TempDir::new().unwrap();
+        let result = classify_web_cache(dir.path(), Some("no sources"), 500);
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn format_classified_cache_sections() {
+        let files = vec![
+            ClassifiedCacheFile {
+                filename: "cited.md".to_string(),
+                url: "https://example.com/cited".to_string(),
+                cited: true,
+                preview: Some("# Title\nContent here".to_string()),
+            },
+            ClassifiedCacheFile {
+                filename: "uncited.md".to_string(),
+                url: "https://example.com/uncited".to_string(),
+                cited: false,
+                preview: None,
+            },
+        ];
+
+        let output = format_classified_cache(&files);
+        assert!(output.contains("### Cited in Agent Report"));
+        assert!(output.contains("cited.md"));
+        assert!(output.contains("### Uncited"));
+        assert!(output.contains("uncited.md"));
     }
 }

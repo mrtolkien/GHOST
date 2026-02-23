@@ -143,7 +143,7 @@ fn extract_frontmatter_label(path: &Path) -> String {
     "unknown".to_string()
 }
 
-fn slug_from_url(url: &str) -> String {
+pub fn slug_from_url(url: &str) -> String {
     let stripped = url
         .trim_start_matches("https://")
         .trim_start_matches("http://")

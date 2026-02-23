@@ -346,16 +346,19 @@ impl LiveTestEnv {
         let agent_findings = ghost::jobs::reflection::extract_agent_findings(&messages);
         let transcript = ghost::jobs::reflection::filter_transcript(&messages);
 
-        let web_cache_files = ghost::web::scan_web_cache(&self.config.workspace)
-            .expect("scan web cache")
-            .unwrap_or_else(|| "No cached files.".to_string());
+        let classified = ghost::jobs::reflection::classify_web_cache(
+            &self.config.workspace,
+            agent_findings.as_deref(),
+            1000,
+        );
+        let web_cache_section = ghost::jobs::reflection::format_classified_cache(&classified);
 
         let user_message = ghost::jobs::reflection::build_reflection_user_message(
             previous_handoff.unwrap_or("No previous handoff."),
             "No diary entry for today.",
             &transcript,
             agent_findings.as_deref(),
-            &web_cache_files,
+            &web_cache_section,
         );
 
         self.task_runner
