@@ -33,12 +33,7 @@ pub fn reflection_progress_rules() -> Vec<ProgressRule> {
                  found in the transcript. Do NOT write your handoff yet."
                     .to_string(),
             ),
-            met: Some(
-                "Note minimum met ({count}/{min}). \
-                 Continue if there are more entities to capture, \
-                 otherwise proceed to source quality notes and handoff."
-                    .to_string(),
-            ),
+            met: None,
         },
         ProgressRule {
             tool: "reference_manage".to_string(),
@@ -49,11 +44,7 @@ pub fn reflection_progress_rules() -> Vec<ProgressRule> {
                  Use reference_manage(action=\"move\") for useful files."
                     .to_string(),
             ),
-            met: Some(
-                "Reference curation minimum met ({count}/{min}). \
-                 Continue curating remaining cache files or proceed."
-                    .to_string(),
-            ),
+            met: None,
         },
     ]
 }

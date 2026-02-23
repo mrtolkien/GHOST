@@ -677,22 +677,23 @@ fn build_progress_nudge(rules: &[ProgressRule], history: &[ChatMessage]) -> Opti
         parts.push(format!("{}: {}/{}.", rule.tool, count, rule.min));
 
         let message = if count < rule.min {
-            rule.below.as_deref().unwrap_or(
+            Some(rule.below.as_deref().unwrap_or(
                 "You need at least {min} {tool} calls (currently {count}). \
-                 Keep going — do NOT write your final output yet.",
-            )
+                     Keep going — do NOT write your final output yet.",
+            ))
         } else {
-            rule.met.as_deref().unwrap_or(
-                "{tool} minimum reached ({count}/{min}). \
-                 You may continue for thoroughness or wrap up.",
-            )
+            // Only nudge when met is explicitly set. When None, the count
+            // line alone is enough — no message that invites wrapping up.
+            rule.met.as_deref()
         };
 
-        let interpolated = message
-            .replace("{tool}", &rule.tool)
-            .replace("{min}", &rule.min.to_string())
-            .replace("{count}", &count.to_string());
-        parts.push(interpolated);
+        if let Some(message) = message {
+            let interpolated = message
+                .replace("{tool}", &rule.tool)
+                .replace("{min}", &rule.min.to_string())
+                .replace("{count}", &count.to_string());
+            parts.push(interpolated);
+        }
     }
 
     Some(format!("[Progress] {}", parts.join(" ")))
@@ -832,19 +833,38 @@ mod tests {
     }
 
     #[test]
-    fn at_minimum_shows_met_message() {
+    fn at_minimum_without_met_shows_count_only() {
         let rules = vec![rule("web_fetch", 2)];
         let history = vec![
             assistant_tool_use("web_fetch"),
             assistant_tool_use("web_fetch"),
         ];
         let nudge = build_progress_nudge(&rules, &history).unwrap();
-        assert!(nudge.contains("minimum reached"));
+        assert!(nudge.contains("2/2"));
+        // No met message when met is None — just the count line
+        assert!(!nudge.contains("Keep going"));
+        assert!(!nudge.contains("do NOT"));
+    }
+
+    #[test]
+    fn at_minimum_with_explicit_met_shows_message() {
+        let rules = vec![rule_with_messages(
+            "web_fetch",
+            2,
+            "below",
+            "Keep researching — {count}/{min} done but check for newer models.",
+        )];
+        let history = vec![
+            assistant_tool_use("web_fetch"),
+            assistant_tool_use("web_fetch"),
+        ];
+        let nudge = build_progress_nudge(&rules, &history).unwrap();
+        assert!(nudge.contains("Keep researching"));
         assert!(nudge.contains("2/2"));
     }
 
     #[test]
-    fn above_minimum_shows_met_message() {
+    fn above_minimum_without_met_shows_count_only() {
         let rules = vec![rule("web_fetch", 2)];
         let history = vec![
             assistant_tool_use("web_fetch"),
@@ -852,8 +872,8 @@ mod tests {
             assistant_tool_use("web_fetch"),
         ];
         let nudge = build_progress_nudge(&rules, &history).unwrap();
-        assert!(nudge.contains("minimum reached"));
         assert!(nudge.contains("3/2"));
+        assert!(!nudge.contains("Keep going"));
     }
 
     #[test]
