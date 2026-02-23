@@ -349,6 +349,12 @@ async fn cmd_reindex(
         let archetype_str = parsed.front.archetype.map(|a| a.to_string());
         match db::knowledge::find_note_by_title(db, &parsed.front.title).await? {
             Some(existing) => {
+                // Compute relative path from file's position
+                let rel_path = path
+                    .strip_prefix(workspace)
+                    .ok()
+                    .and_then(|p| p.to_str())
+                    .map(|s| s.to_string());
                 db::knowledge::update_note(
                     db,
                     &existing.id,
@@ -356,6 +362,7 @@ async fn cmd_reindex(
                     archetype_str.as_deref(),
                     &parsed.front.tags,
                     parsed.front.trust,
+                    rel_path.as_deref(),
                 )
                 .await?;
                 let _result = knowledge::reconcile::reconcile_edges(
@@ -369,6 +376,11 @@ async fn cmd_reindex(
                 synced += 1;
             }
             None => {
+                let rel_path = path
+                    .strip_prefix(workspace)
+                    .ok()
+                    .and_then(|p| p.to_str())
+                    .map(|s| s.to_string());
                 let note_id = db::knowledge::create_note_full(
                     db,
                     &parsed.front.title,
@@ -376,6 +388,7 @@ async fn cmd_reindex(
                     archetype_str.as_deref(),
                     &parsed.front.tags,
                     parsed.front.trust,
+                    rel_path.as_deref(),
                 )
                 .await?;
                 let _result = knowledge::reconcile::reconcile_edges(

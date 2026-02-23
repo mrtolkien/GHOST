@@ -15,7 +15,7 @@ pub async fn create_note(
     title: &str,
     body: &str,
 ) -> Result<Thing, DatabaseError> {
-    create_note_full(db, title, body, None, &[], 5).await
+    create_note_full(db, title, body, None, &[], 5, None).await
 }
 
 #[tracing::instrument(skip_all, level = "debug", fields(title = %title))]
@@ -26,6 +26,7 @@ pub async fn create_note_full(
     archetype: Option<&str>,
     tags: &[String],
     trust: i64,
+    path: Option<&str>,
 ) -> Result<Thing, DatabaseError> {
     let mut resp = query_exec(
         db.query(
@@ -35,6 +36,7 @@ pub async fn create_note_full(
                 archetype = $archetype, \
                 tags = $tags, \
                 trust = $trust, \
+                path = $path, \
                 created_at = time::now(), \
                 updated_at = time::now() \
              RETURN id",
@@ -43,7 +45,8 @@ pub async fn create_note_full(
         .bind(("body", body.to_string()))
         .bind(("archetype", archetype.map(ToString::to_string)))
         .bind(("tags", tags.to_vec()))
-        .bind(("trust", trust)),
+        .bind(("trust", trust))
+        .bind(("path", path.map(ToString::to_string))),
         "note",
         "create",
     )
@@ -61,6 +64,7 @@ pub async fn update_note(
     archetype: Option<&str>,
     tags: &[String],
     trust: i64,
+    path: Option<&str>,
 ) -> Result<(), DatabaseError> {
     query_exec(
         db.query(
@@ -69,13 +73,15 @@ pub async fn update_note(
                 archetype = $archetype, \
                 tags = $tags, \
                 trust = $trust, \
+                path = $path, \
                 updated_at = time::now()",
         )
         .bind(("note_id", note_id.clone()))
         .bind(("body", body.to_string()))
         .bind(("archetype", archetype.map(ToString::to_string)))
         .bind(("tags", tags.to_vec()))
-        .bind(("trust", trust)),
+        .bind(("trust", trust))
+        .bind(("path", path.map(ToString::to_string))),
         "note",
         "update",
     )

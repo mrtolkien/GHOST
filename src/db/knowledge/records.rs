@@ -9,6 +9,7 @@ pub struct NoteRecord {
     pub archetype: Option<String>,
     pub tags: Vec<String>,
     pub trust: i64,
+    pub path: Option<String>,
     pub created_at: Datetime,
     pub updated_at: Datetime,
 }

@@ -47,7 +47,7 @@ async fn for_reflection_includes_knowledge_tools() {
     let chat = ToolManager::for_chat();
     let reflection = ToolManager::for_reflection();
     assert_eq!(chat.all_tool_schemas().len(), 9);
-    assert_eq!(reflection.all_tool_schemas().len(), 11);
+    assert_eq!(reflection.all_tool_schemas().len(), 10);
 
     let schemas = reflection.all_tool_schemas();
     let names: Vec<&str> = schemas.iter().map(|s| s.name.as_str()).collect();

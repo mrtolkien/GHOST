@@ -56,6 +56,7 @@ DEFINE FIELD body ON note TYPE string;
 DEFINE FIELD archetype ON note TYPE option<string>;
 DEFINE FIELD tags ON note TYPE array<string>;
 DEFINE FIELD trust ON note TYPE int DEFAULT 5;
+DEFINE FIELD path ON note TYPE option<string>;
 DEFINE FIELD created_at ON note TYPE datetime;
 DEFINE FIELD updated_at ON note TYPE datetime;
 DEFINE INDEX idx_note_title ON note FIELDS title UNIQUE;

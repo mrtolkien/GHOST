@@ -129,12 +129,34 @@ impl NoteWrite {
             trust,
         };
 
+        let subfolder = knowledge::subfolder_from_tags(tags);
+        let slug = knowledge::slug_from_title(title);
+        let rel_path = knowledge::note_relative_path(subfolder, &slug);
+
         let path = knowledge::write_note(&ctx.workspace, &front, body)
             .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
 
-        let note_id = db::knowledge::create_note_full(&ctx.db, title, body, archetype, tags, trust)
-            .await
-            .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
+        // Ensure index notes exist for each level of the subfolder
+        let mut index_info = String::new();
+        if let Some(sub) = subfolder {
+            let created = knowledge::ensure_index_notes(&ctx.workspace, sub)
+                .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
+            if !created.is_empty() {
+                index_info = format!("\nIndex notes created: {}", created.len());
+            }
+        }
+
+        let note_id = db::knowledge::create_note_full(
+            &ctx.db,
+            title,
+            body,
+            archetype,
+            tags,
+            trust,
+            Some(&rel_path),
+        )
+        .await
+        .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
 
         let wiki_links = extract_wiki_links(body);
         let result = reconcile_edges(&ctx.db, &note_id, title, &wiki_links)
@@ -144,7 +166,7 @@ impl NoteWrite {
         Ok(format!(
             "Created note '{}' at {}\n\
              DB record: {}\n\
-             Edges: {} created, {} stubs created",
+             Edges: {} created, {} stubs created{index_info}",
             title,
             path.display(),
             note_id,
@@ -167,9 +189,31 @@ impl NoteWrite {
             .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?
             .ok_or_else(|| ToolError::ExecutionFailed(format!("note '{title}' not found")))?;
 
-        db::knowledge::update_note(&ctx.db, &existing.id, body, archetype, tags, trust)
-            .await
-            .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
+        let subfolder = knowledge::subfolder_from_tags(tags);
+        let slug = knowledge::slug_from_title(title);
+        let rel_path = knowledge::note_relative_path(subfolder, &slug);
+
+        // If the note moved to a different path, remove the old file
+        if let Some(old_path) = &existing.path
+            && *old_path != rel_path
+        {
+            let old_abs = ctx.workspace.join(old_path);
+            if old_abs.exists() {
+                let _ = std::fs::remove_file(&old_abs);
+            }
+        }
+
+        db::knowledge::update_note(
+            &ctx.db,
+            &existing.id,
+            body,
+            archetype,
+            tags,
+            trust,
+            Some(&rel_path),
+        )
+        .await
+        .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
 
         let front = NoteFrontMatter {
             title: title.to_string(),
@@ -180,6 +224,11 @@ impl NoteWrite {
         };
         let path = knowledge::write_note(&ctx.workspace, &front, body)
             .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
+
+        // Ensure index notes exist for each level of the subfolder
+        if let Some(sub) = subfolder {
+            let _ = knowledge::ensure_index_notes(&ctx.workspace, sub);
+        }
 
         let wiki_links = extract_wiki_links(body);
         let result = reconcile_edges(&ctx.db, &existing.id, title, &wiki_links)

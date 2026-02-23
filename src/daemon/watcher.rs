@@ -178,6 +178,7 @@ async fn process_note_change(
                 archetype_str.as_deref(),
                 &parsed.front.tags,
                 parsed.front.trust,
+                None,
             )
             .await
             {
@@ -216,6 +217,7 @@ async fn process_note_change(
         archetype_str.as_deref(),
         &parsed.front.tags,
         parsed.front.trust,
+        None,
     )
     .await;
 
