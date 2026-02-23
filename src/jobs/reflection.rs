@@ -147,6 +147,7 @@ impl ReflectionManager {
             .unwrap_or_else(|| "No diary entry for today.".to_string());
 
         let messages = db::sessions::list_messages_by_session(&self.db, session_thing).await?;
+        let agent_findings = extract_agent_findings(&messages);
         let transcript = filter_transcript(&messages);
 
         let web_cache_files = scan_web_cache(&self.config.workspace)
@@ -157,6 +158,7 @@ impl ReflectionManager {
             &previous_handoff,
             &diary_today,
             &transcript,
+            agent_findings.as_deref(),
             &web_cache_files,
         ))
     }
@@ -168,8 +170,22 @@ pub fn build_reflection_user_message(
     previous_handoff: &str,
     diary_today: &str,
     transcript: &str,
+    agent_findings: Option<&str>,
     web_cache_files: &str,
 ) -> String {
+    let agent_section = match agent_findings {
+        Some(findings) => format!(
+            "## Agent Findings\n\
+             The research agent produced the following synthesized report. \
+             Use this as your primary source of information — it summarizes \
+             what was learned from the web cache files below.\n\
+             \n\
+             {findings}\n\
+             \n"
+        ),
+        None => String::new(),
+    };
+
     format!(
         "## Previous Handoff Note\n\
          {previous_handoff}\n\
@@ -177,6 +193,7 @@ pub fn build_reflection_user_message(
          ## Today's Diary\n\
          {diary_today}\n\
          \n\
+         {agent_section}\
          ## Conversation Transcript (filtered)\n\
          Tool results are stripped — use `read_file` to retrieve content \
          saved during the conversation.\n\
@@ -186,6 +203,22 @@ pub fn build_reflection_user_message(
          ## Web Cache Files\n\
          {web_cache_files}"
     )
+}
+
+/// Extract the last substantial assistant message as "agent findings".
+///
+/// In agent sessions, the final assistant message typically contains the
+/// synthesized research report. This extracts it so reflection can see the
+/// report prominently instead of buried in `[assistant]` transcript lines.
+///
+/// Returns `None` if no assistant message has at least 500 chars of content.
+#[must_use]
+pub fn extract_agent_findings(messages: &[MessageRecord]) -> Option<String> {
+    messages
+        .iter()
+        .rev()
+        .find(|m| m.role == "assistant" && m.content.len() >= 500)
+        .map(|m| m.content.clone())
 }
 
 /// Filter a transcript for reflection: preserve user/assistant text,
@@ -412,6 +445,7 @@ mod tests {
             "Previous handoff content",
             "Diary entry today",
             "[user] Hello\n[assistant] Hi",
+            None,
             "file1.md\nfile2.md",
         );
         assert!(msg.contains("## Previous Handoff Note"));
@@ -422,6 +456,21 @@ mod tests {
         assert!(msg.contains("[user] Hello"));
         assert!(msg.contains("## Web Cache Files"));
         assert!(msg.contains("file1.md"));
+        // No agent findings section when None
+        assert!(!msg.contains("## Agent Findings"));
+    }
+
+    #[test]
+    fn build_user_message_with_agent_findings() {
+        let msg = build_reflection_user_message(
+            "No previous handoff.",
+            "No diary entry for today.",
+            "[user] research X",
+            Some("The research found that X is better than Y because..."),
+            "file1.md",
+        );
+        assert!(msg.contains("## Agent Findings"));
+        assert!(msg.contains("X is better than Y"));
     }
 
     #[test]
@@ -430,10 +479,32 @@ mod tests {
             "No previous handoff.",
             "No diary entry for today.",
             "",
+            None,
             "No cached files.",
         );
         assert!(msg.contains("No previous handoff."));
         assert!(msg.contains("No diary entry for today."));
         assert!(msg.contains("No cached files."));
+    }
+
+    #[test]
+    fn extract_agent_findings_picks_last_long_message() {
+        let messages = vec![
+            make_message("user", "Research something", None, None),
+            make_message("assistant", "Short reply", None, None),
+            make_message("assistant", &"x".repeat(600), None, None),
+        ];
+        let findings = extract_agent_findings(&messages);
+        assert!(findings.is_some());
+        assert_eq!(findings.unwrap().len(), 600);
+    }
+
+    #[test]
+    fn extract_agent_findings_returns_none_for_short_messages() {
+        let messages = vec![
+            make_message("user", "Hello", None, None),
+            make_message("assistant", "Short", None, None),
+        ];
+        assert!(extract_agent_findings(&messages).is_none());
     }
 }

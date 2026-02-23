@@ -430,7 +430,7 @@ Also: {{query}}
         let ref_rule = &def.progress_rules[1];
         assert_eq!(ref_rule.tool, "reference_manage");
         assert!(ref_rule.min.is_none());
-        assert!(ref_rule.nudge.is_none());
+        assert!(ref_rule.nudge.is_some());
     }
 
     #[test]

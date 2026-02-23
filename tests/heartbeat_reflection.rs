@@ -330,34 +330,77 @@ async fn reflection_on_agent_transcript() {
     env.log_session_json("agent_reflection", &session).await;
     env.log(format!("handoff: {findings}"));
 
-    // Assertions: reflection should produce meaningful output
+    // --- Tier 1: hard asserts (must pass) ---
+
     assert!(
         !findings.trim().is_empty(),
-        "reflection should produce a non-empty handoff note"
+        "T1: reflection should produce a non-empty handoff note"
     );
 
-    // Check for knowledge artifacts
     let notes = env.list_notes();
     let refs = env.list_references();
+
+    // Log note details for diagnostics
+    for note in &notes {
+        let preview = std::fs::read_to_string(note)
+            .unwrap_or_default()
+            .chars()
+            .take(200)
+            .collect::<String>();
+        env.log(format!("note: {} — {preview}", note.display()));
+    }
+    for r in &refs {
+        env.log(format!("reference: {}", r.display()));
+    }
+
     env.log(format!(
-        "notes: {}, references: {}",
+        "T1 totals: {} notes, {} references",
         notes.len(),
         refs.len()
     ));
 
-    // Reflection on a rich research transcript should create at least one note
     assert!(
         !notes.is_empty() || !refs.is_empty(),
-        "reflection should create at least one note or reference"
+        "T1: reflection should create at least one note or reference"
     );
 
-    // Check for P2S mention (the agent findings included it)
-    let has_p2s =
-        env.find_file_containing("notes", "P2S") || env.find_file_containing("notes", "p2s");
-    env.log(format!("P2S note found: {has_p2s}"));
+    // --- Tier 2: soft checks (log only, no assert) ---
 
-    // Check for source quality note
-    let has_source_note =
-        env.find_file_containing("notes", "all3dp") || env.find_file_containing("notes", "aurora");
-    env.log(format!("source quality note found: {has_source_note}"));
+    let has_entity_note = env.find_file_containing("notes", "P2S")
+        || env.find_file_containing("notes", "p2s")
+        || env.find_file_containing("notes", "Bambu")
+        || env.find_file_containing("notes", "bambu")
+        || env.find_file_containing("notes", "Prusa")
+        || env.find_file_containing("notes", "prusa");
+    env.log(format!(
+        "T2 entity note (printer brand/model): {has_entity_note}"
+    ));
+
+    let has_source_note = env.find_file_containing("notes", "all3dp")
+        || env.find_file_containing("notes", "All3DP")
+        || env.find_file_containing("notes", "tomshardware")
+        || env.find_file_containing("notes", "aurora");
+    env.log(format!("T2 source quality note: {has_source_note}"));
+
+    let has_decision_note = env.find_file_containing("notes", "decision")
+        || env.find_file_containing("notes", "Decision")
+        || env.find_file_containing("notes", "comparison")
+        || env.find_file_containing("notes", "recommend");
+    env.log(format!("T2 decision note: {has_decision_note}"));
+
+    // --- Tier 3: aspirational (log only) ---
+
+    let has_reference_curation = !refs.is_empty();
+    env.log(format!("T3 reference curation: {has_reference_curation}"));
+
+    let t2_pass = has_entity_note && has_source_note;
+    env.log(format!(
+        "TIER SUMMARY: T1=PASS, T2={}, T3={}",
+        if t2_pass { "PASS" } else { "PARTIAL" },
+        if has_reference_curation {
+            "PASS"
+        } else {
+            "MISS"
+        }
+    ));
 }
