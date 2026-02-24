@@ -55,6 +55,11 @@ impl Tool for NoteWrite {
                         "items": {"type": "string"},
                         "description": "Optional tags for categorization"
                     },
+                    "sources": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Source URLs for attribution. Each URL is preserved in frontmatter. Use this instead of putting bare URLs in the body."
+                    },
                     "trust": {
                         "type": "integer",
                         "description": "Trust level 1-10 (default 5)"
@@ -93,15 +98,25 @@ impl Tool for NoteWrite {
                     .collect()
             })
             .unwrap_or_default();
+        let sources: Vec<String> = params
+            .get("sources")
+            .and_then(Value::as_array)
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(Value::as_str)
+                    .map(String::from)
+                    .collect()
+            })
+            .unwrap_or_default();
         let trust = params.get("trust").and_then(Value::as_i64).unwrap_or(5);
 
         match action {
             "create" => {
-                self.create_note(ctx, title, body, archetype, &tags, trust)
+                self.create_note(ctx, title, body, archetype, &tags, &sources, trust)
                     .await
             }
             "update" => {
-                self.update_note(ctx, title, body, archetype, &tags, trust)
+                self.update_note(ctx, title, body, archetype, &tags, &sources, trust)
                     .await
             }
             _ => Err(ToolError::InvalidParams(format!(
@@ -112,19 +127,20 @@ impl Tool for NoteWrite {
 }
 
 impl NoteWrite {
-    /// Reject wiki links to `references/...` paths that don't exist on disk.
+    /// Strip `[[references/...]]` wiki links that point to non-existent files.
     ///
     /// Regular wiki links (e.g. `[[Bambu Lab]]`) are fine — those create stubs.
-    /// But `[[references/topic/filename]]` pointing to a non-existent file is a
-    /// broken citation. The model must create the reference first (via
-    /// `reference_manage`) before linking to it.
-    fn validate_reference_links(workspace: &std::path::Path, body: &str) -> Result<(), ToolError> {
+    /// But `[[references/topic/filename]]` pointing to a non-existent file would
+    /// be a broken citation. We strip these and return a warning message.
+    fn sanitize_reference_links(
+        workspace: &std::path::Path,
+        body: &str,
+    ) -> (String, Option<String>) {
         let links = extract_wiki_links(body);
         let missing: Vec<&str> = links
             .iter()
             .filter(|link| link.target.starts_with("references/"))
             .filter(|link| {
-                // Check with and without .md extension
                 let path = workspace.join(&link.target);
                 let path_md = workspace.join(format!("{}.md", link.target));
                 !path.exists() && !path_md.exists()
@@ -132,23 +148,40 @@ impl NoteWrite {
             .map(|link| link.target.as_str())
             .collect();
 
-        if !missing.is_empty() {
-            return Err(ToolError::ExecutionFailed(format!(
-                "Note contains wiki links to references that don't exist on disk. \
-                 Use `reference_manage` to move web-cache files into references/ \
-                 BEFORE linking to them from notes.\n\
-                 Missing references:\n{}",
-                missing
-                    .iter()
-                    .map(|p| format!("  - [[{p}]]"))
-                    .collect::<Vec<_>>()
-                    .join("\n")
-            )));
+        if missing.is_empty() {
+            return (body.to_string(), None);
         }
 
-        Ok(())
+        // Strip the broken reference links from the body
+        let mut sanitized = body.to_string();
+        for target in &missing {
+            // Remove [[references/...]] patterns — try with relationship prefix too
+            let plain = format!("[[{target}]]");
+            sanitized = sanitized.replace(&plain, "");
+            // Also handle [[rel>references/...]] patterns
+            for prefix in &["source>", "from>", "cited_in>"] {
+                let with_rel = format!("[[{prefix}{target}]]");
+                sanitized = sanitized.replace(&with_rel, "");
+            }
+        }
+
+        let warning = format!(
+            "WARNING: Stripped {} broken reference link(s) pointing to files that \
+             don't exist on disk. Use `reference_manage` to move web-cache files \
+             into references/ first, then update the note.\n\
+             Removed:\n{}",
+            missing.len(),
+            missing
+                .iter()
+                .map(|p| format!("  - [[{p}]]"))
+                .collect::<Vec<_>>()
+                .join("\n")
+        );
+
+        (sanitized, Some(warning))
     }
 
+    #[allow(clippy::too_many_arguments)]
     async fn create_note(
         &self,
         ctx: &ToolContext,
@@ -156,15 +189,17 @@ impl NoteWrite {
         body: &str,
         archetype: Option<&str>,
         tags: &[String],
+        sources: &[String],
         trust: i64,
     ) -> Result<String, ToolError> {
-        Self::validate_reference_links(&ctx.workspace, body)?;
+        let (sanitized_body, ref_warning) = Self::sanitize_reference_links(&ctx.workspace, body);
 
         let front = NoteFrontMatter {
             title: title.to_string(),
             archetype: archetype
                 .and_then(|a| serde_json::from_value(Value::String(a.to_string())).ok()),
             tags: tags.to_vec(),
+            sources: sources.to_vec(),
             trust,
         };
 
@@ -172,7 +207,7 @@ impl NoteWrite {
         let slug = knowledge::slug_from_title(title);
         let rel_path = knowledge::note_relative_path(subfolder, &slug);
 
-        let path = knowledge::write_note(&ctx.workspace, &front, body)
+        let path = knowledge::write_note(&ctx.workspace, &front, &sanitized_body)
             .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
 
         // Ensure index notes exist for each level of the subfolder
@@ -188,21 +223,22 @@ impl NoteWrite {
         let note_id = db::knowledge::create_note_full(
             &ctx.db,
             title,
-            body,
+            &sanitized_body,
             archetype,
             tags,
+            sources,
             trust,
             Some(&rel_path),
         )
         .await
         .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
 
-        let wiki_links = extract_wiki_links(body);
+        let wiki_links = extract_wiki_links(&sanitized_body);
         let result = reconcile_edges(&ctx.db, &note_id, title, &wiki_links)
             .await
             .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
 
-        Ok(format!(
+        let mut msg = format!(
             "Created note '{}' at {}\n\
              DB record: {}\n\
              Edges: {} created, {} stubs created{index_info}",
@@ -211,9 +247,20 @@ impl NoteWrite {
             note_id,
             result.created,
             result.stubs_created,
-        ))
+        );
+        if let Some(warning) = ref_warning {
+            msg.push_str(&format!("\n\n{warning}"));
+        }
+        if wiki_links.is_empty() && archetype != Some("topic") {
+            msg.push_str(
+                "\n\nHINT: This note has no [[wiki links]]. Consider adding links \
+                 to related entities to build the knowledge graph.",
+            );
+        }
+        Ok(msg)
     }
 
+    #[allow(clippy::too_many_arguments)]
     async fn update_note(
         &self,
         ctx: &ToolContext,
@@ -221,9 +268,10 @@ impl NoteWrite {
         body: &str,
         archetype: Option<&str>,
         tags: &[String],
+        sources: &[String],
         trust: i64,
     ) -> Result<String, ToolError> {
-        Self::validate_reference_links(&ctx.workspace, body)?;
+        let (sanitized_body, ref_warning) = Self::sanitize_reference_links(&ctx.workspace, body);
 
         let existing = db::knowledge::find_note_by_title(&ctx.db, title)
             .await
@@ -247,9 +295,10 @@ impl NoteWrite {
         db::knowledge::update_note(
             &ctx.db,
             &existing.id,
-            body,
+            &sanitized_body,
             archetype,
             tags,
+            sources,
             trust,
             Some(&rel_path),
         )
@@ -261,9 +310,10 @@ impl NoteWrite {
             archetype: archetype
                 .and_then(|a| serde_json::from_value(Value::String(a.to_string())).ok()),
             tags: tags.to_vec(),
+            sources: sources.to_vec(),
             trust,
         };
-        let path = knowledge::write_note(&ctx.workspace, &front, body)
+        let path = knowledge::write_note(&ctx.workspace, &front, &sanitized_body)
             .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
 
         // Ensure index notes exist for each level of the subfolder
@@ -271,12 +321,12 @@ impl NoteWrite {
             let _ = knowledge::ensure_index_notes(&ctx.workspace, sub);
         }
 
-        let wiki_links = extract_wiki_links(body);
+        let wiki_links = extract_wiki_links(&sanitized_body);
         let result = reconcile_edges(&ctx.db, &existing.id, title, &wiki_links)
             .await
             .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
 
-        Ok(format!(
+        let mut msg = format!(
             "Updated note '{}' at {}\n\
              Edges: {} created, {} deleted, {} stubs created",
             title,
@@ -284,6 +334,16 @@ impl NoteWrite {
             result.created,
             result.deleted,
             result.stubs_created,
-        ))
+        );
+        if let Some(warning) = ref_warning {
+            msg.push_str(&format!("\n\n{warning}"));
+        }
+        if wiki_links.is_empty() && archetype != Some("topic") {
+            msg.push_str(
+                "\n\nHINT: This note has no [[wiki links]]. Consider adding links \
+                 to related entities to build the knowledge graph.",
+            );
+        }
+        Ok(msg)
     }
 }

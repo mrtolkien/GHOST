@@ -8,6 +8,8 @@ pub struct NoteRecord {
     pub body: String,
     pub archetype: Option<String>,
     pub tags: Vec<String>,
+    #[serde(default)]
+    pub sources: Vec<String>,
     pub trust: i64,
     pub path: Option<String>,
     pub created_at: Datetime,

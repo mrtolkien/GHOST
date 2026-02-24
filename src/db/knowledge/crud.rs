@@ -15,9 +15,10 @@ pub async fn create_note(
     title: &str,
     body: &str,
 ) -> Result<Thing, DatabaseError> {
-    create_note_full(db, title, body, None, &[], 5, None).await
+    create_note_full(db, title, body, None, &[], &[], 5, None).await
 }
 
+#[allow(clippy::too_many_arguments)]
 #[tracing::instrument(skip_all, level = "debug", fields(title = %title))]
 pub async fn create_note_full(
     db: &Surreal<Db>,
@@ -25,6 +26,7 @@ pub async fn create_note_full(
     body: &str,
     archetype: Option<&str>,
     tags: &[String],
+    sources: &[String],
     trust: i64,
     path: Option<&str>,
 ) -> Result<Thing, DatabaseError> {
@@ -35,6 +37,7 @@ pub async fn create_note_full(
                 body = $body, \
                 archetype = $archetype, \
                 tags = $tags, \
+                sources = $sources, \
                 trust = $trust, \
                 path = $path, \
                 created_at = time::now(), \
@@ -45,6 +48,7 @@ pub async fn create_note_full(
         .bind(("body", body.to_string()))
         .bind(("archetype", archetype.map(ToString::to_string)))
         .bind(("tags", tags.to_vec()))
+        .bind(("sources", sources.to_vec()))
         .bind(("trust", trust))
         .bind(("path", path.map(ToString::to_string))),
         "note",
@@ -56,6 +60,7 @@ pub async fn create_note_full(
     Ok(row.id)
 }
 
+#[allow(clippy::too_many_arguments)]
 #[tracing::instrument(skip_all, level = "debug", fields(note_id = %note_id))]
 pub async fn update_note(
     db: &Surreal<Db>,
@@ -63,6 +68,7 @@ pub async fn update_note(
     body: &str,
     archetype: Option<&str>,
     tags: &[String],
+    sources: &[String],
     trust: i64,
     path: Option<&str>,
 ) -> Result<(), DatabaseError> {
@@ -72,6 +78,7 @@ pub async fn update_note(
                 body = $body, \
                 archetype = $archetype, \
                 tags = $tags, \
+                sources = $sources, \
                 trust = $trust, \
                 path = $path, \
                 updated_at = time::now()",
@@ -80,6 +87,7 @@ pub async fn update_note(
         .bind(("body", body.to_string()))
         .bind(("archetype", archetype.map(ToString::to_string)))
         .bind(("tags", tags.to_vec()))
+        .bind(("sources", sources.to_vec()))
         .bind(("trust", trust))
         .bind(("path", path.map(ToString::to_string))),
         "note",

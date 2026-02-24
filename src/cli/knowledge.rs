@@ -361,6 +361,7 @@ async fn cmd_reindex(
                     &parsed.body,
                     archetype_str.as_deref(),
                     &parsed.front.tags,
+                    &parsed.front.sources,
                     parsed.front.trust,
                     rel_path.as_deref(),
                 )
@@ -387,6 +388,7 @@ async fn cmd_reindex(
                     &parsed.body,
                     archetype_str.as_deref(),
                     &parsed.front.tags,
+                    &parsed.front.sources,
                     parsed.front.trust,
                     rel_path.as_deref(),
                 )

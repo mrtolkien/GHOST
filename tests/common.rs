@@ -64,6 +64,7 @@ pub fn write_test_note(workspace: &std::path::Path, title: &str, body: &str) -> 
         title: title.to_string(),
         archetype: None,
         tags: vec![],
+        sources: vec![],
         trust: 5,
     };
     let content = serialize_note(&front, body).expect("serialize note");

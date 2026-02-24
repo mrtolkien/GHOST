@@ -55,6 +55,7 @@ DEFINE FIELD title ON note TYPE string;
 DEFINE FIELD body ON note TYPE string;
 DEFINE FIELD archetype ON note TYPE option<string>;
 DEFINE FIELD tags ON note TYPE array<string>;
+DEFINE FIELD sources ON note TYPE array<string> DEFAULT [];
 DEFINE FIELD trust ON note TYPE int DEFAULT 5;
 DEFINE FIELD path ON note TYPE option<string>;
 DEFINE FIELD created_at ON note TYPE datetime;

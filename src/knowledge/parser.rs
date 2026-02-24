@@ -153,6 +153,7 @@ mod tests {
             title: "Test Note".to_string(),
             archetype: Some(Archetype::Project),
             tags: vec!["a".into(), "b".into()],
+            sources: vec![],
             trust: 7,
         };
         let body = "Some body content.\n";
@@ -168,5 +169,42 @@ mod tests {
         let raw = "+++\ntitle = \"Minimal\"\n+++\nJust body.\n";
         let parsed = parse_note(raw).unwrap();
         assert_eq!(parsed.front.trust, 5);
+    }
+
+    #[test]
+    fn sources_roundtrip() {
+        let front = NoteFrontMatter {
+            title: "With Sources".to_string(),
+            archetype: Some(Archetype::Concept),
+            tags: vec!["test".into()],
+            sources: vec![
+                "https://example.com/article".into(),
+                "https://other.com/page".into(),
+            ],
+            trust: 7,
+        };
+        let body = "Body with sources in frontmatter.\n";
+
+        let serialized = serialize_note(&front, body).unwrap();
+        let reparsed = parse_note(&serialized).unwrap();
+        assert_eq!(reparsed.front.sources, front.sources);
+        assert_eq!(reparsed.front, front);
+        assert_eq!(reparsed.body, body);
+    }
+
+    #[test]
+    fn sources_omitted_when_empty() {
+        let front = NoteFrontMatter {
+            title: "No Sources".to_string(),
+            archetype: None,
+            tags: vec![],
+            sources: vec![],
+            trust: 5,
+        };
+        let serialized = serialize_note(&front, "body\n").unwrap();
+        assert!(
+            !serialized.contains("sources"),
+            "empty sources should be omitted from serialized output"
+        );
     }
 }

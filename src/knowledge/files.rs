@@ -119,9 +119,11 @@ pub fn ensure_index_notes(
             title,
             archetype: Some(super::types::Archetype::Topic),
             tags: vec![folder_path.clone()],
+            sources: vec![],
             trust: 5,
         };
-        let content = serialize_note(&front, "")?;
+        let body = format!("Knowledge hub for {}.\n", front.title);
+        let content = serialize_note(&front, &body)?;
         std::fs::write(&index_path, &content).map_err(|source| KnowledgeError::Io {
             path: index_path.clone(),
             source,
@@ -247,6 +249,7 @@ mod tests {
             title: "Test Note".to_string(),
             archetype: Some(Archetype::Concept),
             tags: vec!["test".into()],
+            sources: vec![],
             trust: 7,
         };
         let body = "This is the body.\n";
@@ -270,6 +273,7 @@ mod tests {
             title: "Flat Note".to_string(),
             archetype: None,
             tags: vec![],
+            sources: vec![],
             trust: 5,
         };
 

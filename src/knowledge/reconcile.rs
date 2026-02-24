@@ -34,10 +34,18 @@ pub async fn reconcile_edges(
         {
             Some(note) => note.id,
             None => {
-                let id =
-                    db::knowledge::create_note_full(db_conn, &link.target, "", None, &[], 1, None)
-                        .await
-                        .map_err(Box::new)?;
+                let id = db::knowledge::create_note_full(
+                    db_conn,
+                    &link.target,
+                    "",
+                    None,
+                    &[],
+                    &[],
+                    1,
+                    None,
+                )
+                .await
+                .map_err(Box::new)?;
                 stubs_created += 1;
                 id
             }

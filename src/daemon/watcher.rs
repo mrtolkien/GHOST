@@ -177,6 +177,7 @@ async fn process_note_change(
                 &parsed.body,
                 archetype_str.as_deref(),
                 &parsed.front.tags,
+                &parsed.front.sources,
                 parsed.front.trust,
                 None,
             )
@@ -216,6 +217,7 @@ async fn process_note_change(
         &parsed.body,
         archetype_str.as_deref(),
         &parsed.front.tags,
+        &parsed.front.sources,
         parsed.front.trust,
         None,
     )

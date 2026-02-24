@@ -15,6 +15,7 @@ use crate::agents::TaskRunner;
 use crate::config::Config;
 use crate::db;
 use crate::db::sessions::MessageRecord;
+use crate::knowledge::parse_note;
 use crate::web::slug_from_url;
 
 pub struct ReflectionManager {
@@ -636,6 +637,13 @@ fn collect_urls_recursive(dir: &Path, urls: &mut Vec<String>) {
         } else if path.extension().and_then(|e| e.to_str()) == Some("md")
             && let Ok(content) = std::fs::read_to_string(&path)
         {
+            // Extract URLs from frontmatter sources field
+            if let Ok(parsed) = parse_note(&content) {
+                for source_url in &parsed.front.sources {
+                    urls.push(source_url.clone());
+                }
+            }
+            // Also extract bare URLs from body text
             for m in URL_RE.find_iter(&content) {
                 let url = m.as_str().trim_end_matches(|c: char| ".,;:)".contains(c));
                 urls.push(url.to_string());
@@ -1109,6 +1117,33 @@ mod tests {
             dir.path()
                 .join("references/example-com/article.md")
                 .exists()
+        );
+    }
+
+    #[test]
+    fn collect_note_urls_finds_frontmatter_sources() {
+        let dir = TempDir::new().unwrap();
+        let notes_dir = dir.path().join("notes");
+        std::fs::create_dir_all(&notes_dir).unwrap();
+
+        // Note with sources in frontmatter
+        std::fs::write(
+            notes_dir.join("test.md"),
+            "+++\ntitle = \"Test\"\nsources = [\
+             \"https://example.com/src1\", \
+             \"https://other.com/src2\"]\n+++\n\
+             Body text with no URLs.\n",
+        )
+        .unwrap();
+
+        let urls = collect_note_urls(dir.path());
+        assert!(
+            urls.iter().any(|u| u.contains("example.com/src1")),
+            "should find frontmatter source URL: {urls:?}"
+        );
+        assert!(
+            urls.iter().any(|u| u.contains("other.com/src2")),
+            "should find second frontmatter source URL: {urls:?}"
         );
     }
 

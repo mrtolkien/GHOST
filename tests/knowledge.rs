@@ -35,6 +35,7 @@ async fn create_note_and_retrieve_all_fields() {
         "A systems programming language.",
         Some("concept"),
         &["programming".to_string(), "systems".to_string()],
+        &[],
         8,
         None,
     )
@@ -53,7 +54,7 @@ async fn create_note_and_retrieve_all_fields() {
 async fn update_note_changes_fields() {
     let (db, _config, _workspace, _config_dir) = common::test_database().await;
 
-    let id = db::knowledge::create_note_full(&db, "Draft", "old body", None, &[], 5, None)
+    let id = db::knowledge::create_note_full(&db, "Draft", "old body", None, &[], &[], 5, None)
         .await
         .expect("create");
 
@@ -65,6 +66,7 @@ async fn update_note_changes_fields() {
         "new body",
         Some("decision"),
         &["updated".to_string()],
+        &[],
         7,
         None,
     )
@@ -86,7 +88,7 @@ async fn wiki_link_creates_relates_to_edge_and_stub() {
     let (db, _config, _workspace, _config_dir) = common::test_database().await;
 
     let note_id =
-        db::knowledge::create_note_full(&db, "My Note", "See [[Rust]]", None, &[], 5, None)
+        db::knowledge::create_note_full(&db, "My Note", "See [[Rust]]", None, &[], &[], 5, None)
             .await
             .expect("create note");
 
@@ -119,15 +121,17 @@ async fn wiki_link_creates_relates_to_edge_and_stub() {
 async fn typed_wiki_link_creates_labeled_edge() {
     let (db, _config, _workspace, _config_dir) = common::test_database().await;
 
-    let rust_id = db::knowledge::create_note_full(&db, "Rust", "A language", None, &[], 5, None)
-        .await
-        .expect("create Rust");
+    let rust_id =
+        db::knowledge::create_note_full(&db, "Rust", "A language", None, &[], &[], 5, None)
+            .await
+            .expect("create Rust");
 
     let note_id = db::knowledge::create_note_full(
         &db,
         "Ghost",
         "Built with [[written_in>Rust]]",
         None,
+        &[],
         &[],
         5,
         None,
@@ -152,12 +156,12 @@ async fn typed_wiki_link_creates_labeled_edge() {
 async fn removing_link_deletes_edge() {
     let (db, _config, _workspace, _config_dir) = common::test_database().await;
 
-    let _rust_id = db::knowledge::create_note_full(&db, "Rust", "", None, &[], 5, None)
+    let _rust_id = db::knowledge::create_note_full(&db, "Rust", "", None, &[], &[], 5, None)
         .await
         .expect("create Rust");
 
     let note_id =
-        db::knowledge::create_note_full(&db, "My Note", "See [[Rust]]", None, &[], 5, None)
+        db::knowledge::create_note_full(&db, "My Note", "See [[Rust]]", None, &[], &[], 5, None)
             .await
             .expect("create note");
 
@@ -201,6 +205,7 @@ async fn bm25_search_returns_results() {
         "Rust is a systems programming language focused on safety.",
         None,
         &[],
+        &[],
         5,
         None,
     )
@@ -212,6 +217,7 @@ async fn bm25_search_returns_results() {
         "Python",
         "Python is an interpreted language for scripting.",
         None,
+        &[],
         &[],
         5,
         None,
@@ -232,13 +238,13 @@ async fn bm25_search_returns_results() {
 async fn graph_chain_neighbors() {
     let (db, _config, _workspace, _config_dir) = common::test_database().await;
 
-    let a = db::knowledge::create_note_full(&db, "A", "Links to [[B]]", None, &[], 5, None)
+    let a = db::knowledge::create_note_full(&db, "A", "Links to [[B]]", None, &[], &[], 5, None)
         .await
         .expect("create A");
-    let b = db::knowledge::create_note_full(&db, "B", "Links to [[C]]", None, &[], 5, None)
+    let b = db::knowledge::create_note_full(&db, "B", "Links to [[C]]", None, &[], &[], 5, None)
         .await
         .expect("create B");
-    let c = db::knowledge::create_note_full(&db, "C", "End node", None, &[], 5, None)
+    let c = db::knowledge::create_note_full(&db, "C", "End node", None, &[], &[], 5, None)
         .await
         .expect("create C");
 
@@ -408,6 +414,7 @@ async fn tags_with_correct_counts() {
         "body",
         None,
         &["rust".to_string(), "systems".to_string()],
+        &[],
         5,
         None,
     )
@@ -420,6 +427,7 @@ async fn tags_with_correct_counts() {
         "body",
         None,
         &["rust".to_string(), "web".to_string()],
+        &[],
         5,
         None,
     )
@@ -445,14 +453,14 @@ async fn tags_with_correct_counts() {
 async fn recent_returns_items_sorted() {
     let (db, _config, _workspace, _config_dir) = common::test_database().await;
 
-    db::knowledge::create_note_full(&db, "First Note", "body", None, &[], 5, None)
+    db::knowledge::create_note_full(&db, "First Note", "body", None, &[], &[], 5, None)
         .await
         .expect("create first");
 
     // Small delay to ensure different timestamps
     tokio::time::sleep(std::time::Duration::from_millis(50)).await;
 
-    db::knowledge::create_note_full(&db, "Second Note", "body", None, &[], 5, None)
+    db::knowledge::create_note_full(&db, "Second Note", "body", None, &[], &[], 5, None)
         .await
         .expect("create second");
 
@@ -470,17 +478,17 @@ async fn orphan_notes_detected() {
     let (db, _config, _workspace, _config_dir) = common::test_database().await;
 
     // Create a truly isolated note (no edges at all)
-    db::knowledge::create_note_full(&db, "Isolated", "No connections", None, &[], 5, None)
+    db::knowledge::create_note_full(&db, "Isolated", "No connections", None, &[], &[], 5, None)
         .await
         .expect("create isolated");
 
     let connected_from =
-        db::knowledge::create_note_full(&db, "Connected", "Has an edge", None, &[], 5, None)
+        db::knowledge::create_note_full(&db, "Connected", "Has an edge", None, &[], &[], 5, None)
             .await
             .expect("create connected");
 
     let target =
-        db::knowledge::create_note_full(&db, "Target", "Receives edge", None, &[], 5, None)
+        db::knowledge::create_note_full(&db, "Target", "Receives edge", None, &[], &[], 5, None)
             .await
             .expect("create target");
 

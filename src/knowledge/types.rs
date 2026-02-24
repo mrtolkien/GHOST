@@ -42,6 +42,8 @@ pub struct NoteFrontMatter {
     pub archetype: Option<Archetype>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tags: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub sources: Vec<String>,
     #[serde(default = "default_trust")]
     pub trust: i64,
 }

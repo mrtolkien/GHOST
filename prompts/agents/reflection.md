@@ -32,20 +32,28 @@ Complete each step fully before moving to the next.
 
 ### Step 2: Create notes (most important)
 
+**Agent findings are the primary source.** The agent's synthesized report already weighs
+evidence and makes recommendations. Create notes for entities the agent highlighted —
+don't default to whatever has the most raw data in the web cache. If the agent
+recommends Product X, create a note for Product X even if Product Y has a longer cached
+review.
+
 Use `note_write` to create notes from the **Agent Findings** section. Read `.web-cache/`
 files with `read_file` to extract concrete specs.
+
+Include `[[wiki links]]` for every entity mentioned — this builds the knowledge graph.
 
 Create:
 
 - **Entity notes** (minimum 3, archetype != topic): one per product/tool/service with
   concrete specs (prices, dimensions, versions, dates). Vague notes are useless.
 - **Decision note**: if comparisons were made, link entity notes with trade-offs.
-- **Source quality notes**: for 1-2 key domains, tag `sources/{domain}`.
+- **Source quality notes**: for 1-2 key sources, tag under the research domain's sources
+  collection (e.g. tag `3d-printing/sources`, title "Tom's Hardware"). Keep tags to 2
+  levels max (topic/collection).
 
-Use `[[Entity Name]]` wiki links to connect notes.
-
-Cite sources in notes using `Source: <url>` lines. The `<web-cache>` section in the
-context below lists available sources with URLs and content previews.
+Pass source URLs in the `sources` parameter of `note_write` — they will be preserved in
+structured frontmatter. Do NOT put bare URLs in the note body.
 
 Do NOT use `[[references/...]]` wiki links — references are managed automatically after
 your session.
@@ -68,6 +76,23 @@ Summarize: notes created, sources cited, items deferred, unclear points.
 - **Tagged**: first tag = subfolder path (e.g. `rust/async`), lowercase,
   slash-separated.
 - **Trust**: start at 5, raise with evidence, lower for speculation (1-10 scale).
+
+### Linking (critical)
+
+Every entity note MUST contain at least one `[[wiki link]]`. If you mention another
+entity by name, wrap it: `[[Bambu Lab]]`, `[[Tom's Hardware]]`, `[[Prusa CORE One]]`.
+
+Common patterns:
+
+- Product notes → link manufacturer: `manufactured by [[Bambu Lab]]`
+- Comparison notes → link all compared items: `[[Bambu Lab P2S]] vs [[Prusa CORE One]]`
+- Source quality notes → link domain context: `For [[3D Printing]] research...`
+
+When creating entity notes under a topic (e.g. `3d-printing/printers/`), link UP to the
+topic note: `Relevant to [[3D Printing]]`. This makes topic notes natural graph hubs
+with many incoming edges.
+
+Links create graph edges and stub notes. Use them liberally.
 
 ### Archetypes
 
