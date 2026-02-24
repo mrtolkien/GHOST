@@ -125,11 +125,17 @@ impl ReflectionManager {
 
                 // Deterministic reference curation (replaces clear_web_cache)
                 let curation = curate_references(&self.config.workspace, &classified);
+
+                // Create cited edges (note → reference) in the knowledge graph
+                let cited_count =
+                    link_cited_edges(&self.db, &self.config.workspace, &classified).await;
+
                 logfire::info!(
                     "reflection completed",
                     session_id = session_id.to_string(),
                     refs_moved = curation.moved,
                     refs_deleted = curation.deleted,
+                    cited_edges = cited_count,
                 );
             }
             Err(e) => {
@@ -522,6 +528,141 @@ pub fn clear_web_cache(workspace: &Path) -> Result<(), std::io::Error> {
     }
 
     Ok(())
+}
+
+/// Create `cited` graph edges (note → reference) for notes that cite
+/// URLs matching moved reference files.
+///
+/// Returns the number of edges created.
+#[tracing::instrument(skip_all, fields(classified_count = classified.len()))]
+pub async fn link_cited_edges(
+    db: &Surreal<Db>,
+    workspace: &Path,
+    classified: &[ClassifiedCacheFile],
+) -> usize {
+    let note_urls = collect_note_source_urls(workspace);
+    let mut created: usize = 0;
+
+    for file in classified {
+        // Only process files that were used (cited or URL in notes)
+        if file.url.is_empty() || file.is_search {
+            continue;
+        }
+
+        // Find or create the reference record for this URL
+        let topic = topic_from_url(&file.url);
+        let rel_path = format!("references/{topic}/{}", file.filename);
+        let ref_record = match db::knowledge::find_reference_by_url(db, &file.url).await {
+            Ok(Some(r)) => r,
+            Ok(None) => {
+                // Try by path
+                match db::knowledge::find_reference_by_path(db, &rel_path).await {
+                    Ok(Some(r)) => r,
+                    _ => {
+                        // File was moved to disk by curate_references but no
+                        // DB record exists yet — create one now.
+                        let ref_file = workspace.join(&rel_path);
+                        if !ref_file.exists() {
+                            continue;
+                        }
+                        let content = std::fs::read_to_string(&ref_file).unwrap_or_default();
+                        let preview: String = content.chars().take(2000).collect();
+                        match db::knowledge::create_reference(
+                            db,
+                            &topic,
+                            &rel_path,
+                            &preview,
+                            Some(&file.url),
+                        )
+                        .await
+                        {
+                            Ok(id) => match db::knowledge::get_reference(db, &id).await {
+                                Ok(r) => r,
+                                Err(_) => continue,
+                            },
+                            Err(e) => {
+                                logfire::warn!(
+                                    "link_cited_edges: failed to create reference",
+                                    url = file.url.clone(),
+                                    error = e.to_string(),
+                                );
+                                continue;
+                            }
+                        }
+                    }
+                }
+            }
+            Err(e) => {
+                logfire::warn!(
+                    "link_cited_edges: failed to find reference",
+                    url = file.url.clone(),
+                    error = e.to_string(),
+                );
+                continue;
+            }
+        };
+
+        // Find notes that cite this URL (via frontmatter sources field)
+        for (note_title, source_urls) in &note_urls {
+            let cites = source_urls
+                .iter()
+                .any(|note_url| urls_match(note_url, &file.url));
+            if !cites {
+                continue;
+            }
+
+            // Look up the note record
+            let note_record = match db::knowledge::find_note_by_title(db, note_title).await {
+                Ok(Some(n)) => n,
+                _ => continue,
+            };
+
+            match db::knowledge::create_cited_edge(db, &note_record.id, &ref_record.id).await {
+                Ok(_) => created += 1,
+                Err(e) => {
+                    logfire::warn!(
+                        "link_cited_edges: failed to create edge",
+                        note = note_title.clone(),
+                        ref_id = ref_record.id.to_string(),
+                        error = e.to_string(),
+                    );
+                }
+            }
+        }
+    }
+
+    logfire::info!("link_cited_edges: done", edges_created = created);
+    created
+}
+
+/// Collect note titles mapped to their frontmatter source URLs.
+fn collect_note_source_urls(workspace: &Path) -> Vec<(String, Vec<String>)> {
+    let notes_dir = workspace.join("notes");
+    if !notes_dir.exists() {
+        return Vec::new();
+    }
+
+    let mut result = Vec::new();
+    collect_note_sources_recursive(&notes_dir, &mut result);
+    result
+}
+
+fn collect_note_sources_recursive(dir: &Path, out: &mut Vec<(String, Vec<String>)>) {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            collect_note_sources_recursive(&path, out);
+        } else if path.extension().and_then(|e| e.to_str()) == Some("md")
+            && let Ok(content) = std::fs::read_to_string(&path)
+            && let Ok(parsed) = parse_note(&content)
+            && !parsed.front.sources.is_empty()
+        {
+            out.push((parsed.front.title, parsed.front.sources));
+        }
+    }
 }
 
 /// Deterministically curate web cache files after reflection completes.

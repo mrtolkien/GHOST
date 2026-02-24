@@ -342,6 +342,25 @@ pub async fn find_reference_by_path(
     Ok(rows.into_iter().next())
 }
 
+// --- Reference lookup by URL ---
+
+#[tracing::instrument(skip_all, level = "debug", fields(url = %url))]
+pub async fn find_reference_by_url(
+    db: &Surreal<Db>,
+    url: &str,
+) -> Result<Option<ReferenceRecord>, DatabaseError> {
+    let mut resp = query_exec(
+        db.query("SELECT * FROM reference WHERE source_url = $url LIMIT 1")
+            .bind(("url", url.to_string())),
+        "reference",
+        "find_by_url",
+    )
+    .await?;
+
+    let rows: Vec<ReferenceRecord> = take_many(&mut resp, 0, "reference", "find_by_url")?;
+    Ok(rows.into_iter().next())
+}
+
 // --- Bulk listing for embeddings pipeline ---
 
 pub async fn list_all_notes(db: &Surreal<Db>) -> Result<Vec<NoteRecord>, DatabaseError> {

@@ -377,6 +377,15 @@ impl LiveTestEnv {
             curation.moved, curation.deleted,
         ));
 
+        // Create cited edges (note → reference) in the knowledge graph
+        let cited = ghost::jobs::reflection::link_cited_edges(
+            &self.db,
+            &self.config.workspace,
+            &classified,
+        )
+        .await;
+        self.log(format!("link_cited_edges: {cited} created"));
+
         findings
     }
 

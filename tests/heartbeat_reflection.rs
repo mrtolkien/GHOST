@@ -361,11 +361,17 @@ async fn reflection_on_agent_transcript() {
         "T1: reflection should create at least one note or reference"
     );
 
-    // --- Tier 2: soft checks (log only, no assert) ---
+    // --- Tier 2: entity coverage (hard asserts) ---
 
-    let has_entity_note = env.find_file_containing("notes", "P2S")
-        || env.find_file_containing("notes", "p2s")
-        || env.find_file_containing("notes", "Bambu")
+    let has_p2s_note =
+        env.find_file_containing("notes", "P2S") || env.find_file_containing("notes", "p2s");
+    env.log(format!("T2 P2S entity note: {has_p2s_note}"));
+    assert!(
+        has_p2s_note,
+        "T2: agent recommended P2S — it should have its own entity note"
+    );
+
+    let has_entity_note = env.find_file_containing("notes", "Bambu")
         || env.find_file_containing("notes", "bambu")
         || env.find_file_containing("notes", "Prusa")
         || env.find_file_containing("notes", "prusa");
@@ -400,7 +406,7 @@ async fn reflection_on_agent_transcript() {
         remaining.as_deref().unwrap_or("empty")
     ));
 
-    let t2_pass = has_entity_note && has_source_note;
+    let t2_pass = has_entity_note && has_source_note && has_p2s_note;
     env.log(format!(
         "TIER SUMMARY: T1=PASS, T2={}, T3=PASS",
         if t2_pass { "PASS" } else { "PARTIAL" },

@@ -105,6 +105,29 @@ pub async fn incoming_cited(
     Ok(rows.into_iter().map(|row| row.in_node).collect())
 }
 
+#[tracing::instrument(skip_all, level = "debug", fields(from = %from, to = %to))]
+pub async fn create_cited_edge(
+    db: &Surreal<Db>,
+    from: &Thing,
+    to: &Thing,
+) -> Result<Thing, DatabaseError> {
+    let mut resp = query_exec(
+        db.query(
+            "RELATE $from->cited->$to \
+             SET created_at = time::now() \
+             RETURN id",
+        )
+        .bind(("from", from.clone()))
+        .bind(("to", to.clone())),
+        "cited",
+        "create_cited_edge",
+    )
+    .await?;
+
+    let row: IdRow = take_one(&mut resp, 0, "cited", "create_cited_edge")?;
+    Ok(row.id)
+}
+
 #[tracing::instrument(skip_all, level = "debug", fields(note_id = %note_id))]
 pub async fn delete_outgoing_edges(db: &Surreal<Db>, note_id: &Thing) -> Result<(), DatabaseError> {
     query_exec(

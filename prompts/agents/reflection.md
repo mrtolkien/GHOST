@@ -38,6 +38,10 @@ don't default to whatever has the most raw data in the web cache. If the agent
 recommends Product X, create a note for Product X even if Product Y has a longer cached
 review.
 
+Before writing any notes, list every distinct entity the agent findings explicitly
+named, recommended, or compared. Each one gets its own note — don't merge related items
+into a single note even if they're from the same family or manufacturer.
+
 Use `note_write` to create notes from the **Agent Findings** section. Read `.web-cache/`
 files with `read_file` to extract concrete specs.
 
@@ -48,9 +52,9 @@ Create:
 - **Entity notes** (minimum 3, archetype != topic): one per product/tool/service with
   concrete specs (prices, dimensions, versions, dates). Vague notes are useless.
 - **Decision note**: if comparisons were made, link entity notes with trade-offs.
-- **Source quality notes**: for 1-2 key sources, tag under the research domain's sources
-  collection (e.g. tag `{domain}/sources`, title "Source Name"). Keep tags to 2 levels
-  max (topic/collection).
+- **Source quality note** (minimum 1): rate one key source's reliability and depth. Tag
+  under `{domain}/sources`. Title: "Source Name — Topic" since the same site may have
+  different quality across domains. Keep tags to 2 levels max.
 
 Pass source URLs in the `sources` parameter of `note_write` — they will be preserved in
 structured frontmatter. Do NOT put bare URLs in the note body.
@@ -63,6 +67,7 @@ your session.
 Before writing your handoff message, confirm:
 
 - At least **3 entity notes** created (archetype != topic). If not → step 2.
+- At least **1 source quality note** created. If not → step 2.
 
 ### Step 4: Handoff (final text-only message)
 
@@ -76,6 +81,19 @@ Summarize: notes created, sources cited, items deferred, unclear points.
 - **Tagged**: first tag = subfolder path (e.g. `rust/async`), lowercase,
   slash-separated.
 - **Trust**: start at 5, raise with evidence, lower for speculation (1-10 scale).
+
+### Titles
+
+Follow Wikipedia naming conventions:
+
+- **Short noun phrases**: "Tokio", not "The Tokio Async Runtime for Rust"
+- **No prefixes**: "Async Runtime Comparison", not "Decision: Async Runtime Comparison"
+- **No parenthetical qualifiers**: "Tokio", not "Tokio (Rust Runtime)"
+- **Proper nouns as-is**: "Visual Studio Code", "Tom's Hardware"
+- **Source notes — add topic**: "Source Name — Topic" when the source covers many
+  domains (e.g. "Docs.rs — Async Ecosystem" vs "Docs.rs — Web Frameworks")
+
+Consistent titles prevent duplicates and make wiki links predictable.
 
 ### Linking (critical)
 

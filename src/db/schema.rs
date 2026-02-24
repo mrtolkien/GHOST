@@ -91,9 +91,7 @@ DEFINE FIELD session ON interface_session TYPE record<session>;
 DEFINE FIELD created_at ON interface_session TYPE datetime;
 DEFINE INDEX idx_interface ON interface_session FIELDS interface UNIQUE;
 
--- TEMPORARY SCAFFOLDING for spec 06 citation graph edges.
--- Expected to be revisited in spec 13/15 knowledge and web-cache work.
-DEFINE TABLE cited SCHEMAFULL TYPE RELATION;
+DEFINE TABLE cited SCHEMAFULL TYPE RELATION IN note OUT reference;
 DEFINE FIELD created_at ON cited TYPE datetime;
 
 DEFINE TABLE embedding SCHEMAFULL;

@@ -336,3 +336,56 @@ model without detailed specs.
 
 **Verdict:** Quality bar met. All must-haves (Q1, Q3, Q8-adjusted, Q9) pass. Nice-to-haves
 (Q5, Q7) also pass. Ready to commit.
+
+---
+
+## Attempt 8: Entity extraction step + `reference_manage` removal
+
+**Hypothesis:** The model conflates related entities (P1S vs P2S) because it doesn't
+enumerate agent-recommended entities before writing notes. It gravitates toward cached
+data (P1S has a Tom's Hardware review) over agent recommendations (P2S is the top pick).
+Adding an explicit enumeration sub-step forces the model to list every distinct entity
+before creating notes.
+
+Separately, `reference_manage` is dead code — curation is now deterministic in Rust.
+Removed it everywhere.
+
+**Changes:**
+
+Code:
+- Deleted `src/tools/reference_manage.rs` and all registrations/tests
+- Simplified `note_write` warning message (no longer mentions `reference_manage`)
+- Removed vacuous negative assertion in `definition.rs`
+
+Prompt (`prompts/agents/reflection.md`):
+- Added entity extraction sub-step before note creation: "Before writing any notes, list
+  every distinct entity the agent findings explicitly named, recommended, or compared.
+  Each one gets its own note — don't merge related items into a single note even if
+  they're from the same family or manufacturer."
+
+Test:
+- Promoted P2S entity note from soft T2 check to hard assert
+
+**Result:** T1=PASS, T2=PASS, T3=PASS — first try (~50s)
+
+- **11 notes** created:
+  - Entity notes: Prusa CORE One, **Bambu P2S** (new!), Bambu P1S, Creality K2 Pro, QIDI Q2
+  - Source quality: Tom's Hardware — Bambu P1S Review
+  - Decision: Enclosed 3D Printer Selection 2026
+  - Index/hub: 3dprinting, printers, sources, decisions
+- **7 references** curated (deterministic), **18 deleted**
+- **17 cited edges** created
+- P2S note: concrete pricing ($799 street), AMS mention, trade-offs vs Prusa CORE One,
+  wiki links to [[Bambu Lab]], [[AMS]], [[Prusa CORE One]], [[Enclosed 3D Printer
+  Selection 2026]]
+
+**What worked:**
+- Entity extraction step: model explicitly listed all agent-recommended entities before
+  writing, preventing the P1S/P2S conflation
+- P2S and P1S created as separate notes with distinct content (P2S focuses on recency and
+  value positioning, P1S on review evidence and established ecosystem)
+- `reference_manage` removal had zero impact — deterministic curation handles everything
+
+**Key insight:** Forcing enumeration before execution breaks the "write about whatever has
+the most data" bias. The model's default is to start writing about the entity it knows
+most about; an explicit listing step makes it commit to covering all entities first.
