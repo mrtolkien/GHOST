@@ -389,3 +389,70 @@ Test:
 **Key insight:** Forcing enumeration before execution breaks the "write about whatever has
 the most data" bias. The model's default is to start writing about the entity it knows
 most about; an explicit listing step makes it commit to covering all entities first.
+
+---
+
+## Attempt 9: Generic prompt (first pass — too soft)
+
+**Hypothesis:** The prompt is over-fitted to product-research reflections. Terms like
+"Product X", "manufacturer", "prices, dimensions", hard minimums ("at least 3 entity
+notes"), and assumed presence of agent findings/web cache make it unsuitable for plain
+chat reflections or non-research agent sessions.
+
+**Changes to `prompts/agents/reflection.md`:**
+- Replaced "Agent findings are the primary source" with conditional: "If an Agent
+  Findings section is present... If web cache files are present... For plain
+  conversations without either, extract knowledge directly from the transcript."
+- Replaced "product/tool/service" entity language with generic: "person, project,
+  concept, tool, or other concrete entity"
+- Replaced hard minimums in Step 3 ("at least 3 entity notes", "at least 1 source
+  quality note") with soft checks: "Did you create a note for every distinct entity?"
+  and "If external sources were used, did you create at least one source quality note?"
+- Replaced "from the same family or manufacturer" with "closely related or from the same
+  category"
+- Nudge message: "from the agent findings" → "from the conversation"
+
+**Result:** T1=PASS, T2=PASS, T3=PASS — but **quality regression**
+
+- **7 notes** (down from 11-12): Prusa CORE One, QIDI Q2, plus hubs
+- **No decision note**, **no source quality note**
+- Handoff explicitly says "I did not add a decision or source quality note"
+- Entity extraction still works (P2S created via duplicate-safe block)
+
+**Diagnosis:** The softer verification step ("did you...?") lets the model skip work it
+considers optional. The hard minimums were product-specific in wording but correct in
+intent — they forced thoroughness.
+
+---
+
+## Attempt 10: Generic prompt + stronger verification (current best)
+
+**Hypothesis:** Keep the generic wording but strengthen the self-check to reference the
+entity list from step 2 and explicitly require decision/source notes when applicable.
+
+**Changes:**
+- Step 3 verification now says: "check your work against the entity list from step 2"
+- "Did you create or confirm a note exists for **every** entity you listed?"
+- Added explicit decision note check: "If comparisons or trade-offs were discussed, did
+  you create a decision note?"
+
+**Result:** T1=PASS, T2=PASS, T3=PASS
+
+- **12 notes** created: Prusa CORE One, Creality K2 Pro, QIDI Q2, Tom's Hardware source
+  note, Aurora Tech Channel source note, Enclosed 3D Printer Selection decision note,
+  plus Bambu P2S/P1S (confirmed existing), plus index/hub notes
+- **7 references** curated, **18 cited edges**, **18 deleted** from cache
+- Source quality notes: 2 (Tom's Hardware + Aurora Tech Channel)
+- Decision note: present and comprehensive
+
+**What worked:**
+- Generic language: no product/manufacturer terminology, works for any domain
+- Conditional input handling: agent findings, web cache, and plain transcript all covered
+- Verification references the entity list: model checks its own enumeration, catches gaps
+- Explicit decision/source checks: model creates them when the input warrants it
+
+**Key insight:** Generic prompts need stronger self-check steps, not weaker ones. The
+previous hard minimums worked because they forced action, not because they were
+product-specific. The fix: make the verification reference the model's own entity list
+(dynamic, not fixed numbers) and explicitly mention decision/source notes as conditional
+requirements.
