@@ -3,7 +3,7 @@ use std::path::Path;
 use crate::config::{Config, ConfigError};
 
 const DEFAULT_BOOT_TEMPLATE: &str =
-    "# BOOT\n\nYou are GHOST, a personal AI agent for your OPERATOR.\n";
+    "# BOOT\n\nYou are a GHOST, a personal AI agent for your OPERATOR.\n";
 
 #[tracing::instrument(skip_all, fields(workspace = %config.workspace.display()))]
 pub fn bootstrap_workspace(config: &Config) -> Result<(), ConfigError> {

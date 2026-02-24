@@ -66,7 +66,6 @@ impl HeartbeatManager {
         })
     }
 
-    #[tracing::instrument(skip_all)]
     async fn check_idle_sessions(&mut self) {
         let sessions = match db::interface_sessions::list_all_interface_sessions(&self.db).await {
             Ok(s) => s,

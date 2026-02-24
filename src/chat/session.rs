@@ -577,6 +577,15 @@ impl ToolLoopHandler for TaskHandler<'_> {
             });
         }
 
+        // Context-pressure nudge: when the conversation is getting large,
+        // gently remind the agent to finish remaining items efficiently.
+        if let Some(reminder) = build_context_pressure_reminder(history, &self.task_name) {
+            history.push(ChatMessage {
+                role: Role::System,
+                content: vec![ContentBlock::Text { text: reminder }],
+            });
+        }
+
         Ok(())
     }
 
@@ -668,6 +677,57 @@ fn build_recency_reminder(history: &[ChatMessage], agent_name: &str) -> Option<S
         "<system-reminder>You haven't fetched any pages recently. Research \
          means reading full pages, not just searching. Check your TODO — which \
          sources still need to be fetched?</system-reminder>"
+            .to_string(),
+    )
+}
+
+/// Nudge when accumulated conversation content is getting large.
+///
+/// Estimates total content size from tool results and assistant text. When
+/// the conversation exceeds ~200K chars (~50K tokens), the agent risks
+/// running into context limits. Fires once to encourage wrapping up.
+fn build_context_pressure_reminder(history: &[ChatMessage], agent_name: &str) -> Option<String> {
+    if agent_name != "deep-research" {
+        return None;
+    }
+
+    // Rough threshold: ~200K chars ≈ 50K tokens ≈ 40% of a 128K window.
+    // This leaves room for the report + system prompt + safety margin.
+    const PRESSURE_THRESHOLD: usize = 200_000;
+
+    let total_chars: usize = history
+        .iter()
+        .flat_map(|m| &m.content)
+        .map(|block| match block {
+            ContentBlock::Text { text } => text.len(),
+            ContentBlock::ToolResult { content, .. } => content.len(),
+            _ => 0,
+        })
+        .sum();
+
+    if total_chars < PRESSURE_THRESHOLD {
+        return None;
+    }
+
+    // Only fire once — check if we already injected this reminder
+    let already_nudged = history.iter().any(|m| {
+        m.role == Role::System
+            && m.content.iter().any(|b| {
+                matches!(
+                    b,
+                    ContentBlock::Text { text } if text.contains("context window is filling up")
+                )
+            })
+    });
+
+    if already_nudged {
+        return None;
+    }
+
+    Some(
+        "<system-reminder>Your context window is filling up. Finish your \
+         remaining TODO items efficiently — prefer concise fetches and move \
+         to writing your report soon.</system-reminder>"
             .to_string(),
     )
 }

@@ -5,10 +5,10 @@ use url::Url;
 
 use super::{ExtractedContent, FetchOptions, WebError};
 
-/// Internal safety cap for extracted text. Pages exceeding this are truncated.
-/// This is intentionally very high — we never want to lose information during
-/// research. The agent has no control over this value.
-const MAX_EXTRACT_CHARS: usize = 200_000;
+/// Default safety cap for extracted text. Pages exceeding this are truncated.
+/// When htmd produces content above this limit, we auto-retry with readability
+/// mode to strip boilerplate before truncating.
+const MAX_EXTRACT_CHARS: usize = 50_000;
 
 static HTTP_CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
 
@@ -163,7 +163,23 @@ fn extract_content(html: &str, page_url: &str, options: &FetchOptions) -> Extrac
     let (title, text) = if options.readability {
         extract_with_readability(html, page_url)
     } else {
-        (None, html_to_markdown(html))
+        let md = html_to_markdown(html);
+        // Auto-retry with readability when htmd output is oversized.
+        if md.len() > MAX_EXTRACT_CHARS {
+            logfire::info!(
+                "htmd output oversized, retrying with readability",
+                htmd_len = md.len() as u64,
+            );
+            let (title, text) = extract_with_readability(html, page_url);
+            // If readability actually reduced the size, use it.
+            if text.len() < md.len() {
+                (title, text)
+            } else {
+                (None, md)
+            }
+        } else {
+            (None, md)
+        }
     };
 
     let text = text.replace('\0', "");
@@ -350,6 +366,51 @@ mod tests {
         let (text, was_truncated) = truncate("hello".to_string(), 5);
         assert_eq!(text, "hello");
         assert!(!was_truncated);
+    }
+
+    #[test]
+    fn auto_readability_on_oversized_htmd() {
+        // Build HTML where htmd output exceeds MAX_EXTRACT_CHARS.
+        // Use repeated paragraphs in an <article> — this is the dominant
+        // content, so readability should extract it and produce a smaller
+        // result than the raw htmd of the full page.
+        let article_paragraphs = "<p>This is important article content that \
+            discusses 3D printer reviews in detail with specs and benchmarks. \
+            </p>"
+            .repeat(1500);
+        let sidebar = "<div class=\"ad\">Buy now! Special offer!</div>".repeat(200);
+        let comments = "<p>User comment filler text. </p>".repeat(200);
+        let html = format!(
+            r#"<html><head><title>Test Article</title></head><body>
+            <div id="sidebar">{sidebar}</div>
+            <article><h1>Test Article</h1>{article_paragraphs}</article>
+            <div id="comments">{comments}</div>
+            </body></html>"#
+        );
+
+        let options = FetchOptions::default();
+        let plain = html_to_markdown(&html);
+        assert!(
+            plain.len() > MAX_EXTRACT_CHARS,
+            "htmd output should exceed limit for this test: {} <= {}",
+            plain.len(),
+            MAX_EXTRACT_CHARS
+        );
+
+        let result = extract_content(&html, "http://example.com/article", &options);
+        // Result should be within the limit regardless of whether readability
+        // succeeded or we fell back to truncated htmd.
+        assert!(
+            result.text.len() <= MAX_EXTRACT_CHARS,
+            "result should be within limit: {}",
+            result.text.len()
+        );
+        // The article content should survive (it's either extracted by
+        // readability or at least partially present in truncated htmd).
+        assert!(
+            result.text.contains("article content") || result.text.contains("3D printer"),
+            "article content should be preserved"
+        );
     }
 
     #[test]
