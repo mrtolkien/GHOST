@@ -49,8 +49,8 @@ Create:
   concrete specs (prices, dimensions, versions, dates). Vague notes are useless.
 - **Decision note**: if comparisons were made, link entity notes with trade-offs.
 - **Source quality notes**: for 1-2 key sources, tag under the research domain's sources
-  collection (e.g. tag `3d-printing/sources`, title "Tom's Hardware"). Keep tags to 2
-  levels max (topic/collection).
+  collection (e.g. tag `{domain}/sources`, title "Source Name"). Keep tags to 2 levels
+  max (topic/collection).
 
 Pass source URLs in the `sources` parameter of `note_write` — they will be preserved in
 structured frontmatter. Do NOT put bare URLs in the note body.
@@ -80,17 +80,17 @@ Summarize: notes created, sources cited, items deferred, unclear points.
 ### Linking (critical)
 
 Every entity note MUST contain at least one `[[wiki link]]`. If you mention another
-entity by name, wrap it: `[[Bambu Lab]]`, `[[Tom's Hardware]]`, `[[Prusa CORE One]]`.
+entity by name, wrap it: `[[Company Name]]`, `[[Source Name]]`, `[[Product Name]]`.
 
 Common patterns:
 
-- Product notes → link manufacturer: `manufactured by [[Bambu Lab]]`
-- Comparison notes → link all compared items: `[[Bambu Lab P2S]] vs [[Prusa CORE One]]`
-- Source quality notes → link domain context: `For [[3D Printing]] research...`
+- Entity notes → link manufacturer/org: `developed by [[Org Name]]`
+- Comparison notes → link all compared items: `[[Option A]] vs [[Option B]]`
+- Source quality notes → link domain context: `For [[Topic]] research...`
 
-When creating entity notes under a topic (e.g. `3d-printing/printers/`), link UP to the
-topic note: `Relevant to [[3D Printing]]`. This makes topic notes natural graph hubs
-with many incoming edges.
+When creating entity notes under a topic, link UP to the topic note:
+`Relevant to [[Topic Name]]`. This makes topic notes natural graph hubs with many
+incoming edges.
 
 Links create graph edges and stub notes. Use them liberally.
 
