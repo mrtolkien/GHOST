@@ -18,6 +18,8 @@ use crate::db::sessions::MessageRecord;
 use crate::knowledge::parse_note;
 use crate::web::slug_from_url;
 
+pub const CHAT_TASKS: &str = include_str!("../../prompts/reflection-chat-tasks.md");
+
 pub struct ReflectionManager {
     db: Surreal<Db>,
     config: Config,
@@ -83,17 +85,8 @@ impl ReflectionManager {
 
     #[tracing::instrument(skip_all, fields(session_id = %session_id))]
     async fn run(&self, session_id: &str, session_thing: &Thing) {
-        // Only one reflection at a time
-        let _guard = match self.running.try_lock() {
-            Ok(guard) => guard,
-            Err(_) => {
-                logfire::info!(
-                    "reflection skipped: already running",
-                    session_id = session_id.to_string(),
-                );
-                return;
-            }
-        };
+        // Sequential: wait for any running reflection to finish first
+        let _guard = self.running.lock().await;
 
         logfire::info!("reflection started", session_id = session_id.to_string(),);
 
@@ -174,6 +167,7 @@ impl ReflectionManager {
             &transcript,
             agent_findings.as_deref(),
             &web_cache_section,
+            Some(CHAT_TASKS),
         );
 
         Ok((message, classified))
@@ -181,6 +175,10 @@ impl ReflectionManager {
 }
 
 /// Build the user message for the reflection agent from context variables.
+///
+/// `chat_instructions` — optional extra section appended for chat-session
+/// reflections (diary, identity file updates). Pass `None` for agent-only
+/// reflections.
 #[must_use]
 pub fn build_reflection_user_message(
     previous_handoff: &str,
@@ -188,6 +186,7 @@ pub fn build_reflection_user_message(
     transcript: &str,
     agent_findings: Option<&str>,
     web_cache_files: &str,
+    chat_instructions: Option<&str>,
 ) -> String {
     let agent_section = match agent_findings {
         Some(findings) => format!(
@@ -199,6 +198,11 @@ pub fn build_reflection_user_message(
              {findings}\n\
              \n"
         ),
+        None => String::new(),
+    };
+
+    let chat_section = match chat_instructions {
+        Some(text) => format!("\n{text}\n"),
         None => String::new(),
     };
 
@@ -217,7 +221,8 @@ pub fn build_reflection_user_message(
          {transcript}\n\
          \n\
          ## Web Cache Files\n\
-         {web_cache_files}"
+         {web_cache_files}\
+         {chat_section}"
     )
 }
 
@@ -1050,6 +1055,7 @@ mod tests {
             "[user] Hello\n[assistant] Hi",
             None,
             "file1.md\nfile2.md",
+            None,
         );
         assert!(msg.contains("## Previous Handoff Note"));
         assert!(msg.contains("Previous handoff content"));
@@ -1061,6 +1067,8 @@ mod tests {
         assert!(msg.contains("file1.md"));
         // No agent findings section when None
         assert!(!msg.contains("## Agent Findings"));
+        // No chat section when None
+        assert!(!msg.contains("Chat-Specific"));
     }
 
     #[test]
@@ -1071,6 +1079,7 @@ mod tests {
             "[user] research X",
             Some("The research found that X is better than Y because..."),
             "file1.md",
+            None,
         );
         assert!(msg.contains("## Agent Findings"));
         assert!(msg.contains("X is better than Y"));
@@ -1084,10 +1093,25 @@ mod tests {
             "",
             None,
             "No cached files.",
+            None,
         );
         assert!(msg.contains("No previous handoff."));
         assert!(msg.contains("No diary entry for today."));
         assert!(msg.contains("No cached files."));
+    }
+
+    #[test]
+    fn build_user_message_with_chat_instructions() {
+        let msg = build_reflection_user_message(
+            "No previous handoff.",
+            "No diary entry for today.",
+            "[user] chat transcript",
+            None,
+            "No cached files.",
+            Some("## Chat-Specific Tasks\n\nWrite a diary entry."),
+        );
+        assert!(msg.contains("## Chat-Specific Tasks"));
+        assert!(msg.contains("Write a diary entry."));
     }
 
     #[test]

@@ -79,8 +79,8 @@ async fn reflection_classifies_blog_reference() {
         "web cache should contain blog.tolki.dev entry"
     );
 
-    // Step 3: Run reflection (includes deterministic reference curation)
-    let findings = env.run_reflection(&session, None).await;
+    // Step 3: Run reflection (chat mode: diary + identity instructions)
+    let findings = env.run_reflection(&session, None, true).await;
     env.log(format!("reflection findings: {findings}"));
     assert!(
         !findings.trim().is_empty(),
@@ -171,7 +171,7 @@ async fn reflection_creates_knowledge_notes() {
     .expect("chat response");
     env.log_session_json("chat", &session).await;
 
-    let findings = env.run_reflection(&session, None).await;
+    let findings = env.run_reflection(&session, None, true).await;
     env.log_session_json("reflection", &session).await;
 
     assert!(
@@ -211,8 +211,8 @@ async fn reflection_handoff_continuity() {
     .expect("first chat");
     env.log_session_json("chat_1", &session).await;
 
-    // First reflection
-    let first_handoff = env.run_reflection(&session, None).await;
+    // First reflection (chat mode)
+    let first_handoff = env.run_reflection(&session, None, true).await;
     env.log_session_json("reflection_1", &session).await;
     assert!(
         !first_handoff.trim().is_empty(),
@@ -232,8 +232,10 @@ async fn reflection_handoff_continuity() {
         .expect("second chat");
     env.log_session_json("chat_2", &session2).await;
 
-    // Second reflection with the first handoff
-    let second_findings = env.run_reflection(&session2, Some(&first_handoff)).await;
+    // Second reflection with the first handoff (chat mode)
+    let second_findings = env
+        .run_reflection(&session2, Some(&first_handoff), true)
+        .await;
     env.log_session_json("reflection_2", &session2).await;
 
     assert!(
@@ -316,10 +318,10 @@ async fn reflection_on_agent_transcript() {
         listing.as_deref().unwrap_or("").len()
     ));
 
-    // Run reflection on the agent session
+    // Run reflection on the agent session (agent mode: no diary instructions)
     let findings = tokio::time::timeout(
         std::time::Duration::from_secs(180),
-        env.run_reflection(&session, None),
+        env.run_reflection(&session, None, false),
     )
     .await
     .expect("TIMEOUT: reflection did not complete within 3 minutes");
@@ -363,27 +365,17 @@ async fn reflection_on_agent_transcript() {
 
     // --- Tier 2: entity coverage (hard asserts) ---
 
-    let has_p2s_note =
-        env.find_file_containing("notes", "P2S") || env.find_file_containing("notes", "p2s");
-    env.log(format!("T2 P2S entity note: {has_p2s_note}"));
-    assert!(
-        has_p2s_note,
-        "T2: agent recommended P2S — it should have its own entity note"
+    env.assert_notes_contain_any(&["P2S", "p2s"], "Bambu Lab P2S entity note");
+
+    env.assert_notes_contain_any(
+        &["Bambu", "bambu", "Prusa", "prusa"],
+        "printer brand/model entity note",
     );
 
-    let has_entity_note = env.find_file_containing("notes", "Bambu")
-        || env.find_file_containing("notes", "bambu")
-        || env.find_file_containing("notes", "Prusa")
-        || env.find_file_containing("notes", "prusa");
-    env.log(format!(
-        "T2 entity note (printer brand/model): {has_entity_note}"
-    ));
-
-    let has_source_note = env.find_file_containing("notes", "all3dp")
-        || env.find_file_containing("notes", "All3DP")
-        || env.find_file_containing("notes", "tomshardware")
-        || env.find_file_containing("notes", "aurora");
-    env.log(format!("T2 source quality note: {has_source_note}"));
+    env.assert_notes_contain_any(
+        &["all3dp", "All3DP", "tomshardware", "aurora"],
+        "source quality note",
+    );
 
     let has_decision_note = env.find_file_containing("notes", "decision")
         || env.find_file_containing("notes", "Decision")
@@ -406,9 +398,12 @@ async fn reflection_on_agent_transcript() {
         remaining.as_deref().unwrap_or("empty")
     ));
 
-    let t2_pass = has_entity_note && has_source_note && has_p2s_note;
     env.log(format!(
         "TIER SUMMARY: T1=PASS, T2={}, T3=PASS",
-        if t2_pass { "PASS" } else { "PARTIAL" },
+        if has_decision_note {
+            "PASS"
+        } else {
+            "PARTIAL (no decision note)"
+        },
     ));
 }

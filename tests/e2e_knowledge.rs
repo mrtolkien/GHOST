@@ -68,12 +68,12 @@ async fn e2e_research() {
         &["p2s"],
     );
 
-    // --- Reflection phase (3 min timeout each) ---
+    // --- Reflection phase (3 min timeout each, sequential) ---
 
-    // Agent session: has full research transcript + web fetches
+    // Agent session reflection: has full research transcript + web fetches
     let _agent_reflection = tokio::time::timeout(
         std::time::Duration::from_secs(180),
-        env.run_reflection(&outcome.agent_session, None),
+        env.run_reflection(&outcome.agent_session, None, false),
     )
     .await
     .expect("TIMEOUT: agent reflection did not complete within 3 minutes");
@@ -81,10 +81,10 @@ async fn e2e_research() {
     env.log_session_json_since("agent_reflection", &outcome.agent_session)
         .await;
 
-    // Main session: has the user question + injected findings summary
+    // Chat session reflection: user question + injected findings summary + diary
     let _chat_reflection = tokio::time::timeout(
         std::time::Duration::from_secs(180),
-        env.run_reflection(&session, None),
+        env.run_reflection(&session, None, true),
     )
     .await
     .expect("TIMEOUT: chat reflection did not complete within 3 minutes");
@@ -93,16 +93,21 @@ async fn e2e_research() {
         .await;
 
     // Product note for P2S
-    assert!(
-        env.find_file_containing("notes", "P2S") || env.find_file_containing("notes", "p2s"),
-        "expected a note mentioning the Bambu Lab P2S"
+    env.assert_notes_contain_any(&["P2S", "p2s"], "Bambu Lab P2S");
+
+    // Source quality note
+    env.assert_notes_contain_any(
+        &["all3dp", "All3DP", "aurora", "tomshardware"],
+        "source quality",
     );
 
-    // Source quality note for all3dp or aurora tech channel
-    assert!(
-        env.find_file_containing("notes", "all3dp") || env.find_file_containing("notes", "aurora"),
-        "expected a source note for all3dp.com or Aurora Tech Channel"
-    );
+    // References should exist (curated from web cache)
+    let refs = env.list_references();
+    assert!(!refs.is_empty(), "expected at least one curated reference");
+
+    // Diary entry from chat reflection
+    let diary = env.assert_diary_exists();
+    env.log(format!("diary ({} chars): {diary}", diary.len()));
 }
 
 #[cfg(feature = "e2e-tests")]

@@ -337,10 +337,15 @@ impl LiveTestEnv {
     /// Returns the findings string (the agent's final message, saved as
     /// the handoff note in production). Also runs deterministic reference
     /// curation post-processing (matching production flow).
+    ///
+    /// `chat_mode` — when true, appends chat-specific instructions (diary,
+    /// identity files) to the user message, matching what production does
+    /// for chat-session reflections.
     pub async fn run_reflection(
         &self,
         session_id: &Thing,
         previous_handoff: Option<&str>,
+        chat_mode: bool,
     ) -> String {
         let messages = ghost::db::sessions::list_messages_by_session(&self.db, session_id)
             .await
@@ -355,12 +360,19 @@ impl LiveTestEnv {
         );
         let web_cache_section = ghost::jobs::reflection::format_classified_cache(&classified);
 
+        let chat_instructions = if chat_mode {
+            Some(ghost::jobs::reflection::CHAT_TASKS)
+        } else {
+            None
+        };
+
         let user_message = ghost::jobs::reflection::build_reflection_user_message(
             previous_handoff.unwrap_or("No previous handoff."),
             "No diary entry for today.",
             &transcript,
             agent_findings.as_deref(),
             &web_cache_section,
+            chat_instructions,
         );
 
         let findings = self
@@ -594,6 +606,37 @@ impl LiveTestEnv {
     /// whose content contains a string.
     pub fn find_file_containing(&self, dir: &str, needle: &str) -> bool {
         find_file_containing_recursive(&self.workspace.path().join(dir), needle)
+    }
+
+    /// Assert at least one note file contains one of the needles.
+    ///
+    /// Panics with a descriptive message including `description` if no
+    /// note matches any needle.
+    pub fn assert_notes_contain_any(&self, needles: &[&str], description: &str) {
+        let found = needles
+            .iter()
+            .any(|needle| self.find_file_containing("notes", needle));
+        assert!(
+            found,
+            "expected a note containing one of {needles:?} ({description})"
+        );
+    }
+
+    /// Assert a diary entry exists for today; return its contents.
+    ///
+    /// Looks for `diary/{YYYY-MM-DD}.md` in the workspace. Panics if
+    /// the file doesn't exist.
+    pub fn assert_diary_exists(&self) -> String {
+        let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
+        let diary_path = format!("diary/{today}.md");
+        let content = self
+            .read_workspace_file(&diary_path)
+            .unwrap_or_else(|| panic!("expected diary entry at {diary_path}"));
+        assert!(
+            !content.trim().is_empty(),
+            "diary entry at {diary_path} exists but is empty"
+        );
+        content
     }
 }
 

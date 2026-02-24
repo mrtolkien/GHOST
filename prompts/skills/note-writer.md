@@ -4,11 +4,6 @@ description:
   Create and manage structured knowledge notes, diary entries, and identity
   files. Use when you need to persist important information or maintain the
   knowledge base.
-triggers:
-  - remember this
-  - take a note
-  - write a note
-  - save this
 ---
 
 # Note Writer Skill
