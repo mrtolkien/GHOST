@@ -6,7 +6,6 @@ pub mod knowledge_search;
 pub mod manager;
 pub mod note_write;
 pub mod read_file;
-pub mod reference_manage;
 pub mod shell;
 pub mod todo;
 pub mod web_fetch;

@@ -16,7 +16,6 @@ fn reflection_tools() -> Vec<String> {
         "web_search",
         "web_fetch",
         "note_write",
-        "reference_manage",
     ]
     .into_iter()
     .map(String::from)
@@ -319,89 +318,6 @@ async fn note_write_tool_creates_file_and_db_record() {
     assert_eq!(note.tags, vec!["test"]);
 }
 
-// --- reference_manage move preserves cited edges ---
-
-#[tokio::test]
-async fn reference_manage_move_preserves_cited_edges() {
-    let (db, config, _workspace, _config_dir) = common::test_database().await;
-    let session_id = db::sessions::create_session(&db)
-        .await
-        .expect("create session");
-    let ctx = ToolContext {
-        workspace: config.workspace.clone(),
-        cwd: config.workspace.clone(),
-        db: db.clone(),
-        config: config.clone(),
-        session_id: session_id.to_string(),
-        task_runner: None,
-    };
-
-    // Create a fake cache file
-    let cache_dir = config.workspace.join(".web-cache");
-    std::fs::create_dir_all(&cache_dir).expect("create cache dir");
-    let cache_file = cache_dir.join("test-article.md");
-    std::fs::write(&cache_file, "Article content here").expect("write cache");
-
-    // Create a reference in DB pointing to the cache path
-    let cache_rel = ".web-cache/test-article.md";
-    let ref_id = db::knowledge::create_reference(
-        &db,
-        "web_cache",
-        cache_rel,
-        "Article content here",
-        Some("https://example.com"),
-    )
-    .await
-    .expect("create reference");
-
-    // Create a cited edge to this reference
-    let msg_id = db::sessions::create_message(&db, &session_id, "assistant", "See source")
-        .await
-        .expect("create message");
-    db.query("RELATE $msg->cited->$ref SET created_at = time::now()")
-        .bind(("msg", msg_id.clone()))
-        .bind(("ref", ref_id.clone()))
-        .await
-        .expect("create cited edge");
-
-    // Move via tool
-    let manager = ToolManager::for_agent(&reflection_tools());
-    let result = manager
-        .execute(
-            "reference_manage",
-            json!({
-                "action": "move",
-                "cache_file": cache_rel,
-                "target_topic": "rust",
-                "target_filename": "article.md"
-            }),
-            &ctx,
-        )
-        .await
-        .expect("reference_manage move");
-
-    assert!(result.contains("Moved"));
-
-    // Cache file should be gone
-    assert!(!cache_file.exists());
-
-    // New file should exist
-    let new_path = config.workspace.join("references/rust/article.md");
-    assert!(new_path.exists());
-
-    // DB record should have the same ID but updated path
-    let updated_ref = db::knowledge::get_reference(&db, &ref_id)
-        .await
-        .expect("get updated ref");
-    assert_eq!(updated_ref.path, "references/rust/article.md");
-
-    // Cited edge should still exist (same ref_id)
-    let cited = db::knowledge::incoming_cited(&db, &ref_id)
-        .await
-        .expect("cited");
-    assert_eq!(cited.len(), 1);
-}
-
 // --- Tags with counts ---
 
 #[tokio::test]
@@ -505,4 +421,70 @@ async fn orphan_notes_detected() {
     assert!(!orphan_titles.contains(&"Connected"));
     // Target has an incoming edge — not an orphan
     assert!(!orphan_titles.contains(&"Target"));
+}
+
+// --- Cited edges ---
+
+#[tokio::test]
+async fn link_cited_edges_creates_note_to_reference_edges() {
+    use ghost::jobs::reflection::{ClassifiedCacheFile, link_cited_edges};
+    use ghost::knowledge::{NoteFrontMatter, serialize_note};
+
+    let (db, config, _workspace, _config_dir) = common::test_database().await;
+    let ws = &config.workspace;
+
+    // Write a note file with a source URL in frontmatter
+    let front = NoteFrontMatter {
+        title: "Test Product".to_string(),
+        archetype: None,
+        tags: vec![],
+        sources: vec!["https://example.com/review".to_string()],
+        trust: 5,
+    };
+    let content = serialize_note(&front, "A review of the product.").unwrap();
+    let notes_dir = ws.join("notes");
+    std::fs::create_dir_all(&notes_dir).unwrap();
+    let slug = knowledge::slug_from_title("Test Product");
+    std::fs::write(notes_dir.join(format!("{slug}.md")), &content).unwrap();
+
+    // Create matching DB records
+    let note_id = db::knowledge::create_note_full(
+        &db,
+        "Test Product",
+        "A review of the product.",
+        None,
+        &[],
+        &["https://example.com/review".to_string()],
+        5,
+        Some(&format!("notes/{slug}.md")),
+    )
+    .await
+    .unwrap();
+
+    let ref_id = db::knowledge::create_reference(
+        &db,
+        "example-com",
+        "references/example-com/review.md",
+        "Review content",
+        Some("https://example.com/review"),
+    )
+    .await
+    .unwrap();
+
+    // Simulate a classified file that was moved to references
+    let classified = vec![ClassifiedCacheFile {
+        filename: "review.md".to_string(),
+        url: "https://example.com/review".to_string(),
+        cited: true,
+        is_search: false,
+        preview: Some("Review content".to_string()),
+    }];
+
+    let count = link_cited_edges(&db, ws, &classified).await;
+    assert_eq!(count, 1, "should create one cited edge");
+
+    // Verify the edge exists via incoming_cited (ref → notes that cite it)
+    let citing_notes = db::knowledge::incoming_cited(&db, &ref_id).await.unwrap();
+    assert_eq!(citing_notes.len(), 1);
+    assert_eq!(citing_notes[0], note_id);
 }

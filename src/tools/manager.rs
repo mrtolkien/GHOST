@@ -84,7 +84,6 @@ impl ToolManager {
         manager.register(Arc::new(super::web_search::WebSearch));
         manager.register(Arc::new(super::web_fetch::WebFetch));
         manager.register(Arc::new(super::note_write::NoteWrite));
-        manager.register(Arc::new(super::reference_manage::ReferenceManage));
         manager.register(Arc::new(super::agent_control::AgentControl));
         manager
     }

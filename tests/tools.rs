@@ -54,19 +54,17 @@ async fn for_agent_includes_knowledge_tools() {
         "web_search",
         "web_fetch",
         "note_write",
-        "reference_manage",
     ]
     .into_iter()
     .map(String::from)
     .collect();
 
     let agent_manager = ToolManager::for_agent(&tools);
-    assert_eq!(agent_manager.all_tool_schemas().len(), 10);
+    assert_eq!(agent_manager.all_tool_schemas().len(), 9);
 
     let schemas = agent_manager.all_tool_schemas();
     let names: Vec<&str> = schemas.iter().map(|s| s.name.as_str()).collect();
     assert!(names.contains(&"note_write"));
-    assert!(names.contains(&"reference_manage"));
     // agent_control should NOT be included
     assert!(!names.contains(&"agent_control"));
 }

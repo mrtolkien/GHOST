@@ -35,7 +35,7 @@ impl Tool for NoteWrite {
                     },
                     "title": {
                         "type": "string",
-                        "description": "Note title (used as filename slug and graph node name)"
+                        "description": "Note title — short Wikipedia-style noun phrase (used as filename slug and graph node name). No prefixes or parentheticals."
                     },
                     "body": {
                         "type": "string",
@@ -166,9 +166,8 @@ impl NoteWrite {
         }
 
         let warning = format!(
-            "WARNING: Stripped {} broken reference link(s) pointing to files that \
-             don't exist on disk. Use `reference_manage` to move web-cache files \
-             into references/ first, then update the note.\n\
+            "Stripped {} broken reference link(s) — the referenced file(s) do not exist. \
+             Review the URL or slug.\n\
              Removed:\n{}",
             missing.len(),
             missing

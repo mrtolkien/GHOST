@@ -418,7 +418,6 @@ Also: {{query}}
         let def = parse_task_file(content).unwrap();
         assert_eq!(def.name, "reflection");
         assert!(def.tools.contains(&"note_write".to_string()));
-        assert!(!def.tools.contains(&"reference_manage".to_string()));
         assert!(def.system_prompt_template.contains("{{ date }}"));
         assert_eq!(def.progress_rules.len(), 1);
 
