@@ -35,6 +35,12 @@ pub enum KnowledgeCommand {
         limit: usize,
     },
     Stats,
+    References {
+        #[arg(long)]
+        topic: Option<String>,
+        #[arg(long, default_value_t = 20)]
+        limit: usize,
+    },
     Reindex {
         #[arg(long)]
         skip_embeddings: bool,
@@ -63,6 +69,9 @@ pub async fn execute(command: KnowledgeCommand) -> Result<(), GhostError> {
         KnowledgeCommand::Tags => cmd_tags(&db).await,
         KnowledgeCommand::Recent { limit } => cmd_recent(&db, limit).await,
         KnowledgeCommand::Stats => cmd_stats(&db).await,
+        KnowledgeCommand::References { topic, limit } => {
+            cmd_references(&db, topic.as_deref(), limit).await
+        }
         KnowledgeCommand::Reindex { skip_embeddings } => {
             cmd_reindex(&db, &config.workspace, &config.embeddings, skip_embeddings).await
         }
@@ -320,6 +329,37 @@ async fn cmd_stats(
     println!("Edges:      {edges}");
     println!("Tags:       {}", tags.len());
     println!("Embeddings: {embeddings}");
+    Ok(())
+}
+
+async fn cmd_references(
+    db: &surrealdb::Surreal<surrealdb::engine::local::Db>,
+    topic: Option<&str>,
+    limit: usize,
+) -> Result<(), GhostError> {
+    let refs = db::knowledge::list_references_by_topic(db, topic, limit).await?;
+
+    if refs.is_empty() {
+        match topic {
+            Some(t) => println!("No references for topic '{t}'"),
+            None => println!("No references"),
+        }
+        return Ok(());
+    }
+
+    let mut current_topic: Option<&str> = None;
+    for r in &refs {
+        if current_topic != Some(&r.topic) {
+            if current_topic.is_some() {
+                println!();
+            }
+            println!("## {}", r.topic);
+            current_topic = Some(&r.topic);
+        }
+        let url = r.source_url.as_deref().unwrap_or("-");
+        println!("  {}  ({})", r.path, url);
+    }
+
     Ok(())
 }
 

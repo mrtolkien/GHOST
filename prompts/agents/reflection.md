@@ -3,6 +3,7 @@ name = "reflection"
 description = "Knowledge curation after conversation activity"
 tools = ["run_shell_command", "read_file", "write_file", "file_edit",
          "knowledge_search", "note_write"]
+skills = ["knowledge-navigator"]
 max_iterations = 60
 
 [[progress]]

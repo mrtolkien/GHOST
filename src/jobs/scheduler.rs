@@ -213,6 +213,7 @@ fn job_to_task_definition(def: &JobDefinition) -> TaskDefinition {
             Some(def.model.clone())
         },
         progress_rules: vec![],
+        skills: vec![],
         system_prompt_template: def.prompt.clone(),
     }
 }

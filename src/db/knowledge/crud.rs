@@ -361,6 +361,48 @@ pub async fn find_reference_by_url(
     Ok(rows.into_iter().next())
 }
 
+// --- Reference browsing ---
+
+#[tracing::instrument(skip_all, level = "debug", fields(topic = ?topic))]
+pub async fn list_references_by_topic(
+    db: &Surreal<Db>,
+    topic: Option<&str>,
+    limit: usize,
+) -> Result<Vec<ReferenceRecord>, DatabaseError> {
+    let mut resp = match topic {
+        Some(t) => {
+            query_exec(
+                db.query(
+                    "SELECT * FROM reference \
+                     WHERE topic = $topic \
+                     ORDER BY created_at DESC \
+                     LIMIT $limit",
+                )
+                .bind(("topic", t.to_string()))
+                .bind(("limit", limit as i64)),
+                "reference",
+                "list_by_topic",
+            )
+            .await?
+        }
+        None => {
+            query_exec(
+                db.query(
+                    "SELECT * FROM reference \
+                     ORDER BY topic, created_at DESC \
+                     LIMIT $limit",
+                )
+                .bind(("limit", limit as i64)),
+                "reference",
+                "list_all_by_topic",
+            )
+            .await?
+        }
+    };
+
+    take_many(&mut resp, 0, "reference", "list_by_topic")
+}
+
 // --- Bulk listing for embeddings pipeline ---
 
 pub async fn list_all_notes(db: &Surreal<Db>) -> Result<Vec<NoteRecord>, DatabaseError> {

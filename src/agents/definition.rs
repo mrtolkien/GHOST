@@ -37,6 +37,8 @@ struct TaskFrontmatter {
     model: Option<String>,
     #[serde(default)]
     progress: Vec<ProgressRule>,
+    #[serde(default)]
+    skills: Vec<String>,
 }
 
 fn default_max_iterations() -> usize {
@@ -51,6 +53,7 @@ pub struct TaskDefinition {
     pub max_iterations: usize,
     pub model: Option<String>,
     pub progress_rules: Vec<ProgressRule>,
+    pub skills: Vec<String>,
     pub system_prompt_template: String,
 }
 
@@ -114,6 +117,7 @@ pub fn parse_task_file(content: &str) -> Result<TaskDefinition, TaskError> {
         max_iterations: front.max_iterations,
         model: front.model,
         progress_rules: front.progress,
+        skills: front.skills,
         system_prompt_template: body,
     })
 }
@@ -410,6 +414,7 @@ Also: {{query}}
         assert!(def.system_prompt_template.contains("HEARTBEAT_CONTINUE"));
         assert!(def.progress_rules.is_empty());
         assert_eq!(def.max_iterations, 10);
+        assert_eq!(def.skills, vec!["knowledge-navigator"]);
     }
 
     #[test]
@@ -420,6 +425,7 @@ Also: {{query}}
         assert!(def.tools.contains(&"note_write".to_string()));
         assert!(def.system_prompt_template.contains("{{ date }}"));
         assert_eq!(def.progress_rules.len(), 1);
+        assert_eq!(def.skills, vec!["knowledge-navigator"]);
 
         let note_rule = &def.progress_rules[0];
         assert_eq!(note_rule.tool, "note_write");
@@ -494,5 +500,21 @@ Body.
 "#;
         let def = parse_task_file(content).unwrap();
         assert!(def.progress_rules.is_empty());
+        assert!(def.skills.is_empty());
+    }
+
+    #[test]
+    fn parse_agent_with_skills() {
+        let content = r#"+++
+name = "skilled"
+description = "Agent with skills"
+tools = ["knowledge_search", "note_write"]
+skills = ["knowledge-navigator", "note-writer"]
++++
+
+Body.
+"#;
+        let def = parse_task_file(content).unwrap();
+        assert_eq!(def.skills, vec!["knowledge-navigator", "note-writer"]);
     }
 }

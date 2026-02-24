@@ -542,6 +542,53 @@ impl TaskRunner {
     }
 }
 
+/// Build a skills section to append to the agent system prompt.
+///
+/// If the agent definition declares `skills = [...]`, discover skills from
+/// the workspace, filter to matching names, and build an XML block (same
+/// format as `build_ghost_skills` in `prompt::context`).
+fn build_agent_skills_section(config: &Config, skills: &[String]) -> String {
+    if skills.is_empty() {
+        return String::new();
+    }
+
+    let discovered = crate::skills::discover_skills(&config.workspace);
+    let matched: Vec<_> = discovered
+        .iter()
+        .filter(|s| skills.contains(&s.name))
+        .collect();
+
+    if matched.is_empty() {
+        return String::new();
+    }
+
+    let entries: Vec<String> = matched
+        .iter()
+        .map(|s| {
+            let rel = s
+                .path
+                .strip_prefix(&config.workspace)
+                .unwrap_or(&s.path)
+                .display();
+            format!(
+                "  <skill>\n    <name>{}</name>\n    \
+                 <description>{}</description>\n    \
+                 <location>{rel}</location>\n  </skill>",
+                s.name, s.description,
+            )
+        })
+        .collect();
+
+    format!(
+        "\n\n## Available Skills\n\n\
+         ALWAYS read the full skill file with `read_file` before starting any task \
+         that matches a skill's description. Skills contain critical workflow \
+         instructions that you MUST follow.\n\n\
+         <available_skills>\n{}\n</available_skills>",
+        entries.join("\n"),
+    )
+}
+
 /// Execute the agent tool loop. Returns the final findings string.
 #[tracing::instrument(skip_all, fields(
     agent_name = %definition.name,
@@ -555,13 +602,20 @@ async fn run_task(
     agent_session_id: &Thing,
     cancel_token: &CancellationToken,
 ) -> Result<String, TaskError> {
-    let system_prompt = definition.render_system_prompt(prompt);
+    let mut system_prompt = definition.render_system_prompt(prompt);
+
+    // Append skills section if the agent declares any
+    system_prompt.push_str(&build_agent_skills_section(config, &definition.skills));
 
     // Resolve provider — use agent's model alias or default
     let provider = provider_for_alias(config, definition.model.as_deref())?;
 
-    // Build restricted tool manager
-    let tool_manager = ToolManager::for_agent(&definition.tools);
+    // Build restricted tool manager — include read_file if skills are declared
+    let mut tools = definition.tools.clone();
+    if !definition.skills.is_empty() && !tools.iter().any(|t| t == "read_file") {
+        tools.push("read_file".to_string());
+    }
+    let tool_manager = ToolManager::for_agent(&tools);
 
     let session_chat = SessionChat::new(db.clone(), provider, tool_manager, config.clone())
         .with_max_tool_iterations(definition.max_iterations);
@@ -614,10 +668,15 @@ async fn continue_task_run(
     // For continuation, interpolate a generic marker instead of the new prompt
     // into the system prompt template, since the original query is already in
     // the session history.
-    let system_prompt = definition.render_system_prompt(prompt);
+    let mut system_prompt = definition.render_system_prompt(prompt);
+    system_prompt.push_str(&build_agent_skills_section(config, &definition.skills));
 
     let provider = provider_for_alias(config, definition.model.as_deref())?;
-    let tool_manager = ToolManager::for_agent(&definition.tools);
+    let mut tools = definition.tools.clone();
+    if !definition.skills.is_empty() && !tools.iter().any(|t| t == "read_file") {
+        tools.push("read_file".to_string());
+    }
+    let tool_manager = ToolManager::for_agent(&tools);
 
     let session_chat = SessionChat::new(db.clone(), provider, tool_manager, config.clone())
         .with_max_tool_iterations(definition.max_iterations);

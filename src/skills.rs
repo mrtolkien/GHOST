@@ -7,6 +7,10 @@ const DEFAULT_SKILLS: &[(&str, &str)] = &[
         include_str!("../prompts/skills/cron-job-author.md"),
     ),
     (
+        "knowledge-navigator",
+        include_str!("../prompts/skills/knowledge-navigator.md"),
+    ),
+    (
         "note-writer",
         include_str!("../prompts/skills/note-writer.md"),
     ),
@@ -305,7 +309,7 @@ name: no-desc
             assert!(content.contains("---"));
         }
 
-        assert_eq!(DEFAULT_SKILLS.len(), 4);
+        assert_eq!(DEFAULT_SKILLS.len(), 5);
     }
 
     #[test]
