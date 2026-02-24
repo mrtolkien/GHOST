@@ -43,6 +43,18 @@ pub(super) trait ToolLoopHandler: Send {
     ) -> Result<(), ChatError> {
         Ok(())
     }
+
+    /// Check whether the model should be allowed to end its turn.
+    ///
+    /// Called when the model sends an EndTurn with non-empty text (i.e. tries
+    /// to write its final output). Returns `Some(nudge)` if the model should
+    /// continue working, `None` if the EndTurn should be accepted.
+    async fn check_progress_gate(
+        &mut self,
+        _history: &[ChatMessage],
+    ) -> Result<Option<String>, ChatError> {
+        Ok(None)
+    }
 }
 
 /// Shared tool-use loop for both interactive chat and background jobs.
@@ -58,6 +70,7 @@ pub(super) async fn run_tool_loop(
     let mut iterations = 0usize;
     let mut last_result: Option<ChatResult> = None;
     let mut retried_empty = false;
+    let mut progress_gate_retries = 0u8;
 
     loop {
         let prompt = handler.system_prompt()?;
@@ -96,6 +109,10 @@ pub(super) async fn run_tool_loop(
                 let tool_uses = extract_tool_use_blocks(&response.content);
                 let raw_output = raw_output_to_values(&response.content);
 
+                // Model made tool calls — reset the empty-response flag
+                // so it gets another recovery chance if it goes empty later.
+                retried_empty = false;
+
                 let assistant_text = extract_text_content(&response.content);
                 handler
                     .on_assistant_tool_use(&assistant_text, &tool_uses, raw_output)
@@ -128,16 +145,29 @@ pub(super) async fn run_tool_loop(
                         .unwrap_or_else(|e| format!("<serialization failed: {e}>"));
                     if !retried_empty {
                         logfire::warn!(
-                            "empty EndTurn response, retrying",
+                            "empty EndTurn response, injecting recovery nudge",
                             iterations = iterations as u64,
                             stop_reason = format!("{:?}", response.stop_reason),
                             content = content_json,
                         );
+                        // Inject a recovery nudge to snap the model out of
+                        // the empty-response state. Just retrying with the
+                        // same history produces the same result.
+                        history.push(ChatMessage {
+                            role: Role::System,
+                            content: vec![ContentBlock::Text {
+                                text: "<system-reminder>You returned an empty \
+                                       response. This is a bug — your session \
+                                       will end if it happens again. Continue \
+                                       by making a tool call now.</system-reminder>"
+                                    .to_string(),
+                            }],
+                        });
                         retried_empty = true;
                         continue;
                     }
                     logfire::error!(
-                        "empty EndTurn response after retry",
+                        "empty EndTurn response after recovery nudge",
                         iterations = iterations as u64,
                         stop_reason = format!("{:?}", response.stop_reason),
                         content = content_json,
@@ -145,6 +175,29 @@ pub(super) async fn run_tool_loop(
                     return Err(ChatError::Provider(ProviderError::EmptyResponse {
                         detail: "provider returned empty EndTurn twice".to_string(),
                     }));
+                }
+
+                // Check progress gate: does the handler want the model
+                // to keep working instead of ending? Max 3 retries to
+                // break through "commitment loop" patterns where the
+                // model says "I'll continue" without making tool calls.
+                if progress_gate_retries < 3
+                    && let Some(nudge) = handler.check_progress_gate(history).await?
+                {
+                    logfire::warn!(
+                        "progress gate triggered — model tried to end \
+                         prematurely, injecting continuation nudge",
+                        iterations = iterations as u64,
+                        response_len = message.len() as u64,
+                        gate_retry = progress_gate_retries as u64,
+                    );
+                    history.push(ChatMessage {
+                        role: Role::System,
+                        content: vec![ContentBlock::Text { text: nudge }],
+                    });
+                    progress_gate_retries += 1;
+                    iterations += 1;
+                    continue;
                 }
 
                 let raw_output = raw_output_to_values(&response.content);

@@ -198,7 +198,15 @@ fn extract_with_readability(html: &str, page_url: &str) -> (Option<String>, Stri
 }
 
 fn html_to_markdown(html: &str) -> String {
-    htmd::convert(html).unwrap_or_else(|_| html.to_string())
+    static CONVERTER: OnceLock<htmd::HtmlToMarkdown> = OnceLock::new();
+    let converter = CONVERTER.get_or_init(|| {
+        htmd::HtmlToMarkdown::builder()
+            .skip_tags(vec![
+                "script", "style", "nav", "footer", "header", "noscript", "svg", "iframe",
+            ])
+            .build()
+    });
+    converter.convert(html).unwrap_or_else(|_| html.to_string())
 }
 
 fn parse_content_type(headers: &reqwest::header::HeaderMap) -> Option<String> {
@@ -241,7 +249,10 @@ mod tests {
         let result = extract_content(html, "http://example.com", &options);
         assert!(result.text.contains("Page Title"));
         assert!(result.text.contains("Article content"));
-        assert!(result.text.contains("About"));
+        assert!(
+            !result.text.contains("About"),
+            "nav content should be stripped"
+        );
         assert!(result.title.is_none());
     }
 
@@ -339,5 +350,33 @@ mod tests {
         let (text, was_truncated) = truncate("hello".to_string(), 5);
         assert_eq!(text, "hello");
         assert!(!was_truncated);
+    }
+
+    #[test]
+    fn skip_tags_strips_junk_content() {
+        let html = r#"
+        <html><body>
+            <h1>Title</h1>
+            <p>Real content</p>
+            <script>var x = 1;</script>
+            <style>.foo { color: red; }</style>
+            <footer>Copyright 2026</footer>
+            <header><a href="/">Home</a></header>
+            <svg><path d="M0 0"/></svg>
+        </body></html>"#;
+
+        let md = html_to_markdown(html);
+        assert!(md.contains("Title"));
+        assert!(md.contains("Real content"));
+        assert!(!md.contains("var x"), "script content should be stripped");
+        assert!(
+            !md.contains("color: red"),
+            "style content should be stripped"
+        );
+        assert!(
+            !md.contains("Copyright"),
+            "footer content should be stripped"
+        );
+        assert!(!md.contains("Home"), "header content should be stripped");
     }
 }

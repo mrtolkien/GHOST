@@ -398,13 +398,9 @@ Also: {{query}}
         assert!(def.tools.contains(&"todo".to_string()));
         assert!(def.system_prompt_template.contains("{{ date }}"));
         assert!(
-            !def.progress_rules.is_empty(),
-            "deep-research should declare progress rules"
+            def.progress_rules.is_empty(),
+            "deep-research relies on TODO-based progress gate, not periodic nudges"
         );
-        let rule = &def.progress_rules[0];
-        assert_eq!(rule.tool, "web_fetch");
-        assert_eq!(rule.min, Some(7));
-        assert!(rule.nudge.is_some());
     }
 
     #[test]

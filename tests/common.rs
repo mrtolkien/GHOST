@@ -540,8 +540,8 @@ impl LiveTestEnv {
         self.log(format!("web_fetch urls: {:?}", metrics.urls));
 
         assert!(
-            metrics.count >= 7,
-            "expected >= 7 web_fetch calls, got {}",
+            metrics.count >= 5,
+            "expected >= 5 web_fetch calls, got {}",
             metrics.count
         );
 

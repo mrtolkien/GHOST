@@ -545,6 +545,8 @@ impl ToolLoopHandler for TaskHandler<'_> {
         history: &mut Vec<ChatMessage>,
     ) -> Result<(), ChatError> {
         self.session_chat.apply_masking_if_needed(history);
+
+        // Inject TODO as a separate plain-text system message.
         if let Some(todo_context) = self
             .session_chat
             .todo_injection_message(self.session_thing)
@@ -556,7 +558,7 @@ impl ToolLoopHandler for TaskHandler<'_> {
             });
         }
 
-        // Inject progress nudge based on declared rules.
+        // Inject progress nudge (periodic rules) as a separate system message.
         if let Some(nudge) = build_progress_nudge(&self.progress_rules, history) {
             history.push(ChatMessage {
                 role: Role::System,
@@ -564,8 +566,110 @@ impl ToolLoopHandler for TaskHandler<'_> {
             });
         }
 
+        // Event-driven "tool not used recently" reminder.
+        // If the agent has key tools (web_fetch) and hasn't used them in
+        // the last 3 assistant turns, nudge — similar to Claude Code's
+        // "task tools haven't been used recently" pattern.
+        if let Some(reminder) = build_recency_reminder(history, &self.task_name) {
+            history.push(ChatMessage {
+                role: Role::System,
+                content: vec![ContentBlock::Text { text: reminder }],
+            });
+        }
+
         Ok(())
     }
+
+    async fn check_progress_gate(
+        &mut self,
+        _history: &[ChatMessage],
+    ) -> Result<Option<String>, ChatError> {
+        use crate::tools::TodoStatus;
+
+        let todo_items =
+            db::sessions::get_session_todo_list(self.session_chat.db(), self.session_thing).await?;
+
+        // If no TODO exists, the agent skipped the planning step.
+        if todo_items.is_none() {
+            return Ok(Some(
+                "<system-reminder>REJECTED — you skipped the planning step. \
+                 Create your TODO checklist with Fetch: items before writing \
+                 your report. Call the todo tool now.</system-reminder>"
+                    .to_string(),
+            ));
+        }
+
+        // Block ending while TODO items remain incomplete.
+        let incomplete = todo_items
+            .unwrap()
+            .iter()
+            .filter(|i| matches!(i.status, TodoStatus::Pending | TodoStatus::InProgress))
+            .count();
+
+        if incomplete > 0 {
+            return Ok(Some(format!(
+                "<system-reminder>REJECTED — your text response was not saved. \
+                 You still have {incomplete} incomplete TODO item(s). A text-only \
+                 response will end your session. You MUST call a tool now — look \
+                 at your TODO and call web_search or web_fetch for the next \
+                 pending item.</system-reminder>"
+            )));
+        }
+
+        Ok(None)
+    }
+}
+
+/// Check if a key tool hasn't been used recently and inject a reminder.
+///
+/// Fires when the agent has used tools in the last 3 assistant turns but
+/// none of them were `web_fetch`. Only applies to research agents.
+fn build_recency_reminder(history: &[ChatMessage], agent_name: &str) -> Option<String> {
+    // Only for research agents that should be fetching pages
+    if agent_name != "deep-research" {
+        return None;
+    }
+
+    // Need at least a few assistant messages to check recency
+    let recent_assistant: Vec<&ChatMessage> = history
+        .iter()
+        .rev()
+        .filter(|m| m.role == Role::Assistant)
+        .take(3)
+        .collect();
+
+    if recent_assistant.len() < 3 {
+        return None;
+    }
+
+    // Check if ANY of the last 3 assistant turns had web_fetch
+    let has_recent_fetch = recent_assistant.iter().any(|msg| {
+        msg.content
+            .iter()
+            .any(|block| matches!(block, ContentBlock::ToolUse { name, .. } if name == "web_fetch"))
+    });
+
+    if has_recent_fetch {
+        return None;
+    }
+
+    // Check that at least one recent turn had tool calls (not just text)
+    let has_tool_calls = recent_assistant.iter().any(|msg| {
+        msg.content
+            .iter()
+            .any(|block| matches!(block, ContentBlock::ToolUse { .. }))
+    });
+
+    if !has_tool_calls {
+        return None;
+    }
+
+    Some(
+        "<system-reminder>You haven't fetched any pages recently. Research \
+         means reading full pages, not just searching. Check your TODO — which \
+         sources still need to be fetched?</system-reminder>"
+            .to_string(),
+    )
 }
 
 /// Build a progress nudge from declared rules.
@@ -573,12 +677,6 @@ impl ToolLoopHandler for TaskHandler<'_> {
 /// Returns `None` if there are no rules or no tracked tools have been
 /// called yet. Otherwise returns an XML `<progress>` block wrapped in
 /// `<system-reminder>`.
-///
-/// Rules:
-/// - Self-closing `<tool />` when no nudge to display
-/// - Inner text when nudge fires (count < min, or no min set)
-/// - `min` attribute only present when min is set
-/// - Interpolates `{tool}`, `{count}`, `{min}` in nudge template
 fn build_progress_nudge(rules: &[ProgressRule], history: &[ChatMessage]) -> Option<String> {
     if rules.is_empty() {
         return None;
@@ -608,10 +706,8 @@ fn build_progress_nudge(rules: &[ProgressRule], history: &[ChatMessage]) -> Opti
     for rule in rules {
         let count = counts.get(rule.tool.as_str()).copied().unwrap_or(0);
 
-        // Determine whether to fire the nudge
         let nudge_text = match (&rule.min, &rule.nudge) {
             (Some(min), Some(nudge)) if count < *min => {
-                // Below minimum with nudge → fire it
                 let interpolated = nudge
                     .replace("{tool}", &rule.tool)
                     .replace("{count}", &count.to_string())
@@ -619,14 +715,13 @@ fn build_progress_nudge(rules: &[ProgressRule], history: &[ChatMessage]) -> Opti
                 Some(interpolated)
             }
             (None, Some(nudge)) => {
-                // No minimum, nudge always fires
                 let interpolated = nudge
                     .replace("{tool}", &rule.tool)
                     .replace("{count}", &count.to_string())
                     .replace("{min}", "");
                 Some(interpolated)
             }
-            _ => None, // min met, or no nudge defined
+            _ => None,
         };
 
         let min_attr = rule
