@@ -1,0 +1,43 @@
+# Workspace
+
+The workspace is your GHOST's home directory. Default: `~/GHOST/`.
+
+## Directory Structure
+
+```
+~/GHOST/
+├── BOOT.md              # GHOST behavioral instructions
+├── SOUL.md              # GHOST personality and values
+├── OPERATOR.md          # Your preferences and goals
+├── notes/               # Knowledge notes (markdown with TOML frontmatter)
+├── references/          # Source material organized by topic
+├── diary/               # Daily entries (YYYY-MM-DD.md)
+├── jobs/                # Cron-scheduled job files
+├── skills/              # Workflow definitions (agentskills.io format)
+├── agents/              # Agent definitions (TOML frontmatter + prompt)
+├── .web-cache/          # Cached web fetches
+└── .state/              # Runtime state (database, logs)
+```
+
+## What `ghost init` Creates
+
+Running `ghost init` bootstraps the workspace with:
+
+- **Identity files** — `BOOT.md`, `SOUL.md`, `OPERATOR.md` with starter templates
+- **Default skills** — research, knowledge-navigator, note-writer, cron-job-author,
+  skill-creator
+- **Default agents** — heartbeat, chat-reflection, reflection, deep-research
+- **All directories** listed above
+
+## Key Directories
+
+| Directory     | Purpose                          | Managed By                     |
+| ------------- | -------------------------------- | ------------------------------ |
+| `notes/`      | Your GHOST's knowledge notes     | GHOST (via `note_write` tool)  |
+| `references/` | Source material in topic subdirs | GHOST + you                    |
+| `diary/`      | Daily timeline entries           | Reflection agent               |
+| `jobs/`       | Cron job definitions             | You (or cron-job-author skill) |
+| `skills/`     | Workflow files                   | You (or skill-creator skill)   |
+| `agents/`     | Agent definitions                | `ghost init` + you             |
+| `.web-cache/` | Cached web pages                 | Automatic                      |
+| `.state/`     | SurrealDB data, runtime state    | Automatic                      |

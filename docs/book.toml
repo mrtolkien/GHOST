@@ -1,0 +1,12 @@
+[book]
+title = "GHOST"
+description = "Personal AI agent platform"
+authors = ["tolki"]
+language = "en"
+src = "src"
+
+[output.html]
+default-theme = "mocha"
+preferred-dark-theme = "mocha"
+git-repository-url = "https://github.com/tolki/ghost"
+additional-css = ["./theme/catppuccin.css"]

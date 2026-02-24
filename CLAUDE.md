@@ -267,6 +267,21 @@ src/
 - Use env vars / `.env` for secrets.
 - Discord bot requires `discord.allowed_user_id` in config — rejects all other users.
 
+## Documentation
+
+User-facing docs live in `docs/` (mdbook). When making changes that affect user-facing
+behavior, update the relevant doc pages:
+
+- **CLI changes** → `docs/src/reference/cli.md`
+- **Config changes** → `docs/src/getting-started/configuration.md`
+- **Tool changes** → `docs/src/features/tools-*.md`
+- **New features** → relevant page under `docs/src/features/`
+- **Workspace/bootstrap changes** → `docs/src/getting-started/workspace.md`
+- **Provider changes** → `docs/src/ghost/providers.md`
+
+Build with `mdbook build docs` to verify. Terminology: always `GHOST` and `OPERATOR` in
+all caps in prose (same rule as code docs).
+
 ## Specs
 
 - `specs/TODO.md`: Ordered task list for reaching PoC. Each task references a spec file.

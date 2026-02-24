@@ -1,0 +1,101 @@
+# Knowledge Base
+
+GHOST's knowledge system stores and connects information using three types of entries,
+backed by SurrealDB with graph edges and embedding-based semantic search.
+
+## Knowledge Types
+
+### Notes
+
+Atomic knowledge entries with structured metadata. Your GHOST creates these during
+reflection and conversation.
+
+```markdown
++++
+title = "Rust Error Handling"
+archetype = "concept"
+tags = ["rust", "programming"]
+sources = ["https://doc.rust-lang.org/book/ch09-00-error-handling.html"]
+trust = 8
++++
+
+Rust uses `Result<T, E>` for recoverable errors and `panic!` for unrecoverable ones.
+
+Related: [[influences>Haskell Either Type]], [[used-by>GHOST Project]]
+```
+
+**Archetypes**: person, concept, decision, event, place, project, organization,
+procedure, media, quote, topic
+
+### References
+
+Source material organized by topic in subdirectories:
+
+```
+references/
+├── rust/
+│   ├── error-handling-patterns.md
+│   └── async-runtime-comparison.md
+└── ai-agents/
+    └── tool-use-survey.md
+```
+
+### Diary
+
+Daily timeline entries (auto-maintained by the reflection agent):
+
+```
+diary/
+├── 2026-02-23.md
+└── 2026-02-24.md
+```
+
+## Wiki Links
+
+Notes connect to each other through wiki links with optional typed relationships:
+
+```markdown
+[[Target Note]] # Simple
+
+[[relationship>Target Note]] # Typed relationship
+```
+
+These links create edges in the graph database, enabling traversal and discovery.
+Unresolved links automatically create **stub notes** that your GHOST can flesh out
+later.
+
+## Search
+
+GHOST uses **hybrid search** combining:
+
+- **BM25** — full-text keyword matching
+- **Semantic** — embedding-based similarity (via Ollama)
+
+Results are merged and ranked. Search covers notes, references, and diary entries.
+
+## CLI Commands
+
+```bash
+# Search knowledge base
+ghost knowledge search "error handling"
+ghost knowledge search "rust patterns" --kind note --limit 20
+
+# Read a specific note
+ghost knowledge get --title "Rust Error Handling"
+
+# Graph exploration
+ghost knowledge graph "Rust Error Handling"         # Show connections
+ghost knowledge graph "Rust Error Handling" --direction out
+ghost knowledge graph --orphans                      # Unconnected notes
+ghost knowledge graph --stats                        # Edge counts
+
+# Browse
+ghost knowledge tags                                 # Tags with counts
+ghost knowledge recent                               # Recent activity
+ghost knowledge stats                                # Type counts
+ghost knowledge references --topic rust              # Browse by topic
+
+# Maintenance
+ghost knowledge reindex                              # Sync files → database
+ghost knowledge reindex --skip-embeddings            # Skip embedding generation
+```
