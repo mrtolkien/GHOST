@@ -14,6 +14,8 @@ pub struct ReconcileResult {
     pub created: usize,
     pub deleted: usize,
     pub stubs_created: usize,
+    /// Titles of notes that were created as empty stubs from wiki links.
+    pub stub_titles: Vec<String>,
 }
 
 #[tracing::instrument(skip_all, fields(note_id = %note_id, link_count = new_links.len()))]
@@ -24,6 +26,7 @@ pub async fn reconcile_edges(
     new_links: &[WikiLink],
 ) -> Result<ReconcileResult, KnowledgeError> {
     let mut stubs_created = 0usize;
+    let mut stub_titles = Vec::new();
 
     // Resolve each wiki link target to a note ID, creating stubs as needed.
     let mut desired: Vec<(Thing, String)> = Vec::new();
@@ -47,6 +50,7 @@ pub async fn reconcile_edges(
                 .await
                 .map_err(Box::new)?;
                 stubs_created += 1;
+                stub_titles.push(link.target.clone());
                 id
             }
         };
@@ -110,5 +114,6 @@ pub async fn reconcile_edges(
         created,
         deleted,
         stubs_created,
+        stub_titles,
     })
 }

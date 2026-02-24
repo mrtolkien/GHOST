@@ -471,6 +471,11 @@ async fn link_cited_edges_creates_note_to_reference_edges() {
     .await
     .unwrap();
 
+    // Create the reference file on disk (curate_references would have moved it here)
+    let ref_dir = ws.join("references/example-com");
+    std::fs::create_dir_all(&ref_dir).unwrap();
+    std::fs::write(ref_dir.join("review.md"), "Review content").unwrap();
+
     // Simulate a classified file that was moved to references
     let classified = vec![ClassifiedCacheFile {
         filename: "review.md".to_string(),

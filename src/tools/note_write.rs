@@ -256,6 +256,18 @@ impl NoteWrite {
                  to related entities to build the knowledge graph.",
             );
         }
+        if !result.stub_titles.is_empty() {
+            let stubs = result
+                .stub_titles
+                .iter()
+                .map(|t| format!("  - [[{t}]]"))
+                .collect::<Vec<_>>()
+                .join("\n");
+            msg.push_str(&format!(
+                "\n\nNew stub notes created from wiki links:\n{stubs}\n\
+                 If any of these deserve a full note, create them before your handoff."
+            ));
+        }
         Ok(msg)
     }
 
@@ -342,6 +354,18 @@ impl NoteWrite {
                 "\n\nHINT: This note has no [[wiki links]]. Consider adding links \
                  to related entities to build the knowledge graph.",
             );
+        }
+        if !result.stub_titles.is_empty() {
+            let stubs = result
+                .stub_titles
+                .iter()
+                .map(|t| format!("  - [[{t}]]"))
+                .collect::<Vec<_>>()
+                .join("\n");
+            msg.push_str(&format!(
+                "\n\nNew stub notes created from wiki links:\n{stubs}\n\
+                 If any of these deserve a full note, create them before your handoff."
+            ));
         }
         Ok(msg)
     }

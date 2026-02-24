@@ -550,8 +550,16 @@ pub async fn link_cited_edges(
         }
 
         // Find or create the reference record for this URL
-        let topic = topic_from_url(&file.url);
-        let rel_path = format!("references/{topic}/{}", file.filename);
+        let domain = topic_from_url(&file.url);
+        let rel_path = find_reference_on_disk(workspace, &domain, &file.filename);
+        let Some(rel_path) = rel_path else {
+            continue;
+        };
+        let topic = rel_path
+            .strip_prefix("references/")
+            .and_then(|r| r.split('/').next())
+            .unwrap_or(&domain)
+            .to_string();
         let ref_record = match db::knowledge::find_reference_by_url(db, &file.url).await {
             Ok(Some(r)) => r,
             Ok(None) => {
@@ -562,9 +570,6 @@ pub async fn link_cited_edges(
                         // File was moved to disk by curate_references but no
                         // DB record exists yet — create one now.
                         let ref_file = workspace.join(&rel_path);
-                        if !ref_file.exists() {
-                            continue;
-                        }
                         let content = std::fs::read_to_string(&ref_file).unwrap_or_default();
                         let preview: String = content.chars().take(2000).collect();
                         match db::knowledge::create_reference(
@@ -696,15 +701,20 @@ pub fn curate_references(workspace: &Path, classified: &[ClassifiedCacheFile]) -
 
         // A file is "used" if it was cited in agent findings OR its URL
         // appears in any note body
-        let url_in_notes = !file.url.is_empty()
-            && note_urls
-                .iter()
-                .any(|note_url| urls_match(note_url, &file.url));
+        let matching_note = if file.url.is_empty() {
+            None
+        } else {
+            note_urls.iter().find(|nu| urls_match(&nu.url, &file.url))
+        };
+        let url_in_notes = matching_note.is_some();
         let used = file.cited || url_in_notes;
+
+        // Topic from the first note that cites this URL (for reference path scoping)
+        let note_topic = matching_note.and_then(|nu| nu.topic.clone());
 
         if used && !file.url.is_empty() {
             // Move to references
-            match move_to_references(workspace, &cache_path, file) {
+            match move_to_references(workspace, &cache_path, file, note_topic.as_deref()) {
                 Ok(dest) => {
                     logfire::info!(
                         "curate_references: moved",
@@ -755,8 +765,17 @@ pub struct CurationResult {
     pub deleted: usize,
 }
 
-/// Collect all URLs found in note bodies under `notes/`.
-fn collect_note_urls(workspace: &Path) -> Vec<String> {
+/// A URL found in a note, with the note's first tag segment for topic scoping.
+#[derive(Debug)]
+struct NoteUrl {
+    url: String,
+    /// First segment of the note's first tag (e.g. "3dprinting" from "3dprinting/printers").
+    /// `None` if the note has no tags.
+    topic: Option<String>,
+}
+
+/// Collect all URLs found in notes under `notes/`, with topic context.
+fn collect_note_urls(workspace: &Path) -> Vec<NoteUrl> {
     let notes_dir = workspace.join("notes");
     if !notes_dir.exists() {
         return Vec::new();
@@ -767,7 +786,7 @@ fn collect_note_urls(workspace: &Path) -> Vec<String> {
     urls
 }
 
-fn collect_urls_recursive(dir: &Path, urls: &mut Vec<String>) {
+fn collect_urls_recursive(dir: &Path, urls: &mut Vec<NoteUrl>) {
     let Ok(entries) = std::fs::read_dir(dir) else {
         return;
     };
@@ -778,16 +797,30 @@ fn collect_urls_recursive(dir: &Path, urls: &mut Vec<String>) {
         } else if path.extension().and_then(|e| e.to_str()) == Some("md")
             && let Ok(content) = std::fs::read_to_string(&path)
         {
+            let topic = parse_note(&content).ok().and_then(|parsed| {
+                parsed
+                    .front
+                    .tags
+                    .first()
+                    .and_then(|tag| tag.split('/').next().map(String::from))
+            });
+
             // Extract URLs from frontmatter sources field
             if let Ok(parsed) = parse_note(&content) {
                 for source_url in &parsed.front.sources {
-                    urls.push(source_url.clone());
+                    urls.push(NoteUrl {
+                        url: source_url.clone(),
+                        topic: topic.clone(),
+                    });
                 }
             }
             // Also extract bare URLs from body text
             for m in URL_RE.find_iter(&content) {
                 let url = m.as_str().trim_end_matches(|c: char| ".,;:)".contains(c));
-                urls.push(url.to_string());
+                urls.push(NoteUrl {
+                    url: url.to_string(),
+                    topic: topic.clone(),
+                });
             }
         }
     }
@@ -802,22 +835,62 @@ fn urls_match(a: &str, b: &str) -> bool {
 
 /// Move a cache file to the references directory.
 ///
-/// Topic is derived from the filename's domain component (e.g.
-/// `tomshardware-com` from the URL slug). The original filename is preserved.
+/// Find a reference file on disk, checking topic-scoped paths first.
+///
+/// Searches `references/**/{domain}/{filename}` and falls back to
+/// `references/{domain}/{filename}`.
+fn find_reference_on_disk(workspace: &Path, domain: &str, filename: &str) -> Option<String> {
+    let refs_dir = workspace.join("references");
+    if !refs_dir.exists() {
+        return None;
+    }
+    // Check topic-scoped paths: references/{topic}/{domain}/{filename}
+    if let Ok(entries) = std::fs::read_dir(&refs_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                let candidate = path.join(domain).join(filename);
+                if candidate.exists() {
+                    let topic = entry.file_name();
+                    return Some(format!(
+                        "references/{}/{domain}/{filename}",
+                        topic.to_string_lossy()
+                    ));
+                }
+            }
+        }
+    }
+    // Fallback: references/{domain}/{filename}
+    let flat = refs_dir.join(domain).join(filename);
+    if flat.exists() {
+        return Some(format!("references/{domain}/{filename}"));
+    }
+    None
+}
+
+/// Path: `references/{note_topic}/{domain}/{filename}` when a citing note has
+/// a topic tag, otherwise `references/{domain}/{filename}`.
 fn move_to_references(
     workspace: &Path,
     cache_path: &Path,
     file: &ClassifiedCacheFile,
+    note_topic: Option<&str>,
 ) -> Result<String, std::io::Error> {
-    // Derive topic from URL domain
-    let topic = topic_from_url(&file.url);
-    let dest_dir = workspace.join("references").join(&topic);
+    let domain = topic_from_url(&file.url);
+    let dest_dir = match note_topic {
+        Some(topic) => workspace.join("references").join(topic).join(&domain),
+        None => workspace.join("references").join(&domain),
+    };
     std::fs::create_dir_all(&dest_dir)?;
 
     let dest_path = dest_dir.join(&file.filename);
     std::fs::rename(cache_path, &dest_path)?;
 
-    Ok(format!("references/{topic}/{}", file.filename))
+    let rel = match note_topic {
+        Some(topic) => format!("references/{topic}/{domain}/{}", file.filename),
+        None => format!("references/{domain}/{}", file.filename),
+    };
+    Ok(rel)
 }
 
 /// Extract a topic directory name from a URL's domain.
@@ -1262,6 +1335,49 @@ mod tests {
     }
 
     #[test]
+    fn curate_references_scopes_under_note_topic() {
+        let dir = TempDir::new().unwrap();
+        let cache_dir = dir.path().join(".web-cache");
+        let notes_dir = dir.path().join("notes/rust");
+        std::fs::create_dir_all(&cache_dir).unwrap();
+        std::fs::create_dir_all(&notes_dir).unwrap();
+
+        std::fs::write(
+            cache_dir.join("article.md"),
+            "---\nurl: https://docs.rs/tokio\n---\n# Tokio docs\n",
+        )
+        .unwrap();
+
+        // Note with a tag → provides topic context
+        std::fs::write(
+            notes_dir.join("tokio.md"),
+            "+++\ntitle = \"Tokio\"\ntags = [\"rust/async\"]\n\
+             sources = [\"https://docs.rs/tokio\"]\n+++\n\
+             An async runtime.\n",
+        )
+        .unwrap();
+
+        let classified = vec![ClassifiedCacheFile {
+            filename: "article.md".to_string(),
+            url: "https://docs.rs/tokio".to_string(),
+            cited: false,
+            is_search: false,
+            preview: None,
+        }];
+
+        let result = curate_references(dir.path(), &classified);
+        assert_eq!(result.moved, 1);
+
+        // Should be scoped under the note's first tag segment
+        assert!(
+            dir.path()
+                .join("references/rust/docs-rs/article.md")
+                .exists(),
+            "reference should be under references/rust/docs-rs/"
+        );
+    }
+
+    #[test]
     fn collect_note_urls_finds_frontmatter_sources() {
         let dir = TempDir::new().unwrap();
         let notes_dir = dir.path().join("notes");
@@ -1279,11 +1395,11 @@ mod tests {
 
         let urls = collect_note_urls(dir.path());
         assert!(
-            urls.iter().any(|u| u.contains("example.com/src1")),
+            urls.iter().any(|u| u.url.contains("example.com/src1")),
             "should find frontmatter source URL: {urls:?}"
         );
         assert!(
-            urls.iter().any(|u| u.contains("other.com/src2")),
+            urls.iter().any(|u| u.url.contains("other.com/src2")),
             "should find second frontmatter source URL: {urls:?}"
         );
     }
