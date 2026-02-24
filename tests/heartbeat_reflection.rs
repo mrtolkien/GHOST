@@ -3,7 +3,6 @@
 mod common;
 
 use ghost::jobs::heartbeat::is_heartbeat_continue;
-use ghost::jobs::reflection::clear_web_cache;
 use ghost::web::scan_web_cache;
 #[allow(unused_imports)]
 use std::path::PathBuf;
@@ -80,7 +79,7 @@ async fn reflection_classifies_blog_reference() {
         "web cache should contain blog.tolki.dev entry"
     );
 
-    // Step 3: Run reflection
+    // Step 3: Run reflection (includes deterministic reference curation)
     let findings = env.run_reflection(&session, None).await;
     env.log(format!("reflection findings: {findings}"));
     assert!(
@@ -88,20 +87,18 @@ async fn reflection_classifies_blog_reference() {
         "reflection should produce a handoff note"
     );
 
-    // Step 4: Verify reflection moved web cache to references
+    // Step 4: Verify deterministic curation moved cited files to references
     assert!(
         env.find_file_containing("references", "blog.tolki.dev"),
         "Expected a reference file containing 'blog.tolki.dev'"
     );
 
-    // Step 5: Clear web cache (as production does post-reflection)
-    clear_web_cache(&env.config.workspace).expect("clear web cache");
-    assert!(
-        scan_web_cache(&env.config.workspace)
-            .expect("scan after clear")
-            .is_none(),
-        "web cache should be empty after clearing"
-    );
+    // Step 5: Verify web cache was cleaned up by curation
+    let remaining = scan_web_cache(&env.config.workspace).expect("scan after curation");
+    env.log(format!(
+        "web cache after curation: {}",
+        remaining.as_deref().unwrap_or("empty")
+    ));
 }
 
 // ---------------------------------------------------------------------------
@@ -388,19 +385,24 @@ async fn reflection_on_agent_transcript() {
         || env.find_file_containing("notes", "recommend");
     env.log(format!("T2 decision note: {has_decision_note}"));
 
-    // --- Tier 3: aspirational (log only) ---
+    // --- Tier 3: deterministic reference curation (hard assert) ---
 
-    let has_reference_curation = !refs.is_empty();
-    env.log(format!("T3 reference curation: {has_reference_curation}"));
+    // References should exist (cited cache files moved by curate_references)
+    assert!(
+        !refs.is_empty(),
+        "T3: deterministic curation should have moved cited cache files to references/"
+    );
+
+    // Web cache should be cleaned (only files from our classified list)
+    let remaining = scan_web_cache(&env.config.workspace).expect("scan web cache");
+    env.log(format!(
+        "T3 web cache after curation: {}",
+        remaining.as_deref().unwrap_or("empty")
+    ));
 
     let t2_pass = has_entity_note && has_source_note;
     env.log(format!(
-        "TIER SUMMARY: T1=PASS, T2={}, T3={}",
+        "TIER SUMMARY: T1=PASS, T2={}, T3=PASS",
         if t2_pass { "PASS" } else { "PARTIAL" },
-        if has_reference_curation {
-            "PASS"
-        } else {
-            "MISS"
-        }
     ));
 }

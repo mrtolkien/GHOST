@@ -138,3 +138,128 @@ in `[assistant]` transcript lines instead of being prominent, and (c) `web_searc
   - Still too many steps? Notes + references in one pass may be too ambitious
   - Iteration budget spent on note creation (9 notes = many tool calls)
   - The "curate web cache" step comes after notes, and by then the model is winding down
+
+---
+
+## Attempt 4a: Add todo planning step
+
+**Hypothesis:** A checklist (via `todo` tool) would give the model structure and keep it
+on track, like it does for deep-research.
+
+**Changes:** Added `todo` to tool list, added "Plan your work" step before notes.
+
+**Result:** REGRESSION — 3 notes, T2=PARTIAL. Model spent iteration budget planning
+instead of executing. The todo tool is good for deep-research (open-ended, many cycles)
+but counterproductive for reflection (bounded, mechanical).
+
+---
+
+## Attempt 4b: High-level todo (5-10 items)
+
+**Hypothesis:** Maybe the todo was too granular. Make it high-level.
+
+**Changes:** Softened todo instructions to "5-10 items, batch similar work."
+
+**Result:** Same regression — 3 notes, T2=PARTIAL. Planning overhead still too high.
+
+---
+
+## Attempt 4c: Cache-first ordering (no todo)
+
+**Hypothesis:** If we process cache before notes, references are in place for wiki-linking.
+
+**Changes:** Removed `todo`, reordered to cache → notes.
+
+**Result:** TIMEOUT at 3 minutes. Model started mechanically reading/curating cache files
+one by one and never reached note creation.
+
+---
+
+## Attempt 5: Notes-first + self-check (current best)
+
+**Hypothesis:** Attempt 3's ordering was correct (notes first). Adding a self-check step
+before handoff might push the model to also curate references.
+
+**Changes:**
+- Restored notes-first ordering (matching attempt 3)
+- Added self-check step: "Did you create entity notes? If not, go back. Did you call
+  reference_manage for at least some files? If not, go back."
+- Kept "batch similar files" hint for cache curation
+- No todo tool
+
+**Result:** T1=PASS, T2=PASS, T3=PASS — all tiers!
+
+- **16 notes** created (vs 9 in attempt 3):
+  - Entity notes: Bambu Lab P1S, Bambu Lab P2S, Prusa CORE One, Creality K2 Pro, QIDI Q2
+  - Source quality note: Tom's Hardware
+  - Decision note: Enclosed 3D Printer Purchase Decision ($800-$1200)
+  - Topic hubs: 3dprinting, printers, enclosed-printers, buying-decisions
+  - Topic note: Enclosed 3D Printers Around $1000 (2026)
+- **1 reference** curated (Prusa CORE One product page)
+- Completed in ~95 seconds (within 3-minute timeout)
+
+**What worked:**
+- Self-check step: model verified its work before handing off, caught the missing
+  reference curation and did at least one
+- Notes-first ordering: model creates rich content while it has budget, then curates
+- Batch hint: model didn't try to read every cache file individually
+
+**Remaining gap:**
+- Only 1 of 25 cache files curated — self-check got it to do *something* but not
+  thorough curation. This is acceptable for now (notes are the primary value).
+- Question: would including tool results in transcript context help the model curate
+  references without needing to read them individually?
+
+---
+
+## Attempt 6: Deterministic reference curation (spec 28)
+
+**Hypothesis:** The agent can't reliably do both note-writing AND reference curation in
+one pass. Across 11 attempts: when it writes great notes (13 entity notes), it skips
+references. When it curates references well, it writes shallow notes. The two tasks
+compete for the model's attention budget.
+
+**New approach:** Let the agent focus on note-writing (what it's good at). Handle
+reference curation deterministically in Rust code after the agent finishes.
+
+**Changes:**
+- `prompts/agents/reflection.md`:
+  - Removed `reference_manage` from tools list entirely
+  - Removed `reference_manage` progress nudge
+  - Simplified workflow to 4 steps: Discover → Create notes → Verify → Handoff
+  - Added source citation guidance: "Cite sources using `Source: <url>` lines"
+  - Explicit: "Do NOT use `[[references/...]]` wiki links"
+- `src/jobs/reflection.rs`:
+  - Replaced `format_classified_cache()` output with structured XML (`<web-cache>`)
+  - Added `curate_references()` post-processing: scans notes for source URLs,
+    moves cited/URL-matched cache files to `references/{domain}/`, deletes rest
+  - Session-scoped: only touches files from the captured `ClassifiedCacheFile` list
+  - Replaced `clear_web_cache()` call with `curate_references()` in `run()`
+- `tests/common.rs`: `run_reflection()` calls `curate_references()` after agent
+- `tests/heartbeat_reflection.rs`: T3 promoted from aspirational to hard assert
+
+**Result:** T1=PASS, T2=PASS, T3=PASS — first attempt!
+
+- **5 notes** created:
+  - Entity notes: Bambu Lab P1S, Prusa CORE One 2025, QIDI Q2
+  - Topic hubs: 3dprinting, 3dprinting/printers
+- **5 references** curated (deterministic — 100% reliable):
+  - `references/tomshardware-com/` (P1S review)
+  - `references/prusa3d-com/` (CORE One product page)
+  - `references/bambulab-com/` (Bambu official)
+  - `references/us-qidi3d-com/` (QIDI Q2 product page)
+  - `references/auroratechchannel-com/` (price tracker)
+- **20 files deleted** from web cache (search results, uncited pages)
+- Completed in ~33 seconds (fastest yet — no reference_manage tool call overhead)
+
+**What worked:**
+- Deterministic curation: 5/5 cited files moved, 20/20 uncited deleted — zero ambiguity
+- Agent freed from curation: focused entirely on note creation, still produced 3 entity
+  notes with concrete specs and source URLs
+- XML cache format: model could see sources and cite them in notes without needing to
+  manage them
+- Session scoping: only touched files from our classified list — safe for concurrent runs
+
+**Key insight:** Splitting agent work (creative/judgment tasks) from mechanical work
+(file moves/deletes) is strictly better. The agent's strength is synthesis; code's
+strength is determinism. This pattern should apply to other reflection tasks too.

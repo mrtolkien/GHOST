@@ -418,19 +418,14 @@ Also: {{query}}
         let def = parse_task_file(content).unwrap();
         assert_eq!(def.name, "reflection");
         assert!(def.tools.contains(&"note_write".to_string()));
-        assert!(def.tools.contains(&"reference_manage".to_string()));
+        assert!(!def.tools.contains(&"reference_manage".to_string()));
         assert!(def.system_prompt_template.contains("{{ date }}"));
-        assert_eq!(def.progress_rules.len(), 2);
+        assert_eq!(def.progress_rules.len(), 1);
 
         let note_rule = &def.progress_rules[0];
         assert_eq!(note_rule.tool, "note_write");
         assert!(note_rule.min.is_none());
         assert!(note_rule.nudge.is_some());
-
-        let ref_rule = &def.progress_rules[1];
-        assert_eq!(ref_rule.tool, "reference_manage");
-        assert!(ref_rule.min.is_none());
-        assert!(ref_rule.nudge.is_some());
     }
 
     #[test]

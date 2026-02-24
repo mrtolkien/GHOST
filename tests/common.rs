@@ -334,7 +334,8 @@ impl LiveTestEnv {
     /// Run reflection on a session via the agent runner.
     ///
     /// Returns the findings string (the agent's final message, saved as
-    /// the handoff note in production).
+    /// the handoff note in production). Also runs deterministic reference
+    /// curation post-processing (matching production flow).
     pub async fn run_reflection(
         &self,
         session_id: &Thing,
@@ -361,10 +362,21 @@ impl LiveTestEnv {
             &web_cache_section,
         );
 
-        self.task_runner
+        let findings = self
+            .task_runner
             .run_to_completion("reflection", &user_message, Some(session_id))
             .await
-            .expect("reflection run_to_completion")
+            .expect("reflection run_to_completion");
+
+        // Post-processing: deterministic reference curation (matches production)
+        let curation =
+            ghost::jobs::reflection::curate_references(&self.config.workspace, &classified);
+        self.log(format!(
+            "curate_references: {} moved, {} deleted",
+            curation.moved, curation.deleted,
+        ));
+
+        findings
     }
 
     // -----------------------------------------------------------------

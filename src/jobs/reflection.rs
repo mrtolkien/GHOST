@@ -96,9 +96,9 @@ impl ReflectionManager {
 
         logfire::info!("reflection started", session_id = session_id.to_string(),);
 
-        // Build user message from context variables
-        let user_message = match self.build_user_message(session_thing).await {
-            Ok(msg) => msg,
+        // Build user message and capture classified cache files for post-processing
+        let (user_message, classified) = match self.build_user_message(session_thing).await {
+            Ok(result) => result,
             Err(e) => {
                 logfire::error!(
                     "reflection: failed to build user message",
@@ -122,15 +122,14 @@ impl ReflectionManager {
                     logfire::warn!("reflection: failed to write state", error = e.to_string(),);
                 }
 
-                // Clear web cache on success
-                if let Err(e) = clear_web_cache(&self.config.workspace) {
-                    logfire::warn!(
-                        "reflection: failed to clear web cache",
-                        error = e.to_string(),
-                    );
-                }
-
-                logfire::info!("reflection completed", session_id = session_id.to_string(),);
+                // Deterministic reference curation (replaces clear_web_cache)
+                let curation = curate_references(&self.config.workspace, &classified);
+                logfire::info!(
+                    "reflection completed",
+                    session_id = session_id.to_string(),
+                    refs_moved = curation.moved,
+                    refs_deleted = curation.deleted,
+                );
             }
             Err(e) => {
                 logfire::error!(
@@ -142,7 +141,12 @@ impl ReflectionManager {
         }
     }
 
-    async fn build_user_message(&self, session_thing: &Thing) -> Result<String, db::DatabaseError> {
+    /// Build the user message and return it along with the captured
+    /// classified cache files (needed for post-processing).
+    async fn build_user_message(
+        &self,
+        session_thing: &Thing,
+    ) -> Result<(String, Vec<ClassifiedCacheFile>), db::DatabaseError> {
         let previous_handoff = load_state_file(&self.config.workspace, "reflection.last.md")
             .unwrap_or_else(|| "No previous handoff.".to_string());
 
@@ -157,13 +161,15 @@ impl ReflectionManager {
             classify_web_cache(&self.config.workspace, agent_findings.as_deref(), 1000);
         let web_cache_section = format_classified_cache(&classified);
 
-        Ok(build_reflection_user_message(
+        let message = build_reflection_user_message(
             &previous_handoff,
             &diary_today,
             &transcript,
             agent_findings.as_deref(),
             &web_cache_section,
-        ))
+        );
+
+        Ok((message, classified))
     }
 }
 
@@ -230,6 +236,8 @@ pub struct ClassifiedCacheFile {
     pub filename: String,
     pub url: String,
     pub cited: bool,
+    /// True if this is a search-result listing (has `query:` frontmatter).
+    pub is_search: bool,
     /// First N chars of the file content (for cited files).
     pub preview: Option<String>,
 }
@@ -303,9 +311,9 @@ pub fn classify_web_cache(
                 .unwrap_or("unknown")
                 .to_string();
 
-            // Extract URL from frontmatter
+            // Extract URL and type from frontmatter
             let content = std::fs::read_to_string(&path).unwrap_or_default();
-            let url = extract_frontmatter_url(&content);
+            let (url, is_search) = extract_frontmatter_info(&content);
 
             // Check if this file's URL slug matches any source URL slug
             let file_slug = if !url.is_empty() {
@@ -345,14 +353,19 @@ pub fn classify_web_cache(
                 filename,
                 url,
                 cited,
+                is_search,
                 preview,
             }
         })
         .collect()
 }
 
-fn extract_frontmatter_url(content: &str) -> String {
+/// Extract URL and whether it's a search result from frontmatter.
+/// Returns (url_or_empty, is_search).
+fn extract_frontmatter_info(content: &str) -> (String, bool) {
     let mut in_frontmatter = false;
+    let mut url = String::new();
+    let mut is_search = false;
     for line in content.lines() {
         let trimmed = line.trim();
         if trimmed == "---" {
@@ -362,71 +375,67 @@ fn extract_frontmatter_url(content: &str) -> String {
             in_frontmatter = true;
             continue;
         }
-        if in_frontmatter && let Some(url) = trimmed.strip_prefix("url: ") {
-            return url.to_string();
-        }
-    }
-    String::new()
-}
-
-/// Format classified cache files into sections for the reflection prompt.
-#[must_use]
-pub fn format_classified_cache(files: &[ClassifiedCacheFile]) -> String {
-    let cited: Vec<_> = files.iter().filter(|f| f.cited).collect();
-    let uncited: Vec<_> = files.iter().filter(|f| !f.cited).collect();
-
-    let mut output = String::new();
-
-    if !cited.is_empty() {
-        output.push_str("### Cited in Agent Report (move to references)\n\n");
-        output.push_str(
-            "These files were cited in the agent's research report. \
-             Move them with `reference_manage` and link to them from notes.\n\n",
-        );
-        for file in &cited {
-            output.push_str(&format!(
-                "- `.web-cache/{filename}` — {url}\n",
-                filename = file.filename,
-                url = file.url,
-            ));
-            if let Some(preview) = &file.preview {
-                // Indent preview as a block
-                output.push_str(&format!(
-                    "  > {preview}\n",
-                    preview = preview.lines().next().unwrap_or("")
-                ));
+        if in_frontmatter {
+            if let Some(u) = trimmed.strip_prefix("url: ") {
+                url = u.to_string();
+            } else if trimmed.starts_with("query: ") {
+                is_search = true;
             }
         }
     }
+    (url, is_search)
+}
 
-    if !uncited.is_empty() {
-        if !cited.is_empty() {
-            output.push('\n');
-        }
-        output.push_str("### Uncited (review and decide)\n\n");
-        output.push_str(
-            "These files were NOT cited in the agent's report. \
-             Review filenames — delete junk (403 pages, empty, search result listings) \
-             and move anything useful.\n\n",
-        );
-        for file in &uncited {
+/// Format classified cache files as structured XML for the reflection prompt.
+///
+/// Cited fetch files include a content preview. Uncited/search files are
+/// self-closing elements. The XML format lets the agent see sources clearly
+/// without needing to manage them — reference curation happens deterministically
+/// in post-processing.
+#[must_use]
+pub fn format_classified_cache(files: &[ClassifiedCacheFile]) -> String {
+    if files.is_empty() {
+        return "No cached files.".to_string();
+    }
+
+    let mut output = String::from("<web-cache>\n");
+
+    for file in files {
+        let file_type = if file.is_search { "search" } else { "fetch" };
+        let cited = if file.cited { "true" } else { "false" };
+
+        // Escape XML special chars in URL
+        let url = xml_escape(&file.url);
+
+        if let Some(preview) = &file.preview {
             output.push_str(&format!(
-                "- `.web-cache/{filename}` — {url}\n",
-                filename = file.filename,
-                url = if file.url.is_empty() {
-                    "search results".to_string()
-                } else {
-                    file.url.clone()
-                },
+                "  <file filename=\"{filename}\" url=\"{url}\" \
+                 type=\"{file_type}\" cited=\"{cited}\">\n",
+                filename = xml_escape(&file.filename),
+            ));
+            // Indent preview content
+            for line in preview.lines() {
+                output.push_str(&format!("    {line}\n"));
+            }
+            output.push_str("  </file>\n");
+        } else {
+            output.push_str(&format!(
+                "  <file filename=\"{filename}\" url=\"{url}\" \
+                 type=\"{file_type}\" cited=\"{cited}\" />\n",
+                filename = xml_escape(&file.filename),
             ));
         }
     }
 
-    if output.is_empty() {
-        output.push_str("No cached files.");
-    }
-
+    output.push_str("</web-cache>");
     output
+}
+
+fn xml_escape(s: &str) -> String {
+    s.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
 }
 
 /// Filter a transcript for reflection: preserve user/assistant text,
@@ -512,6 +521,170 @@ pub fn clear_web_cache(workspace: &Path) -> Result<(), std::io::Error> {
     }
 
     Ok(())
+}
+
+/// Deterministically curate web cache files after reflection completes.
+///
+/// Takes the `ClassifiedCacheFile` list captured at prompt-build time (scoped
+/// to this session — never re-scans the directory). Scans notes for source
+/// URLs, then:
+/// - **Used files** (cited in findings OR URL found in notes) → move to
+///   `references/{topic}/`
+/// - **Unused files from the captured list only** → delete
+/// - Files NOT in the captured list → untouched (belong to other sessions)
+#[tracing::instrument(skip_all, fields(total = classified.len()))]
+pub fn curate_references(workspace: &Path, classified: &[ClassifiedCacheFile]) -> CurationResult {
+    let mut result = CurationResult::default();
+
+    if classified.is_empty() {
+        return result;
+    }
+
+    // Collect all URLs found in note bodies
+    let note_urls = collect_note_urls(workspace);
+
+    let cache_dir = workspace.join(".web-cache");
+
+    for file in classified {
+        let cache_path = cache_dir.join(&file.filename);
+        if !cache_path.exists() {
+            // Already moved/deleted by the agent or another process
+            continue;
+        }
+
+        // A file is "used" if it was cited in agent findings OR its URL
+        // appears in any note body
+        let url_in_notes = !file.url.is_empty()
+            && note_urls
+                .iter()
+                .any(|note_url| urls_match(note_url, &file.url));
+        let used = file.cited || url_in_notes;
+
+        if used && !file.url.is_empty() {
+            // Move to references
+            match move_to_references(workspace, &cache_path, file) {
+                Ok(dest) => {
+                    logfire::info!(
+                        "curate_references: moved",
+                        filename = file.filename.clone(),
+                        dest = dest,
+                    );
+                    result.moved += 1;
+                }
+                Err(e) => {
+                    logfire::warn!(
+                        "curate_references: move failed",
+                        filename = file.filename.clone(),
+                        error = e.to_string(),
+                    );
+                }
+            }
+        } else {
+            // Delete unused file
+            if let Err(e) = std::fs::remove_file(&cache_path) {
+                logfire::warn!(
+                    "curate_references: delete failed",
+                    filename = file.filename.clone(),
+                    error = e.to_string(),
+                );
+            } else {
+                logfire::info!(
+                    "curate_references: deleted",
+                    filename = file.filename.clone(),
+                );
+                result.deleted += 1;
+            }
+        }
+    }
+
+    logfire::info!(
+        "curate_references: done",
+        moved = result.moved,
+        deleted = result.deleted,
+    );
+
+    result
+}
+
+/// Result of deterministic reference curation.
+#[derive(Debug, Default)]
+pub struct CurationResult {
+    pub moved: usize,
+    pub deleted: usize,
+}
+
+/// Collect all URLs found in note bodies under `notes/`.
+fn collect_note_urls(workspace: &Path) -> Vec<String> {
+    let notes_dir = workspace.join("notes");
+    if !notes_dir.exists() {
+        return Vec::new();
+    }
+
+    let mut urls = Vec::new();
+    collect_urls_recursive(&notes_dir, &mut urls);
+    urls
+}
+
+fn collect_urls_recursive(dir: &Path, urls: &mut Vec<String>) {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            collect_urls_recursive(&path, urls);
+        } else if path.extension().and_then(|e| e.to_str()) == Some("md")
+            && let Ok(content) = std::fs::read_to_string(&path)
+        {
+            for m in URL_RE.find_iter(&content) {
+                let url = m.as_str().trim_end_matches(|c: char| ".,;:)".contains(c));
+                urls.push(url.to_string());
+            }
+        }
+    }
+}
+
+/// Check if two URLs refer to the same page by comparing their slugs.
+fn urls_match(a: &str, b: &str) -> bool {
+    let slug_a = slug_from_url(a);
+    let slug_b = slug_from_url(b);
+    slug_a == slug_b || slug_a.starts_with(&slug_b) || slug_b.starts_with(&slug_a)
+}
+
+/// Move a cache file to the references directory.
+///
+/// Topic is derived from the filename's domain component (e.g.
+/// `tomshardware-com` from the URL slug). The original filename is preserved.
+fn move_to_references(
+    workspace: &Path,
+    cache_path: &Path,
+    file: &ClassifiedCacheFile,
+) -> Result<String, std::io::Error> {
+    // Derive topic from URL domain
+    let topic = topic_from_url(&file.url);
+    let dest_dir = workspace.join("references").join(&topic);
+    std::fs::create_dir_all(&dest_dir)?;
+
+    let dest_path = dest_dir.join(&file.filename);
+    std::fs::rename(cache_path, &dest_path)?;
+
+    Ok(format!("references/{topic}/{}", file.filename))
+}
+
+/// Extract a topic directory name from a URL's domain.
+///
+/// E.g. `https://www.tomshardware.com/reviews/...` → `tomshardware-com`
+fn topic_from_url(url: &str) -> String {
+    let stripped = url
+        .trim_start_matches("https://")
+        .trim_start_matches("http://")
+        .trim_start_matches("www.");
+
+    // Take just the domain part (up to first '/')
+    let domain = stripped.split('/').next().unwrap_or(stripped);
+
+    // Replace dots with hyphens for directory name
+    domain.replace('.', "-")
 }
 
 #[cfg(test)]
@@ -782,26 +955,173 @@ mod tests {
     }
 
     #[test]
-    fn format_classified_cache_sections() {
+    fn format_classified_cache_xml() {
         let files = vec![
             ClassifiedCacheFile {
                 filename: "cited.md".to_string(),
                 url: "https://example.com/cited".to_string(),
                 cited: true,
+                is_search: false,
                 preview: Some("# Title\nContent here".to_string()),
             },
             ClassifiedCacheFile {
                 filename: "uncited.md".to_string(),
                 url: "https://example.com/uncited".to_string(),
                 cited: false,
+                is_search: false,
+                preview: None,
+            },
+            ClassifiedCacheFile {
+                filename: "search.md".to_string(),
+                url: String::new(),
+                cited: false,
+                is_search: true,
                 preview: None,
             },
         ];
 
         let output = format_classified_cache(&files);
-        assert!(output.contains("### Cited in Agent Report"));
+        assert!(output.starts_with("<web-cache>"));
+        assert!(output.ends_with("</web-cache>"));
         assert!(output.contains("cited.md"));
-        assert!(output.contains("### Uncited"));
+        assert!(output.contains("type=\"fetch\" cited=\"true\""));
+        assert!(output.contains("# Title"));
         assert!(output.contains("uncited.md"));
+        assert!(output.contains("type=\"fetch\" cited=\"false\" />"));
+        assert!(output.contains("type=\"search\" cited=\"false\" />"));
+    }
+
+    #[test]
+    fn format_classified_cache_empty() {
+        let output = format_classified_cache(&[]);
+        assert_eq!(output, "No cached files.");
+    }
+
+    #[test]
+    fn curate_references_moves_cited_deletes_uncited() {
+        let dir = TempDir::new().unwrap();
+        let cache_dir = dir.path().join(".web-cache");
+        std::fs::create_dir_all(&cache_dir).unwrap();
+
+        // Create cache files
+        std::fs::write(
+            cache_dir.join("cited.md"),
+            "---\nurl: https://example.com/article\n---\n# Article\n",
+        )
+        .unwrap();
+        std::fs::write(
+            cache_dir.join("uncited.md"),
+            "---\nquery: search query\n---\n1. Result\n",
+        )
+        .unwrap();
+
+        let classified = vec![
+            ClassifiedCacheFile {
+                filename: "cited.md".to_string(),
+                url: "https://example.com/article".to_string(),
+                cited: true,
+                is_search: false,
+                preview: Some("# Article".to_string()),
+            },
+            ClassifiedCacheFile {
+                filename: "uncited.md".to_string(),
+                url: String::new(),
+                cited: false,
+                is_search: true,
+                preview: None,
+            },
+        ];
+
+        let result = curate_references(dir.path(), &classified);
+        assert_eq!(result.moved, 1);
+        assert_eq!(result.deleted, 1);
+
+        // Cited file moved to references/
+        assert!(!cache_dir.join("cited.md").exists());
+        assert!(dir.path().join("references/example-com/cited.md").exists());
+
+        // Uncited file deleted
+        assert!(!cache_dir.join("uncited.md").exists());
+    }
+
+    #[test]
+    fn curate_references_skips_files_not_in_list() {
+        let dir = TempDir::new().unwrap();
+        let cache_dir = dir.path().join(".web-cache");
+        std::fs::create_dir_all(&cache_dir).unwrap();
+
+        // File from another session — not in the classified list
+        std::fs::write(cache_dir.join("other_session.md"), "content").unwrap();
+        // File from our session
+        std::fs::write(cache_dir.join("our_file.md"), "content").unwrap();
+
+        let classified = vec![ClassifiedCacheFile {
+            filename: "our_file.md".to_string(),
+            url: String::new(),
+            cited: false,
+            is_search: true,
+            preview: None,
+        }];
+
+        let result = curate_references(dir.path(), &classified);
+        assert_eq!(result.deleted, 1);
+
+        // Other session's file untouched
+        assert!(cache_dir.join("other_session.md").exists());
+        // Our file deleted
+        assert!(!cache_dir.join("our_file.md").exists());
+    }
+
+    #[test]
+    fn curate_references_url_in_notes_marks_as_used() {
+        let dir = TempDir::new().unwrap();
+        let cache_dir = dir.path().join(".web-cache");
+        let notes_dir = dir.path().join("notes");
+        std::fs::create_dir_all(&cache_dir).unwrap();
+        std::fs::create_dir_all(&notes_dir).unwrap();
+
+        // Cache file not cited in agent findings
+        std::fs::write(
+            cache_dir.join("article.md"),
+            "---\nurl: https://example.com/article\n---\n# Content\n",
+        )
+        .unwrap();
+
+        // But its URL appears in a note body
+        std::fs::write(
+            notes_dir.join("test_note.md"),
+            "Some note body.\nSource: https://example.com/article\n",
+        )
+        .unwrap();
+
+        let classified = vec![ClassifiedCacheFile {
+            filename: "article.md".to_string(),
+            url: "https://example.com/article".to_string(),
+            cited: false, // Not cited in findings
+            is_search: false,
+            preview: None,
+        }];
+
+        let result = curate_references(dir.path(), &classified);
+        assert_eq!(result.moved, 1, "URL in notes should trigger move");
+        assert!(!cache_dir.join("article.md").exists());
+        assert!(
+            dir.path()
+                .join("references/example-com/article.md")
+                .exists()
+        );
+    }
+
+    #[test]
+    fn topic_from_url_extracts_domain() {
+        assert_eq!(
+            topic_from_url("https://www.tomshardware.com/reviews/test"),
+            "tomshardware-com"
+        );
+        assert_eq!(
+            topic_from_url("https://all3dp.com/best-printers"),
+            "all3dp-com"
+        );
+        assert_eq!(topic_from_url("http://example.org/page"), "example-org");
     }
 }
