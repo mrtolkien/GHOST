@@ -18,8 +18,6 @@ use crate::db::sessions::MessageRecord;
 use crate::knowledge::parse_note;
 use crate::web::slug_from_url;
 
-pub const CHAT_TASKS: &str = include_str!("../../prompts/reflection-chat-tasks.md");
-
 pub struct ReflectionManager {
     db: Surreal<Db>,
     config: Config,
@@ -74,17 +72,25 @@ impl ReflectionManager {
             }
         }
 
-        self.run(session_id, session_thing).await;
+        self.run(session_id, session_thing, "chat-reflection").await;
     }
 
     /// Run reflection on reboot — always runs, no skip logic.
     #[tracing::instrument(skip_all, fields(session_id = %session_id))]
     pub async fn run_on_reboot(&self, session_id: &str, session_thing: &Thing) {
-        self.run(session_id, session_thing).await;
+        self.run(session_id, session_thing, "chat-reflection").await;
     }
 
-    #[tracing::instrument(skip_all, fields(session_id = %session_id))]
-    async fn run(&self, session_id: &str, session_thing: &Thing) {
+    /// Run reflection after an agent handoff on the agent's own session.
+    #[tracing::instrument(skip_all, fields(agent_session_id = %agent_session_thing))]
+    pub async fn run_after_agent_handoff(&self, agent_session_thing: &Thing) {
+        let session_id = agent_session_thing.to_string();
+        self.run(&session_id, agent_session_thing, "reflection")
+            .await;
+    }
+
+    #[tracing::instrument(skip_all, fields(session_id = %session_id, agent_name = %agent_name))]
+    async fn run(&self, session_id: &str, session_thing: &Thing, agent_name: &str) {
         // Sequential: wait for any running reflection to finish first
         let _guard = self.running.lock().await;
 
@@ -104,7 +110,7 @@ impl ReflectionManager {
 
         match self
             .task_runner
-            .run_to_completion("reflection", &user_message, Some(session_thing))
+            .run_to_completion(agent_name, &user_message, Some(session_thing))
             .await
         {
             Ok(findings) => {
@@ -167,7 +173,6 @@ impl ReflectionManager {
             &transcript,
             agent_findings.as_deref(),
             &web_cache_section,
-            Some(CHAT_TASKS),
         );
 
         Ok((message, classified))
@@ -175,10 +180,6 @@ impl ReflectionManager {
 }
 
 /// Build the user message for the reflection agent from context variables.
-///
-/// `chat_instructions` — optional extra section appended for chat-session
-/// reflections (diary, identity file updates). Pass `None` for agent-only
-/// reflections.
 #[must_use]
 pub fn build_reflection_user_message(
     previous_handoff: &str,
@@ -186,7 +187,6 @@ pub fn build_reflection_user_message(
     transcript: &str,
     agent_findings: Option<&str>,
     web_cache_files: &str,
-    chat_instructions: Option<&str>,
 ) -> String {
     let agent_section = match agent_findings {
         Some(findings) => format!(
@@ -198,11 +198,6 @@ pub fn build_reflection_user_message(
              {findings}\n\
              \n"
         ),
-        None => String::new(),
-    };
-
-    let chat_section = match chat_instructions {
-        Some(text) => format!("\n{text}\n"),
         None => String::new(),
     };
 
@@ -221,8 +216,7 @@ pub fn build_reflection_user_message(
          {transcript}\n\
          \n\
          ## Web Cache Files\n\
-         {web_cache_files}\
-         {chat_section}"
+         {web_cache_files}"
     )
 }
 
@@ -1055,7 +1049,6 @@ mod tests {
             "[user] Hello\n[assistant] Hi",
             None,
             "file1.md\nfile2.md",
-            None,
         );
         assert!(msg.contains("## Previous Handoff Note"));
         assert!(msg.contains("Previous handoff content"));
@@ -1067,8 +1060,6 @@ mod tests {
         assert!(msg.contains("file1.md"));
         // No agent findings section when None
         assert!(!msg.contains("## Agent Findings"));
-        // No chat section when None
-        assert!(!msg.contains("Chat-Specific"));
     }
 
     #[test]
@@ -1079,7 +1070,6 @@ mod tests {
             "[user] research X",
             Some("The research found that X is better than Y because..."),
             "file1.md",
-            None,
         );
         assert!(msg.contains("## Agent Findings"));
         assert!(msg.contains("X is better than Y"));
@@ -1093,25 +1083,10 @@ mod tests {
             "",
             None,
             "No cached files.",
-            None,
         );
         assert!(msg.contains("No previous handoff."));
         assert!(msg.contains("No diary entry for today."));
         assert!(msg.contains("No cached files."));
-    }
-
-    #[test]
-    fn build_user_message_with_chat_instructions() {
-        let msg = build_reflection_user_message(
-            "No previous handoff.",
-            "No diary entry for today.",
-            "[user] chat transcript",
-            None,
-            "No cached files.",
-            Some("## Chat-Specific Tasks\n\nWrite a diary entry."),
-        );
-        assert!(msg.contains("## Chat-Specific Tasks"));
-        assert!(msg.contains("Write a diary entry."));
     }
 
     #[test]

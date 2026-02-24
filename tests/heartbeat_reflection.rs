@@ -80,7 +80,7 @@ async fn reflection_classifies_blog_reference() {
     );
 
     // Step 3: Run reflection (chat mode: diary + identity instructions)
-    let findings = env.run_reflection(&session, None, true).await;
+    let findings = env.run_reflection(&session, None, "chat-reflection").await;
     env.log(format!("reflection findings: {findings}"));
     assert!(
         !findings.trim().is_empty(),
@@ -171,7 +171,7 @@ async fn reflection_creates_knowledge_notes() {
     .expect("chat response");
     env.log_session_json("chat", &session).await;
 
-    let findings = env.run_reflection(&session, None, true).await;
+    let findings = env.run_reflection(&session, None, "chat-reflection").await;
     env.log_session_json("reflection", &session).await;
 
     assert!(
@@ -212,7 +212,7 @@ async fn reflection_handoff_continuity() {
     env.log_session_json("chat_1", &session).await;
 
     // First reflection (chat mode)
-    let first_handoff = env.run_reflection(&session, None, true).await;
+    let first_handoff = env.run_reflection(&session, None, "chat-reflection").await;
     env.log_session_json("reflection_1", &session).await;
     assert!(
         !first_handoff.trim().is_empty(),
@@ -234,7 +234,7 @@ async fn reflection_handoff_continuity() {
 
     // Second reflection with the first handoff (chat mode)
     let second_findings = env
-        .run_reflection(&session2, Some(&first_handoff), true)
+        .run_reflection(&session2, Some(&first_handoff), "chat-reflection")
         .await;
     env.log_session_json("reflection_2", &session2).await;
 
@@ -321,7 +321,7 @@ async fn reflection_on_agent_transcript() {
     // Run reflection on the agent session (agent mode: no diary instructions)
     let findings = tokio::time::timeout(
         std::time::Duration::from_secs(180),
-        env.run_reflection(&session, None, false),
+        env.run_reflection(&session, None, "reflection"),
     )
     .await
     .expect("TIMEOUT: reflection did not complete within 3 minutes");

@@ -3,12 +3,14 @@ use std::time::Duration;
 
 use surrealdb::Surreal;
 use surrealdb::engine::local::Db;
+use surrealdb::sql::Thing;
 use tokio::sync::watch;
 use tokio::task::JoinHandle;
 
 use crate::chat::SessionChat;
 use crate::db;
 use crate::interfaces::discord::DiscordSender;
+use crate::jobs::ReflectionManager;
 
 use super::runner::TaskRunner;
 
@@ -19,6 +21,7 @@ pub fn spawn_task_watcher(
     task_runner: Arc<TaskRunner>,
     session_chat: Arc<SessionChat>,
     discord_sender: Arc<DiscordSender>,
+    reflection: Arc<ReflectionManager>,
     db: Surreal<Db>,
     mut shutdown: watch::Receiver<bool>,
 ) -> JoinHandle<()> {
@@ -34,6 +37,7 @@ pub fn spawn_task_watcher(
                         &task_runner,
                         &session_chat,
                         &discord_sender,
+                        &reflection,
                         &db,
                     ).await;
                 }
@@ -50,6 +54,7 @@ async fn check_completed_tasks(
     task_runner: &TaskRunner,
     session_chat: &SessionChat,
     discord_sender: &DiscordSender,
+    reflection: &Arc<ReflectionManager>,
     db: &Surreal<Db>,
 ) {
     let agent_ids = task_runner.list_task_ids().await;
@@ -117,7 +122,26 @@ async fn check_completed_tasks(
                 );
             }
         }
+
+        // Spawn agent reflection on the agent's own session (skip self-reflection)
+        if !status.agent_name.contains("reflection")
+            && let Some(thing) = parse_agent_session_thing(&agent_id)
+        {
+            let reflection = Arc::clone(reflection);
+            tokio::spawn(async move {
+                reflection.run_after_agent_handoff(&thing).await;
+            });
+        }
     }
+}
+
+/// Parse "session:abc123" into a Thing.
+fn parse_agent_session_thing(agent_id: &str) -> Option<Thing> {
+    let (table, id) = agent_id.split_once(':')?;
+    if table.is_empty() || id.is_empty() {
+        return None;
+    }
+    Some(Thing::from((table, id)))
 }
 
 /// Extract channel ID from an interface key like "discord:channel:123456".

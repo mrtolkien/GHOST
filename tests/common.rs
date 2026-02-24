@@ -338,14 +338,14 @@ impl LiveTestEnv {
     /// the handoff note in production). Also runs deterministic reference
     /// curation post-processing (matching production flow).
     ///
-    /// `chat_mode` — when true, appends chat-specific instructions (diary,
-    /// identity files) to the user message, matching what production does
-    /// for chat-session reflections.
+    /// `agent_name` — which reflection agent to use: `"reflection"` for
+    /// agent-session knowledge extraction, `"chat-reflection"` for
+    /// chat-session diary/identity focus.
     pub async fn run_reflection(
         &self,
         session_id: &Thing,
         previous_handoff: Option<&str>,
-        chat_mode: bool,
+        agent_name: &str,
     ) -> String {
         let messages = ghost::db::sessions::list_messages_by_session(&self.db, session_id)
             .await
@@ -360,24 +360,17 @@ impl LiveTestEnv {
         );
         let web_cache_section = ghost::jobs::reflection::format_classified_cache(&classified);
 
-        let chat_instructions = if chat_mode {
-            Some(ghost::jobs::reflection::CHAT_TASKS)
-        } else {
-            None
-        };
-
         let user_message = ghost::jobs::reflection::build_reflection_user_message(
             previous_handoff.unwrap_or("No previous handoff."),
             "No diary entry for today.",
             &transcript,
             agent_findings.as_deref(),
             &web_cache_section,
-            chat_instructions,
         );
 
         let findings = self
             .task_runner
-            .run_to_completion("reflection", &user_message, Some(session_id))
+            .run_to_completion(agent_name, &user_message, Some(session_id))
             .await
             .expect("reflection run_to_completion");
 

@@ -1,6 +1,9 @@
 use std::collections::HashMap;
+use std::path::Path;
 use std::sync::Arc;
 
+use regex::Regex;
+use std::sync::LazyLock;
 use surrealdb::Surreal;
 use surrealdb::engine::local::Db;
 use surrealdb::sql::Thing;
@@ -542,6 +545,55 @@ impl TaskRunner {
     }
 }
 
+static SKILL_PLACEHOLDER_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"\{\{\s*skill:([a-z0-9_-]+)\s*\}\}").expect("skill regex"));
+
+/// Resolve `{{ skill:name }}` placeholders in a system prompt by inlining
+/// the skill file's body (YAML frontmatter stripped).
+///
+/// Reads `$WORKSPACE/skills/{name}/skill.md`, strips the `---` frontmatter
+/// block, and substitutes the body in place. Logs a warning if a referenced
+/// skill file is not found.
+fn interpolate_skill_content(system_prompt: &str, workspace: &Path) -> String {
+    SKILL_PLACEHOLDER_RE
+        .replace_all(system_prompt, |caps: &regex::Captures| {
+            let skill_name = &caps[1];
+            let skill_path = workspace.join("skills").join(skill_name).join("skill.md");
+
+            match std::fs::read_to_string(&skill_path) {
+                Ok(content) => strip_yaml_frontmatter(&content),
+                Err(_) => {
+                    logfire::warn!(
+                        "skill interpolation: file not found",
+                        skill = skill_name.to_string(),
+                        path = skill_path.display().to_string(),
+                    );
+                    format!("[skill '{skill_name}' not found]")
+                }
+            }
+        })
+        .into_owned()
+}
+
+/// Strip YAML frontmatter (--- ... ---) from skill content, returning the
+/// body after the closing delimiter.
+fn strip_yaml_frontmatter(content: &str) -> String {
+    let trimmed = content.trim_start();
+    if !trimmed.starts_with("---") {
+        return content.to_string();
+    }
+
+    let after_open = &trimmed[3..];
+    if let Some(close) = after_open.find("\n---") {
+        let body_start = close + 4; // skip "\n---"
+        after_open[body_start..]
+            .trim_start_matches('\n')
+            .to_string()
+    } else {
+        content.to_string()
+    }
+}
+
 /// Build a skills section to append to the agent system prompt.
 ///
 /// If the agent definition declares `skills = [...]`, discover skills from
@@ -603,6 +655,7 @@ async fn run_task(
     cancel_token: &CancellationToken,
 ) -> Result<String, TaskError> {
     let mut system_prompt = definition.render_system_prompt(prompt);
+    system_prompt = interpolate_skill_content(&system_prompt, &config.workspace);
 
     // Append skills section if the agent declares any
     system_prompt.push_str(&build_agent_skills_section(config, &definition.skills));
@@ -669,6 +722,7 @@ async fn continue_task_run(
     // into the system prompt template, since the original query is already in
     // the session history.
     let mut system_prompt = definition.render_system_prompt(prompt);
+    system_prompt = interpolate_skill_content(&system_prompt, &config.workspace);
     system_prompt.push_str(&build_agent_skills_section(config, &definition.skills));
 
     let provider = provider_for_alias(config, definition.model.as_deref())?;
@@ -737,5 +791,61 @@ impl std::fmt::Debug for TaskHandle {
             .field("agent_name", &self.agent_name)
             .field("finished", &self.task_handle.is_finished())
             .finish()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn interpolate_skill_replaces_placeholder() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let skill_dir = dir.path().join("skills").join("note-writer");
+        std::fs::create_dir_all(&skill_dir).unwrap();
+        std::fs::write(
+            skill_dir.join("skill.md"),
+            "---\nname: note-writer\ndescription: Write notes.\n---\n\n# Note Guide\n\nWrite good notes.",
+        )
+        .unwrap();
+
+        let input = "Before\n\n{{ skill:note-writer }}\n\nAfter";
+        let result = interpolate_skill_content(input, dir.path());
+        assert!(result.contains("# Note Guide"));
+        assert!(result.contains("Write good notes."));
+        assert!(result.contains("Before"));
+        assert!(result.contains("After"));
+        // Frontmatter should be stripped
+        assert!(!result.contains("name: note-writer"));
+    }
+
+    #[test]
+    fn interpolate_skill_missing_file() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let input = "Use {{ skill:nonexistent }} here";
+        let result = interpolate_skill_content(input, dir.path());
+        assert!(result.contains("[skill 'nonexistent' not found]"));
+    }
+
+    #[test]
+    fn interpolate_skill_no_placeholders() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let input = "No placeholders here";
+        let result = interpolate_skill_content(input, dir.path());
+        assert_eq!(result, input);
+    }
+
+    #[test]
+    fn strip_yaml_frontmatter_removes_block() {
+        let content = "---\nname: test\ndescription: Test.\n---\n\n# Body\n\nContent.";
+        let result = strip_yaml_frontmatter(content);
+        assert_eq!(result, "# Body\n\nContent.");
+    }
+
+    #[test]
+    fn strip_yaml_frontmatter_no_frontmatter() {
+        let content = "# Just a body\n\nNo frontmatter.";
+        let result = strip_yaml_frontmatter(content);
+        assert_eq!(result, content);
     }
 }

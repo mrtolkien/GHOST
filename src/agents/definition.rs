@@ -124,6 +124,10 @@ pub fn parse_task_file(content: &str) -> Result<TaskDefinition, TaskError> {
 
 const DEFAULT_TASKS: &[(&str, &str)] = &[
     (
+        "chat-reflection",
+        include_str!("../../prompts/agents/chat-reflection.md"),
+    ),
+    (
         "deep-research",
         include_str!("../../prompts/agents/deep-research.md"),
     ),
@@ -424,6 +428,10 @@ Also: {{query}}
         assert_eq!(def.name, "reflection");
         assert!(def.tools.contains(&"note_write".to_string()));
         assert!(def.system_prompt_template.contains("{{ date }}"));
+        assert!(
+            def.system_prompt_template
+                .contains("{{ skill:note-writer }}")
+        );
         assert_eq!(def.progress_rules.len(), 1);
         assert_eq!(def.skills, vec!["knowledge-navigator"]);
 
@@ -431,6 +439,18 @@ Also: {{query}}
         assert_eq!(note_rule.tool, "note_write");
         assert!(note_rule.min.is_none());
         assert!(note_rule.nudge.is_some());
+    }
+
+    #[test]
+    fn default_chat_reflection_agent_parses() {
+        let content = include_str!("../../prompts/agents/chat-reflection.md");
+        let def = parse_task_file(content).unwrap();
+        assert_eq!(def.name, "chat-reflection");
+        assert!(def.tools.contains(&"note_write".to_string()));
+        assert!(def.tools.contains(&"write_file".to_string()));
+        assert!(def.system_prompt_template.contains("{{ date }}"));
+        assert_eq!(def.progress_rules.len(), 1);
+        assert_eq!(def.skills, vec!["knowledge-navigator", "note-writer"]);
     }
 
     #[test]

@@ -67,20 +67,22 @@ pub async fn run() -> Result<(), GhostError> {
     if let Some((ref sender, _)) = discord_result {
         let discord_sender = Arc::new(sender.clone());
 
-        // Agent watcher — polls for completed agents and injects findings
-        agent_watcher_handle = Some(crate::agents::watcher::spawn_task_watcher(
-            Arc::clone(&task_runner),
-            Arc::clone(&session_chat),
-            Arc::clone(&discord_sender),
-            db.clone(),
-            shutdown_rx.clone(),
-        ));
-
         let reflection = Arc::new(ReflectionManager::new(
             db.clone(),
             config.clone(),
             Arc::clone(&task_runner),
         ));
+
+        // Agent watcher — polls for completed agents and injects findings
+        agent_watcher_handle = Some(crate::agents::watcher::spawn_task_watcher(
+            Arc::clone(&task_runner),
+            Arc::clone(&session_chat),
+            Arc::clone(&discord_sender),
+            Arc::clone(&reflection),
+            db.clone(),
+            shutdown_rx.clone(),
+        ));
+
         let hb = HeartbeatManager::new(
             db.clone(),
             Arc::clone(&task_runner),

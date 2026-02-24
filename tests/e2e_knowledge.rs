@@ -73,7 +73,7 @@ async fn e2e_research() {
     // Agent session reflection: has full research transcript + web fetches
     let _agent_reflection = tokio::time::timeout(
         std::time::Duration::from_secs(180),
-        env.run_reflection(&outcome.agent_session, None, false),
+        env.run_reflection(&outcome.agent_session, None, "reflection"),
     )
     .await
     .expect("TIMEOUT: agent reflection did not complete within 3 minutes");
@@ -84,7 +84,7 @@ async fn e2e_research() {
     // Chat session reflection: user question + injected findings summary + diary
     let _chat_reflection = tokio::time::timeout(
         std::time::Duration::from_secs(180),
-        env.run_reflection(&session, None, true),
+        env.run_reflection(&session, None, "chat-reflection"),
     )
     .await
     .expect("TIMEOUT: chat reflection did not complete within 3 minutes");
