@@ -227,12 +227,12 @@ mod tests {
 
         fs::write(
             agents.join("zeta.md"),
-            "+++\nname = \"zeta\"\ndescription = \"Z agent\"\ntools = []\n+++\nBody\n",
+            "---\nname: zeta\ndescription: Z agent\ntools: []\n---\nBody\n",
         )
         .unwrap();
         fs::write(
             agents.join("alpha.md"),
-            "+++\nname = \"alpha\"\ndescription = \"A agent\"\ntools = []\n+++\nBody\n",
+            "---\nname: alpha\ndescription: A agent\ntools: []\n---\nBody\n",
         )
         .unwrap();
 

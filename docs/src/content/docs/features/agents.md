@@ -10,22 +10,26 @@ independently with their own tool sets, iteration limits, and system prompts.
 
 ## Agent Format
 
-Each agent is a markdown file with TOML frontmatter in `$WORKSPACE/agents/`:
+Each agent is a markdown file with YAML frontmatter in `$WORKSPACE/agents/`:
 
 ```markdown title="agents/my-agent.md"
-+++
-name = "my-agent"
-description = "What this agent does"
-tools = ["web_search", "web_fetch", "read_file", "todo"]
-max_iterations = 50
-model = "primary"
-skills = ["knowledge-navigator"]
-
-[[progress]]
-tool = "web_fetch"
-min = 7
-nudge = "Need {min} {tool} calls (have {count}). Keep going."
-+++
+---
+name: my-agent
+description: What this agent does
+tools:
+  - web_search
+  - web_fetch
+  - read_file
+  - todo
+max_iterations: 50
+model: primary
+skills:
+  - knowledge-navigator
+progress:
+  - tool: web_fetch
+    min: 7
+    nudge: "Need {min} {tool} calls (have {count}). Keep going."
+---
 
 # Agent System Prompt
 
@@ -53,15 +57,15 @@ Each section is optional — if an agent doesn't declare it, that nudge type
 simply doesn't fire.
 :::
 
-### `[[progress]]` — Periodic Tool Count Nudges
+### `progress` — Periodic Tool Count Nudges
 
 Track how many times a tool has been called and nudge the model when below a minimum.
 
-```toml title="Progress nudge"
-[[progress]]
-tool = "note_write"
-min = 3
-nudge = "Need {min} {tool} calls (have {count}). Keep going."
+```yaml title="Progress nudge"
+progress:
+  - tool: note_write
+    min: 3
+    nudge: "Need {min} {tool} calls (have {count}). Keep going."
 ```
 
 | Field   | Type         | Description                                                  |
@@ -70,14 +74,14 @@ nudge = "Need {min} {tool} calls (have {count}). Keep going."
 | `min`   | number (opt) | Minimum call count; nudge fires while below                  |
 | `nudge` | string (opt) | Message to inject; interpolates `{tool}`, `{count}`, `{min}` |
 
-### `[progress_gate]` — Block EndTurn Until TODO Complete
+### `progress_gate` — Block EndTurn Until TODO Complete
 
 Prevents the agent from ending its turn without a completed TODO list.
 
-```toml title="Progress gate"
-[progress_gate]
-no_todo = "Create your TODO checklist before writing."
-incomplete = "You have {incomplete} incomplete items. Complete them."
+```yaml title="Progress gate"
+progress_gate:
+  no_todo: Create your TODO checklist before writing.
+  incomplete: "You have {incomplete} incomplete items. Complete them."
 ```
 
 | Field        | Type   | Description                                          |
@@ -85,14 +89,14 @@ incomplete = "You have {incomplete} incomplete items. Complete them."
 | `no_todo`    | string | Fired when no TODO list exists at all                |
 | `incomplete` | string | Fired when items remain; interpolates `{incomplete}` |
 
-### `[temporal]` — Wall-Clock Timer Nudge
+### `temporal` — Wall-Clock Timer Nudge
 
 Fires once after the specified number of seconds.
 
-```toml title="Temporal nudge"
-[temporal]
-after_seconds = 300
-message = "You've been working for {minutes} minutes. Wrap up now."
+```yaml title="Temporal nudge"
+temporal:
+  after_seconds: 300
+  message: "You've been working for {minutes} minutes. Wrap up now."
 ```
 
 | Field           | Type   | Description                                 |
@@ -100,15 +104,15 @@ message = "You've been working for {minutes} minutes. Wrap up now."
 | `after_seconds` | number | Seconds before the nudge fires              |
 | `message`       | string | Message to inject; interpolates `{minutes}` |
 
-### `[recency]` — Tool Not Used Recently
+### `recency` — Tool Not Used Recently
 
 Fires periodically when a tool hasn't been used in the last N assistant turns.
 
-```toml title="Recency nudge"
-[recency]
-tool = "web_fetch"
-window = 3
-message = "You haven't fetched any pages recently."
+```yaml title="Recency nudge"
+recency:
+  tool: web_fetch
+  window: 3
+  message: You haven't fetched any pages recently.
 ```
 
 | Field     | Type   | Description                               |
@@ -117,14 +121,14 @@ message = "You haven't fetched any pages recently."
 | `window`  | number | Number of recent assistant turns to check |
 | `message` | string | Message to inject when tool is absent     |
 
-### `[context_pressure]` — Context Size Threshold
+### `context_pressure` — Context Size Threshold
 
 Fires once when total conversation content exceeds the character threshold.
 
-```toml title="Context pressure nudge"
-[context_pressure]
-threshold_chars = 250000
-message = "Context filling up. Finish efficiently."
+```yaml title="Context pressure nudge"
+context_pressure:
+  threshold_chars: 250000
+  message: Context filling up. Finish efficiently.
 ```
 
 | Field             | Type   | Description                               |

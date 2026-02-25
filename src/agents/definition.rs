@@ -5,9 +5,9 @@ use serde::Deserialize;
 use super::error::TaskError;
 use super::nudges::{ContextPressureConfig, ProgressGateConfig, RecencyConfig, TemporalConfig};
 
-const DELIMITER: &str = "+++";
+const DELIMITER: &str = "---";
 
-/// A progress rule declared in agent TOML frontmatter.
+/// A progress rule declared in agent YAML frontmatter.
 ///
 /// Agents can declare minimum tool call counts with custom feedback
 /// messages. The runtime injects these as XML `<progress>` system
@@ -79,16 +79,18 @@ impl TaskDefinition {
     }
 }
 
-/// Parse an agent definition from a markdown file with TOML frontmatter.
+/// Parse an agent definition from a markdown file with YAML frontmatter.
 ///
 /// Format:
 /// ```text
-/// +++
-/// name = "deep-research"
-/// description = "..."
-/// tools = ["web_search", "web_fetch"]
-/// max_iterations = 40
-/// +++
+/// ---
+/// name: deep-research
+/// description: "..."
+/// tools:
+///   - web_search
+///   - web_fetch
+/// max_iterations: 40
+/// ---
 ///
 /// # System prompt body here
 /// {{ query }}
@@ -98,14 +100,14 @@ pub fn parse_task_file(content: &str) -> Result<TaskDefinition, TaskError> {
 
     if !trimmed.starts_with(DELIMITER) {
         return Err(TaskError::InvalidFrontMatter {
-            reason: "missing opening +++ delimiter".to_string(),
+            reason: "missing opening --- delimiter".to_string(),
         });
     }
 
     let after_open = &trimmed[DELIMITER.len()..];
     let Some(end_pos) = after_open.find(DELIMITER) else {
         return Err(TaskError::InvalidFrontMatter {
-            reason: "missing closing +++ delimiter".to_string(),
+            reason: "missing closing --- delimiter".to_string(),
         });
     };
 
@@ -116,8 +118,8 @@ pub fn parse_task_file(content: &str) -> Result<TaskDefinition, TaskError> {
         .unwrap_or(&trimmed[body_start..])
         .to_string();
 
-    let front: TaskFrontmatter =
-        toml::from_str(frontmatter_str).map_err(|source| TaskError::FrontMatterParse { source })?;
+    let front: TaskFrontmatter = serde_yaml::from_str(frontmatter_str)
+        .map_err(|source| TaskError::FrontMatterParse { source })?;
 
     Ok(TaskDefinition {
         name: front.name,
@@ -237,20 +239,7 @@ mod tests {
 
     #[test]
     fn parse_valid_agent_all_fields() {
-        let content = r#"+++
-name = "deep-research"
-description = "Iterative web research"
-tools = ["web_search", "web_fetch", "knowledge_search"]
-max_iterations = 30
-model = "fast"
-+++
-
-# Deep Research Agent
-
-You are a research specialist.
-
-Query: {{ query }}
-"#;
+        let content = "---\nname: deep-research\ndescription: Iterative web research\ntools:\n  - web_search\n  - web_fetch\n  - knowledge_search\nmax_iterations: 30\nmodel: fast\n---\n\n# Deep Research Agent\n\nYou are a research specialist.\n\nQuery: {{ query }}\n";
         let def = parse_task_file(content).unwrap();
         assert_eq!(def.name, "deep-research");
         assert_eq!(def.description, "Iterative web research");
@@ -265,14 +254,7 @@ Query: {{ query }}
 
     #[test]
     fn parse_defaults() {
-        let content = r#"+++
-name = "simple"
-description = "A simple agent"
-tools = ["todo"]
-+++
-
-Do the thing. {{ query }}
-"#;
+        let content = "---\nname: simple\ndescription: A simple agent\ntools:\n  - todo\n---\n\nDo the thing. {{ query }}\n";
         let def = parse_task_file(content).unwrap();
         assert_eq!(def.max_iterations, 50);
         assert!(def.model.is_none());
@@ -280,16 +262,7 @@ Do the thing. {{ query }}
 
     #[test]
     fn interpolate_query_and_date() {
-        let content = r#"+++
-name = "test"
-description = "test"
-tools = []
-+++
-
-Today is {{ date }}. Research: {{ query }}
-
-Also: {{query}}
-"#;
+        let content = "---\nname: test\ndescription: test\ntools: []\n---\n\nToday is {{ date }}. Research: {{ query }}\n\nAlso: {{query}}\n";
         let def = parse_task_file(content).unwrap();
         let rendered = def.render_system_prompt("3D printers under $1000");
         assert!(rendered.contains("Research: 3D printers under $1000"));
@@ -301,19 +274,19 @@ Also: {{query}}
 
     #[test]
     fn parse_missing_opening_delimiter() {
-        let err = parse_task_file("name = \"oops\"").unwrap_err();
+        let err = parse_task_file("name: oops").unwrap_err();
         assert!(err.to_string().contains("missing opening"));
     }
 
     #[test]
     fn parse_missing_closing_delimiter() {
-        let err = parse_task_file("+++\nname = \"oops\"").unwrap_err();
+        let err = parse_task_file("---\nname: oops").unwrap_err();
         assert!(err.to_string().contains("missing closing"));
     }
 
     #[test]
     fn parse_missing_required_field() {
-        let content = "+++\nname = \"x\"\n+++\nBody\n";
+        let content = "---\nname: x\n---\nBody\n";
         let err = parse_task_file(content).unwrap_err();
         assert!(matches!(err, TaskError::FrontMatterParse { .. }));
     }
@@ -363,12 +336,12 @@ Also: {{query}}
 
         std::fs::write(
             agents_dir.join("zeta.md"),
-            "+++\nname = \"zeta\"\ndescription = \"Z agent\"\ntools = []\n+++\nBody\n",
+            "---\nname: zeta\ndescription: Z agent\ntools: []\n---\nBody\n",
         )
         .unwrap();
         std::fs::write(
             agents_dir.join("alpha.md"),
-            "+++\nname = \"alpha\"\ndescription = \"A agent\"\ntools = []\n+++\nBody\n",
+            "---\nname: alpha\ndescription: A agent\ntools: []\n---\nBody\n",
         )
         .unwrap();
 
@@ -392,7 +365,7 @@ Also: {{query}}
         // Valid
         std::fs::write(
             agents_dir.join("valid.md"),
-            "+++\nname = \"valid\"\ndescription = \"works\"\ntools = []\n+++\nBody\n",
+            "---\nname: valid\ndescription: works\ntools: []\n---\nBody\n",
         )
         .unwrap();
 
@@ -486,19 +459,7 @@ Also: {{query}}
 
     #[test]
     fn parse_agent_with_progress_rules() {
-        let content = r#"+++
-name = "test-agent"
-description = "Test agent with progress"
-tools = ["web_fetch"]
-
-[[progress]]
-tool = "web_fetch"
-min = 3
-nudge = "Need {min} {tool} calls (have {count}). Keep going."
-+++
-
-Body here.
-"#;
+        let content = "---\nname: test-agent\ndescription: Test agent with progress\ntools:\n  - web_fetch\nprogress:\n  - tool: web_fetch\n    min: 3\n    nudge: \"Need {min} {tool} calls (have {count}). Keep going.\"\n---\n\nBody here.\n";
         let def = parse_task_file(content).unwrap();
         assert_eq!(def.progress_rules.len(), 1);
         let rule = &def.progress_rules[0];
@@ -512,23 +473,7 @@ Body here.
 
     #[test]
     fn parse_agent_with_multiple_progress_rules() {
-        let content = r#"+++
-name = "multi"
-description = "Multiple rules"
-tools = ["web_fetch", "web_search"]
-
-[[progress]]
-tool = "web_fetch"
-min = 5
-
-[[progress]]
-tool = "web_search"
-min = 3
-nudge = "Search more."
-+++
-
-Body.
-"#;
+        let content = "---\nname: multi\ndescription: Multiple rules\ntools:\n  - web_fetch\n  - web_search\nprogress:\n  - tool: web_fetch\n    min: 5\n  - tool: web_search\n    min: 3\n    nudge: Search more.\n---\n\nBody.\n";
         let def = parse_task_file(content).unwrap();
         assert_eq!(def.progress_rules.len(), 2);
         assert_eq!(def.progress_rules[0].tool, "web_fetch");
@@ -541,14 +486,8 @@ Body.
 
     #[test]
     fn parse_agent_without_progress_rules() {
-        let content = r#"+++
-name = "simple"
-description = "No progress rules"
-tools = ["todo"]
-+++
-
-Body.
-"#;
+        let content =
+            "---\nname: simple\ndescription: No progress rules\ntools:\n  - todo\n---\n\nBody.\n";
         let def = parse_task_file(content).unwrap();
         assert!(def.progress_rules.is_empty());
         assert!(def.skills.is_empty());
@@ -560,31 +499,7 @@ Body.
 
     #[test]
     fn parse_agent_with_all_nudge_sections() {
-        let content = r#"+++
-name = "nudgy"
-description = "Agent with all nudges"
-tools = ["web_fetch", "todo"]
-
-[progress_gate]
-no_todo = "Make a plan first."
-incomplete = "{incomplete} items left."
-
-[temporal]
-after_seconds = 120
-message = "Been working {minutes} min."
-
-[recency]
-tool = "web_fetch"
-window = 2
-message = "Fetch something."
-
-[context_pressure]
-threshold_chars = 100000
-message = "Context large."
-+++
-
-Body.
-"#;
+        let content = "---\nname: nudgy\ndescription: Agent with all nudges\ntools:\n  - web_fetch\n  - todo\nprogress_gate:\n  no_todo: Make a plan first.\n  incomplete: \"{incomplete} items left.\"\ntemporal:\n  after_seconds: 120\n  message: \"Been working {minutes} min.\"\nrecency:\n  tool: web_fetch\n  window: 2\n  message: Fetch something.\ncontext_pressure:\n  threshold_chars: 100000\n  message: Context large.\n---\n\nBody.\n";
         let def = parse_task_file(content).unwrap();
 
         let gate = def.progress_gate.unwrap();
@@ -607,15 +522,7 @@ Body.
 
     #[test]
     fn parse_agent_with_skills() {
-        let content = r#"+++
-name = "skilled"
-description = "Agent with skills"
-tools = ["knowledge_search", "note_write"]
-skills = ["knowledge-navigator", "note-writer"]
-+++
-
-Body.
-"#;
+        let content = "---\nname: skilled\ndescription: Agent with skills\ntools:\n  - knowledge_search\n  - note_write\nskills:\n  - knowledge-navigator\n  - note-writer\n---\n\nBody.\n";
         let def = parse_task_file(content).unwrap();
         assert_eq!(def.skills, vec!["knowledge-navigator", "note-writer"]);
     }

@@ -4,7 +4,7 @@ use std::sync::LazyLock;
 use super::error::KnowledgeError;
 use super::types::{NoteFrontMatter, ParsedNote, WikiLink};
 
-const DELIMITER: &str = "+++";
+const DELIMITER: &str = "---";
 
 static WIKI_LINK_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"\[\[(?:(\w+)>)?([^\]]+)\]\]").expect("wiki link regex"));
@@ -14,14 +14,14 @@ pub fn parse_note(raw: &str) -> Result<ParsedNote, KnowledgeError> {
 
     if !trimmed.starts_with(DELIMITER) {
         return Err(KnowledgeError::InvalidFrontMatter {
-            reason: "missing opening +++ delimiter".to_string(),
+            reason: "missing opening --- delimiter".to_string(),
         });
     }
 
     let after_open = &trimmed[DELIMITER.len()..];
     let Some(end_pos) = after_open.find(DELIMITER) else {
         return Err(KnowledgeError::InvalidFrontMatter {
-            reason: "missing closing +++ delimiter".to_string(),
+            reason: "missing closing --- delimiter".to_string(),
         });
     };
 
@@ -32,7 +32,7 @@ pub fn parse_note(raw: &str) -> Result<ParsedNote, KnowledgeError> {
         .unwrap_or(&trimmed[body_start..])
         .to_string();
 
-    let front: NoteFrontMatter = toml::from_str(frontmatter_str)
+    let front: NoteFrontMatter = serde_yaml::from_str(frontmatter_str)
         .map_err(|source| KnowledgeError::FrontMatterParse { source })?;
 
     let wiki_links = extract_wiki_links(&body);
@@ -56,10 +56,10 @@ pub fn extract_wiki_links(body: &str) -> Vec<WikiLink> {
 }
 
 pub fn serialize_note(front: &NoteFrontMatter, body: &str) -> Result<String, KnowledgeError> {
-    let toml_str = toml::to_string_pretty(front)
+    let yaml_str = serde_yaml::to_string(front)
         .map_err(|source| KnowledgeError::FrontMatterSerialize { source })?;
 
-    Ok(format!("{DELIMITER}\n{toml_str}{DELIMITER}\n{body}"))
+    Ok(format!("{DELIMITER}\n{yaml_str}{DELIMITER}\n{body}"))
 }
 
 #[must_use]
@@ -82,7 +82,7 @@ mod tests {
 
     #[test]
     fn parse_valid_note_roundtrip() {
-        let raw = "+++\ntitle = \"Rust\"\narchetype = \"concept\"\ntags = [\"lang\"]\ntrust = 8\n+++\nRust is a systems programming language.\n\nIt has [[Ownership]] and [[concept>Borrowing]].\n";
+        let raw = "---\ntitle: Rust\narchetype: concept\ntags:\n  - lang\ntrust: 8\n---\nRust is a systems programming language.\n\nIt has [[Ownership]] and [[concept>Borrowing]].\n";
 
         let parsed = parse_note(raw).unwrap();
         assert_eq!(parsed.front.title, "Rust");
@@ -123,7 +123,7 @@ mod tests {
 
     #[test]
     fn missing_delimiter_error() {
-        let result = parse_note("title = \"Oops\"\n\nBody without delimiters.");
+        let result = parse_note("title: Oops\n\nBody without delimiters.");
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert!(err.to_string().contains("missing opening"));
@@ -131,7 +131,7 @@ mod tests {
 
     #[test]
     fn missing_closing_delimiter() {
-        let result = parse_note("+++\ntitle = \"Oops\"\n\nBody without closing.");
+        let result = parse_note("---\ntitle: Oops\n\nBody without closing.");
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert!(err.to_string().contains("missing closing"));
@@ -166,7 +166,7 @@ mod tests {
 
     #[test]
     fn default_trust_value() {
-        let raw = "+++\ntitle = \"Minimal\"\n+++\nJust body.\n";
+        let raw = "---\ntitle: Minimal\n---\nJust body.\n";
         let parsed = parse_note(raw).unwrap();
         assert_eq!(parsed.front.trust, 5);
     }

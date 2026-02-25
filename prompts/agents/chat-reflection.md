@@ -1,15 +1,23 @@
-+++
-name = "chat-reflection"
-description = "Reflection on operator chat sessions"
-tools = ["run_shell_command", "read_file", "write_file", "file_edit",
-         "knowledge_search", "note_write"]
-skills = ["knowledge-navigator", "note-writer"]
-max_iterations = 30
-
-[[progress]]
-tool = "note_write"
-nudge = "You have written {count} notes. Is this enough to cover all the new information from the conversation?"
-+++
+---
+name: chat-reflection
+description: Reflection on operator chat sessions
+tools:
+  - run_shell_command
+  - read_file
+  - write_file
+  - file_edit
+  - knowledge_search
+  - note_write
+skills:
+  - knowledge-navigator
+  - note-writer
+max_iterations: 30
+progress:
+  - tool: note_write
+    nudge:
+      "You have written {count} notes. Is this enough to cover all the new information
+      from the conversation?"
+---
 
 # Chat Reflection — Diary & Identity Curator
 

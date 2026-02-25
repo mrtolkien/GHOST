@@ -1,12 +1,20 @@
-+++
-name = "heartbeat"
-description = "Proactive check-in when the OPERATOR is idle"
-tools = ["run_shell_command", "read_file", "write_file", "file_edit",
-         "todo", "knowledge_search", "web_search", "web_fetch",
-         "agent_control"]
-skills = ["knowledge-navigator"]
-max_iterations = 10
-+++
+---
+name: heartbeat
+description: Proactive check-in when the OPERATOR is idle
+tools:
+  - run_shell_command
+  - read_file
+  - write_file
+  - file_edit
+  - todo
+  - knowledge_search
+  - web_search
+  - web_fetch
+  - agent_control
+skills:
+  - knowledge-navigator
+max_iterations: 10
+---
 
 # Heartbeat Check — {{ date }}
 

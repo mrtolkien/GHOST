@@ -10,13 +10,13 @@ pub enum KnowledgeError {
     #[error("failed to parse frontmatter: {source}")]
     FrontMatterParse {
         #[source]
-        source: toml::de::Error,
+        source: serde_yaml::Error,
     },
 
     #[error("failed to serialize frontmatter: {source}")]
     FrontMatterSerialize {
         #[source]
-        source: toml::ser::Error,
+        source: serde_yaml::Error,
     },
 
     #[error("note not found: {title}")]

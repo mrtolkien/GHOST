@@ -11,7 +11,7 @@ pub enum TaskError {
     #[error("failed to parse agent frontmatter: {source}")]
     FrontMatterParse {
         #[source]
-        source: toml::de::Error,
+        source: serde_yaml::Error,
     },
 
     #[error("agent '{name}' is already running (agent_id: {agent_id})")]

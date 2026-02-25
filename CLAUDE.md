@@ -54,7 +54,7 @@ several things).
 - **OPERATOR**: The human user. Identified by Discord user ID in config. One per
   installation.
 - **Session**: Chat thread between OPERATOR and GHOST.
-- **Job**: Markdown file in `$WORKSPACE/jobs/` with TOML frontmatter. Cron-scheduled.
+- **Job**: Markdown file in `$WORKSPACE/jobs/` with YAML frontmatter. Cron-scheduled.
   Heartbeat and reflection are dedicated subsystems (not regular jobs).
 - **Knowledge**: Notes, references, and diary entries stored in SurrealDB with typed
   graph edges and embeddings search.

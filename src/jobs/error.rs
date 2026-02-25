@@ -10,7 +10,7 @@ pub enum JobError {
     #[error("failed to parse job frontmatter: {source}")]
     FrontMatterParse {
         #[source]
-        source: toml::de::Error,
+        source: serde_yaml::Error,
     },
 
     #[error("invalid cron schedule '{expression}': {reason}")]

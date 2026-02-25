@@ -1352,9 +1352,7 @@ mod tests {
         // Note with a tag → provides topic context
         std::fs::write(
             notes_dir.join("tokio.md"),
-            "+++\ntitle = \"Tokio\"\ntags = [\"rust/async\"]\n\
-             sources = [\"https://docs.rs/tokio\"]\n+++\n\
-             An async runtime.\n",
+            "---\ntitle: Tokio\ntags:\n  - rust/async\nsources:\n  - https://docs.rs/tokio\n---\nAn async runtime.\n",
         )
         .unwrap();
 
@@ -1387,10 +1385,7 @@ mod tests {
         // Note with sources in frontmatter
         std::fs::write(
             notes_dir.join("test.md"),
-            "+++\ntitle = \"Test\"\nsources = [\
-             \"https://example.com/src1\", \
-             \"https://other.com/src2\"]\n+++\n\
-             Body text with no URLs.\n",
+            "---\ntitle: Test\nsources:\n  - https://example.com/src1\n  - https://other.com/src2\n---\nBody text with no URLs.\n",
         )
         .unwrap();
 

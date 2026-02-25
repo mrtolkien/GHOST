@@ -3,24 +3,28 @@ title: Jobs
 description: Cron-scheduled tasks, heartbeat, and reflection subsystems.
 ---
 
-Jobs are cron-scheduled tasks defined as markdown files with TOML frontmatter.
+Jobs are cron-scheduled tasks defined as markdown files with YAML frontmatter.
 
 ## Job Format
 
 Jobs live in `$WORKSPACE/jobs/`:
 
 ```markdown title="jobs/daily-news.md"
-+++
-name = "Daily News Summary"
-schedule = "0 8 * * *"
-enabled = true
-model = "primary"
-tools = ["web_search", "web_fetch", "read_file"]
-carry_last_output = true
-pre_tools = [
-  { name = "web_fetch", input = { url = "https://news.ycombinator.com" } }
-]
-+++
+---
+name: Daily News Summary
+schedule: "0 8 * * *"
+enabled: true
+model: primary
+tools:
+  - web_search
+  - web_fetch
+  - read_file
+carry_last_output: true
+pre_tools:
+  - name: web_fetch
+    input:
+      url: https://news.ycombinator.com
+---
 
 Summarize the top stories from Hacker News. Focus on AI and systems programming. Write a
 brief digest with links.

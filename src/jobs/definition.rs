@@ -6,7 +6,7 @@ use serde::Deserialize;
 
 use super::error::JobError;
 
-const DELIMITER: &str = "+++";
+const DELIMITER: &str = "---";
 
 #[derive(Debug, Clone, Deserialize)]
 struct JobFrontmatter {
@@ -58,14 +58,14 @@ pub fn parse_job_file(path: &Path, content: &str) -> Result<JobDefinition, JobEr
 
     if !trimmed.starts_with(DELIMITER) {
         return Err(JobError::InvalidFrontMatter {
-            reason: "missing opening +++ delimiter".to_string(),
+            reason: "missing opening --- delimiter".to_string(),
         });
     }
 
     let after_open = &trimmed[DELIMITER.len()..];
     let Some(end_pos) = after_open.find(DELIMITER) else {
         return Err(JobError::InvalidFrontMatter {
-            reason: "missing closing +++ delimiter".to_string(),
+            reason: "missing closing --- delimiter".to_string(),
         });
     };
 
@@ -76,8 +76,8 @@ pub fn parse_job_file(path: &Path, content: &str) -> Result<JobDefinition, JobEr
         .unwrap_or(&trimmed[body_start..])
         .to_string();
 
-    let front: JobFrontmatter =
-        toml::from_str(frontmatter_str).map_err(|source| JobError::FrontMatterParse { source })?;
+    let front: JobFrontmatter = serde_yaml::from_str(frontmatter_str)
+        .map_err(|source| JobError::FrontMatterParse { source })?;
 
     let tools = match front.tools.as_str() {
         "none" => JobToolSet::None,
@@ -139,16 +139,7 @@ mod tests {
 
     #[test]
     fn parse_valid_job_all_fields() {
-        let content = r#"+++
-name = "Weekly Research"
-enabled = false
-schedule = "0 9 * * MON"
-model = "fast"
-tools = "none"
-carry_last_output = true
-+++
-Research the latest AI papers and summarize findings.
-"#;
+        let content = "---\nname: Weekly Research\nenabled: false\nschedule: \"0 9 * * MON\"\nmodel: fast\ntools: none\ncarry_last_output: true\n---\nResearch the latest AI papers and summarize findings.\n";
         let def = parse_job_file(&test_path(), content).unwrap();
         assert_eq!(def.name, "Weekly Research");
         assert!(!def.enabled);
@@ -162,12 +153,7 @@ Research the latest AI papers and summarize findings.
 
     #[test]
     fn parse_valid_job_defaults() {
-        let content = r#"+++
-name = "Simple Job"
-schedule = "*/30 * * * *"
-+++
-Do something every 30 minutes.
-"#;
+        let content = "---\nname: Simple Job\nschedule: \"*/30 * * * *\"\n---\nDo something every 30 minutes.\n";
         let def = parse_job_file(&test_path(), content).unwrap();
         assert_eq!(def.name, "Simple Job");
         assert!(def.enabled);
@@ -178,35 +164,35 @@ Do something every 30 minutes.
 
     #[test]
     fn parse_missing_opening_delimiter() {
-        let content = "name = \"Oops\"\nschedule = \"* * * * *\"\n";
+        let content = "name: Oops\nschedule: \"* * * * *\"\n";
         let err = parse_job_file(&test_path(), content).unwrap_err();
         assert!(err.to_string().contains("missing opening"));
     }
 
     #[test]
     fn parse_missing_closing_delimiter() {
-        let content = "+++\nname = \"Oops\"\nschedule = \"* * * * *\"\n";
+        let content = "---\nname: Oops\nschedule: \"* * * * *\"\n";
         let err = parse_job_file(&test_path(), content).unwrap_err();
         assert!(err.to_string().contains("missing closing"));
     }
 
     #[test]
     fn parse_missing_required_field() {
-        let content = "+++\nschedule = \"* * * * *\"\n+++\nBody\n";
+        let content = "---\nschedule: \"* * * * *\"\n---\nBody\n";
         let err = parse_job_file(&test_path(), content).unwrap_err();
         assert!(matches!(err, JobError::FrontMatterParse { .. }));
     }
 
     #[test]
     fn parse_invalid_cron_expression() {
-        let content = "+++\nname = \"Bad\"\nschedule = \"not a cron\"\n+++\nBody\n";
+        let content = "---\nname: Bad\nschedule: not a cron\n---\nBody\n";
         let err = parse_job_file(&test_path(), content).unwrap_err();
         assert!(matches!(err, JobError::InvalidSchedule { .. }));
     }
 
     #[test]
     fn parse_six_field_cron_rejected() {
-        let content = "+++\nname = \"Six\"\nschedule = \"0 0 9 * * MON\"\n+++\nBody\n";
+        let content = "---\nname: Six\nschedule: \"0 0 9 * * MON\"\n---\nBody\n";
         let err = parse_job_file(&test_path(), content).unwrap_err();
         assert!(matches!(err, JobError::InvalidSchedule { .. }));
         assert!(err.to_string().contains("expected 5 fields, got 6"));
@@ -214,7 +200,7 @@ Do something every 30 minutes.
 
     #[test]
     fn next_run_computation() {
-        let content = "+++\nname = \"Test\"\nschedule = \"0 9 * * *\"\n+++\nBody\n";
+        let content = "---\nname: Test\nschedule: \"0 9 * * *\"\n---\nBody\n";
         let def = parse_job_file(&test_path(), content).unwrap();
         let now = Utc::now();
         let next = next_run_after(&def.schedule, &now);

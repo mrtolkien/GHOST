@@ -1,15 +1,22 @@
-+++
-name = "reflection"
-description = "Knowledge extraction from agent sessions"
-tools = ["run_shell_command", "read_file", "write_file", "file_edit",
-         "knowledge_search", "note_write"]
-skills = ["knowledge-navigator"]
-max_iterations = 60
-
-[[progress]]
-tool = "note_write"
-nudge = "You have written {count} notes so far. Is this enough to cover all the new information from the conversation?"
-+++
+---
+name: reflection
+description: Knowledge extraction from agent sessions
+tools:
+  - run_shell_command
+  - read_file
+  - write_file
+  - file_edit
+  - knowledge_search
+  - note_write
+skills:
+  - knowledge-navigator
+max_iterations: 60
+progress:
+  - tool: note_write
+    nudge:
+      "You have written {count} notes so far. Is this enough to cover all the new
+      information from the conversation?"
+---
 
 # Reflection Mode — Knowledge Extractor
 

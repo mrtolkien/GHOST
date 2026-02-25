@@ -1,26 +1,39 @@
-+++
-name = "deep-research"
-description = "Iterative web research with full page reading and source evaluation"
-tools = ["knowledge_search", "web_search", "web_fetch", "read_file", "todo"]
-max_iterations = 50
-
-[progress_gate]
-no_todo = "REJECTED — you skipped the planning step. Create your TODO checklist with Fetch: items before writing your report. Call the todo tool now."
-incomplete = "REJECTED — your text response was not saved. You have {incomplete} incomplete TODO item(s).\nYOUR NEXT STEPS:\n1. Call todo(batch_update) to mark items you already finished as done.\n2. Then web_search + web_fetch for the next pending Fetch: item.\nDo NOT write text — make tool calls."
-
-[temporal]
-after_seconds = 300
-message = "You've been working for {minutes} minutes. Mark your remaining TODO items done and write your report now. Do not start new fetches."
-
-[recency]
-tool = "web_fetch"
-window = 3
-message = "You haven't fetched any pages recently. Research means reading full pages, not just searching. Check your TODO — which sources still need to be fetched?"
-
-[context_pressure]
-threshold_chars = 250000
-message = "Your context window is filling up. Finish your remaining TODO items efficiently — prefer concise fetches and move to writing your report soon."
-+++
+---
+name: deep-research
+description: Iterative web research with full page reading and source evaluation
+tools:
+  - knowledge_search
+  - web_search
+  - web_fetch
+  - read_file
+  - todo
+max_iterations: 50
+progress_gate:
+  no_todo:
+    "REJECTED — you skipped the planning step. Create your TODO checklist with Fetch:
+    items before writing your report. Call the todo tool now."
+  incomplete:
+    "REJECTED — your text response was not saved. You have {incomplete} incomplete TODO
+    item(s).\nYOUR NEXT STEPS:\n1. Call todo(batch_update) to mark items you already
+    finished as done.\n2. Then web_search + web_fetch for the next pending Fetch:
+    item.\nDo NOT write text — make tool calls."
+temporal:
+  after_seconds: 300
+  message:
+    "You've been working for {minutes} minutes. Mark your remaining TODO items done and
+    write your report now. Do not start new fetches."
+recency:
+  tool: web_fetch
+  window: 3
+  message:
+    "You haven't fetched any pages recently. Research means reading full pages, not just
+    searching. Check your TODO — which sources still need to be fetched?"
+context_pressure:
+  threshold_chars: 250000
+  message:
+    "Your context window is filling up. Finish your remaining TODO items efficiently —
+    prefer concise fetches and move to writing your report soon."
+---
 
 # Deep Research Agent
 

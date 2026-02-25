@@ -33,18 +33,19 @@ State from the previous run may be carried by the runtime automatically.
 
 ## File Format
 
-Use TOML frontmatter delimited by `+++`:
+Use YAML frontmatter delimited by `---`:
 
 ```markdown
-+++
-name = "Daily recap"
-schedule = "0 8 * * *"
-enabled = true
-carry_last_output = true
-pre_tools = [
-  { name = "web_fetch", input = { url = "https://example.com/feed.xml" } }
-]
-+++
+---
+name: Daily recap
+schedule: "0 8 * * *"
+enabled: true
+carry_last_output: true
+pre_tools:
+  - name: web_fetch
+    input:
+      url: https://example.com/feed.xml
+---
 
 Explain the OPERATOR intent clearly. State what "good output" means. If you detect a
 clear and low-risk improvement, update this job file's prompt and/or pre_tools for next
