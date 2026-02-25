@@ -1,0 +1,3 @@
+- Fix message on startup
+- Fix and test reconciliation
+- Review typed edges for notes

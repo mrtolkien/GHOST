@@ -61,7 +61,7 @@ Promote a CLI command to a dedicated tool when:
 2. The operation has structured output that the model needs to parse reliably
 3. The operation is called 5+ times per session on average
 4. The operation has dangerous side effects where a malformed command could corrupt data
-   (this is why `note_write`/`reference_write`/`reference_manage` are already tools)
+   (this is why `note_write`/`reference_write` are already tools)
 
 ## Current Tool Inventory
 
@@ -69,9 +69,9 @@ Promote a CLI command to a dedicated tool when:
 
 `run_shell_command`, `read_file`, `write_file`, `file_edit`, `todo`
 
-### Reflection only (+3)
+### Reflection only (+2)
 
-`note_write`, `reference_write`, `reference_manage`
+`note_write`, `reference_write`
 
 ### CLI via bash (candidates for promotion if needed)
 
