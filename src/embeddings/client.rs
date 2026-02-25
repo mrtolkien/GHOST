@@ -20,7 +20,10 @@ impl EmbeddingClient {
             model: config.model.clone(),
             dimension: config.dimension,
             batch_size: config.batch_size,
-            client: reqwest::Client::new(),
+            client: reqwest::Client::builder()
+                .timeout(std::time::Duration::from_secs(120))
+                .build()
+                .expect("failed to build reqwest client"),
         }
     }
 

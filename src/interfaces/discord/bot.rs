@@ -66,6 +66,7 @@ pub(super) struct Handler {
     config: Config,
     allowed_user_id: String,
     bot_user_id: OnceLock<String>,
+    started_at: std::time::SystemTime,
 }
 
 impl Handler {
@@ -81,6 +82,7 @@ impl Handler {
             config,
             allowed_user_id,
             bot_user_id: OnceLock::new(),
+            started_at: std::time::SystemTime::now(),
         }
     }
 
@@ -216,6 +218,11 @@ impl EventHandler for Handler {
 
         // Ignore non-allowed users (silent)
         if msg.author.id.to_string() != self.allowed_user_id {
+            return;
+        }
+
+        // Skip messages from before this bot session (gateway resume replay)
+        if *msg.timestamp < self.started_at {
             return;
         }
 

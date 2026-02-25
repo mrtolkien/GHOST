@@ -18,21 +18,28 @@ pub async fn run() -> Result<(), GhostError> {
     let db = crate::db::connect(&config.workspace).await?;
     info!("database ready");
 
-    // Boot reconciliation: embed any knowledge that is missing or outdated
-    let client = EmbeddingClient::new(&config.embeddings);
-    if client.is_available().await {
+    // Boot reconciliation: embed any knowledge that is missing or outdated (background)
+    let reconcile_db = db.clone();
+    let reconcile_config = config.embeddings.clone();
+    tokio::spawn(async move {
+        let client = EmbeddingClient::new(&reconcile_config);
+        if !client.is_available().await {
+            logfire::warn!("Ollama unavailable — skipping boot reconciliation");
+            return;
+        }
         info!("running embedding boot reconciliation");
-        match crate::embeddings::pipeline::reconcile_embeddings(&client, &db).await {
+        match crate::embeddings::pipeline::reconcile_embeddings(&client, &reconcile_db).await {
             Ok((embedded, skipped)) => {
                 info!(embedded, skipped, "boot reconciliation complete");
             }
             Err(e) => {
-                logfire::warn!("boot reconciliation failed", error = e.to_string(),);
+                logfire::error!(
+                    "boot reconciliation failed — semantic search will not work",
+                    error = e.to_string(),
+                );
             }
         }
-    } else {
-        logfire::warn!("Ollama unavailable — skipping boot reconciliation");
-    }
+    });
 
     // Spawn file watcher for automatic embedding on content changes
     let (shutdown_tx, shutdown_rx) = tokio::sync::watch::channel(false);
