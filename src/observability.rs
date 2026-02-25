@@ -95,13 +95,10 @@ fn set_default_rust_log_filter() {
     // reliable way to filter console output.
     //
     // To see provider request/response bodies, set:
-    //   RUST_LOG=warn,ghost=info,ghost::providers=debug,usvg=error
+    //   RUST_LOG=warn,ghost=info,ghost::providers=debug
     //
     // SAFETY: daemon startup sets process env before spawning runtime tasks.
     unsafe {
-        std::env::set_var(
-            "RUST_LOG",
-            "warn,ghost=info,ghost::providers=debug,usvg=error",
-        );
+        std::env::set_var("RUST_LOG", "warn,ghost=info,usvg=off,resvg=off");
     }
 }

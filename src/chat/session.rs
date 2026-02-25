@@ -125,8 +125,8 @@ impl SessionChat {
     /// Messages are persisted to the agent's own session. Returns the final
     /// assistant message.
     #[tracing::instrument(skip_all, fields(
-        agent_name = %definition.name,
-        session_id = session_id
+        gen_ai.agent.name = %definition.name,
+        session_id = session_id,
     ))]
     pub async fn chat_agent(
         &self,
@@ -177,8 +177,8 @@ impl SessionChat {
     /// tool loop again. This lets agents refine their work without
     /// re-doing prior research.
     #[tracing::instrument(skip_all, fields(
-        agent_name = %definition.name,
-        session_id = session_id
+        gen_ai.agent.name = %definition.name,
+        session_id = session_id,
     ))]
     pub async fn continue_task(
         &self,

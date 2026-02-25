@@ -27,11 +27,10 @@ pub fn content_hash(content: &str) -> String {
 
 /// Embed a single knowledge source. Skips if content hash is unchanged.
 /// Returns the number of chunks embedded (0 if skipped).
-#[tracing::instrument(skip_all, fields(
+#[tracing::instrument(name = "embed", skip_all, fields(
     source_table = %source_table,
     source_id = %source_id,
-), level = "debug"
-)]
+))]
 pub async fn embed_source(
     client: &EmbeddingClient,
     db: &Surreal<Db>,
@@ -121,7 +120,10 @@ async fn embed_chunks(
 }
 
 /// Run boot reconciliation: find sources that need embedding and embed them.
-#[tracing::instrument(skip_all)]
+#[tracing::instrument(skip_all, fields(
+    embedded = tracing::field::Empty,
+    skipped = tracing::field::Empty,
+))]
 pub async fn reconcile_embeddings(
     client: &EmbeddingClient,
     db: &Surreal<Db>,
@@ -169,6 +171,9 @@ pub async fn reconcile_embeddings(
             skipped += 1;
         }
     }
+
+    tracing::Span::current().record("embedded", embedded as u64);
+    tracing::Span::current().record("skipped", skipped as u64);
 
     Ok((embedded, skipped))
 }

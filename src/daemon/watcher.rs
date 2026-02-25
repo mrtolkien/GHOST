@@ -66,6 +66,8 @@ pub fn spawn_watcher(
             }
 
             for path in &changed_paths {
+                let kind = classify_watcher_kind(&workspace, path);
+                let _span = logfire::span!("watcher: {kind}", path = path.display().to_string(),);
                 if let Err(e) = process_change(&db, &workspace, &client, path).await {
                     logfire::warn!(
                         "embedding watcher error",
@@ -108,6 +110,22 @@ fn setup_watcher(
     }
 
     Ok(watcher)
+}
+
+fn classify_watcher_kind(workspace: &Path, path: &Path) -> &'static str {
+    let rel = path
+        .strip_prefix(workspace)
+        .map(|r| r.to_string_lossy())
+        .unwrap_or_default();
+    if rel.starts_with("notes/") {
+        "note"
+    } else if rel.starts_with("references/") {
+        "reference"
+    } else if rel.starts_with("diary/") {
+        "diary"
+    } else {
+        "unknown"
+    }
 }
 
 async fn process_change(

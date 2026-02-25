@@ -9,6 +9,14 @@ use crate::providers::ToolDefinition;
 use super::context::ToolContext;
 use super::error::ToolError;
 
+fn truncate_str(s: &str, max_len: usize) -> String {
+    if s.len() <= max_len {
+        s.to_string()
+    } else {
+        format!("{}...", &s[..max_len])
+    }
+}
+
 #[async_trait]
 pub trait Tool: Send + Sync {
     fn name(&self) -> &str;
@@ -93,7 +101,6 @@ impl ToolManager {
         self.tools.values().map(|tool| tool.schema()).collect()
     }
 
-    #[tracing::instrument(skip_all, fields(tool_name))]
     pub async fn execute(
         &self,
         tool_name: &str,
@@ -107,27 +114,27 @@ impl ToolManager {
                 name: tool_name.to_string(),
             })?;
 
-        let start = std::time::Instant::now();
+        let params_preview = truncate_str(
+            &serde_json::to_string(&params)
+                .unwrap_or_else(|e| format!("<serialization failed: {e}>")),
+            200,
+        );
+
+        let _span = logfire::span!(
+            "tool: {tool_name}",
+            gen_ai.tool.name = tool_name,
+            gen_ai.operation.name = "execute_tool",
+            params_preview = params_preview,
+        );
+
         let result = tool.execute(params, ctx).await;
-        let elapsed = start.elapsed();
-        let tool_name_owned = tool_name.to_string();
 
         match &result {
             Ok(output) => {
-                logfire::info!(
-                    "tool executed",
-                    tool = tool_name_owned,
-                    elapsed_ms = elapsed.as_millis() as u64,
-                    output_len = output.len() as u64,
-                );
+                logfire::info!("tool executed", output_len = output.len() as u64,);
             }
             Err(err) => {
-                logfire::warn!(
-                    "tool execution failed",
-                    tool = tool_name_owned,
-                    elapsed_ms = elapsed.as_millis() as u64,
-                    error = err.to_string(),
-                );
+                logfire::warn!("tool execution failed", error = err.to_string(),);
             }
         }
 

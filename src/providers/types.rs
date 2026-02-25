@@ -88,6 +88,8 @@ pub struct ChatResponse {
     pub usage: Usage,
     pub stop_reason: StopReason,
     pub model: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub response_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

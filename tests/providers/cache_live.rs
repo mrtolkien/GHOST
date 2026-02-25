@@ -112,7 +112,7 @@ async fn openrouter_cache_validation() {
     // OpenRouter returns cache data via prompt_tokens_details.cached_tokens.
     // Caching is non-deterministic (depends on underlying provider routing),
     // so we verify the field is parsed rather than asserting a cache hit.
-    if !response2.usage.cache_read_tokens.is_some_and(|v| v > 0) {
+    if response2.usage.cache_read_tokens.is_none_or(|v| v == 0) {
         eprintln!(
             "NOTE: no cache hit on turn 2 (cache_read={:?}). \
              This is expected when OpenRouter routes to a non-caching backend.",

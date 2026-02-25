@@ -25,7 +25,6 @@ impl CircuitBreaker {
         }
     }
 
-    #[tracing::instrument(skip_all, level = "debug", fields(model = %model))]
     pub fn check(&self, model: &str) -> Option<u64> {
         let now = Instant::now();
         let mut states = self.states.lock().expect("circuit breaker mutex poisoned");
@@ -44,7 +43,6 @@ impl CircuitBreaker {
         None
     }
 
-    #[tracing::instrument(skip_all, level = "debug", fields(model = %model))]
     pub fn record_success(&self, model: &str) {
         let mut states = self.states.lock().expect("circuit breaker mutex poisoned");
         if let Some(state) = states.get_mut(model)
@@ -56,7 +54,6 @@ impl CircuitBreaker {
         }
     }
 
-    #[tracing::instrument(skip_all, level = "debug", fields(model = %model))]
     pub fn record_failure(&self, model: &str) {
         let now = Instant::now();
         let mut states = self.states.lock().expect("circuit breaker mutex poisoned");

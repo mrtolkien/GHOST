@@ -63,7 +63,10 @@ impl TaskRunner {
     /// Start a background agent.
     ///
     /// Returns the agent_id on success.
-    #[tracing::instrument(skip_all)]
+    #[tracing::instrument(skip_all, fields(
+        agent_name = %agent_name,
+        gen_ai.agent.name = %agent_name,
+    ))]
     pub async fn start(
         &self,
         agent_name: &str,
@@ -118,7 +121,11 @@ impl TaskRunner {
     ///
     /// Creates DB records (session, job_log), runs the agent, finishes
     /// job_log. Returns the final findings message.
-    #[tracing::instrument(skip_all, fields(agent_name = agent_name))]
+    #[tracing::instrument(skip_all, fields(
+        agent_name = %agent_name,
+        gen_ai.agent.name = %agent_name,
+        gen_ai.operation.name = "invoke_agent",
+    ))]
     pub async fn run_to_completion(
         &self,
         agent_name: &str,
@@ -173,11 +180,6 @@ impl TaskRunner {
             });
         }
 
-        logfire::info!(
-            "agent run_to_completion finished",
-            agent_name = agent_name.to_string(),
-        );
-
         Ok(transcript)
     }
 
@@ -186,7 +188,11 @@ impl TaskRunner {
     /// Like `run_to_completion`, but accepts a definition directly instead
     /// of loading it by name. Useful for cron jobs and other callers that
     /// already have a parsed definition.
-    #[tracing::instrument(skip_all, fields(agent_name = %definition.name))]
+    #[tracing::instrument(skip_all, fields(
+        agent_name = %definition.name,
+        gen_ai.agent.name = %definition.name,
+        gen_ai.operation.name = "invoke_agent",
+    ))]
     pub async fn run_definition_to_completion(
         &self,
         definition: &TaskDefinition,
@@ -238,11 +244,6 @@ impl TaskRunner {
                 message: transcript,
             });
         }
-
-        logfire::info!(
-            "agent run_definition_to_completion finished",
-            agent_name = definition.name.clone(),
-        );
 
         Ok(transcript)
     }
@@ -642,9 +643,10 @@ fn build_agent_skills_section(config: &Config, skills: &[String]) -> String {
 }
 
 /// Execute the agent tool loop. Returns the final findings string.
-#[tracing::instrument(skip_all, fields(
-    agent_name = %definition.name,
-    agent_session_id = %agent_session_id
+#[tracing::instrument(name = "agent", skip_all, fields(
+    gen_ai.agent.name = %definition.name,
+    gen_ai.agent.id = %agent_session_id,
+    gen_ai.operation.name = "invoke_agent",
 ))]
 async fn run_task(
     db: &Surreal<Db>,
@@ -704,9 +706,10 @@ async fn run_task(
 
 /// Continue an existing agent session with a new prompt. Loads full history
 /// from DB instead of starting fresh.
-#[tracing::instrument(skip_all, fields(
-    agent_name = %definition.name,
-    agent_session_id = %agent_session_id
+#[tracing::instrument(name = "agent", skip_all, fields(
+    gen_ai.agent.name = %definition.name,
+    gen_ai.agent.id = %agent_session_id,
+    gen_ai.operation.name = "invoke_agent",
 ))]
 async fn continue_task_run(
     db: &Surreal<Db>,

@@ -222,7 +222,7 @@ fn job_to_task_definition(def: &JobDefinition) -> TaskDefinition {
     }
 }
 
-#[tracing::instrument(skip_all, fields(
+#[tracing::instrument(name = "job", skip_all, fields(
     job_name = %def.name,
     model = %def.model,
 ))]

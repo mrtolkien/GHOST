@@ -82,14 +82,16 @@ impl ReflectionManager {
     }
 
     /// Run reflection after an agent handoff on the agent's own session.
-    #[tracing::instrument(skip_all, fields(agent_session_id = %agent_session_thing))]
     pub async fn run_after_agent_handoff(&self, agent_session_thing: &Thing) {
         let session_id = agent_session_thing.to_string();
         self.run(&session_id, agent_session_thing, "reflection")
             .await;
     }
 
-    #[tracing::instrument(skip_all, fields(session_id = %session_id, agent_name = %agent_name))]
+    #[tracing::instrument(name = "reflection", skip_all, fields(
+        session_id = %session_id,
+        agent_name = %agent_name,
+    ))]
     async fn run(&self, session_id: &str, session_thing: &Thing, agent_name: &str) {
         // Sequential: wait for any running reflection to finish first
         let _guard = self.running.lock().await;

@@ -103,19 +103,46 @@ Prefer MCP-backed answers over assumptions for library/framework behavior.
 
 ### Observability (NON-NEGOTIABLE)
 
-Instrument meaningful execution boundaries with `#[instrument]` or `logfire::span!()`,
-not every function. Prioritize operations where tracing materially helps debugging:
-database calls, external service calls (provider APIs, Discord, embeddings), and run
-entry points (for example, a received message/job tick handler). Keep small pure helpers
-uninstrumented.
+Instrument meaningful execution boundaries, not every function. Prioritize: provider API
+calls, tool executions, agent/job entry points, DB mutations, and embedding ops. Keep
+small helpers and pure functions uninstrumented.
 
-- Use `#[tracing::instrument(skip_all, fields(relevant_field = %value))]` on async
-  functions
-- Use `logfire::info!()`, `logfire::warn!()`, `logfire::error!()` for structured events
-- Include relevant context in span fields (session ID, job name, provider, model, etc.)
-- Log all external calls (provider API, Discord, embeddings) with timing
+**Span naming — descriptive, not function names:**
+
+- Provider calls: `name = "llm"` with `gen_ai.*` fields
+- Tool executions: `logfire::span!("tool: {tool_name}")` (dynamic name)
+- Agent runs: `name = "agent"` with `gen_ai.agent.name` field
+- Jobs: `name = "job"` with `job_name` field
+- Reflection: `name = "reflection"` with `session_id`, `agent_name`
+- Watcher/embed: `"watcher: {kind}"` or `name = "embed"` with source fields
+
+**OTel GenAI semantic conventions (mandatory for provider calls):**
+
+- Span fields: `gen_ai.system`, `gen_ai.request.model`, `gen_ai.operation.name`
+- Recorded at completion: `gen_ai.response.model`, `gen_ai.response.id`,
+  `gen_ai.response.finish_reasons`, `gen_ai.usage.input_tokens`,
+  `gen_ai.usage.output_tokens`, `gen_ai.usage.cache_read_input_tokens`,
+  `gen_ai.usage.cache_creation_input_tokens`
+- Agent spans: `gen_ai.agent.name`, `gen_ai.agent.id`
+- Tool spans: `gen_ai.tool.name`, `gen_ai.operation.name = "execute_tool"`
+
+**Span hierarchy — keep it shallow (2-3 levels max):**
+
+- `chat` → `llm` / `tool: X` (no intermediate wrapper spans)
+- `agent` → `llm` / `tool: X` → (tool internals if any)
+- `reflection` → `agent` → `llm` / `tool: X`
+- Never wrap a single delegation call in a span
+
+**Rules:**
+
+- Use `#[tracing::instrument(skip_all, fields(key = %val))]` on async functions
+- Use `logfire::span!()` when the span name must be dynamic
+- Use `tracing::Span::current().record()` to fill response fields at span completion
+- Use `logfire::info!()` / `warn!()` / `error!()` for discrete events within spans
+- Do not duplicate information between a span and a child log event
 - Log all errors with full context before propagating
-- Use `tracing::Span::current().record()` to add fields mid-execution when useful
+- Provider request/response bodies: `logfire::debug!()` only (not in default RUST_LOG)
+- Default RUST_LOG: `warn,ghost=info,usvg=off,resvg=off`
 
 ### Error Handling
 
@@ -269,18 +296,19 @@ src/
 
 ## Documentation
 
-User-facing docs live in `docs/` (mdbook). When making changes that affect user-facing
-behavior, update the relevant doc pages:
+User-facing docs live in `docs/` (Astro Starlight). When making changes that affect
+user-facing behavior, update the relevant doc pages:
 
-- **CLI changes** → `docs/src/reference/cli.md`
-- **Config changes** → `docs/src/getting-started/configuration.md`
-- **Tool changes** → `docs/src/features/tools-*.md`
-- **New features** → relevant page under `docs/src/features/`
-- **Workspace/bootstrap changes** → `docs/src/getting-started/workspace.md`
-- **Provider changes** → `docs/src/ghost/providers.md`
+- **CLI changes** → `docs/src/content/docs/reference/cli.md`
+- **Config changes** → `docs/src/content/docs/getting-started/configuration.md`
+- **Tool changes** → `docs/src/content/docs/features/tools-*.md`
+- **New features** → relevant page under `docs/src/content/docs/features/`
+- **Workspace/bootstrap changes** →
+  `docs/src/content/docs/getting-started/workspace.mdx`
+- **Provider changes** → `docs/src/content/docs/ghost/providers.md`
 
-Build with `mdbook build docs` to verify. Terminology: always `GHOST` and `OPERATOR` in
-all caps in prose (same rule as code docs).
+Build with `cd docs && npm run build` to verify. Terminology: always `GHOST` and
+`OPERATOR` in all caps in prose (same rule as code docs).
 
 ## Specs
 

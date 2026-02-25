@@ -7,6 +7,7 @@ use base64::Engine;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use reqwest::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE, HeaderMap, HeaderName, HeaderValue};
 use serde_json::Value;
+use tracing::Span;
 
 use crate::auth::openai_oauth::{OpenAiOAuthClient, TokenStore};
 use crate::providers::circuit_breaker::CircuitBreaker;
@@ -75,7 +76,24 @@ impl OpenAiOAuthProvider {
         }
     }
 
-    #[tracing::instrument(skip_all, fields(provider = "openai_oauth", model = %request.model))]
+    #[tracing::instrument(
+        name = "llm",
+        skip_all,
+        fields(
+            gen_ai.system = "openai_oauth",
+            gen_ai.operation.name = "chat",
+            gen_ai.request.model = %request.model,
+            gen_ai.response.model = tracing::field::Empty,
+            gen_ai.response.id = tracing::field::Empty,
+            gen_ai.response.finish_reasons = tracing::field::Empty,
+            gen_ai.usage.input_tokens = tracing::field::Empty,
+            gen_ai.usage.output_tokens = tracing::field::Empty,
+            gen_ai.usage.cache_read_input_tokens = tracing::field::Empty,
+            gen_ai.usage.cache_creation_input_tokens = tracing::field::Empty,
+            duration_ms = tracing::field::Empty,
+            tool_calls = tracing::field::Empty,
+        )
+    )]
     async fn send_request(&self, request: &ChatRequest) -> Result<ChatResponse, ProviderError> {
         if let Some(retry_after_secs) = self.circuit_breaker.check(&request.model) {
             return Err(ProviderError::CircuitOpen {
@@ -114,14 +132,6 @@ impl OpenAiOAuthProvider {
         let request_json =
             serde_json::to_string(&body).unwrap_or_else(|e| format!("<serialization failed: {e}>"));
         let started = Instant::now();
-        logfire::info!(
-            "provider request",
-            gen_ai.system = "openai_oauth",
-            gen_ai.request.model = request.model.clone(),
-            endpoint = self.endpoint.clone(),
-            messages = body.input.len() as u64,
-            body_len = request_json.len() as u64,
-        );
         logfire::debug!("provider request body", body = request_json.clone());
         let http_response = self
             .client
@@ -204,23 +214,32 @@ impl OpenAiOAuthProvider {
             })
             .collect::<Vec<_>>()
             .join(", ");
-        let content_json = serde_json::to_string(&parsed.content)
-            .unwrap_or_else(|e| format!("<serialization failed: {e}>"));
 
-        logfire::info!(
-            "provider response",
-            gen_ai.system = "openai_oauth",
-            gen_ai.response.model = parsed.model.clone(),
-            gen_ai.usage.input_tokens = parsed.usage.input_tokens,
-            gen_ai.usage.output_tokens = parsed.usage.output_tokens,
-            gen_ai.usage.cache_read_input_tokens = parsed.usage.cache_read_tokens.unwrap_or(0),
-            gen_ai.usage.cache_creation_input_tokens =
-                parsed.usage.cache_creation_tokens.unwrap_or(0),
-            duration_ms = started.elapsed().as_millis() as u64,
-            stop_reason = format!("{:?}", parsed.stop_reason),
-            tool_calls = tool_call_summary,
-            content = content_json,
+        let finish_reason = match parsed.stop_reason {
+            crate::providers::StopReason::EndTurn => "stop",
+            crate::providers::StopReason::ToolUse => "tool_calls",
+            crate::providers::StopReason::MaxTokens => "length",
+        };
+
+        let span = Span::current();
+        span.record("gen_ai.response.model", &parsed.model);
+        if let Some(ref id) = parsed.response_id {
+            span.record("gen_ai.response.id", id);
+        }
+        span.record("gen_ai.response.finish_reasons", finish_reason);
+        span.record("gen_ai.usage.input_tokens", parsed.usage.input_tokens);
+        span.record("gen_ai.usage.output_tokens", parsed.usage.output_tokens);
+        span.record(
+            "gen_ai.usage.cache_read_input_tokens",
+            parsed.usage.cache_read_tokens.unwrap_or(0),
         );
+        span.record(
+            "gen_ai.usage.cache_creation_input_tokens",
+            parsed.usage.cache_creation_tokens.unwrap_or(0),
+        );
+        span.record("duration_ms", duration_ms);
+        span.record("tool_calls", &tool_call_summary);
+
         Ok(parsed)
     }
 }

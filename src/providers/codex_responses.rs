@@ -318,6 +318,7 @@ fn parse_codex_sse_response(
             usage: Usage::default(),
             stop_reason: StopReason::EndTurn,
             model: fallback_model.to_string(),
+            response_id: None,
         });
     }
 
@@ -530,6 +531,11 @@ pub(super) fn parse_codex_response_value(
         .and_then(Value::as_u64)
         .map(|value| value as u32);
 
+    let response_id = value
+        .get("id")
+        .and_then(Value::as_str)
+        .map(ToString::to_string);
+
     Ok(ChatResponse {
         content,
         usage: Usage {
@@ -540,6 +546,7 @@ pub(super) fn parse_codex_response_value(
         },
         stop_reason,
         model,
+        response_id,
     })
 }
 

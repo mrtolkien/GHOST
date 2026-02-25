@@ -920,6 +920,7 @@ pub fn response(content: Vec<ContentBlock>, stop_reason: StopReason) -> ChatResp
         usage: Usage::default(),
         stop_reason,
         model: "mock-model".to_string(),
+        response_id: None,
     }
 }
 

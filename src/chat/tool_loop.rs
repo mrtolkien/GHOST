@@ -6,6 +6,14 @@ use serde_json::Value;
 use crate::providers::types::{DebugContext, ProviderError};
 use crate::providers::{ChatMessage, ChatRequest, ContentBlock, Role, StopReason};
 
+fn truncate(s: &str, max_len: usize) -> String {
+    if s.len() <= max_len {
+        s.to_string()
+    } else {
+        format!("{}...", &s[..max_len])
+    }
+}
+
 use super::convert::{
     extract_latest_assistant_text, extract_text_content, extract_tool_use_blocks,
     raw_output_to_values,
@@ -65,7 +73,6 @@ pub(super) trait ToolLoopHandler: Send {
 }
 
 /// Shared tool-use loop for both interactive chat and background jobs.
-#[tracing::instrument(skip_all, level = "debug", fields(session_id = session_id))]
 pub(super) async fn run_tool_loop(
     session_chat: &SessionChat,
     session_id: &str,
@@ -240,11 +247,13 @@ pub(super) async fn run_tool_loop(
                 let result = handler
                     .on_end_turn(message, response.stop_reason, &tool_uses, raw_output)
                     .await?;
+                let response_preview = truncate(&result.message, 200);
                 logfire::info!(
-                    "tool loop complete",
+                    "chat complete",
                     iterations = iterations as u64,
                     stop_reason = format!("{:?}", result.stop_reason),
                     response_len = result.message.len() as u64,
+                    response_preview = response_preview,
                 );
                 return Ok(result);
             }

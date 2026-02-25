@@ -56,6 +56,7 @@ pub(crate) struct OpenAiFunctionDefinition {
 
 #[derive(Debug, Deserialize)]
 pub(crate) struct ChatCompletionsResponse {
+    pub(crate) id: Option<String>,
     pub(crate) model: Option<String>,
     pub(crate) choices: Vec<Choice>,
     #[serde(default)]
@@ -277,7 +278,7 @@ pub(crate) fn parse_response(
 
     let cache_read_tokens = usage
         .cache_read_input_tokens
-        .or_else(|| usage.cached_tokens)
+        .or(usage.cached_tokens)
         .or_else(|| {
             usage
                 .prompt_tokens_details
@@ -337,6 +338,7 @@ pub(crate) fn parse_response(
             _ => StopReason::EndTurn,
         },
         model: response.model.unwrap_or_default(),
+        response_id: response.id,
     })
 }
 
@@ -432,6 +434,7 @@ mod tests {
     #[test]
     fn parse_response_handles_text_and_tool_calls() {
         let response = ChatCompletionsResponse {
+            id: Some("chatcmpl-test123".to_string()),
             model: Some("moonshotai/kimi-k2.5".to_string()),
             choices: vec![Choice {
                 message: OpenAiMessage {
