@@ -151,6 +151,7 @@ impl SessionChat {
             system_prompt,
             task_name: agent_name.to_string(),
             progress_rules,
+            started_at: std::time::Instant::now(),
         };
 
         run_tool_loop(
@@ -198,6 +199,7 @@ impl SessionChat {
             system_prompt,
             task_name: agent_name.to_string(),
             progress_rules,
+            started_at: std::time::Instant::now(),
         };
 
         run_tool_loop(
@@ -471,6 +473,7 @@ struct TaskHandler<'a> {
     #[allow(dead_code)]
     task_name: String,
     progress_rules: Vec<ProgressRule>,
+    started_at: std::time::Instant,
 }
 
 #[async_trait]
@@ -586,14 +589,35 @@ impl ToolLoopHandler for TaskHandler<'_> {
             });
         }
 
+        // Temporal nudge: after 3 minutes of wall-clock research, tell the
+        // agent to wrap up. Fires once.
+        if let Some(reminder) = build_temporal_nudge(history, self.started_at) {
+            history.push(ChatMessage {
+                role: Role::System,
+                content: vec![ContentBlock::Text { text: reminder }],
+            });
+        }
+
         Ok(())
     }
 
     async fn check_progress_gate(
         &mut self,
-        _history: &[ChatMessage],
+        history: &[ChatMessage],
     ) -> Result<Option<String>, ChatError> {
         use crate::tools::TodoStatus;
+
+        // If the temporal nudge has fired, let the model write — it's been
+        // told to wrap up and we don't want to contradict that.
+        let temporal_nudge_fired = history.iter().any(|m| {
+            m.role == Role::System
+                && m.content.iter().any(|b| {
+                    matches!(b, ContentBlock::Text { text } if text.contains("been researching for"))
+                })
+        });
+        if temporal_nudge_fired {
+            return Ok(None);
+        }
 
         let todo_items =
             db::sessions::get_session_todo_list(self.session_chat.db(), self.session_thing).await?;
@@ -618,10 +642,13 @@ impl ToolLoopHandler for TaskHandler<'_> {
         if incomplete > 0 {
             return Ok(Some(format!(
                 "<system-reminder>REJECTED — your text response was not saved. \
-                 You still have {incomplete} incomplete TODO item(s). A text-only \
-                 response will end your session. You MUST call a tool now — look \
-                 at your TODO and call web_search or web_fetch for the next \
-                 pending item.</system-reminder>"
+                 You have {incomplete} incomplete TODO item(s).\n\
+                 YOUR NEXT STEPS:\n\
+                 1. Call todo(batch_update) to mark items you already finished \
+                 as done.\n\
+                 2. Then web_search + web_fetch for the next pending Fetch: \
+                 item.\n\
+                 Do NOT write text — make tool calls.</system-reminder>"
             )));
         }
 
@@ -691,9 +718,10 @@ fn build_context_pressure_reminder(history: &[ChatMessage], agent_name: &str) ->
         return None;
     }
 
-    // Rough threshold: ~200K chars ≈ 50K tokens ≈ 40% of a 128K window.
-    // This leaves room for the report + system prompt + safety margin.
-    const PRESSURE_THRESHOLD: usize = 200_000;
+    // Rough threshold: ~250K chars ≈ 62K tokens ≈ 50% of a 128K window.
+    // With 30K MAX_EXTRACT_CHARS per page, this fires after ~8 fetches,
+    // encouraging the model to wrap up efficiently.
+    const PRESSURE_THRESHOLD: usize = 250_000;
 
     let total_chars: usize = history
         .iter()
@@ -730,6 +758,39 @@ fn build_context_pressure_reminder(history: &[ChatMessage], agent_name: &str) ->
          to writing your report soon.</system-reminder>"
             .to_string(),
     )
+}
+
+/// Nudge when wall-clock research time exceeds a threshold.
+///
+/// After 5 minutes the agent should transition from research to reporting.
+/// Fires once — checks for a sentinel string in prior system messages.
+fn build_temporal_nudge(history: &[ChatMessage], started_at: std::time::Instant) -> Option<String> {
+    const WRAP_UP_AFTER: std::time::Duration = std::time::Duration::from_secs(300);
+
+    if started_at.elapsed() < WRAP_UP_AFTER {
+        return None;
+    }
+
+    let already_nudged = history.iter().any(|m| {
+        m.role == Role::System
+            && m.content.iter().any(|b| {
+                matches!(
+                    b,
+                    ContentBlock::Text { text } if text.contains("been researching for")
+                )
+            })
+    });
+
+    if already_nudged {
+        return None;
+    }
+
+    let mins = started_at.elapsed().as_secs() / 60;
+    Some(format!(
+        "<system-reminder>You've been researching for {mins} minutes. \
+         Mark your remaining TODO items done and write your report now. \
+         Do not start new fetches.</system-reminder>"
+    ))
 }
 
 /// Build a progress nudge from declared rules.

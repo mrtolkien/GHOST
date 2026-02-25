@@ -121,6 +121,9 @@ pub enum ProviderError {
         retry_after_secs: u64,
     },
 
+    #[error("provider request timed out after {seconds}s")]
+    Timeout { seconds: u64 },
+
     #[error("request failed: {0}")]
     Request(#[from] reqwest::Error),
 

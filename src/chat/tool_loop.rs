@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use async_trait::async_trait;
 use serde_json::Value;
 
@@ -10,6 +12,11 @@ use super::convert::{
 };
 use super::session::SessionChat;
 use super::types::{ChatError, ChatResult, ChatStopReason};
+
+/// Per-request timeout for provider API calls. Providers can hang indefinitely
+/// (observed in live tests). This wraps each `Provider::chat()` call.
+/// On timeout, the request is retried once before propagating the error.
+const PROVIDER_REQUEST_TIMEOUT: Duration = Duration::from_secs(60);
 
 /// Handler for tool loop events.
 ///
@@ -86,11 +93,39 @@ pub(super) async fn run_tool_loop(
                 iteration: iterations,
             }),
         };
-        let response = session_chat
-            .provider()
-            .chat(request)
-            .await
-            .map_err(ChatError::from)?;
+        let response = match tokio::time::timeout(
+            PROVIDER_REQUEST_TIMEOUT,
+            session_chat.provider().chat(request.clone()),
+        )
+        .await
+        {
+            Ok(result) => result.map_err(ChatError::from)?,
+            Err(_elapsed) => {
+                logfire::warn!(
+                    "provider request timed out, retrying once",
+                    timeout_secs = PROVIDER_REQUEST_TIMEOUT.as_secs(),
+                    iteration = iterations as u64,
+                );
+                match tokio::time::timeout(
+                    PROVIDER_REQUEST_TIMEOUT,
+                    session_chat.provider().chat(request),
+                )
+                .await
+                {
+                    Ok(result) => result.map_err(ChatError::from)?,
+                    Err(_elapsed) => {
+                        logfire::error!(
+                            "provider request timed out twice",
+                            timeout_secs = PROVIDER_REQUEST_TIMEOUT.as_secs(),
+                            iteration = iterations as u64,
+                        );
+                        return Err(ChatError::Provider(ProviderError::Timeout {
+                            seconds: PROVIDER_REQUEST_TIMEOUT.as_secs(),
+                        }));
+                    }
+                }
+            }
+        };
 
         match response.stop_reason {
             StopReason::ToolUse => {

@@ -8,7 +8,11 @@ use super::{ExtractedContent, FetchOptions, WebError};
 /// Default safety cap for extracted text. Pages exceeding this are truncated.
 /// When htmd produces content above this limit, we auto-retry with readability
 /// mode to strip boilerplate before truncating.
-const MAX_EXTRACT_CHARS: usize = 50_000;
+///
+/// 30K chars ≈ 7.5K tokens — allows ~10 fetches before hitting context pressure.
+/// Key content (recommendations, prices, brand mentions) clusters in the first
+/// 30K of most review/article pages.
+const MAX_EXTRACT_CHARS: usize = 30_000;
 
 static HTTP_CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
 
