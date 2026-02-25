@@ -28,6 +28,20 @@ pub async fn run() -> Result<(), GhostError> {
         let db = crate::db::connect(&config.workspace).await?;
         info!("database ready");
 
+        // Log knowledge counts for boot diagnostics
+        let notes = crate::db::knowledge::count_notes(&db).await.unwrap_or(0);
+        let references = crate::db::knowledge::count_references(&db)
+            .await
+            .unwrap_or(0);
+        let diary = crate::db::knowledge::count_diary(&db).await.unwrap_or(0);
+        let embeddings = crate::db::embeddings::count_embeddings(&db)
+            .await
+            .unwrap_or(0);
+        info!(
+            notes,
+            references, diary, embeddings, "knowledge stats at boot"
+        );
+
         // Boot reconciliation: embed any knowledge that is missing or outdated
         let client = EmbeddingClient::new(&config.embeddings);
         if client.is_available().await {

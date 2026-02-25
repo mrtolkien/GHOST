@@ -419,3 +419,53 @@ pub async fn list_all_diary(db: &Surreal<Db>) -> Result<Vec<DiaryRecord>, Databa
     let mut resp = query_exec(db.query("SELECT * FROM diary"), "diary", "list_all").await?;
     take_many(&mut resp, 0, "diary", "list_all")
 }
+
+// --- Paginated listing for boot reconciliation ---
+
+pub async fn list_notes_page(
+    db: &Surreal<Db>,
+    offset: usize,
+    limit: usize,
+) -> Result<Vec<NoteRecord>, DatabaseError> {
+    let mut resp = query_exec(
+        db.query("SELECT * FROM note ORDER BY id LIMIT $limit START $offset")
+            .bind(("limit", limit as i64))
+            .bind(("offset", offset as i64)),
+        "note",
+        "list_page",
+    )
+    .await?;
+    take_many(&mut resp, 0, "note", "list_page")
+}
+
+pub async fn list_references_page(
+    db: &Surreal<Db>,
+    offset: usize,
+    limit: usize,
+) -> Result<Vec<ReferenceRecord>, DatabaseError> {
+    let mut resp = query_exec(
+        db.query("SELECT * FROM reference ORDER BY id LIMIT $limit START $offset")
+            .bind(("limit", limit as i64))
+            .bind(("offset", offset as i64)),
+        "reference",
+        "list_page",
+    )
+    .await?;
+    take_many(&mut resp, 0, "reference", "list_page")
+}
+
+pub async fn list_diary_page(
+    db: &Surreal<Db>,
+    offset: usize,
+    limit: usize,
+) -> Result<Vec<DiaryRecord>, DatabaseError> {
+    let mut resp = query_exec(
+        db.query("SELECT * FROM diary ORDER BY id LIMIT $limit START $offset")
+            .bind(("limit", limit as i64))
+            .bind(("offset", offset as i64)),
+        "diary",
+        "list_page",
+    )
+    .await?;
+    take_many(&mut resp, 0, "diary", "list_page")
+}

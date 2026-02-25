@@ -119,7 +119,10 @@ async fn embed_chunks(
     Ok(all_vectors)
 }
 
+const RECONCILE_PAGE_SIZE: usize = 50;
+
 /// Run boot reconciliation: find sources that need embedding and embed them.
+/// Processes records in pages to avoid loading all knowledge into memory at once.
 #[tracing::instrument(skip_all, fields(
     embedded = tracing::field::Empty,
     skipped = tracing::field::Empty,
@@ -131,46 +134,76 @@ pub async fn reconcile_embeddings(
     let mut embedded = 0usize;
     let mut skipped = 0usize;
 
-    // Reconcile notes
-    let notes = db::knowledge::list_all_notes(db).await?;
-    for note in &notes {
-        let count = embed_source(client, db, "note", &note.id, &note.body, &note.tags).await?;
-        if count > 0 {
-            embedded += count;
-        } else {
-            skipped += 1;
+    // Reconcile notes (paginated)
+    let t = std::time::Instant::now();
+    let mut offset = 0;
+    loop {
+        let notes = db::knowledge::list_notes_page(db, offset, RECONCILE_PAGE_SIZE).await?;
+        let batch_len = notes.len();
+        for note in &notes {
+            let count = embed_source(client, db, "note", &note.id, &note.body, &note.tags).await?;
+            if count > 0 {
+                embedded += count;
+            } else {
+                skipped += 1;
+            }
         }
+        if batch_len < RECONCILE_PAGE_SIZE {
+            break;
+        }
+        offset += batch_len;
     }
+    tracing::info!(ms = t.elapsed().as_millis() as u64, "reconciled notes");
 
-    // Reconcile references
-    let refs = db::knowledge::list_all_references(db).await?;
-    for reference in &refs {
-        let count = embed_source(
-            client,
-            db,
-            "reference",
-            &reference.id,
-            &reference.content,
-            &[],
-        )
-        .await?;
-        if count > 0 {
-            embedded += count;
-        } else {
-            skipped += 1;
+    // Reconcile references (paginated)
+    let t = std::time::Instant::now();
+    let mut offset = 0;
+    loop {
+        let refs = db::knowledge::list_references_page(db, offset, RECONCILE_PAGE_SIZE).await?;
+        let batch_len = refs.len();
+        for reference in &refs {
+            let count = embed_source(
+                client,
+                db,
+                "reference",
+                &reference.id,
+                &reference.content,
+                &[],
+            )
+            .await?;
+            if count > 0 {
+                embedded += count;
+            } else {
+                skipped += 1;
+            }
         }
+        if batch_len < RECONCILE_PAGE_SIZE {
+            break;
+        }
+        offset += batch_len;
     }
+    tracing::info!(ms = t.elapsed().as_millis() as u64, "reconciled references");
 
-    // Reconcile diary entries
-    let diary_entries = db::knowledge::list_all_diary(db).await?;
-    for entry in &diary_entries {
-        let count = embed_source(client, db, "diary", &entry.id, &entry.body, &[]).await?;
-        if count > 0 {
-            embedded += count;
-        } else {
-            skipped += 1;
+    // Reconcile diary entries (paginated)
+    let t = std::time::Instant::now();
+    let mut offset = 0;
+    loop {
+        let entries = db::knowledge::list_diary_page(db, offset, RECONCILE_PAGE_SIZE).await?;
+        let batch_len = entries.len();
+        for entry in &entries {
+            let count = embed_source(client, db, "diary", &entry.id, &entry.body, &[]).await?;
+            if count > 0 {
+                embedded += count;
+            } else {
+                skipped += 1;
+            }
         }
+        if batch_len < RECONCILE_PAGE_SIZE {
+            break;
+        }
+        offset += batch_len;
     }
+    tracing::info!(ms = t.elapsed().as_millis() as u64, "reconciled diary");
 
     tracing::Span::current().record("embedded", embedded as u64);
     tracing::Span::current().record("skipped", skipped as u64);
