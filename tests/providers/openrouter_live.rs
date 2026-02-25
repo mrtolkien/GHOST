@@ -33,6 +33,7 @@ async fn openrouter_live_calls_respond_tool() {
             "You are a precise assistant. You MUST call the respond tool to deliver your answer."
                 .to_string(),
         ),
+        cache_key: "test".to_string(),
         debug_context: None,
     };
 
