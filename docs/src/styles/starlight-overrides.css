@@ -494,3 +494,17 @@ mobile-starlight-toc .isMobile > li > ul > li > a {
 mobile-starlight-toc .isMobile > li > ul > li > ul > li > a {
   color: var(--ghost-h4);
 }
+
+@media (min-width: 90rem) {
+  :root {
+    --sl-content-width: 55rem;
+  }
+
+  .concepts-grid-3up .card-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .concepts-grid-3up .card {
+    padding: clamp(0.5rem, calc(0.0625rem + 1.5vw), 1.25rem);
+  }
+}

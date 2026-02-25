@@ -7,7 +7,8 @@ import { CardGrid, Card } from "@astrojs/starlight/components";
 
 Quick reference for GHOST's core concepts. Each links to its detailed chapter.
 
-<CardGrid>
+<div className="concepts-grid-3up">
+  <CardGrid>
   <Card title="OPERATOR">
     The human user. One per installation. Identified by Discord user ID.
   </Card>
@@ -16,37 +17,38 @@ Quick reference for GHOST's core concepts. Each links to its detailed chapter.
   </Card>
   <Card title="Identity">
     BOOT.md, SOUL.md, OPERATOR.md — files that define your GHOST's personality and your
-    preferences. [Learn more →](/ghost/identity/)
+    preferences.<br />[Learn more →](/ghost/identity/)
   </Card>
   <Card title="Provider">
     LLM backend (OpenRouter, Kimi Code, OpenAI OAuth). Configurable model aliases.
-    [Learn more →](/ghost/providers/)
+    <br />[Learn more →](/ghost/providers/)
   </Card>
   <Card title="Interface">
-    Communication transport. Discord is the primary interface. [Learn more
+    Communication transport. Discord is the primary interface. <br />[Learn more
     →](/ghost/interfaces/)
   </Card>
   <Card title="Session">
-    A chat thread between OPERATOR and GHOST. Maps 1:1 to a Discord thread. [Learn more
+    A chat thread between OPERATOR and GHOST. Maps 1:1 to a Discord thread. <br />[Learn more
     →](/features/chat/)
   </Card>
   <Card title="Knowledge">
     Notes, references, and diary entries stored in SurrealDB with graph edges and
-    embeddings. [Learn more →](/features/knowledge/)
+    embeddings. <br />[Learn more →](/features/knowledge/)
   </Card>
   <Card title="Skill">
     Workflow file (agentskills.io format) that teaches your GHOST how to handle specific
-    tasks. [Learn more →](/features/skills/)
+    tasks. <br />[Learn more →](/features/skills/)
   </Card>
   <Card title="Agent">
     Autonomous background worker for complex multi-step tasks (research, reflection).
-    [Learn more →](/features/agents/)
+    <br />[Learn more →](/features/agents/)
   </Card>
   <Card title="Job">
-    Cron-scheduled markdown file that runs on a timer. [Learn more →](/features/jobs/)
+    Cron-scheduled markdown file that runs on a timer. <br />[Learn more →](/features/jobs/)
   </Card>
   <Card title="Tool">
     A capability the GHOST can invoke during chat (file I/O, search, web fetch, etc.).
-    [Learn more →](/features/tools-core/)
+    <br />[Learn more →](/features/tools-core/)
   </Card>
-</CardGrid>
+  </CardGrid>
+</div>
