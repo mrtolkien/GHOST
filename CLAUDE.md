@@ -103,46 +103,9 @@ Prefer MCP-backed answers over assumptions for library/framework behavior.
 
 ### Observability (NON-NEGOTIABLE)
 
-Instrument meaningful execution boundaries, not every function. Prioritize: provider API
-calls, tool executions, agent/job entry points, DB mutations, and embedding ops. Keep
-small helpers and pure functions uninstrumented.
-
-**Span naming — descriptive, not function names:**
-
-- Provider calls: `name = "llm"` with `gen_ai.*` fields
-- Tool executions: `logfire::span!("tool: {tool_name}")` (dynamic name)
-- Agent runs: `name = "agent"` with `gen_ai.agent.name` field
-- Jobs: `name = "job"` with `job_name` field
-- Reflection: `name = "reflection"` with `session_id`, `agent_name`
-- Watcher/embed: `"watcher: {kind}"` or `name = "embed"` with source fields
-
-**OTel GenAI semantic conventions (mandatory for provider calls):**
-
-- Span fields: `gen_ai.system`, `gen_ai.request.model`, `gen_ai.operation.name`
-- Recorded at completion: `gen_ai.response.model`, `gen_ai.response.id`,
-  `gen_ai.response.finish_reasons`, `gen_ai.usage.input_tokens`,
-  `gen_ai.usage.output_tokens`, `gen_ai.usage.cache_read_input_tokens`,
-  `gen_ai.usage.cache_creation_input_tokens`
-- Agent spans: `gen_ai.agent.name`, `gen_ai.agent.id`
-- Tool spans: `gen_ai.tool.name`, `gen_ai.operation.name = "execute_tool"`
-
-**Span hierarchy — keep it shallow (2-3 levels max):**
-
-- `chat` → `llm` / `tool: X` (no intermediate wrapper spans)
-- `agent` → `llm` / `tool: X` → (tool internals if any)
-- `reflection` → `agent` → `llm` / `tool: X`
-- Never wrap a single delegation call in a span
-
-**Rules:**
-
-- Use `#[tracing::instrument(skip_all, fields(key = %val))]` on async functions
-- Use `logfire::span!()` when the span name must be dynamic
-- Use `tracing::Span::current().record()` to fill response fields at span completion
-- Use `logfire::info!()` / `warn!()` / `error!()` for discrete events within spans
-- Do not duplicate information between a span and a child log event
-- Log all errors with full context before propagating
-- Provider request/response bodies: `logfire::debug!()` only (not in default RUST_LOG)
-- Default RUST_LOG: `warn,ghost=info,usvg=off,resvg=off`
+Instrument meaningful execution boundaries, not every function. Full conventions
+(span naming, OTel GenAI fields, span hierarchy) live in the `/tracing` skill —
+read it before adding or modifying any instrumentation.
 
 ### Error Handling
 
@@ -209,42 +172,10 @@ Iterate until all spec items are built and tested:
 
 ## Testing Strategy
 
-- **Integration tests** with a `live-tests` feature flag for all major features.
-- Maintain a robust, reusable integration test "starting state" (test fixtures) that can
-  be shared across tests.
-  - For example, adding a new provider should have integration tests validating that it
-    accepts all our tools and is able to use at least one of them.
-- **Unit tests** only when there are genuinely complex behaviors or external crate
-  behaviors to validate.
-- Live tests (`--features live-tests`) are human-run only by default. If you need to run
-  them, ask the user.
-- Test harness reference (all helpers, mock types, `LiveTestEnv` API):
-  `specs/notes/test-harness.md`
-- **Live test isolation rule**: Live tests must NEVER load data from the user's real
-  workspace (`~/GHOST/`). Always use `LiveTestEnv` which provides a fresh temp workspace
-  with repo-current agent definitions (via `include_str!` + `install_default_agents()`).
-  The real workspace may contain stale agent prompts referencing deleted tools.
-
-### Test Readability (NON-NEGOTIABLE)
-
-Tests must be **readable first**. A reader should understand what a test does in
-seconds, not minutes. This means:
-
-- Extract ALL setup boilerplate into helper functions. A test body should be setup +
-  action + assert, each in 1-3 lines.
-- Prefer `let workspace = test_workspace()` over 15 lines of `TempDir` + `fs::write` +
-  `env::set_var` inline.
-- Build up a `tests/common/` module of reusable helpers from the start (spec 02). The
-  `TestFixture` in spec 18 is the culmination, but helpers should exist before that.
-- Name helpers after what they produce, not what they do: `test_config()` not
-  `setup_config_dir_and_write_toml_and_set_env()`.
-- Never duplicate setup across tests — if two tests need similar state, extract a
-  helper.
-- Extend existing helpers with parameters rather than creating new ones. If
-  `test_config()` works for most tests but one needs a custom model, add an optional
-  parameter — don't write `test_config_with_custom_model()` or inline the setup.
-- This is critical because LLMs are biased toward generating inline boilerplate. Fight
-  that instinct. Every test should read like a specification.
+Integration tests with `live-tests` feature flag; unit tests only for genuinely complex
+behaviors. Full conventions (helpers API, MockProvider, LiveTestEnv, readability rules,
+isolation rules) live in the `/testing` skill — read it before writing or modifying any
+test.
 
 ## Configuration
 
@@ -299,18 +230,7 @@ src/
 ## Documentation
 
 User-facing docs live in `docs/` (Astro Starlight). When making changes that affect
-user-facing behavior, update the relevant doc pages:
-
-- **CLI changes** → `docs/src/content/docs/reference/cli.md`
-- **Config changes** → `docs/src/content/docs/getting-started/configuration.md`
-- **Tool changes** → `docs/src/content/docs/features/tools-*.md`
-- **New features** → relevant page under `docs/src/content/docs/features/`
-- **Workspace/bootstrap changes** →
-  `docs/src/content/docs/getting-started/workspace.mdx`
-- **Provider changes** → `docs/src/content/docs/ghost/providers.md`
-
-Build with `cd docs && npm run build` to verify. Terminology: always `GHOST` and
-`OPERATOR` in all caps in prose (same rule as code docs).
+user-facing behavior, read the `/docs` skill for file mappings and conventions.
 
 ## Specs
 
