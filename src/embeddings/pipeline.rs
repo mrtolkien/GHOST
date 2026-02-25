@@ -30,7 +30,8 @@ pub fn content_hash(content: &str) -> String {
 #[tracing::instrument(skip_all, fields(
     source_table = %source_table,
     source_id = %source_id,
-))]
+), level = "debug"
+)]
 pub async fn embed_source(
     client: &EmbeddingClient,
     db: &Surreal<Db>,
@@ -54,7 +55,8 @@ pub async fn embed_source(
 #[tracing::instrument(skip_all, fields(
     source_table = %source_table,
     source_id = %source_id,
-))]
+), level = "debug"
+)]
 pub async fn embed_source_forced(
     client: &EmbeddingClient,
     db: &Surreal<Db>,
