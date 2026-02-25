@@ -97,6 +97,7 @@ pub(super) async fn run_tool_loop(
             max_tokens: None,
             temperature: None,
             system: Some(prompt),
+            cache_key: session_id.to_string(),
             debug_context: Some(DebugContext {
                 session_id: session_id.to_string(),
                 iteration: iterations,

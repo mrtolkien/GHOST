@@ -19,6 +19,10 @@ pub(super) struct CodexResponsesRequest {
     pub tool_choice: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub include: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub prompt_cache_key: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub prompt_cache_retention: Option<String>,
 }
 
 /// Responses API uses a flat tool format (no nested `function` object).
@@ -157,6 +161,12 @@ pub(super) fn build_codex_request_body(
     });
     let tool_choice = tools.as_ref().map(|_| "auto".to_string());
 
+    let cache_key = if request.cache_key.is_empty() {
+        None
+    } else {
+        Some(request.cache_key.clone())
+    };
+
     Ok(CodexResponsesRequest {
         model: request.model.clone(),
         store: false,
@@ -166,6 +176,8 @@ pub(super) fn build_codex_request_body(
         tools,
         tool_choice,
         include: Some(vec!["reasoning.encrypted_content".to_string()]),
+        prompt_cache_key: cache_key,
+        prompt_cache_retention: None,
     })
 }
 
@@ -508,6 +520,15 @@ pub(super) fn parse_codex_response_value(
         })
         .and_then(Value::as_u64)
         .map(|value| value as u32);
+    let cache_creation_tokens = usage_value
+        .and_then(|usage| {
+            usage
+                .get("input_tokens_details")
+                .and_then(|details| details.get("cache_creation_tokens"))
+                .or_else(|| usage.get("cache_creation_input_tokens"))
+        })
+        .and_then(Value::as_u64)
+        .map(|value| value as u32);
 
     Ok(ChatResponse {
         content,
@@ -515,7 +536,7 @@ pub(super) fn parse_codex_response_value(
             input_tokens,
             output_tokens,
             cache_read_tokens,
-            cache_creation_tokens: None,
+            cache_creation_tokens,
         },
         stop_reason,
         model,
@@ -551,6 +572,7 @@ mod tests {
             temperature: None,
             system: None,
             tools: None,
+            cache_key: "test".to_string(),
             debug_context: None,
         };
 
@@ -584,6 +606,7 @@ mod tests {
             max_tokens: None,
             temperature: None,
             system: None,
+            cache_key: "test".to_string(),
             debug_context: None,
         };
 
@@ -629,6 +652,7 @@ mod tests {
             max_tokens: None,
             temperature: None,
             system: None,
+            cache_key: "test".to_string(),
             debug_context: None,
         };
 
@@ -805,6 +829,7 @@ mod tests {
             max_tokens: None,
             temperature: None,
             system: None,
+            cache_key: "test".to_string(),
             debug_context: None,
         };
 
@@ -854,6 +879,7 @@ mod tests {
             max_tokens: None,
             temperature: None,
             system: None,
+            cache_key: "test".to_string(),
             debug_context: None,
         };
 

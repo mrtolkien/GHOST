@@ -314,6 +314,7 @@ fn render_messages_for_summary(messages: &[ChatMessage], preview_chars: usize) -
 pub async fn summarize_older_messages(
     provider: &Arc<dyn Provider>,
     model: &str,
+    cache_key: &str,
     messages: &[ChatMessage],
     stored_message_ids: &[String],
     config: &CompactionConfig,
@@ -344,6 +345,7 @@ pub async fn summarize_older_messages(
             max_tokens: Some(2048),
             temperature: Some(0.3),
             system: Some(COMPACTION_PROMPT.to_string()),
+            cache_key: cache_key.to_string(),
             debug_context: None,
         })
         .await?;
@@ -460,9 +462,11 @@ impl SessionChat {
         // Phase 2: LLM summarization
         logfire::info!("Masking insufficient — proceeding to Phase 2");
 
+        let cache_key = session_id.to_string();
         match summarize_older_messages(
             self.provider(),
             &model_name,
+            &cache_key,
             &masked,
             stored_message_ids,
             compaction,
