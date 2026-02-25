@@ -120,6 +120,7 @@ mod tests {
             max_tokens: Some(32),
             temperature: Some(0.0),
             system: None,
+            cache_key: "test".to_string(),
             debug_context: None,
         }
     }

@@ -25,6 +25,11 @@ pub struct ChatRequest {
     pub temperature: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub system: Option<String>,
+    /// Stable identifier for prompt cache routing. Providers that support
+    /// prompt caching (e.g. OpenAI Codex) use this as `prompt_cache_key`
+    /// to steer requests with the same prefix to the same server.
+    #[serde(skip)]
+    pub cache_key: String,
     #[serde(skip)]
     pub debug_context: Option<DebugContext>,
 }

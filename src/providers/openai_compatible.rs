@@ -80,6 +80,8 @@ pub(crate) struct UsageResponse {
     #[serde(default)]
     pub(crate) input_tokens_details: Option<TokenDetails>,
     #[serde(default)]
+    pub(crate) cached_tokens: Option<u32>,
+    #[serde(default)]
     pub(crate) cache_read_input_tokens: Option<u32>,
     #[serde(default)]
     pub(crate) cache_creation_input_tokens: Option<u32>,
@@ -268,17 +270,25 @@ pub(crate) fn parse_response(
         completion_tokens: 0,
         prompt_tokens_details: None,
         input_tokens_details: None,
+        cached_tokens: None,
         cache_read_input_tokens: None,
         cache_creation_input_tokens: None,
     });
 
     let cache_read_tokens = usage
         .cache_read_input_tokens
+        .or_else(|| usage.cached_tokens)
         .or_else(|| {
             usage
                 .prompt_tokens_details
                 .as_ref()
                 .and_then(|d| d.cache_read_input_tokens)
+        })
+        .or_else(|| {
+            usage
+                .prompt_tokens_details
+                .as_ref()
+                .and_then(|d| d.cached_tokens)
         })
         .or_else(|| {
             usage
@@ -299,6 +309,12 @@ pub(crate) fn parse_response(
                 .prompt_tokens_details
                 .as_ref()
                 .and_then(|d| d.cache_creation_input_tokens)
+        })
+        .or_else(|| {
+            usage
+                .prompt_tokens_details
+                .as_ref()
+                .and_then(|d| d.cache_creation)
         })
         .or_else(|| {
             usage
@@ -399,6 +415,7 @@ mod tests {
             max_tokens: None,
             temperature: None,
             system: Some("be concise".to_string()),
+            cache_key: "test".to_string(),
             debug_context: None,
         };
 
@@ -437,6 +454,7 @@ mod tests {
                 completion_tokens: 4,
                 prompt_tokens_details: None,
                 input_tokens_details: None,
+                cached_tokens: None,
                 cache_read_input_tokens: Some(1),
                 cache_creation_input_tokens: Some(2),
             }),
@@ -487,6 +505,7 @@ mod tests {
             max_tokens: None,
             temperature: None,
             system: None,
+            cache_key: "test".to_string(),
             debug_context: None,
         };
 
@@ -530,6 +549,7 @@ mod tests {
             max_tokens: None,
             temperature: None,
             system: None,
+            cache_key: "test".to_string(),
             debug_context: None,
         };
 
