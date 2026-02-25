@@ -20,10 +20,11 @@ async fn session_chat_live_roundtrip_with_default_config() {
         .expect("create session");
 
     let chat = SessionChat::from_config(db.clone(), config).expect("build session chat");
-    let result = chat
+    let (result, _metadata) = chat
         .chat(
             &session_id.to_string(),
             "Reply in one short sentence: what is Rust best known for?",
+            None,
         )
         .await
         .expect("chat response");

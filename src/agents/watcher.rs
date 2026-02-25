@@ -93,18 +93,36 @@ async fn check_completed_tasks(
             continue;
         }
 
+        // Resolve Discord channel for this parent session
+        let channel = db::sessions::get_interface_for_session(db, &parent_id)
+            .await
+            .ok()
+            .flatten();
+        let discord_channel_id = channel.as_deref().and_then(parse_discord_channel_id);
+
+        // Send compact agent summary to Discord
+        if let Some(channel_id) = discord_channel_id
+            && let Some(ref metadata) = status.metadata
+        {
+            let findings_snippet = status.findings.as_deref();
+            let summary = crate::interfaces::discord::ui_events::format_agent_summary(
+                &status.agent_name,
+                metadata,
+                findings_snippet,
+            );
+            let _ = discord_sender
+                .send_compact_container(channel_id, &summary, None)
+                .await;
+        }
+
         // Trigger a new chat turn with a synthetic user message
         let trigger = "[system] Research agent completed.";
-        match session_chat.chat(&parent_id.to_string(), trigger).await {
-            Ok(result) => {
-                // Send the response to the right Discord channel
-                let channel = db::sessions::get_interface_for_session(db, &parent_id)
-                    .await
-                    .ok()
-                    .flatten();
-
-                if let Some(interface_key) = channel
-                    && let Some(channel_id) = parse_discord_channel_id(&interface_key)
+        match session_chat
+            .chat(&parent_id.to_string(), trigger, None)
+            .await
+        {
+            Ok((result, _metadata)) => {
+                if let Some(channel_id) = discord_channel_id
                     && let Err(e) = discord_sender
                         .send_to_channel(channel_id, &result.message)
                         .await

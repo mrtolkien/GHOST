@@ -463,8 +463,8 @@ impl LiveTestEnv {
                     // Trigger follow-up chat turn
                     let chat = self.chat();
                     let trigger = "[system] Research agent completed.";
-                    match chat.chat(&parent_id.to_string(), trigger).await {
-                        Ok(result) => {
+                    match chat.chat(&parent_id.to_string(), trigger, None).await {
+                        Ok((result, _metadata)) => {
                             return Some(AgentOutcome {
                                 chat_result: result,
                                 agent_session: agent_session.unwrap_or_else(|| session_id.clone()),

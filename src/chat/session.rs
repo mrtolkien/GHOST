@@ -21,7 +21,10 @@ use super::convert::{
     tool_results_to_values,
 };
 use super::tool_loop::{ToolLoopHandler, run_tool_loop};
-use super::types::{ChatError, ChatResult, ChatStopReason, DEFAULT_MAX_TOOL_ITERATIONS};
+use super::types::{
+    ChatError, ChatResult, ChatStopReason, DEFAULT_MAX_TOOL_ITERATIONS, EventSender, RunMetadata,
+    ToolLoopEvent,
+};
 
 pub struct SessionChat {
     db: Surreal<Db>,
@@ -86,7 +89,8 @@ impl SessionChat {
         &self,
         session_id: &str,
         user_message: &str,
-    ) -> Result<ChatResult, ChatError> {
+        event_tx: Option<&EventSender>,
+    ) -> Result<(ChatResult, RunMetadata), ChatError> {
         let session_thing = parse_session_thing(session_id)?;
         db::sessions::get_session(&self.db, &session_thing).await?;
         db::sessions::update_activity(&self.db, &session_thing).await?;
@@ -107,6 +111,8 @@ impl SessionChat {
         let mut handler = ChatHandler {
             session_chat: self,
             session_thing: &session_thing,
+            event_tx,
+            pending_todo_update: false,
         };
 
         run_tool_loop(
@@ -116,6 +122,7 @@ impl SessionChat {
             self.max_tool_iterations,
             &mut handler,
             &mut history,
+            event_tx,
         )
         .await
     }
@@ -134,7 +141,8 @@ impl SessionChat {
         prompt: &str,
         system_prompt: String,
         definition: &TaskDefinition,
-    ) -> Result<ChatResult, ChatError> {
+        event_tx: Option<&EventSender>,
+    ) -> Result<(ChatResult, RunMetadata), ChatError> {
         let session_thing = parse_session_thing(session_id)?;
         db::sessions::create_message(&self.db, &session_thing, "user", prompt).await?;
 
@@ -157,6 +165,8 @@ impl SessionChat {
             context_pressure: definition.context_pressure.clone(),
             started_at: std::time::Instant::now(),
             temporal_nudge_fired: false,
+            event_tx,
+            pending_todo_update: false,
         };
 
         run_tool_loop(
@@ -166,6 +176,7 @@ impl SessionChat {
             definition.max_iterations,
             &mut handler,
             &mut history,
+            event_tx,
         )
         .await
     }
@@ -186,7 +197,8 @@ impl SessionChat {
         prompt: &str,
         system_prompt: String,
         definition: &TaskDefinition,
-    ) -> Result<ChatResult, ChatError> {
+        event_tx: Option<&EventSender>,
+    ) -> Result<(ChatResult, RunMetadata), ChatError> {
         let session_thing = parse_session_thing(session_id)?;
 
         // Store new user message in the existing agent session
@@ -207,6 +219,8 @@ impl SessionChat {
             context_pressure: definition.context_pressure.clone(),
             started_at: std::time::Instant::now(),
             temporal_nudge_fired: false,
+            event_tx,
+            pending_todo_update: false,
         };
 
         run_tool_loop(
@@ -216,6 +230,7 @@ impl SessionChat {
             definition.max_iterations,
             &mut handler,
             &mut history,
+            event_tx,
         )
         .await
     }
@@ -374,6 +389,8 @@ impl SessionChat {
 struct ChatHandler<'a> {
     session_chat: &'a SessionChat,
     session_thing: &'a Thing,
+    event_tx: Option<&'a EventSender>,
+    pending_todo_update: bool,
 }
 
 #[async_trait]
@@ -395,6 +412,11 @@ impl ToolLoopHandler for ChatHandler<'_> {
         tool_uses: &[Value],
         raw_output: Option<Vec<Value>>,
     ) -> Result<(), ChatError> {
+        // Detect todo tool calls for live TODO updates
+        self.pending_todo_update = tool_uses
+            .iter()
+            .any(|t| t.get("name").and_then(Value::as_str) == Some("todo"));
+
         db::sessions::create_message_with_metadata(
             self.session_chat.db(),
             self.session_thing,
@@ -455,16 +477,31 @@ impl ToolLoopHandler for ChatHandler<'_> {
         history: &mut Vec<ChatMessage>,
     ) -> Result<(), ChatError> {
         self.session_chat.apply_masking_if_needed(history);
-        if let Some(todo_context) = self
-            .session_chat
-            .todo_injection_message(self.session_thing)
-            .await?
+
+        let todo_items =
+            db::sessions::get_session_todo_list(self.session_chat.db(), self.session_thing).await?;
+
+        if let Some(ref items) = todo_items
+            && !items.is_empty()
         {
             history.push(ChatMessage {
                 role: Role::System,
-                content: vec![ContentBlock::Text { text: todo_context }],
+                content: vec![ContentBlock::Text {
+                    text: format_todo_injection(items),
+                }],
             });
+
+            // Emit TODO event if a todo tool was called this iteration
+            if self.pending_todo_update {
+                if let Some(tx) = self.event_tx {
+                    let _ = tx.send(ToolLoopEvent::TodoUpdated {
+                        items: items.clone(),
+                    });
+                }
+                self.pending_todo_update = false;
+            }
         }
+
         Ok(())
     }
 }
@@ -484,6 +521,8 @@ struct TaskHandler<'a> {
     context_pressure: Option<ContextPressureConfig>,
     started_at: std::time::Instant,
     temporal_nudge_fired: bool,
+    event_tx: Option<&'a EventSender>,
+    pending_todo_update: bool,
 }
 
 #[async_trait]
@@ -498,6 +537,10 @@ impl ToolLoopHandler for TaskHandler<'_> {
         tool_uses: &[Value],
         raw_output: Option<Vec<Value>>,
     ) -> Result<(), ChatError> {
+        self.pending_todo_update = tool_uses
+            .iter()
+            .any(|t| t.get("name").and_then(Value::as_str) == Some("todo"));
+
         db::sessions::create_message_with_metadata(
             self.session_chat.db(),
             self.session_thing,
@@ -560,15 +603,27 @@ impl ToolLoopHandler for TaskHandler<'_> {
         self.session_chat.apply_masking_if_needed(history);
 
         // Inject TODO as a separate plain-text system message.
-        if let Some(todo_context) = self
-            .session_chat
-            .todo_injection_message(self.session_thing)
-            .await?
+        let todo_items =
+            db::sessions::get_session_todo_list(self.session_chat.db(), self.session_thing).await?;
+
+        if let Some(ref items) = todo_items
+            && !items.is_empty()
         {
             history.push(ChatMessage {
                 role: Role::System,
-                content: vec![ContentBlock::Text { text: todo_context }],
+                content: vec![ContentBlock::Text {
+                    text: format_todo_injection(items),
+                }],
             });
+
+            if self.pending_todo_update {
+                if let Some(tx) = self.event_tx {
+                    let _ = tx.send(ToolLoopEvent::TodoUpdated {
+                        items: items.clone(),
+                    });
+                }
+                self.pending_todo_update = false;
+            }
         }
 
         // Inject progress nudge (periodic rules) as a separate system message.

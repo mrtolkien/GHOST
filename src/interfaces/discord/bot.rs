@@ -17,6 +17,8 @@ use crate::config::Config;
 use crate::db;
 
 use super::send::{WARNING_EMBED_COLOR, send_assistant_v2, send_gateway_v2};
+use super::ui_events::DiscordUiRenderer;
+use super::ui_events::format_statusline;
 
 /// Maximum duration for a typing indicator before it auto-stops.
 const TYPING_TIMEOUT: Duration = Duration::from_secs(300);
@@ -65,6 +67,7 @@ pub(super) struct Handler {
     config: Config,
     allowed_user_id: String,
     bot_user_id: OnceLock<String>,
+    started_at: std::time::SystemTime,
 }
 
 impl Handler {
@@ -80,6 +83,7 @@ impl Handler {
             config,
             allowed_user_id,
             bot_user_id: OnceLock::new(),
+            started_at: std::time::SystemTime::now(),
         }
     }
 
@@ -218,6 +222,11 @@ impl EventHandler for Handler {
             return;
         }
 
+        // Skip messages from before this bot session (gateway resume replay)
+        if *msg.timestamp < self.started_at {
+            return;
+        }
+
         let content = self.strip_bot_mention(&msg.content);
 
         // Handle /REBOOT command
@@ -299,11 +308,25 @@ impl EventHandler for Handler {
         // Start typing indicator
         let _typing = TimedTyping::start(msg.channel_id, &ctx.http);
 
+        // Create event channel for live UI updates
+        let (event_tx, event_rx) = tokio::sync::mpsc::unbounded_channel();
+        let renderer = DiscordUiRenderer::new(event_rx, Arc::clone(&ctx.http), msg.channel_id);
+        let renderer_handle = tokio::spawn(renderer.run());
+
         // Chat with GHOST
-        match self.session_chat.chat(&session_id, &full_content).await {
-            Ok(result) => {
-                if let Err(e) = send_assistant_v2(&ctx.http, msg.channel_id, &result.message).await
-                {
+        let chat_result = self
+            .session_chat
+            .chat(&session_id, &full_content, Some(&event_tx))
+            .await;
+
+        // Drop sender so renderer finishes
+        drop(event_tx);
+        let _ = renderer_handle.await;
+
+        match chat_result {
+            Ok((result, metadata)) => {
+                let response_text = format_statusline(&result.message, &metadata);
+                if let Err(e) = send_assistant_v2(&ctx.http, msg.channel_id, &response_text).await {
                     error!(
                         session_id = %session_id,
                         error = %e,

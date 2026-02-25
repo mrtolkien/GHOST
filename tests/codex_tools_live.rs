@@ -18,11 +18,12 @@ async fn codex_tool_calling_smoke() {
     let session = env.create_session().await;
 
     let chat = env.chat();
-    let result = chat
+    let (result, _metadata) = chat
         .chat(
             &session.to_string(),
             "Use the web_search tool to search for 'rust programming language'. \
              You MUST call web_search. After searching, tell me the first result title.",
+            None,
         )
         .await
         .expect("chat failed");

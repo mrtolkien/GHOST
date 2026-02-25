@@ -16,11 +16,12 @@ async fn e2e_tool_smoke() {
     let session = env.create_session().await;
 
     let chat = env.chat();
-    let result = chat
+    let (result, _metadata) = chat
         .chat(
             &session.to_string(),
             "Use run_shell_command to run `pwd`, then use the respond tool to \
              tell me what directory you're in. You MUST use both tools.",
+            None,
         )
         .await
         .expect("chat failed");
@@ -116,10 +117,11 @@ async fn run_initial_research(
     session: &surrealdb::sql::Thing,
 ) -> Option<common::AgentOutcome> {
     let chat = env.chat();
-    let result = chat
+    let (result, _metadata) = chat
         .chat(
             &session.to_string(),
             "I want to buy a new enclosed 3D printer for home use, around $1000. What do you recommend?",
+            None,
         )
         .await
         .expect("chat failed");

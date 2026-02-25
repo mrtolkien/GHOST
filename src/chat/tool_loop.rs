@@ -19,7 +19,9 @@ use super::convert::{
     raw_output_to_values,
 };
 use super::session::SessionChat;
-use super::types::{ChatError, ChatResult, ChatStopReason};
+use super::types::{
+    ChatError, ChatResult, ChatStopReason, EventSender, RunMetadata, ToolCallInfo, ToolLoopEvent,
+};
 
 /// Per-request timeout for provider API calls. Providers can hang indefinitely
 /// (observed in live tests). This wraps each `Provider::chat()` call.
@@ -80,7 +82,14 @@ pub(super) async fn run_tool_loop(
     max_iterations: usize,
     handler: &mut (impl ToolLoopHandler + ?Sized),
     history: &mut Vec<ChatMessage>,
-) -> Result<ChatResult, ChatError> {
+    event_tx: Option<&EventSender>,
+) -> Result<(ChatResult, RunMetadata), ChatError> {
+    let started_at = std::time::Instant::now();
+    let mut metadata = RunMetadata {
+        model_alias: session_chat.config().models.default.clone(),
+        ..Default::default()
+    };
+
     let mut iterations = 0usize;
     let mut last_result: Option<ChatResult> = None;
     let mut retried_empty = false;
@@ -135,22 +144,53 @@ pub(super) async fn run_tool_loop(
             }
         };
 
+        // Accumulate usage from every provider response
+        metadata.input_tokens += response.usage.input_tokens;
+        metadata.output_tokens += response.usage.output_tokens;
+        metadata.cache_read_tokens += response.usage.cache_read_tokens.unwrap_or(0);
+
         match response.stop_reason {
             StopReason::ToolUse => {
                 if iterations >= max_iterations {
+                    metadata.iterations = iterations;
+                    metadata.duration = started_at.elapsed();
                     let fallback = last_result.unwrap_or(ChatResult {
                         message: "Hit tool iteration limit before completing response.".to_string(),
                         stop_reason: ChatStopReason::MaxIterations,
                     });
-                    return Ok(ChatResult {
-                        stop_reason: ChatStopReason::MaxIterations,
-                        ..fallback
-                    });
+                    return Ok((
+                        ChatResult {
+                            stop_reason: ChatStopReason::MaxIterations,
+                            ..fallback
+                        },
+                        metadata,
+                    ));
                 }
                 iterations += 1;
 
                 let tool_uses = extract_tool_use_blocks(&response.content);
                 let raw_output = raw_output_to_values(&response.content);
+
+                // Count tool calls and collect info for events
+                let tool_infos: Vec<ToolCallInfo> = tool_uses
+                    .iter()
+                    .filter_map(|t| {
+                        let name = t.get("name").and_then(Value::as_str)?;
+                        let input = t.get("input").unwrap_or(&Value::Null);
+                        Some(ToolCallInfo {
+                            name: name.to_string(),
+                            args_summary: summarize_tool_args(input),
+                        })
+                    })
+                    .collect();
+                for info in &tool_infos {
+                    *metadata.tool_counts.entry(info.name.clone()).or_default() += 1;
+                }
+
+                // Emit tool call event
+                if let Some(tx) = event_tx {
+                    let _ = tx.send(ToolLoopEvent::ToolCalls { calls: tool_infos });
+                }
 
                 // Model made tool calls — reset the empty-response flag
                 // so it gets another recovery chance if it goes empty later.
@@ -255,7 +295,9 @@ pub(super) async fn run_tool_loop(
                     response_len = result.message.len() as u64,
                     response_preview = response_preview,
                 );
-                return Ok(result);
+                metadata.iterations = iterations;
+                metadata.duration = started_at.elapsed();
+                return Ok((result, metadata));
             }
         }
 
@@ -263,5 +305,52 @@ pub(super) async fn run_tool_loop(
             message: extract_latest_assistant_text(history),
             stop_reason: ChatStopReason::EndTurn,
         });
+    }
+}
+
+const ARG_VALUE_MAX: usize = 60;
+const ARGS_SUMMARY_MAX: usize = 120;
+
+/// Produce a short human-readable summary of tool call arguments.
+fn summarize_tool_args(input: &Value) -> String {
+    let Some(obj) = input.as_object() else {
+        return String::new();
+    };
+    if obj.is_empty() {
+        return String::new();
+    }
+
+    let mut parts = Vec::new();
+    let mut total = 0usize;
+
+    for (key, val) in obj {
+        let val_str = match val {
+            Value::String(s) => truncate_str(s, ARG_VALUE_MAX),
+            Value::Null => "null".to_string(),
+            Value::Bool(b) => b.to_string(),
+            Value::Number(n) => n.to_string(),
+            other => {
+                let json = other.to_string();
+                truncate_str(&json, ARG_VALUE_MAX)
+            }
+        };
+        let part = format!("{key}: {val_str}");
+        total += part.len();
+        parts.push(part);
+        if total > ARGS_SUMMARY_MAX {
+            break;
+        }
+    }
+
+    let result = parts.join(", ");
+    truncate_str(&result, ARGS_SUMMARY_MAX)
+}
+
+fn truncate_str(s: &str, max: usize) -> String {
+    if s.len() <= max {
+        s.to_string()
+    } else {
+        let truncated: String = s.chars().take(max - 1).collect();
+        format!("{truncated}\u{2026}")
     }
 }
