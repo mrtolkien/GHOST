@@ -405,7 +405,8 @@ main[data-pagefind-body] > .content-panel:first-child .sl-container > h1#_top,
 }
 
 /* User preference: no borders/dividers in the header area. */
-.header :is(
+.header
+  :is(
     .site-title,
     site-search button,
     site-search dialog,
