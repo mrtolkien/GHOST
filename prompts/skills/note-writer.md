@@ -1,10 +1,9 @@
 ---
 name: note-writer
 description:
-  Comprehensive guide for creating structured knowledge notes. Read this
-  skill before writing any notes — it contains entity enumeration, note
-  guidelines, title conventions, linking rules, archetypes, source quality
-  notes, and decision notes.
+  Comprehensive guide for creating structured knowledge notes. Read this skill before
+  writing any notes — it contains entity enumeration, note guidelines, title
+  conventions, linking rules, archetypes, source quality notes, and decision notes.
 ---
 
 # Note Writer — Knowledge Note Guide

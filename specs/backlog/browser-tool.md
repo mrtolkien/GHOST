@@ -90,10 +90,10 @@ services:
     image: chromedp/headless-shell:stable
     ports:
       - "9222:9222"
-    shm_size: "2gb"          # Chrome crashes with default 64MB /dev/shm
-    init: true                # Prevents zombie helper processes
+    shm_size: "2gb" # Chrome crashes with default 64MB /dev/shm
+    init: true # Prevents zombie helper processes
     security_opt:
-      - seccomp=chrome.json   # Custom profile for Chrome sandbox
+      - seccomp=chrome.json # Custom profile for Chrome sandbox
     deploy:
       resources:
         limits:

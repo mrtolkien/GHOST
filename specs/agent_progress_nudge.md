@@ -5,8 +5,7 @@
 The deep research agent needs runtime feedback to enforce minimum tool call counts
 (e.g., "call `web_fetch` at least 5 times"). Currently `build_agent_progress_nudge()` in
 `session.rs` reports generic tool call counts (e.g.
-`[Progress] web_fetch: 3,
-web_search: 4`) — the prompt is responsible for interpreting
+`[Progress] web_fetch: 3, web_search: 4`) — the prompt is responsible for interpreting
 thresholds.
 
 **Experimentally proven**: Prompt engineering alone cannot enforce this. Three different

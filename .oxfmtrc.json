@@ -1,0 +1,13 @@
+{
+  "printWidth": 88,
+  "tabWidth": 2,
+  "proseWrap": "always",
+  "ignorePatterns": [
+    "target",
+    "**/dist",
+    "**/.astro",
+    "*-lock.json",
+    "tests/fixtures",
+    "docs/src/content/**"
+  ]
+}

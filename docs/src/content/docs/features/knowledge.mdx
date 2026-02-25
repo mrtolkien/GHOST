@@ -1,20 +1,21 @@
 ---
 title: Knowledge Base
-description: GHOST's knowledge system — notes, references, diary entries with graph edges and semantic search.
+description:
+  GHOST's knowledge system — notes, references, diary entries with graph edges and
+  semantic search.
 ---
 
 import { FileTree, Tabs, TabItem } from "@astrojs/starlight/components";
 
-GHOST's knowledge system stores and connects information using three types of
-entries, backed by SurrealDB with graph edges and embedding-based semantic
-search.
+GHOST's knowledge system stores and connects information using three types of entries,
+backed by SurrealDB with graph edges and embedding-based semantic search.
 
 ## Knowledge Types
 
 ### Notes
 
-Atomic knowledge entries with structured metadata. Your GHOST creates these
-during reflection and conversation.
+Atomic knowledge entries with structured metadata. Your GHOST creates these during
+reflection and conversation.
 
 ```markdown title="notes/rust-error-handling.md"
 +++
@@ -25,8 +26,7 @@ sources = ["https://doc.rust-lang.org/book/ch09-00-error-handling.html"]
 trust = 8
 +++
 
-Rust uses `Result<T, E>` for recoverable errors and `panic!` for
-unrecoverable ones.
+Rust uses `Result<T, E>` for recoverable errors and `panic!` for unrecoverable ones.
 
 Related: [[influences>Haskell Either Type]], [[used-by>GHOST Project]]
 ```
@@ -65,8 +65,7 @@ Daily timeline entries (auto-maintained by the reflection agent):
 
 ## Wiki Links
 
-Notes connect to each other through wiki links with optional typed
-relationships:
+Notes connect to each other through wiki links with optional typed relationships:
 
 <Tabs>
   <TabItem label="Simple link">
@@ -81,9 +80,9 @@ relationships:
   </TabItem>
 </Tabs>
 
-These links create edges in the graph database, enabling traversal and
-discovery. Unresolved links automatically create **stub notes** that your
-GHOST can flesh out later.
+These links create edges in the graph database, enabling traversal and discovery.
+Unresolved links automatically create **stub notes** that your GHOST can flesh out
+later.
 
 ## Search
 
@@ -92,8 +91,7 @@ GHOST uses **hybrid search** combining:
 - **BM25** — full-text keyword matching
 - **Semantic** — embedding-based similarity (via Ollama)
 
-Results are merged and ranked. Search covers notes, references, and diary
-entries.
+Results are merged and ranked. Search covers notes, references, and diary entries.
 
 ## CLI Commands
 

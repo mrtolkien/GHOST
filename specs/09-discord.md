@@ -73,12 +73,12 @@ components as layout blocks instead of interactive widgets.
 
 #### Component Types
 
-| Type         | ID | Purpose                                                  |
-| ------------ | -- | -------------------------------------------------------- |
-| TextDisplay  | 10 | Markdown text content (max 4000 chars per block)         |
-| MediaGallery | 12 | Image display via `attachment://filename.png`            |
-| Separator    | 14 | Horizontal rule/divider with configurable spacing        |
-| Container    | 17 | Wrapper with optional accent color (for system messages) |
+| Type         | ID  | Purpose                                                  |
+| ------------ | --- | -------------------------------------------------------- |
+| TextDisplay  | 10  | Markdown text content (max 4000 chars per block)         |
+| MediaGallery | 12  | Image display via `attachment://filename.png`            |
+| Separator    | 14  | Horizontal rule/divider with configurable spacing        |
+| Container    | 17  | Wrapper with optional accent color (for system messages) |
 
 Max 40 components per message (Discord limit).
 

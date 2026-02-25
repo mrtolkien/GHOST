@@ -1,24 +1,25 @@
 ---
 title: Skills
-description: Workflow files that teach your GHOST how to handle specific tasks using the agentskills.io format.
+description:
+  Workflow files that teach your GHOST how to handle specific tasks using the
+  agentskills.io format.
 ---
 
 import { FileTree } from "@astrojs/starlight/components";
 
-Skills are workflow files that teach your GHOST how to handle specific tasks.
-They follow the [agentskills.io](https://agentskills.io) format.
+Skills are workflow files that teach your GHOST how to handle specific tasks. They
+follow the [agentskills.io](https://agentskills.io) format.
 
 ## Skill Format
 
-Each skill lives in `$WORKSPACE/skills/<name>/skill.md` with YAML
-frontmatter:
+Each skill lives in `$WORKSPACE/skills/<name>/skill.md` with YAML frontmatter:
 
 ```markdown title="skills/my-skill/skill.md"
 ---
 name: my-skill
 description: >
-  One-line description that helps the GHOST decide when to use this skill.
-  Must be specific enough to trigger on relevant queries.
+  One-line description that helps the GHOST decide when to use this skill. Must be
+  specific enough to trigger on relevant queries.
 ---
 
 # Skill Instructions
@@ -48,9 +49,9 @@ skill never triggers.
 
 ## How Discovery Works
 
-Skills are scanned at startup. Their names and descriptions are listed in the
-system prompt. When a conversation matches a skill's triggers, the GHOST reads
-the full skill file before responding.
+Skills are scanned at startup. Their names and descriptions are listed in the system
+prompt. When a conversation matches a skill's triggers, the GHOST reads the full skill
+file before responding.
 
 ## Writing Your Own
 
@@ -60,8 +61,7 @@ the full skill file before responding.
 4. Optionally add supporting files in `scripts/`, `references/`, or `assets/`
    subdirectories
 
-Your GHOST can also create skills for itself using the **skill-creator**
-skill.
+Your GHOST can also create skills for itself using the **skill-creator** skill.
 
 ## Skill Directory Structure
 

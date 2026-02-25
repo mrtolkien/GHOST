@@ -1,6 +1,7 @@
 ---
 title: Knowledge Tools
-description: Tools for interacting with GHOST's knowledge base — search and note creation.
+description:
+  Tools for interacting with GHOST's knowledge base — search and note creation.
 ---
 
 Tools for interacting with GHOST's [knowledge base](/features/knowledge/).

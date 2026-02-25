@@ -1,6 +1,7 @@
 ---
 title: Identity
-description: How GHOST identity works through BOOT.md, SOUL.md, and OPERATOR.md workspace files.
+description:
+  How GHOST identity works through BOOT.md, SOUL.md, and OPERATOR.md workspace files.
 ---
 
 GHOST follows a **one GHOST, one OPERATOR** model. Identity is defined by three

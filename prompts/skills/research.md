@@ -2,11 +2,11 @@
 name: research
 description:
   MANDATORY for any question involving recommendations, comparisons, buying decisions,
-  evaluations, or current web data. You MUST call
-  read_file("skills/research/skill.md") BEFORE generating any response to these
-  questions. Do NOT answer from training data — it produces dangerously outdated
-  advice. This skill contains non-negotiable workflow rules including when to use
-  background agents for multi-source research vs direct tools for simple lookups.
+  evaluations, or current web data. You MUST call read_file("skills/research/skill.md")
+  BEFORE generating any response to these questions. Do NOT answer from training data —
+  it produces dangerously outdated advice. This skill contains non-negotiable workflow
+  rules including when to use background agents for multi-source research vs direct
+  tools for simple lookups.
 ---
 
 # Research Skill

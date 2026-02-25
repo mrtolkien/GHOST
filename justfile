@@ -9,11 +9,11 @@ default:
 fmt-rust:
     cargo fmt --all
 
-# Format all markdown, SQL, JSON, and TOML files using dprint
+# Format markdown, MDX, JSON, and TOML files using oxfmt
 fmt-other:
-    dprint fmt
+    npx oxfmt .
 
-# Format everything (Rust + Markdown/SQL/JSON/TOML)
+# Format everything (Rust + Markdown/MDX/JSON/TOML)
 fmt: fmt-rust fmt-other
 
 # Run cargo check

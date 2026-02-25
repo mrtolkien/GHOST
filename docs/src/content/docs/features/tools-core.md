@@ -1,6 +1,7 @@
 ---
 title: Core Tools
-description: GHOST's core tool capabilities — shell, file I/O, todo tracking, and agent control.
+description:
+  GHOST's core tool capabilities — shell, file I/O, todo tracking, and agent control.
 ---
 
 GHOST follows a "skills over tools" philosophy — prefer workflow files and existing

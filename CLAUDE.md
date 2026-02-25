@@ -284,7 +284,9 @@ src/
 ## Formatting
 
 - Run `just fmt` to format everything
-- Line width: 88 characters for dprint-formatted files
+- Line width: 88 characters (oxfmt for markdown/MDX/JSON/TOML, cargo fmt for Rust)
+- Docs content (`docs/src/content/**`) is excluded from oxfmt because Starlight's `:::`
+  admonition syntax is not supported by Prettier-compatible formatters
 - Terminology rule for docs/prose: always write `GHOST` and `OPERATOR` in all caps. Keep
   real code/file identifiers (crate names, paths, variable names) unchanged.
 

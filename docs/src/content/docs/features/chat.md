@@ -1,6 +1,7 @@
 ---
 title: Chat & Sessions
-description: How GHOST chat sessions work, including message flow and automatic compaction.
+description:
+  How GHOST chat sessions work, including message flow and automatic compaction.
 ---
 
 ## Sessions

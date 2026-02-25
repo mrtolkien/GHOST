@@ -1,8 +1,8 @@
 ---
 name: skill-creator
 description:
-  Guide for creating effective Agent Skills for GHOST. Use when the OPERATOR
-  wants to create a new skill or update an existing skill.
+  Guide for creating effective Agent Skills for GHOST. Use when the OPERATOR wants to
+  create a new skill or update an existing skill.
 ---
 
 # Skill Creator Guide

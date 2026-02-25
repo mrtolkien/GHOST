@@ -194,8 +194,7 @@ async fn execute(&self, params: Value, ctx: &ToolContext) -> Result<String, Tool
 5. `cargo test` — tool execution error (e.g., read nonexistent file) returns a
    `ToolError`, not a panic
 6. `cargo test` — `todo plan` creates a list, `todo update` changes status,
-   `todo
-   batch_update` updates multiple items, `todo clear` resets the list
+   `todo batch_update` updates multiple items, `todo clear` resets the list
 7. `cargo test` — TODO state is injected after the user message (not in system prompt)
 8. Now that tools exist, add the full provider live test from spec 05: send all tool
    schemas to each provider and verify the model can call `run_shell_command`

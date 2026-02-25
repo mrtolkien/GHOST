@@ -1,8 +1,8 @@
 ---
 name: cron-job-author
 description:
-  Create and improve file-based cron jobs. Use when the OPERATOR asks for
-  scheduled automation via jobs in $WORKSPACE/jobs/.
+  Create and improve file-based cron jobs. Use when the OPERATOR asks for scheduled
+  automation via jobs in $WORKSPACE/jobs/.
 triggers:
   - schedule a job
   - create a cron job

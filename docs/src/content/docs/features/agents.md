@@ -1,6 +1,8 @@
 ---
 title: Agents
-description: Autonomous background workers for complex multi-step tasks with configurable nudge systems.
+description:
+  Autonomous background workers for complex multi-step tasks with configurable nudge
+  systems.
 ---
 
 Agents are autonomous background workers that handle complex, multi-step tasks. They run
