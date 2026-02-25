@@ -16,7 +16,7 @@ hero:
       icon: right-arrow
       variant: primary
     - text: GitHub
-      link: https://github.com/tolki/ghost
+      link: https://github.com/mrtolkien/ghost
       icon: external
       variant: minimal
 ---
@@ -30,7 +30,7 @@ import { CardGrid, Card } from "@astrojs/starlight/components";
     Workspace files (markdown, TOML) are the primary feature surface. Identity, skills,
     jobs, and knowledge all live as editable files.
   </Card>
-  <Card title="CLI-first" icon="terminal">
+  <Card title="CLI-first" icon="forward-slash">
     Every feature is accessible through direct commands.
   </Card>
   <Card title="Skills over tools" icon="puzzle">
@@ -43,18 +43,27 @@ import { CardGrid, Card } from "@astrojs/starlight/components";
 
 ## Architecture
 
-```text title="Architecture"
-┌──────────────────────────────────────────┐
-│               ghost daemon               │
-├──────────┬───────────┬───────────────────┤
-│ Discord  │ Job       │ Chat              │
-│ Bot      │ Scheduler │ Orchestration     │
-├──────────┴───────────┴───────────────────┤
-│ Provider Layer (OpenRouter, Kimi, Codex) │
-├──────────────────────────────────────────┤
-│ SurrealDB (embedded)  │  Workspace Files │
-└──────────────────────────────────────────┘
-```
+<table>
+  <thead>
+    <tr>
+      <th colspan="3" style="text-align: center;">ghost daemon</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Discord Bot</td>
+      <td>Job Scheduler</td>
+      <td>Chat Orchestration</td>
+    </tr>
+    <tr>
+      <td colspan="3" style="text-align: center;">Provider Layer (OpenRouter, Kimi, Codex)</td>
+    </tr>
+    <tr>
+      <td colspan="2">SurrealDB (embedded)</td>
+      <td>Workspace Files</td>
+    </tr>
+  </tbody>
+</table>
 
 - **Single binary** — no external services required (except Ollama for embeddings)
 - **Embedded SurrealDB** — graph-based knowledge storage with typed edges

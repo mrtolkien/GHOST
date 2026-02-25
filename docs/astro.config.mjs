@@ -6,15 +6,16 @@ export default defineConfig({
     starlight({
       title: "GHOST",
       description: "Personal AI agent platform",
+      customCss: ["./src/styles/starlight-overrides.css"],
       social: [
         {
           icon: "github",
           label: "GitHub",
-          href: "https://github.com/tolki/ghost",
+          href: "https://github.com/mrtolkien/ghost",
         },
       ],
       editLink: {
-        baseUrl: "https://github.com/tolki/ghost/edit/main/docs/",
+        baseUrl: "https://github.com/mrtolkien/ghost/edit/main/docs/",
       },
       sidebar: [
         { label: "Introduction", slug: "" },
