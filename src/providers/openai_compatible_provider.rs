@@ -100,8 +100,8 @@ impl OpenAiCompatibleProvider {
         let started = Instant::now();
         logfire::info!(
             "provider request",
-            provider = self.provider_name,
-            model = request.model.clone(),
+            gen_ai.system = self.provider_name,
+            gen_ai.request.model = request.model.clone(),
             endpoint = self.endpoint.clone(),
             messages = body.messages.len() as u64,
             tools = body.tools.as_ref().map_or(0, |tools| tools.len()) as u64,
@@ -215,12 +215,13 @@ impl OpenAiCompatibleProvider {
 
         logfire::info!(
             "provider response",
-            provider = self.provider_name,
-            model = parsed.model.clone(),
-            input_tokens = parsed.usage.input_tokens,
-            output_tokens = parsed.usage.output_tokens,
-            cache_read_tokens = parsed.usage.cache_read_tokens.unwrap_or(0),
-            cache_creation_tokens = parsed.usage.cache_creation_tokens.unwrap_or(0),
+            gen_ai.system = self.provider_name,
+            gen_ai.response.model = parsed.model.clone(),
+            gen_ai.usage.input_tokens = parsed.usage.input_tokens,
+            gen_ai.usage.output_tokens = parsed.usage.output_tokens,
+            gen_ai.usage.cache_read_input_tokens = parsed.usage.cache_read_tokens.unwrap_or(0),
+            gen_ai.usage.cache_creation_input_tokens =
+                parsed.usage.cache_creation_tokens.unwrap_or(0),
             duration_ms = started.elapsed().as_millis() as u64,
             stop_reason = format!("{:?}", parsed.stop_reason),
             tool_calls = tool_call_summary,
