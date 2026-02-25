@@ -12,7 +12,7 @@ use super::convert::{
 };
 use super::session::SessionChat;
 use super::types::{
-    ChatError, ChatResult, ChatStopReason, EventSender, RunMetadata, ToolLoopEvent,
+    ChatError, ChatResult, ChatStopReason, EventSender, RunMetadata, ToolCallInfo, ToolLoopEvent,
 };
 
 /// Per-request timeout for provider API calls. Providers can hang indefinitely
@@ -164,18 +164,25 @@ pub(super) async fn run_tool_loop(
                 let tool_uses = extract_tool_use_blocks(&response.content);
                 let raw_output = raw_output_to_values(&response.content);
 
-                // Count tool calls and collect names for events
-                let tool_names: Vec<String> = tool_uses
+                // Count tool calls and collect info for events
+                let tool_infos: Vec<ToolCallInfo> = tool_uses
                     .iter()
-                    .filter_map(|t| t.get("name").and_then(Value::as_str).map(String::from))
+                    .filter_map(|t| {
+                        let name = t.get("name").and_then(Value::as_str)?;
+                        let input = t.get("input").unwrap_or(&Value::Null);
+                        Some(ToolCallInfo {
+                            name: name.to_string(),
+                            args_summary: summarize_tool_args(input),
+                        })
+                    })
                     .collect();
-                for name in &tool_names {
-                    *metadata.tool_counts.entry(name.clone()).or_default() += 1;
+                for info in &tool_infos {
+                    *metadata.tool_counts.entry(info.name.clone()).or_default() += 1;
                 }
 
                 // Emit tool call event
                 if let Some(tx) = event_tx {
-                    let _ = tx.send(ToolLoopEvent::ToolCalls { names: tool_names });
+                    let _ = tx.send(ToolLoopEvent::ToolCalls { calls: tool_infos });
                 }
 
                 // Model made tool calls — reset the empty-response flag
@@ -289,5 +296,52 @@ pub(super) async fn run_tool_loop(
             message: extract_latest_assistant_text(history),
             stop_reason: ChatStopReason::EndTurn,
         });
+    }
+}
+
+const ARG_VALUE_MAX: usize = 60;
+const ARGS_SUMMARY_MAX: usize = 120;
+
+/// Produce a short human-readable summary of tool call arguments.
+fn summarize_tool_args(input: &Value) -> String {
+    let Some(obj) = input.as_object() else {
+        return String::new();
+    };
+    if obj.is_empty() {
+        return String::new();
+    }
+
+    let mut parts = Vec::new();
+    let mut total = 0usize;
+
+    for (key, val) in obj {
+        let val_str = match val {
+            Value::String(s) => truncate_str(s, ARG_VALUE_MAX),
+            Value::Null => "null".to_string(),
+            Value::Bool(b) => b.to_string(),
+            Value::Number(n) => n.to_string(),
+            other => {
+                let json = other.to_string();
+                truncate_str(&json, ARG_VALUE_MAX)
+            }
+        };
+        let part = format!("{key}: {val_str}");
+        total += part.len();
+        parts.push(part);
+        if total > ARGS_SUMMARY_MAX {
+            break;
+        }
+    }
+
+    let result = parts.join(", ");
+    truncate_str(&result, ARGS_SUMMARY_MAX)
+}
+
+fn truncate_str(s: &str, max: usize) -> String {
+    if s.len() <= max {
+        s.to_string()
+    } else {
+        let truncated: String = s.chars().take(max - 1).collect();
+        format!("{truncated}\u{2026}")
     }
 }

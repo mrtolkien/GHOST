@@ -4,7 +4,7 @@ use serenity::http::Http;
 use serenity::model::id::{ChannelId, MessageId};
 use tokio::sync::mpsc::UnboundedReceiver;
 
-use crate::chat::{RunMetadata, ToolLoopEvent};
+use crate::chat::{RunMetadata, ToolCallInfo, ToolLoopEvent};
 use crate::tools::TodoItem;
 
 use super::components_v2::{container, edit_v2_message, send_v2_message, text_display};
@@ -15,25 +15,14 @@ const TOOL_CALL_COLOR: u32 = 0x99_99_99;
 /// Blurple accent color for TODO progress messages.
 const TODO_COLOR: u32 = 0x58_65_F2;
 
-/// State returned by the renderer after it finishes.
-#[derive(Debug, Default)]
-pub struct UiState {
-    pub tool_message_id: Option<MessageId>,
-    /// TODO message persists after the response (not deleted).
-    #[allow(dead_code)]
-    pub todo_message_id: Option<MessageId>,
-}
-
-/// Renders tool loop events as live-updating Discord messages.
+/// Renders tool loop events as Discord messages.
 ///
-/// Spawned as a background task by `bot.rs`. Receives events from
-/// the tool loop and sends/edits Discord messages accordingly.
+/// Each provider response (= each `ToolCalls` event) becomes its own
+/// persistent message. TODO updates edit in-place.
 pub struct DiscordUiRenderer {
     rx: UnboundedReceiver<ToolLoopEvent>,
     http: Arc<Http>,
     channel_id: ChannelId,
-    tool_names: Vec<String>,
-    tool_message_id: Option<MessageId>,
     todo_message_id: Option<MessageId>,
 }
 
@@ -47,61 +36,33 @@ impl DiscordUiRenderer {
             rx,
             http,
             channel_id,
-            tool_names: Vec::new(),
-            tool_message_id: None,
             todo_message_id: None,
         }
     }
 
-    pub async fn run(mut self) -> UiState {
+    pub async fn run(mut self) {
         while let Some(event) = self.rx.recv().await {
             match event {
-                ToolLoopEvent::ToolCalls { names } => {
-                    self.handle_tool_calls(names).await;
+                ToolLoopEvent::ToolCalls { calls } => {
+                    self.handle_tool_calls(&calls).await;
                 }
                 ToolLoopEvent::TodoUpdated { items } => {
                     self.handle_todo_updated(&items).await;
                 }
             }
         }
-
-        UiState {
-            tool_message_id: self.tool_message_id,
-            todo_message_id: self.todo_message_id,
-        }
     }
 
-    async fn handle_tool_calls(&mut self, names: Vec<String>) {
-        self.tool_names.extend(names);
-
-        let display = self
-            .tool_names
-            .iter()
-            .map(|n| format!("`{n}`"))
-            .collect::<Vec<_>>()
-            .join(" ");
-
+    async fn handle_tool_calls(&self, calls: &[ToolCallInfo]) {
+        let display = format_tool_calls(calls);
         let components = vec![container(
             vec![text_display(&display)],
             Some(TOOL_CALL_COLOR),
         )];
 
-        match self.tool_message_id {
-            Some(msg_id) => {
-                if let Err(e) =
-                    edit_v2_message(&self.http, self.channel_id, msg_id, &components).await
-                {
-                    logfire::warn!("failed to edit tool call message", error = e.to_string(),);
-                }
-            }
-            None => {
-                match send_v2_message(&self.http, self.channel_id, &components, Vec::new()).await {
-                    Ok(msg) => self.tool_message_id = Some(msg.id),
-                    Err(e) => {
-                        logfire::warn!("failed to send tool call message", error = e.to_string(),);
-                    }
-                }
-            }
+        if let Err(e) = send_v2_message(&self.http, self.channel_id, &components, Vec::new()).await
+        {
+            logfire::warn!("failed to send tool call message", error = e.to_string(),);
         }
     }
 
@@ -127,6 +88,21 @@ impl DiscordUiRenderer {
             }
         }
     }
+}
+
+/// Format tool calls for display: each call on its own line with args.
+fn format_tool_calls(calls: &[ToolCallInfo]) -> String {
+    calls
+        .iter()
+        .map(|c| {
+            if c.args_summary.is_empty() {
+                format!("`{}`", c.name)
+            } else {
+                format!("`{}` {}", c.name, c.args_summary)
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 /// Format a TODO list for Discord display.
@@ -196,6 +172,50 @@ pub fn format_statusline(text: &str, metadata: &RunMetadata) -> String {
     parts.push(duration);
 
     format!("{text}\n─\n`{}`", parts.join(" | "))
+}
+
+/// Format a compact agent completion summary for a v2 container.
+#[must_use]
+pub fn format_agent_summary(
+    agent_name: &str,
+    metadata: &RunMetadata,
+    findings: Option<&str>,
+) -> String {
+    let mut line = format!("**{agent_name}** completed");
+
+    // Tool breakdown
+    if !metadata.tool_counts.is_empty() {
+        let mut tools: Vec<_> = metadata.tool_counts.iter().collect();
+        tools.sort_by(|a, b| b.1.cmp(a.1).then_with(|| a.0.cmp(b.0)));
+        let tool_parts: Vec<String> = tools
+            .iter()
+            .map(|(name, count)| format!("{count} {name}"))
+            .collect();
+        line.push_str(&format!(" | {}", tool_parts.join(" · ")));
+    }
+
+    // Duration
+    let secs = metadata.duration.as_secs_f64();
+    let duration = if secs >= 60.0 {
+        let mins = secs as u64 / 60;
+        let remaining = secs as u64 % 60;
+        format!("{mins}m{remaining:02}s")
+    } else {
+        format!("{secs:.1}s")
+    };
+    line.push_str(&format!(" | {duration}"));
+
+    // Truncated findings snippet
+    if let Some(text) = findings {
+        let trimmed = text.trim();
+        if !trimmed.is_empty() {
+            let snippet: String = trimmed.chars().take(120).collect();
+            let ellipsis = if trimmed.len() > 120 { "\u{2026}" } else { "" };
+            line.push_str(&format!("\n{snippet}{ellipsis}"));
+        }
+    }
+
+    line
 }
 
 fn format_token_count(count: u32) -> String {
@@ -303,5 +323,71 @@ mod tests {
         assert!(result.contains("1. ✓ Research API"));
         assert!(result.contains("2. ◉ Write code"));
         assert!(result.contains("3. ○ Add tests"));
+    }
+
+    #[test]
+    fn tool_calls_display() {
+        let calls = vec![
+            ToolCallInfo {
+                name: "web_search".to_string(),
+                args_summary: "query: latest rust news".to_string(),
+            },
+            ToolCallInfo {
+                name: "read_file".to_string(),
+                args_summary: "path: /src/main.rs".to_string(),
+            },
+        ];
+        let result = format_tool_calls(&calls);
+        assert_eq!(
+            result,
+            "`web_search` query: latest rust news\n`read_file` path: /src/main.rs"
+        );
+    }
+
+    #[test]
+    fn tool_calls_no_args() {
+        let calls = vec![ToolCallInfo {
+            name: "list_files".to_string(),
+            args_summary: String::new(),
+        }];
+        let result = format_tool_calls(&calls);
+        assert_eq!(result, "`list_files`");
+    }
+
+    #[test]
+    fn agent_summary_compact() {
+        let mut tool_counts = HashMap::new();
+        tool_counts.insert("web_fetch".to_string(), 7);
+        tool_counts.insert("web_search".to_string(), 5);
+        let metadata = RunMetadata {
+            model_alias: "primary".to_string(),
+            iterations: 10,
+            tool_counts,
+            input_tokens: 45_000,
+            output_tokens: 8_000,
+            cache_read_tokens: 32_000,
+            duration: Duration::from_secs(154),
+        };
+        let result = format_agent_summary("deep-research", &metadata, Some("Found 3 papers"));
+        assert!(result.starts_with("**deep-research** completed"));
+        assert!(result.contains("7 web_fetch"));
+        assert!(result.contains("5 web_search"));
+        assert!(result.contains("2m34s"));
+        assert!(result.contains("Found 3 papers"));
+    }
+
+    #[test]
+    fn agent_summary_no_findings() {
+        let metadata = RunMetadata {
+            model_alias: "primary".to_string(),
+            iterations: 1,
+            tool_counts: HashMap::new(),
+            input_tokens: 1_000,
+            output_tokens: 500,
+            cache_read_tokens: 0,
+            duration: Duration::from_secs_f64(3.2),
+        };
+        let result = format_agent_summary("quick-task", &metadata, None);
+        assert_eq!(result, "**quick-task** completed | 3.2s");
     }
 }

@@ -56,13 +56,20 @@ pub struct RunMetadata {
     pub duration: std::time::Duration,
 }
 
+/// A single tool call with a short argument summary.
+#[derive(Debug, Clone)]
+pub struct ToolCallInfo {
+    pub name: String,
+    pub args_summary: String,
+}
+
 /// Events emitted by the tool loop for live UI updates.
 ///
 /// Interface-agnostic — rendering is handled by the receiver
 /// (e.g. `DiscordUiRenderer`).
 #[derive(Debug, Clone)]
 pub enum ToolLoopEvent {
-    ToolCalls { names: Vec<String> },
+    ToolCalls { calls: Vec<ToolCallInfo> },
     TodoUpdated { items: Vec<TodoItem> },
 }
 

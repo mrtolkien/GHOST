@@ -5,4 +5,6 @@ mod tool_loop;
 mod types;
 
 pub use session::SessionChat;
-pub use types::{ChatError, ChatResult, ChatStopReason, EventSender, RunMetadata, ToolLoopEvent};
+pub use types::{
+    ChatError, ChatResult, ChatStopReason, EventSender, RunMetadata, ToolCallInfo, ToolLoopEvent,
+};

@@ -17,7 +17,8 @@ use crate::config::Config;
 use crate::db;
 
 use super::send::{WARNING_EMBED_COLOR, send_assistant_v2, send_gateway_v2};
-use super::ui_events::{DiscordUiRenderer, format_statusline};
+use super::ui_events::DiscordUiRenderer;
+use super::ui_events::format_statusline;
 
 /// Maximum duration for a typing indicator before it auto-stops.
 const TYPING_TIMEOUT: Duration = Duration::from_secs(300);
@@ -320,15 +321,7 @@ impl EventHandler for Handler {
 
         // Drop sender so renderer finishes
         drop(event_tx);
-        let ui_state = renderer_handle.await.unwrap_or_default();
-
-        // Clean up tool call message (statusline carries the final count)
-        if let Some(tool_msg_id) = ui_state.tool_message_id {
-            let _ = ctx
-                .http
-                .delete_message(msg.channel_id, tool_msg_id, None)
-                .await;
-        }
+        let _ = renderer_handle.await;
 
         match chat_result {
             Ok((result, metadata)) => {

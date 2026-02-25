@@ -11,7 +11,8 @@ use tracing::info;
 use crate::chat::SessionChat;
 use crate::config::Config;
 
-use super::send::{send_assistant_v2, send_gateway_v2};
+use super::components_v2::{container, send_v2_message, text_display};
+use super::send::{GATEWAY_EMBED_COLOR, send_assistant_v2, send_gateway_v2};
 use super::table_image;
 
 #[derive(Debug, thiserror::Error)]
@@ -52,6 +53,26 @@ impl DiscordSender {
         color: Option<u32>,
     ) -> serenity::Result<()> {
         send_gateway_v2(&self.http, ChannelId::new(channel_id), content, color).await
+    }
+
+    /// Send a compact v2 container without the "GHOST" header.
+    #[tracing::instrument(skip_all, fields(channel_id = %channel_id))]
+    pub async fn send_compact_container(
+        &self,
+        channel_id: u64,
+        content: &str,
+        color: Option<u32>,
+    ) -> serenity::Result<()> {
+        let accent = color.unwrap_or(GATEWAY_EMBED_COLOR);
+        let components = vec![container(vec![text_display(content)], Some(accent))];
+        send_v2_message(
+            &self.http,
+            ChannelId::new(channel_id),
+            &components,
+            Vec::new(),
+        )
+        .await
+        .map(|_| ())
     }
 }
 

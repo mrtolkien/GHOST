@@ -7,7 +7,7 @@ use surrealdb::sql::Thing;
 use tokio::sync::watch;
 use tokio::task::JoinHandle;
 
-use crate::chat::{RunMetadata, SessionChat};
+use crate::chat::SessionChat;
 use crate::db;
 use crate::interfaces::discord::DiscordSender;
 use crate::jobs::ReflectionManager;
@@ -100,13 +100,18 @@ async fn check_completed_tasks(
             .flatten();
         let discord_channel_id = channel.as_deref().and_then(parse_discord_channel_id);
 
-        // Send agent summary to Discord
+        // Send compact agent summary to Discord
         if let Some(channel_id) = discord_channel_id
             && let Some(ref metadata) = status.metadata
         {
-            let summary = format_agent_summary(&status.agent_name, metadata);
+            let findings_snippet = status.findings.as_deref();
+            let summary = crate::interfaces::discord::ui_events::format_agent_summary(
+                &status.agent_name,
+                metadata,
+                findings_snippet,
+            );
             let _ = discord_sender
-                .send_system_message(channel_id, &summary, None)
+                .send_compact_container(channel_id, &summary, None)
                 .await;
         }
 
@@ -155,14 +160,6 @@ fn parse_agent_session_thing(agent_id: &str) -> Option<Thing> {
         return None;
     }
     Some(Thing::from((table, id)))
-}
-
-/// Format an agent completion summary statusline.
-fn format_agent_summary(agent_name: &str, metadata: &RunMetadata) -> String {
-    use crate::interfaces::discord::ui_events::format_statusline;
-
-    let header = format!("{agent_name} completed");
-    format_statusline(&header, metadata)
 }
 
 /// Extract channel ID from an interface key like "discord:channel:123456".
