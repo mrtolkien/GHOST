@@ -94,6 +94,28 @@ pub async fn send_v2_message(
     http.send_message(channel_id, attachments, &payload).await
 }
 
+/// Edit an existing Components v2 message.
+pub async fn edit_v2_message(
+    http: &Http,
+    channel_id: ChannelId,
+    message_id: serenity::model::id::MessageId,
+    components: &[serde_json::Value],
+) -> serenity::Result<serenity::model::channel::Message> {
+    let capped = if components.len() > MAX_V2_COMPONENTS {
+        &components[..MAX_V2_COMPONENTS]
+    } else {
+        components
+    };
+
+    let payload = serde_json::json!({
+        "flags": V2_FLAG,
+        "components": capped,
+    });
+
+    http.edit_message(channel_id, message_id, &payload, Vec::new())
+        .await
+}
+
 /// Group a flat list of v2 components into message-sized chunks of at most
 /// `MAX_V2_COMPONENTS` each.
 pub fn group_into_v2_messages(components: Vec<serde_json::Value>) -> Vec<Vec<serde_json::Value>> {

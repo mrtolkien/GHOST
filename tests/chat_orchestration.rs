@@ -22,12 +22,12 @@ async fn chat_returns_response_text() {
     )]));
     let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config);
     let result = chat
-        .chat(&session_id.to_string(), "hi")
+        .chat(&session_id.to_string(), "hi", None)
         .await
         .expect("chat result");
 
-    assert_eq!(result.message, "hello from ghost");
-    assert_eq!(result.stop_reason, ChatStopReason::EndTurn);
+    assert_eq!(result.0.message, "hello from ghost");
+    assert_eq!(result.0.stop_reason, ChatStopReason::EndTurn);
 }
 
 #[tokio::test]
@@ -55,10 +55,10 @@ async fn tool_loop_executes_and_sends_tool_result_back() {
     let chat = SessionChat::new(db.clone(), provider, tools, config);
 
     let result = chat
-        .chat(&session_id.to_string(), "run tool")
+        .chat(&session_id.to_string(), "run tool", None)
         .await
         .expect("chat result");
-    assert_eq!(result.message, "done");
+    assert_eq!(result.0.message, "done");
 
     let recorded = requests.lock().expect("lock requests");
     assert_eq!(recorded.len(), 2);
@@ -108,10 +108,10 @@ async fn max_iterations_stops_loop() {
     tools.register(Arc::new(EchoTool));
     let chat = SessionChat::new(db.clone(), provider, tools, config).with_max_tool_iterations(1);
     let result = chat
-        .chat(&session_id.to_string(), "loop")
+        .chat(&session_id.to_string(), "loop", None)
         .await
         .expect("chat result");
-    assert_eq!(result.stop_reason, ChatStopReason::MaxIterations);
+    assert_eq!(result.0.stop_reason, ChatStopReason::MaxIterations);
 }
 
 #[tokio::test]
@@ -128,7 +128,7 @@ async fn chat_persists_user_and_assistant_messages() {
     let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config);
 
     let _ = chat
-        .chat(&session_id.to_string(), "persist")
+        .chat(&session_id.to_string(), "persist", None)
         .await
         .expect("chat result");
 
@@ -199,7 +199,7 @@ async fn todo_state_is_injected_after_user_message() {
     let requests = provider.requests();
     let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config);
     let _ = chat
-        .chat(&session_id.to_string(), "check todo")
+        .chat(&session_id.to_string(), "check todo", None)
         .await
         .expect("chat result");
 
@@ -289,10 +289,10 @@ async fn compaction_triggers_when_over_threshold() {
     let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config);
 
     let result = chat
-        .chat(&session_id.to_string(), "new question")
+        .chat(&session_id.to_string(), "new question", None)
         .await
         .expect("chat result");
-    assert_eq!(result.message, "post-compaction");
+    assert_eq!(result.0.message, "post-compaction");
 
     // Verify the second request (the actual chat) has a summary injected
     let recorded = requests.lock().expect("lock requests");
@@ -345,7 +345,7 @@ async fn original_messages_preserved_after_compaction() {
     let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config);
 
     let _ = chat
-        .chat(&session_id.to_string(), "check")
+        .chat(&session_id.to_string(), "check", None)
         .await
         .expect("chat result");
 
@@ -391,10 +391,10 @@ async fn no_compaction_below_threshold() {
     let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config);
 
     let result = chat
-        .chat(&session_id.to_string(), "short message")
+        .chat(&session_id.to_string(), "short message", None)
         .await
         .expect("chat result");
-    assert_eq!(result.message, "no compact");
+    assert_eq!(result.0.message, "no compact");
 
     // Only 1 request should have been made (no compaction LLM call)
     {
@@ -439,10 +439,10 @@ async fn double_compaction_summary_of_summary() {
     ]));
     let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config.clone());
     let r1 = chat
-        .chat(&session_id.to_string(), "round1 question")
+        .chat(&session_id.to_string(), "round1 question", None)
         .await
         .expect("round 1");
-    assert_eq!(r1.message, "round1");
+    assert_eq!(r1.0.message, "round1");
 
     // Round 2: fill more + compact again (summary of summary)
     fill_session(&db, &session_id, 30).await;
@@ -462,10 +462,10 @@ async fn double_compaction_summary_of_summary() {
     let chat2 = SessionChat::new(db.clone(), provider2, ToolManager::empty(), config);
 
     let r2 = chat2
-        .chat(&session_id.to_string(), "round2 question")
+        .chat(&session_id.to_string(), "round2 question", None)
         .await
         .expect("round 2");
-    assert_eq!(r2.message, "round2");
+    assert_eq!(r2.0.message, "round2");
 
     // The second compaction summary should be stored
     let session = ghost::db::sessions::get_session(&db, &session_id)

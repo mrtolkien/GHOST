@@ -54,11 +54,12 @@ async fn reflection_classifies_blog_reference() {
 
     // Step 1: Chat — ask about the blog
     let chat = env.chat();
-    let result = chat
+    let (result, _metadata) = chat
         .chat(
             &session.to_string(),
             "What's the latest post on https://blog.tolki.dev/ ? \
              Use `ghost web fetch` to read it, then tell me the title and a one-line summary.",
+            None,
         )
         .await
         .expect("chat response");
@@ -166,6 +167,7 @@ async fn reflection_creates_knowledge_notes() {
         "I just learned that SurrealDB supports graph relations using RELATE statements. \
          For example: `RELATE user:alice->follows->user:bob`. This creates typed edges \
          between records. I want to remember this for later.",
+        None,
     )
     .await
     .expect("chat response");
@@ -206,6 +208,7 @@ async fn reflection_handoff_continuity() {
         &session.to_string(),
         "I'm planning to refactor the authentication module next week. \
          The current JWT implementation is too tightly coupled to the HTTP layer.",
+        None,
     )
     .await
     .expect("first chat");
@@ -227,6 +230,7 @@ async fn reflection_handoff_continuity() {
         .chat(
             &session2.to_string(),
             "I decided to use tower middleware for auth instead of custom extractors.",
+            None,
         )
         .await
         .expect("second chat");
@@ -262,10 +266,11 @@ async fn skills_discoverable_without_prompting() {
     );
 
     let chat = env.chat();
-    let result = chat
+    let (result, _metadata) = chat
         .chat(
             &session.to_string(),
             "What skills do you have available? List them briefly.",
+            None,
         )
         .await
         .expect("chat response");

@@ -37,14 +37,20 @@ async fn deep_research_agent_produces_findings() {
     // Run with 7-minute timeout
     let result = tokio::time::timeout(
         std::time::Duration::from_secs(420),
-        session_chat.chat_agent(&session.to_string(), prompt, system_prompt, &definition),
+        session_chat.chat_agent(
+            &session.to_string(),
+            prompt,
+            system_prompt,
+            &definition,
+            None,
+        ),
     )
     .await;
 
     // Diagnostics (always, even on failure)
     env.log_session_json("agent", &session).await;
 
-    let result = result
+    let (result, _metadata) = result
         .expect("TIMEOUT: agent did not complete within 7 minutes")
         .expect("agent chat_agent failed");
 

@@ -7,7 +7,7 @@ use surrealdb::sql::Thing;
 use tokio::sync::watch;
 use tokio::task::JoinHandle;
 
-use crate::chat::SessionChat;
+use crate::chat::{RunMetadata, SessionChat};
 use crate::db;
 use crate::interfaces::discord::DiscordSender;
 use crate::jobs::ReflectionManager;
@@ -93,18 +93,31 @@ async fn check_completed_tasks(
             continue;
         }
 
+        // Resolve Discord channel for this parent session
+        let channel = db::sessions::get_interface_for_session(db, &parent_id)
+            .await
+            .ok()
+            .flatten();
+        let discord_channel_id = channel.as_deref().and_then(parse_discord_channel_id);
+
+        // Send agent summary to Discord
+        if let Some(channel_id) = discord_channel_id
+            && let Some(ref metadata) = status.metadata
+        {
+            let summary = format_agent_summary(&status.agent_name, metadata);
+            let _ = discord_sender
+                .send_system_message(channel_id, &summary, None)
+                .await;
+        }
+
         // Trigger a new chat turn with a synthetic user message
         let trigger = "[system] Research agent completed.";
-        match session_chat.chat(&parent_id.to_string(), trigger).await {
-            Ok(result) => {
-                // Send the response to the right Discord channel
-                let channel = db::sessions::get_interface_for_session(db, &parent_id)
-                    .await
-                    .ok()
-                    .flatten();
-
-                if let Some(interface_key) = channel
-                    && let Some(channel_id) = parse_discord_channel_id(&interface_key)
+        match session_chat
+            .chat(&parent_id.to_string(), trigger, None)
+            .await
+        {
+            Ok((result, _metadata)) => {
+                if let Some(channel_id) = discord_channel_id
                     && let Err(e) = discord_sender
                         .send_to_channel(channel_id, &result.message)
                         .await
@@ -142,6 +155,14 @@ fn parse_agent_session_thing(agent_id: &str) -> Option<Thing> {
         return None;
     }
     Some(Thing::from((table, id)))
+}
+
+/// Format an agent completion summary statusline.
+fn format_agent_summary(agent_name: &str, metadata: &RunMetadata) -> String {
+    use crate::interfaces::discord::ui_events::format_statusline;
+
+    let header = format!("{agent_name} completed");
+    format_statusline(&header, metadata)
 }
 
 /// Extract channel ID from an interface key like "discord:channel:123456".

@@ -11,7 +11,9 @@ use super::convert::{
     raw_output_to_values,
 };
 use super::session::SessionChat;
-use super::types::{ChatError, ChatResult, ChatStopReason};
+use super::types::{
+    ChatError, ChatResult, ChatStopReason, EventSender, RunMetadata, ToolLoopEvent,
+};
 
 /// Per-request timeout for provider API calls. Providers can hang indefinitely
 /// (observed in live tests). This wraps each `Provider::chat()` call.
@@ -73,7 +75,14 @@ pub(super) async fn run_tool_loop(
     max_iterations: usize,
     handler: &mut (impl ToolLoopHandler + ?Sized),
     history: &mut Vec<ChatMessage>,
-) -> Result<ChatResult, ChatError> {
+    event_tx: Option<&EventSender>,
+) -> Result<(ChatResult, RunMetadata), ChatError> {
+    let started_at = std::time::Instant::now();
+    let mut metadata = RunMetadata {
+        model_alias: session_chat.config().models.default.clone(),
+        ..Default::default()
+    };
+
     let mut iterations = 0usize;
     let mut last_result: Option<ChatResult> = None;
     let mut retried_empty = false;
@@ -127,22 +136,46 @@ pub(super) async fn run_tool_loop(
             }
         };
 
+        // Accumulate usage from every provider response
+        metadata.input_tokens += response.usage.input_tokens;
+        metadata.output_tokens += response.usage.output_tokens;
+        metadata.cache_read_tokens += response.usage.cache_read_tokens.unwrap_or(0);
+
         match response.stop_reason {
             StopReason::ToolUse => {
                 if iterations >= max_iterations {
+                    metadata.iterations = iterations;
+                    metadata.duration = started_at.elapsed();
                     let fallback = last_result.unwrap_or(ChatResult {
                         message: "Hit tool iteration limit before completing response.".to_string(),
                         stop_reason: ChatStopReason::MaxIterations,
                     });
-                    return Ok(ChatResult {
-                        stop_reason: ChatStopReason::MaxIterations,
-                        ..fallback
-                    });
+                    return Ok((
+                        ChatResult {
+                            stop_reason: ChatStopReason::MaxIterations,
+                            ..fallback
+                        },
+                        metadata,
+                    ));
                 }
                 iterations += 1;
 
                 let tool_uses = extract_tool_use_blocks(&response.content);
                 let raw_output = raw_output_to_values(&response.content);
+
+                // Count tool calls and collect names for events
+                let tool_names: Vec<String> = tool_uses
+                    .iter()
+                    .filter_map(|t| t.get("name").and_then(Value::as_str).map(String::from))
+                    .collect();
+                for name in &tool_names {
+                    *metadata.tool_counts.entry(name.clone()).or_default() += 1;
+                }
+
+                // Emit tool call event
+                if let Some(tx) = event_tx {
+                    let _ = tx.send(ToolLoopEvent::ToolCalls { names: tool_names });
+                }
 
                 // Model made tool calls — reset the empty-response flag
                 // so it gets another recovery chance if it goes empty later.
@@ -245,7 +278,9 @@ pub(super) async fn run_tool_loop(
                     stop_reason = format!("{:?}", result.stop_reason),
                     response_len = result.message.len() as u64,
                 );
-                return Ok(result);
+                metadata.iterations = iterations;
+                metadata.duration = started_at.elapsed();
+                return Ok((result, metadata));
             }
         }
 

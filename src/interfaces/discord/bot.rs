@@ -17,6 +17,7 @@ use crate::config::Config;
 use crate::db;
 
 use super::send::{WARNING_EMBED_COLOR, send_assistant_v2, send_gateway_v2};
+use super::ui_events::{DiscordUiRenderer, format_statusline};
 
 /// Maximum duration for a typing indicator before it auto-stops.
 const TYPING_TIMEOUT: Duration = Duration::from_secs(300);
@@ -299,11 +300,33 @@ impl EventHandler for Handler {
         // Start typing indicator
         let _typing = TimedTyping::start(msg.channel_id, &ctx.http);
 
+        // Create event channel for live UI updates
+        let (event_tx, event_rx) = tokio::sync::mpsc::unbounded_channel();
+        let renderer = DiscordUiRenderer::new(event_rx, Arc::clone(&ctx.http), msg.channel_id);
+        let renderer_handle = tokio::spawn(renderer.run());
+
         // Chat with GHOST
-        match self.session_chat.chat(&session_id, &full_content).await {
-            Ok(result) => {
-                if let Err(e) = send_assistant_v2(&ctx.http, msg.channel_id, &result.message).await
-                {
+        let chat_result = self
+            .session_chat
+            .chat(&session_id, &full_content, Some(&event_tx))
+            .await;
+
+        // Drop sender so renderer finishes
+        drop(event_tx);
+        let ui_state = renderer_handle.await.unwrap_or_default();
+
+        // Clean up tool call message (statusline carries the final count)
+        if let Some(tool_msg_id) = ui_state.tool_message_id {
+            let _ = ctx
+                .http
+                .delete_message(msg.channel_id, tool_msg_id, None)
+                .await;
+        }
+
+        match chat_result {
+            Ok((result, metadata)) => {
+                let response_text = format_statusline(&result.message, &metadata);
+                if let Err(e) = send_assistant_v2(&ctx.http, msg.channel_id, &response_text).await {
                     error!(
                         session_id = %session_id,
                         error = %e,

@@ -11,7 +11,7 @@ use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
 
-use crate::chat::SessionChat;
+use crate::chat::{RunMetadata, SessionChat};
 use crate::config::Config;
 use crate::db;
 use crate::providers::provider_for_alias;
@@ -29,6 +29,7 @@ pub struct TaskStatus {
     pub message_count: usize,
     pub todo_summary: Option<String>,
     pub findings: Option<String>,
+    pub metadata: Option<RunMetadata>,
 }
 
 /// Handle for a spawned agent task.
@@ -40,6 +41,7 @@ struct TaskHandle {
     job_log_id: Thing,
     task_handle: JoinHandle<()>,
     cancel_token: CancellationToken,
+    metadata: Arc<Mutex<Option<RunMetadata>>>,
 }
 
 /// Manages background agent execution.
@@ -86,6 +88,7 @@ impl TaskRunner {
         .await?;
 
         let cancel_token = CancellationToken::new();
+        let metadata_slot: Arc<Mutex<Option<RunMetadata>>> = Arc::new(Mutex::new(None));
 
         let handle = TaskHandle {
             agent_id: agent_id.clone(),
@@ -99,8 +102,10 @@ impl TaskRunner {
                 agent_session_id,
                 job_log_id,
                 cancel_token.clone(),
+                Arc::clone(&metadata_slot),
             ),
             cancel_token,
+            metadata: metadata_slot,
         };
 
         self.handles.lock().await.insert(agent_id.clone(), handle);
@@ -150,7 +155,7 @@ impl TaskRunner {
         .await;
 
         let (status, transcript) = match result {
-            Ok(findings) => ("ok", findings),
+            Ok((findings, _meta)) => ("ok", findings),
             Err(e) => {
                 logfire::error!(
                     "agent run_to_completion failed",
@@ -169,7 +174,7 @@ impl TaskRunner {
 
         if status == "failed" {
             return Err(TaskError::ExecutionFailed {
-                message: transcript,
+                message: transcript.to_string(),
             });
         }
 
@@ -216,7 +221,7 @@ impl TaskRunner {
         .await;
 
         let (status, transcript) = match result {
-            Ok(findings) => ("ok", findings),
+            Ok((findings, _meta)) => ("ok", findings),
             Err(e) => {
                 logfire::error!(
                     "agent run_definition_to_completion failed",
@@ -235,7 +240,7 @@ impl TaskRunner {
 
         if status == "failed" {
             return Err(TaskError::ExecutionFailed {
-                message: transcript,
+                message: transcript.to_string(),
             });
         }
 
@@ -280,6 +285,12 @@ impl TaskRunner {
 
         let status = if is_finished { "completed" } else { "running" };
 
+        let metadata = if is_finished {
+            handle.metadata.lock().await.clone()
+        } else {
+            None
+        };
+
         Ok(TaskStatus {
             agent_id: agent_id.to_string(),
             agent_name: handle.agent_name.clone(),
@@ -287,6 +298,7 @@ impl TaskRunner {
             message_count,
             todo_summary,
             findings,
+            metadata,
         })
     }
 
@@ -338,6 +350,7 @@ impl TaskRunner {
             message_count,
             todo_summary,
             findings,
+            metadata: None,
         })
     }
 
@@ -352,6 +365,7 @@ impl TaskRunner {
         let agent_name = handle.agent_name.clone();
         let agent_session_id = handle.agent_session_id.clone();
         let job_log_id = handle.job_log_id.clone();
+        let metadata = handle.metadata.lock().await.clone();
         handles.remove(agent_id);
         drop(handles);
 
@@ -375,6 +389,7 @@ impl TaskRunner {
                 message_count,
                 todo_summary,
                 findings,
+                metadata,
             },
             parent,
         ))
@@ -415,6 +430,7 @@ impl TaskRunner {
         .await?;
 
         let cancel_token = CancellationToken::new();
+        let metadata_slot: Arc<Mutex<Option<RunMetadata>>> = Arc::new(Mutex::new(None));
 
         let handle = TaskHandle {
             agent_id: agent_id.to_string(),
@@ -428,8 +444,10 @@ impl TaskRunner {
                 agent_session_id,
                 job_log_id,
                 cancel_token.clone(),
+                Arc::clone(&metadata_slot),
             ),
             cancel_token,
+            metadata: metadata_slot,
         };
 
         self.handles
@@ -458,6 +476,7 @@ impl TaskRunner {
         agent_session_id: Thing,
         job_log_id: Thing,
         cancel_token: CancellationToken,
+        metadata_slot: Arc<Mutex<Option<RunMetadata>>>,
     ) -> JoinHandle<()> {
         let db = self.db.clone();
         let config = self.config.clone();
@@ -474,7 +493,10 @@ impl TaskRunner {
             .await;
 
             let (status, transcript) = match result {
-                Ok(findings) => ("ok", findings),
+                Ok((findings, meta)) => {
+                    *metadata_slot.lock().await = Some(meta);
+                    ("ok", findings)
+                }
                 Err(e) => {
                     logfire::error!(
                         "agent failed",
@@ -500,6 +522,7 @@ impl TaskRunner {
         agent_session_id: Thing,
         job_log_id: Thing,
         cancel_token: CancellationToken,
+        metadata_slot: Arc<Mutex<Option<RunMetadata>>>,
     ) -> JoinHandle<()> {
         let db = self.db.clone();
         let config = self.config.clone();
@@ -516,7 +539,10 @@ impl TaskRunner {
             .await;
 
             let (status, transcript) = match result {
-                Ok(findings) => ("ok", findings),
+                Ok((findings, meta)) => {
+                    *metadata_slot.lock().await = Some(meta);
+                    ("ok", findings)
+                }
                 Err(e) => {
                     logfire::error!(
                         "agent continuation failed",
@@ -641,7 +667,7 @@ fn build_agent_skills_section(config: &Config, skills: &[String]) -> String {
     )
 }
 
-/// Execute the agent tool loop. Returns the final findings string.
+/// Execute the agent tool loop. Returns findings and run metadata.
 #[tracing::instrument(skip_all, fields(
     agent_name = %definition.name,
     agent_session_id = %agent_session_id
@@ -653,7 +679,7 @@ async fn run_task(
     prompt: &str,
     agent_session_id: &Thing,
     cancel_token: &CancellationToken,
-) -> Result<String, TaskError> {
+) -> Result<(String, RunMetadata), TaskError> {
     let mut system_prompt = definition.render_system_prompt(prompt);
     system_prompt = interpolate_skill_content(&system_prompt, &config.workspace);
 
@@ -682,6 +708,7 @@ async fn run_task(
             prompt,
             system_prompt,
             definition,
+            None,
         ) => res?,
         () = cancel_token.cancelled() => {
             logfire::info!("agent cancelled", agent_name = definition.name.clone());
@@ -695,11 +722,11 @@ async fn run_task(
                 .find(|m| m.role == "assistant" && !m.content.is_empty())
                 .map(|m| m.content.clone())
                 .unwrap_or_else(|| "Agent was cancelled before producing findings.".to_string());
-            return Ok(last_assistant);
+            return Ok((last_assistant, RunMetadata::default()));
         }
     };
 
-    Ok(result.message)
+    Ok((result.0.message, result.1))
 }
 
 /// Continue an existing agent session with a new prompt. Loads full history
@@ -715,7 +742,7 @@ async fn continue_task_run(
     prompt: &str,
     agent_session_id: &Thing,
     cancel_token: &CancellationToken,
-) -> Result<String, TaskError> {
+) -> Result<(String, RunMetadata), TaskError> {
     // For continuation, interpolate a generic marker instead of the new prompt
     // into the system prompt template, since the original query is already in
     // the session history.
@@ -741,6 +768,7 @@ async fn continue_task_run(
             prompt,
             system_prompt,
             definition,
+            None,
         ) => res?,
         () = cancel_token.cancelled() => {
             logfire::info!(
@@ -758,11 +786,11 @@ async fn continue_task_run(
                 .unwrap_or_else(|| {
                     "Agent was cancelled before producing findings.".to_string()
                 });
-            return Ok(last_assistant);
+            return Ok((last_assistant, RunMetadata::default()));
         }
     };
 
-    Ok(result.message)
+    Ok((result.0.message, result.1))
 }
 
 /// Parse an agent_id string (e.g. "session:abc123") into a Thing.
