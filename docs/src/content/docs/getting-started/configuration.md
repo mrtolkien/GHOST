@@ -1,4 +1,7 @@
-# Configuration
+---
+title: Configuration
+description: GHOST config file format, CLI access, and secrets management.
+---
 
 ## Config File
 
@@ -8,7 +11,7 @@ Override with `GHOST_CONFIG_DIR` environment variable.
 
 ## Full Example
 
-```toml
+```toml title="~/.config/ghost/config.toml"
 # Workspace path (default: ~/GHOST)
 workspace = "~/GHOST"
 
@@ -79,7 +82,10 @@ ghost config set timing.heartbeat_idle_minutes 10
 
 ## Secrets
 
-**Never put API keys in `config.toml`.** Use environment variables or a `.env` file.
+:::danger[Security]
+Never put API keys in `config.toml`. Use environment variables or a `.env`
+file.
+:::
 
 | Variable             | Purpose             |
 | -------------------- | ------------------- |

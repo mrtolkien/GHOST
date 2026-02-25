@@ -1,4 +1,7 @@
-# Roadmap
+---
+title: Roadmap
+description: Future features and plans for GHOST development.
+---
 
 Here's the current state of the backlog as of 2026-02-24:
 

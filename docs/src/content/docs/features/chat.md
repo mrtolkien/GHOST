@@ -1,4 +1,7 @@
-# Chat & Sessions
+---
+title: Chat & Sessions
+description: How GHOST chat sessions work, including message flow and automatic compaction.
+---
 
 ## Sessions
 
@@ -12,7 +15,7 @@ Sessions persist in the database — your GHOST can query the full conversation 
 
 ## Message Flow
 
-```
+```text title="Message Flow"
 You send a message
   → System prompt assembled (identity + skills + agents + context)
   → GHOST processes with tool loop (up to 20 iterations)
@@ -32,9 +35,14 @@ GHOST automatically **compacts** the history:
 - The most recent messages (default: 20) are kept in full
 - Compaction is transparent — the GHOST continues the conversation naturally
 
+:::note
+Compaction is automatic and transparent. You don't need to manage context
+window usage manually.
+:::
+
 Configure in `config.toml`:
 
-```toml
+```toml title="~/.config/ghost/config.toml"
 [compaction]
 threshold = 0.85 # Trigger at 85% context usage
 keep_window = 20 # Keep last 20 messages intact

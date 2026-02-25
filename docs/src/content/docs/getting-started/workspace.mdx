@@ -1,31 +1,38 @@
-# Workspace
+---
+title: Workspace
+description: Your GHOST's home directory structure and what ghost init creates.
+---
+
+import { FileTree } from "@astrojs/starlight/components";
 
 The workspace is your GHOST's home directory. Default: `~/GHOST/`.
 
 ## Directory Structure
 
-```
-~/GHOST/
-├── BOOT.md              # GHOST behavioral instructions
-├── SOUL.md              # GHOST personality and values
-├── OPERATOR.md          # Your preferences and goals
-├── notes/               # Knowledge notes (markdown with TOML frontmatter)
-├── references/          # Source material organized by topic
-├── diary/               # Daily entries (YYYY-MM-DD.md)
-├── jobs/                # Cron-scheduled job files
-├── skills/              # Workflow definitions (agentskills.io format)
-├── agents/              # Agent definitions (TOML frontmatter + prompt)
-├── .web-cache/          # Cached web fetches
-└── .state/              # Runtime state (database, logs)
-```
+<FileTree>
+
+- BOOT.md GHOST behavioral instructions
+- SOUL.md GHOST personality and values
+- OPERATOR.md Your preferences and goals
+- notes/ Knowledge notes (markdown with TOML frontmatter)
+- references/ Source material organized by topic
+- diary/ Daily entries (YYYY-MM-DD.md)
+- jobs/ Cron-scheduled job files
+- skills/ Workflow definitions (agentskills.io format)
+- agents/ Agent definitions (TOML frontmatter + prompt)
+- .web-cache/ Cached web fetches
+- .state/ Runtime state (database, logs)
+
+</FileTree>
 
 ## What `ghost init` Creates
 
 Running `ghost init` bootstraps the workspace with:
 
-- **Identity files** — `BOOT.md`, `SOUL.md`, `OPERATOR.md` with starter templates
-- **Default skills** — research, knowledge-navigator, note-writer, cron-job-author,
-  skill-creator
+- **Identity files** — `BOOT.md`, `SOUL.md`, `OPERATOR.md` with starter
+  templates
+- **Default skills** — research, knowledge-navigator, note-writer,
+  cron-job-author, skill-creator
 - **Default agents** — heartbeat, chat-reflection, reflection, deep-research
 - **All directories** listed above
 

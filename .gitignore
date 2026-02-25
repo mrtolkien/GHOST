@@ -28,8 +28,10 @@ package-lock.json
 /private-scripts
 /e2e-output
 
-# mdbook build output
-/docs/book/
+# Astro Starlight build output
+/docs/dist/
+/docs/.astro/
+/docs/node_modules/
 
 # dprint cache
 .dprint

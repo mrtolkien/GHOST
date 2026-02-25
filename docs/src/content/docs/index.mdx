@@ -1,21 +1,44 @@
-# Introduction
+---
+title: GHOST
+description: Personal AI agent platform with persistent memory, background jobs, and multi-interface communication.
+template: splash
+hero:
+  title: GHOST
+  tagline: A personal AI agent platform. One binary, one GHOST, one OPERATOR — your own AI companion with persistent memory, background jobs, and multi-interface communication.
+  actions:
+    - text: Get Started
+      link: /getting-started/installation/
+      icon: right-arrow
+      variant: primary
+    - text: GitHub
+      link: https://github.com/tolki/ghost
+      icon: external
+      variant: minimal
+---
 
-GHOST is a personal AI agent platform. A single binary runs one GHOST for one OPERATOR —
-your own AI companion with persistent memory, background jobs, and multi-interface
-communication.
+import { CardGrid, Card } from "@astrojs/starlight/components";
 
 ## Philosophy
 
-- **Text-first** — workspace files (markdown, TOML) are the primary feature surface.
-  Identity, skills, jobs, and knowledge all live as editable files.
-- **CLI-first** — every feature is accessible through direct commands.
-- **Skills over tools** — prefer reusable workflow files over adding new tool APIs.
-- **Local-first** — embedded database, local embeddings, your data stays on your
-  machine.
+<CardGrid>
+  <Card title="Text-first" icon="document">
+    Workspace files (markdown, TOML) are the primary feature surface. Identity,
+    skills, jobs, and knowledge all live as editable files.
+  </Card>
+  <Card title="CLI-first" icon="terminal">
+    Every feature is accessible through direct commands.
+  </Card>
+  <Card title="Skills over tools" icon="puzzle">
+    Prefer reusable workflow files over adding new tool APIs.
+  </Card>
+  <Card title="Local-first" icon="laptop">
+    Embedded database, local embeddings, your data stays on your machine.
+  </Card>
+</CardGrid>
 
 ## Architecture
 
-```
+```text title="Architecture"
 ┌──────────────────────────────────────────┐
 │               ghost daemon               │
 ├──────────┬───────────┬───────────────────┤

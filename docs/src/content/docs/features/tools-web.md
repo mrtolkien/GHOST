@@ -1,6 +1,9 @@
-# Web Tools
+---
+title: Web Tools
+description: Tools for web research — search and page fetching.
+---
 
-Tools for web research. See [Web Research](web.md) for usage details.
+Tools for web research. See [Web Research](/features/web/) for usage details.
 
 ## web_search
 
@@ -11,7 +14,9 @@ Search the web via the Brave Search API.
 | `query`       | string  | yes      | Search query                                 |
 | `max_results` | integer | no       | Number of results. Default: config value (5) |
 
+:::caution
 Requires `BRAVE_API_KEY` environment variable.
+:::
 
 ## web_fetch
 

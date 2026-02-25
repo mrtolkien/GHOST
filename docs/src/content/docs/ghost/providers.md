@@ -1,4 +1,7 @@
-# Providers
+---
+title: Providers
+description: LLM backends supported by GHOST — OpenRouter, Kimi Code, and OpenAI OAuth.
+---
 
 A provider is an LLM backend. GHOST supports multiple providers and lets you define
 named model aliases.
@@ -15,7 +18,7 @@ named model aliases.
 
 Define aliases in `config.toml` to name your models:
 
-```toml
+```toml title="~/.config/ghost/config.toml"
 [models]
 default = "primary"
 
@@ -30,11 +33,11 @@ model = "kimi-k2.5"
 context_window = 250000
 ```
 
-- `default` — which alias to use when none is specified
-- `provider` — one of: `openrouter`, `kimi_code`, `openai_oauth`
-- `model` — the model ID as the provider expects it
-- `context_window` — max tokens (used for compaction decisions)
-- `headers` (optional) — extra HTTP headers for the provider
+:::note
+`default` specifies which alias to use when none is specified. Each alias
+needs `provider`, `model`, and `context_window`. You can optionally add
+`headers` for extra HTTP headers.
+:::
 
 ## Multiple Models
 

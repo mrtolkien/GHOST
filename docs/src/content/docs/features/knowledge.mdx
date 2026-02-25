@@ -1,16 +1,22 @@
-# Knowledge Base
+---
+title: Knowledge Base
+description: GHOST's knowledge system — notes, references, diary entries with graph edges and semantic search.
+---
 
-GHOST's knowledge system stores and connects information using three types of entries,
-backed by SurrealDB with graph edges and embedding-based semantic search.
+import { FileTree, Tabs, TabItem } from "@astrojs/starlight/components";
+
+GHOST's knowledge system stores and connects information using three types of
+entries, backed by SurrealDB with graph edges and embedding-based semantic
+search.
 
 ## Knowledge Types
 
 ### Notes
 
-Atomic knowledge entries with structured metadata. Your GHOST creates these during
-reflection and conversation.
+Atomic knowledge entries with structured metadata. Your GHOST creates these
+during reflection and conversation.
 
-```markdown
+```markdown title="notes/rust-error-handling.md"
 +++
 title = "Rust Error Handling"
 archetype = "concept"
@@ -19,50 +25,65 @@ sources = ["https://doc.rust-lang.org/book/ch09-00-error-handling.html"]
 trust = 8
 +++
 
-Rust uses `Result<T, E>` for recoverable errors and `panic!` for unrecoverable ones.
+Rust uses `Result<T, E>` for recoverable errors and `panic!` for
+unrecoverable ones.
 
 Related: [[influences>Haskell Either Type]], [[used-by>GHOST Project]]
 ```
 
-**Archetypes**: person, concept, decision, event, place, project, organization,
-procedure, media, quote, topic
+:::note[Archetypes]
+Available archetypes: person, concept, decision, event, place, project,
+organization, procedure, media, quote, topic.
+:::
 
 ### References
 
 Source material organized by topic in subdirectories:
 
-```
-references/
-├── rust/
-│   ├── error-handling-patterns.md
-│   └── async-runtime-comparison.md
-└── ai-agents/
-    └── tool-use-survey.md
-```
+<FileTree>
+
+- references/
+  - rust/
+    - error-handling-patterns.md
+    - async-runtime-comparison.md
+  - ai-agents/
+    - tool-use-survey.md
+
+</FileTree>
 
 ### Diary
 
 Daily timeline entries (auto-maintained by the reflection agent):
 
-```
-diary/
-├── 2026-02-23.md
-└── 2026-02-24.md
-```
+<FileTree>
+
+- diary/
+  - 2026-02-23.md
+  - 2026-02-24.md
+
+</FileTree>
 
 ## Wiki Links
 
-Notes connect to each other through wiki links with optional typed relationships:
+Notes connect to each other through wiki links with optional typed
+relationships:
 
-```markdown
-[[Target Note]] # Simple
+<Tabs>
+  <TabItem label="Simple link">
+    ```markdown
+    [[Target Note]]
+    ```
+  </TabItem>
+  <TabItem label="Typed relationship">
+    ```markdown
+    [[relationship>Target Note]]
+    ```
+  </TabItem>
+</Tabs>
 
-[[relationship>Target Note]] # Typed relationship
-```
-
-These links create edges in the graph database, enabling traversal and discovery.
-Unresolved links automatically create **stub notes** that your GHOST can flesh out
-later.
+These links create edges in the graph database, enabling traversal and
+discovery. Unresolved links automatically create **stub notes** that your
+GHOST can flesh out later.
 
 ## Search
 
@@ -71,7 +92,8 @@ GHOST uses **hybrid search** combining:
 - **BM25** — full-text keyword matching
 - **Semantic** — embedding-based similarity (via Ollama)
 
-Results are merged and ranked. Search covers notes, references, and diary entries.
+Results are merged and ranked. Search covers notes, references, and diary
+entries.
 
 ## CLI Commands
 

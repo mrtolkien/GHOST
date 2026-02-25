@@ -12,7 +12,9 @@
     "**/target",
     "**/.git",
     "**/.ralph/logs",
-    "**/docs/book",
+    "**/docs/dist",
+    "**/docs/.astro",
+    "**/docs/src/content/**",
     "**/tests/fixtures"
   ],
   "plugins": [

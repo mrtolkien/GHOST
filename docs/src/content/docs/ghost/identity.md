@@ -1,4 +1,7 @@
-# Identity
+---
+title: Identity
+description: How GHOST identity works through BOOT.md, SOUL.md, and OPERATOR.md workspace files.
+---
 
 GHOST follows a **one GHOST, one OPERATOR** model. Identity is defined by three
 workspace files, injected into every system prompt.
@@ -7,7 +10,7 @@ workspace files, injected into every system prompt.
 
 Behavioral instructions for your GHOST. Controls how it thinks, responds, and acts.
 
-```markdown
+```markdown title="BOOT.md"
 # GHOST Boot Instructions
 
 - Be direct and honest
@@ -23,7 +26,7 @@ This is the most impactful file — it shapes your GHOST's core behavior.
 Self-observations written by the GHOST itself — what it has noticed about its own
 behavior, tendencies, and personality over time.
 
-```markdown
+```markdown title="SOUL.md"
 # Soul
 
 - I am too sycophantic by default and need to fight this habit
@@ -36,7 +39,7 @@ behavior, tendencies, and personality over time.
 
 Your preferences, goals, and communication style. Helps your GHOST understand you.
 
-```markdown
+```markdown title="OPERATOR.md"
 # Operator
 
 - Prefers concise responses
@@ -50,5 +53,7 @@ Your preferences, goals, and communication style. Helps your GHOST understand yo
 All three files are read at startup and injected into the system prompt for every
 conversation. The GHOST carries this identity across all sessions and agents.
 
-Edit these files directly in your workspace (`~/GHOST/`) — changes take effect on the
-next message. No restart required.
+:::tip
+Edit these files directly in your workspace (`~/GHOST/`) — changes take
+effect on the next message. No restart required.
+:::

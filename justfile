@@ -48,10 +48,10 @@ run-gateway:
 run-cli:
     cargo run --bin t-koma-cli
 
-# Build documentation with mdbook
+# Build documentation with Astro Starlight
 doc:
-    mdbook build docs/
+    cd docs && npm run build
 
 # Serve documentation locally with live reload
 doc-serve:
-    mdbook serve docs/
+    cd docs && npm run dev

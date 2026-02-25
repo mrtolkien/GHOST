@@ -1,4 +1,7 @@
-# Web Research
+---
+title: Web Research
+description: Web search and page fetching capabilities for GHOST research tasks.
+---
 
 GHOST can search the web and fetch page content for research tasks.
 
@@ -6,7 +9,9 @@ GHOST can search the web and fetch page content for research tasks.
 
 Uses the [Brave Search API](https://brave.com/search/api/) for web queries.
 
+:::caution
 Requires `BRAVE_API_KEY` environment variable.
+:::
 
 ```bash
 ghost web search "rust error handling best practices"
@@ -26,10 +31,12 @@ ghost web fetch https://example.com --readability
 ghost web fetch https://example.com --raw
 ```
 
-Optionally uses [Crawl4AI](https://github.com/unclecode/crawl4ai) as a backend when
-standard web fetching doesn't yield good results:
+:::tip
+Optionally uses [Crawl4AI](https://github.com/unclecode/crawl4ai) as a
+backend when standard web fetching doesn't yield good results.
+:::
 
-```toml
+```toml title="~/.config/ghost/config.toml"
 [web]
 crawl4ai_url = "http://localhost:11235"
 ```

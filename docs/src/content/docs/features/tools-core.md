@@ -1,4 +1,7 @@
-# Core Tools
+---
+title: Core Tools
+description: GHOST's core tool capabilities — shell, file I/O, todo tracking, and agent control.
+---
 
 GHOST follows a "skills over tools" philosophy — prefer workflow files and existing
 tools over adding new tool APIs. These core tools cover most needs.
@@ -64,4 +67,4 @@ Spawn and manage autonomous agents.
 | `status`   | Check agent progress                   |
 | `stop`     | Terminate an agent                     |
 
-See [Agents](agents.md) for details.
+See [Agents](/features/agents/) for details.

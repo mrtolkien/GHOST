@@ -1,0 +1,93 @@
+---
+title: Installation
+description: How to install and set up GHOST from source.
+---
+
+import { Steps } from "@astrojs/starlight/components";
+
+## Prerequisites
+
+- **Rust toolchain** — [rustup.rs](https://rustup.rs/)
+- **Ollama** — for local embeddings ([ollama.com](https://ollama.com))
+- **Crawl4AI** — for web page extraction
+  ([crawl4ai](https://github.com/unclecode/crawl4ai))
+- **Discord bot token** — for the Discord interface (see
+  [Interfaces](/ghost/interfaces/))
+
+:::note
+In the future, all dependencies beyond the binary itself will be managed by the
+GHOST through Nix. For now, you need to set them up manually.
+:::
+
+## Setup
+
+<Steps>
+
+1. **Install from source**
+
+   ```bash
+   git clone https://github.com/tolki/ghost.git
+   cd ghost
+   cargo install --path .
+   ```
+
+2. **Bootstrap workspace and config**
+
+   ```bash
+   ghost init
+   ```
+
+   This creates:
+   - Config file at `~/.config/ghost/config.toml`
+   - Workspace directory at `~/GHOST/` with default identity files, skills,
+     and agents
+
+3. **Configure secrets**
+
+   Create a `.env` file (or set environment variables).
+
+   :::danger[Security]
+   Never put API keys in `config.toml`.
+   :::
+
+   ```bash title=".env"
+   # Required for at least one provider
+   OPENROUTER_API_KEY=sk-or-...
+
+   # Required for web search
+   BRAVE_API_KEY=BSA...
+
+   # Required for Discord
+   DISCORD_TOKEN=...
+   ```
+
+4. **Pull embedding model**
+
+   ```bash
+   ollama pull qwen3-embedding:8b
+   ```
+
+5. **Start Crawl4AI**
+
+   GHOST uses a Crawl4AI container for web page extraction:
+
+   ```bash
+   docker run -d -p 11235:11235 unclecode/crawl4ai
+   ```
+
+   Then set the URL in `config.toml`:
+
+   ```toml title="~/.config/ghost/config.toml"
+   [web]
+   crawl4ai_url = "http://localhost:11235"
+   ```
+
+6. **First run**
+
+   ```bash
+   ghost daemon
+   ```
+
+   This starts the Discord bot and the job scheduler. Your GHOST is now live.
+
+</Steps>

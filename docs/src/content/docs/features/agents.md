@@ -1,4 +1,7 @@
-# Agents
+---
+title: Agents
+description: Autonomous background workers for complex multi-step tasks with configurable nudge systems.
+---
 
 Agents are autonomous background workers that handle complex, multi-step tasks. They run
 independently with their own tool sets, iteration limits, and system prompts.
@@ -7,7 +10,7 @@ independently with their own tool sets, iteration limits, and system prompts.
 
 Each agent is a markdown file with TOML frontmatter in `$WORKSPACE/agents/`:
 
-```markdown
+```markdown title="agents/my-agent.md"
 +++
 name = "my-agent"
 description = "What this agent does"
@@ -41,14 +44,18 @@ Detailed instructions for the agent's behavior...
 
 ## Nudge Configuration
 
-All model-facing nudge strings live in agent frontmatter. Each section is optional — if
-an agent doesn't declare it, that nudge type simply doesn't fire.
+All model-facing nudge strings live in agent frontmatter.
+
+:::note
+Each section is optional — if an agent doesn't declare it, that nudge type
+simply doesn't fire.
+:::
 
 ### `[[progress]]` — Periodic Tool Count Nudges
 
 Track how many times a tool has been called and nudge the model when below a minimum.
 
-```toml
+```toml title="Progress nudge"
 [[progress]]
 tool = "note_write"
 min = 3
@@ -65,7 +72,7 @@ nudge = "Need {min} {tool} calls (have {count}). Keep going."
 
 Prevents the agent from ending its turn without a completed TODO list.
 
-```toml
+```toml title="Progress gate"
 [progress_gate]
 no_todo = "Create your TODO checklist before writing."
 incomplete = "You have {incomplete} incomplete items. Complete them."
@@ -80,7 +87,7 @@ incomplete = "You have {incomplete} incomplete items. Complete them."
 
 Fires once after the specified number of seconds.
 
-```toml
+```toml title="Temporal nudge"
 [temporal]
 after_seconds = 300
 message = "You've been working for {minutes} minutes. Wrap up now."
@@ -95,7 +102,7 @@ message = "You've been working for {minutes} minutes. Wrap up now."
 
 Fires periodically when a tool hasn't been used in the last N assistant turns.
 
-```toml
+```toml title="Recency nudge"
 [recency]
 tool = "web_fetch"
 window = 3
@@ -112,7 +119,7 @@ message = "You haven't fetched any pages recently."
 
 Fires once when total conversation content exceeds the character threshold.
 
-```toml
+```toml title="Context pressure nudge"
 [context_pressure]
 threshold_chars = 250000
 message = "Context filling up. Finish efficiently."
@@ -144,8 +151,8 @@ message = "Context filling up. Finish efficiently."
 
 The GHOST manages agents through the `agent_control` tool:
 
-```
-start    — Spawn a new agent with a prompt
+```text title="agent_control actions"
+start    — Spawn a new agent with name and prompt
 continue — Send follow-up instructions to a running agent
 status   — Check agent progress
 stop     — Terminate an agent

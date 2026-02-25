@@ -1,4 +1,7 @@
-# Jobs
+---
+title: Jobs
+description: Cron-scheduled tasks, heartbeat, and reflection subsystems.
+---
 
 Jobs are cron-scheduled tasks defined as markdown files with TOML frontmatter.
 
@@ -6,7 +9,7 @@ Jobs are cron-scheduled tasks defined as markdown files with TOML frontmatter.
 
 Jobs live in `$WORKSPACE/jobs/`:
 
-```markdown
+```markdown title="jobs/daily-news.md"
 +++
 name = "Daily News Summary"
 schedule = "0 8 * * *"
@@ -40,9 +43,14 @@ brief digest with links.
 ### Heartbeat
 
 Proactive check-ins when you've been idle. These are dedicated subsystems (not regular
-jobs) with their own scheduling logic. Configurable in `config.toml`:
+jobs) with their own scheduling logic.
 
-```toml
+:::tip
+Configure heartbeat timing in `config.toml` to match your workflow — shorter
+idle times mean more proactive check-ins.
+:::
+
+```toml title="~/.config/ghost/config.toml"
 [timing]
 heartbeat_idle_minutes = 4 # Minutes of silence before check-in
 heartbeat_check_seconds = 60 # How often to check
@@ -54,7 +62,7 @@ heartbeat_continue_minutes = 30 # Max heartbeat duration
 Automatic knowledge extraction after conversations end. Runs when a session goes idle,
 creating notes and diary entries from the conversation.
 
-```toml
+```toml title="~/.config/ghost/config.toml"
 [timing]
 reflection_idle_minutes = 4 # Minutes idle before reflection triggers
 ```

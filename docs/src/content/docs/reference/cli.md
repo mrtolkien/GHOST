@@ -1,4 +1,9 @@
-# CLI Reference
+---
+title: CLI Reference
+description: Complete reference for all ghost CLI commands.
+tableOfContents:
+  maxHeadingLevel: 3
+---
 
 ## ghost daemon
 
@@ -29,7 +34,7 @@ ghost config set <key> <value>  # Set a config value
 
 Examples:
 
-```bash
+```bash title="Config examples"
 ghost config get discord.allowed_user_id
 ghost config set timing.heartbeat_idle_minutes 10
 ghost config set web.search_max_results 10
