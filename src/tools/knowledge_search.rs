@@ -250,7 +250,10 @@ fn format_results(hits: &[SearchHit]) -> Result<String, ToolError> {
 
         output.push_str(&format!(
             "- **{}** (id: {}, score: {:.2})\n  {}\n\n",
-            hit.title, hit.id, hit.score, hit.snippet,
+            hit.title,
+            crate::db::fmt_id(&hit.id),
+            hit.score,
+            hit.snippet,
         ));
     }
 

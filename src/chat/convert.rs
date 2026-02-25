@@ -1,5 +1,5 @@
 use serde_json::{Value, json};
-use surrealdb::sql::Thing;
+use surrealdb::types::RecordId;
 
 use crate::db;
 use crate::providers::{ChatMessage, ContentBlock, Role};
@@ -7,7 +7,7 @@ use crate::tools::ToolError;
 
 use super::types::ChatError;
 
-pub(super) fn parse_session_thing(session_id: &str) -> Result<Thing, ChatError> {
+pub(super) fn parse_session_thing(session_id: &str) -> Result<RecordId, ChatError> {
     if session_id.contains(':') {
         let mut parts = session_id.splitn(2, ':');
         let table = parts.next().unwrap_or_default();
@@ -17,7 +17,7 @@ pub(super) fn parse_session_thing(session_id: &str) -> Result<Thing, ChatError> 
                 session_id: session_id.to_string(),
             });
         }
-        return Ok(Thing::from((table, id)));
+        return Ok(RecordId::new(table, id));
     }
 
     if session_id.trim().is_empty() {
@@ -26,7 +26,7 @@ pub(super) fn parse_session_thing(session_id: &str) -> Result<Thing, ChatError> 
         });
     }
 
-    Ok(Thing::from(("session", session_id)))
+    Ok(RecordId::new("session", session_id))
 }
 
 pub(super) fn convert_stored_message_to_provider_message(

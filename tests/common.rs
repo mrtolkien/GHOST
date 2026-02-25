@@ -5,6 +5,8 @@ use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
 use ghost::config::{self, Config};
+#[cfg(feature = "live-tests")]
+use ghost::db::fmt_id;
 use ghost::db::{self, GhostDb};
 use ghost::knowledge::{NoteFrontMatter, serialize_note};
 use ghost::providers::{
@@ -14,7 +16,7 @@ use ghost::providers::{
 use ghost::tools::{Tool, ToolContext, ToolError};
 use serde_json::json;
 #[cfg(feature = "live-tests")]
-use surrealdb::sql::Thing;
+use surrealdb::types::RecordId;
 use tempfile::TempDir;
 
 pub fn test_config() -> (Config, TempDir, TempDir) {
@@ -99,7 +101,7 @@ pub struct AgentOutcome {
     /// GHOST's follow-up response after receiving agent findings.
     pub chat_result: ghost::chat::ChatResult,
     /// The agent's session ID (for querying its messages/metrics).
-    pub agent_session: Thing,
+    pub agent_session: RecordId,
     /// The raw findings text from the agent.
     pub findings: String,
 }
@@ -142,7 +144,7 @@ impl LiveTestEnv {
     /// `{ "role", "content"?, "tool_calls"?, "tool_results"? }`.
     pub async fn collect_session_json(
         &self,
-        session_id: &surrealdb::sql::Thing,
+        session_id: &surrealdb::types::RecordId,
     ) -> Vec<serde_json::Value> {
         let messages = ghost::db::sessions::list_messages_by_session(&self.db, session_id)
             .await
@@ -206,7 +208,7 @@ impl LiveTestEnv {
     /// output under the given label (e.g. "chat", "agent", "reflection").
     /// Records a cursor so the next call to `log_session_json_since` on
     /// the same session only includes new messages.
-    pub async fn log_session_json(&self, label: &str, session_id: &surrealdb::sql::Thing) {
+    pub async fn log_session_json(&self, label: &str, session_id: &surrealdb::types::RecordId) {
         let messages = self.collect_session_json(session_id).await;
         let count = messages.len();
         self.diagnostic_json
@@ -214,18 +216,22 @@ impl LiveTestEnv {
             .insert(label.to_string(), json!(messages));
         self.session_cursors
             .borrow_mut()
-            .insert(session_id.to_string(), count);
+            .insert(fmt_id(session_id), count);
     }
 
     /// Like `log_session_json`, but only includes messages added since the
     /// last `log_session_json` call for this session. Avoids duplicating
     /// already-logged content.
-    pub async fn log_session_json_since(&self, label: &str, session_id: &surrealdb::sql::Thing) {
+    pub async fn log_session_json_since(
+        &self,
+        label: &str,
+        session_id: &surrealdb::types::RecordId,
+    ) {
         let all_messages = self.collect_session_json(session_id).await;
         let cursor = self
             .session_cursors
             .borrow()
-            .get(&session_id.to_string())
+            .get(&fmt_id(session_id))
             .copied()
             .unwrap_or(0);
         let new_messages: Vec<_> = all_messages.into_iter().skip(cursor).collect();
@@ -235,7 +241,7 @@ impl LiveTestEnv {
             .insert(label.to_string(), json!(new_messages));
         self.session_cursors
             .borrow_mut()
-            .insert(session_id.to_string(), count_after);
+            .insert(fmt_id(session_id), count_after);
     }
 
     // -----------------------------------------------------------------
@@ -243,14 +249,14 @@ impl LiveTestEnv {
     // -----------------------------------------------------------------
 
     /// Create a bare session.
-    pub async fn create_session(&self) -> Thing {
+    pub async fn create_session(&self) -> RecordId {
         ghost::db::sessions::create_session(&self.db)
             .await
             .expect("create session")
     }
 
     /// Create a session with pre-filled messages.
-    pub async fn session_with_messages(&self, messages: &[(&str, &str)]) -> Thing {
+    pub async fn session_with_messages(&self, messages: &[(&str, &str)]) -> RecordId {
         let session_id = self.create_session().await;
         for (role, content) in messages {
             ghost::db::sessions::create_message(&self.db, &session_id, role, content)
@@ -264,7 +270,7 @@ impl LiveTestEnv {
     ///
     /// Each entry has `role`, optional `content`, optional `tool_calls`,
     /// optional `tool_results`. Returns the session ID with all messages stored.
-    pub async fn session_from_transcript(&self, transcript: &[serde_json::Value]) -> Thing {
+    pub async fn session_from_transcript(&self, transcript: &[serde_json::Value]) -> RecordId {
         let session_id = self.create_session().await;
         for msg in transcript {
             let role = msg.get("role").and_then(|v| v.as_str()).unwrap_or("user");
@@ -319,7 +325,7 @@ impl LiveTestEnv {
     ///
     /// Returns the heartbeat response string (either a message or
     /// "HEARTBEAT_CONTINUE").
-    pub async fn run_heartbeat(&self, session_id: &Thing) -> String {
+    pub async fn run_heartbeat(&self, session_id: &RecordId) -> String {
         let messages = ghost::db::sessions::list_messages_by_session(&self.db, session_id)
             .await
             .expect("list messages");
@@ -343,7 +349,7 @@ impl LiveTestEnv {
     /// chat-session diary/identity focus.
     pub async fn run_reflection(
         &self,
-        session_id: &Thing,
+        session_id: &RecordId,
         previous_handoff: Option<&str>,
         agent_name: &str,
     ) -> String {
@@ -405,7 +411,7 @@ impl LiveTestEnv {
     /// Times out after `timeout_secs` seconds.
     pub async fn wait_for_agents(
         &self,
-        session_id: &Thing,
+        session_id: &RecordId,
         timeout_secs: u64,
     ) -> Option<AgentOutcome> {
         use std::time::{Duration, Instant};
@@ -437,10 +443,10 @@ impl LiveTestEnv {
                         status.agent_name, status.message_count
                     ));
 
-                    // agent_id is "session:xxxxx" — parse it back into a Thing
+                    // agent_id is "session:xxxxx" — parse it back into a RecordId
                     let agent_session = agent_id
                         .split_once(':')
-                        .map(|(table, id)| Thing::from((table, id)));
+                        .map(|(table, id)| RecordId::new(table, id));
 
                     if let Some(ref thing) = agent_session {
                         self.log_session_json("agent", thing).await;
@@ -463,7 +469,7 @@ impl LiveTestEnv {
                     // Trigger follow-up chat turn
                     let chat = self.chat();
                     let trigger = "[system] Research agent completed.";
-                    match chat.chat(&parent_id.to_string(), trigger, None).await {
+                    match chat.chat(&fmt_id(&parent_id), trigger, None).await {
                         Ok((result, _metadata)) => {
                             return Some(AgentOutcome {
                                 chat_result: result,
@@ -488,7 +494,7 @@ impl LiveTestEnv {
     // -----------------------------------------------------------------
 
     /// Collect web_fetch metrics from an agent session's messages.
-    pub async fn collect_web_fetch_metrics(&self, session_id: &Thing) -> WebFetchMetrics {
+    pub async fn collect_web_fetch_metrics(&self, session_id: &RecordId) -> WebFetchMetrics {
         let messages = ghost::db::sessions::list_messages_by_session(&self.db, session_id)
             .await
             .expect("list session messages for metrics");

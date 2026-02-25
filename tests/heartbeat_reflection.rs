@@ -2,6 +2,7 @@
 
 mod common;
 
+use ghost::db::fmt_id;
 use ghost::jobs::heartbeat::is_heartbeat_continue;
 use ghost::web::scan_web_cache;
 #[allow(unused_imports)]
@@ -56,7 +57,7 @@ async fn reflection_classifies_blog_reference() {
     let chat = env.chat();
     let (result, _metadata) = chat
         .chat(
-            &session.to_string(),
+            &fmt_id(&session),
             "What's the latest post on https://blog.tolki.dev/ ? \
              Use `ghost web fetch` to read it, then tell me the title and a one-line summary.",
             None,
@@ -163,7 +164,7 @@ async fn reflection_creates_knowledge_notes() {
 
     let chat = env.chat();
     chat.chat(
-        &session.to_string(),
+        &fmt_id(&session),
         "I just learned that SurrealDB supports graph relations using RELATE statements. \
          For example: `RELATE user:alice->follows->user:bob`. This creates typed edges \
          between records. I want to remember this for later.",
@@ -205,7 +206,7 @@ async fn reflection_handoff_continuity() {
     // First conversation
     let chat = env.chat();
     chat.chat(
-        &session.to_string(),
+        &fmt_id(&session),
         "I'm planning to refactor the authentication module next week. \
          The current JWT implementation is too tightly coupled to the HTTP layer.",
         None,
@@ -228,7 +229,7 @@ async fn reflection_handoff_continuity() {
     let chat2 = env.chat();
     chat2
         .chat(
-            &session2.to_string(),
+            &fmt_id(&session2),
             "I decided to use tower middleware for auth instead of custom extractors.",
             None,
         )
@@ -268,7 +269,7 @@ async fn skills_discoverable_without_prompting() {
     let chat = env.chat();
     let (result, _metadata) = chat
         .chat(
-            &session.to_string(),
+            &fmt_id(&session),
             "What skills do you have available? List them briefly.",
             None,
         )

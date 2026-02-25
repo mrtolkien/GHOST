@@ -5,7 +5,7 @@ use std::time::Duration;
 use chrono::{DateTime, Utc};
 use surrealdb::Surreal;
 use surrealdb::engine::local::Db;
-use surrealdb::sql::Thing;
+use surrealdb::types::RecordId;
 use tokio::sync::Mutex;
 
 use regex::Regex;
@@ -37,8 +37,8 @@ impl ReflectionManager {
     }
 
     /// Run reflection after a heartbeat, with delay and skip logic.
-    #[tracing::instrument(skip_all, fields(session_id = %session_id))]
-    pub async fn run_after_heartbeat(&self, session_id: &str, session_thing: &Thing) {
+    #[tracing::instrument(skip_all, fields(session_id = ?session_id))]
+    pub async fn run_after_heartbeat(&self, session_id: &str, session_thing: &RecordId) {
         // Delay before running
         let delay = Duration::from_secs(self.config.timing.reflection_idle_minutes * 60);
         tokio::time::sleep(delay).await;
@@ -76,23 +76,23 @@ impl ReflectionManager {
     }
 
     /// Run reflection on reboot — always runs, no skip logic.
-    #[tracing::instrument(skip_all, fields(session_id = %session_id))]
-    pub async fn run_on_reboot(&self, session_id: &str, session_thing: &Thing) {
+    #[tracing::instrument(skip_all, fields(session_id = ?session_id))]
+    pub async fn run_on_reboot(&self, session_id: &str, session_thing: &RecordId) {
         self.run(session_id, session_thing, "chat-reflection").await;
     }
 
     /// Run reflection after an agent handoff on the agent's own session.
-    pub async fn run_after_agent_handoff(&self, agent_session_thing: &Thing) {
-        let session_id = agent_session_thing.to_string();
+    pub async fn run_after_agent_handoff(&self, agent_session_thing: &RecordId) {
+        let session_id = crate::db::fmt_id(agent_session_thing);
         self.run(&session_id, agent_session_thing, "reflection")
             .await;
     }
 
     #[tracing::instrument(name = "reflection", skip_all, fields(
-        session_id = %session_id,
+        session_id = ?session_id,
         agent_name = %agent_name,
     ))]
-    async fn run(&self, session_id: &str, session_thing: &Thing, agent_name: &str) {
+    async fn run(&self, session_id: &str, session_thing: &RecordId, agent_name: &str) {
         // Sequential: wait for any running reflection to finish first
         let _guard = self.running.lock().await;
 
@@ -153,7 +153,7 @@ impl ReflectionManager {
     /// classified cache files (needed for post-processing).
     async fn build_user_message(
         &self,
-        session_thing: &Thing,
+        session_thing: &RecordId,
     ) -> Result<(String, Vec<ClassifiedCacheFile>), db::DatabaseError> {
         let previous_handoff = load_state_file(&self.config.workspace, "reflection.last.md")
             .unwrap_or_else(|| "No previous handoff.".to_string());
@@ -629,7 +629,7 @@ pub async fn link_cited_edges(
                     logfire::warn!(
                         "link_cited_edges: failed to create edge",
                         note = note_title.clone(),
-                        ref_id = ref_record.id.to_string(),
+                        ref_id = crate::db::fmt_id(&ref_record.id),
                         error = e.to_string(),
                     );
                 }
@@ -913,7 +913,7 @@ fn topic_from_url(url: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use surrealdb::sql::Datetime;
+    use surrealdb::types::Datetime;
     use tempfile::TempDir;
 
     fn make_message(
@@ -923,8 +923,8 @@ mod tests {
         tool_results: Option<Vec<serde_json::Value>>,
     ) -> MessageRecord {
         MessageRecord {
-            id: Thing::from(("message", "test")),
-            session: Thing::from(("session", "test")),
+            id: RecordId::new("message", "test"),
+            session: RecordId::new("session", "test"),
             role: role.to_string(),
             content: content.to_string(),
             tool_calls,

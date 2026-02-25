@@ -1,9 +1,10 @@
 use serde::{Deserialize, Serialize};
-use surrealdb::sql::{Datetime, Thing};
+use surrealdb::types::{Datetime, RecordId, SurrealValue};
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, SurrealValue)]
+#[surreal(crate = "surrealdb::types")]
 pub struct NoteRecord {
-    pub id: Thing,
+    pub id: RecordId,
     pub title: String,
     pub body: String,
     pub archetype: Option<String>,
@@ -16,9 +17,10 @@ pub struct NoteRecord {
     pub updated_at: Datetime,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, SurrealValue)]
+#[surreal(crate = "surrealdb::types")]
 pub struct ReferenceRecord {
-    pub id: Thing,
+    pub id: RecordId,
     pub topic: String,
     pub path: String,
     pub content: String,
@@ -26,37 +28,42 @@ pub struct ReferenceRecord {
     pub created_at: Datetime,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, SurrealValue)]
+#[surreal(crate = "surrealdb::types")]
 pub struct DiaryRecord {
-    pub id: Thing,
+    pub id: RecordId,
     pub date: String,
     pub body: String,
     pub updated_at: Datetime,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, SurrealValue)]
+#[surreal(crate = "surrealdb::types")]
 pub struct SearchHit {
-    pub id: Thing,
+    pub id: RecordId,
     pub title: String,
     pub snippet: String,
     pub score: f64,
     pub kind: String,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, SurrealValue)]
+#[surreal(crate = "surrealdb::types")]
 pub struct RecentItem {
-    pub id: Thing,
+    pub id: RecordId,
     pub title: String,
     pub kind: String,
     pub updated_at: Datetime,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, SurrealValue)]
+#[surreal(crate = "surrealdb::types")]
 pub struct EdgeRecord {
-    pub id: Thing,
+    pub id: RecordId,
     #[serde(rename = "in")]
-    pub in_node: Thing,
-    pub out: Thing,
+    #[surreal(rename = "in")]
+    pub in_node: RecordId,
+    pub out: RecordId,
     pub label: String,
     pub created_at: Datetime,
 }

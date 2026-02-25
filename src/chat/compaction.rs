@@ -9,7 +9,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use surrealdb::sql::Thing;
+use surrealdb::types::RecordId;
 
 use crate::config::CompactionConfig;
 use crate::db;
@@ -394,10 +394,10 @@ impl SessionChat {
     /// Phase 1 (tool result masking) is tried first. If that isn't enough,
     /// Phase 2 (LLM summarization) kicks in. Provider or empty-summary errors
     /// are logged and gracefully degraded — they never fail the chat.
-    #[tracing::instrument(skip_all, level = "debug", fields(session_id = %session_id))]
+    #[tracing::instrument(skip_all, level = "debug", fields(session_id = ?session_id))]
     pub(super) async fn compact_if_needed(
         &self,
-        session_id: &Thing,
+        session_id: &RecordId,
         history: &mut Vec<ChatMessage>,
         stored_message_ids: &[String],
     ) {
@@ -462,7 +462,7 @@ impl SessionChat {
         // Phase 2: LLM summarization
         logfire::info!("Masking insufficient — proceeding to Phase 2");
 
-        let cache_key = session_id.to_string();
+        let cache_key = crate::db::fmt_id(session_id);
         match summarize_older_messages(
             self.provider(),
             &model_name,

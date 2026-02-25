@@ -1,6 +1,6 @@
 use surrealdb::Surreal;
 use surrealdb::engine::local::Db;
-use surrealdb::sql::Thing;
+use surrealdb::types::RecordId;
 
 use crate::db::error::DatabaseError;
 use crate::db::query::{IdRow, query_exec, take_many, take_one};
@@ -14,7 +14,7 @@ pub async fn create_note(
     db: &Surreal<Db>,
     title: &str,
     body: &str,
-) -> Result<Thing, DatabaseError> {
+) -> Result<RecordId, DatabaseError> {
     create_note_full(db, title, body, None, &[], &[], 5, None).await
 }
 
@@ -29,7 +29,7 @@ pub async fn create_note_full(
     sources: &[String],
     trust: i64,
     path: Option<&str>,
-) -> Result<Thing, DatabaseError> {
+) -> Result<RecordId, DatabaseError> {
     let mut resp = query_exec(
         db.query(
             "CREATE note SET \
@@ -61,10 +61,10 @@ pub async fn create_note_full(
 }
 
 #[allow(clippy::too_many_arguments)]
-#[tracing::instrument(skip_all, level = "debug", fields(note_id = %note_id))]
+#[tracing::instrument(skip_all, level = "debug", fields(note_id = ?note_id))]
 pub async fn update_note(
     db: &Surreal<Db>,
-    note_id: &Thing,
+    note_id: &RecordId,
     body: &str,
     archetype: Option<&str>,
     tags: &[String],
@@ -102,7 +102,7 @@ pub async fn create_diary(
     db: &Surreal<Db>,
     date: &str,
     body: &str,
-) -> Result<Thing, DatabaseError> {
+) -> Result<RecordId, DatabaseError> {
     let mut resp = query_exec(
         db.query(
             "CREATE diary SET \
@@ -147,7 +147,7 @@ pub async fn create_reference(
     path: &str,
     content: &str,
     source_url: Option<&str>,
-) -> Result<Thing, DatabaseError> {
+) -> Result<RecordId, DatabaseError> {
     let mut resp = query_exec(
         db.query(
             "CREATE reference SET \
@@ -173,8 +173,8 @@ pub async fn create_reference(
 
 // --- Read ---
 
-#[tracing::instrument(skip_all, level = "debug", fields(note_id = %note_id))]
-pub async fn get_note(db: &Surreal<Db>, note_id: &Thing) -> Result<NoteRecord, DatabaseError> {
+#[tracing::instrument(skip_all, level = "debug", fields(note_id = ?note_id))]
+pub async fn get_note(db: &Surreal<Db>, note_id: &RecordId) -> Result<NoteRecord, DatabaseError> {
     let mut resp = query_exec(
         db.query("SELECT * FROM ONLY $note_id")
             .bind(("note_id", note_id.clone())),
@@ -206,10 +206,10 @@ pub async fn find_note_by_title(
     Ok(rows.into_iter().next())
 }
 
-#[tracing::instrument(skip_all, level = "debug", fields(ref_id = %ref_id))]
+#[tracing::instrument(skip_all, level = "debug", fields(ref_id = ?ref_id))]
 pub async fn get_reference(
     db: &Surreal<Db>,
-    ref_id: &Thing,
+    ref_id: &RecordId,
 ) -> Result<ReferenceRecord, DatabaseError> {
     let mut resp = query_exec(
         db.query("SELECT * FROM ONLY $ref_id")
@@ -273,8 +273,8 @@ pub async fn list_recent(db: &Surreal<Db>, limit: usize) -> Result<Vec<RecentIte
 
 // --- Delete ---
 
-#[tracing::instrument(skip_all, level = "debug", fields(note_id = %note_id))]
-pub async fn delete_note(db: &Surreal<Db>, note_id: &Thing) -> Result<(), DatabaseError> {
+#[tracing::instrument(skip_all, level = "debug", fields(note_id = ?note_id))]
+pub async fn delete_note(db: &Surreal<Db>, note_id: &RecordId) -> Result<(), DatabaseError> {
     query_exec(
         db.query(
             "DELETE relates_to WHERE `in` = $note_id OR out = $note_id; \
@@ -289,8 +289,8 @@ pub async fn delete_note(db: &Surreal<Db>, note_id: &Thing) -> Result<(), Databa
     Ok(())
 }
 
-#[tracing::instrument(skip_all, level = "debug", fields(ref_id = %ref_id))]
-pub async fn delete_reference(db: &Surreal<Db>, ref_id: &Thing) -> Result<(), DatabaseError> {
+#[tracing::instrument(skip_all, level = "debug", fields(ref_id = ?ref_id))]
+pub async fn delete_reference(db: &Surreal<Db>, ref_id: &RecordId) -> Result<(), DatabaseError> {
     query_exec(
         db.query(
             "DELETE cited WHERE `in` = $ref_id OR out = $ref_id; \
@@ -306,10 +306,10 @@ pub async fn delete_reference(db: &Surreal<Db>, ref_id: &Thing) -> Result<(), Da
 
 // --- Reference updates ---
 
-#[tracing::instrument(skip_all, level = "debug", fields(ref_id = %ref_id))]
+#[tracing::instrument(skip_all, level = "debug", fields(ref_id = ?ref_id))]
 pub async fn update_reference_path(
     db: &Surreal<Db>,
-    ref_id: &Thing,
+    ref_id: &RecordId,
     new_path: &str,
     new_topic: &str,
 ) -> Result<(), DatabaseError> {

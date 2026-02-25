@@ -115,18 +115,19 @@ impl Handler {
         if let Some(thing) =
             db::interface_sessions::get_active_session_for_interface(&self.db, &iface).await?
         {
-            return Ok(thing.to_string());
+            return Ok(crate::db::fmt_id(&thing));
         }
 
         let new_session = db::sessions::create_session(&self.db).await?;
         db::interface_sessions::set_active_session_for_interface(&self.db, &iface, &new_session)
             .await?;
+        let new_session_str = crate::db::fmt_id(&new_session);
         info!(
-            session_id = %new_session,
+            session_id = %new_session_str,
             channel_id = %channel_id,
             "created new session for channel"
         );
-        Ok(new_session.to_string())
+        Ok(new_session_str)
     }
 
     /// Download text attachments to workspace/downloads/. Returns content to

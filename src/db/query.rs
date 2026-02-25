@@ -1,23 +1,24 @@
 use serde::Deserialize;
-use serde::de::DeserializeOwned;
-use surrealdb::Response;
-use surrealdb::sql::Thing;
+use surrealdb::IndexedResults;
+use surrealdb::types::{RecordId, SurrealValue};
 
 use super::error::DatabaseError;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, SurrealValue)]
+#[surreal(crate = "surrealdb::types")]
 pub struct IdRow {
-    pub id: Thing,
+    pub id: RecordId,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, SurrealValue)]
+#[surreal(crate = "surrealdb::types")]
 pub struct CountRow {
     pub count: i64,
 }
 
 #[allow(clippy::result_large_err)]
-pub fn take_many<T: DeserializeOwned>(
-    response: &mut Response,
+pub fn take_many<T: SurrealValue>(
+    response: &mut IndexedResults,
     idx: usize,
     table: &'static str,
     operation: &'static str,
@@ -30,8 +31,8 @@ pub fn take_many<T: DeserializeOwned>(
 }
 
 #[allow(clippy::result_large_err)]
-pub fn take_one<T: DeserializeOwned>(
-    response: &mut Response,
+pub fn take_one<T: SurrealValue>(
+    response: &mut IndexedResults,
     idx: usize,
     table: &'static str,
     operation: &'static str,
@@ -43,8 +44,8 @@ pub fn take_one<T: DeserializeOwned>(
 }
 
 #[allow(clippy::result_large_err)]
-pub fn take_opt<T: DeserializeOwned>(
-    response: &mut Response,
+pub fn take_opt<T: SurrealValue>(
+    response: &mut IndexedResults,
     idx: usize,
     table: &'static str,
     operation: &'static str,
@@ -60,10 +61,10 @@ pub fn take_opt<T: DeserializeOwned>(
 
 #[allow(clippy::result_large_err)]
 pub async fn query_exec(
-    query: impl std::future::IntoFuture<Output = Result<Response, surrealdb::Error>>,
+    query: impl std::future::IntoFuture<Output = Result<IndexedResults, surrealdb::Error>>,
     table: &'static str,
     operation: &'static str,
-) -> Result<Response, DatabaseError> {
+) -> Result<IndexedResults, DatabaseError> {
     query.await.map_err(|source| DatabaseError::Query {
         table,
         operation,

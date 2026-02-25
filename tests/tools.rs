@@ -1,6 +1,7 @@
 mod common;
 
 use ghost::db;
+use ghost::db::fmt_id;
 use ghost::tools::{TodoStatus, ToolContext, ToolManager};
 use serde_json::json;
 
@@ -75,7 +76,7 @@ async fn todo_round_trip_through_db() {
     let session_id = db::sessions::create_session(&db)
         .await
         .expect("create session");
-    let ctx = tool_ctx(&config, &db, &session_id.to_string());
+    let ctx = tool_ctx(&config, &db, &fmt_id(&session_id));
     let manager = ToolManager::for_chat();
 
     // Plan
@@ -181,7 +182,7 @@ async fn chained_write_edit_read() {
     let session_id = db::sessions::create_session(&db)
         .await
         .expect("create session");
-    let ctx = tool_ctx(&config, &db, &session_id.to_string());
+    let ctx = tool_ctx(&config, &db, &fmt_id(&session_id));
     let manager = ToolManager::for_chat();
 
     // Write a file
@@ -232,7 +233,7 @@ async fn shell_runs_in_workspace() {
     let session_id = db::sessions::create_session(&db)
         .await
         .expect("create session");
-    let ctx = tool_ctx(&config, &db, &session_id.to_string());
+    let ctx = tool_ctx(&config, &db, &fmt_id(&session_id));
     let manager = ToolManager::for_chat();
 
     let result = manager
@@ -249,7 +250,7 @@ async fn todo_invalid_index_returns_error() {
     let session_id = db::sessions::create_session(&db)
         .await
         .expect("create session");
-    let ctx = tool_ctx(&config, &db, &session_id.to_string());
+    let ctx = tool_ctx(&config, &db, &fmt_id(&session_id));
     let manager = ToolManager::for_chat();
 
     // Plan with one item

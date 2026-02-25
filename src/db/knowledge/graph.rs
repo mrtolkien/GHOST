@@ -1,31 +1,34 @@
 use serde::Deserialize;
 use surrealdb::Surreal;
 use surrealdb::engine::local::Db;
-use surrealdb::sql::Thing;
+use surrealdb::types::{RecordId, SurrealValue};
 
 use crate::db::error::DatabaseError;
 use crate::db::query::{IdRow, query_exec, take_many, take_one};
 
 use super::records::{EdgeRecord, NoteRecord};
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, SurrealValue)]
+#[surreal(crate = "surrealdb::types")]
 struct OutRow {
-    out: Thing,
+    out: RecordId,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, SurrealValue)]
+#[surreal(crate = "surrealdb::types")]
 struct InRow {
     #[serde(rename = "in")]
-    in_node: Thing,
+    #[surreal(rename = "in")]
+    in_node: RecordId,
 }
 
-#[tracing::instrument(skip_all, level = "debug", fields(from = %from, to = %to, label = %label))]
+#[tracing::instrument(skip_all, level = "debug", fields(from = ?from, to = ?to, label = %label))]
 pub async fn create_edge(
     db: &Surreal<Db>,
-    from: &Thing,
-    to: &Thing,
+    from: &RecordId,
+    to: &RecordId,
     label: &str,
-) -> Result<Thing, DatabaseError> {
+) -> Result<RecordId, DatabaseError> {
     let mut resp = query_exec(
         db.query(
             "RELATE $from->relates_to->$to SET label = $label, created_at = time::now() RETURN id",
@@ -42,8 +45,11 @@ pub async fn create_edge(
     Ok(row.id)
 }
 
-#[tracing::instrument(skip_all, level = "debug", fields(from = %from))]
-pub async fn related_note_ids(db: &Surreal<Db>, from: &Thing) -> Result<Vec<Thing>, DatabaseError> {
+#[tracing::instrument(skip_all, level = "debug", fields(from = ?from))]
+pub async fn related_note_ids(
+    db: &Surreal<Db>,
+    from: &RecordId,
+) -> Result<Vec<RecordId>, DatabaseError> {
     let mut resp = query_exec(
         db.query("SELECT out FROM relates_to WHERE `in` = $from")
             .bind(("from", from.clone())),
@@ -56,10 +62,10 @@ pub async fn related_note_ids(db: &Surreal<Db>, from: &Thing) -> Result<Vec<Thin
     Ok(rows.into_iter().map(|row| row.out).collect())
 }
 
-#[tracing::instrument(skip_all, level = "debug", fields(note_id = %note_id))]
+#[tracing::instrument(skip_all, level = "debug", fields(note_id = ?note_id))]
 pub async fn outgoing_edges(
     db: &Surreal<Db>,
-    note_id: &Thing,
+    note_id: &RecordId,
 ) -> Result<Vec<EdgeRecord>, DatabaseError> {
     let mut resp = query_exec(
         db.query("SELECT * FROM relates_to WHERE `in` = $note_id")
@@ -72,10 +78,10 @@ pub async fn outgoing_edges(
     take_many(&mut resp, 0, "relates_to", "outgoing_edges")
 }
 
-#[tracing::instrument(skip_all, level = "debug", fields(note_id = %note_id))]
+#[tracing::instrument(skip_all, level = "debug", fields(note_id = ?note_id))]
 pub async fn incoming_edges(
     db: &Surreal<Db>,
-    note_id: &Thing,
+    note_id: &RecordId,
 ) -> Result<Vec<EdgeRecord>, DatabaseError> {
     let mut resp = query_exec(
         db.query("SELECT * FROM relates_to WHERE out = $note_id")
@@ -88,11 +94,11 @@ pub async fn incoming_edges(
     take_many(&mut resp, 0, "relates_to", "incoming_edges")
 }
 
-#[tracing::instrument(skip_all, level = "debug", fields(note_id = %note_id))]
+#[tracing::instrument(skip_all, level = "debug", fields(note_id = ?note_id))]
 pub async fn incoming_cited(
     db: &Surreal<Db>,
-    note_id: &Thing,
-) -> Result<Vec<Thing>, DatabaseError> {
+    note_id: &RecordId,
+) -> Result<Vec<RecordId>, DatabaseError> {
     let mut resp = query_exec(
         db.query("SELECT `in` FROM cited WHERE out = $note_id")
             .bind(("note_id", note_id.clone())),
@@ -105,12 +111,12 @@ pub async fn incoming_cited(
     Ok(rows.into_iter().map(|row| row.in_node).collect())
 }
 
-#[tracing::instrument(skip_all, level = "debug", fields(from = %from, to = %to))]
+#[tracing::instrument(skip_all, level = "debug", fields(from = ?from, to = ?to))]
 pub async fn create_cited_edge(
     db: &Surreal<Db>,
-    from: &Thing,
-    to: &Thing,
-) -> Result<Thing, DatabaseError> {
+    from: &RecordId,
+    to: &RecordId,
+) -> Result<RecordId, DatabaseError> {
     let mut resp = query_exec(
         db.query(
             "RELATE $from->cited->$to \
@@ -128,8 +134,11 @@ pub async fn create_cited_edge(
     Ok(row.id)
 }
 
-#[tracing::instrument(skip_all, level = "debug", fields(note_id = %note_id))]
-pub async fn delete_outgoing_edges(db: &Surreal<Db>, note_id: &Thing) -> Result<(), DatabaseError> {
+#[tracing::instrument(skip_all, level = "debug", fields(note_id = ?note_id))]
+pub async fn delete_outgoing_edges(
+    db: &Surreal<Db>,
+    note_id: &RecordId,
+) -> Result<(), DatabaseError> {
     query_exec(
         db.query("DELETE relates_to WHERE `in` = $note_id")
             .bind(("note_id", note_id.clone())),

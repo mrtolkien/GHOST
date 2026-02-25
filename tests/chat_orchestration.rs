@@ -3,6 +3,7 @@ mod common;
 use std::sync::Arc;
 
 use ghost::chat::{ChatStopReason, SessionChat};
+use ghost::db::fmt_id;
 use ghost::providers::{ContentBlock, StopReason};
 use ghost::tools::ToolManager;
 use serde_json::json;
@@ -22,7 +23,7 @@ async fn chat_returns_response_text() {
     )]));
     let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config);
     let result = chat
-        .chat(&session_id.to_string(), "hi", None)
+        .chat(&fmt_id(&session_id), "hi", None)
         .await
         .expect("chat result");
 
@@ -55,7 +56,7 @@ async fn tool_loop_executes_and_sends_tool_result_back() {
     let chat = SessionChat::new(db.clone(), provider, tools, config);
 
     let result = chat
-        .chat(&session_id.to_string(), "run tool", None)
+        .chat(&fmt_id(&session_id), "run tool", None)
         .await
         .expect("chat result");
     assert_eq!(result.0.message, "done");
@@ -108,7 +109,7 @@ async fn max_iterations_stops_loop() {
     tools.register(Arc::new(EchoTool));
     let chat = SessionChat::new(db.clone(), provider, tools, config).with_max_tool_iterations(1);
     let result = chat
-        .chat(&session_id.to_string(), "loop", None)
+        .chat(&fmt_id(&session_id), "loop", None)
         .await
         .expect("chat result");
     assert_eq!(result.0.stop_reason, ChatStopReason::MaxIterations);
@@ -128,7 +129,7 @@ async fn chat_persists_user_and_assistant_messages() {
     let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config);
 
     let _ = chat
-        .chat(&session_id.to_string(), "persist", None)
+        .chat(&fmt_id(&session_id), "persist", None)
         .await
         .expect("chat result");
 
@@ -157,11 +158,11 @@ async fn reboot_marks_old_session_and_creates_new_one() {
     let provider = Arc::new(MockProvider::new(vec![]));
     let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config);
     let new_session = chat
-        .reboot_session(&old_session_id.to_string())
+        .reboot_session(&fmt_id(&old_session_id))
         .await
         .expect("reboot session");
 
-    assert_ne!(new_session, old_session_id.to_string());
+    assert_ne!(new_session, fmt_id(&old_session_id));
 
     let old_record = ghost::db::sessions::get_session(&db, &old_session_id)
         .await
@@ -173,7 +174,7 @@ async fn reboot_marks_old_session_and_creates_new_one() {
             .await
             .expect("active")
             .expect("active session");
-    assert_eq!(active.to_string(), new_session);
+    assert_eq!(fmt_id(&active), new_session);
 }
 
 #[tokio::test]
@@ -199,7 +200,7 @@ async fn todo_state_is_injected_after_user_message() {
     let requests = provider.requests();
     let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config);
     let _ = chat
-        .chat(&session_id.to_string(), "check todo", None)
+        .chat(&fmt_id(&session_id), "check todo", None)
         .await
         .expect("chat result");
 
@@ -252,7 +253,11 @@ fn small_context_config(config: &mut ghost::config::Config) {
 }
 
 /// Helper: pre-fill a session with many messages to exceed the context window.
-async fn fill_session(db: &ghost::db::GhostDb, session_id: &surrealdb::sql::Thing, count: usize) {
+async fn fill_session(
+    db: &ghost::db::GhostDb,
+    session_id: &surrealdb::types::RecordId,
+    count: usize,
+) {
     for i in 0..count {
         ghost::db::sessions::create_message(
             db,
@@ -289,7 +294,7 @@ async fn compaction_triggers_when_over_threshold() {
     let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config);
 
     let result = chat
-        .chat(&session_id.to_string(), "new question", None)
+        .chat(&fmt_id(&session_id), "new question", None)
         .await
         .expect("chat result");
     assert_eq!(result.0.message, "post-compaction");
@@ -345,7 +350,7 @@ async fn original_messages_preserved_after_compaction() {
     let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config);
 
     let _ = chat
-        .chat(&session_id.to_string(), "check", None)
+        .chat(&fmt_id(&session_id), "check", None)
         .await
         .expect("chat result");
 
@@ -391,7 +396,7 @@ async fn no_compaction_below_threshold() {
     let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config);
 
     let result = chat
-        .chat(&session_id.to_string(), "short message", None)
+        .chat(&fmt_id(&session_id), "short message", None)
         .await
         .expect("chat result");
     assert_eq!(result.0.message, "no compact");
@@ -439,7 +444,7 @@ async fn double_compaction_summary_of_summary() {
     ]));
     let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config.clone());
     let r1 = chat
-        .chat(&session_id.to_string(), "round1 question", None)
+        .chat(&fmt_id(&session_id), "round1 question", None)
         .await
         .expect("round 1");
     assert_eq!(r1.0.message, "round1");
@@ -462,7 +467,7 @@ async fn double_compaction_summary_of_summary() {
     let chat2 = SessionChat::new(db.clone(), provider2, ToolManager::empty(), config);
 
     let r2 = chat2
-        .chat(&session_id.to_string(), "round2 question", None)
+        .chat(&fmt_id(&session_id), "round2 question", None)
         .await
         .expect("round 2");
     assert_eq!(r2.0.message, "round2");

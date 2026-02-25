@@ -1,15 +1,16 @@
 use serde::{Deserialize, Serialize};
 use surrealdb::Surreal;
 use surrealdb::engine::local::Db;
-use surrealdb::sql::{Datetime, Thing};
+use surrealdb::types::{Datetime, RecordId, SurrealValue};
 
 use crate::db::error::DatabaseError;
 use crate::db::query::{CountRow, IdRow, query_exec, take_many, take_one};
 use crate::tools::TodoItem;
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, SurrealValue)]
+#[surreal(crate = "surrealdb::types")]
 pub struct SessionRecord {
-    pub id: Thing,
+    pub id: RecordId,
     pub created_at: Datetime,
     pub updated_at: Datetime,
     pub last_activity_at: Datetime,
@@ -19,10 +20,11 @@ pub struct SessionRecord {
     pub todo_list: Option<Vec<serde_json::Value>>,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, SurrealValue)]
+#[surreal(crate = "surrealdb::types")]
 pub struct MessageRecord {
-    pub id: Thing,
-    pub session: Thing,
+    pub id: RecordId,
+    pub session: RecordId,
     pub role: String,
     pub content: String,
     pub tool_calls: Option<Vec<serde_json::Value>>,
@@ -31,20 +33,22 @@ pub struct MessageRecord {
     pub created_at: Datetime,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, SurrealValue)]
+#[surreal(crate = "surrealdb::types")]
 pub struct SessionListRecord {
-    pub id: Thing,
+    pub id: RecordId,
     pub last_activity_at: Datetime,
     pub status: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, SurrealValue)]
+#[surreal(crate = "surrealdb::types")]
 struct InterfaceRow {
     interface: String,
 }
 
 #[tracing::instrument(skip_all, level = "debug")]
-pub async fn create_session(db: &Surreal<Db>) -> Result<Thing, DatabaseError> {
+pub async fn create_session(db: &Surreal<Db>) -> Result<RecordId, DatabaseError> {
     let mut resp = query_exec(
         db.query(
             "CREATE session SET \
@@ -67,7 +71,7 @@ pub async fn create_session(db: &Surreal<Db>) -> Result<Thing, DatabaseError> {
 }
 
 #[tracing::instrument(skip_all, level = "debug")]
-pub async fn create_agent_session(db: &Surreal<Db>) -> Result<Thing, DatabaseError> {
+pub async fn create_agent_session(db: &Surreal<Db>) -> Result<RecordId, DatabaseError> {
     let mut resp = query_exec(
         db.query(
             "CREATE session SET \
@@ -89,10 +93,10 @@ pub async fn create_agent_session(db: &Surreal<Db>) -> Result<Thing, DatabaseErr
     Ok(row.id)
 }
 
-#[tracing::instrument(skip_all, level = "debug", fields(session_id = %session_id))]
+#[tracing::instrument(skip_all, level = "debug", fields(session_id = ?session_id))]
 pub async fn get_session(
     db: &Surreal<Db>,
-    session_id: &Thing,
+    session_id: &RecordId,
 ) -> Result<SessionRecord, DatabaseError> {
     let mut resp = query_exec(
         db.query("SELECT * FROM ONLY $session_id")
@@ -108,8 +112,8 @@ pub async fn get_session(
     })
 }
 
-#[tracing::instrument(skip_all, level = "debug", fields(session_id = %session_id))]
-pub async fn mark_rebooted(db: &Surreal<Db>, session_id: &Thing) -> Result<(), DatabaseError> {
+#[tracing::instrument(skip_all, level = "debug", fields(session_id = ?session_id))]
+pub async fn mark_rebooted(db: &Surreal<Db>, session_id: &RecordId) -> Result<(), DatabaseError> {
     query_exec(
         db.query("UPDATE $session_id SET status = 'rebooted', updated_at = time::now()")
             .bind(("session_id", session_id.clone())),
@@ -120,10 +124,10 @@ pub async fn mark_rebooted(db: &Surreal<Db>, session_id: &Thing) -> Result<(), D
     Ok(())
 }
 
-#[tracing::instrument(skip_all, level = "debug", fields(session_id = %session_id))]
+#[tracing::instrument(skip_all, level = "debug", fields(session_id = ?session_id))]
 pub async fn update_compaction(
     db: &Surreal<Db>,
-    session_id: &Thing,
+    session_id: &RecordId,
     summary: &str,
     cursor_id: &str,
 ) -> Result<(), DatabaseError> {
@@ -144,8 +148,8 @@ pub async fn update_compaction(
     Ok(())
 }
 
-#[tracing::instrument(skip_all, level = "debug", fields(session_id = %session_id))]
-pub async fn update_activity(db: &Surreal<Db>, session_id: &Thing) -> Result<(), DatabaseError> {
+#[tracing::instrument(skip_all, level = "debug", fields(session_id = ?session_id))]
+pub async fn update_activity(db: &Surreal<Db>, session_id: &RecordId) -> Result<(), DatabaseError> {
     query_exec(
         db.query("UPDATE $session_id SET updated_at = time::now(), last_activity_at = time::now()")
             .bind(("session_id", session_id.clone())),
@@ -156,12 +160,13 @@ pub async fn update_activity(db: &Surreal<Db>, session_id: &Thing) -> Result<(),
     Ok(())
 }
 
-#[tracing::instrument(skip_all, level = "debug", fields(session_id = %session_id))]
+#[tracing::instrument(skip_all, level = "debug", fields(session_id = ?session_id))]
 pub async fn get_session_todo_list(
     db: &Surreal<Db>,
-    session_id: &Thing,
+    session_id: &RecordId,
 ) -> Result<Option<Vec<TodoItem>>, DatabaseError> {
-    #[derive(Debug, Deserialize)]
+    #[derive(Debug, Deserialize, SurrealValue)]
+    #[surreal(crate = "surrealdb::types")]
     struct TodoRow {
         todo_list: Option<Vec<serde_json::Value>>,
     }
@@ -190,9 +195,7 @@ pub async fn get_session_todo_list(
             serde_json::from_value::<TodoItem>(v).map_err(|source| DatabaseError::Query {
                 table: "session",
                 operation: "get_todo_list/deserialize",
-                source: surrealdb::Error::Db(surrealdb::error::Db::Serialization(
-                    source.to_string(),
-                )),
+                source: surrealdb::Error::serialization(source.to_string(), None),
             })
         })
         .collect::<Result<Vec<_>, _>>()?;
@@ -200,10 +203,10 @@ pub async fn get_session_todo_list(
     Ok(Some(items))
 }
 
-#[tracing::instrument(skip_all, level = "debug", fields(session_id = %session_id))]
+#[tracing::instrument(skip_all, level = "debug", fields(session_id = ?session_id))]
 pub async fn set_session_todo_list(
     db: &Surreal<Db>,
-    session_id: &Thing,
+    session_id: &RecordId,
     todo_list: Option<&[TodoItem]>,
 ) -> Result<(), DatabaseError> {
     match todo_list {
@@ -242,27 +245,27 @@ pub async fn set_session_todo_list(
     Ok(())
 }
 
-#[tracing::instrument(skip_all, level = "debug", fields(session_id = %session_id, role = %role))]
+#[tracing::instrument(skip_all, level = "debug", fields(session_id = ?session_id, role = %role))]
 pub async fn create_message(
     db: &Surreal<Db>,
-    session_id: &Thing,
+    session_id: &RecordId,
     role: &str,
     content: &str,
-) -> Result<Thing, DatabaseError> {
+) -> Result<RecordId, DatabaseError> {
     create_message_with_metadata(db, session_id, role, content, None, None, None).await
 }
 
 #[allow(clippy::too_many_arguments)]
-#[tracing::instrument(skip_all, level = "debug", fields(session_id = %session_id, role = %role))]
+#[tracing::instrument(skip_all, level = "debug", fields(session_id = ?session_id, role = %role))]
 pub async fn create_message_with_metadata(
     db: &Surreal<Db>,
-    session_id: &Thing,
+    session_id: &RecordId,
     role: &str,
     content: &str,
     tool_calls: Option<Vec<serde_json::Value>>,
     tool_results: Option<Vec<serde_json::Value>>,
     raw_output: Option<Vec<serde_json::Value>>,
-) -> Result<Thing, DatabaseError> {
+) -> Result<RecordId, DatabaseError> {
     let role = role.to_owned();
     let content = content.to_owned();
 
@@ -293,10 +296,10 @@ pub async fn create_message_with_metadata(
     Ok(row.id)
 }
 
-#[tracing::instrument(skip_all, level = "debug", fields(session_id = %session_id))]
+#[tracing::instrument(skip_all, level = "debug", fields(session_id = ?session_id))]
 pub async fn list_messages_by_session(
     db: &Surreal<Db>,
-    session_id: &Thing,
+    session_id: &RecordId,
 ) -> Result<Vec<MessageRecord>, DatabaseError> {
     let mut resp = query_exec(
         db.query("SELECT * FROM message WHERE session = $session_id ORDER BY created_at ASC")
@@ -325,10 +328,10 @@ pub async fn list_recent_sessions(
     take_many(&mut resp, 0, "session", "list_recent")
 }
 
-#[tracing::instrument(skip_all, level = "debug", fields(session_id = %session_id))]
+#[tracing::instrument(skip_all, level = "debug", fields(session_id = ?session_id))]
 pub async fn count_messages_for_session(
     db: &Surreal<Db>,
-    session_id: &Thing,
+    session_id: &RecordId,
 ) -> Result<usize, DatabaseError> {
     let mut resp = query_exec(
         db.query("SELECT count() AS count FROM message WHERE session = $session_id GROUP ALL")
@@ -342,10 +345,10 @@ pub async fn count_messages_for_session(
     Ok(rows.first().map_or(0, |row| row.count.max(0) as usize))
 }
 
-#[tracing::instrument(skip_all, level = "debug", fields(session_id = %session_id))]
+#[tracing::instrument(skip_all, level = "debug", fields(session_id = ?session_id))]
 pub async fn count_messages_since(
     db: &Surreal<Db>,
-    session_id: &Thing,
+    session_id: &RecordId,
     since: &chrono::DateTime<chrono::Utc>,
 ) -> Result<usize, DatabaseError> {
     let surreal_since = Datetime::from(since.to_owned());
@@ -366,10 +369,10 @@ pub async fn count_messages_since(
     Ok(rows.first().map_or(0, |row| row.count.max(0) as usize))
 }
 
-#[tracing::instrument(skip_all, level = "debug", fields(session_id = %session_id))]
+#[tracing::instrument(skip_all, level = "debug", fields(session_id = ?session_id))]
 pub async fn get_interface_for_session(
     db: &Surreal<Db>,
-    session_id: &Thing,
+    session_id: &RecordId,
 ) -> Result<Option<String>, DatabaseError> {
     let mut resp = query_exec(
         db.query("SELECT interface FROM interface_session WHERE session = $session_id LIMIT 1")

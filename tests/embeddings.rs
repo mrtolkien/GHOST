@@ -58,7 +58,7 @@ async fn upsert_overwrites_on_duplicate_source_and_chunk() {
 async fn get_content_hash_returns_none_for_missing_source() {
     let (db, _config, _workspace, _config_dir) = common::test_database().await;
 
-    let fake_id = surrealdb::sql::Thing::from(("note", "nonexistent"));
+    let fake_id = surrealdb::types::RecordId::new("note", "nonexistent");
     let hash = db::embeddings::get_content_hash(&db, &fake_id)
         .await
         .expect("get hash");
@@ -256,7 +256,7 @@ async fn count_embeddings_empty_table() {
 #[test]
 fn hybrid_merge_combines_bm25_and_embedding_scores() {
     let bm25_hits = vec![db::knowledge::SearchHit {
-        id: surrealdb::sql::Thing::from(("note", "abc")),
+        id: surrealdb::types::RecordId::new("note", "abc"),
         title: "BM25 Hit".to_string(),
         snippet: "snippet".to_string(),
         score: 1.0,
@@ -264,7 +264,7 @@ fn hybrid_merge_combines_bm25_and_embedding_scores() {
     }];
 
     let embedding_hits = vec![db::embeddings::EmbeddingHit {
-        source_id: surrealdb::sql::Thing::from(("note", "abc")),
+        source_id: surrealdb::types::RecordId::new("note", "abc"),
         source_table: "note".to_string(),
         chunk_text: "chunk".to_string(),
         score: 0.8,
@@ -281,7 +281,7 @@ fn hybrid_merge_combines_bm25_and_embedding_scores() {
 fn hybrid_merge_includes_embedding_only_hits() {
     let bm25_hits = vec![];
     let embedding_hits = vec![db::embeddings::EmbeddingHit {
-        source_id: surrealdb::sql::Thing::from(("note", "xyz")),
+        source_id: surrealdb::types::RecordId::new("note", "xyz"),
         source_table: "note".to_string(),
         chunk_text: "only in embeddings".to_string(),
         score: 0.9,
@@ -296,7 +296,7 @@ fn hybrid_merge_includes_embedding_only_hits() {
 fn hybrid_merge_respects_limit() {
     let bm25_hits: Vec<db::knowledge::SearchHit> = (0..5)
         .map(|i| db::knowledge::SearchHit {
-            id: surrealdb::sql::Thing::from(("note", format!("n{i}").as_str())),
+            id: surrealdb::types::RecordId::new("note", format!("n{i}").as_str()),
             title: format!("Note {i}"),
             snippet: String::new(),
             score: 1.0,

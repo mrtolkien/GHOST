@@ -4,10 +4,16 @@ use ghost::db;
 
 #[tokio::test]
 async fn schema_apply_is_idempotent() {
-    let (_db, config, _workspace, _config_dir) = common::test_database().await;
+    let (db, config, _workspace, _config_dir) = common::test_database().await;
+
+    // SurrealKV 3.0 holds an exclusive lock, so we must drop the first
+    // connection before reconnecting to verify idempotent schema application.
+    drop(db);
+    // Give the async runtime a moment to release the lock file.
+    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
 
     let reconnect = db::connect(&config.workspace).await;
-    assert!(reconnect.is_ok());
+    assert!(reconnect.is_ok(), "reconnect failed: {:?}", reconnect.err());
 }
 
 #[tokio::test]

@@ -1,21 +1,22 @@
 use serde::Deserialize;
 use surrealdb::Surreal;
 use surrealdb::engine::local::Db;
-use surrealdb::sql::{Datetime, Thing};
+use surrealdb::types::{Datetime, RecordId, SurrealValue};
 
 use crate::db::error::DatabaseError;
 use crate::db::query::{IdRow, query_exec, take_many, take_one};
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, SurrealValue)]
+#[surreal(crate = "surrealdb::types")]
 pub struct JobLogRecord {
-    pub id: Thing,
+    pub id: RecordId,
     pub job_name: String,
     pub job_kind: String,
     pub started_at: Datetime,
     pub finished_at: Option<Datetime>,
     pub status: String,
     pub transcript: Option<String>,
-    pub agent_session: Option<Thing>,
+    pub agent_session: Option<RecordId>,
 }
 
 #[tracing::instrument(skip_all, level = "debug", fields(job_name = job_name, job_kind = job_kind))]
@@ -23,8 +24,8 @@ pub async fn create_running_job_log(
     db: &Surreal<Db>,
     job_name: &str,
     job_kind: &str,
-    session_id: Option<&Thing>,
-) -> Result<Thing, DatabaseError> {
+    session_id: Option<&RecordId>,
+) -> Result<RecordId, DatabaseError> {
     let mut resp = query_exec(
         db.query(
             "CREATE job_log SET \
@@ -53,14 +54,14 @@ pub async fn create_running_job_log(
 
 #[tracing::instrument(skip_all, level = "debug", fields(
     job_name = job_name,
-    agent_session_id = %agent_session_id
+    agent_session_id = ?agent_session_id
 ))]
 pub async fn create_agent_job_log(
     db: &Surreal<Db>,
     job_name: &str,
-    parent_session_id: Option<&Thing>,
-    agent_session_id: &Thing,
-) -> Result<Thing, DatabaseError> {
+    parent_session_id: Option<&RecordId>,
+    agent_session_id: &RecordId,
+) -> Result<RecordId, DatabaseError> {
     let mut resp = query_exec(
         db.query(
             "CREATE job_log SET \
@@ -88,10 +89,10 @@ pub async fn create_agent_job_log(
     Ok(row.id)
 }
 
-#[tracing::instrument(skip_all, level = "debug", fields(job_log_id = %job_log_id, status = status))]
+#[tracing::instrument(skip_all, level = "debug", fields(job_log_id = ?job_log_id, status = status))]
 pub async fn finish_job_log(
     db: &Surreal<Db>,
-    job_log_id: &Thing,
+    job_log_id: &RecordId,
     status: &str,
     transcript: &str,
 ) -> Result<(), DatabaseError> {
@@ -141,18 +142,19 @@ pub async fn list_job_logs(
     take_many(&mut resp, 0, "job_log", "list")
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, SurrealValue)]
+#[surreal(crate = "surrealdb::types")]
 struct JobNameRow {
     job_name: String,
 }
 
 /// Look up the agent name from a job_log record by agent session ID.
 #[tracing::instrument(skip_all, level = "debug", fields(
-    agent_session_id = %agent_session_id
+    agent_session_id = ?agent_session_id
 ))]
 pub async fn get_agent_name_for_session(
     db: &Surreal<Db>,
-    agent_session_id: &Thing,
+    agent_session_id: &RecordId,
 ) -> Result<Option<String>, DatabaseError> {
     let mut resp = query_exec(
         db.query(

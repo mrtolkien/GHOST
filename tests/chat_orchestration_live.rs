@@ -1,6 +1,7 @@
 #![cfg(feature = "live-tests")]
 
 use ghost::chat::{ChatStopReason, SessionChat};
+use ghost::db::fmt_id;
 
 #[tokio::test]
 async fn session_chat_live_roundtrip_with_default_config() {
@@ -22,7 +23,7 @@ async fn session_chat_live_roundtrip_with_default_config() {
     let chat = SessionChat::from_config(db.clone(), config).expect("build session chat");
     let (result, _metadata) = chat
         .chat(
-            &session_id.to_string(),
+            &fmt_id(&session_id),
             "Reply in one short sentence: what is Rust best known for?",
             None,
         )

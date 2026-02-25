@@ -1,6 +1,7 @@
 use serde::Deserialize;
 use surrealdb::Surreal;
 use surrealdb::engine::local::Db;
+use surrealdb::types::SurrealValue;
 
 use crate::db::error::DatabaseError;
 use crate::db::query::{CountRow, query_exec, take_many};
@@ -38,7 +39,8 @@ pub async fn count_stubs(db: &Surreal<Db>) -> Result<i64, DatabaseError> {
     Ok(rows.first().map_or(0, |r| r.count))
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, SurrealValue)]
+#[surreal(crate = "surrealdb::types")]
 struct TagCountRow {
     tags: String,
     count: i64,

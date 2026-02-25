@@ -1,6 +1,7 @@
 mod common;
 
 use ghost::db;
+use ghost::db::fmt_id;
 use ghost::knowledge;
 use ghost::tools::{ToolContext, ToolManager};
 use serde_json::json;
@@ -282,7 +283,7 @@ async fn note_write_tool_creates_file_and_db_record() {
         cwd: config.workspace.clone(),
         db: db.clone(),
         config: config.clone(),
-        session_id: session_id.to_string(),
+        session_id: fmt_id(&session_id),
         task_runner: None,
     };
     let manager = ToolManager::for_agent(&reflection_tools());

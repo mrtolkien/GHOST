@@ -120,8 +120,8 @@ async fn cmd_logs(name: Option<&str>) -> Result<(), GhostError> {
             .finished_at
             .as_ref()
             .map(|f| {
-                let start: chrono::DateTime<chrono::Utc> = log.started_at.0;
-                let end: chrono::DateTime<chrono::Utc> = f.0;
+                let start: chrono::DateTime<chrono::Utc> = *log.started_at;
+                let end: chrono::DateTime<chrono::Utc> = **f;
                 let dur = end - start;
                 format!("{}s", dur.num_seconds())
             })

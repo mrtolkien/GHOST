@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use surrealdb::Surreal;
 use surrealdb::engine::local::Db;
-use surrealdb::sql::Thing;
+use surrealdb::types::RecordId;
 use tokio::sync::watch;
 use tokio::task::JoinHandle;
 
@@ -118,7 +118,7 @@ async fn check_completed_tasks(
         // Trigger a new chat turn with a synthetic user message
         let trigger = "[system] Research agent completed.";
         match session_chat
-            .chat(&parent_id.to_string(), trigger, None)
+            .chat(&crate::db::fmt_id(&parent_id), trigger, None)
             .await
         {
             Ok((result, _metadata)) => {
@@ -153,13 +153,13 @@ async fn check_completed_tasks(
     }
 }
 
-/// Parse "session:abc123" into a Thing.
-fn parse_agent_session_thing(agent_id: &str) -> Option<Thing> {
+/// Parse "session:abc123" into a RecordId.
+fn parse_agent_session_thing(agent_id: &str) -> Option<RecordId> {
     let (table, id) = agent_id.split_once(':')?;
     if table.is_empty() || id.is_empty() {
         return None;
     }
-    Some(Thing::from((table, id)))
+    Some(RecordId::new(table, id))
 }
 
 /// Extract channel ID from an interface key like "discord:channel:123456".

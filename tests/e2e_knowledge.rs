@@ -2,6 +2,8 @@
 
 mod common;
 
+use ghost::db::fmt_id;
+
 /// Smoke test: verify the model actually uses tools when asked directly.
 ///
 /// Asks the model to call `run_shell_command("pwd")` and use `respond`.
@@ -18,7 +20,7 @@ async fn e2e_tool_smoke() {
     let chat = env.chat();
     let (result, _metadata) = chat
         .chat(
-            &session.to_string(),
+            &fmt_id(&session),
             "Use run_shell_command to run `pwd`, then use the respond tool to \
              tell me what directory you're in. You MUST use both tools.",
             None,
@@ -114,12 +116,12 @@ async fn e2e_research() {
 #[cfg(feature = "e2e-tests")]
 async fn run_initial_research(
     env: &common::LiveTestEnv,
-    session: &surrealdb::sql::Thing,
+    session: &surrealdb::types::RecordId,
 ) -> Option<common::AgentOutcome> {
     let chat = env.chat();
     let (result, _metadata) = chat
         .chat(
-            &session.to_string(),
+            &fmt_id(session),
             "I want to buy a new enclosed 3D printer for home use, around $1000. What do you recommend?",
             None,
         )

@@ -31,7 +31,7 @@ pub async fn execute(command: SessionCommand) -> Result<(), GhostError> {
                     crate::db::sessions::get_interface_for_session(&db, &session.id).await?;
                 println!(
                     "{}  {}  {} messages  {}  {}",
-                    session.id,
+                    crate::db::fmt_id(&session.id),
                     render_date(&session.last_activity_at.to_string()),
                     message_count,
                     session.status,
@@ -52,7 +52,7 @@ pub async fn execute(command: SessionCommand) -> Result<(), GhostError> {
             let selected = if let Some(around_id) = around {
                 let middle = messages
                     .iter()
-                    .position(|message| message.id.to_string() == around_id);
+                    .position(|message| crate::db::fmt_id(&message.id) == around_id);
                 if let Some(index) = middle {
                     let half = count / 2;
                     let start = index.saturating_sub(half);
@@ -84,7 +84,7 @@ pub async fn execute(command: SessionCommand) -> Result<(), GhostError> {
             for message in selected {
                 println!(
                     "[{}] {}  {}",
-                    message.id,
+                    crate::db::fmt_id(&message.id),
                     message.role.to_uppercase(),
                     message.content
                 );
@@ -107,7 +107,7 @@ fn render_date(value: &str) -> String {
     value.chars().take(10).collect()
 }
 
-fn parse_session_thing(session_id: &str) -> Result<surrealdb::sql::Thing, GhostError> {
+fn parse_session_thing(session_id: &str) -> Result<surrealdb::types::RecordId, GhostError> {
     if session_id.contains(':') {
         let mut parts = session_id.splitn(2, ':');
         let table = parts.next().unwrap_or_default();
@@ -118,7 +118,7 @@ fn parse_session_thing(session_id: &str) -> Result<surrealdb::sql::Thing, GhostE
             }
             .into());
         }
-        return Ok(surrealdb::sql::Thing::from((table, id)));
+        return Ok(surrealdb::types::RecordId::new(table, id));
     }
     if session_id.trim().is_empty() {
         return Err(ChatError::InvalidSessionId {
@@ -126,5 +126,5 @@ fn parse_session_thing(session_id: &str) -> Result<surrealdb::sql::Thing, GhostE
         }
         .into());
     }
-    Ok(surrealdb::sql::Thing::from(("session", session_id)))
+    Ok(surrealdb::types::RecordId::new("session", session_id))
 }

@@ -1,29 +1,31 @@
 use serde::Deserialize;
 use surrealdb::Surreal;
 use surrealdb::engine::local::Db;
-use surrealdb::sql::Thing;
+use surrealdb::types::{RecordId, SurrealValue};
 
 use super::error::DatabaseError;
 use super::query::{CountRow, query_exec, take_many};
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, SurrealValue)]
+#[surreal(crate = "surrealdb::types")]
 pub struct EmbeddingHit {
-    pub source_id: Thing,
+    pub source_id: RecordId,
     pub source_table: String,
     pub chunk_text: String,
     pub score: f64,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, SurrealValue)]
+#[surreal(crate = "surrealdb::types")]
 struct HashRow {
     content_hash: String,
 }
 
-#[tracing::instrument(skip_all, fields(source_id = %source_id, chunk_index))]
+#[tracing::instrument(skip_all, fields(source_id = ?source_id, chunk_index))]
 pub async fn upsert_embedding(
     db: &Surreal<Db>,
     source_table: &str,
-    source_id: &Thing,
+    source_id: &RecordId,
     chunk_index: usize,
     chunk_text: &str,
     content_hash: &str,
@@ -58,10 +60,10 @@ pub async fn upsert_embedding(
     Ok(())
 }
 
-#[tracing::instrument(skip_all, fields(source_id = %source_id))]
+#[tracing::instrument(skip_all, fields(source_id = ?source_id))]
 pub async fn get_content_hash(
     db: &Surreal<Db>,
-    source_id: &Thing,
+    source_id: &RecordId,
 ) -> Result<Option<String>, DatabaseError> {
     let mut resp = query_exec(
         db.query(
@@ -79,10 +81,10 @@ pub async fn get_content_hash(
     Ok(rows.first().map(|r| r.content_hash.clone()))
 }
 
-#[tracing::instrument(skip_all, fields(source_id = %source_id))]
+#[tracing::instrument(skip_all, fields(source_id = ?source_id))]
 pub async fn delete_embeddings_for_source(
     db: &Surreal<Db>,
-    source_id: &Thing,
+    source_id: &RecordId,
 ) -> Result<(), DatabaseError> {
     query_exec(
         db.query("DELETE FROM embedding WHERE source_id = $source_id")
@@ -106,12 +108,17 @@ pub async fn vector_search(
     query_vector: &[f32],
     limit: usize,
 ) -> Result<Vec<EmbeddingHit>, DatabaseError> {
+    // SurrealDB 3.0 HNSW KNN syntax: <|K, EF|> where EF controls search
+    // accuracy (higher = more accurate but slower). We use EF = limit * 4
+    // as a reasonable trade-off. LIMIT clause ensures exact count.
+    let ef = limit * 4;
     let query = format!(
         "SELECT source_id, source_table, chunk_text,
                 vector::similarity::cosine(vector, $query_vector) AS score
          FROM embedding
-         WHERE vector <|{limit}|> $query_vector
-         ORDER BY score DESC"
+         WHERE vector <|{limit},{ef}|> $query_vector
+         ORDER BY score DESC
+         LIMIT {limit}"
     );
     let mut resp = query_exec(
         db.query(&query)

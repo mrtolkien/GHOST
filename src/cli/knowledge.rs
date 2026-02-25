@@ -1,5 +1,5 @@
 use clap::Subcommand;
-use surrealdb::sql::Thing;
+use surrealdb::types::RecordId;
 
 use crate::db;
 use crate::embeddings::EmbeddingClient;
@@ -162,7 +162,7 @@ async fn cmd_get(
                 command: "note not found",
             })?;
 
-        println!("ID: {}", note.id);
+        println!("ID: {}", crate::db::fmt_id(&note.id));
         println!("Title: {}", note.title);
         if let Some(arch) = &note.archetype {
             println!("Archetype: {arch}");
@@ -249,7 +249,11 @@ async fn cmd_graph(
     let show_out = direction.is_none() || direction == Some("out");
     let show_in = direction.is_none() || direction == Some("in");
 
-    println!("Graph for: {} ({})", note.title, note.id);
+    println!(
+        "Graph for: {} ({})",
+        note.title,
+        crate::db::fmt_id(&note.id)
+    );
 
     if show_out {
         let outgoing = db::knowledge::outgoing_edges(db, &note.id).await?;
@@ -530,10 +534,10 @@ async fn cmd_reindex(
 
 async fn get_note_title(
     db: &surrealdb::Surreal<surrealdb::engine::local::Db>,
-    id: &Thing,
+    id: &RecordId,
 ) -> String {
     db::knowledge::get_note(db, id)
         .await
         .map(|n| n.title)
-        .unwrap_or_else(|_| id.to_string())
+        .unwrap_or_else(|_| crate::db::fmt_id(id))
 }

@@ -5,21 +5,22 @@
 use serde::Deserialize;
 use surrealdb::Surreal;
 use surrealdb::engine::local::Db;
-use surrealdb::sql::Thing;
+use surrealdb::types::{RecordId, SurrealValue};
 
 use crate::db::error::DatabaseError;
 use crate::db::query::{query_exec, take_many};
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, SurrealValue)]
+#[surreal(crate = "surrealdb::types")]
 struct SessionRow {
-    session: Thing,
+    session: RecordId,
 }
 
 #[tracing::instrument(skip_all, level = "debug", fields(interface = interface))]
 pub async fn get_active_session_for_interface(
     db: &Surreal<Db>,
     interface: &str,
-) -> Result<Option<Thing>, DatabaseError> {
+) -> Result<Option<RecordId>, DatabaseError> {
     let mut resp = query_exec(
         db.query("SELECT session FROM interface_session WHERE interface = $interface LIMIT 1")
             .bind(("interface", interface.to_string())),
@@ -32,11 +33,11 @@ pub async fn get_active_session_for_interface(
     Ok(rows.first().map(|row| row.session.clone()))
 }
 
-#[tracing::instrument(skip_all, level = "debug", fields(interface = interface, session_id = %session_id))]
+#[tracing::instrument(skip_all, level = "debug", fields(interface = interface, session_id = ?session_id))]
 pub async fn set_active_session_for_interface(
     db: &Surreal<Db>,
     interface: &str,
-    session_id: &Thing,
+    session_id: &RecordId,
 ) -> Result<(), DatabaseError> {
     query_exec(
         db.query(
@@ -55,10 +56,11 @@ pub async fn set_active_session_for_interface(
     Ok(())
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, SurrealValue)]
+#[surreal(crate = "surrealdb::types")]
 pub struct InterfaceSessionRecord {
     pub interface: String,
-    pub session: Thing,
+    pub session: RecordId,
 }
 
 #[tracing::instrument(skip_all, level = "debug")]
@@ -75,11 +77,11 @@ pub async fn list_all_interface_sessions(
     take_many(&mut resp, 0, "interface_session", "list_all")
 }
 
-#[tracing::instrument(skip_all, level = "debug", fields(old_session_id = %old_session_id, new_session_id = %new_session_id))]
+#[tracing::instrument(skip_all, level = "debug", fields(old_session_id = ?old_session_id, new_session_id = ?new_session_id))]
 pub async fn replace_session_everywhere(
     db: &Surreal<Db>,
-    old_session_id: &Thing,
-    new_session_id: &Thing,
+    old_session_id: &RecordId,
+    new_session_id: &RecordId,
 ) -> Result<(), DatabaseError> {
     query_exec(
         db.query(

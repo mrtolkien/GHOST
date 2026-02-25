@@ -202,14 +202,14 @@ impl AgentControl {
     }
 }
 
-fn parse_session_thing_opt(session_id: &str) -> Option<surrealdb::sql::Thing> {
+fn parse_session_thing_opt(session_id: &str) -> Option<surrealdb::types::RecordId> {
     if let Some((table, id)) = session_id.split_once(':') {
         if table.is_empty() || id.is_empty() {
             return None;
         }
-        Some(surrealdb::sql::Thing::from((table, id)))
+        Some(surrealdb::types::RecordId::new(table, id))
     } else if !session_id.is_empty() {
-        Some(surrealdb::sql::Thing::from(("session", session_id)))
+        Some(surrealdb::types::RecordId::new("session", session_id))
     } else {
         None
     }

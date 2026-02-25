@@ -82,7 +82,7 @@ impl HeartbeatManager {
             chrono::Duration::minutes(self.config.timing.heartbeat_continue_minutes as i64);
 
         for record in sessions {
-            let session_id = record.session.to_string();
+            let session_id = crate::db::fmt_id(&record.session);
 
             // Check cooldown
             if let Some(last_hb) = self.cooldowns.get(&session_id)
@@ -108,7 +108,7 @@ impl HeartbeatManager {
                 continue;
             }
 
-            let last_activity: DateTime<Utc> = session.last_activity_at.0;
+            let last_activity: DateTime<Utc> = *session.last_activity_at;
             let idle_time = now - last_activity;
 
             if idle_time < idle_threshold {
@@ -139,12 +139,12 @@ impl HeartbeatManager {
         }
     }
 
-    #[tracing::instrument(skip_all, fields(session_id = %session_id, interface = %interface))]
+    #[tracing::instrument(name = "heartbeat", skip_all, fields(session_id = ?session_id, interface = %interface))]
     async fn run_heartbeat(
         &mut self,
         session_id: &str,
         interface: &str,
-        session_thing: &surrealdb::sql::Thing,
+        session_thing: &surrealdb::types::RecordId,
     ) {
         logfire::info!("heartbeat started", session_id = session_id.to_string(),);
 
@@ -236,7 +236,7 @@ impl HeartbeatManager {
 
     async fn build_user_message(
         &self,
-        session_thing: &surrealdb::sql::Thing,
+        session_thing: &surrealdb::types::RecordId,
     ) -> Result<String, db::DatabaseError> {
         let messages = db::sessions::list_messages_by_session(&self.db, session_thing).await?;
         let transcript = format_recent_messages(&messages, 20);
@@ -327,13 +327,13 @@ pub fn load_prompt(workspace: &Path, filename: &str, default: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use surrealdb::sql::{Datetime, Thing};
+    use surrealdb::types::{Datetime, RecordId};
     use tempfile::TempDir;
 
     fn make_message(role: &str, content: &str) -> MessageRecord {
         MessageRecord {
-            id: Thing::from(("message", "test")),
-            session: Thing::from(("session", "test")),
+            id: RecordId::new("message", "test"),
+            session: RecordId::new("session", "test"),
             role: role.to_string(),
             content: content.to_string(),
             tool_calls: None,

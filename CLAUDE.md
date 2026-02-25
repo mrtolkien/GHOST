@@ -103,9 +103,9 @@ Prefer MCP-backed answers over assumptions for library/framework behavior.
 
 ### Observability (NON-NEGOTIABLE)
 
-Instrument meaningful execution boundaries, not every function. Full conventions
-(span naming, OTel GenAI fields, span hierarchy) live in the `/tracing` skill —
-read it before adding or modifying any instrumentation.
+Instrument meaningful execution boundaries, not every function. Full conventions (span
+naming, OTel GenAI fields, span hierarchy) live in the `/tracing` skill — read it before
+adding or modifying any instrumentation.
 
 ### Error Handling
 

@@ -1,7 +1,7 @@
 use sha2::{Digest, Sha256};
 use surrealdb::Surreal;
 use surrealdb::engine::local::Db;
-use surrealdb::sql::Thing;
+use surrealdb::types::RecordId;
 
 use crate::db;
 
@@ -29,13 +29,13 @@ pub fn content_hash(content: &str) -> String {
 /// Returns the number of chunks embedded (0 if skipped).
 #[tracing::instrument(name = "embed", skip_all, fields(
     source_table = %source_table,
-    source_id = %source_id,
+    source_id = ?source_id,
 ))]
 pub async fn embed_source(
     client: &EmbeddingClient,
     db: &Surreal<Db>,
     source_table: &str,
-    source_id: &Thing,
+    source_id: &RecordId,
     content: &str,
     tags: &[String],
 ) -> Result<usize, PipelineError> {
@@ -53,14 +53,14 @@ pub async fn embed_source(
 /// Embed a single source, ignoring any stored hash (for --force reindex).
 #[tracing::instrument(skip_all, fields(
     source_table = %source_table,
-    source_id = %source_id,
+    source_id = ?source_id,
 ), level = "debug"
 )]
 pub async fn embed_source_forced(
     client: &EmbeddingClient,
     db: &Surreal<Db>,
     source_table: &str,
-    source_id: &Thing,
+    source_id: &RecordId,
     content: &str,
     tags: &[String],
 ) -> Result<usize, PipelineError> {
@@ -72,7 +72,7 @@ async fn embed_source_inner(
     client: &EmbeddingClient,
     db: &Surreal<Db>,
     source_table: &str,
-    source_id: &Thing,
+    source_id: &RecordId,
     content: &str,
     tags: &[String],
     hash: &str,

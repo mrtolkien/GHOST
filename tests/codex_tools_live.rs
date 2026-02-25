@@ -2,6 +2,8 @@
 
 mod common;
 
+use ghost::db::fmt_id;
+
 /// Validates that gpt-5.3-codex via the Codex Responses API actually
 /// calls tools when explicitly asked.
 ///
@@ -20,7 +22,7 @@ async fn codex_tool_calling_smoke() {
     let chat = env.chat();
     let (result, _metadata) = chat
         .chat(
-            &session.to_string(),
+            &fmt_id(&session),
             "Use the web_search tool to search for 'rust programming language'. \
              You MUST call web_search. After searching, tell me the first result title.",
             None,
