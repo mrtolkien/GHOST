@@ -678,12 +678,10 @@ async fn run_task(
     // Run with cancellation support
     let result = tokio::select! {
         res = session_chat.chat_agent(
-            &definition.name,
             &session_id,
             prompt,
             system_prompt,
-            definition.max_iterations,
-            definition.progress_rules.clone(),
+            definition,
         ) => res?,
         () = cancel_token.cancelled() => {
             logfire::info!("agent cancelled", agent_name = definition.name.clone());
@@ -739,12 +737,10 @@ async fn continue_task_run(
 
     let result = tokio::select! {
         res = session_chat.continue_task(
-            &definition.name,
             &session_id,
             prompt,
             system_prompt,
-            definition.max_iterations,
-            definition.progress_rules.clone(),
+            definition,
         ) => res?,
         () = cancel_token.cancelled() => {
             logfire::info!(

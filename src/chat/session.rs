@@ -6,7 +6,10 @@ use surrealdb::Surreal;
 use surrealdb::engine::local::Db;
 use surrealdb::sql::Thing;
 
-use crate::agents::ProgressRule;
+use crate::agents::definition::TaskDefinition;
+use crate::agents::{
+    ContextPressureConfig, ProgressGateConfig, ProgressRule, RecencyConfig, TemporalConfig,
+};
 use crate::config::{self, Config};
 use crate::db;
 use crate::prompt::{PromptContext, PromptRenderer};
@@ -122,17 +125,15 @@ impl SessionChat {
     /// Messages are persisted to the agent's own session. Returns the final
     /// assistant message.
     #[tracing::instrument(skip_all, fields(
-        agent_name = agent_name,
+        agent_name = %definition.name,
         session_id = session_id
     ))]
     pub async fn chat_agent(
         &self,
-        agent_name: &str,
         session_id: &str,
         prompt: &str,
         system_prompt: String,
-        max_iterations: usize,
-        progress_rules: Vec<ProgressRule>,
+        definition: &TaskDefinition,
     ) -> Result<ChatResult, ChatError> {
         let session_thing = parse_session_thing(session_id)?;
         db::sessions::create_message(&self.db, &session_thing, "user", prompt).await?;
@@ -149,16 +150,20 @@ impl SessionChat {
             session_chat: self,
             session_thing: &session_thing,
             system_prompt,
-            task_name: agent_name.to_string(),
-            progress_rules,
+            progress_rules: definition.progress_rules.clone(),
+            progress_gate: definition.progress_gate.clone(),
+            temporal: definition.temporal.clone(),
+            recency: definition.recency.clone(),
+            context_pressure: definition.context_pressure.clone(),
             started_at: std::time::Instant::now(),
+            temporal_nudge_fired: false,
         };
 
         run_tool_loop(
             self,
             session_id,
             &model,
-            max_iterations,
+            definition.max_iterations,
             &mut handler,
             &mut history,
         )
@@ -172,17 +177,15 @@ impl SessionChat {
     /// tool loop again. This lets agents refine their work without
     /// re-doing prior research.
     #[tracing::instrument(skip_all, fields(
-        agent_name = agent_name,
+        agent_name = %definition.name,
         session_id = session_id
     ))]
     pub async fn continue_task(
         &self,
-        agent_name: &str,
         session_id: &str,
         prompt: &str,
         system_prompt: String,
-        max_iterations: usize,
-        progress_rules: Vec<ProgressRule>,
+        definition: &TaskDefinition,
     ) -> Result<ChatResult, ChatError> {
         let session_thing = parse_session_thing(session_id)?;
 
@@ -197,16 +200,20 @@ impl SessionChat {
             session_chat: self,
             session_thing: &session_thing,
             system_prompt,
-            task_name: agent_name.to_string(),
-            progress_rules,
+            progress_rules: definition.progress_rules.clone(),
+            progress_gate: definition.progress_gate.clone(),
+            temporal: definition.temporal.clone(),
+            recency: definition.recency.clone(),
+            context_pressure: definition.context_pressure.clone(),
             started_at: std::time::Instant::now(),
+            temporal_nudge_fired: false,
         };
 
         run_tool_loop(
             self,
             session_id,
             &model,
-            max_iterations,
+            definition.max_iterations,
             &mut handler,
             &mut history,
         )
@@ -470,10 +477,13 @@ struct TaskHandler<'a> {
     session_chat: &'a SessionChat,
     session_thing: &'a Thing,
     system_prompt: String,
-    #[allow(dead_code)]
-    task_name: String,
     progress_rules: Vec<ProgressRule>,
+    progress_gate: Option<ProgressGateConfig>,
+    temporal: Option<TemporalConfig>,
+    recency: Option<RecencyConfig>,
+    context_pressure: Option<ContextPressureConfig>,
     started_at: std::time::Instant,
+    temporal_nudge_fired: bool,
 }
 
 #[async_trait]
@@ -569,29 +579,31 @@ impl ToolLoopHandler for TaskHandler<'_> {
             });
         }
 
-        // Event-driven "tool not used recently" reminder.
-        // If the agent has key tools (web_fetch) and hasn't used them in
-        // the last 3 assistant turns, nudge — similar to Claude Code's
-        // "task tools haven't been used recently" pattern.
-        if let Some(reminder) = build_recency_reminder(history, &self.task_name) {
+        // Event-driven "tool not used recently" reminder (config-driven).
+        if let Some(reminder) = build_recency_reminder(history, self.recency.as_ref()) {
             history.push(ChatMessage {
                 role: Role::System,
                 content: vec![ContentBlock::Text { text: reminder }],
             });
         }
 
-        // Context-pressure nudge: when the conversation is getting large,
-        // gently remind the agent to finish remaining items efficiently.
-        if let Some(reminder) = build_context_pressure_reminder(history, &self.task_name) {
+        // Context-pressure nudge (config-driven).
+        if let Some(reminder) =
+            build_context_pressure_reminder(history, self.context_pressure.as_ref())
+        {
             history.push(ChatMessage {
                 role: Role::System,
                 content: vec![ContentBlock::Text { text: reminder }],
             });
         }
 
-        // Temporal nudge: after 3 minutes of wall-clock research, tell the
-        // agent to wrap up. Fires once.
-        if let Some(reminder) = build_temporal_nudge(history, self.started_at) {
+        // Temporal nudge (config-driven). Sets flag on fire.
+        if let Some(reminder) = build_temporal_nudge(
+            self.started_at,
+            self.temporal_nudge_fired,
+            self.temporal.as_ref(),
+        ) {
+            self.temporal_nudge_fired = true;
             history.push(ChatMessage {
                 role: Role::System,
                 content: vec![ContentBlock::Text { text: reminder }],
@@ -603,33 +615,29 @@ impl ToolLoopHandler for TaskHandler<'_> {
 
     async fn check_progress_gate(
         &mut self,
-        history: &[ChatMessage],
+        _history: &[ChatMessage],
     ) -> Result<Option<String>, ChatError> {
-        use crate::tools::TodoStatus;
+        let Some(ref gate) = self.progress_gate else {
+            return Ok(None);
+        };
 
         // If the temporal nudge has fired, let the model write — it's been
         // told to wrap up and we don't want to contradict that.
-        let temporal_nudge_fired = history.iter().any(|m| {
-            m.role == Role::System
-                && m.content.iter().any(|b| {
-                    matches!(b, ContentBlock::Text { text } if text.contains("been researching for"))
-                })
-        });
-        if temporal_nudge_fired {
+        if self.temporal_nudge_fired {
             return Ok(None);
         }
+
+        use crate::tools::TodoStatus;
 
         let todo_items =
             db::sessions::get_session_todo_list(self.session_chat.db(), self.session_thing).await?;
 
         // If no TODO exists, the agent skipped the planning step.
         if todo_items.is_none() {
-            return Ok(Some(
-                "<system-reminder>REJECTED — you skipped the planning step. \
-                 Create your TODO checklist with Fetch: items before writing \
-                 your report. Call the todo tool now.</system-reminder>"
-                    .to_string(),
-            ));
+            return Ok(Some(format!(
+                "<system-reminder>{}</system-reminder>",
+                gate.no_todo
+            )));
         }
 
         // Block ending while TODO items remain incomplete.
@@ -640,16 +648,10 @@ impl ToolLoopHandler for TaskHandler<'_> {
             .count();
 
         if incomplete > 0 {
-            return Ok(Some(format!(
-                "<system-reminder>REJECTED — your text response was not saved. \
-                 You have {incomplete} incomplete TODO item(s).\n\
-                 YOUR NEXT STEPS:\n\
-                 1. Call todo(batch_update) to mark items you already finished \
-                 as done.\n\
-                 2. Then web_search + web_fetch for the next pending Fetch: \
-                 item.\n\
-                 Do NOT write text — make tool calls.</system-reminder>"
-            )));
+            let msg = gate
+                .incomplete
+                .replace("{incomplete}", &incomplete.to_string());
+            return Ok(Some(format!("<system-reminder>{msg}</system-reminder>")));
         }
 
         Ok(None)
@@ -658,34 +660,34 @@ impl ToolLoopHandler for TaskHandler<'_> {
 
 /// Check if a key tool hasn't been used recently and inject a reminder.
 ///
-/// Fires when the agent has used tools in the last 3 assistant turns but
-/// none of them were `web_fetch`. Only applies to research agents.
-fn build_recency_reminder(history: &[ChatMessage], agent_name: &str) -> Option<String> {
-    // Only for research agents that should be fetching pages
-    if agent_name != "deep-research" {
-        return None;
-    }
+/// Fires when the agent has used tools in the last N assistant turns but
+/// none of them were the configured tool. Returns `None` when no recency
+/// config is present.
+fn build_recency_reminder(
+    history: &[ChatMessage],
+    config: Option<&RecencyConfig>,
+) -> Option<String> {
+    let config = config?;
 
-    // Need at least a few assistant messages to check recency
     let recent_assistant: Vec<&ChatMessage> = history
         .iter()
         .rev()
         .filter(|m| m.role == Role::Assistant)
-        .take(3)
+        .take(config.window)
         .collect();
 
-    if recent_assistant.len() < 3 {
+    if recent_assistant.len() < config.window {
         return None;
     }
 
-    // Check if ANY of the last 3 assistant turns had web_fetch
-    let has_recent_fetch = recent_assistant.iter().any(|msg| {
-        msg.content
-            .iter()
-            .any(|block| matches!(block, ContentBlock::ToolUse { name, .. } if name == "web_fetch"))
+    // Check if ANY of the last N assistant turns had the tracked tool
+    let has_recent_use = recent_assistant.iter().any(|msg| {
+        msg.content.iter().any(
+            |block| matches!(block, ContentBlock::ToolUse { name, .. } if name == &config.tool),
+        )
     });
 
-    if has_recent_fetch {
+    if has_recent_use {
         return None;
     }
 
@@ -700,28 +702,22 @@ fn build_recency_reminder(history: &[ChatMessage], agent_name: &str) -> Option<S
         return None;
     }
 
-    Some(
-        "<system-reminder>You haven't fetched any pages recently. Research \
-         means reading full pages, not just searching. Check your TODO — which \
-         sources still need to be fetched?</system-reminder>"
-            .to_string(),
-    )
+    Some(format!(
+        "<system-reminder>{}</system-reminder>",
+        config.message
+    ))
 }
 
 /// Nudge when accumulated conversation content is getting large.
 ///
-/// Estimates total content size from tool results and assistant text. When
-/// the conversation exceeds ~200K chars (~50K tokens), the agent risks
-/// running into context limits. Fires once to encourage wrapping up.
-fn build_context_pressure_reminder(history: &[ChatMessage], agent_name: &str) -> Option<String> {
-    if agent_name != "deep-research" {
-        return None;
-    }
-
-    // Rough threshold: ~250K chars ≈ 62K tokens ≈ 50% of a 128K window.
-    // With 30K MAX_EXTRACT_CHARS per page, this fires after ~8 fetches,
-    // encouraging the model to wrap up efficiently.
-    const PRESSURE_THRESHOLD: usize = 250_000;
+/// Estimates total content size from tool results and assistant text. Fires
+/// once when the threshold is exceeded. Returns `None` when no config is
+/// present.
+fn build_context_pressure_reminder(
+    history: &[ChatMessage],
+    config: Option<&ContextPressureConfig>,
+) -> Option<String> {
+    let config = config?;
 
     let total_chars: usize = history
         .iter()
@@ -733,7 +729,7 @@ fn build_context_pressure_reminder(history: &[ChatMessage], agent_name: &str) ->
         })
         .sum();
 
-    if total_chars < PRESSURE_THRESHOLD {
+    if total_chars < config.threshold_chars {
         return None;
     }
 
@@ -743,7 +739,7 @@ fn build_context_pressure_reminder(history: &[ChatMessage], agent_name: &str) ->
             && m.content.iter().any(|b| {
                 matches!(
                     b,
-                    ContentBlock::Text { text } if text.contains("context window is filling up")
+                    ContentBlock::Text { text } if text.contains(&config.message)
                 )
             })
     });
@@ -752,45 +748,35 @@ fn build_context_pressure_reminder(history: &[ChatMessage], agent_name: &str) ->
         return None;
     }
 
-    Some(
-        "<system-reminder>Your context window is filling up. Finish your \
-         remaining TODO items efficiently — prefer concise fetches and move \
-         to writing your report soon.</system-reminder>"
-            .to_string(),
-    )
+    Some(format!(
+        "<system-reminder>{}</system-reminder>",
+        config.message
+    ))
 }
 
-/// Nudge when wall-clock research time exceeds a threshold.
+/// Nudge when wall-clock time exceeds a threshold. Fires once.
 ///
-/// After 5 minutes the agent should transition from research to reporting.
-/// Fires once — checks for a sentinel string in prior system messages.
-fn build_temporal_nudge(history: &[ChatMessage], started_at: std::time::Instant) -> Option<String> {
-    const WRAP_UP_AFTER: std::time::Duration = std::time::Duration::from_secs(300);
+/// Returns `None` when no config is present or when already fired.
+/// `{minutes}` is interpolated into the message.
+fn build_temporal_nudge(
+    started_at: std::time::Instant,
+    already_fired: bool,
+    config: Option<&TemporalConfig>,
+) -> Option<String> {
+    let config = config?;
 
-    if started_at.elapsed() < WRAP_UP_AFTER {
+    if already_fired {
         return None;
     }
 
-    let already_nudged = history.iter().any(|m| {
-        m.role == Role::System
-            && m.content.iter().any(|b| {
-                matches!(
-                    b,
-                    ContentBlock::Text { text } if text.contains("been researching for")
-                )
-            })
-    });
-
-    if already_nudged {
+    let threshold = std::time::Duration::from_secs(config.after_seconds);
+    if started_at.elapsed() < threshold {
         return None;
     }
 
     let mins = started_at.elapsed().as_secs() / 60;
-    Some(format!(
-        "<system-reminder>You've been researching for {mins} minutes. \
-         Mark your remaining TODO items done and write your report now. \
-         Do not start new fetches.</system-reminder>"
-    ))
+    let msg = config.message.replace("{minutes}", &mins.to_string());
+    Some(format!("<system-reminder>{msg}</system-reminder>"))
 }
 
 /// Build a progress nudge from declared rules.
@@ -1046,5 +1032,136 @@ mod tests {
         ];
         // web_search isn't tracked, so no tracked calls → None
         assert!(build_progress_nudge(&rules, &history).is_none());
+    }
+
+    // --- Config-driven nudge tests ---
+
+    #[test]
+    fn recency_none_config_returns_none() {
+        let history = vec![
+            assistant_tool_use("web_search"),
+            assistant_tool_use("web_search"),
+            assistant_tool_use("web_search"),
+        ];
+        assert!(build_recency_reminder(&history, None).is_none());
+    }
+
+    #[test]
+    fn recency_fires_when_tool_absent() {
+        let config = RecencyConfig {
+            tool: "web_fetch".to_string(),
+            window: 3,
+            message: "Fetch something.".to_string(),
+        };
+        let history = vec![
+            assistant_tool_use("web_search"),
+            assistant_tool_use("web_search"),
+            assistant_tool_use("web_search"),
+        ];
+        let nudge = build_recency_reminder(&history, Some(&config)).unwrap();
+        assert!(nudge.contains("Fetch something."));
+        assert!(nudge.contains("<system-reminder>"));
+    }
+
+    #[test]
+    fn recency_silent_when_tool_present() {
+        let config = RecencyConfig {
+            tool: "web_fetch".to_string(),
+            window: 3,
+            message: "Fetch something.".to_string(),
+        };
+        let history = vec![
+            assistant_tool_use("web_search"),
+            assistant_tool_use("web_fetch"),
+            assistant_tool_use("web_search"),
+        ];
+        assert!(build_recency_reminder(&history, Some(&config)).is_none());
+    }
+
+    #[test]
+    fn temporal_none_config_returns_none() {
+        let started = std::time::Instant::now() - std::time::Duration::from_secs(600);
+        assert!(build_temporal_nudge(started, false, None).is_none());
+    }
+
+    #[test]
+    fn temporal_fires_after_threshold() {
+        let config = TemporalConfig {
+            after_seconds: 60,
+            message: "Been working {minutes} min.".to_string(),
+        };
+        let started = std::time::Instant::now() - std::time::Duration::from_secs(120);
+        let nudge = build_temporal_nudge(started, false, Some(&config)).unwrap();
+        assert!(nudge.contains("Been working 2 min."));
+    }
+
+    #[test]
+    fn temporal_skips_if_already_fired() {
+        let config = TemporalConfig {
+            after_seconds: 60,
+            message: "Wrap up.".to_string(),
+        };
+        let started = std::time::Instant::now() - std::time::Duration::from_secs(120);
+        assert!(build_temporal_nudge(started, true, Some(&config)).is_none());
+    }
+
+    #[test]
+    fn temporal_skips_before_threshold() {
+        let config = TemporalConfig {
+            after_seconds: 300,
+            message: "Wrap up.".to_string(),
+        };
+        let started = std::time::Instant::now();
+        assert!(build_temporal_nudge(started, false, Some(&config)).is_none());
+    }
+
+    #[test]
+    fn context_pressure_none_config_returns_none() {
+        let history = vec![ChatMessage {
+            role: Role::User,
+            content: vec![ContentBlock::Text {
+                text: "x".repeat(300_000),
+            }],
+        }];
+        assert!(build_context_pressure_reminder(&history, None).is_none());
+    }
+
+    #[test]
+    fn context_pressure_fires_above_threshold() {
+        let config = ContextPressureConfig {
+            threshold_chars: 100,
+            message: "Context large.".to_string(),
+        };
+        let history = vec![ChatMessage {
+            role: Role::User,
+            content: vec![ContentBlock::Text {
+                text: "x".repeat(200),
+            }],
+        }];
+        let nudge = build_context_pressure_reminder(&history, Some(&config)).unwrap();
+        assert!(nudge.contains("Context large."));
+    }
+
+    #[test]
+    fn context_pressure_fires_once() {
+        let config = ContextPressureConfig {
+            threshold_chars: 100,
+            message: "Context large.".to_string(),
+        };
+        let history = vec![
+            ChatMessage {
+                role: Role::User,
+                content: vec![ContentBlock::Text {
+                    text: "x".repeat(200),
+                }],
+            },
+            ChatMessage {
+                role: Role::System,
+                content: vec![ContentBlock::Text {
+                    text: "<system-reminder>Context large.</system-reminder>".to_string(),
+                }],
+            },
+        ];
+        assert!(build_context_pressure_reminder(&history, Some(&config)).is_none());
     }
 }

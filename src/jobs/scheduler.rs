@@ -215,6 +215,10 @@ fn job_to_task_definition(def: &JobDefinition) -> TaskDefinition {
         progress_rules: vec![],
         skills: vec![],
         system_prompt_template: def.prompt.clone(),
+        progress_gate: None,
+        temporal: None,
+        recency: None,
+        context_pressure: None,
     }
 }
 

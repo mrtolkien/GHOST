@@ -3,6 +3,7 @@ use std::path::Path;
 use serde::Deserialize;
 
 use super::error::TaskError;
+use super::nudges::{ContextPressureConfig, ProgressGateConfig, RecencyConfig, TemporalConfig};
 
 const DELIMITER: &str = "+++";
 
@@ -39,6 +40,10 @@ struct TaskFrontmatter {
     progress: Vec<ProgressRule>,
     #[serde(default)]
     skills: Vec<String>,
+    progress_gate: Option<ProgressGateConfig>,
+    temporal: Option<TemporalConfig>,
+    recency: Option<RecencyConfig>,
+    context_pressure: Option<ContextPressureConfig>,
 }
 
 fn default_max_iterations() -> usize {
@@ -55,6 +60,10 @@ pub struct TaskDefinition {
     pub progress_rules: Vec<ProgressRule>,
     pub skills: Vec<String>,
     pub system_prompt_template: String,
+    pub progress_gate: Option<ProgressGateConfig>,
+    pub temporal: Option<TemporalConfig>,
+    pub recency: Option<RecencyConfig>,
+    pub context_pressure: Option<ContextPressureConfig>,
 }
 
 impl TaskDefinition {
@@ -119,6 +128,10 @@ pub fn parse_task_file(content: &str) -> Result<TaskDefinition, TaskError> {
         progress_rules: front.progress,
         skills: front.skills,
         system_prompt_template: body,
+        progress_gate: front.progress_gate,
+        temporal: front.temporal,
+        recency: front.recency,
+        context_pressure: front.context_pressure,
     })
 }
 
@@ -401,6 +414,22 @@ Also: {{query}}
             def.progress_rules.is_empty(),
             "deep-research relies on TODO-based progress gate, not periodic nudges"
         );
+
+        // Nudge configs should all be present
+        let gate = def.progress_gate.as_ref().expect("progress_gate");
+        assert!(gate.no_todo.contains("REJECTED"));
+        assert!(gate.incomplete.contains("{incomplete}"));
+
+        let temporal = def.temporal.as_ref().expect("temporal");
+        assert_eq!(temporal.after_seconds, 300);
+        assert!(temporal.message.contains("{minutes}"));
+
+        let recency = def.recency.as_ref().expect("recency");
+        assert_eq!(recency.tool, "web_fetch");
+        assert_eq!(recency.window, 3);
+
+        let pressure = def.context_pressure.as_ref().expect("context_pressure");
+        assert_eq!(pressure.threshold_chars, 250_000);
     }
 
     #[test]
@@ -430,6 +459,12 @@ Also: {{query}}
         );
         assert_eq!(def.progress_rules.len(), 1);
         assert_eq!(def.skills, vec!["knowledge-navigator"]);
+
+        // Reflection has no nudge configs — none of the new nudges fire
+        assert!(def.progress_gate.is_none());
+        assert!(def.temporal.is_none());
+        assert!(def.recency.is_none());
+        assert!(def.context_pressure.is_none());
 
         let note_rule = &def.progress_rules[0];
         assert_eq!(note_rule.tool, "note_write");
@@ -517,6 +552,57 @@ Body.
         let def = parse_task_file(content).unwrap();
         assert!(def.progress_rules.is_empty());
         assert!(def.skills.is_empty());
+        assert!(def.progress_gate.is_none());
+        assert!(def.temporal.is_none());
+        assert!(def.recency.is_none());
+        assert!(def.context_pressure.is_none());
+    }
+
+    #[test]
+    fn parse_agent_with_all_nudge_sections() {
+        let content = r#"+++
+name = "nudgy"
+description = "Agent with all nudges"
+tools = ["web_fetch", "todo"]
+
+[progress_gate]
+no_todo = "Make a plan first."
+incomplete = "{incomplete} items left."
+
+[temporal]
+after_seconds = 120
+message = "Been working {minutes} min."
+
+[recency]
+tool = "web_fetch"
+window = 2
+message = "Fetch something."
+
+[context_pressure]
+threshold_chars = 100000
+message = "Context large."
++++
+
+Body.
+"#;
+        let def = parse_task_file(content).unwrap();
+
+        let gate = def.progress_gate.unwrap();
+        assert_eq!(gate.no_todo, "Make a plan first.");
+        assert_eq!(gate.incomplete, "{incomplete} items left.");
+
+        let temporal = def.temporal.unwrap();
+        assert_eq!(temporal.after_seconds, 120);
+        assert_eq!(temporal.message, "Been working {minutes} min.");
+
+        let recency = def.recency.unwrap();
+        assert_eq!(recency.tool, "web_fetch");
+        assert_eq!(recency.window, 2);
+        assert_eq!(recency.message, "Fetch something.");
+
+        let pressure = def.context_pressure.unwrap();
+        assert_eq!(pressure.threshold_chars, 100_000);
+        assert_eq!(pressure.message, "Context large.");
     }
 
     #[test]

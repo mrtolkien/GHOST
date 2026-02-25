@@ -37,14 +37,7 @@ async fn deep_research_agent_produces_findings() {
     // Run with 7-minute timeout
     let result = tokio::time::timeout(
         std::time::Duration::from_secs(420),
-        session_chat.chat_agent(
-            "deep-research",
-            &session.to_string(),
-            prompt,
-            system_prompt,
-            definition.max_iterations,
-            definition.progress_rules.clone(),
-        ),
+        session_chat.chat_agent(&session.to_string(), prompt, system_prompt, &definition),
     )
     .await;
 
