@@ -312,6 +312,27 @@ pub async fn list_messages_by_session(
     take_many(&mut resp, 0, "message", "list_by_session")
 }
 
+/// Get the most recent message in a session, or `None` if the session is empty.
+#[tracing::instrument(skip_all, level = "debug", fields(session_id = ?session_id))]
+pub async fn get_last_message(
+    db: &Surreal<Db>,
+    session_id: &RecordId,
+) -> Result<Option<MessageRecord>, DatabaseError> {
+    let mut resp = query_exec(
+        db.query(
+            "SELECT * FROM message WHERE session = $session_id \
+             ORDER BY created_at DESC LIMIT 1",
+        )
+        .bind(("session_id", session_id.clone())),
+        "message",
+        "get_last",
+    )
+    .await?;
+
+    let rows: Vec<MessageRecord> = take_many(&mut resp, 0, "message", "get_last")?;
+    Ok(rows.into_iter().next())
+}
+
 #[tracing::instrument(skip_all, level = "debug", fields(limit = limit))]
 pub async fn list_recent_sessions(
     db: &Surreal<Db>,

@@ -6,6 +6,7 @@ use std::time::Duration;
 use chrono::{DateTime, Utc};
 use surrealdb::Surreal;
 use surrealdb::engine::local::Db;
+use surrealdb::types::RecordId;
 use tokio::sync::watch;
 use tokio::task::JoinHandle;
 
@@ -23,7 +24,9 @@ pub struct HeartbeatManager {
     discord_sender: Arc<DiscordSender>,
     config: Config,
     reflection: Arc<ReflectionManager>,
-    cooldowns: HashMap<String, DateTime<Utc>>,
+    /// Sessions that had a heartbeat run, with the timestamp of completion.
+    /// Used to schedule reflection after `reflection_idle_minutes`.
+    pending_reflections: HashMap<String, (DateTime<Utc>, RecordId)>,
 }
 
 impl HeartbeatManager {
@@ -41,7 +44,7 @@ impl HeartbeatManager {
             discord_sender,
             config,
             reflection,
-            cooldowns: HashMap::new(),
+            pending_reflections: HashMap::new(),
         }
     }
 
@@ -56,6 +59,7 @@ impl HeartbeatManager {
                 tokio::select! {
                     _ = interval.tick() => {
                         self.check_idle_sessions().await;
+                        self.check_pending_reflections().await;
                     }
                     _ = shutdown.changed() => {
                         logfire::info!("heartbeat manager shutting down");
@@ -80,18 +84,9 @@ impl HeartbeatManager {
         let now = Utc::now();
         let idle_threshold =
             chrono::Duration::minutes(self.config.timing.heartbeat_idle_minutes as i64);
-        let cooldown_duration =
-            chrono::Duration::minutes(self.config.timing.heartbeat_continue_minutes as i64);
 
         for record in sessions {
             let session_id = crate::db::fmt_id(&record.session);
-
-            // Check cooldown
-            if let Some(last_hb) = self.cooldowns.get(&session_id)
-                && now - *last_hb < cooldown_duration
-            {
-                continue;
-            }
 
             // Load session to check last_activity_at
             let session = match db::sessions::get_session(&self.db, &record.session).await {
@@ -111,24 +106,20 @@ impl HeartbeatManager {
             }
 
             let last_activity: DateTime<Utc> = *session.last_activity_at;
-            let idle_time = now - last_activity;
-
-            if idle_time < idle_threshold {
+            if now - last_activity < idle_threshold {
                 continue;
             }
 
-            // Skip if no messages since last heartbeat
-            let since = self
-                .cooldowns
-                .get(&session_id)
-                .copied()
-                .unwrap_or(last_activity);
-            match db::sessions::count_messages_since(&self.db, &record.session, &since).await {
-                Ok(0) => continue,
+            // Skip if the last message is already a HEARTBEAT_CONTINUE
+            // (heartbeat already ran, no new operator messages since)
+            match db::sessions::get_last_message(&self.db, &record.session).await {
+                Ok(Some(msg)) if msg.role == "assistant" && is_heartbeat_continue(&msg.content) => {
+                    continue;
+                }
                 Ok(_) => {}
                 Err(e) => {
                     logfire::warn!(
-                        "heartbeat: failed to count messages",
+                        "heartbeat: failed to get last message",
                         session_id = session_id.clone(),
                         error = e.to_string(),
                     );
@@ -138,6 +129,28 @@ impl HeartbeatManager {
 
             self.run_heartbeat(&session_id, &record.interface, &record.session)
                 .await;
+        }
+    }
+
+    /// Check if any pending reflections are ready to fire.
+    async fn check_pending_reflections(&mut self) {
+        let now = Utc::now();
+        let delay = chrono::Duration::minutes(self.config.timing.reflection_idle_minutes as i64);
+
+        let ready: Vec<(String, RecordId)> = self
+            .pending_reflections
+            .iter()
+            .filter(|(_, (heartbeat_at, _))| now - *heartbeat_at >= delay)
+            .map(|(sid, (_, thing))| (sid.clone(), thing.clone()))
+            .collect();
+
+        for (session_id, session_thing) in ready {
+            self.pending_reflections.remove(&session_id);
+            let reflection = self.reflection.clone();
+            let sid = session_id.clone();
+            tokio::spawn(async move {
+                reflection.run_chat_reflection(&sid, &session_thing).await;
+            });
         }
     }
 
@@ -195,7 +208,6 @@ impl HeartbeatManager {
         let now = Utc::now();
 
         if is_heartbeat_continue(&response) {
-            self.cooldowns.insert(session_id.to_string(), now);
             logfire::info!(
                 "heartbeat completed",
                 session_id = session_id.to_string(),
@@ -222,7 +234,6 @@ impl HeartbeatManager {
                     interface = interface.to_string(),
                 );
             }
-            self.cooldowns.insert(session_id.to_string(), now);
             logfire::info!(
                 "heartbeat completed",
                 session_id = session_id.to_string(),
@@ -230,13 +241,9 @@ impl HeartbeatManager {
             );
         }
 
-        // Trigger reflection after heartbeat
-        let reflection = self.reflection.clone();
-        let sid = session_id.to_string();
-        let st = session_thing.clone();
-        tokio::spawn(async move {
-            reflection.run_after_heartbeat(&sid, &st).await;
-        });
+        // Schedule reflection to fire after reflection_idle_minutes
+        self.pending_reflections
+            .insert(session_id.to_string(), (now, session_thing.clone()));
     }
 
     async fn build_user_message(

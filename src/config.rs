@@ -113,7 +113,6 @@ pub struct EmbeddingsSettings {
 pub struct TimingSettings {
     pub heartbeat_idle_minutes: Option<u64>,
     pub heartbeat_check_seconds: Option<u64>,
-    pub heartbeat_continue_minutes: Option<u64>,
     pub reflection_idle_minutes: Option<u64>,
     pub scheduler_tick_seconds: Option<u64>,
 }
@@ -184,7 +183,6 @@ pub struct EmbeddingsConfig {
 pub struct TimingConfig {
     pub heartbeat_idle_minutes: u64,
     pub heartbeat_check_seconds: u64,
-    pub heartbeat_continue_minutes: u64,
     pub reflection_idle_minutes: u64,
     pub scheduler_tick_seconds: u64,
 }
@@ -331,11 +329,6 @@ impl Config {
                     .as_ref()
                     .and_then(|t| t.heartbeat_check_seconds)
                     .unwrap_or(60),
-                heartbeat_continue_minutes: settings
-                    .timing
-                    .as_ref()
-                    .and_then(|t| t.heartbeat_continue_minutes)
-                    .unwrap_or(30),
                 reflection_idle_minutes: settings
                     .timing
                     .as_ref()
@@ -509,7 +502,6 @@ pub fn test_config(workspace: &std::path::Path) -> Config {
         timing: TimingConfig {
             heartbeat_idle_minutes: 4,
             heartbeat_check_seconds: 60,
-            heartbeat_continue_minutes: 30,
             reflection_idle_minutes: 4,
             scheduler_tick_seconds: 10,
         },

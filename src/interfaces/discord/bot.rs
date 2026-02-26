@@ -203,33 +203,14 @@ impl Handler {
         }
         lines.join("\n")
     }
-}
-
-#[async_trait]
-impl EventHandler for Handler {
-    #[tracing::instrument(name = "receive discord message", skip_all, fields(
+    /// Handle a validated incoming Discord message: resolve the session,
+    /// process attachments, run the chat loop, and send the response.
+    #[tracing::instrument(name = "receive message", skip_all, fields(
         author = %msg.author.name,
         channel_id = %msg.channel_id,
         content_len = msg.content.len()
     ))]
-    /// Handle an incoming Discord message: validate the author, resolve the
-    /// session, process attachments, run the chat loop, and send the response.
-    async fn message(&self, ctx: Context, msg: Message) {
-        // Ignore bots
-        if msg.author.bot {
-            return;
-        }
-
-        // Ignore non-allowed users (silent)
-        if msg.author.id.to_string() != self.allowed_user_id {
-            return;
-        }
-
-        // Skip messages from before this bot session (gateway resume replay)
-        if *msg.timestamp < self.started_at {
-            return;
-        }
-
+    async fn handle_message(&self, ctx: Context, msg: Message) {
         let content = self.strip_bot_mention(&msg.content);
 
         // Handle /REBOOT command
@@ -363,6 +344,23 @@ impl EventHandler for Handler {
                 .await;
             }
         }
+    }
+}
+
+#[async_trait]
+impl EventHandler for Handler {
+    async fn message(&self, ctx: Context, msg: Message) {
+        // Quick-reject before creating a span
+        if msg.author.bot {
+            return;
+        }
+        if msg.author.id.to_string() != self.allowed_user_id {
+            return;
+        }
+        if *msg.timestamp < self.started_at {
+            return;
+        }
+        self.handle_message(ctx, msg).await;
     }
 
     async fn ready(&self, _ctx: Context, ready: Ready) {

@@ -1,6 +1,5 @@
 use std::path::Path;
 use std::sync::Arc;
-use std::time::Duration;
 
 use chrono::{DateTime, Utc};
 use surrealdb::Surreal;
@@ -36,13 +35,9 @@ impl ReflectionManager {
         }
     }
 
-    /// Run reflection after a heartbeat, with delay and skip logic.
-    #[tracing::instrument(skip_all, fields(session_id = ?session_id))]
-    pub async fn run_after_heartbeat(&self, session_id: &str, session_thing: &RecordId) {
-        // Delay before running
-        let delay = Duration::from_secs(self.config.timing.reflection_idle_minutes * 60);
-        tokio::time::sleep(delay).await;
-
+    /// Run reflection for a chat session, skipping if no new messages since
+    /// the last reflection ran.
+    pub async fn run_chat_reflection(&self, session_id: &str, session_thing: &RecordId) {
         // Skip if no new messages since last reflection
         let state_path = self
             .config
@@ -95,7 +90,7 @@ impl ReflectionManager {
     /// Run a reflection cycle: build context from the session transcript and
     /// web cache, invoke the reflection agent, save the handoff note, and
     /// curate cached references into the knowledge base.
-    async fn run(&self, session_id: &str, session_thing: &RecordId, agent_name: &str) {
+    pub async fn run(&self, session_id: &str, session_thing: &RecordId, agent_name: &str) {
         // Sequential: wait for any running reflection to finish first
         let _guard = self.running.lock().await;
 
