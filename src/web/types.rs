@@ -1,3 +1,4 @@
+use serde::Serialize;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -38,7 +39,7 @@ pub enum WebError {
     Crawl4ai { url: String, detail: String },
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct SearchResult {
     pub title: String,
     pub url: String,

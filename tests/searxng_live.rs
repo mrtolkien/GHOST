@@ -1,5 +1,8 @@
 #![cfg(feature = "live-tests")]
 
+mod common;
+
+use ghost::config::SearchProviderConfig;
 use ghost::web::{SearxngSearchProvider, format_search_metadata};
 
 fn searxng_url() -> String {
@@ -107,6 +110,69 @@ async fn positions_pair_with_engines() {
             );
         }
     }
+}
+
+/// Reproduce the deep research scenario: rapid sequential searches.
+/// The agent fires 3-4 searches in quick succession.
+#[tokio::test]
+async fn rapid_sequential_searches_all_return_results() {
+    let provider = SearxngSearchProvider::new(&searxng_url(), 5).expect("build provider");
+
+    let queries = [
+        "best enclosed 3D printer 2026",
+        "trusted 3D printer review sites",
+        "reddit trusted 3D printer reviewers",
+        "3D printer reviews",
+    ];
+
+    for query in &queries {
+        let results = provider.search(query).await.expect("search should succeed");
+
+        eprintln!(
+            "  '{}' → {} results ({})",
+            query,
+            results.len(),
+            if results.is_empty() { "EMPTY!" } else { "ok" }
+        );
+
+        assert!(
+            !results.is_empty(),
+            "query '{query}' returned 0 results — SearXNG may be rate-limiting"
+        );
+    }
+}
+
+/// Reproduce the exact live_test_database context: load config from
+/// the real config.toml (round-tripped through toml crate), then search.
+#[tokio::test]
+async fn search_via_live_test_config() {
+    let env = common::live_test_database("searxng_config").await;
+
+    let (url, max) = match &env.config.web.search_provider {
+        SearchProviderConfig::Searxng { url } => {
+            eprintln!("  Config loaded: searxng @ {url}");
+            (url.clone(), env.config.web.search_max_results)
+        }
+        SearchProviderConfig::Brave => {
+            panic!("Expected Searxng config but got Brave — TOML round-trip lost [web.search]");
+        }
+    };
+
+    let provider = SearxngSearchProvider::new(&url, max).expect("build provider");
+    let results = provider
+        .search("rust programming language")
+        .await
+        .expect("search should succeed");
+
+    eprintln!("  Results: {}", results.len());
+    for r in &results {
+        eprintln!("    {} — {}", r.title, r.url);
+    }
+
+    assert!(
+        !results.is_empty(),
+        "search via live_test_database config returned 0 results"
+    );
 }
 
 #[tokio::test]
