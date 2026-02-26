@@ -1,4 +1,4 @@
-- [ ] Still getting "empty endturn after recovery nudge"
+- [x] Still getting "empty endturn after recovery nudge"
 - [x] read_file: removed limit/offset params, always returns full file
 - [x] Heartbeat disabled — see `specs/backlog/heartbeat-reactivation.md`
 - [x] run_after_heartbeat shows as <ongoing> for a long time

@@ -52,10 +52,8 @@ Detailed instructions for the agent's behavior...
 
 All model-facing nudge strings live in agent frontmatter.
 
-:::note
-Each section is optional — if an agent doesn't declare it, that nudge type
-simply doesn't fire.
-:::
+:::note Each section is optional — if an agent doesn't declare it, that nudge type
+simply doesn't fire. :::
 
 ### `progress` — Periodic Tool Count Nudges
 
@@ -141,7 +139,6 @@ context_pressure:
 | Agent               | Purpose                                       | Max Iterations |
 | ------------------- | --------------------------------------------- | -------------- |
 | **deep-research**   | Iterative web research with full page reading | 50             |
-| **heartbeat**       | Proactive check-in when you're idle           | 10             |
 | **chat-reflection** | Knowledge extraction from chat sessions       | 30             |
 | **reflection**      | Knowledge extraction from agent sessions      | 60             |
 
