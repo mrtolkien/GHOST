@@ -108,15 +108,10 @@ pub async fn vector_search(
     query_vector: &[f32],
     limit: usize,
 ) -> Result<Vec<EmbeddingHit>, DatabaseError> {
-    // SurrealDB 3.0 HNSW KNN syntax: <|K, EF|> where EF controls search
-    // accuracy (higher = more accurate but slower). We use EF = limit * 4
-    // as a reasonable trade-off. LIMIT clause ensures exact count.
-    let ef = limit * 4;
     let query = format!(
         "SELECT source_id, source_table, chunk_text,
                 vector::similarity::cosine(vector, $query_vector) AS score
          FROM embedding
-         WHERE vector <|{limit},{ef}|> $query_vector
          ORDER BY score DESC
          LIMIT {limit}"
     );
