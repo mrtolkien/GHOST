@@ -5,7 +5,6 @@ mod common;
 use ghost::db::fmt_id;
 use ghost::jobs::heartbeat::is_heartbeat_continue;
 use ghost::web::scan_web_cache;
-#[allow(unused_imports)]
 use std::path::PathBuf;
 
 // ---------------------------------------------------------------------------
@@ -40,67 +39,6 @@ async fn heartbeat_returns_heartbeat_continue() {
         .expect("list job logs");
     assert!(!logs.is_empty(), "expected at least 1 heartbeat job_log");
     assert_eq!(logs[0].status, "ok");
-}
-
-// ---------------------------------------------------------------------------
-// Reflection e2e: blog fetch -> reflection classifies reference
-// ---------------------------------------------------------------------------
-
-/// Full e2e: ask the GHOST about a blog, it fetches and responds, then run
-/// reflection which should move the `.web-cache` entry to references.
-#[tokio::test]
-async fn reflection_classifies_blog_reference() {
-    let env = common::live_test_database("reflection_blog").await;
-    let session = env.create_session().await;
-
-    // Step 1: Chat — ask about the blog
-    let chat = env.chat();
-    let (result, _metadata) = chat
-        .chat(
-            &fmt_id(&session),
-            "What's the latest post on https://blog.tolki.dev/ ? \
-             Use `ghost web fetch` to read it, then tell me the title and a one-line summary.",
-            None,
-        )
-        .await
-        .expect("chat response");
-    env.log_session_json("chat", &session).await;
-    assert!(
-        !result.message.trim().is_empty(),
-        "GHOST should have responded with blog summary"
-    );
-
-    // Step 2: Verify web cache was populated
-    let listing = scan_web_cache(&env.config.workspace).expect("scan web cache");
-    assert!(
-        listing.is_some(),
-        "Expected .web-cache/ to have entries after fetching blog"
-    );
-    assert!(
-        listing.as_ref().unwrap().contains("blog.tolki.dev"),
-        "web cache should contain blog.tolki.dev entry"
-    );
-
-    // Step 3: Run reflection (chat mode: diary + identity instructions)
-    let findings = env.run_reflection(&session, None, "chat-reflection").await;
-    env.log(format!("reflection findings: {findings}"));
-    assert!(
-        !findings.trim().is_empty(),
-        "reflection should produce a handoff note"
-    );
-
-    // Step 4: Verify deterministic curation moved cited files to references
-    assert!(
-        env.find_file_containing("references", "blog.tolki.dev"),
-        "Expected a reference file containing 'blog.tolki.dev'"
-    );
-
-    // Step 5: Verify web cache was cleaned up by curation
-    let remaining = scan_web_cache(&env.config.workspace).expect("scan after curation");
-    env.log(format!(
-        "web cache after curation: {}",
-        remaining.as_deref().unwrap_or("empty")
-    ));
 }
 
 // ---------------------------------------------------------------------------

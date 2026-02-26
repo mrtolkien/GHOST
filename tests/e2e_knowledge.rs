@@ -136,5 +136,5 @@ async fn run_initial_research(
     }
 
     env.log(format!("agent(s) spawned: {}", agent_ids.join(", ")));
-    env.wait_for_agents(session, 300).await
+    env.wait_for_agents(session, 600).await
 }

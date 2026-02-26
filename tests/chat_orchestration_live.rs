@@ -1,34 +1,26 @@
 #![cfg(feature = "live-tests")]
 
-use ghost::chat::{ChatStopReason, SessionChat};
+mod common;
+
+use ghost::chat::ChatStopReason;
 use ghost::db::fmt_id;
 
 #[tokio::test]
 async fn session_chat_live_roundtrip_with_default_config() {
-    let _observability =
-        ghost::observability::init_for_live_tests().expect("init live test observability");
+    let env = common::live_test_database("chat_live_roundtrip").await;
+    let session = env.create_session().await;
 
-    let config = ghost::config::load().expect("load config from ~/.config/ghost");
-    ghost::config_workspace::bootstrap_workspace(&config).expect("bootstrap workspace");
-
-    assert_provider_ready(&config).await;
-
-    let db = ghost::db::connect(&config.workspace)
-        .await
-        .expect("connect db");
-    let session_id = ghost::db::sessions::create_session(&db)
-        .await
-        .expect("create session");
-
-    let chat = SessionChat::from_config(db.clone(), config).expect("build session chat");
+    let chat = env.chat();
     let (result, _metadata) = chat
         .chat(
-            &fmt_id(&session_id),
+            &fmt_id(&session),
             "Reply in one short sentence: what is Rust best known for?",
             None,
         )
         .await
         .expect("chat response");
+
+    env.log_session_json("chat", &session).await;
 
     assert!(!result.message.trim().is_empty());
     assert!(matches!(
@@ -36,7 +28,7 @@ async fn session_chat_live_roundtrip_with_default_config() {
         ChatStopReason::EndTurn | ChatStopReason::MaxTokens
     ));
 
-    let messages = ghost::db::sessions::list_messages_by_session(&db, &session_id)
+    let messages = ghost::db::sessions::list_messages_by_session(&env.db, &session)
         .await
         .expect("list messages");
     assert!(
@@ -47,45 +39,4 @@ async fn session_chat_live_roundtrip_with_default_config() {
         messages.iter().any(|msg| msg.role == "assistant"),
         "expected persisted assistant message"
     );
-}
-
-async fn assert_provider_ready(config: &ghost::config::Config) {
-    let model = config
-        .models
-        .aliases
-        .get(&config.models.default)
-        .expect("default model alias exists");
-
-    match model.provider.as_str() {
-        "openrouter" => {
-            assert!(
-                std::env::var("OPENROUTER_API_KEY")
-                    .ok()
-                    .filter(|value| !value.trim().is_empty())
-                    .is_some(),
-                "OPENROUTER_API_KEY must be set for live SessionChat test"
-            );
-        }
-        "kimi_code" | "kimi" => {
-            assert!(
-                std::env::var("KIMI_API_KEY")
-                    .ok()
-                    .filter(|value| !value.trim().is_empty())
-                    .is_some(),
-                "KIMI_API_KEY must be set for live SessionChat test"
-            );
-        }
-        "openai_oauth" => {
-            assert!(
-                ghost::auth::openai_oauth::auth_status()
-                    .await
-                    .expect("read oauth status")
-                    .is_some(),
-                "No OpenAI OAuth token found; run `ghost auth codex` first"
-            );
-        }
-        other => {
-            panic!("Unsupported provider '{other}' in default model");
-        }
-    }
 }
