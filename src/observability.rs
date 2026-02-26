@@ -115,6 +115,9 @@ fn set_default_rust_log_filter() {
     //
     // SAFETY: daemon startup sets process env before spawning runtime tasks.
     unsafe {
-        std::env::set_var("RUST_LOG", "warn,ghost=info,usvg=off,resvg=off");
+        std::env::set_var(
+            "RUST_LOG",
+            "warn,ghost=info,usvg=off,resvg=off,html5ever=off",
+        );
     }
 }
