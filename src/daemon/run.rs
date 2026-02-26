@@ -1,12 +1,14 @@
 use std::sync::Arc;
 
+use tokio::sync::watch;
+use tokio::task::JoinHandle;
 use tracing::info;
 
 use crate::agents::TaskRunner;
 use crate::chat::SessionChat;
 use crate::embeddings::EmbeddingClient;
 use crate::error::GhostError;
-use crate::interfaces::discord;
+use crate::interfaces::discord::{self, DiscordSender};
 use crate::jobs::{HeartbeatManager, ReflectionManager};
 
 pub async fn run() -> Result<(), GhostError> {
@@ -17,7 +19,7 @@ pub async fn run() -> Result<(), GhostError> {
         discord_result,
         heartbeat_handle,
         agent_watcher_handle,
-    ) = boot().await;
+    ) = boot().await?;
 
     if let Some((_sender, handle)) = discord_result {
         info!("GHOST daemon running — press Ctrl+C to stop");
@@ -50,7 +52,17 @@ pub async fn run() -> Result<(), GhostError> {
     Ok(())
 }
 
-pub async fn boot() -> {
+type BootResult = (
+    watch::Sender<bool>,
+    JoinHandle<()>,
+    JoinHandle<()>,
+    Option<(DiscordSender, JoinHandle<()>)>,
+    Option<JoinHandle<()>>,
+    Option<JoinHandle<()>>,
+);
+
+#[tracing::instrument(name = "ghost.startup", skip_all)]
+pub async fn boot() -> Result<BootResult, GhostError> {
     info!("loading config");
     let config = crate::config::load()?;
     crate::config_workspace::bootstrap_workspace(&config)?;
@@ -152,12 +164,12 @@ pub async fn boot() -> {
         agent_watcher_handle = None;
     };
 
-    (
+    Ok((
         shutdown_tx,
         watcher_handle,
         scheduler_handle,
         discord_result,
         heartbeat_handle,
         agent_watcher_handle,
-    )
+    ))
 }
