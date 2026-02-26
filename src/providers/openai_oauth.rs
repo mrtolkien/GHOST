@@ -135,8 +135,11 @@ impl OpenAiOAuthProvider {
         let body = build_codex_request_body(request)?;
         let request_json =
             serde_json::to_string(&body).unwrap_or_else(|e| format!("<serialization failed: {e}>"));
+
+        logfire::info!("provider request body", body = request_json.clone());
+
         let started = Instant::now();
-        logfire::debug!("provider request body", body = request_json.clone());
+
         let http_response = self
             .client
             .post(&self.endpoint)
@@ -197,6 +200,8 @@ impl OpenAiOAuthProvider {
                 extract_error_message(&response_body)
             )));
         }
+
+        logfire::info!("openai oauth response", body = &response_body);
 
         let parsed = parse_codex_response(&response_body, &request.model).inspect_err(|error| {
             logfire::error!(

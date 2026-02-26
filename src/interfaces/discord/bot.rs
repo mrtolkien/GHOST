@@ -205,7 +205,7 @@ impl Handler {
     }
     /// Handle a validated incoming Discord message: resolve the session,
     /// process attachments, run the chat loop, and send the response.
-    #[tracing::instrument(name = "receive message", skip_all, fields(
+    #[tracing::instrument(name = "receive discord message", skip_all, fields(
         author = %msg.author.name,
         channel_id = %msg.channel_id,
         content_len = msg.content.len()
