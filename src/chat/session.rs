@@ -46,7 +46,7 @@ impl std::fmt::Debug for SessionChat {
 }
 
 impl SessionChat {
-    #[tracing::instrument(skip_all)]
+    #[tracing::instrument(name = "create session_chat", skip_all)]
     pub fn from_config(db: Surreal<Db>, config: Config) -> Result<Self, ChatError> {
         let provider = provider_for_alias(&config, None)?;
 
@@ -84,7 +84,7 @@ impl SessionChat {
         self
     }
 
-    #[tracing::instrument(name="assistant.orchestration", skip_all, fields(session_id = session_id))]
+    #[tracing::instrument(name = "orchestrate response", skip_all, fields(session_id = session_id))]
     pub async fn chat(
         &self,
         session_id: &str,
@@ -132,7 +132,7 @@ impl SessionChat {
     ///
     /// Messages are persisted to the agent's own session. Returns the final
     /// assistant message.
-    #[tracing::instrument(skip_all, fields(
+    #[tracing::instrument(name = "run agent", skip_all, fields(
         gen_ai.agent.name = %definition.name,
         session_id = session_id,
     ))]
@@ -188,7 +188,7 @@ impl SessionChat {
     /// research + tool calls), appends the new user message, and runs the
     /// tool loop again. This lets agents refine their work without
     /// re-doing prior research.
-    #[tracing::instrument(skip_all, fields(
+    #[tracing::instrument(name = "continue agent", skip_all, fields(
         gen_ai.agent.name = %definition.name,
         session_id = session_id,
     ))]
@@ -236,7 +236,7 @@ impl SessionChat {
         .await
     }
 
-    #[tracing::instrument(skip_all, fields(old_session_id = session_id))]
+    #[tracing::instrument(name = "reboot session", skip_all, fields(old_session_id = session_id))]
     pub async fn reboot_session(&self, session_id: &str) -> Result<String, ChatError> {
         let old_session = parse_session_thing(session_id)?;
         db::sessions::mark_rebooted(&self.db, &old_session).await?;

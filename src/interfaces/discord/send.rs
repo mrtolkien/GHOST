@@ -17,7 +17,7 @@ pub const WARNING_EMBED_COLOR: u32 = 0xE0_3B_24;
 
 /// Send GHOST assistant text using Components v2 markdown rendering.
 /// Falls back to legacy plain text on v2 errors.
-#[tracing::instrument(skip_all, fields(channel_id = %channel_id, content_len = content.len()))]
+#[tracing::instrument(name = "send message", skip_all, fields(channel_id = %channel_id, content_len = content.len()))]
 pub async fn send_assistant_v2(
     http: &Http,
     channel_id: ChannelId,
@@ -102,7 +102,7 @@ fn attachments_for_chunk(
 
 /// Send a gateway system message as a v2 Container with accent color.
 /// Falls back to embed on v2 failure. No action rows in GHOST PoC.
-#[tracing::instrument(skip_all, fields(channel_id = %channel_id))]
+#[tracing::instrument(name = "send message", skip_all, fields(channel_id = %channel_id))]
 pub async fn send_gateway_v2(
     http: &Http,
     channel_id: ChannelId,
@@ -190,7 +190,7 @@ pub fn split_discord_message(content: &str) -> Vec<String> {
 }
 
 /// Send plain text messages, splitting at the Discord 2000-char limit.
-#[tracing::instrument(skip_all, fields(channel_id = %channel_id, content_len = content.len()))]
+#[tracing::instrument(name = "send message", skip_all, fields(channel_id = %channel_id, content_len = content.len()))]
 pub async fn send_plain_text(
     http: &Http,
     channel_id: ChannelId,
@@ -254,7 +254,7 @@ pub fn split_discord_embed_description(content: &str) -> Vec<String> {
 }
 
 /// Send a gateway embed (legacy fallback for v2 failures).
-#[tracing::instrument(skip_all, fields(channel_id = %channel_id))]
+#[tracing::instrument(name = "send message", skip_all, fields(channel_id = %channel_id))]
 pub async fn send_gateway_embed_http(
     http: &Http,
     channel_id: ChannelId,

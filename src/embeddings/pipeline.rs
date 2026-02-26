@@ -27,7 +27,7 @@ pub fn content_hash(content: &str) -> String {
 
 /// Embed a single knowledge source. Skips if content hash is unchanged.
 /// Returns the number of chunks embedded (0 if skipped).
-#[tracing::instrument(name = "embed", skip_all, fields(
+#[tracing::instrument(name = "embed source", skip_all, fields(
     source_table = %source_table,
     source_id = ?source_id,
 ))]
@@ -123,7 +123,7 @@ const RECONCILE_PAGE_SIZE: usize = 50;
 
 /// Run boot reconciliation: find sources that need embedding and embed them.
 /// Processes records in pages to avoid loading all knowledge into memory at once.
-#[tracing::instrument(skip_all, fields(
+#[tracing::instrument(name = "reconcile embeddings", skip_all, fields(
     embedded = tracing::field::Empty,
     skipped = tracing::field::Empty,
 ))]

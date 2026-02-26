@@ -121,7 +121,7 @@ impl ToolManager {
         );
 
         let _span = logfire::span!(
-            "tool: {tool_name}",
+            "execute {tool_name}",
             gen_ai.tool.name = tool_name,
             gen_ai.operation.name = "execute_tool",
             params_preview = params_preview,

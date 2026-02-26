@@ -21,7 +21,7 @@ pub struct LoadedJob {
     pub last_run: Option<DateTime<Utc>>,
 }
 
-#[tracing::instrument(skip_all, fields(workspace = %workspace.display()))]
+#[tracing::instrument(name = "load jobs", skip_all, fields(workspace = %workspace.display()))]
 pub fn load_all_jobs(workspace: &Path) -> Vec<LoadedJob> {
     let jobs_dir = workspace.join("jobs");
     let entries = match std::fs::read_dir(&jobs_dir) {
@@ -88,7 +88,7 @@ pub fn load_all_jobs(workspace: &Path) -> Vec<LoadedJob> {
 
 /// Spawn the cron job scheduler. Watches the jobs directory for changes,
 /// reloads job definitions on file events, and executes due jobs each tick.
-#[tracing::instrument(skip_all)]
+#[tracing::instrument(name = "start scheduler", skip_all)]
 pub fn spawn_scheduler(
     task_runner: Arc<TaskRunner>,
     config: Config,
@@ -224,7 +224,7 @@ fn job_to_task_definition(def: &JobDefinition) -> TaskDefinition {
     }
 }
 
-#[tracing::instrument(name = "job", skip_all, fields(
+#[tracing::instrument(name = "execute job", skip_all, fields(
     job_name = %def.name,
     model = %def.model,
 ))]
@@ -289,7 +289,7 @@ async fn execute_job(
 }
 
 /// Run a single job by name (for `ghost job run <name>`).
-#[tracing::instrument(skip_all, fields(job_name = %name))]
+#[tracing::instrument(name = "run job", skip_all, fields(job_name = %name))]
 pub async fn run_job(
     task_runner: &TaskRunner,
     config: &Config,

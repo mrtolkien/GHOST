@@ -144,7 +144,7 @@ impl HeartbeatManager {
     /// Run a single heartbeat: build context from recent messages, invoke the
     /// heartbeat agent, send the response to Discord (or suppress if the agent
     /// returns `HEARTBEAT_CONTINUE`), and trigger post-heartbeat reflection.
-    #[tracing::instrument(name = "heartbeat", skip_all, fields(session_id = ?session_id, interface = %interface))]
+    #[tracing::instrument(name = "run heartbeat", skip_all, fields(session_id = ?session_id, interface = %interface))]
     async fn run_heartbeat(
         &mut self,
         session_id: &str,

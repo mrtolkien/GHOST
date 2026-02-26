@@ -34,7 +34,7 @@ fn crawler_params() -> Value {
     })
 }
 
-#[tracing::instrument(skip_all, fields(url = %page_url))]
+#[tracing::instrument(name = "fetch url", skip_all, fields(url = %page_url))]
 pub async fn fetch_with_crawl4ai(base_url: &str, page_url: &str) -> Result<String, WebError> {
     let endpoint = format!("{}/crawl", base_url.trim_end_matches('/'));
 

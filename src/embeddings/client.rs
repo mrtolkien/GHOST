@@ -35,7 +35,7 @@ impl EmbeddingClient {
         self.batch_size
     }
 
-    #[tracing::instrument(skip_all, fields(
+    #[tracing::instrument(name = "embed batch", skip_all, fields(
         model = %self.model,
         batch_size = inputs.len(),
     ))]

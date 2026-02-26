@@ -88,7 +88,7 @@ impl ReflectionManager {
             .await;
     }
 
-    #[tracing::instrument(name = "reflection", skip_all, fields(
+    #[tracing::instrument(name = "run reflection", skip_all, fields(
         session_id = ?session_id,
         agent_name = %agent_name,
     ))]

@@ -65,8 +65,7 @@ impl TaskRunner {
     /// Start a background agent.
     ///
     /// Returns the agent_id on success.
-    #[tracing::instrument(skip_all, fields(
-        agent_name = %agent_name,
+    #[tracing::instrument(name = "start agent", skip_all, fields(
         gen_ai.agent.name = %agent_name,
     ))]
     pub async fn start(
@@ -126,8 +125,7 @@ impl TaskRunner {
     ///
     /// Creates DB records (session, job_log), runs the agent, finishes
     /// job_log. Returns the final findings message.
-    #[tracing::instrument(skip_all, fields(
-        agent_name = %agent_name,
+    #[tracing::instrument(name = "run agent", skip_all, fields(
         gen_ai.agent.name = %agent_name,
         gen_ai.operation.name = "invoke_agent",
     ))]
@@ -193,8 +191,7 @@ impl TaskRunner {
     /// Like `run_to_completion`, but accepts a definition directly instead
     /// of loading it by name. Useful for cron jobs and other callers that
     /// already have a parsed definition.
-    #[tracing::instrument(skip_all, fields(
-        agent_name = %definition.name,
+    #[tracing::instrument(name = "run agent", skip_all, fields(
         gen_ai.agent.name = %definition.name,
         gen_ai.operation.name = "invoke_agent",
     ))]
@@ -401,7 +398,7 @@ impl TaskRunner {
     /// Looks up the agent name from the job_log, loads the agent definition,
     /// creates a new job_log entry for this continuation, and spawns a task
     /// that resumes the existing session with full history.
-    #[tracing::instrument(skip_all, fields(agent_id = agent_id))]
+    #[tracing::instrument(name = "continue agent", skip_all, fields(agent_id = agent_id))]
     pub async fn continue_task(
         &self,
         agent_id: &str,
@@ -669,7 +666,7 @@ fn build_agent_skills_section(config: &Config, skills: &[String]) -> String {
 }
 
 /// Execute the agent tool loop. Returns the final findings string.
-#[tracing::instrument(name = "agent", skip_all, fields(
+#[tracing::instrument(name = "run agent", skip_all, fields(
     gen_ai.agent.name = %definition.name,
     gen_ai.agent.id = ?agent_session_id,
     gen_ai.operation.name = "invoke_agent",
@@ -733,7 +730,7 @@ async fn run_task(
 
 /// Continue an existing agent session with a new prompt. Loads full history
 /// from DB instead of starting fresh.
-#[tracing::instrument(name = "agent", skip_all, fields(
+#[tracing::instrument(name = "continue agent", skip_all, fields(
     gen_ai.agent.name = %definition.name,
     gen_ai.agent.id = ?agent_session_id,
     gen_ai.operation.name = "invoke_agent",

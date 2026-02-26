@@ -61,7 +61,7 @@ type BootResult = (
     Option<JoinHandle<()>>,
 );
 
-#[tracing::instrument(name = "ghost.startup", skip_all)]
+#[tracing::instrument(name = "boot ghost", skip_all)]
 pub async fn boot() -> Result<BootResult, GhostError> {
     info!("loading config");
     let config = crate::config::load()?;

@@ -207,7 +207,7 @@ impl Handler {
 
 #[async_trait]
 impl EventHandler for Handler {
-    #[tracing::instrument(name="discord.message_receive", skip_all, fields(
+    #[tracing::instrument(name = "receive discord message", skip_all, fields(
         author = %msg.author.name,
         channel_id = %msg.channel_id,
         content_len = msg.content.len()

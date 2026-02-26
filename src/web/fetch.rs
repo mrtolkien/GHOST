@@ -31,7 +31,7 @@ pub(super) fn client() -> &'static reqwest::Client {
 /// For HTML pages, converts to markdown (via htmd) with optional readability
 /// extraction. Falls back to crawl4ai for JS-heavy pages or HTTP errors.
 /// Non-HTML text is returned as-is. Content is truncated to 30K chars.
-#[tracing::instrument(skip_all, fields(url = %url))]
+#[tracing::instrument(name = "fetch url", skip_all, fields(url = %url))]
 pub async fn fetch(
     url: &str,
     options: &FetchOptions,

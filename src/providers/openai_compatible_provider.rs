@@ -23,7 +23,7 @@ pub struct OpenAiCompatibleProvider {
 }
 
 impl OpenAiCompatibleProvider {
-    #[tracing::instrument(skip_all, fields(provider = provider_name, endpoint = endpoint))]
+    #[tracing::instrument(name = "create provider", skip_all, fields(provider = provider_name, endpoint = endpoint))]
     pub fn with_auth_env(
         provider_name: &'static str,
         endpoint: &'static str,
@@ -87,7 +87,7 @@ impl OpenAiCompatibleProvider {
     }
 
     #[tracing::instrument(
-        name = "openai_compatible.request",
+        name = "request completion",
         skip_all,
         fields(
             gen_ai.system = self.provider_name,

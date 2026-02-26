@@ -45,7 +45,7 @@ impl BraveSearchProvider {
     }
 
     /// Execute a web search via the Brave Search API with rate limiting and retries.
-    #[tracing::instrument(skip_all, fields(query = %query))]
+    #[tracing::instrument(name = "search web", skip_all, fields(query = %query))]
     pub async fn search(&self, query: &str) -> Result<Vec<SearchResult>, WebError> {
         for attempt in 0..3 {
             self.wait_for_slot().await;

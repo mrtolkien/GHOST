@@ -14,7 +14,7 @@ use crate::knowledge;
 
 /// Spawn the file watcher. Returns a `JoinHandle` that runs until the
 /// shutdown signal is received.
-#[tracing::instrument(skip_all)]
+#[tracing::instrument(name = "start watcher", skip_all)]
 pub fn spawn_watcher(
     db: GhostDb,
     workspace: PathBuf,
@@ -67,7 +67,11 @@ pub fn spawn_watcher(
 
             for path in &changed_paths {
                 let kind = classify_watcher_kind(&workspace, path);
-                let _span = logfire::span!("watcher: {kind}", path = path.display().to_string(),);
+                let _span = logfire::span!(
+                    "process file_change",
+                    kind = kind,
+                    path = path.display().to_string(),
+                );
                 if let Err(e) = process_change(&db, &workspace, &client, path).await {
                     logfire::warn!(
                         "embedding watcher error",
