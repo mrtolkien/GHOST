@@ -477,7 +477,8 @@ pub fn filter_transcript(messages: &[MessageRecord]) -> String {
                             .map(|v| {
                                 let s = v.to_string();
                                 if s.len() > 200 {
-                                    format!("{}...", &s[..200])
+                                    let end = s.floor_char_boundary(200);
+                                    format!("{}...", &s[..end])
                                 } else {
                                     s
                                 }

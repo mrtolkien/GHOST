@@ -369,7 +369,8 @@ pub(crate) fn extract_reasoning_summary(item: &Value) -> String {
         })
         .unwrap_or_default();
     if summary.len() > 200 {
-        format!("{}...", &summary[..200])
+        let end = summary.floor_char_boundary(200);
+        format!("{}...", &summary[..end])
     } else {
         summary
     }

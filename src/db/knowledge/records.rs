@@ -73,6 +73,8 @@ pub(super) fn truncate_snippet(text: &str, max_len: usize) -> String {
     if first_line.len() <= max_len {
         first_line.to_string()
     } else {
-        format!("{}...", &first_line[..max_len])
+        // Find the nearest char boundary at or before max_len
+        let end = first_line.floor_char_boundary(max_len);
+        format!("{}...", &first_line[..end])
     }
 }
