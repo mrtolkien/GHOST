@@ -31,7 +31,7 @@ pub enum DiscordError {
 }
 
 /// Handle for sending messages to Discord channels from outside the event
-/// handler (e.g. heartbeat/reflection jobs).
+/// handler (e.g. reflection jobs).
 #[derive(Debug, Clone)]
 pub struct DiscordSender {
     http: Arc<Http>,

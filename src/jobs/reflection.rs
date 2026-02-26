@@ -1,11 +1,13 @@
 use std::path::Path;
 use std::sync::Arc;
+use std::time::Duration;
 
 use chrono::{DateTime, Utc};
 use surrealdb::Surreal;
 use surrealdb::engine::local::Db;
 use surrealdb::types::RecordId;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, watch};
+use tokio::task::JoinHandle;
 
 use regex::Regex;
 use std::sync::LazyLock;
@@ -36,8 +38,11 @@ impl ReflectionManager {
     }
 
     /// Run reflection for a chat session, skipping if no new messages since
-    /// the last reflection ran.
+    /// the last reflection ran. Fully serialized: dedup check and execution
+    /// happen inside the mutex to prevent concurrent reflections.
     pub async fn run_chat_reflection(&self, session_id: &str, session_thing: &RecordId) {
+        let _guard = self.running.lock().await;
+
         // Skip if no new messages since last reflection
         let state_path = self
             .config
@@ -67,33 +72,102 @@ impl ReflectionManager {
             }
         }
 
-        self.run(session_id, session_thing, "chat-reflection").await;
-    }
-
-    /// Run reflection on reboot — always runs, no skip logic.
-    #[tracing::instrument(skip_all, fields(session_id = ?session_id))]
-    pub async fn run_on_reboot(&self, session_id: &str, session_thing: &RecordId) {
-        self.run(session_id, session_thing, "chat-reflection").await;
-    }
-
-    /// Run reflection after an agent handoff on the agent's own session.
-    pub async fn run_after_agent_handoff(&self, agent_session_thing: &RecordId) {
-        let session_id = crate::db::fmt_id(agent_session_thing);
-        self.run(&session_id, agent_session_thing, "reflection")
+        self.run_inner(session_id, session_thing, "chat-reflection")
             .await;
     }
 
+    /// Run reflection after an agent handoff on the agent's own session.
+    /// Fully serialized via the mutex.
+    pub async fn run_after_agent_handoff(&self, agent_session_thing: &RecordId) {
+        let _guard = self.running.lock().await;
+        let session_id = crate::db::fmt_id(agent_session_thing);
+        self.run_inner(&session_id, agent_session_thing, "reflection")
+            .await;
+    }
+
+    /// Spawn a background task that polls for idle chat sessions and triggers
+    /// reflection. Checks every 60 seconds; fires `run_chat_reflection` when
+    /// a session has been idle for `reflection_idle_minutes`.
+    pub fn spawn_idle_watcher(
+        self: &Arc<Self>,
+        mut shutdown: watch::Receiver<bool>,
+    ) -> JoinHandle<()> {
+        let reflection = Arc::clone(self);
+        let idle_minutes = reflection.config.timing.reflection_idle_minutes;
+        logfire::info!(
+            "reflection idle watcher started",
+            idle_minutes = idle_minutes,
+        );
+
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(Duration::from_secs(60));
+
+            loop {
+                tokio::select! {
+                    _ = interval.tick() => {
+                        reflection.check_idle_sessions().await;
+                    }
+                    _ = shutdown.changed() => {
+                        logfire::info!("reflection idle watcher shutting down");
+                        break;
+                    }
+                }
+            }
+        })
+    }
+
+    /// Scan all active interface sessions and trigger chat reflection for
+    /// any that have been idle beyond the configured threshold.
+    async fn check_idle_sessions(&self) {
+        let sessions = match db::interface_sessions::list_all_interface_sessions(&self.db).await {
+            Ok(s) => s,
+            Err(e) => {
+                logfire::warn!(
+                    "reflection watcher: failed to list sessions",
+                    error = e.to_string(),
+                );
+                return;
+            }
+        };
+
+        let now = Utc::now();
+        let idle_threshold =
+            chrono::Duration::minutes(self.config.timing.reflection_idle_minutes as i64);
+
+        for record in sessions {
+            let session_id = crate::db::fmt_id(&record.session);
+
+            let session = match db::sessions::get_session(&self.db, &record.session).await {
+                Ok(s) => s,
+                Err(e) => {
+                    logfire::warn!(
+                        "reflection watcher: failed to load session",
+                        session_id = session_id.clone(),
+                        error = e.to_string(),
+                    );
+                    continue;
+                }
+            };
+
+            if session.status != "active" {
+                continue;
+            }
+
+            let last_activity: DateTime<Utc> = *session.last_activity_at;
+            if now - last_activity < idle_threshold {
+                continue;
+            }
+
+            self.run_chat_reflection(&session_id, &record.session).await;
+        }
+    }
+
+    /// Inner reflection logic — assumes the caller already holds the mutex.
     #[tracing::instrument(name = "run reflection", skip_all, fields(
         session_id = ?session_id,
         agent_name = %agent_name,
     ))]
-    /// Run a reflection cycle: build context from the session transcript and
-    /// web cache, invoke the reflection agent, save the handoff note, and
-    /// curate cached references into the knowledge base.
-    pub async fn run(&self, session_id: &str, session_thing: &RecordId, agent_name: &str) {
-        // Sequential: wait for any running reflection to finish first
-        let _guard = self.running.lock().await;
-
+    async fn run_inner(&self, session_id: &str, session_thing: &RecordId, agent_name: &str) {
         logfire::info!("reflection started", session_id = session_id.to_string(),);
 
         // Build user message and capture classified cache files for post-processing

@@ -119,8 +119,6 @@ mod tests {
                 dimension: 1024,
             },
             timing: TimingConfig {
-                heartbeat_idle_minutes: 30,
-                heartbeat_check_seconds: 60,
                 reflection_idle_minutes: 120,
                 scheduler_tick_seconds: 10,
             },
@@ -187,7 +185,7 @@ mod tests {
 
         let with_vars = renderer
             .render_job_prompt(
-                "heartbeat",
+                "reflection",
                 &JobPromptContext {
                     prompt_body: "H:{{ previous_handoff }} D:{{ diary_today }}".to_string(),
                     previous_handoff: Some("all good".to_string()),

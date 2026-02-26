@@ -17,7 +17,7 @@ pub async fn run() -> Result<(), GhostError> {
         watcher_handle,
         scheduler_handle,
         discord_result,
-        heartbeat_handle,
+        reflection_watcher_handle,
         agent_watcher_handle,
     ) = boot().await?;
 
@@ -37,12 +37,12 @@ pub async fn run() -> Result<(), GhostError> {
         let _ = tokio::signal::ctrl_c().await;
     }
 
-    // Signal shutdown to watcher, scheduler, heartbeat, and agent watcher
+    // Signal shutdown to watcher, scheduler, reflection watcher, and agent watcher
     let _ = shutdown_tx.send(true);
     let _ = watcher_handle.await;
     let _ = scheduler_handle.await;
-    if let Some(hb_handle) = heartbeat_handle {
-        let _ = hb_handle.await;
+    if let Some(rw_handle) = reflection_watcher_handle {
+        let _ = rw_handle.await;
     }
     if let Some(aw_handle) = agent_watcher_handle {
         let _ = aw_handle.await;
@@ -111,7 +111,7 @@ pub async fn boot() -> Result<BootResult, GhostError> {
         shutdown_rx.clone(),
     );
 
-    // Create agent runner (shared between SessionChat, scheduler, heartbeat, agent watcher)
+    // Create agent runner (shared between SessionChat, scheduler, agent watcher)
     let task_runner = Arc::new(TaskRunner::new(db.clone(), config.clone()));
 
     // Spawn the job scheduler
@@ -128,8 +128,8 @@ pub async fn boot() -> Result<BootResult, GhostError> {
 
     let discord_result = discord::start_discord(&config, session_chat.clone(), db.clone()).await?;
 
-    // Spawn agent watcher (only if Discord is available)
-    let heartbeat_handle;
+    // Spawn agent watcher + reflection idle watcher (only if Discord is available)
+    let reflection_watcher_handle;
     let agent_watcher_handle;
 
     if let Some((ref sender, _)) = discord_result {
@@ -151,10 +151,10 @@ pub async fn boot() -> Result<BootResult, GhostError> {
             shutdown_rx.clone(),
         ));
 
-        // Heartbeat disabled — see specs/backlog/0001_heartbeat_reactivation.md
-        heartbeat_handle = None;
+        // Reflection idle watcher — triggers chat reflection after idle period
+        reflection_watcher_handle = Some(reflection.spawn_idle_watcher(shutdown_rx.clone()));
     } else {
-        heartbeat_handle = None;
+        reflection_watcher_handle = None;
         agent_watcher_handle = None;
     };
 
@@ -163,7 +163,7 @@ pub async fn boot() -> Result<BootResult, GhostError> {
         watcher_handle,
         scheduler_handle,
         discord_result,
-        heartbeat_handle,
+        reflection_watcher_handle,
         agent_watcher_handle,
     ))
 }

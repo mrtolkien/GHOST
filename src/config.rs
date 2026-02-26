@@ -114,8 +114,6 @@ pub struct EmbeddingsSettings {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct TimingSettings {
-    pub heartbeat_idle_minutes: Option<u64>,
-    pub heartbeat_check_seconds: Option<u64>,
     pub reflection_idle_minutes: Option<u64>,
     pub scheduler_tick_seconds: Option<u64>,
 }
@@ -199,8 +197,6 @@ pub struct EmbeddingsConfig {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct TimingConfig {
-    pub heartbeat_idle_minutes: u64,
-    pub heartbeat_check_seconds: u64,
     pub reflection_idle_minutes: u64,
     pub scheduler_tick_seconds: u64,
 }
@@ -344,21 +340,11 @@ impl Config {
                     .unwrap_or(1024),
             },
             timing: TimingConfig {
-                heartbeat_idle_minutes: settings
-                    .timing
-                    .as_ref()
-                    .and_then(|t| t.heartbeat_idle_minutes)
-                    .unwrap_or(4),
-                heartbeat_check_seconds: settings
-                    .timing
-                    .as_ref()
-                    .and_then(|t| t.heartbeat_check_seconds)
-                    .unwrap_or(60),
                 reflection_idle_minutes: settings
                     .timing
                     .as_ref()
                     .and_then(|t| t.reflection_idle_minutes)
-                    .unwrap_or(4),
+                    .unwrap_or(10),
                 scheduler_tick_seconds: settings
                     .timing
                     .as_ref()
@@ -537,9 +523,7 @@ pub fn test_config(workspace: &std::path::Path) -> Config {
             dimension: 1024,
         },
         timing: TimingConfig {
-            heartbeat_idle_minutes: 4,
-            heartbeat_check_seconds: 60,
-            reflection_idle_minutes: 4,
+            reflection_idle_minutes: 10,
             scheduler_tick_seconds: 10,
         },
         compaction: CompactionConfig {

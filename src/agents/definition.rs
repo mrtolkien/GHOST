@@ -147,10 +147,6 @@ const DEFAULT_TASKS: &[(&str, &str)] = &[
         include_str!("../../prompts/agents/deep-research.md"),
     ),
     (
-        "heartbeat",
-        include_str!("../../prompts/agents/heartbeat.md"),
-    ),
-    (
         "reflection",
         include_str!("../../prompts/agents/reflection.md"),
     ),
@@ -404,20 +400,6 @@ mod tests {
 
         let pressure = def.context_pressure.as_ref().expect("context_pressure");
         assert_eq!(pressure.threshold_chars, 250_000);
-    }
-
-    #[test]
-    fn default_heartbeat_agent_parses() {
-        let content = include_str!("../../prompts/agents/heartbeat.md");
-        let def = parse_task_file(content).unwrap();
-        assert_eq!(def.name, "heartbeat");
-        assert!(def.tools.contains(&"read_file".to_string()));
-        assert!(def.tools.contains(&"agent_control".to_string()));
-        assert!(def.system_prompt_template.contains("{{ date }}"));
-        assert!(def.system_prompt_template.contains("HEARTBEAT_CONTINUE"));
-        assert!(def.progress_rules.is_empty());
-        assert_eq!(def.max_iterations, 10);
-        assert_eq!(def.skills, vec!["knowledge-navigator"]);
     }
 
     #[test]

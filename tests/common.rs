@@ -321,23 +321,6 @@ impl LiveTestEnv {
     // Job runners
     // -----------------------------------------------------------------
 
-    /// Run heartbeat on a session via the agent runner.
-    ///
-    /// Returns the heartbeat response string (either a message or
-    /// "HEARTBEAT_CONTINUE").
-    pub async fn run_heartbeat(&self, session_id: &RecordId) -> String {
-        let messages = ghost::db::sessions::list_messages_by_session(&self.db, session_id)
-            .await
-            .expect("list messages");
-        let transcript = ghost::jobs::heartbeat::format_recent_messages(&messages, 20);
-        let user_message = ghost::jobs::heartbeat::build_heartbeat_user_message(&transcript);
-
-        self.task_runner
-            .run_to_completion("heartbeat", &user_message, Some(session_id))
-            .await
-            .expect("heartbeat run_to_completion")
-    }
-
     /// Run reflection on a session via the agent runner.
     ///
     /// Returns the findings string (the agent's final message, saved as
