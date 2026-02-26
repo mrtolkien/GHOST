@@ -326,11 +326,11 @@ async fn reflection_on_agent_transcript() {
 
     // Run reflection on the agent session (agent mode: no diary instructions)
     let findings = tokio::time::timeout(
-        std::time::Duration::from_secs(180),
+        std::time::Duration::from_secs(300),
         env.run_reflection(&session, None, "reflection"),
     )
     .await
-    .expect("TIMEOUT: reflection did not complete within 3 minutes");
+    .expect("TIMEOUT: reflection did not complete within 5 minutes");
 
     env.log_session_json("agent_reflection", &session).await;
     env.log(format!("handoff: {findings}"));

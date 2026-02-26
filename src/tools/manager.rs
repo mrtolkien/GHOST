@@ -93,7 +93,7 @@ impl ToolManager {
         self.tools.values().map(|tool| tool.schema()).collect()
     }
 
-    #[tracing::instrument(name = "run tool {tool_name}", skip_all, fields(
+    #[tracing::instrument(name = "run tool", skip_all, fields(
         gen_ai.tool.name=%tool_name,
         gen_ai.tool.call.arguments=%params
     ))]

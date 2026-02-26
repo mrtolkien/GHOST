@@ -189,7 +189,7 @@ pub(super) fn build_codex_request_body(
         tool_choice,
         include: Some(vec!["reasoning.encrypted_content".to_string()]),
         reasoning: Some(CodexReasoning {
-            effort: "high".to_string(),
+            effort: "medium".to_string(),
         }),
         prompt_cache_key: cache_key,
         prompt_cache_retention: None,
@@ -917,7 +917,7 @@ mod tests {
     }
 
     #[test]
-    fn build_request_includes_reasoning_effort_high() {
+    fn build_request_includes_reasoning_effort_medium() {
         let request = ChatRequest {
             messages: vec![ChatMessage {
                 role: Role::User,
@@ -936,6 +936,6 @@ mod tests {
 
         let body = build_codex_request_body(&request).expect("request body");
         let json = serde_json::to_value(&body).expect("serialize");
-        assert_eq!(json["reasoning"]["effort"], "high");
+        assert_eq!(json["reasoning"]["effort"], "medium");
     }
 }

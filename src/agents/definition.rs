@@ -383,14 +383,12 @@ mod tests {
         assert!(def.tools.contains(&"web_fetch".to_string()));
         assert!(def.tools.contains(&"todo".to_string()));
         assert!(def.system_prompt_template.contains("{{ date }}"));
-        assert_eq!(
-            def.progress_rules.len(),
-            1,
-            "deep-research has one progress rule for web_fetch"
+        assert!(
+            def.progress_rules.is_empty(),
+            "deep-research has no progress rules (reasoning=high makes them unnecessary)"
         );
-        assert_eq!(def.progress_rules[0].tool, "web_fetch");
 
-        // Nudge configs should all be present
+        // Nudge configs
         let gate = def.progress_gate.as_ref().expect("progress_gate");
         assert!(gate.no_todo.contains("REJECTED"));
         assert!(gate.incomplete.contains("{incomplete}"));
@@ -399,9 +397,10 @@ mod tests {
         assert_eq!(temporal.after_seconds, 300);
         assert!(temporal.message.contains("{minutes}"));
 
-        let recency = def.recency.as_ref().expect("recency");
-        assert_eq!(recency.tool, "web_fetch");
-        assert_eq!(recency.window, 3);
+        assert!(
+            def.recency.is_none(),
+            "recency removed — unnecessary with reasoning=high"
+        );
 
         let pressure = def.context_pressure.as_ref().expect("context_pressure");
         assert_eq!(pressure.threshold_chars, 250_000);
@@ -432,19 +431,14 @@ mod tests {
             def.system_prompt_template
                 .contains("{{ skill:note-writer }}")
         );
-        assert_eq!(def.progress_rules.len(), 1);
+        assert!(def.progress_rules.is_empty());
         assert_eq!(def.skills, vec!["knowledge-navigator"]);
 
-        // Reflection has no nudge configs — none of the new nudges fire
+        // Reflection has no nudge configs
         assert!(def.progress_gate.is_none());
         assert!(def.temporal.is_none());
         assert!(def.recency.is_none());
         assert!(def.context_pressure.is_none());
-
-        let note_rule = &def.progress_rules[0];
-        assert_eq!(note_rule.tool, "note_write");
-        assert!(note_rule.min.is_none());
-        assert!(note_rule.nudge.is_some());
     }
 
     #[test]
@@ -455,7 +449,7 @@ mod tests {
         assert!(def.tools.contains(&"note_write".to_string()));
         assert!(def.tools.contains(&"write_file".to_string()));
         assert!(def.system_prompt_template.contains("{{ date }}"));
-        assert_eq!(def.progress_rules.len(), 1);
+        assert!(def.progress_rules.is_empty());
         assert_eq!(def.skills, vec!["knowledge-navigator", "note-writer"]);
     }
 

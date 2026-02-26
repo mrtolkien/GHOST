@@ -12,11 +12,6 @@ skills:
   - knowledge-navigator
   - note-writer
 max_iterations: 30
-progress:
-  - tool: note_write
-    nudge:
-      "You have written {count} notes. Is this enough to cover all the new information
-      from the conversation?"
 ---
 
 # Chat Reflection — Diary & Identity Curator

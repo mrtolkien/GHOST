@@ -11,11 +11,6 @@ tools:
 skills:
   - knowledge-navigator
 max_iterations: 60
-progress:
-  - tool: note_write
-    nudge:
-      "You have written {count} notes so far. Is this enough to cover all the new
-      information from the conversation?"
 ---
 
 # Reflection Mode — Knowledge Extractor
