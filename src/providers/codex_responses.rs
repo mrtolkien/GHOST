@@ -20,9 +20,17 @@ pub(super) struct CodexResponsesRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub include: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub reasoning: Option<CodexReasoning>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub prompt_cache_key: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub prompt_cache_retention: Option<String>,
+}
+
+/// Codex Responses API reasoning configuration.
+#[derive(Debug, Serialize)]
+pub(super) struct CodexReasoning {
+    pub effort: String,
 }
 
 /// Responses API uses a flat tool format (no nested `function` object).
@@ -180,6 +188,9 @@ pub(super) fn build_codex_request_body(
         tools,
         tool_choice,
         include: Some(vec!["reasoning.encrypted_content".to_string()]),
+        reasoning: Some(CodexReasoning {
+            effort: "high".to_string(),
+        }),
         prompt_cache_key: cache_key,
         prompt_cache_retention: None,
     })
@@ -903,5 +914,28 @@ mod tests {
         let json = serde_json::to_value(&body).expect("serialize");
         let include = json["include"].as_array().expect("include array");
         assert!(include.contains(&json!("reasoning.encrypted_content")));
+    }
+
+    #[test]
+    fn build_request_includes_reasoning_effort_high() {
+        let request = ChatRequest {
+            messages: vec![ChatMessage {
+                role: Role::User,
+                content: vec![ContentBlock::Text {
+                    text: "hello".to_string(),
+                }],
+            }],
+            model: "gpt-5.3-codex".to_string(),
+            tools: None,
+            max_tokens: None,
+            temperature: None,
+            system: None,
+            cache_key: "test".to_string(),
+            debug_context: None,
+        };
+
+        let body = build_codex_request_body(&request).expect("request body");
+        let json = serde_json::to_value(&body).expect("serialize");
+        assert_eq!(json["reasoning"]["effort"], "high");
     }
 }

@@ -15,6 +15,9 @@ pub(crate) struct ChatCompletionsRequest {
     pub(crate) max_tokens: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) temperature: Option<f32>,
+    /// OpenRouter unified reasoning effort (maps to provider-native parameters).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) reasoning_effort: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -122,6 +125,7 @@ pub(crate) fn build_request_body(request: &ChatRequest) -> ChatCompletionsReques
             .map(|tools| tools.iter().map(convert_tool).collect()),
         max_tokens: request.max_tokens,
         temperature: request.temperature,
+        reasoning_effort: Some("high".to_string()),
     }
 }
 

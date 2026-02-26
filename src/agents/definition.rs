@@ -383,10 +383,12 @@ mod tests {
         assert!(def.tools.contains(&"web_fetch".to_string()));
         assert!(def.tools.contains(&"todo".to_string()));
         assert!(def.system_prompt_template.contains("{{ date }}"));
-        assert!(
-            def.progress_rules.is_empty(),
-            "deep-research relies on TODO-based progress gate, not periodic nudges"
+        assert_eq!(
+            def.progress_rules.len(),
+            1,
+            "deep-research has one progress rule for web_fetch"
         );
+        assert_eq!(def.progress_rules[0].tool, "web_fetch");
 
         // Nudge configs should all be present
         let gate = def.progress_gate.as_ref().expect("progress_gate");
