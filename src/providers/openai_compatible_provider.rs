@@ -211,6 +211,10 @@ impl OpenAiCompatibleProvider {
 
         self.circuit_breaker.record_success(&request.model);
 
+        let response_json = serde_json::to_string(&parsed.content)
+            .unwrap_or_else(|e| format!("<serialization failed: {e}>"));
+        logfire::info!("provider response content", content = response_json);
+
         let tool_call_summary: String = parsed
             .content
             .iter()
