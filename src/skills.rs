@@ -14,7 +14,10 @@ const DEFAULT_SKILLS: &[(&str, &str)] = &[
         "note-writer",
         include_str!("../prompts/skills/note-writer.md"),
     ),
-    ("research", include_str!("../prompts/skills/research.md")),
+    (
+        "deep-research",
+        include_str!("../prompts/skills/deep-research.md"),
+    ),
     (
         "skill-creator",
         include_str!("../prompts/skills/skill-creator.md"),
