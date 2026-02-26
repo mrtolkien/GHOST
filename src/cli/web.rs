@@ -1,11 +1,12 @@
 use clap::Subcommand;
 
+use crate::config::SearchProviderConfig;
 use crate::error::GhostError;
-use crate::web::{self, BraveSearchProvider};
+use crate::web::{self, BraveSearchProvider, SearxngSearchProvider, format_search_metadata};
 
 #[derive(Debug, Subcommand)]
 pub enum WebCommand {
-    /// Search the web using Brave Search API
+    /// Search the web (Brave or SearXNG, based on config)
     Search {
         query: String,
         /// Maximum number of results
@@ -31,15 +32,23 @@ pub async fn execute(command: WebCommand) -> Result<(), GhostError> {
 
     match command {
         WebCommand::Search { query, max_results } => {
-            let api_key = std::env::var("BRAVE_API_KEY").map_err(|_| {
-                crate::web::WebError::MissingApiKey {
-                    name: "BRAVE_API_KEY",
-                }
-            })?;
-
             let max = max_results.unwrap_or(config.web.search_max_results);
-            let provider = BraveSearchProvider::new(&api_key, max)?;
-            let results = provider.search(&query).await?;
+
+            let results = match &config.web.search_provider {
+                SearchProviderConfig::Brave => {
+                    let api_key = std::env::var("BRAVE_API_KEY").map_err(|_| {
+                        crate::web::WebError::MissingApiKey {
+                            name: "BRAVE_API_KEY",
+                        }
+                    })?;
+                    let provider = BraveSearchProvider::new(&api_key, max)?;
+                    provider.search(&query).await?
+                }
+                SearchProviderConfig::Searxng { url } => {
+                    let provider = SearxngSearchProvider::new(url, max)?;
+                    provider.search(&query).await?
+                }
+            };
 
             if let Err(e) = web::save_search_cache(&config.workspace, &query, &results) {
                 logfire::warn!("failed to cache search results", error = e.to_string(),);
@@ -50,6 +59,9 @@ pub async fn execute(command: WebCommand) -> Result<(), GhostError> {
                 println!("   {}", result.url);
                 if let Some(snippet) = &result.snippet {
                     println!("   {snippet}");
+                }
+                if let Some(meta) = format_search_metadata(result) {
+                    println!("   {meta}");
                 }
                 println!();
             }

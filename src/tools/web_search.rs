@@ -1,8 +1,11 @@
 use async_trait::async_trait;
 use serde_json::{Value, json};
 
+use crate::config::SearchProviderConfig;
 use crate::providers::ToolDefinition;
-use crate::web::{BraveSearchProvider, save_search_cache};
+use crate::web::{
+    BraveSearchProvider, SearxngSearchProvider, format_search_metadata, save_search_cache,
+};
 
 use super::context::ToolContext;
 use super::error::ToolError;
@@ -55,17 +58,29 @@ impl Tool for WebSearch {
             .map(|n| n as usize)
             .unwrap_or(ctx.config.web.search_max_results);
 
-        let api_key = std::env::var("BRAVE_API_KEY").map_err(|_| {
-            ToolError::InvalidParams("BRAVE_API_KEY environment variable not set".to_string())
-        })?;
-
-        let provider = BraveSearchProvider::new(&api_key, max_results)
-            .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
-
-        let results = provider
-            .search(query)
-            .await
-            .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
+        let results = match &ctx.config.web.search_provider {
+            SearchProviderConfig::Brave => {
+                let api_key = std::env::var("BRAVE_API_KEY").map_err(|_| {
+                    ToolError::InvalidParams(
+                        "BRAVE_API_KEY environment variable not set".to_string(),
+                    )
+                })?;
+                let provider = BraveSearchProvider::new(&api_key, max_results)
+                    .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
+                provider
+                    .search(query)
+                    .await
+                    .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?
+            }
+            SearchProviderConfig::Searxng { url } => {
+                let provider = SearxngSearchProvider::new(url, max_results)
+                    .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
+                provider
+                    .search(query)
+                    .await
+                    .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?
+            }
+        };
 
         // Cache results for reflection to curate later
         if let Err(e) = save_search_cache(&ctx.workspace, query, &results) {
@@ -79,6 +94,9 @@ impl Tool for WebSearch {
             output.push_str(&format!("   {}\n", result.url));
             if let Some(snippet) = &result.snippet {
                 output.push_str(&format!("   {snippet}\n"));
+            }
+            if let Some(meta) = format_search_metadata(result) {
+                output.push_str(&format!("   {meta}\n"));
             }
             output.push('\n');
         }

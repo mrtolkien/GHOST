@@ -2,10 +2,14 @@ mod browser;
 mod cache;
 mod fetch;
 mod search;
+mod searxng;
 mod types;
 
 pub use browser::fetch_with_crawl4ai;
-pub use cache::{save_fetch_cache, save_search_cache, scan_web_cache, slug_from_url};
+pub use cache::{
+    format_search_metadata, save_fetch_cache, save_search_cache, scan_web_cache, slug_from_url,
+};
 pub use fetch::fetch;
 pub use search::BraveSearchProvider;
+pub use searxng::SearxngSearchProvider;
 pub use types::{ExtractedContent, FetchOptions, SearchResult, WebError};

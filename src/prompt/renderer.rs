@@ -98,7 +98,7 @@ mod tests {
     fn test_config(workspace: &std::path::Path) -> Config {
         use crate::config::{
             CompactionConfig, DebugConfig, DiscordConfig, EmbeddingsConfig, ModelsConfig,
-            TimingConfig, WebConfig,
+            SearchProviderConfig, TimingConfig, WebConfig,
         };
         use std::collections::BTreeMap;
 
@@ -132,6 +132,7 @@ mod tests {
             web: WebConfig {
                 search_max_results: 5,
                 crawl4ai_url: None,
+                search_provider: SearchProviderConfig::Brave,
             },
             debug: DebugConfig {
                 save_requests: false,

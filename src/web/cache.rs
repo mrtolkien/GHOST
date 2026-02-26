@@ -6,6 +6,43 @@ use super::{ExtractedContent, SearchResult, WebError};
 
 const WEB_CACHE_DIR: &str = ".web-cache";
 
+/// Format SearXNG-specific metadata into a "Sources: ... · score: N" line.
+/// Returns `None` when no metadata is present (e.g. Brave results).
+pub fn format_search_metadata(result: &SearchResult) -> Option<String> {
+    let mut parts = Vec::new();
+
+    if let (Some(engines), Some(positions)) = (&result.engines, &result.positions) {
+        let sources: Vec<String> = engines
+            .iter()
+            .zip(positions.iter())
+            .map(|(e, p)| format!("{e} #{p}"))
+            .collect();
+        if !sources.is_empty() {
+            parts.push(format!("Sources: {}", sources.join(", ")));
+        }
+    } else if let Some(engines) = &result.engines
+        && !engines.is_empty()
+    {
+        parts.push(format!("Sources: {}", engines.join(", ")));
+    }
+
+    if let Some(score) = result.score {
+        parts.push(format!("score: {score:.1}"));
+    }
+
+    if let Some(date) = &result.published_date
+        && !date.is_empty()
+    {
+        parts.push(date.clone());
+    }
+
+    if parts.is_empty() {
+        None
+    } else {
+        Some(parts.join(" · "))
+    }
+}
+
 pub fn save_fetch_cache(
     workspace: &Path,
     url: &str,
@@ -58,6 +95,9 @@ pub fn save_search_cache(
         body.push_str(&format!("   {}\n", result.url));
         if let Some(snippet) = &result.snippet {
             body.push_str(&format!("   {snippet}\n"));
+        }
+        if let Some(meta) = format_search_metadata(result) {
+            body.push_str(&format!("   {meta}\n"));
         }
         body.push('\n');
     }
@@ -225,11 +265,19 @@ mod tests {
                 title: "First Result".to_string(),
                 url: "https://example.com/1".to_string(),
                 snippet: Some("A snippet".to_string()),
+                engines: None,
+                positions: None,
+                score: None,
+                published_date: None,
             },
             SearchResult {
                 title: "Second Result".to_string(),
                 url: "https://example.com/2".to_string(),
                 snippet: None,
+                engines: None,
+                positions: None,
+                score: None,
+                published_date: None,
             },
         ];
 
@@ -288,6 +336,10 @@ mod tests {
             title: "Result".to_string(),
             url: "https://example.com".to_string(),
             snippet: None,
+            engines: None,
+            positions: None,
+            score: None,
+            published_date: None,
         }];
         save_search_cache(&workspace, "rust tutorials", &results).unwrap();
 

@@ -43,6 +43,14 @@ pub struct SearchResult {
     pub title: String,
     pub url: String,
     pub snippet: Option<String>,
+    /// Which search engines found this result (SearXNG only).
+    pub engines: Option<Vec<String>>,
+    /// Position of this result in each engine's ranking (SearXNG only).
+    pub positions: Option<Vec<u32>>,
+    /// Aggregated relevance score (SearXNG only).
+    pub score: Option<f64>,
+    /// Publication date as returned by the search engine (SearXNG only).
+    pub published_date: Option<String>,
 }
 
 #[derive(Debug, Clone)]

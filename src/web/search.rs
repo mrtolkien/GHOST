@@ -98,6 +98,10 @@ impl BraveSearchProvider {
                     title: item.title.unwrap_or_else(|| "(untitled)".to_string()),
                     url: item.url.unwrap_or_default(),
                     snippet: item.description,
+                    engines: None,
+                    positions: None,
+                    score: None,
+                    published_date: None,
                 })
                 .collect();
 

@@ -60,6 +60,9 @@ pub enum ConfigError {
 
     #[error("models.default is required when multiple model aliases are defined")]
     MissingDefaultModelAlias,
+
+    #[error("web.search.url is required when provider is 'searxng'")]
+    MissingSearxngUrl,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -130,6 +133,21 @@ pub struct CompactionSettings {
 pub struct WebSettings {
     pub search_max_results: Option<usize>,
     pub crawl4ai_url: Option<String>,
+    pub search: Option<SearchProviderSettings>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct SearchProviderSettings {
+    pub provider: SearchProviderKind,
+    pub url: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SearchProviderKind {
+    Brave,
+    Searxng,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -198,6 +216,13 @@ pub struct CompactionConfig {
 pub struct WebConfig {
     pub search_max_results: usize,
     pub crawl4ai_url: Option<String>,
+    pub search_provider: SearchProviderConfig,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub enum SearchProviderConfig {
+    Brave,
+    Searxng { url: String },
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -357,13 +382,25 @@ impl Config {
                     .and_then(|c| c.mask_preview_chars)
                     .unwrap_or(100),
             },
-            web: WebConfig {
-                search_max_results: settings
-                    .web
-                    .as_ref()
-                    .and_then(|w| w.search_max_results)
-                    .unwrap_or(5),
-                crawl4ai_url: settings.web.as_ref().and_then(|w| w.crawl4ai_url.clone()),
+            web: {
+                let search_provider = match settings.web.as_ref().and_then(|w| w.search.as_ref()) {
+                    Some(s) => match s.provider {
+                        SearchProviderKind::Brave => SearchProviderConfig::Brave,
+                        SearchProviderKind::Searxng => SearchProviderConfig::Searxng {
+                            url: s.url.clone().ok_or(ConfigError::MissingSearxngUrl)?,
+                        },
+                    },
+                    None => SearchProviderConfig::Brave,
+                };
+                WebConfig {
+                    search_max_results: settings
+                        .web
+                        .as_ref()
+                        .and_then(|w| w.search_max_results)
+                        .unwrap_or(5),
+                    crawl4ai_url: settings.web.as_ref().and_then(|w| w.crawl4ai_url.clone()),
+                    search_provider,
+                }
             },
             debug: DebugConfig {
                 save_requests: settings
@@ -513,6 +550,7 @@ pub fn test_config(workspace: &std::path::Path) -> Config {
         web: WebConfig {
             search_max_results: 5,
             crawl4ai_url: None,
+            search_provider: SearchProviderConfig::Brave,
         },
         debug: DebugConfig {
             save_requests: false,
