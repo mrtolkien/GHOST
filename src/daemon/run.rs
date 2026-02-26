@@ -9,7 +9,7 @@ use crate::chat::SessionChat;
 use crate::embeddings::EmbeddingClient;
 use crate::error::GhostError;
 use crate::interfaces::discord::{self, DiscordSender};
-use crate::jobs::{HeartbeatManager, ReflectionManager};
+use crate::jobs::ReflectionManager;
 
 pub async fn run() -> Result<(), GhostError> {
     let (
@@ -128,7 +128,7 @@ pub async fn boot() -> Result<BootResult, GhostError> {
 
     let discord_result = discord::start_discord(&config, session_chat.clone(), db.clone()).await?;
 
-    // Spawn heartbeat manager and agent watcher (only if Discord is available)
+    // Spawn agent watcher (only if Discord is available)
     let heartbeat_handle;
     let agent_watcher_handle;
 
@@ -151,14 +151,8 @@ pub async fn boot() -> Result<BootResult, GhostError> {
             shutdown_rx.clone(),
         ));
 
-        let hb = HeartbeatManager::new(
-            db.clone(),
-            Arc::clone(&task_runner),
-            discord_sender,
-            config.clone(),
-            reflection,
-        );
-        heartbeat_handle = Some(hb.spawn(shutdown_rx));
+        // Heartbeat disabled — see specs/backlog/0001_heartbeat_reactivation.md
+        heartbeat_handle = None;
     } else {
         heartbeat_handle = None;
         agent_watcher_handle = None;
