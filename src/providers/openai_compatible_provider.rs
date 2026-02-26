@@ -87,7 +87,7 @@ impl OpenAiCompatibleProvider {
     }
 
     #[tracing::instrument(
-        name = "llm",
+        name = "openai_compatible.request",
         skip_all,
         fields(
             gen_ai.system = self.provider_name,
@@ -104,6 +104,8 @@ impl OpenAiCompatibleProvider {
             tool_calls = tracing::field::Empty,
         )
     )]
+    /// Send a chat request to the OpenAI-compatible endpoint, handling circuit
+    /// breaking, debug logging, error classification, and OTel span recording.
     async fn send_request(&self, request: &ChatRequest) -> Result<ChatResponse, ProviderError> {
         if let Some(retry_after_secs) = self.circuit_breaker.check(&request.model) {
             return Err(ProviderError::CircuitOpen {
@@ -116,7 +118,7 @@ impl OpenAiCompatibleProvider {
         let request_json =
             serde_json::to_string(&body).unwrap_or_else(|e| format!("<serialization failed: {e}>"));
         let started = Instant::now();
-        logfire::debug!("provider request body", body = request_json.clone());
+        logfire::info!("provider request body", body = request_json.clone());
         let http_response = self.client.post(&self.endpoint).json(&body).send().await?;
         let status = http_response.status();
         let retry_after_secs = parse_retry_after_secs(

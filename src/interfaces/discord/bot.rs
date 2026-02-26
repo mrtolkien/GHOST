@@ -207,11 +207,13 @@ impl Handler {
 
 #[async_trait]
 impl EventHandler for Handler {
-    #[tracing::instrument(skip_all, fields(
+    #[tracing::instrument(name="discord.message_receive", skip_all, fields(
         author = %msg.author.name,
         channel_id = %msg.channel_id,
         content_len = msg.content.len()
     ))]
+    /// Handle an incoming Discord message: validate the author, resolve the
+    /// session, process attachments, run the chat loop, and send the response.
     async fn message(&self, ctx: Context, msg: Message) {
         // Ignore bots
         if msg.author.bot {

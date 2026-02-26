@@ -92,6 +92,9 @@ impl ReflectionManager {
         session_id = ?session_id,
         agent_name = %agent_name,
     ))]
+    /// Run a reflection cycle: build context from the session transcript and
+    /// web cache, invoke the reflection agent, save the handoff note, and
+    /// curate cached references into the knowledge base.
     async fn run(&self, session_id: &str, session_thing: &RecordId, agent_name: &str) {
         // Sequential: wait for any running reflection to finish first
         let _guard = self.running.lock().await;

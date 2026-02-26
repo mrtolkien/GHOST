@@ -6,14 +6,6 @@ use serde_json::Value;
 use crate::providers::types::{DebugContext, ProviderError};
 use crate::providers::{ChatMessage, ChatRequest, ContentBlock, Role, StopReason};
 
-fn truncate(s: &str, max_len: usize) -> String {
-    if s.len() <= max_len {
-        s.to_string()
-    } else {
-        format!("{}...", &s[..max_len])
-    }
-}
-
 use super::convert::{
     extract_latest_assistant_text, extract_text_content, extract_tool_use_blocks,
     raw_output_to_values,
@@ -287,13 +279,12 @@ pub(super) async fn run_tool_loop(
                 let result = handler
                     .on_end_turn(message, response.stop_reason, &tool_uses, raw_output)
                     .await?;
-                let response_preview = truncate(&result.message, 200);
                 logfire::info!(
-                    "chat complete",
+                    "agent run complete",
                     iterations = iterations as u64,
                     stop_reason = format!("{:?}", result.stop_reason),
                     response_len = result.message.len() as u64,
-                    response_preview = response_preview,
+                    response = &result.message,
                 );
                 metadata.iterations = iterations;
                 metadata.duration = started_at.elapsed();

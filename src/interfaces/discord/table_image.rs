@@ -133,6 +133,10 @@ pub(super) fn render_table_png(raw_lines: &[String]) -> Option<Vec<u8>> {
     }
 }
 
+/// Build an SVG string for a table with dark-themed styling.
+///
+/// Renders header row with accent stripe, zebra-striped data rows, column
+/// borders, and inline-styled text spans (bold, italic, code).
 fn build_svg(
     rows: &[Vec<Vec<Vec<StyledSpan>>>],
     row_heights: &[f32],
@@ -303,6 +307,7 @@ struct StyledToken {
 
 /// Parse inline markdown (`**bold**`, `*italic*`, `` `code` ``) into styled
 /// spans.
+/// Parse inline markdown (`**bold**`, `*italic*`, `` `code` ``) into styled spans.
 fn parse_inline(input: &str) -> Vec<StyledSpan> {
     let mut spans = Vec::new();
     let mut buf = String::new();
@@ -386,6 +391,7 @@ fn compute_row_heights(rows: &[Vec<Vec<Vec<StyledSpan>>>]) -> Vec<f32> {
         .collect()
 }
 
+/// Word-wrap styled spans into lines that fit within `max_chars` visible characters.
 fn wrap_inline_spans(spans: &[StyledSpan], max_chars: usize) -> Vec<Vec<StyledSpan>> {
     let max_chars = max_chars.max(1);
     let tokens = spans_to_tokens(spans);

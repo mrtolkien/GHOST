@@ -126,6 +126,10 @@ pub async fn send_gateway_v2(
 // Legacy fallbacks
 // ---------------------------------------------------------------------------
 
+/// Split a message into chunks that fit within Discord's 2000-char limit.
+///
+/// Tries to split at line boundaries first, preserving code fence state across
+/// chunks. Falls back to hard character splitting as a last resort.
 pub fn split_discord_message(content: &str) -> Vec<String> {
     if content.chars().count() <= DISCORD_MESSAGE_LIMIT {
         return vec![content.to_string()];
@@ -204,6 +208,8 @@ pub async fn send_plain_text(
     Ok(())
 }
 
+/// Split text for Discord embed descriptions (4096-char limit).
+/// Same strategy as `split_discord_message` but with a higher limit.
 pub fn split_discord_embed_description(content: &str) -> Vec<String> {
     if content.chars().count() <= DISCORD_EMBED_DESC_LIMIT {
         return vec![content.to_string()];

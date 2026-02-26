@@ -78,6 +78,7 @@ pub async fn execute(command: KnowledgeCommand) -> Result<(), GhostError> {
     }
 }
 
+/// Run a hybrid search (BM25 + vector) across notes, references, and diary.
 async fn cmd_search(
     db: &surrealdb::Surreal<surrealdb::engine::local::Db>,
     embeddings_config: &crate::config::EmbeddingsConfig,
@@ -212,6 +213,8 @@ async fn cmd_get(
     Ok(())
 }
 
+/// Display the knowledge graph around a note: outgoing/incoming edges,
+/// orphan detection, and edge/stub statistics.
 async fn cmd_graph(
     db: &surrealdb::Surreal<surrealdb::engine::local::Db>,
     target: &str,
@@ -367,6 +370,8 @@ async fn cmd_references(
     Ok(())
 }
 
+/// Re-sync all workspace knowledge files (notes, references, diary) into the
+/// database, reconcile wiki-link edges, and optionally regenerate all embeddings.
 async fn cmd_reindex(
     db: &surrealdb::Surreal<surrealdb::engine::local::Db>,
     workspace: &std::path::Path,

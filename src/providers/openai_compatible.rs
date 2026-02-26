@@ -125,6 +125,8 @@ pub(crate) fn build_request_body(request: &ChatRequest) -> ChatCompletionsReques
     }
 }
 
+/// Convert our internal `ChatRequest` messages into the OpenAI Chat Completions
+/// format (system/user/assistant/tool messages with tool_calls and tool_call_id).
 pub(crate) fn convert_messages(request: &ChatRequest) -> Vec<OpenAiMessage> {
     let mut messages = Vec::new();
 
@@ -220,6 +222,11 @@ fn convert_tool(tool: &ToolDefinition) -> OpenAiToolDefinition {
     }
 }
 
+/// Parse an OpenAI Chat Completions response into our internal `ChatResponse`.
+///
+/// Extracts text and tool calls from the first choice, normalizes cache-related
+/// usage fields across provider-specific formats, and maps finish_reason to
+/// our `StopReason` enum.
 pub(crate) fn parse_response(
     response: ChatCompletionsResponse,
 ) -> Result<ChatResponse, ProviderError> {

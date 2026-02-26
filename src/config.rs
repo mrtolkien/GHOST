@@ -228,6 +228,8 @@ impl Provider {
 }
 
 impl Config {
+    /// Resolve a user-facing `Settings` (with optional fields and tilde paths)
+    /// into a fully validated `Config` with concrete defaults.
     #[tracing::instrument(skip_all)]
     pub fn from_settings(settings: Settings) -> Result<Self, ConfigError> {
         let workspace = expand_tilde(settings.workspace.as_deref().unwrap_or(DEFAULT_WORKSPACE))?;

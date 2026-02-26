@@ -86,6 +86,8 @@ pub fn load_all_jobs(workspace: &Path) -> Vec<LoadedJob> {
     jobs
 }
 
+/// Spawn the cron job scheduler. Watches the jobs directory for changes,
+/// reloads job definitions on file events, and executes due jobs each tick.
 #[tracing::instrument(skip_all)]
 pub fn spawn_scheduler(
     task_runner: Arc<TaskRunner>,
@@ -226,6 +228,8 @@ fn job_to_task_definition(def: &JobDefinition) -> TaskDefinition {
     job_name = %def.name,
     model = %def.model,
 ))]
+/// Execute a single job: optionally load previous output (carry_last_output),
+/// convert the job definition into a task, run it to completion, and save output.
 async fn execute_job(
     task_runner: &TaskRunner,
     config: &Config,

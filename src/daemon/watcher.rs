@@ -153,6 +153,10 @@ async fn process_change(
     }
 }
 
+/// Sync a changed note file to the database and regenerate its embeddings.
+///
+/// If the note already exists in the DB (matched by title), updates it in place.
+/// Otherwise creates a new DB record. Also reconciles wiki-link edges.
 async fn process_note_change(
     db: &GhostDb,
     _workspace: &Path,
@@ -262,6 +266,7 @@ async fn process_note_change(
     Ok(())
 }
 
+/// Sync a changed reference file to the database and regenerate its embeddings.
 async fn process_reference_change(
     db: &GhostDb,
     workspace: &Path,

@@ -50,6 +50,9 @@ pub fn spawn_task_watcher(
     })
 }
 
+/// Poll for completed agent tasks and handle their results: inject findings
+/// into the parent session, notify Discord, trigger a continuation chat turn,
+/// and spawn post-agent reflection.
 async fn check_completed_tasks(
     task_runner: &TaskRunner,
     session_chat: &SessionChat,

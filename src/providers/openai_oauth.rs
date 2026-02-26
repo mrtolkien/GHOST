@@ -77,7 +77,7 @@ impl OpenAiOAuthProvider {
     }
 
     #[tracing::instrument(
-        name = "llm",
+        name = "request - openai oath",
         skip_all,
         fields(
             gen_ai.system = "openai_oauth",
@@ -94,6 +94,10 @@ impl OpenAiOAuthProvider {
             tool_calls = tracing::field::Empty,
         )
     )]
+    /// Send a chat request via the ChatGPT OAuth backend (Codex Responses API).
+    ///
+    /// Handles OAuth token refresh, JWT account-ID extraction, circuit breaking,
+    /// SSE response parsing, and OTel span recording.
     async fn send_request(&self, request: &ChatRequest) -> Result<ChatResponse, ProviderError> {
         if let Some(retry_after_secs) = self.circuit_breaker.check(&request.model) {
             return Err(ProviderError::CircuitOpen {

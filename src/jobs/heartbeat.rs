@@ -66,6 +66,8 @@ impl HeartbeatManager {
         })
     }
 
+    /// Scan all active interface sessions and trigger a heartbeat for any that
+    /// have been idle beyond the configured threshold.
     async fn check_idle_sessions(&mut self) {
         let sessions = match db::interface_sessions::list_all_interface_sessions(&self.db).await {
             Ok(s) => s,
@@ -139,6 +141,9 @@ impl HeartbeatManager {
         }
     }
 
+    /// Run a single heartbeat: build context from recent messages, invoke the
+    /// heartbeat agent, send the response to Discord (or suppress if the agent
+    /// returns `HEARTBEAT_CONTINUE`), and trigger post-heartbeat reflection.
     #[tracing::instrument(name = "heartbeat", skip_all, fields(session_id = ?session_id, interface = %interface))]
     async fn run_heartbeat(
         &mut self,

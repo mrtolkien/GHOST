@@ -180,6 +180,8 @@ impl NoteWrite {
         (sanitized, Some(warning))
     }
 
+    /// Create a new knowledge note: write the markdown file, insert a DB record,
+    /// reconcile wiki-link edges, and generate index notes for subfolder hierarchy.
     #[allow(clippy::too_many_arguments)]
     async fn create_note(
         &self,
@@ -271,6 +273,8 @@ impl NoteWrite {
         Ok(msg)
     }
 
+    /// Update an existing knowledge note: rewrite the file (moving it if tags
+    /// changed the subfolder), update the DB record, and reconcile edges.
     #[allow(clippy::too_many_arguments)]
     async fn update_note(
         &self,

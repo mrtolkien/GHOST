@@ -84,7 +84,7 @@ impl SessionChat {
         self
     }
 
-    #[tracing::instrument(skip_all, fields(session_id = session_id))]
+    #[tracing::instrument(name="assistant.orchestration", skip_all, fields(session_id = session_id))]
     pub async fn chat(
         &self,
         session_id: &str,
@@ -100,6 +100,7 @@ impl SessionChat {
         self.compact_if_needed(&session_thing, &mut history, &stored_ids)
             .await;
 
+        // TODO: Make that into a unified nudge system, like agents
         if let Some(todo_context) = self.todo_injection_message(&session_thing).await? {
             history.push(ChatMessage {
                 role: Role::System,

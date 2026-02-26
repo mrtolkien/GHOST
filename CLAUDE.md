@@ -123,6 +123,11 @@ adding or modifying any instrumentation.
 
 - Single crate, organized with modules.
 - If you need over 4 levels of indentation, break it into functions.
+- Add short `///` doc comments to public functions, structs, and traits that are
+  non-obvious — especially anything over ~50 lines. One or two sentences explaining
+  _what_ the function does and _why_, not restating the signature. Skip trivially
+  self-explanatory items (getters, simple constructors, trait method impls whose intent
+  is clear from the trait docs).
 - Avoid excess comments: code should be expressive and readable. If it requires
   comments, it likely needs a refactor.
 - Break down complex systems into clear functions or traits, and if required, multiple

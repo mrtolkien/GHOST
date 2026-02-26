@@ -76,10 +76,13 @@ pub fn note_relative_path(subfolder: Option<&str>, slug: &str) -> String {
     }
 }
 
-/// Ensure index notes exist at each level of a subfolder path.
+/// Ensure index (topic hub) notes exist at each level of a subfolder path.
+///
 /// For example, subfolder `3d-printing/hardware` creates:
 /// - `notes/3d-printing/index.md`
 /// - `notes/3d-printing/hardware/index.md`
+///
+/// Idempotent — skips levels that already have an index file.
 pub fn ensure_index_notes(
     workspace: &Path,
     subfolder: &str,

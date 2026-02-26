@@ -67,6 +67,10 @@ pub(super) struct CodexInputPart {
     text: String,
 }
 
+/// Convert a generic `ChatRequest` into the Codex Responses API wire format.
+///
+/// Maps our internal message/tool representations to the flat `input` array
+/// that the Responses API expects (messages, function_calls, function_call_outputs).
 pub(super) fn build_codex_request_body(
     request: &ChatRequest,
 ) -> Result<CodexResponsesRequest, ProviderError> {
@@ -360,6 +364,11 @@ pub(crate) fn extract_reasoning_summary(item: &Value) -> String {
     }
 }
 
+/// Parse a Codex Responses API response object into our internal `ChatResponse`.
+///
+/// Walks the `output` array, converting messages to text blocks, function_calls
+/// to tool use blocks, and preserving opaque items (e.g. reasoning) as `RawOutput`.
+/// Also extracts usage and determines the stop reason.
 pub(super) fn parse_codex_response_value(
     value: &Value,
     fallback_model: &str,

@@ -37,6 +37,10 @@ struct DiarySearchRow {
     score: f64,
 }
 
+/// Full-text search notes by title and body, merging results by best score.
+///
+/// SurrealDB 3.0 doesn't support multi-field `@@` in a single query, so we
+/// run separate title (weight 1.0) and body (weight 0.5) queries and dedup.
 #[tracing::instrument(skip_all, level = "debug", fields(query = %query))]
 pub async fn search_notes(
     db: &Surreal<Db>,
