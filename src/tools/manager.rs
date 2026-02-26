@@ -9,14 +9,6 @@ use crate::providers::ToolDefinition;
 use super::context::ToolContext;
 use super::error::ToolError;
 
-fn truncate_str(s: &str, max_len: usize) -> String {
-    if s.len() <= max_len {
-        s.to_string()
-    } else {
-        format!("{}...", &s[..max_len])
-    }
-}
-
 #[async_trait]
 pub trait Tool: Send + Sync {
     fn name(&self) -> &str;
@@ -101,6 +93,10 @@ impl ToolManager {
         self.tools.values().map(|tool| tool.schema()).collect()
     }
 
+    #[tracing::instrument(name = "run tool {tool_name}", skip_all, fields(
+        gen_ai.tool.name=%tool_name,
+        gen_ai.tool.call.arguments=%params
+    ))]
     pub async fn execute(
         &self,
         tool_name: &str,
@@ -113,19 +109,6 @@ impl ToolManager {
             .ok_or_else(|| ToolError::NotFound {
                 name: tool_name.to_string(),
             })?;
-
-        let params_preview = truncate_str(
-            &serde_json::to_string(&params)
-                .unwrap_or_else(|e| format!("<serialization failed: {e}>")),
-            200,
-        );
-
-        let _span = logfire::span!(
-            "execute {tool_name}",
-            gen_ai.tool.name = tool_name,
-            gen_ai.operation.name = "execute_tool",
-            params_preview = params_preview,
-        );
 
         let result = tool.execute(params, ctx).await;
 

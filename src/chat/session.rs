@@ -302,6 +302,7 @@ impl SessionChat {
         Ok(Some(format_todo_injection(&items)))
     }
 
+    #[tracing::instrument(name = "run tools", skip_all)]
     pub(super) async fn execute_tool_calls(
         &self,
         session_id: &str,
