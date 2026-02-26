@@ -8,6 +8,11 @@ tools:
   - read_file
   - todo
 max_iterations: 50
+progress:
+  - tool: web_fetch
+    nudge:
+      "{count} pages fetched so far. Call todo(batch_update) to mark completed
+      items done, then fetch the next pending item."
 progress_gate:
   no_todo:
     "REJECTED — you skipped the planning step. Create your TODO checklist with Fetch:

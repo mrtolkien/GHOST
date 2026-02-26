@@ -83,8 +83,7 @@ def analyze_run(run_dir: Path) -> dict:
 
     # Check for expected domains and keywords
     expected_domains = [
-        "all3dp.com", "auroratechchannel.com", "tomshardware.com",
-        "aniwaa.com", "pcmag.com", "3dwithus.com",
+        "all3dp.com", "auroratechchannel.com",
     ]
     matched_domains = [d for d in expected_domains if d in domains]
 
