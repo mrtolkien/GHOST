@@ -237,6 +237,22 @@ src/
 User-facing docs live in `docs/` (Astro Starlight). When making changes that affect
 user-facing behavior, read the `/docs` skill for file mappings and conventions.
 
+## Helper Scripts
+
+`scripts/` contains standalone Python scripts for analysis and automation. Use
+[uv inline script metadata](https://docs.astral.sh/uv/guides/scripts/#declaring-script-dependencies)
+so each script declares its own dependencies — no virtualenv or requirements.txt needed.
+
+Run with: `uv run scripts/<script>.py [args]`
+
+When you need to do data processing, JSON analysis, or other tasks that are awkward in
+bash, **write a script to `scripts/` and run it with `uv run`** instead of inline
+bash/python one-liners. This keeps the logic reviewable and reusable.
+
+Current scripts:
+
+- `scripts/analyze-e2e.py` — Analyze deep research e2e-output diagnostic JSON files
+
 ## Specs
 
 - `specs/TODO.md`: Ordered task list for reaching PoC. Each task references a spec file.

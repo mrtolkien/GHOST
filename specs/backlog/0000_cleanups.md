@@ -1,8 +1,11 @@
-- Fix message re-sending on startup: when I restart the GHOST, it always sends me a
-  message on Discord. I think it's the default heartbeat that's creating this behaviour.
-  Feels a bit weird though, when heartbeat fires normally, this does not happen.
+- [ ] Still getting "empty endturn after recovery nudge"
+- [ ] Heartbeat is weird: default heartbeat should be empty (no run), but I also can see
+      that heartbeat runs don't properly run in the chat session like they should. We
+      should DISABLE HEARTBEAT for the moment and create a backlog task for the
+      re-activation, properly reviewing the specs.
+- [ ] read_file should not use limit: 2000 by default, and those secondary attributes
+      should not be in the discord log
 - [x] run_after_heartbeat shows as <ongoing> for a long time
-- Still getting "empty endturn after recovery nudge"
 - [x] Better logfire traces: 1 tool call = 1 span, 1 response = 1 span, proper model
       response with gen_ai fields, wtf are `llm` spans, add tool responses as log/spans,
       ...
