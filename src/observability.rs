@@ -1,7 +1,11 @@
+use std::sync::OnceLock;
+
 use logfire::config::ConsoleOptions;
 use thiserror::Error;
 
-static LIVE_TEST_OBSERVABILITY_INIT: std::sync::Once = std::sync::Once::new();
+/// Holds the shutdown guard for the test process so the export pipeline
+/// stays alive until process exit. Initialized exactly once.
+static TEST_SHUTDOWN_GUARD: OnceLock<logfire::ShutdownGuard> = OnceLock::new();
 
 #[derive(Debug, Error)]
 pub enum ObservabilityError {
@@ -31,6 +35,7 @@ pub fn init_for_daemon() -> Result<DaemonObservability, ObservabilityError> {
 
     let _ = dotenvy::dotenv();
     set_default_rust_log_filter();
+    set_default_logfire_environment();
     let logfire = logfire::configure()
         .with_service_name("GHOST")
         .with_install_panic_handler(true)
@@ -45,10 +50,26 @@ pub fn init_for_daemon() -> Result<DaemonObservability, ObservabilityError> {
 }
 
 pub fn init_for_live_tests() -> Result<DaemonObservability, ObservabilityError> {
+    static INIT: std::sync::Once = std::sync::Once::new();
+
     let mut result: Option<ObservabilityError> = None;
-    LIVE_TEST_OBSERVABILITY_INIT.call_once(|| {
-        if let Err(error) = init_live_tests_inner() {
-            result = Some(error);
+    INIT.call_once(|| {
+        let _ = dotenvy::dotenv();
+        set_default_rust_log_filter();
+        match logfire::configure()
+            .with_service_name("GHOST")
+            .with_environment("test")
+            .with_install_panic_handler(true)
+            .send_to_logfire(logfire::config::SendToLogfire::IfTokenPresent)
+            .with_console(Some(console_options()))
+            .finish()
+        {
+            Ok(logfire) => {
+                let _ = TEST_SHUTDOWN_GUARD.set(logfire.shutdown_guard());
+            }
+            Err(source) => {
+                result = Some(ObservabilityError::LogfireInit { source });
+            }
         }
     });
     if let Some(error) = result {
@@ -56,21 +77,6 @@ pub fn init_for_live_tests() -> Result<DaemonObservability, ObservabilityError> 
     }
 
     Ok(DaemonObservability::disabled())
-}
-
-fn init_live_tests_inner() -> Result<(), ObservabilityError> {
-    let _ = dotenvy::dotenv();
-    set_default_rust_log_filter();
-    let logfire = logfire::configure()
-        .with_service_name("GHOST")
-        .with_install_panic_handler(true)
-        .send_to_logfire(logfire::config::SendToLogfire::IfTokenPresent)
-        .with_console(Some(console_options()))
-        .finish()
-        .map_err(|source| ObservabilityError::LogfireInit { source })?;
-
-    let _shutdown_guard = logfire.shutdown_guard();
-    Ok(())
 }
 
 fn console_options() -> ConsoleOptions {
@@ -82,6 +88,16 @@ fn console_options() -> ConsoleOptions {
 
 fn running_under_cargo_test() -> bool {
     std::env::var_os("RUST_TEST_THREADS").is_some()
+}
+
+fn set_default_logfire_environment() {
+    if std::env::var_os("LOGFIRE_ENVIRONMENT").is_some() {
+        return;
+    }
+    // SAFETY: daemon startup sets process env before spawning runtime tasks.
+    unsafe {
+        std::env::set_var("LOGFIRE_ENVIRONMENT", "production");
+    }
 }
 
 fn set_default_rust_log_filter() {
