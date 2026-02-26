@@ -654,12 +654,9 @@ impl ToolLoopHandler for TaskHandler<'_> {
             });
         }
 
-        // Temporal nudge (config-driven). Sets flag on fire.
-        if let Some(reminder) = build_temporal_nudge(
-            self.started_at,
-            self.temporal_nudge_fired,
-            self.temporal.as_ref(),
-        ) {
+        // Temporal nudge (config-driven). Fires every iteration past
+        // the threshold to keep pressuring the agent to wrap up.
+        if let Some(reminder) = build_temporal_nudge(self.started_at, self.temporal.as_ref()) {
             self.temporal_nudge_fired = true;
             history.push(ChatMessage {
                 role: Role::System,
@@ -812,19 +809,15 @@ fn build_context_pressure_reminder(
 }
 
 /// Nudge when wall-clock time exceeds a threshold. Fires once.
-///
-/// Returns `None` when no config is present or when already fired.
+/// Returns `None` when no config is present or before the threshold.
+/// Fires on **every** call past the threshold (not just once) so the
+/// agent keeps getting pressure to wrap up.
 /// `{minutes}` is interpolated into the message.
 fn build_temporal_nudge(
     started_at: std::time::Instant,
-    already_fired: bool,
     config: Option<&TemporalConfig>,
 ) -> Option<String> {
     let config = config?;
-
-    if already_fired {
-        return None;
-    }
 
     let threshold = std::time::Duration::from_secs(config.after_seconds);
     if started_at.elapsed() < threshold {
@@ -1138,7 +1131,7 @@ mod tests {
     #[test]
     fn temporal_none_config_returns_none() {
         let started = std::time::Instant::now() - std::time::Duration::from_secs(600);
-        assert!(build_temporal_nudge(started, false, None).is_none());
+        assert!(build_temporal_nudge(started, None).is_none());
     }
 
     #[test]
@@ -1148,18 +1141,20 @@ mod tests {
             message: "Been working {minutes} min.".to_string(),
         };
         let started = std::time::Instant::now() - std::time::Duration::from_secs(120);
-        let nudge = build_temporal_nudge(started, false, Some(&config)).unwrap();
+        let nudge = build_temporal_nudge(started, Some(&config)).unwrap();
         assert!(nudge.contains("Been working 2 min."));
     }
 
     #[test]
-    fn temporal_skips_if_already_fired() {
+    fn temporal_fires_repeatedly() {
         let config = TemporalConfig {
             after_seconds: 60,
             message: "Wrap up.".to_string(),
         };
         let started = std::time::Instant::now() - std::time::Duration::from_secs(120);
-        assert!(build_temporal_nudge(started, true, Some(&config)).is_none());
+        // Should fire every time past the threshold, not just once
+        assert!(build_temporal_nudge(started, Some(&config)).is_some());
+        assert!(build_temporal_nudge(started, Some(&config)).is_some());
     }
 
     #[test]
@@ -1169,7 +1164,7 @@ mod tests {
             message: "Wrap up.".to_string(),
         };
         let started = std::time::Instant::now();
-        assert!(build_temporal_nudge(started, false, Some(&config)).is_none());
+        assert!(build_temporal_nudge(started, Some(&config)).is_none());
     }
 
     #[test]

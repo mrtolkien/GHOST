@@ -245,6 +245,10 @@ so each script declares its own dependencies — no virtualenv or requirements.t
 
 Run with: `uv run scripts/<script>.py [args]`
 
+Rule (MANDATORY): always use simple, reusable Python scripts run with `uv` instead of
+complex multi-step bash commands when possible. Complex bash commands often require user
+approval and slow execution.
+
 When you need to do data processing, JSON analysis, or other tasks that are awkward in
 bash, **write a script to `scripts/` and run it with `uv run`** instead of inline
 bash/python one-liners. This keeps the logic reviewable and reusable.

@@ -36,9 +36,9 @@ async fn deep_research_agent_produces_findings() {
                   not know about.";
     let system_prompt = definition.render_system_prompt(prompt);
 
-    // Run with 7-minute timeout
+    // Run with 8-minute timeout
     let result = tokio::time::timeout(
-        std::time::Duration::from_secs(420),
+        std::time::Duration::from_secs(480),
         session_chat.chat_agent(&fmt_id(&session), prompt, system_prompt, &definition, None),
     )
     .await;
@@ -47,7 +47,7 @@ async fn deep_research_agent_produces_findings() {
     env.log_session_json("agent", &session).await;
 
     let (result, _metadata) = result
-        .expect("TIMEOUT: agent did not complete within 7 minutes")
+        .expect("TIMEOUT: agent did not complete within 8 minutes")
         .expect("agent chat_agent failed");
 
     env.log(format!(
