@@ -113,6 +113,72 @@ async fn e2e_research() {
     env.log(format!("diary ({} chars): {diary}", diary.len()));
 }
 
+/// Complex research question should trigger the deep-research agent.
+///
+/// Verifies the escalation ladder: the GHOST checks knowledge first, reads
+/// the deep-research skill, then spawns the agent. We don't wait for the
+/// agent to complete — we only care that the model decided to spawn it.
+///
+/// The chat may time out while the model polls the agent for completion;
+/// that's fine — we check the session messages regardless.
+///
+/// ```sh
+/// cargo test --features e2e-tests e2e_complex_query_spawns_agent -- --nocapture
+/// ```
+#[tokio::test]
+async fn e2e_complex_query_spawns_agent() {
+    let env = common::live_test_database("e2e_complex_query_spawns_agent").await;
+    let session = env.create_session().await;
+
+    let chat = env.chat();
+    // The model will likely spawn the agent then poll for completion,
+    // so the chat may not return within the timeout. That's expected.
+    let _result = tokio::time::timeout(
+        std::time::Duration::from_secs(120),
+        chat.chat(
+            &fmt_id(&session),
+            "I want to buy a corexy 3d printer to replace my Bambulab A1. \
+             Horizontal desk space is a premium in my workspace, but I'd like \
+             a tool changer to be able to easily print in PLA with PETG \
+             supports, and generally for good multicolor. What do you recommend?",
+            None,
+        ),
+    )
+    .await;
+
+    // Stop any spawned agents immediately (save API credits)
+    let stopped = env.stop_all_agents().await;
+    env.log(format!("stopped {stopped} agent(s)"));
+
+    env.log_session_json("chat", &session).await;
+
+    // Collect tool calls to verify the escalation ladder
+    let tool_calls = env.collect_tool_calls(&session).await;
+    env.log(format!("tool calls: {tool_calls:?}"));
+
+    // 1. Should have checked knowledge first
+    assert!(
+        tool_calls.iter().any(|t| t == "knowledge_search"),
+        "expected knowledge_search before web tools, got: {tool_calls:?}"
+    );
+
+    // 2. Should have spawned the deep-research agent
+    assert!(
+        tool_calls.iter().any(|t| t == "agent_control"),
+        "expected agent_control (deep-research spawn), got: {tool_calls:?}"
+    );
+
+    // 3. knowledge_search should come before agent_control
+    let ks_pos = tool_calls.iter().position(|t| t == "knowledge_search");
+    let ac_pos = tool_calls.iter().position(|t| t == "agent_control");
+    if let (Some(ks), Some(ac)) = (ks_pos, ac_pos) {
+        assert!(
+            ks < ac,
+            "expected knowledge_search (pos {ks}) before agent_control (pos {ac})"
+        );
+    }
+}
+
 #[cfg(feature = "e2e-tests")]
 async fn run_initial_research(
     env: &common::LiveTestEnv,

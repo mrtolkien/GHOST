@@ -1,56 +1,46 @@
 ---
 name: deep-research
 description:
-  Read before starting a complex research task that requires discovering authoritative
-  sources, reading 5+ full pages, and cross-referencing claims across multiple sources.
-  Examples: product comparisons, technology evaluations, market analysis, multi-factor
-  decisions. Do NOT read for simple lookups, quick facts, or questions answerable with
-  your knowledge base and a few web searches.
+  Read when the OPERATOR asks a question that will require web research across multiple
+  sources — recommendations, comparisons, evaluations, multi-factor decisions, "what
+  should I buy/use", or any question where you'd need to read several web pages. This
+  skill decides whether to spawn a background research agent (to protect your context
+  from heavy fetching) or handle it yourself. Do NOT read for simple factual lookups or
+  questions fully answered by your knowledge base.
 ---
 
 # Deep Research Skill
 
-You're reading this because the OPERATOR's question looks like it might need deep,
-multi-source research. This skill helps you decide whether to spawn a `deep-research`
-agent or handle it yourself.
+You're reading this because the OPERATOR's question needs multi-source research.
 
-## Decision: Agent or Not?
+## Why the Agent Exists
 
-Spawning the deep-research agent is expensive — it runs autonomously for several
-minutes, reads many pages, and uses significant context. Only spawn it when the research
-genuinely requires that depth.
+Each `web_fetch` dumps thousands of tokens into your context. Doing several fetches
+inline to answer one question pollutes your main conversation — past messages get
+compressed, future turns get worse. The deep-research agent runs in an **isolated
+context** that is discarded after it delivers a summary. It protects your conversation
+while doing the heavy reading.
 
-### Spawn the agent when ALL of these are true:
+## Decision Process
 
-1. **Your knowledge base has no good answer** — you already checked `knowledge_search`
-   and found nothing relevant or only outdated information.
-2. **Multiple sources need cross-referencing** — the question requires comparing claims
-   across 5+ independent sources to form a reliable answer.
-3. **Source discovery is needed** — you don't already know which sources to trust for
-   this domain. The agent's strength is finding authoritative sources from scratch by
-   checking what the community recommends.
-4. **The answer can't be assembled in 2-3 search+fetch cycles** — if you can get a solid
-   answer by searching, reading 1-2 pages, and synthesizing, do it yourself.
+### Step 1: Check knowledge
 
-### Do NOT spawn the agent for:
+Call `knowledge_search` first. If you find existing notes or references that adequately
+answer the question, use them and respond directly. No agent needed.
 
-- Questions where your knowledge base already has good notes or references
-- Questions answerable from 1-3 web fetches (even if the topic is complex)
-- Questions where you already know the authoritative sources — just fetch them directly
-- Follow-up questions on a topic you recently researched (check knowledge first)
-- Simple factual lookups, definitions, or explanations
+### Step 2: Spawn the agent
 
-### When in doubt:
+If knowledge didn't have a good answer, spawn the deep-research agent. You matched this
+skill's description because the question needs multi-source research — that research
+belongs in the agent's isolated context, not inline.
 
-Try answering it yourself first with `knowledge_search` + `web_search` + `web_fetch`. If
-after 2-3 searches you realize the topic is deeper than expected and you need to
-discover sources from scratch, THEN spawn the agent. Starting small costs less than
-starting big.
+**Your next tool call after the knowledge check must be `agent_control`.** Do not call
+`web_search` or `web_fetch` — every page you fetch inline is context you can never
+reclaim. Let the agent do the heavy reading.
 
 ## Spawning the Agent
 
-When you decide to spawn, use
-`agent_control(action: 'start', agent: 'deep-research', prompt: '...')`. Include:
+Use `agent_control(action: 'start', agent: 'deep-research', prompt: '...')`. Include:
 
 - **Specific question** — what exactly needs to be answered
 - **Context** — constraints, preferences, use case the OPERATOR mentioned

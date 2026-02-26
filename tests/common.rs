@@ -476,6 +476,35 @@ impl LiveTestEnv {
     // Assertion helpers
     // -----------------------------------------------------------------
 
+    /// Collect all tool call names from a session's messages, in order.
+    pub async fn collect_tool_calls(&self, session_id: &RecordId) -> Vec<String> {
+        let messages = ghost::db::sessions::list_messages_by_session(&self.db, session_id)
+            .await
+            .expect("list session messages for tool calls");
+
+        let mut names = Vec::new();
+        for msg in &messages {
+            if let Some(ref calls) = msg.tool_calls {
+                for call in calls {
+                    if let Some(name) = call.get("name").and_then(|v| v.as_str()) {
+                        names.push(name.to_string());
+                    }
+                }
+            }
+        }
+        names
+    }
+
+    /// Stop all running agents immediately and return how many were stopped.
+    pub async fn stop_all_agents(&self) -> usize {
+        let ids = self.task_runner.list_task_ids().await;
+        let count = ids.len();
+        for id in &ids {
+            let _ = self.task_runner.stop(id).await;
+        }
+        count
+    }
+
     /// Collect web_fetch metrics from an agent session's messages.
     pub async fn collect_web_fetch_metrics(&self, session_id: &RecordId) -> WebFetchMetrics {
         let messages = ghost::db::sessions::list_messages_by_session(&self.db, session_id)
