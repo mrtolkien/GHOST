@@ -56,7 +56,7 @@ impl ReflectionManager {
             let since: DateTime<Utc> = modified.into();
             match db::sessions::count_messages_since(&self.db, session_thing, &since).await {
                 Ok(0) => {
-                    logfire::info!(
+                    logfire::debug!(
                         "reflection skipped: no new activity",
                         session_id = session_id.to_string(),
                     );
