@@ -37,69 +37,34 @@ struct DiarySearchRow {
     score: f64,
 }
 
-/// Full-text search notes by title and body, merging results by best score.
+/// Full-text search notes by title and body using BM25 scoring.
 ///
-/// SurrealDB 3.0 doesn't support multi-field `@@` in a single query, so we
-/// run separate title (weight 1.0) and body (weight 0.5) queries and dedup.
+/// Title matches weighted 2x via `search::score(0) * 2`. Uses `@N@` +
+/// `search::score(N)` (fixed in SurrealDB 3.1.0-alpha, see #6946).
 #[tracing::instrument(skip_all, level = "debug", fields(query = %query))]
 pub async fn search_notes(
     db: &Surreal<Db>,
     query: &str,
     limit: usize,
 ) -> Result<Vec<SearchHit>, DatabaseError> {
-    // SurrealDB 3.0 requires separate queries for multi-field full-text
-    // search. We query title and body separately, then merge results.
     let mut resp = query_exec(
         db.query(
-            "SELECT id, title, body, 1.0 AS score \
+            "SELECT id, title, body, \
+                    search::score(0) * 2 + search::score(1) AS score \
              FROM note \
-             WHERE title @@ $query \
+             WHERE title @0@ $query OR body @1@ $query \
+             ORDER BY score DESC \
              LIMIT $limit",
         )
         .bind(("query", query.to_string()))
         .bind(("limit", limit as i64)),
         "note",
-        "search_title",
+        "search",
     )
     .await?;
-    let title_rows: Vec<NoteSearchRow> = take_many(&mut resp, 0, "note", "search_title")?;
+    let rows: Vec<NoteSearchRow> = take_many(&mut resp, 0, "note", "search")?;
 
-    let mut resp = query_exec(
-        db.query(
-            "SELECT id, title, body, 0.5 AS score \
-             FROM note \
-             WHERE body @@ $query \
-             LIMIT $limit",
-        )
-        .bind(("query", query.to_string()))
-        .bind(("limit", limit as i64)),
-        "note",
-        "search_body",
-    )
-    .await?;
-    let body_rows: Vec<NoteSearchRow> = take_many(&mut resp, 0, "note", "search_body")?;
-
-    // Merge: keep best score per note, dedup by id.
-    let mut best: HashMap<String, NoteSearchRow> = HashMap::new();
-    for row in title_rows.into_iter().chain(body_rows) {
-        let key = crate::db::fmt_id(&row.id);
-        best.entry(key)
-            .and_modify(|existing| {
-                if row.score > existing.score {
-                    existing.score = row.score;
-                }
-            })
-            .or_insert(row);
-    }
-    let mut merged: Vec<NoteSearchRow> = best.into_values().collect();
-    merged.sort_by(|a, b| {
-        b.score
-            .partial_cmp(&a.score)
-            .unwrap_or(std::cmp::Ordering::Equal)
-    });
-    merged.truncate(limit);
-
-    Ok(merged
+    Ok(rows
         .into_iter()
         .map(|r| {
             let snippet = truncate_snippet(&r.body, 150);
@@ -122,9 +87,10 @@ pub async fn search_references(
 ) -> Result<Vec<SearchHit>, DatabaseError> {
     let mut resp = query_exec(
         db.query(
-            "SELECT id, topic, content, 1.0 AS score \
+            "SELECT id, topic, content, search::score(0) AS score \
              FROM reference \
-             WHERE content @@ $query \
+             WHERE content @0@ $query \
+             ORDER BY score DESC \
              LIMIT $limit",
         )
         .bind(("query", query.to_string()))
@@ -158,9 +124,10 @@ pub async fn search_diary(
 ) -> Result<Vec<SearchHit>, DatabaseError> {
     let mut resp = query_exec(
         db.query(
-            "SELECT id, date, body, 1.0 AS score \
+            "SELECT id, date, body, search::score(0) AS score \
              FROM diary \
-             WHERE body @@ $query \
+             WHERE body @0@ $query \
+             ORDER BY score DESC \
              LIMIT $limit",
         )
         .bind(("query", query.to_string()))
