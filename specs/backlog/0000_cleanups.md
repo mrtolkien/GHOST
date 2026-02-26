@@ -1,6 +1,5 @@
 - [ ] Still getting "empty endturn after recovery nudge"
-- [ ] read_file should not use limit: 2000 by default, and those secondary attributes
-      should not be in the discord log
+- [x] read_file: removed limit/offset params, always returns full file
 - [x] Heartbeat disabled — see `specs/backlog/heartbeat-reactivation.md`
 - [x] run_after_heartbeat shows as <ongoing> for a long time
 - [x] Better logfire traces: 1 tool call = 1 span, 1 response = 1 span, proper model
