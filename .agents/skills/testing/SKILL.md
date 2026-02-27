@@ -5,9 +5,9 @@ description: >-
   before writing or modifying any test — unit tests, integration tests, or live tests.
   Covers: test helper functions (test_config, test_workspace, test_database),
   MockProvider, LiveTestEnv, live test isolation rules, and the non-negotiable
-  readability requirements. For step-based end-to-end tests, also read the
-  `e2e-testing` skill. Failure to read this will produce duplicated boilerplate and
-  broken test isolation.
+  readability requirements. For step-based end-to-end tests, also read the `e2e-testing`
+  skill. Failure to read this will produce duplicated boilerplate and broken test
+  isolation.
 ---
 
 # Testing Conventions

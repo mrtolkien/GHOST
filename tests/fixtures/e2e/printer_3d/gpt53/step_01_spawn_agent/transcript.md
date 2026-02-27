@@ -6,9 +6,7 @@
 
 **Content**
 
-```text
 I want to buy a new enclosed 3D printer for home use around $1000 in 2026. Please do deep research with concrete model recommendations, pricing, and sources.
-```
 
 ### 2. assistant
 
@@ -53,14 +51,13 @@ I want to buy a new enclosed 3D printer for home use around $1000 in 2026. Pleas
 
 **Tool Results**
 
-- error=false
+- error=False
 ```text
 TODO [0/4]
 1. ○ Search knowledge base — Check existing knowledge base for prior 3D printer research and relevant references
 2. ○ Load deep-research workflow — Read deep-research skill and decide execution strategy
 3. ○ Collect web sources — Gather current 2026 models, prices, and reviews from web sources
 4. ○ Build ranked recommendations — Synthesize recommendations for enclosed home-use printers around $1000
-
 ```
 
 ### 4. assistant
@@ -118,20 +115,19 @@ TODO [0/4]
 
 **Tool Results**
 
-- error=false
+- error=False
 ```text
 TODO [0/4]
 1. ◉ Search knowledge base — Check existing knowledge base for prior 3D printer research and relevant references [Starting knowledge lookup for prior notes/references.]
 2. ◉ Load deep-research workflow — Read deep-research skill and decide execution strategy [Reading deep-research skill before deciding approach.]
 3. ○ Collect web sources — Gather current 2026 models, prices, and reviews from web sources
 4. ○ Build ranked recommendations — Synthesize recommendations for enclosed home-use printers around $1000
-
 ```
-- error=false
+- error=False
 ```text
 No results found.
 ```
-- error=false
+- error=False
 ```text
 File: skills/deep-research/skill.md (67 lines)
   1 | ---
@@ -228,16 +224,15 @@ File: skills/deep-research/skill.md (67 lines)
 
 **Tool Results**
 
-- error=false
+- error=False
 ```text
 TODO [2/4]
 1. ✓ Search knowledge base — Check existing knowledge base for prior 3D printer research and relevant references [No existing notes/references found for this query.]
 2. ✓ Load deep-research workflow — Read deep-research skill and decide execution strategy [Deep-research skill loaded; must delegate web research to agent.]
 3. ◉ Collect web sources — Gather current 2026 models, prices, and reviews from web sources [Delegating collection to deep-research agent.]
 4. ○ Build ranked recommendations — Synthesize recommendations for enclosed home-use printers around $1000
-
 ```
-- error=false
+- error=False
 ```text
 Agent 'deep-research' started (agent_id: 01KJF0EWBDRY6DMAF4715DE6JT). Check progress with agent_control(action: 'status', agent_id: '01KJF0EWBDRY6DMAF4715DE6JT').
 ```
@@ -246,7 +241,6 @@ Agent 'deep-research' started (agent_id: 01KJF0EWBDRY6DMAF4715DE6JT). Check prog
 
 **Content**
 
-```text
 Great request — I’ve started a **deep-research background agent** to do this properly with current 2026 pricing and source-backed comparisons.
 
 I’ll come back with:
@@ -257,7 +251,6 @@ I’ll come back with:
 - direct URLs for every key claim
 
 I’m on it now.
-```
 
 **Thinking / Raw Output**
 
@@ -269,7 +262,6 @@ I’m on it now.
 
 **Content**
 
-```text
 Research and recommend enclosed 3D printers for home use with target budget around USD $1000 in 2026.
 
 Operator needs: concrete model recommendations, current pricing, and source-backed rationale.
@@ -284,5 +276,3 @@ Please investigate:
 7) Deliver a concise decision table plus final ranked picks for this operator profile (home use, enclosed needed, around $1000).
 
 Return findings with citations (URL per claim).
-```
-
