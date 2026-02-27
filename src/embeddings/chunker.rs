@@ -68,9 +68,8 @@ fn split_with_overlap(text: &str, target: usize, overlap: usize) -> Vec<String> 
             break;
         }
 
-        let end = (start + target).min(text.len());
-        let boundary = text[..end].floor_char_boundary(end - start + start);
-        let search_region = &text[start..boundary];
+        let end = text.floor_char_boundary((start + target).min(text.len()));
+        let search_region = &text[start..end];
 
         let split_at = search_region
             .rfind("\n\n")
@@ -86,11 +85,7 @@ fn split_with_overlap(text: &str, target: usize, overlap: usize) -> Vec<String> 
         }
 
         // Step back by overlap for the next chunk
-        let overlap_start = if abs_split > overlap {
-            abs_split - overlap
-        } else {
-            abs_split
-        };
+        let overlap_start = text.floor_char_boundary(abs_split.saturating_sub(overlap));
         // Snap overlap to a paragraph/line boundary if possible
         let next_start = text[overlap_start..abs_split]
             .find("\n\n")
@@ -186,6 +181,24 @@ mod tests {
         let chunks = chunk_text(&text, &[]);
         for (i, chunk) in chunks.iter().enumerate() {
             assert_eq!(chunk.index, i);
+        }
+    }
+
+    #[test]
+    fn multibyte_text_does_not_panic() {
+        // Japanese text that would break byte-based slicing at char boundaries
+        let segment = "日本語のテスト文章です。これは長いテキストの分割をテストします。";
+        let text = std::iter::repeat(segment)
+            .take(40)
+            .collect::<Vec<_>>()
+            .join("\n\n");
+        assert!(text.len() > SHORT_THRESHOLD);
+
+        let chunks = chunk_text(&text, &["テスト".into()]);
+        assert!(!chunks.is_empty());
+        for (i, chunk) in chunks.iter().enumerate() {
+            assert_eq!(chunk.index, i);
+            assert!(!chunk.text.is_empty());
         }
     }
 }

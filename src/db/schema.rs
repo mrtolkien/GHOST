@@ -104,6 +104,9 @@ DEFINE FIELD content_hash ON embedding TYPE string;
 DEFINE FIELD vector ON embedding TYPE array<float>;
 DEFINE FIELD created_at ON embedding TYPE datetime;
 DEFINE INDEX idx_embedding_source ON embedding FIELDS source_id, chunk_index UNIQUE;
+-- No HNSW vector index: SurrealDB builds HNSW fully in-memory, which OOMs
+-- on 16 GB with 1024-dim vectors. Brute-force cosine similarity is used
+-- instead (fine at hundreds of vectors).
 
 DEFINE ANALYZER note_analyzer TOKENIZERS blank, class FILTERS lowercase, snowball(english);
 DEFINE INDEX idx_note_title_fts ON note FIELDS title FULLTEXT ANALYZER note_analyzer BM25;

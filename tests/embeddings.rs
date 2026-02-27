@@ -3,6 +3,23 @@ mod common;
 use ghost::db;
 use ghost::embeddings;
 
+/// Read current process RSS from /proc/self/status (Linux only).
+fn rss_mb() -> u64 {
+    let status = std::fs::read_to_string("/proc/self/status").unwrap_or_default();
+    for line in status.lines() {
+        if let Some(rest) = line.strip_prefix("VmRSS:") {
+            let kb: u64 = rest
+                .trim()
+                .trim_end_matches(" kB")
+                .trim()
+                .parse()
+                .unwrap_or(0);
+            return kb / 1024;
+        }
+    }
+    0
+}
+
 // --- DB operations ---
 
 #[tokio::test]
@@ -306,6 +323,310 @@ fn hybrid_merge_respects_limit() {
 
     let merged = db::knowledge::hybrid_merge(&bm25_hits, &[], 3);
     assert_eq!(merged.len(), 3);
+}
+
+// --- SurrealDB array<float> memory reproduction ---
+
+/// Reproduces the production path: for each source, delete old embeddings then
+/// insert new ones with 1024-dim vectors. Also includes large chunk_text to
+/// simulate real reference documents. Measures RSS to detect SurrealDB memory
+/// amplification.
+///
+/// Production observed: 150 vectors (600 KB raw) → 12 GB RSS on the server.
+/// This test checks whether the pattern reproduces locally.
+#[tokio::test]
+async fn vector_insert_memory_stays_bounded() {
+    let (db, _config, _workspace, _config_dir) = common::test_database().await;
+
+    let before_mb = rss_mb();
+
+    // Simulate realistic reference content (~4KB per chunk, like web pages)
+    let large_chunk_text = "x".repeat(4000);
+
+    // Phase 1: initial insert (like first reconciliation)
+    let mut note_ids = Vec::new();
+    for i in 0..50 {
+        let note_id = db::knowledge::create_note_full(
+            &db,
+            &format!("MemTest Note {i}"),
+            &format!("body of note {i}"),
+            None,
+            &[],
+            &[],
+            5,
+            None,
+        )
+        .await
+        .expect("create note");
+
+        for chunk in 0..3 {
+            let vector: Vec<f32> = (0..1024).map(|j| (i * 1024 + j) as f32 * 0.001).collect();
+            db::embeddings::upsert_embedding(
+                &db,
+                "note",
+                &note_id,
+                chunk,
+                &format!("{large_chunk_text} note {i} chunk {chunk}"),
+                &format!("hash_{i}_{chunk}"),
+                &vector,
+            )
+            .await
+            .expect("upsert embedding");
+        }
+        note_ids.push(note_id);
+    }
+
+    let after_insert_mb = rss_mb();
+
+    // Phase 2: delete + re-insert (like second reconciliation / re-embed)
+    for (i, note_id) in note_ids.iter().enumerate() {
+        db::embeddings::delete_embeddings_for_source(&db, note_id)
+            .await
+            .expect("delete");
+
+        for chunk in 0..3 {
+            let vector: Vec<f32> = (0..1024).map(|j| (i * 1024 + j) as f32 * 0.002).collect();
+            db::embeddings::upsert_embedding(
+                &db,
+                "note",
+                note_id,
+                chunk,
+                &format!("{large_chunk_text} note {i} chunk {chunk} v2"),
+                &format!("hash_{i}_{chunk}_v2"),
+                &vector,
+            )
+            .await
+            .expect("re-upsert embedding");
+        }
+    }
+
+    let count = db::embeddings::count_embeddings(&db).await.expect("count");
+    assert_eq!(count, 150, "should have 150 embeddings after re-insert");
+
+    let after_reinsert_mb = rss_mb();
+    let total_delta_mb = after_reinsert_mb.saturating_sub(before_mb);
+
+    eprintln!(
+        "vector_insert_memory: before={before_mb}MB after_insert={after_insert_mb}MB \
+         after_reinsert={after_reinsert_mb}MB total_delta={total_delta_mb}MB \
+         (150 vectors x 1024 floats = 600KB raw vectors, ~600KB chunk text)"
+    );
+
+    assert!(
+        total_delta_mb < 512,
+        "RSS grew by {total_delta_mb}MB for 150 vectors (~1.2MB raw data). \
+         SurrealDB Value representation is amplifying memory ~{multiplier}x",
+        multiplier = total_delta_mb as u64 * 1024 / 1200,
+    );
+}
+
+/// Same as vector_insert_memory_stays_bounded but with concurrent SurrealDB
+/// operations (queries + inserts) to simulate the daemon environment where
+/// Discord, scheduler, and watcher all share the same DB connection.
+#[tokio::test]
+#[ignore = "diagnostic: run with --ignored to test concurrent memory behavior"]
+async fn vector_insert_concurrent_stays_bounded() {
+    let (db, _config, _workspace, _config_dir) = common::test_database().await;
+
+    let before_mb = rss_mb();
+    let large_chunk_text = "x".repeat(4000);
+
+    // Spawn concurrent "background" queries to simulate daemon subsystems
+    let db_bg = db.clone();
+    let background_queries = tokio::spawn(async move {
+        for _ in 0..500 {
+            // Simulate session/message queries that happen during Discord chat
+            let _ = db_bg.query("SELECT count() FROM embedding GROUP ALL").await;
+            let _ = db_bg.query("SELECT * FROM session LIMIT 10").await;
+            let _ = db_bg
+                .query("SELECT * FROM message ORDER BY created_at DESC LIMIT 20")
+                .await;
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+    });
+
+    // Insert embeddings concurrently from multiple "sources"
+    let mut handles = Vec::new();
+    for batch in 0..5 {
+        let db_c = db.clone();
+        let chunk_text = large_chunk_text.clone();
+        handles.push(tokio::spawn(async move {
+            for i in 0..10 {
+                let idx = batch * 10 + i;
+                let note_id = db::knowledge::create_note_full(
+                    &db_c,
+                    &format!("Concurrent Note {idx}"),
+                    &format!("body {idx}"),
+                    None,
+                    &[],
+                    &[],
+                    5,
+                    None,
+                )
+                .await
+                .expect("create note");
+
+                for chunk in 0..3 {
+                    let vector: Vec<f32> =
+                        (0..1024).map(|j| (idx * 1024 + j) as f32 * 0.001).collect();
+                    db::embeddings::upsert_embedding(
+                        &db_c,
+                        "note",
+                        &note_id,
+                        chunk,
+                        &format!("{chunk_text} note {idx} chunk {chunk}"),
+                        &format!("hash_{idx}_{chunk}"),
+                        &vector,
+                    )
+                    .await
+                    .expect("upsert");
+                }
+
+                // Simulate Ollama round-trip delay
+                tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+            }
+        }));
+    }
+
+    for h in handles {
+        h.await.expect("insert task");
+    }
+    background_queries.abort();
+
+    // Phase 2: concurrent delete + re-insert (re-embed cycle)
+    let all_notes: Vec<db::embeddings::EmbeddingHit> =
+        db::embeddings::vector_search(&db, &vec![1.0_f32; 1024], 1000)
+            .await
+            .unwrap_or_default();
+
+    let unique_sources: std::collections::HashSet<String> = all_notes
+        .iter()
+        .map(|h| format!("{:?}", h.source_id))
+        .collect();
+
+    let db_re = db.clone();
+    let db_bg2 = db.clone();
+    let bg2 = tokio::spawn(async move {
+        for _ in 0..200 {
+            let _ = db_bg2
+                .query(
+                    "SELECT source_id, chunk_text,
+                     vector::similarity::cosine(vector, $qv) AS score
+                     FROM embedding ORDER BY score DESC LIMIT 5",
+                )
+                .bind(("qv", vec![1.0_f32; 1024]))
+                .await;
+            tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+        }
+    });
+
+    // Re-embed all notes (delete + reinsert)
+    let notes_page = db::knowledge::list_notes_page(&db_re, 0, 100)
+        .await
+        .unwrap();
+    for (i, note) in notes_page.iter().enumerate() {
+        db::embeddings::delete_embeddings_for_source(&db_re, &note.id)
+            .await
+            .expect("delete");
+        for chunk in 0..3 {
+            let vector: Vec<f32> = (0..1024).map(|j| (i * 1024 + j) as f32 * 0.002).collect();
+            db::embeddings::upsert_embedding(
+                &db_re,
+                "note",
+                &note.id,
+                chunk,
+                &format!("{large_chunk_text} note {i} chunk {chunk} v2"),
+                &format!("hash_{i}_{chunk}_v2"),
+                &vector,
+            )
+            .await
+            .expect("re-upsert");
+        }
+    }
+
+    bg2.abort();
+
+    let count = db::embeddings::count_embeddings(&db).await.expect("count");
+    let after_mb = rss_mb();
+    let delta_mb = after_mb.saturating_sub(before_mb);
+
+    eprintln!(
+        "vector_concurrent_memory: before={before_mb}MB after={after_mb}MB \
+         delta={delta_mb}MB embeddings={count} sources={}",
+        unique_sources.len()
+    );
+
+    assert!(
+        delta_mb < 512,
+        "RSS grew by {delta_mb}MB with concurrent DB operations"
+    );
+}
+
+/// Stress test: 500 notes × 5 chunks = 2500 embeddings to check for
+/// non-linear memory growth at scale.
+#[tokio::test]
+#[ignore = "diagnostic: run with --ignored to test large-scale memory behavior"]
+async fn vector_insert_large_scale_memory() {
+    let (db, _config, _workspace, _config_dir) = common::test_database().await;
+
+    let before_mb = rss_mb();
+    let large_chunk_text = "x".repeat(4000);
+
+    for i in 0..500 {
+        let note_id = db::knowledge::create_note_full(
+            &db,
+            &format!("Scale Note {i}"),
+            &format!("body {i}"),
+            None,
+            &[],
+            &[],
+            5,
+            None,
+        )
+        .await
+        .expect("create note");
+
+        for chunk in 0..5 {
+            let vector: Vec<f32> = (0..1024).map(|j| (i * 1024 + j) as f32 * 0.001).collect();
+            db::embeddings::upsert_embedding(
+                &db,
+                "note",
+                &note_id,
+                chunk,
+                &format!("{large_chunk_text} note {i} chunk {chunk}"),
+                &format!("hash_{i}_{chunk}"),
+                &vector,
+            )
+            .await
+            .expect("upsert");
+        }
+
+        if (i + 1) % 100 == 0 {
+            let cur_mb = rss_mb();
+            let count = db::embeddings::count_embeddings(&db).await.unwrap();
+            eprintln!(
+                "  [{i}/500] rss={cur_mb}MB delta={}MB embeddings={count}",
+                cur_mb.saturating_sub(before_mb)
+            );
+        }
+    }
+
+    let count = db::embeddings::count_embeddings(&db).await.unwrap();
+    let after_mb = rss_mb();
+    let delta_mb = after_mb.saturating_sub(before_mb);
+
+    // 2500 vectors × 1024 floats × 4 bytes = 10 MB raw vectors
+    // 2500 × 4000 bytes chunk text = 10 MB raw text
+    // Total raw data ~20 MB
+    eprintln!(
+        "vector_large_scale: before={before_mb}MB after={after_mb}MB \
+         delta={delta_mb}MB embeddings={count} (~20MB raw data)"
+    );
+
+    assert!(
+        delta_mb < 1024,
+        "RSS grew by {delta_mb}MB for {count} embeddings (~20MB raw data)"
+    );
 }
 
 // --- Chunker ---

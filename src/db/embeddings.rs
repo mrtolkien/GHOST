@@ -108,6 +108,8 @@ pub async fn vector_search(
     query_vector: &[f32],
     limit: usize,
 ) -> Result<Vec<EmbeddingHit>, DatabaseError> {
+    // Brute-force cosine similarity (no HNSW index — see schema.rs comment).
+    // Fine at hundreds of vectors; revisit if embedding count reaches thousands.
     let query = format!(
         "SELECT source_id, source_table, chunk_text,
                 vector::similarity::cosine(vector, $query_vector) AS score
