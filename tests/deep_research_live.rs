@@ -2,8 +2,6 @@
 
 mod common;
 
-use ghost::db::fmt_id;
-
 /// End-to-end test for the deep research agent.
 ///
 /// Loads the agent definition from the temp workspace (repo-current),
@@ -39,7 +37,7 @@ async fn deep_research_agent_produces_findings() {
     // Run with 8-minute timeout
     let result = tokio::time::timeout(
         std::time::Duration::from_secs(480),
-        session_chat.chat_agent(&fmt_id(&session), prompt, system_prompt, &definition, None),
+        session_chat.chat_agent(&session, prompt, system_prompt, &definition, None),
     )
     .await;
 

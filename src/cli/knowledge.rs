@@ -1,7 +1,7 @@
 use clap::Subcommand;
-use surrealdb::types::RecordId;
 
 use crate::db;
+use crate::db::GhostDb;
 use crate::embeddings::EmbeddingClient;
 use crate::error::GhostError;
 use crate::knowledge;
@@ -51,7 +51,7 @@ pub enum KnowledgeCommand {
 pub async fn execute(command: KnowledgeCommand) -> Result<(), GhostError> {
     let config = crate::config::load()?;
     crate::config_workspace::bootstrap_workspace(&config)?;
-    let db = crate::db::connect(&config.workspace).await?;
+    let db = crate::db::connect(&config.workspace, config.embeddings.dimension).await?;
 
     match command {
         KnowledgeCommand::Search { query, kind, limit } => {
@@ -80,7 +80,7 @@ pub async fn execute(command: KnowledgeCommand) -> Result<(), GhostError> {
 
 /// Run a hybrid search (BM25 + vector) across notes, references, and diary.
 async fn cmd_search(
-    db: &surrealdb::Surreal<surrealdb::engine::local::Db>,
+    db: &GhostDb,
     embeddings_config: &crate::config::EmbeddingsConfig,
     query: &str,
     kind: Option<&str>,
@@ -151,7 +151,7 @@ fn fallback_bm25(
 }
 
 async fn cmd_get(
-    db: &surrealdb::Surreal<surrealdb::engine::local::Db>,
+    db: &GhostDb,
     workspace: &std::path::Path,
     path: Option<&str>,
     title: Option<&str>,
@@ -163,13 +163,14 @@ async fn cmd_get(
                 command: "note not found",
             })?;
 
-        println!("ID: {}", crate::db::fmt_id(&note.id));
+        println!("ID: {}", note.id);
         println!("Title: {}", note.title);
         if let Some(arch) = &note.archetype {
             println!("Archetype: {arch}");
         }
-        if !note.tags.is_empty() {
-            println!("Tags: {}", note.tags.join(", "));
+        let tags = note.tags_parsed();
+        if !tags.is_empty() {
+            println!("Tags: {}", tags.join(", "));
         }
         println!("Trust: {}", note.trust);
         println!("---");
@@ -216,7 +217,7 @@ async fn cmd_get(
 /// Display the knowledge graph around a note: outgoing/incoming edges,
 /// orphan detection, and edge/stub statistics.
 async fn cmd_graph(
-    db: &surrealdb::Surreal<surrealdb::engine::local::Db>,
+    db: &GhostDb,
     target: &str,
     direction: Option<&str>,
     orphans: bool,
@@ -252,11 +253,7 @@ async fn cmd_graph(
     let show_out = direction.is_none() || direction == Some("out");
     let show_in = direction.is_none() || direction == Some("in");
 
-    println!(
-        "Graph for: {} ({})",
-        note.title,
-        crate::db::fmt_id(&note.id)
-    );
+    println!("Graph for: {} ({})", note.title, note.id);
 
     if show_out {
         let outgoing = db::knowledge::outgoing_edges(db, &note.id).await?;
@@ -264,7 +261,7 @@ async fn cmd_graph(
             println!("  -> (no outgoing edges)");
         } else {
             for edge in &outgoing {
-                let target_title = get_note_title(db, &edge.out).await;
+                let target_title = get_note_title(db, &edge.to_id).await;
                 println!("  -[{}]-> {}", edge.label, target_title);
             }
         }
@@ -276,7 +273,7 @@ async fn cmd_graph(
             println!("  <- (no incoming edges)");
         } else {
             for edge in &incoming {
-                let source_title = get_note_title(db, &edge.in_node).await;
+                let source_title = get_note_title(db, &edge.from_id).await;
                 println!("  <-[{}]- {}", edge.label, source_title);
             }
         }
@@ -290,7 +287,7 @@ async fn cmd_graph(
     Ok(())
 }
 
-async fn cmd_tags(db: &surrealdb::Surreal<surrealdb::engine::local::Db>) -> Result<(), GhostError> {
+async fn cmd_tags(db: &GhostDb) -> Result<(), GhostError> {
     let tags = db::knowledge::list_tags_with_counts(db).await?;
     if tags.is_empty() {
         println!("No tags");
@@ -302,26 +299,20 @@ async fn cmd_tags(db: &surrealdb::Surreal<surrealdb::engine::local::Db>) -> Resu
     Ok(())
 }
 
-async fn cmd_recent(
-    db: &surrealdb::Surreal<surrealdb::engine::local::Db>,
-    limit: usize,
-) -> Result<(), GhostError> {
+async fn cmd_recent(db: &GhostDb, limit: usize) -> Result<(), GhostError> {
     let items = db::knowledge::list_recent(db, limit).await?;
     if items.is_empty() {
         println!("No knowledge items yet");
         return Ok(());
     }
     for item in &items {
-        let date = item.updated_at.to_string();
-        let short_date: String = date.chars().take(10).collect();
+        let short_date: String = item.updated_at.chars().take(10).collect();
         println!("{}  [{:>9}]  {}", short_date, item.kind, item.title,);
     }
     Ok(())
 }
 
-async fn cmd_stats(
-    db: &surrealdb::Surreal<surrealdb::engine::local::Db>,
-) -> Result<(), GhostError> {
+async fn cmd_stats(db: &GhostDb) -> Result<(), GhostError> {
     let notes = db::knowledge::count_notes(db).await?;
     let stubs = db::knowledge::count_stubs(db).await?;
     let references = db::knowledge::count_references(db).await?;
@@ -339,11 +330,7 @@ async fn cmd_stats(
     Ok(())
 }
 
-async fn cmd_references(
-    db: &surrealdb::Surreal<surrealdb::engine::local::Db>,
-    topic: Option<&str>,
-    limit: usize,
-) -> Result<(), GhostError> {
+async fn cmd_references(db: &GhostDb, topic: Option<&str>, limit: usize) -> Result<(), GhostError> {
     let refs = db::knowledge::list_references_by_topic(db, topic, limit).await?;
 
     if refs.is_empty() {
@@ -373,7 +360,7 @@ async fn cmd_references(
 /// Re-sync all workspace knowledge files (notes, references, diary) into the
 /// database, reconcile wiki-link edges, and optionally regenerate all embeddings.
 async fn cmd_reindex(
-    db: &surrealdb::Surreal<surrealdb::engine::local::Db>,
+    db: &GhostDb,
     workspace: &std::path::Path,
     embeddings_config: &crate::config::EmbeddingsConfig,
     skip_embeddings: bool,
@@ -537,12 +524,9 @@ async fn cmd_reindex(
     Ok(())
 }
 
-async fn get_note_title(
-    db: &surrealdb::Surreal<surrealdb::engine::local::Db>,
-    id: &RecordId,
-) -> String {
+async fn get_note_title(db: &GhostDb, id: &str) -> String {
     db::knowledge::get_note(db, id)
         .await
         .map(|n| n.title)
-        .unwrap_or_else(|_| crate::db::fmt_id(id))
+        .unwrap_or_else(|_| id.to_string())
 }

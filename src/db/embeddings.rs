@@ -1,142 +1,282 @@
-use serde::Deserialize;
-use surrealdb::Surreal;
-use surrealdb::engine::local::Db;
-use surrealdb::types::{RecordId, SurrealValue};
+use sqlx::SqlitePool;
 
 use super::error::DatabaseError;
-use super::query::{CountRow, query_exec, take_many};
+use crate::db::{new_id, now};
 
-#[derive(Debug, Clone, Deserialize, SurrealValue)]
-#[surreal(crate = "surrealdb::types")]
+#[derive(Debug, Clone)]
 pub struct EmbeddingHit {
-    pub source_id: RecordId,
+    pub source_id: String,
     pub source_table: String,
     pub chunk_text: String,
     pub score: f64,
 }
 
-#[derive(Debug, Deserialize, SurrealValue)]
-#[surreal(crate = "surrealdb::types")]
-struct HashRow {
-    content_hash: String,
-}
-
-#[tracing::instrument(skip_all, fields(source_id = ?source_id, chunk_index))]
+#[tracing::instrument(skip_all, fields(source_id = %source_id, chunk_index))]
 pub async fn upsert_embedding(
-    db: &Surreal<Db>,
+    db: &SqlitePool,
     source_table: &str,
-    source_id: &RecordId,
+    source_id: &str,
     chunk_index: usize,
     chunk_text: &str,
     content_hash: &str,
     vector: &[f32],
 ) -> Result<(), DatabaseError> {
-    query_exec(
-        db.query(
-            "INSERT INTO embedding {
-            source_table: $source_table,
-            source_id: $source_id,
-            chunk_index: $chunk_index,
-            chunk_text: $chunk_text,
-            content_hash: $content_hash,
-            vector: $vector,
-            created_at: time::now()
-        } ON DUPLICATE KEY UPDATE
-            chunk_text = $input.chunk_text,
-            content_hash = $input.content_hash,
-            vector = $input.vector,
-            created_at = time::now()",
-        )
-        .bind(("source_table", source_table.to_string()))
-        .bind(("source_id", source_id.clone()))
-        .bind(("chunk_index", chunk_index as i64))
-        .bind(("chunk_text", chunk_text.to_string()))
-        .bind(("content_hash", content_hash.to_string()))
-        .bind(("vector", vector.to_vec())),
-        "embedding",
-        "upsert",
+    let mut tx = db.begin().await.map_err(|source| DatabaseError::Query {
+        table: "embedding",
+        operation: "upsert/begin",
+        source,
+    })?;
+
+    // Delete existing rows from both tables if present
+    #[derive(sqlx::FromRow)]
+    struct RowidRow {
+        rowid: i64,
+    }
+
+    let old = sqlx::query_as::<_, RowidRow>(
+        "SELECT rowid FROM embedding WHERE source_id = ? AND chunk_index = ?",
     )
-    .await?;
+    .bind(source_id)
+    .bind(chunk_index as i64)
+    .fetch_optional(&mut *tx)
+    .await
+    .map_err(|source| DatabaseError::Query {
+        table: "embedding",
+        operation: "upsert/find_old",
+        source,
+    })?;
+
+    if let Some(old) = old {
+        sqlx::query("DELETE FROM vec_embedding WHERE rowid = ?")
+            .bind(old.rowid)
+            .execute(&mut *tx)
+            .await
+            .map_err(|source| DatabaseError::Query {
+                table: "vec_embedding",
+                operation: "upsert/delete_vec",
+                source,
+            })?;
+
+        sqlx::query("DELETE FROM embedding WHERE rowid = ?")
+            .bind(old.rowid)
+            .execute(&mut *tx)
+            .await
+            .map_err(|source| DatabaseError::Query {
+                table: "embedding",
+                operation: "upsert/delete",
+                source,
+            })?;
+    }
+
+    // Insert new metadata row
+    let id = new_id();
+    sqlx::query(
+        "INSERT INTO embedding \
+         (id, source_table, source_id, chunk_index, chunk_text, content_hash, created_at) \
+         VALUES (?, ?, ?, ?, ?, ?, ?)",
+    )
+    .bind(&id)
+    .bind(source_table)
+    .bind(source_id)
+    .bind(chunk_index as i64)
+    .bind(chunk_text)
+    .bind(content_hash)
+    .bind(now())
+    .execute(&mut *tx)
+    .await
+    .map_err(|source| DatabaseError::Query {
+        table: "embedding",
+        operation: "upsert/insert",
+        source,
+    })?;
+
+    // Get rowid of just-inserted row and insert vector
+    let (rowid,): (i64,) = sqlx::query_as("SELECT last_insert_rowid()")
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(|source| DatabaseError::Query {
+            table: "embedding",
+            operation: "upsert/rowid",
+            source,
+        })?;
+
+    let vec_json = serde_json::to_string(vector).unwrap_or_default();
+    sqlx::query("INSERT INTO vec_embedding(rowid, embedding) VALUES (?, ?)")
+        .bind(rowid)
+        .bind(&vec_json)
+        .execute(&mut *tx)
+        .await
+        .map_err(|source| DatabaseError::Query {
+            table: "vec_embedding",
+            operation: "upsert/insert_vec",
+            source,
+        })?;
+
+    tx.commit().await.map_err(|source| DatabaseError::Query {
+        table: "embedding",
+        operation: "upsert/commit",
+        source,
+    })?;
+
     Ok(())
 }
 
-#[tracing::instrument(skip_all, fields(source_id = ?source_id))]
+#[tracing::instrument(skip_all, fields(source_id = %source_id))]
 pub async fn get_content_hash(
-    db: &Surreal<Db>,
-    source_id: &RecordId,
+    db: &SqlitePool,
+    source_id: &str,
 ) -> Result<Option<String>, DatabaseError> {
-    let mut resp = query_exec(
-        db.query(
-            "SELECT content_hash FROM embedding
-             WHERE source_id = $source_id
-             LIMIT 1",
-        )
-        .bind(("source_id", source_id.clone())),
-        "embedding",
-        "get_content_hash",
-    )
-    .await?;
+    #[derive(sqlx::FromRow)]
+    struct HashRow {
+        content_hash: String,
+    }
 
-    let rows: Vec<HashRow> = take_many(&mut resp, 0, "embedding", "get_content_hash")?;
-    Ok(rows.first().map(|r| r.content_hash.clone()))
+    let row = sqlx::query_as::<_, HashRow>(
+        "SELECT content_hash FROM embedding WHERE source_id = ? LIMIT 1",
+    )
+    .bind(source_id)
+    .fetch_optional(db)
+    .await
+    .map_err(|source| DatabaseError::Query {
+        table: "embedding",
+        operation: "get_content_hash",
+        source,
+    })?;
+
+    Ok(row.map(|r| r.content_hash))
 }
 
-#[tracing::instrument(skip_all, fields(source_id = ?source_id))]
+#[tracing::instrument(skip_all, fields(source_id = %source_id))]
 pub async fn delete_embeddings_for_source(
-    db: &Surreal<Db>,
-    source_id: &RecordId,
+    db: &SqlitePool,
+    source_id: &str,
 ) -> Result<(), DatabaseError> {
-    query_exec(
-        db.query("DELETE FROM embedding WHERE source_id = $source_id")
-            .bind(("source_id", source_id.clone())),
-        "embedding",
-        "delete_for_source",
+    let mut tx = db.begin().await.map_err(|source| DatabaseError::Query {
+        table: "embedding",
+        operation: "delete_for_source/begin",
+        source,
+    })?;
+
+    // Delete vec rows that match embedding rows for this source
+    sqlx::query(
+        "DELETE FROM vec_embedding WHERE rowid IN \
+         (SELECT rowid FROM embedding WHERE source_id = ?)",
     )
-    .await?;
+    .bind(source_id)
+    .execute(&mut *tx)
+    .await
+    .map_err(|source| DatabaseError::Query {
+        table: "vec_embedding",
+        operation: "delete_for_source",
+        source,
+    })?;
+
+    sqlx::query("DELETE FROM embedding WHERE source_id = ?")
+        .bind(source_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(|source| DatabaseError::Query {
+            table: "embedding",
+            operation: "delete_for_source",
+            source,
+        })?;
+
+    tx.commit().await.map_err(|source| DatabaseError::Query {
+        table: "embedding",
+        operation: "delete_for_source/commit",
+        source,
+    })?;
+
     Ok(())
 }
 
 #[tracing::instrument(skip_all)]
-pub async fn delete_all_embeddings(db: &Surreal<Db>) -> Result<(), DatabaseError> {
-    query_exec(db.query("DELETE FROM embedding"), "embedding", "delete_all").await?;
+pub async fn delete_all_embeddings(db: &SqlitePool) -> Result<(), DatabaseError> {
+    let mut tx = db.begin().await.map_err(|source| DatabaseError::Query {
+        table: "embedding",
+        operation: "delete_all/begin",
+        source,
+    })?;
+
+    sqlx::query("DELETE FROM vec_embedding")
+        .execute(&mut *tx)
+        .await
+        .map_err(|source| DatabaseError::Query {
+            table: "vec_embedding",
+            operation: "delete_all",
+            source,
+        })?;
+
+    sqlx::query("DELETE FROM embedding")
+        .execute(&mut *tx)
+        .await
+        .map_err(|source| DatabaseError::Query {
+            table: "embedding",
+            operation: "delete_all",
+            source,
+        })?;
+
+    tx.commit().await.map_err(|source| DatabaseError::Query {
+        table: "embedding",
+        operation: "delete_all/commit",
+        source,
+    })?;
+
     Ok(())
 }
 
 #[tracing::instrument(skip_all, fields(limit))]
 pub async fn vector_search(
-    db: &Surreal<Db>,
+    db: &SqlitePool,
     query_vector: &[f32],
     limit: usize,
 ) -> Result<Vec<EmbeddingHit>, DatabaseError> {
-    // Brute-force cosine similarity (no HNSW index — see schema.rs comment).
-    // Fine at hundreds of vectors; revisit if embedding count reaches thousands.
-    let query = format!(
-        "SELECT source_id, source_table, chunk_text,
-                vector::similarity::cosine(vector, $query_vector) AS score
-         FROM embedding
-         ORDER BY score DESC
-         LIMIT {limit}"
-    );
-    let mut resp = query_exec(
-        db.query(&query)
-            .bind(("query_vector", query_vector.to_vec())),
-        "embedding",
-        "vector_search",
-    )
-    .await?;
+    #[derive(sqlx::FromRow)]
+    struct VecSearchRow {
+        source_id: String,
+        source_table: String,
+        chunk_text: String,
+        distance: f64,
+    }
 
-    take_many(&mut resp, 0, "embedding", "vector_search")
+    let vec_json = serde_json::to_string(query_vector).unwrap_or_default();
+
+    let rows = sqlx::query_as::<_, VecSearchRow>(
+        "SELECT e.source_id, e.source_table, e.chunk_text, v.distance \
+         FROM vec_embedding v \
+         JOIN embedding e ON e.rowid = v.rowid \
+         WHERE v.embedding MATCH ? AND k = ?",
+    )
+    .bind(&vec_json)
+    .bind(limit as i64)
+    .fetch_all(db)
+    .await
+    .map_err(|source| DatabaseError::Query {
+        table: "embedding",
+        operation: "vector_search",
+        source,
+    })?;
+
+    Ok(rows
+        .into_iter()
+        .map(|r| EmbeddingHit {
+            source_id: r.source_id,
+            source_table: r.source_table,
+            chunk_text: r.chunk_text,
+            score: 1.0 / (1.0 + r.distance),
+        })
+        .collect())
 }
 
 #[tracing::instrument(skip_all)]
-pub async fn count_embeddings(db: &Surreal<Db>) -> Result<i64, DatabaseError> {
-    let mut resp = query_exec(
-        db.query("SELECT count() AS count FROM embedding GROUP ALL"),
-        "embedding",
-        "count",
-    )
-    .await?;
-
-    let rows: Vec<CountRow> = take_many(&mut resp, 0, "embedding", "count")?;
-    Ok(rows.first().map(|r| r.count).unwrap_or(0))
+pub async fn count_embeddings(db: &SqlitePool) -> Result<i64, DatabaseError> {
+    let (count,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM embedding")
+        .fetch_one(db)
+        .await
+        .map_err(|source| DatabaseError::Query {
+            table: "embedding",
+            operation: "count",
+            source,
+        })?;
+    Ok(count)
 }

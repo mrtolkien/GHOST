@@ -2,7 +2,6 @@
 
 mod common;
 
-use ghost::db::fmt_id;
 use ghost::web::scan_web_cache;
 use std::path::PathBuf;
 
@@ -18,7 +17,7 @@ async fn reflection_creates_knowledge_notes() {
 
     let chat = env.chat();
     chat.chat(
-        &fmt_id(&session),
+        &session,
         "I just learned that SurrealDB supports graph relations using RELATE statements. \
          For example: `RELATE user:alice->follows->user:bob`. This creates typed edges \
          between records. I want to remember this for later.",
@@ -60,7 +59,7 @@ async fn reflection_handoff_continuity() {
     // First conversation
     let chat = env.chat();
     chat.chat(
-        &fmt_id(&session),
+        &session,
         "I'm planning to refactor the authentication module next week. \
          The current JWT implementation is too tightly coupled to the HTTP layer.",
         None,
@@ -83,7 +82,7 @@ async fn reflection_handoff_continuity() {
     let chat2 = env.chat();
     chat2
         .chat(
-            &fmt_id(&session2),
+            &session2,
             "I decided to use tower middleware for auth instead of custom extractors.",
             None,
         )
@@ -123,7 +122,7 @@ async fn skills_discoverable_without_prompting() {
     let chat = env.chat();
     let (result, _metadata) = chat
         .chat(
-            &fmt_id(&session),
+            &session,
             "What skills do you have available? List them briefly.",
             None,
         )

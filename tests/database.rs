@@ -6,13 +6,13 @@ use ghost::db;
 async fn schema_apply_is_idempotent() {
     let (db, config, _workspace, _config_dir) = common::test_database().await;
 
-    // SurrealKV 3.0 holds an exclusive lock, so we must drop the first
-    // connection before reconnecting to verify idempotent schema application.
+    // Drop the first connection before reconnecting to verify idempotent
+    // schema application.
     drop(db);
     // Give the async runtime a moment to release the lock file.
     tokio::time::sleep(std::time::Duration::from_millis(100)).await;
 
-    let reconnect = db::connect(&config.workspace).await;
+    let reconnect = db::connect(&config.workspace, config.embeddings.dimension).await;
     assert!(reconnect.is_ok(), "reconnect failed: {:?}", reconnect.err());
 }
 
@@ -116,11 +116,9 @@ async fn message_tool_calls_round_trip() {
     // Verify assistant tool_calls
     let assistant = &messages[0];
     assert_eq!(assistant.role, "assistant");
-    assert!(
-        assistant.tool_calls.is_some(),
-        "tool_calls should be Some, got None. Full record: {assistant:?}"
-    );
-    let calls = assistant.tool_calls.as_ref().unwrap();
+    let calls = assistant
+        .tool_calls_parsed()
+        .expect("tool_calls should be Some");
     assert_eq!(calls.len(), 1, "expected 1 tool call, got: {calls:?}");
     assert_eq!(
         calls[0].get("name").and_then(|v| v.as_str()),
@@ -130,11 +128,9 @@ async fn message_tool_calls_round_trip() {
     // Verify user tool_results
     let user = &messages[1];
     assert_eq!(user.role, "user");
-    assert!(
-        user.tool_results.is_some(),
-        "tool_results should be Some, got None. Full record: {user:?}"
-    );
-    let results = user.tool_results.as_ref().unwrap();
+    let results = user
+        .tool_results_parsed()
+        .expect("tool_results should be Some");
     assert_eq!(results.len(), 1, "expected 1 tool result, got: {results:?}");
     assert_eq!(
         results[0].get("tool_use_id").and_then(|v| v.as_str()),

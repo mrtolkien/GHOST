@@ -1,7 +1,6 @@
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
-use surrealdb::types::RecordId;
 
 use crate::db;
 use crate::providers::ToolDefinition;
@@ -224,7 +223,7 @@ impl Todo {
     async fn load_list(
         &self,
         ctx: &ToolContext,
-        session_id: &RecordId,
+        session_id: &str,
     ) -> Result<Vec<TodoItem>, ToolError> {
         Ok(db::sessions::get_session_todo_list(&ctx.db, session_id)
             .await
@@ -235,7 +234,7 @@ impl Todo {
     async fn save_list(
         &self,
         ctx: &ToolContext,
-        session_id: &RecordId,
+        session_id: &str,
         items: &[TodoItem],
     ) -> Result<(), ToolError> {
         let list = if items.is_empty() { None } else { Some(items) };
@@ -248,7 +247,7 @@ impl Todo {
         &self,
         params: &Value,
         ctx: &ToolContext,
-        session_id: &RecordId,
+        session_id: &str,
     ) -> Result<String, ToolError> {
         let items_val = params.get("items").ok_or_else(|| {
             ToolError::InvalidParams("'plan' requires an 'items' array".to_string())
@@ -290,7 +289,7 @@ impl Todo {
         &self,
         params: &Value,
         ctx: &ToolContext,
-        session_id: &RecordId,
+        session_id: &str,
     ) -> Result<String, ToolError> {
         let title = params
             .get("title")
@@ -319,7 +318,7 @@ impl Todo {
         &self,
         params: &Value,
         ctx: &ToolContext,
-        session_id: &RecordId,
+        session_id: &str,
     ) -> Result<String, ToolError> {
         let index = params.get("index").and_then(Value::as_u64).ok_or_else(|| {
             ToolError::InvalidParams("'update' requires an 'index' (1-based)".to_string())
@@ -358,7 +357,7 @@ impl Todo {
         &self,
         params: &Value,
         ctx: &ToolContext,
-        session_id: &RecordId,
+        session_id: &str,
     ) -> Result<String, ToolError> {
         let updates = params
             .get("updates")
@@ -404,29 +403,30 @@ impl Todo {
         Ok(format_todo_list(&items))
     }
 
-    async fn action_clear(
-        &self,
-        ctx: &ToolContext,
-        session_id: &RecordId,
-    ) -> Result<String, ToolError> {
+    async fn action_clear(&self, ctx: &ToolContext, session_id: &str) -> Result<String, ToolError> {
         self.save_list(ctx, session_id, &[]).await?;
         Ok("TODO list cleared.".to_string())
     }
 }
 
-fn parse_session_thing(session_id: &str) -> Result<RecordId, ToolError> {
+fn parse_session_thing(session_id: &str) -> Result<String, ToolError> {
     if session_id.contains(':') {
         let mut parts = session_id.splitn(2, ':');
-        let table = parts.next().unwrap_or_default();
+        let _table = parts.next().unwrap_or_default();
         let id = parts.next().unwrap_or_default();
-        if table.is_empty() || id.is_empty() {
+        if id.is_empty() {
             return Err(ToolError::InvalidParams(format!(
                 "invalid session ID: '{session_id}'"
             )));
         }
-        return Ok(RecordId::new(table, id));
+        return Ok(id.to_string());
     }
-    Ok(RecordId::new("session", session_id))
+    if session_id.trim().is_empty() {
+        return Err(ToolError::InvalidParams(format!(
+            "invalid session ID: '{session_id}'"
+        )));
+    }
+    Ok(session_id.to_string())
 }
 
 #[cfg(test)]

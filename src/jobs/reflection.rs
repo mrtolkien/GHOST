@@ -3,9 +3,6 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use chrono::{DateTime, Utc};
-use surrealdb::Surreal;
-use surrealdb::engine::local::Db;
-use surrealdb::types::RecordId;
 use tokio::sync::{Mutex, watch};
 use tokio::task::JoinHandle;
 
@@ -15,12 +12,13 @@ use std::sync::LazyLock;
 use crate::agents::TaskRunner;
 use crate::config::Config;
 use crate::db;
+use crate::db::GhostDb;
 use crate::db::sessions::MessageRecord;
 use crate::knowledge::parse_note;
 use crate::web::slug_from_url;
 
 pub struct ReflectionManager {
-    db: Surreal<Db>,
+    db: GhostDb,
     config: Config,
     task_runner: Arc<TaskRunner>,
     running: Arc<Mutex<()>>,
@@ -28,7 +26,7 @@ pub struct ReflectionManager {
 
 impl ReflectionManager {
     #[must_use]
-    pub fn new(db: Surreal<Db>, config: Config, task_runner: Arc<TaskRunner>) -> Self {
+    pub fn new(db: GhostDb, config: Config, task_runner: Arc<TaskRunner>) -> Self {
         Self {
             db,
             config,
@@ -40,7 +38,7 @@ impl ReflectionManager {
     /// Run reflection for a chat session, skipping if no new messages since
     /// the last reflection ran. Fully serialized: dedup check and execution
     /// happen inside the mutex to prevent concurrent reflections.
-    pub async fn run_chat_reflection(&self, session_id: &str, session_thing: &RecordId) {
+    pub async fn run_chat_reflection(&self, session_id: &str) {
         let _guard = self.running.lock().await;
 
         // Skip if no new messages since last reflection
@@ -54,7 +52,7 @@ impl ReflectionManager {
             && let Ok(modified) = metadata.modified()
         {
             let since: DateTime<Utc> = modified.into();
-            match db::sessions::count_messages_since(&self.db, session_thing, &since).await {
+            match db::sessions::count_messages_since(&self.db, session_id, &since).await {
                 Ok(0) => {
                     logfire::debug!(
                         "reflection skipped: no new activity",
@@ -72,17 +70,14 @@ impl ReflectionManager {
             }
         }
 
-        self.run_inner(session_id, session_thing, "chat-reflection")
-            .await;
+        self.run_inner(session_id, "chat-reflection").await;
     }
 
     /// Run reflection after an agent handoff on the agent's own session.
     /// Fully serialized via the mutex.
-    pub async fn run_after_agent_handoff(&self, agent_session_thing: &RecordId) {
+    pub async fn run_after_agent_handoff(&self, agent_session_id: &str) {
         let _guard = self.running.lock().await;
-        let session_id = crate::db::fmt_id(agent_session_thing);
-        self.run_inner(&session_id, agent_session_thing, "reflection")
-            .await;
+        self.run_inner(agent_session_id, "reflection").await;
     }
 
     /// Spawn a background task that polls for idle chat sessions and triggers
@@ -135,9 +130,9 @@ impl ReflectionManager {
             chrono::Duration::minutes(self.config.timing.reflection_idle_minutes as i64);
 
         for record in sessions {
-            let session_id = crate::db::fmt_id(&record.session);
+            let session_id = &record.session_id;
 
-            let session = match db::sessions::get_session(&self.db, &record.session).await {
+            let session = match db::sessions::get_session(&self.db, session_id).await {
                 Ok(s) => s,
                 Err(e) => {
                     logfire::warn!(
@@ -153,12 +148,14 @@ impl ReflectionManager {
                 continue;
             }
 
-            let last_activity: DateTime<Utc> = *session.last_activity_at;
+            let last_activity = chrono::DateTime::parse_from_rfc3339(&session.last_activity_at)
+                .map(|dt| dt.with_timezone(&Utc))
+                .unwrap_or_else(|_| Utc::now());
             if now - last_activity < idle_threshold {
                 continue;
             }
 
-            self.run_chat_reflection(&session_id, &record.session).await;
+            self.run_chat_reflection(session_id).await;
         }
     }
 
@@ -167,11 +164,11 @@ impl ReflectionManager {
         session_id = ?session_id,
         agent_name = %agent_name,
     ))]
-    async fn run_inner(&self, session_id: &str, session_thing: &RecordId, agent_name: &str) {
+    async fn run_inner(&self, session_id: &str, agent_name: &str) {
         logfire::info!("reflection started", session_id = session_id.to_string(),);
 
         // Build user message and capture classified cache files for post-processing
-        let (user_message, classified) = match self.build_user_message(session_thing).await {
+        let (user_message, classified) = match self.build_user_message(session_id).await {
             Ok(result) => result,
             Err(e) => {
                 logfire::error!(
@@ -184,7 +181,7 @@ impl ReflectionManager {
 
         match self
             .task_runner
-            .run_to_completion(agent_name, &user_message, Some(session_thing))
+            .run_to_completion(agent_name, &user_message, Some(session_id))
             .await
         {
             Ok(findings) => {
@@ -225,7 +222,7 @@ impl ReflectionManager {
     /// classified cache files (needed for post-processing).
     async fn build_user_message(
         &self,
-        session_thing: &RecordId,
+        session_id: &str,
     ) -> Result<(String, Vec<ClassifiedCacheFile>), db::DatabaseError> {
         let previous_handoff = load_state_file(&self.config.workspace, "reflection.last.md")
             .unwrap_or_else(|| "No previous handoff.".to_string());
@@ -233,7 +230,7 @@ impl ReflectionManager {
         let diary_today = load_diary_today(&self.config.workspace)
             .unwrap_or_else(|| "No diary entry for today.".to_string());
 
-        let messages = db::sessions::list_messages_by_session(&self.db, session_thing).await?;
+        let messages = db::sessions::list_messages_by_session(&self.db, session_id).await?;
         let agent_findings = extract_agent_findings(&messages);
         let transcript = filter_transcript(&messages);
 
@@ -540,8 +537,8 @@ pub fn filter_transcript(messages: &[MessageRecord]) -> String {
                     lines.push(format!("[assistant] {}", msg.content));
                 }
                 // Include tool call names + brief summary
-                if let Some(ref calls) = msg.tool_calls {
-                    for call in calls {
+                if let Some(calls) = msg.tool_calls_parsed() {
+                    for call in &calls {
                         let name = call
                             .get("name")
                             .and_then(|v| v.as_str())
@@ -610,7 +607,7 @@ pub fn clear_web_cache(workspace: &Path) -> Result<(), std::io::Error> {
 /// Returns the number of edges created.
 #[tracing::instrument(skip_all, fields(classified_count = classified.len()))]
 pub async fn link_cited_edges(
-    db: &Surreal<Db>,
+    db: &GhostDb,
     workspace: &Path,
     classified: &[ClassifiedCacheFile],
 ) -> usize {
@@ -702,7 +699,7 @@ pub async fn link_cited_edges(
                     logfire::warn!(
                         "link_cited_edges: failed to create edge",
                         note = note_title.clone(),
-                        ref_id = crate::db::fmt_id(&ref_record.id),
+                        ref_id = ref_record.id.clone(),
                         error = e.to_string(),
                     );
                 }
@@ -986,7 +983,6 @@ fn topic_from_url(url: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use surrealdb::types::Datetime;
     use tempfile::TempDir;
 
     fn make_message(
@@ -996,14 +992,14 @@ mod tests {
         tool_results: Option<Vec<serde_json::Value>>,
     ) -> MessageRecord {
         MessageRecord {
-            id: RecordId::new("message", "test"),
-            session: RecordId::new("session", "test"),
+            id: "test_msg".to_string(),
+            session_id: "test_session".to_string(),
             role: role.to_string(),
             content: content.to_string(),
-            tool_calls,
-            tool_results,
+            tool_calls: tool_calls.map(|v| serde_json::to_string(&v).unwrap()),
+            tool_results: tool_results.map(|v| serde_json::to_string(&v).unwrap()),
             raw_output: None,
-            created_at: Datetime::default(),
+            created_at: crate::db::now(),
         }
     }
 

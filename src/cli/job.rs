@@ -86,7 +86,7 @@ async fn cmd_list() -> Result<(), GhostError> {
 async fn cmd_run(name: &str) -> Result<(), GhostError> {
     let config = crate::config::load()?;
     crate::config_workspace::bootstrap_workspace(&config)?;
-    let db = crate::db::connect(&config.workspace).await?;
+    let db = crate::db::connect(&config.workspace, config.embeddings.dimension).await?;
     let task_runner = crate::agents::TaskRunner::new(db, config.clone());
 
     println!("Running job '{name}'...");
@@ -97,7 +97,7 @@ async fn cmd_run(name: &str) -> Result<(), GhostError> {
 
 async fn cmd_logs(name: Option<&str>) -> Result<(), GhostError> {
     let config = crate::config::load()?;
-    let db = crate::db::connect(&config.workspace).await?;
+    let db = crate::db::connect(&config.workspace, config.embeddings.dimension).await?;
 
     let logs = crate::db::job_logs::list_job_logs(&db, name, 20).await?;
 
@@ -113,17 +113,16 @@ async fn cmd_logs(name: Option<&str>) -> Result<(), GhostError> {
     println!("{}", "-".repeat(76));
 
     for log in &logs {
-        let started = log.started_at.to_string();
-        let started_short = started.get(..19).unwrap_or(&started);
+        let started_short = log.started_at.get(..19).unwrap_or(&log.started_at);
 
         let duration = log
             .finished_at
-            .as_ref()
-            .map(|f| {
-                let start: chrono::DateTime<chrono::Utc> = *log.started_at;
-                let end: chrono::DateTime<chrono::Utc> = **f;
+            .as_deref()
+            .and_then(|f| {
+                let start = chrono::DateTime::parse_from_rfc3339(&log.started_at).ok()?;
+                let end = chrono::DateTime::parse_from_rfc3339(f).ok()?;
                 let dur = end - start;
-                format!("{}s", dur.num_seconds())
+                Some(format!("{}s", dur.num_seconds()))
             })
             .unwrap_or_else(|| "running".to_string());
 

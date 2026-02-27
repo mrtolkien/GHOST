@@ -1,10 +1,7 @@
 use std::collections::HashSet;
 
-use surrealdb::Surreal;
-use surrealdb::engine::local::Db;
-use surrealdb::types::RecordId;
-
 use crate::db;
+use crate::db::GhostDb;
 
 use super::error::KnowledgeError;
 use super::types::WikiLink;
@@ -20,8 +17,8 @@ pub struct ReconcileResult {
 
 #[tracing::instrument(skip_all, fields(note_id = ?note_id, link_count = new_links.len()))]
 pub async fn reconcile_edges(
-    db_conn: &Surreal<Db>,
-    note_id: &RecordId,
+    db_conn: &GhostDb,
+    note_id: &str,
     _note_title: &str,
     new_links: &[WikiLink],
 ) -> Result<ReconcileResult, KnowledgeError> {
@@ -29,7 +26,7 @@ pub async fn reconcile_edges(
     let mut stub_titles = Vec::new();
 
     // Resolve each wiki link target to a note ID, creating stubs as needed.
-    let mut desired: Vec<(RecordId, String)> = Vec::new();
+    let mut desired: Vec<(String, String)> = Vec::new();
     for link in new_links {
         let target_id = match db::knowledge::find_note_by_title(db_conn, &link.target)
             .await
@@ -67,21 +64,21 @@ pub async fn reconcile_edges(
         .await
         .map_err(Box::new)?;
 
-    // Build sets for diffing: (out_id, label)
+    // Build sets for diffing: (to_id, label)
     let desired_set: HashSet<(String, String)> = desired
         .iter()
-        .map(|(id, label)| (crate::db::fmt_id(id), label.clone()))
+        .map(|(id, label)| (id.clone(), label.clone()))
         .collect();
 
     let existing_set: HashSet<(String, String)> = existing
         .iter()
-        .map(|e| (crate::db::fmt_id(&e.out), e.label.clone()))
+        .map(|e| (e.to_id.clone(), e.label.clone()))
         .collect();
 
     // Create new edges (in desired but not existing)
     let mut created = 0usize;
     for (target_id, label) in &desired {
-        let key = (crate::db::fmt_id(target_id), label.clone());
+        let key = (target_id.clone(), label.clone());
         if !existing_set.contains(&key) {
             db::knowledge::create_edge(db_conn, note_id, target_id, label)
                 .await
@@ -93,11 +90,11 @@ pub async fn reconcile_edges(
     // Delete removed edges (in existing but not desired)
     let mut deleted = 0usize;
     for edge in &existing {
-        let key = (crate::db::fmt_id(&edge.out), edge.label.clone());
+        let key = (edge.to_id.clone(), edge.label.clone());
         if !desired_set.contains(&key) {
-            db_conn
-                .query("DELETE $edge_id")
-                .bind(("edge_id", edge.id.clone()))
+            sqlx::query("DELETE FROM relates_to WHERE id = ?")
+                .bind(&edge.id)
+                .execute(db_conn)
                 .await
                 .map_err(|source| {
                     Box::new(db::DatabaseError::Query {

@@ -245,7 +245,7 @@ impl NoteWrite {
              Edges: {} created, {} stubs created{index_info}",
             title,
             path.display(),
-            crate::db::fmt_id(&note_id),
+            note_id,
             result.created,
             result.stubs_created,
         );

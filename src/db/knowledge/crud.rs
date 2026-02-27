@@ -1,9 +1,7 @@
-use surrealdb::Surreal;
-use surrealdb::engine::local::Db;
-use surrealdb::types::RecordId;
+use sqlx::SqlitePool;
 
 use crate::db::error::DatabaseError;
-use crate::db::query::{IdRow, query_exec, take_many, take_one};
+use crate::db::{new_id, now};
 
 use super::records::{DiaryRecord, NoteRecord, RecentItem, ReferenceRecord};
 
@@ -11,17 +9,17 @@ use super::records::{DiaryRecord, NoteRecord, RecentItem, ReferenceRecord};
 
 #[tracing::instrument(skip_all, level = "debug", fields(title = %title))]
 pub async fn create_note(
-    db: &Surreal<Db>,
+    db: &SqlitePool,
     title: &str,
     body: &str,
-) -> Result<RecordId, DatabaseError> {
+) -> Result<String, DatabaseError> {
     create_note_full(db, title, body, None, &[], &[], 5, None).await
 }
 
 #[allow(clippy::too_many_arguments)]
 #[tracing::instrument(skip_all, level = "debug", fields(title = %title))]
 pub async fn create_note_full(
-    db: &Surreal<Db>,
+    db: &SqlitePool,
     title: &str,
     body: &str,
     archetype: Option<&str>,
@@ -29,42 +27,43 @@ pub async fn create_note_full(
     sources: &[String],
     trust: i64,
     path: Option<&str>,
-) -> Result<RecordId, DatabaseError> {
-    let mut resp = query_exec(
-        db.query(
-            "CREATE note SET \
-                title = $title, \
-                body = $body, \
-                archetype = $archetype, \
-                tags = $tags, \
-                sources = $sources, \
-                trust = $trust, \
-                path = $path, \
-                created_at = time::now(), \
-                updated_at = time::now() \
-             RETURN id",
-        )
-        .bind(("title", title.to_string()))
-        .bind(("body", body.to_string()))
-        .bind(("archetype", archetype.map(ToString::to_string)))
-        .bind(("tags", tags.to_vec()))
-        .bind(("sources", sources.to_vec()))
-        .bind(("trust", trust))
-        .bind(("path", path.map(ToString::to_string))),
-        "note",
-        "create",
-    )
-    .await?;
+) -> Result<String, DatabaseError> {
+    let id = new_id();
+    let ts = now();
+    let tags_json = serde_json::to_string(tags).unwrap_or_default();
+    let sources_json = serde_json::to_string(sources).unwrap_or_default();
 
-    let row: IdRow = take_one(&mut resp, 0, "note", "create")?;
-    Ok(row.id)
+    sqlx::query(
+        "INSERT INTO note \
+         (id, title, body, archetype, tags, sources, trust, path, created_at, updated_at) \
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    )
+    .bind(&id)
+    .bind(title)
+    .bind(body)
+    .bind(archetype)
+    .bind(&tags_json)
+    .bind(&sources_json)
+    .bind(trust)
+    .bind(path)
+    .bind(&ts)
+    .bind(&ts)
+    .execute(db)
+    .await
+    .map_err(|source| DatabaseError::Query {
+        table: "note",
+        operation: "create",
+        source,
+    })?;
+
+    Ok(id)
 }
 
 #[allow(clippy::too_many_arguments)]
-#[tracing::instrument(skip_all, level = "debug", fields(note_id = ?note_id))]
+#[tracing::instrument(skip_all, level = "debug", fields(note_id = %note_id))]
 pub async fn update_note(
-    db: &Surreal<Db>,
-    note_id: &RecordId,
+    db: &SqlitePool,
+    note_id: &str,
     body: &str,
     archetype: Option<&str>,
     tags: &[String],
@@ -72,196 +71,215 @@ pub async fn update_note(
     trust: i64,
     path: Option<&str>,
 ) -> Result<(), DatabaseError> {
-    query_exec(
-        db.query(
-            "UPDATE $note_id SET \
-                body = $body, \
-                archetype = $archetype, \
-                tags = $tags, \
-                sources = $sources, \
-                trust = $trust, \
-                path = $path, \
-                updated_at = time::now()",
-        )
-        .bind(("note_id", note_id.clone()))
-        .bind(("body", body.to_string()))
-        .bind(("archetype", archetype.map(ToString::to_string)))
-        .bind(("tags", tags.to_vec()))
-        .bind(("sources", sources.to_vec()))
-        .bind(("trust", trust))
-        .bind(("path", path.map(ToString::to_string))),
-        "note",
-        "update",
+    let tags_json = serde_json::to_string(tags).unwrap_or_default();
+    let sources_json = serde_json::to_string(sources).unwrap_or_default();
+
+    sqlx::query(
+        "UPDATE note SET body = ?, archetype = ?, tags = ?, sources = ?, \
+         trust = ?, path = ?, updated_at = ? WHERE id = ?",
     )
-    .await?;
+    .bind(body)
+    .bind(archetype)
+    .bind(&tags_json)
+    .bind(&sources_json)
+    .bind(trust)
+    .bind(path)
+    .bind(now())
+    .bind(note_id)
+    .execute(db)
+    .await
+    .map_err(|source| DatabaseError::Query {
+        table: "note",
+        operation: "update",
+        source,
+    })?;
     Ok(())
 }
 
 #[tracing::instrument(skip_all, level = "debug", fields(date = %date))]
 pub async fn create_diary(
-    db: &Surreal<Db>,
+    db: &SqlitePool,
     date: &str,
     body: &str,
-) -> Result<RecordId, DatabaseError> {
-    let mut resp = query_exec(
-        db.query(
-            "CREATE diary SET \
-                date = $date, \
-                body = $body, \
-                updated_at = time::now() \
-             RETURN id",
-        )
-        .bind(("date", date.to_string()))
-        .bind(("body", body.to_string())),
-        "diary",
-        "create",
-    )
-    .await?;
+) -> Result<String, DatabaseError> {
+    let id = new_id();
 
-    let row: IdRow = take_one(&mut resp, 0, "diary", "create")?;
-    Ok(row.id)
+    sqlx::query("INSERT INTO diary (id, date, body, updated_at) VALUES (?, ?, ?, ?)")
+        .bind(&id)
+        .bind(date)
+        .bind(body)
+        .bind(now())
+        .execute(db)
+        .await
+        .map_err(|source| DatabaseError::Query {
+            table: "diary",
+            operation: "create",
+            source,
+        })?;
+
+    Ok(id)
 }
 
 #[tracing::instrument(skip_all, level = "debug", fields(date = %date))]
-pub async fn append_diary(db: &Surreal<Db>, date: &str, line: &str) -> Result<(), DatabaseError> {
-    query_exec(
-        db.query(
-            "UPDATE diary SET \
-                body = string::concat(body, '\\n', $line), \
-                updated_at = time::now() \
-             WHERE date = $date",
-        )
-        .bind(("date", date.to_string()))
-        .bind(("line", line.to_string())),
-        "diary",
-        "append",
-    )
-    .await?;
+pub async fn append_diary(db: &SqlitePool, date: &str, line: &str) -> Result<(), DatabaseError> {
+    sqlx::query("UPDATE diary SET body = body || char(10) || ?, updated_at = ? WHERE date = ?")
+        .bind(line)
+        .bind(now())
+        .bind(date)
+        .execute(db)
+        .await
+        .map_err(|source| DatabaseError::Query {
+            table: "diary",
+            operation: "append",
+            source,
+        })?;
     Ok(())
 }
 
 #[tracing::instrument(skip_all, level = "debug", fields(topic = %topic, path = %path))]
 pub async fn create_reference(
-    db: &Surreal<Db>,
+    db: &SqlitePool,
     topic: &str,
     path: &str,
     content: &str,
     source_url: Option<&str>,
-) -> Result<RecordId, DatabaseError> {
-    let mut resp = query_exec(
-        db.query(
-            "CREATE reference SET \
-                topic = $topic, \
-                path = $path, \
-                content = $content, \
-                source_url = $source_url, \
-                created_at = time::now() \
-             RETURN id",
-        )
-        .bind(("topic", topic.to_string()))
-        .bind(("path", path.to_string()))
-        .bind(("content", content.to_string()))
-        .bind(("source_url", source_url.map(ToString::to_string))),
-        "reference",
-        "create",
-    )
-    .await?;
+) -> Result<String, DatabaseError> {
+    let id = new_id();
 
-    let row: IdRow = take_one(&mut resp, 0, "reference", "create")?;
-    Ok(row.id)
+    sqlx::query(
+        "INSERT INTO reference (id, topic, path, content, source_url, created_at) \
+         VALUES (?, ?, ?, ?, ?, ?)",
+    )
+    .bind(&id)
+    .bind(topic)
+    .bind(path)
+    .bind(content)
+    .bind(source_url)
+    .bind(now())
+    .execute(db)
+    .await
+    .map_err(|source| DatabaseError::Query {
+        table: "reference",
+        operation: "create",
+        source,
+    })?;
+
+    Ok(id)
 }
 
 // --- Read ---
 
-#[tracing::instrument(skip_all, level = "debug", fields(note_id = ?note_id))]
-pub async fn get_note(db: &Surreal<Db>, note_id: &RecordId) -> Result<NoteRecord, DatabaseError> {
-    let mut resp = query_exec(
-        db.query("SELECT * FROM ONLY $note_id")
-            .bind(("note_id", note_id.clone())),
-        "note",
-        "get",
-    )
-    .await?;
-
-    crate::db::query::take_opt(&mut resp, 0, "note", "get")?.ok_or(DatabaseError::MissingRow {
-        table: "note",
-        operation: "get",
-    })
+#[tracing::instrument(skip_all, level = "debug", fields(note_id = %note_id))]
+pub async fn get_note(db: &SqlitePool, note_id: &str) -> Result<NoteRecord, DatabaseError> {
+    sqlx::query_as::<_, NoteRecord>("SELECT * FROM note WHERE id = ?")
+        .bind(note_id)
+        .fetch_optional(db)
+        .await
+        .map_err(|source| DatabaseError::Query {
+            table: "note",
+            operation: "get",
+            source,
+        })?
+        .ok_or(DatabaseError::MissingRow {
+            table: "note",
+            operation: "get",
+        })
 }
 
 #[tracing::instrument(skip_all, level = "debug", fields(title = %title))]
 pub async fn find_note_by_title(
-    db: &Surreal<Db>,
+    db: &SqlitePool,
     title: &str,
 ) -> Result<Option<NoteRecord>, DatabaseError> {
-    let mut resp = query_exec(
-        db.query("SELECT * FROM note WHERE title = $title LIMIT 1")
-            .bind(("title", title.to_string())),
-        "note",
-        "find_by_title",
-    )
-    .await?;
-
-    let rows: Vec<NoteRecord> = take_many(&mut resp, 0, "note", "find_by_title")?;
-    Ok(rows.into_iter().next())
+    sqlx::query_as::<_, NoteRecord>("SELECT * FROM note WHERE title = ? LIMIT 1")
+        .bind(title)
+        .fetch_optional(db)
+        .await
+        .map_err(|source| DatabaseError::Query {
+            table: "note",
+            operation: "find_by_title",
+            source,
+        })
 }
 
-#[tracing::instrument(skip_all, level = "debug", fields(ref_id = ?ref_id))]
+#[tracing::instrument(skip_all, level = "debug", fields(ref_id = %ref_id))]
 pub async fn get_reference(
-    db: &Surreal<Db>,
-    ref_id: &RecordId,
+    db: &SqlitePool,
+    ref_id: &str,
 ) -> Result<ReferenceRecord, DatabaseError> {
-    let mut resp = query_exec(
-        db.query("SELECT * FROM ONLY $ref_id")
-            .bind(("ref_id", ref_id.clone())),
-        "reference",
-        "get",
-    )
-    .await?;
-
-    crate::db::query::take_opt(&mut resp, 0, "reference", "get")?.ok_or(DatabaseError::MissingRow {
-        table: "reference",
-        operation: "get",
-    })
+    sqlx::query_as::<_, ReferenceRecord>("SELECT * FROM reference WHERE id = ?")
+        .bind(ref_id)
+        .fetch_optional(db)
+        .await
+        .map_err(|source| DatabaseError::Query {
+            table: "reference",
+            operation: "get",
+            source,
+        })?
+        .ok_or(DatabaseError::MissingRow {
+            table: "reference",
+            operation: "get",
+        })
 }
 
 #[tracing::instrument(skip_all, level = "debug", fields(date = %date))]
 pub async fn get_diary_by_date(
-    db: &Surreal<Db>,
+    db: &SqlitePool,
     date: &str,
 ) -> Result<Option<DiaryRecord>, DatabaseError> {
-    let mut resp = query_exec(
-        db.query("SELECT * FROM diary WHERE date = $date LIMIT 1")
-            .bind(("date", date.to_string())),
-        "diary",
-        "get_by_date",
-    )
-    .await?;
-
-    let rows: Vec<DiaryRecord> = take_many(&mut resp, 0, "diary", "get_by_date")?;
-    Ok(rows.into_iter().next())
+    sqlx::query_as::<_, DiaryRecord>("SELECT * FROM diary WHERE date = ? LIMIT 1")
+        .bind(date)
+        .fetch_optional(db)
+        .await
+        .map_err(|source| DatabaseError::Query {
+            table: "diary",
+            operation: "get_by_date",
+            source,
+        })
 }
 
 #[tracing::instrument(skip_all, level = "debug")]
-pub async fn list_recent(db: &Surreal<Db>, limit: usize) -> Result<Vec<RecentItem>, DatabaseError> {
-    let mut resp = query_exec(
-        db.query(
-            "SELECT id, title, 'note' AS kind, updated_at FROM note \
-             ORDER BY updated_at DESC LIMIT $limit; \
-             SELECT id, topic AS title, 'reference' AS kind, created_at AS updated_at FROM reference \
-             ORDER BY updated_at DESC LIMIT $limit; \
-             SELECT id, date AS title, 'diary' AS kind, updated_at FROM diary \
-             ORDER BY updated_at DESC LIMIT $limit;",
-        )
-        .bind(("limit", limit as i64)),
-        "knowledge",
-        "list_recent",
-    )
-    .await?;
+pub async fn list_recent(db: &SqlitePool, limit: usize) -> Result<Vec<RecentItem>, DatabaseError> {
+    let limit_i64 = limit as i64;
 
-    let notes: Vec<RecentItem> = take_many(&mut resp, 0, "knowledge", "list_recent/notes")?;
-    let refs: Vec<RecentItem> = take_many(&mut resp, 1, "knowledge", "list_recent/refs")?;
-    let diary: Vec<RecentItem> = take_many(&mut resp, 2, "knowledge", "list_recent/diary")?;
+    let notes: Vec<RecentItem> = sqlx::query_as(
+        "SELECT id, title, 'note' AS kind, updated_at FROM note \
+         ORDER BY updated_at DESC LIMIT ?",
+    )
+    .bind(limit_i64)
+    .fetch_all(db)
+    .await
+    .map_err(|source| DatabaseError::Query {
+        table: "knowledge",
+        operation: "list_recent/notes",
+        source,
+    })?;
+
+    let refs: Vec<RecentItem> = sqlx::query_as(
+        "SELECT id, topic AS title, 'reference' AS kind, created_at AS updated_at \
+         FROM reference ORDER BY updated_at DESC LIMIT ?",
+    )
+    .bind(limit_i64)
+    .fetch_all(db)
+    .await
+    .map_err(|source| DatabaseError::Query {
+        table: "knowledge",
+        operation: "list_recent/refs",
+        source,
+    })?;
+
+    let diary: Vec<RecentItem> = sqlx::query_as(
+        "SELECT id, date AS title, 'diary' AS kind, updated_at FROM diary \
+         ORDER BY updated_at DESC LIMIT ?",
+    )
+    .bind(limit_i64)
+    .fetch_all(db)
+    .await
+    .map_err(|source| DatabaseError::Query {
+        table: "knowledge",
+        operation: "list_recent/diary",
+        source,
+    })?;
 
     let mut all = notes;
     all.extend(refs);
@@ -273,230 +291,244 @@ pub async fn list_recent(db: &Surreal<Db>, limit: usize) -> Result<Vec<RecentIte
 
 // --- Delete ---
 
-#[tracing::instrument(skip_all, level = "debug", fields(note_id = ?note_id))]
-pub async fn delete_note(db: &Surreal<Db>, note_id: &RecordId) -> Result<(), DatabaseError> {
-    query_exec(
-        db.query(
-            "DELETE relates_to WHERE `in` = $note_id OR out = $note_id; \
-             DELETE cited WHERE `in` = $note_id OR out = $note_id; \
-             DELETE $note_id",
-        )
-        .bind(("note_id", note_id.clone())),
-        "note",
-        "delete",
-    )
-    .await?;
+#[tracing::instrument(skip_all, level = "debug", fields(note_id = %note_id))]
+pub async fn delete_note(db: &SqlitePool, note_id: &str) -> Result<(), DatabaseError> {
+    // CASCADE handles relates_to and cited edges via foreign keys
+    sqlx::query("DELETE FROM note WHERE id = ?")
+        .bind(note_id)
+        .execute(db)
+        .await
+        .map_err(|source| DatabaseError::Query {
+            table: "note",
+            operation: "delete",
+            source,
+        })?;
     Ok(())
 }
 
-#[tracing::instrument(skip_all, level = "debug", fields(ref_id = ?ref_id))]
-pub async fn delete_reference(db: &Surreal<Db>, ref_id: &RecordId) -> Result<(), DatabaseError> {
-    query_exec(
-        db.query(
-            "DELETE cited WHERE `in` = $ref_id OR out = $ref_id; \
-             DELETE $ref_id",
-        )
-        .bind(("ref_id", ref_id.clone())),
-        "reference",
-        "delete",
-    )
-    .await?;
+#[tracing::instrument(skip_all, level = "debug", fields(ref_id = %ref_id))]
+pub async fn delete_reference(db: &SqlitePool, ref_id: &str) -> Result<(), DatabaseError> {
+    // CASCADE handles cited edges via foreign keys
+    sqlx::query("DELETE FROM reference WHERE id = ?")
+        .bind(ref_id)
+        .execute(db)
+        .await
+        .map_err(|source| DatabaseError::Query {
+            table: "reference",
+            operation: "delete",
+            source,
+        })?;
     Ok(())
 }
 
 #[tracing::instrument(skip_all, level = "debug", fields(path = %path))]
 pub async fn find_note_by_path(
-    db: &Surreal<Db>,
+    db: &SqlitePool,
     path: &str,
 ) -> Result<Option<NoteRecord>, DatabaseError> {
-    let mut resp = query_exec(
-        db.query("SELECT * FROM note WHERE path = $path LIMIT 1")
-            .bind(("path", path.to_string())),
-        "note",
-        "find_by_path",
-    )
-    .await?;
-
-    let rows: Vec<NoteRecord> = take_many(&mut resp, 0, "note", "find_by_path")?;
-    Ok(rows.into_iter().next())
+    sqlx::query_as::<_, NoteRecord>("SELECT * FROM note WHERE path = ? LIMIT 1")
+        .bind(path)
+        .fetch_optional(db)
+        .await
+        .map_err(|source| DatabaseError::Query {
+            table: "note",
+            operation: "find_by_path",
+            source,
+        })
 }
 
 // --- Delete diary ---
 
-#[tracing::instrument(skip_all, level = "debug", fields(diary_id = ?diary_id))]
-pub async fn delete_diary(db: &Surreal<Db>, diary_id: &RecordId) -> Result<(), DatabaseError> {
-    query_exec(
-        db.query("DELETE $diary_id")
-            .bind(("diary_id", diary_id.clone())),
-        "diary",
-        "delete",
-    )
-    .await?;
+#[tracing::instrument(skip_all, level = "debug", fields(diary_id = %diary_id))]
+pub async fn delete_diary(db: &SqlitePool, diary_id: &str) -> Result<(), DatabaseError> {
+    sqlx::query("DELETE FROM diary WHERE id = ?")
+        .bind(diary_id)
+        .execute(db)
+        .await
+        .map_err(|source| DatabaseError::Query {
+            table: "diary",
+            operation: "delete",
+            source,
+        })?;
     Ok(())
 }
 
 // --- Reference updates ---
 
-#[tracing::instrument(skip_all, level = "debug", fields(ref_id = ?ref_id))]
+#[tracing::instrument(skip_all, level = "debug", fields(ref_id = %ref_id))]
 pub async fn update_reference_path(
-    db: &Surreal<Db>,
-    ref_id: &RecordId,
+    db: &SqlitePool,
+    ref_id: &str,
     new_path: &str,
     new_topic: &str,
 ) -> Result<(), DatabaseError> {
-    query_exec(
-        db.query("UPDATE $ref_id SET path = $path, topic = $topic")
-            .bind(("ref_id", ref_id.clone()))
-            .bind(("path", new_path.to_string()))
-            .bind(("topic", new_topic.to_string())),
-        "reference",
-        "update_path",
-    )
-    .await?;
+    sqlx::query("UPDATE reference SET path = ?, topic = ? WHERE id = ?")
+        .bind(new_path)
+        .bind(new_topic)
+        .bind(ref_id)
+        .execute(db)
+        .await
+        .map_err(|source| DatabaseError::Query {
+            table: "reference",
+            operation: "update_path",
+            source,
+        })?;
     Ok(())
 }
 
 #[tracing::instrument(skip_all, level = "debug", fields(path = %path))]
 pub async fn find_reference_by_path(
-    db: &Surreal<Db>,
+    db: &SqlitePool,
     path: &str,
 ) -> Result<Option<ReferenceRecord>, DatabaseError> {
-    let mut resp = query_exec(
-        db.query("SELECT * FROM reference WHERE path = $path LIMIT 1")
-            .bind(("path", path.to_string())),
-        "reference",
-        "find_by_path",
-    )
-    .await?;
-
-    let rows: Vec<ReferenceRecord> = take_many(&mut resp, 0, "reference", "find_by_path")?;
-    Ok(rows.into_iter().next())
+    sqlx::query_as::<_, ReferenceRecord>("SELECT * FROM reference WHERE path = ? LIMIT 1")
+        .bind(path)
+        .fetch_optional(db)
+        .await
+        .map_err(|source| DatabaseError::Query {
+            table: "reference",
+            operation: "find_by_path",
+            source,
+        })
 }
 
 // --- Reference lookup by URL ---
 
 #[tracing::instrument(skip_all, level = "debug", fields(url = %url))]
 pub async fn find_reference_by_url(
-    db: &Surreal<Db>,
+    db: &SqlitePool,
     url: &str,
 ) -> Result<Option<ReferenceRecord>, DatabaseError> {
-    let mut resp = query_exec(
-        db.query("SELECT * FROM reference WHERE source_url = $url LIMIT 1")
-            .bind(("url", url.to_string())),
-        "reference",
-        "find_by_url",
-    )
-    .await?;
-
-    let rows: Vec<ReferenceRecord> = take_many(&mut resp, 0, "reference", "find_by_url")?;
-    Ok(rows.into_iter().next())
+    sqlx::query_as::<_, ReferenceRecord>("SELECT * FROM reference WHERE source_url = ? LIMIT 1")
+        .bind(url)
+        .fetch_optional(db)
+        .await
+        .map_err(|source| DatabaseError::Query {
+            table: "reference",
+            operation: "find_by_url",
+            source,
+        })
 }
 
 // --- Reference browsing ---
 
 #[tracing::instrument(skip_all, level = "debug", fields(topic = ?topic))]
 pub async fn list_references_by_topic(
-    db: &Surreal<Db>,
+    db: &SqlitePool,
     topic: Option<&str>,
     limit: usize,
 ) -> Result<Vec<ReferenceRecord>, DatabaseError> {
-    let mut resp = match topic {
+    match topic {
         Some(t) => {
-            query_exec(
-                db.query(
-                    "SELECT * FROM reference \
-                     WHERE topic = $topic \
-                     ORDER BY created_at DESC \
-                     LIMIT $limit",
-                )
-                .bind(("topic", t.to_string()))
-                .bind(("limit", limit as i64)),
-                "reference",
-                "list_by_topic",
+            sqlx::query_as::<_, ReferenceRecord>(
+                "SELECT * FROM reference WHERE topic = ? \
+             ORDER BY created_at DESC LIMIT ?",
             )
-            .await?
+            .bind(t)
+            .bind(limit as i64)
+            .fetch_all(db)
+            .await
         }
         None => {
-            query_exec(
-                db.query(
-                    "SELECT * FROM reference \
-                     ORDER BY topic, created_at DESC \
-                     LIMIT $limit",
-                )
-                .bind(("limit", limit as i64)),
-                "reference",
-                "list_all_by_topic",
+            sqlx::query_as::<_, ReferenceRecord>(
+                "SELECT * FROM reference ORDER BY topic, created_at DESC LIMIT ?",
             )
-            .await?
+            .bind(limit as i64)
+            .fetch_all(db)
+            .await
         }
-    };
-
-    take_many(&mut resp, 0, "reference", "list_by_topic")
+    }
+    .map_err(|source| DatabaseError::Query {
+        table: "reference",
+        operation: "list_by_topic",
+        source,
+    })
 }
 
 // --- Bulk listing for embeddings pipeline ---
 
-pub async fn list_all_notes(db: &Surreal<Db>) -> Result<Vec<NoteRecord>, DatabaseError> {
-    let mut resp = query_exec(db.query("SELECT * FROM note"), "note", "list_all").await?;
-    take_many(&mut resp, 0, "note", "list_all")
+pub async fn list_all_notes(db: &SqlitePool) -> Result<Vec<NoteRecord>, DatabaseError> {
+    sqlx::query_as::<_, NoteRecord>("SELECT * FROM note")
+        .fetch_all(db)
+        .await
+        .map_err(|source| DatabaseError::Query {
+            table: "note",
+            operation: "list_all",
+            source,
+        })
 }
 
-pub async fn list_all_references(db: &Surreal<Db>) -> Result<Vec<ReferenceRecord>, DatabaseError> {
-    let mut resp = query_exec(db.query("SELECT * FROM reference"), "reference", "list_all").await?;
-    take_many(&mut resp, 0, "reference", "list_all")
+pub async fn list_all_references(db: &SqlitePool) -> Result<Vec<ReferenceRecord>, DatabaseError> {
+    sqlx::query_as::<_, ReferenceRecord>("SELECT * FROM reference")
+        .fetch_all(db)
+        .await
+        .map_err(|source| DatabaseError::Query {
+            table: "reference",
+            operation: "list_all",
+            source,
+        })
 }
 
-pub async fn list_all_diary(db: &Surreal<Db>) -> Result<Vec<DiaryRecord>, DatabaseError> {
-    let mut resp = query_exec(db.query("SELECT * FROM diary"), "diary", "list_all").await?;
-    take_many(&mut resp, 0, "diary", "list_all")
+pub async fn list_all_diary(db: &SqlitePool) -> Result<Vec<DiaryRecord>, DatabaseError> {
+    sqlx::query_as::<_, DiaryRecord>("SELECT * FROM diary")
+        .fetch_all(db)
+        .await
+        .map_err(|source| DatabaseError::Query {
+            table: "diary",
+            operation: "list_all",
+            source,
+        })
 }
 
 // --- Paginated listing for boot reconciliation ---
 
 pub async fn list_notes_page(
-    db: &Surreal<Db>,
+    db: &SqlitePool,
     offset: usize,
     limit: usize,
 ) -> Result<Vec<NoteRecord>, DatabaseError> {
-    let mut resp = query_exec(
-        db.query("SELECT * FROM note ORDER BY id LIMIT $limit START $offset")
-            .bind(("limit", limit as i64))
-            .bind(("offset", offset as i64)),
-        "note",
-        "list_page",
-    )
-    .await?;
-    take_many(&mut resp, 0, "note", "list_page")
+    sqlx::query_as::<_, NoteRecord>("SELECT * FROM note ORDER BY id LIMIT ? OFFSET ?")
+        .bind(limit as i64)
+        .bind(offset as i64)
+        .fetch_all(db)
+        .await
+        .map_err(|source| DatabaseError::Query {
+            table: "note",
+            operation: "list_page",
+            source,
+        })
 }
 
 pub async fn list_references_page(
-    db: &Surreal<Db>,
+    db: &SqlitePool,
     offset: usize,
     limit: usize,
 ) -> Result<Vec<ReferenceRecord>, DatabaseError> {
-    let mut resp = query_exec(
-        db.query("SELECT * FROM reference ORDER BY id LIMIT $limit START $offset")
-            .bind(("limit", limit as i64))
-            .bind(("offset", offset as i64)),
-        "reference",
-        "list_page",
-    )
-    .await?;
-    take_many(&mut resp, 0, "reference", "list_page")
+    sqlx::query_as::<_, ReferenceRecord>("SELECT * FROM reference ORDER BY id LIMIT ? OFFSET ?")
+        .bind(limit as i64)
+        .bind(offset as i64)
+        .fetch_all(db)
+        .await
+        .map_err(|source| DatabaseError::Query {
+            table: "reference",
+            operation: "list_page",
+            source,
+        })
 }
 
 pub async fn list_diary_page(
-    db: &Surreal<Db>,
+    db: &SqlitePool,
     offset: usize,
     limit: usize,
 ) -> Result<Vec<DiaryRecord>, DatabaseError> {
-    let mut resp = query_exec(
-        db.query("SELECT * FROM diary ORDER BY id LIMIT $limit START $offset")
-            .bind(("limit", limit as i64))
-            .bind(("offset", offset as i64)),
-        "diary",
-        "list_page",
-    )
-    .await?;
-    take_many(&mut resp, 0, "diary", "list_page")
+    sqlx::query_as::<_, DiaryRecord>("SELECT * FROM diary ORDER BY id LIMIT ? OFFSET ?")
+        .bind(limit as i64)
+        .bind(offset as i64)
+        .fetch_all(db)
+        .await
+        .map_err(|source| DatabaseError::Query {
+            table: "diary",
+            operation: "list_page",
+            source,
+        })
 }

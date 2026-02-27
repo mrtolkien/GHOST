@@ -69,7 +69,7 @@ pub async fn boot() -> Result<BootResult, GhostError> {
     info!(workspace = %config.workspace.display(), "config loaded");
 
     info!("connecting to database");
-    let db = crate::db::connect(&config.workspace).await?;
+    let db = crate::db::connect(&config.workspace, config.embeddings.dimension).await?;
     info!("database ready");
 
     // Log knowledge counts for boot diagnostics

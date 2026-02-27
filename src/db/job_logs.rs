@@ -1,173 +1,165 @@
 use serde::Deserialize;
-use surrealdb::Surreal;
-use surrealdb::engine::local::Db;
-use surrealdb::types::{Datetime, RecordId, SurrealValue};
+use sqlx::SqlitePool;
 
 use crate::db::error::DatabaseError;
-use crate::db::query::{IdRow, query_exec, take_many, take_one};
+use crate::db::{new_id, now};
 
-#[derive(Debug, Clone, Deserialize, SurrealValue)]
-#[surreal(crate = "surrealdb::types")]
+#[derive(Debug, Clone, Deserialize, sqlx::FromRow)]
 pub struct JobLogRecord {
-    pub id: RecordId,
+    pub id: String,
     pub job_name: String,
     pub job_kind: String,
-    pub started_at: Datetime,
-    pub finished_at: Option<Datetime>,
+    pub started_at: String,
+    pub finished_at: Option<String>,
     pub status: String,
     pub transcript: Option<String>,
-    pub agent_session: Option<RecordId>,
+    pub agent_session_id: Option<String>,
 }
 
 #[tracing::instrument(skip_all, level = "debug", fields(job_name = job_name, job_kind = job_kind))]
 pub async fn create_running_job_log(
-    db: &Surreal<Db>,
+    db: &SqlitePool,
     job_name: &str,
     job_kind: &str,
-    session_id: Option<&RecordId>,
-) -> Result<RecordId, DatabaseError> {
-    let mut resp = query_exec(
-        db.query(
-            "CREATE job_log SET \
-                job_name = $job_name, \
-                job_kind = $job_kind, \
-                session = $session_id, \
-                started_at = time::now(), \
-                finished_at = NONE, \
-                status = 'running', \
-                transcript = NONE, \
-                handoff_note = NONE, \
-                todo_list = NONE \
-             RETURN id",
-        )
-        .bind(("job_name", job_name.to_string()))
-        .bind(("job_kind", job_kind.to_string()))
-        .bind(("session_id", session_id.cloned())),
-        "job_log",
-        "create_running",
-    )
-    .await?;
+    session_id: Option<&str>,
+) -> Result<String, DatabaseError> {
+    let id = new_id();
 
-    let row: IdRow = take_one(&mut resp, 0, "job_log", "create_running")?;
-    Ok(row.id)
+    sqlx::query(
+        "INSERT INTO job_log (id, job_name, job_kind, session_id, started_at, status) \
+         VALUES (?, ?, ?, ?, ?, 'running')",
+    )
+    .bind(&id)
+    .bind(job_name)
+    .bind(job_kind)
+    .bind(session_id)
+    .bind(now())
+    .execute(db)
+    .await
+    .map_err(|source| DatabaseError::Query {
+        table: "job_log",
+        operation: "create_running",
+        source,
+    })?;
+
+    Ok(id)
 }
 
 #[tracing::instrument(skip_all, level = "debug", fields(
     job_name = job_name,
-    agent_session_id = ?agent_session_id
+    agent_session_id = %agent_session_id
 ))]
 pub async fn create_agent_job_log(
-    db: &Surreal<Db>,
+    db: &SqlitePool,
     job_name: &str,
-    parent_session_id: Option<&RecordId>,
-    agent_session_id: &RecordId,
-) -> Result<RecordId, DatabaseError> {
-    let mut resp = query_exec(
-        db.query(
-            "CREATE job_log SET \
-                job_name = $job_name, \
-                job_kind = 'agent', \
-                session = $parent_session_id, \
-                agent_session = $agent_session_id, \
-                started_at = time::now(), \
-                finished_at = NONE, \
-                status = 'running', \
-                transcript = NONE, \
-                handoff_note = NONE, \
-                todo_list = NONE \
-             RETURN id",
-        )
-        .bind(("job_name", job_name.to_string()))
-        .bind(("parent_session_id", parent_session_id.cloned()))
-        .bind(("agent_session_id", agent_session_id.clone())),
-        "job_log",
-        "create_agent",
-    )
-    .await?;
+    parent_session_id: Option<&str>,
+    agent_session_id: &str,
+) -> Result<String, DatabaseError> {
+    let id = new_id();
 
-    let row: IdRow = take_one(&mut resp, 0, "job_log", "create_agent")?;
-    Ok(row.id)
+    sqlx::query(
+        "INSERT INTO job_log \
+         (id, job_name, job_kind, session_id, agent_session_id, started_at, status) \
+         VALUES (?, ?, 'agent', ?, ?, ?, 'running')",
+    )
+    .bind(&id)
+    .bind(job_name)
+    .bind(parent_session_id)
+    .bind(agent_session_id)
+    .bind(now())
+    .execute(db)
+    .await
+    .map_err(|source| DatabaseError::Query {
+        table: "job_log",
+        operation: "create_agent",
+        source,
+    })?;
+
+    Ok(id)
 }
 
-#[tracing::instrument(skip_all, level = "debug", fields(job_log_id = ?job_log_id, status = status))]
+#[tracing::instrument(skip_all, level = "debug", fields(job_log_id = %job_log_id, status = status))]
 pub async fn finish_job_log(
-    db: &Surreal<Db>,
-    job_log_id: &RecordId,
+    db: &SqlitePool,
+    job_log_id: &str,
     status: &str,
     transcript: &str,
 ) -> Result<(), DatabaseError> {
-    query_exec(
-        db.query(
-            "UPDATE $job_log_id SET \
-                status = $status, \
-                transcript = $transcript, \
-                finished_at = time::now()",
-        )
-        .bind(("job_log_id", job_log_id.clone()))
-        .bind(("status", status.to_string()))
-        .bind(("transcript", transcript.to_string())),
-        "job_log",
-        "finish",
-    )
-    .await?;
+    sqlx::query("UPDATE job_log SET status = ?, transcript = ?, finished_at = ? WHERE id = ?")
+        .bind(status)
+        .bind(transcript)
+        .bind(now())
+        .bind(job_log_id)
+        .execute(db)
+        .await
+        .map_err(|source| DatabaseError::Query {
+            table: "job_log",
+            operation: "finish",
+            source,
+        })?;
     Ok(())
 }
 
 #[tracing::instrument(skip_all, level = "debug", fields(name = name, limit = limit))]
 pub async fn list_job_logs(
-    db: &Surreal<Db>,
+    db: &SqlitePool,
     name: Option<&str>,
     limit: usize,
 ) -> Result<Vec<JobLogRecord>, DatabaseError> {
-    let query = match name {
-        Some(_) => {
-            "SELECT * FROM job_log WHERE job_name = $name \
-             ORDER BY started_at DESC LIMIT $limit"
+    match name {
+        Some(n) => {
+            sqlx::query_as::<_, JobLogRecord>(
+                "SELECT id, job_name, job_kind, started_at, finished_at, status, transcript, \
+             agent_session_id FROM job_log \
+             WHERE job_name = ? ORDER BY started_at DESC LIMIT ?",
+            )
+            .bind(n)
+            .bind(limit as i64)
+            .fetch_all(db)
+            .await
         }
         None => {
-            "SELECT * FROM job_log \
-             ORDER BY started_at DESC LIMIT $limit"
+            sqlx::query_as::<_, JobLogRecord>(
+                "SELECT id, job_name, job_kind, started_at, finished_at, status, transcript, \
+             agent_session_id FROM job_log \
+             ORDER BY started_at DESC LIMIT ?",
+            )
+            .bind(limit as i64)
+            .fetch_all(db)
+            .await
         }
-    };
-
-    let mut resp = query_exec(
-        db.query(query)
-            .bind(("name", name.map(|n| n.to_string())))
-            .bind(("limit", limit)),
-        "job_log",
-        "list",
-    )
-    .await?;
-
-    take_many(&mut resp, 0, "job_log", "list")
-}
-
-#[derive(Debug, Deserialize, SurrealValue)]
-#[surreal(crate = "surrealdb::types")]
-struct JobNameRow {
-    job_name: String,
+    }
+    .map_err(|source| DatabaseError::Query {
+        table: "job_log",
+        operation: "list",
+        source,
+    })
 }
 
 /// Look up the agent name from a job_log record by agent session ID.
-#[tracing::instrument(skip_all, level = "debug", fields(
-    agent_session_id = ?agent_session_id
-))]
+#[tracing::instrument(skip_all, level = "debug", fields(agent_session_id = %agent_session_id))]
 pub async fn get_agent_name_for_session(
-    db: &Surreal<Db>,
-    agent_session_id: &RecordId,
+    db: &SqlitePool,
+    agent_session_id: &str,
 ) -> Result<Option<String>, DatabaseError> {
-    let mut resp = query_exec(
-        db.query(
-            "SELECT job_name FROM job_log \
-             WHERE agent_session = $id AND job_kind = 'agent' \
-             ORDER BY started_at DESC LIMIT 1",
-        )
-        .bind(("id", agent_session_id.clone())),
-        "job_log",
-        "get_agent_name_for_session",
-    )
-    .await?;
+    #[derive(sqlx::FromRow)]
+    struct JobNameRow {
+        job_name: String,
+    }
 
-    let rows: Vec<JobNameRow> = take_many(&mut resp, 0, "job_log", "get_agent_name_for_session")?;
-    Ok(rows.into_iter().next().map(|r| r.job_name))
+    let row = sqlx::query_as::<_, JobNameRow>(
+        "SELECT job_name FROM job_log \
+         WHERE agent_session_id = ? AND job_kind = 'agent' \
+         ORDER BY started_at DESC LIMIT 1",
+    )
+    .bind(agent_session_id)
+    .fetch_optional(db)
+    .await
+    .map_err(|source| DatabaseError::Query {
+        table: "job_log",
+        operation: "get_agent_name_for_session",
+        source,
+    })?;
+
+    Ok(row.map(|r| r.job_name))
 }

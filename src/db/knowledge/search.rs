@@ -1,68 +1,57 @@
 use std::collections::HashMap;
 
-use serde::Deserialize;
-use surrealdb::Surreal;
-use surrealdb::engine::local::Db;
-use surrealdb::types::{RecordId, SurrealValue};
+use sqlx::SqlitePool;
 
 use crate::db::error::DatabaseError;
-use crate::db::query::{query_exec, take_many};
 
 use super::records::{SearchHit, truncate_snippet};
 
-#[derive(Debug, Deserialize, SurrealValue)]
-#[surreal(crate = "surrealdb::types")]
-struct NoteSearchRow {
-    id: RecordId,
-    title: String,
-    body: String,
-    score: f64,
-}
-
-#[derive(Debug, Deserialize, SurrealValue)]
-#[surreal(crate = "surrealdb::types")]
-struct RefSearchRow {
-    id: RecordId,
-    topic: String,
-    content: String,
-    score: f64,
-}
-
-#[derive(Debug, Deserialize, SurrealValue)]
-#[surreal(crate = "surrealdb::types")]
-struct DiarySearchRow {
-    id: RecordId,
-    date: String,
-    body: String,
-    score: f64,
+/// Sanitize user input for FTS5 MATCH queries by quoting each term.
+fn sanitize_fts_query(query: &str) -> String {
+    query
+        .split_whitespace()
+        .map(|term| format!("\"{}\"", term.replace('"', "\"\"")))
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 /// Full-text search notes by title and body using BM25 scoring.
 ///
-/// Title matches weighted 2x via `search::score(0) * 2`. Uses `@N@` +
-/// `search::score(N)` (fixed in SurrealDB 3.1.0-alpha, see #6946).
+/// Title matches weighted 2x via `bm25(note_fts, 2.0, 1.0)`.
+/// FTS5 bm25() returns negative scores; we negate at the boundary.
 #[tracing::instrument(skip_all, level = "debug", fields(query = %query))]
 pub async fn search_notes(
-    db: &Surreal<Db>,
+    db: &SqlitePool,
     query: &str,
     limit: usize,
 ) -> Result<Vec<SearchHit>, DatabaseError> {
-    let mut resp = query_exec(
-        db.query(
-            "SELECT id, title, body, \
-                    search::score(0) * 2 + search::score(1) AS score \
-             FROM note \
-             WHERE title @0@ $query OR body @1@ $query \
-             ORDER BY score DESC \
-             LIMIT $limit",
-        )
-        .bind(("query", query.to_string()))
-        .bind(("limit", limit as i64)),
-        "note",
-        "search",
+    #[derive(sqlx::FromRow)]
+    struct NoteSearchRow {
+        id: String,
+        title: String,
+        body: String,
+        score: f64,
+    }
+
+    let fts_query = sanitize_fts_query(query);
+
+    let rows = sqlx::query_as::<_, NoteSearchRow>(
+        "SELECT n.id, n.title, n.body, -bm25(note_fts, 2.0, 1.0) AS score \
+         FROM note_fts \
+         JOIN note n ON n.rowid = note_fts.rowid \
+         WHERE note_fts MATCH ? \
+         ORDER BY score DESC \
+         LIMIT ?",
     )
-    .await?;
-    let rows: Vec<NoteSearchRow> = take_many(&mut resp, 0, "note", "search")?;
+    .bind(&fts_query)
+    .bind(limit as i64)
+    .fetch_all(db)
+    .await
+    .map_err(|source| DatabaseError::Query {
+        table: "note",
+        operation: "search",
+        source,
+    })?;
 
     Ok(rows
         .into_iter()
@@ -81,26 +70,38 @@ pub async fn search_notes(
 
 #[tracing::instrument(skip_all, level = "debug", fields(query = %query))]
 pub async fn search_references(
-    db: &Surreal<Db>,
+    db: &SqlitePool,
     query: &str,
     limit: usize,
 ) -> Result<Vec<SearchHit>, DatabaseError> {
-    let mut resp = query_exec(
-        db.query(
-            "SELECT id, topic, content, search::score(0) AS score \
-             FROM reference \
-             WHERE content @0@ $query \
-             ORDER BY score DESC \
-             LIMIT $limit",
-        )
-        .bind(("query", query.to_string()))
-        .bind(("limit", limit as i64)),
-        "reference",
-        "search",
-    )
-    .await?;
+    #[derive(sqlx::FromRow)]
+    struct RefSearchRow {
+        id: String,
+        topic: String,
+        content: String,
+        score: f64,
+    }
 
-    let rows: Vec<RefSearchRow> = take_many(&mut resp, 0, "reference", "search")?;
+    let fts_query = sanitize_fts_query(query);
+
+    let rows = sqlx::query_as::<_, RefSearchRow>(
+        "SELECT r.id, r.topic, r.content, -bm25(reference_fts) AS score \
+         FROM reference_fts \
+         JOIN reference r ON r.rowid = reference_fts.rowid \
+         WHERE reference_fts MATCH ? \
+         ORDER BY score DESC \
+         LIMIT ?",
+    )
+    .bind(&fts_query)
+    .bind(limit as i64)
+    .fetch_all(db)
+    .await
+    .map_err(|source| DatabaseError::Query {
+        table: "reference",
+        operation: "search",
+        source,
+    })?;
+
     Ok(rows
         .into_iter()
         .map(|r| {
@@ -118,26 +119,38 @@ pub async fn search_references(
 
 #[tracing::instrument(skip_all, level = "debug", fields(query = %query))]
 pub async fn search_diary(
-    db: &Surreal<Db>,
+    db: &SqlitePool,
     query: &str,
     limit: usize,
 ) -> Result<Vec<SearchHit>, DatabaseError> {
-    let mut resp = query_exec(
-        db.query(
-            "SELECT id, date, body, search::score(0) AS score \
-             FROM diary \
-             WHERE body @0@ $query \
-             ORDER BY score DESC \
-             LIMIT $limit",
-        )
-        .bind(("query", query.to_string()))
-        .bind(("limit", limit as i64)),
-        "diary",
-        "search",
-    )
-    .await?;
+    #[derive(sqlx::FromRow)]
+    struct DiarySearchRow {
+        id: String,
+        date: String,
+        body: String,
+        score: f64,
+    }
 
-    let rows: Vec<DiarySearchRow> = take_many(&mut resp, 0, "diary", "search")?;
+    let fts_query = sanitize_fts_query(query);
+
+    let rows = sqlx::query_as::<_, DiarySearchRow>(
+        "SELECT d.id, d.date, d.body, -bm25(diary_fts) AS score \
+         FROM diary_fts \
+         JOIN diary d ON d.rowid = diary_fts.rowid \
+         WHERE diary_fts MATCH ? \
+         ORDER BY score DESC \
+         LIMIT ?",
+    )
+    .bind(&fts_query)
+    .bind(limit as i64)
+    .fetch_all(db)
+    .await
+    .map_err(|source| DatabaseError::Query {
+        table: "diary",
+        operation: "search",
+        source,
+    })?;
+
     Ok(rows
         .into_iter()
         .map(|r| {
@@ -169,7 +182,7 @@ pub fn hybrid_merge(
     let mut merged: HashMap<String, SearchHit> = HashMap::new();
 
     for hit in bm25_hits {
-        let key = crate::db::fmt_id(&hit.id);
+        let key = hit.id.clone();
         let normalized = hit.score / bm25_max;
         let entry = merged.entry(key).or_insert_with(|| SearchHit {
             id: hit.id.clone(),
@@ -182,7 +195,7 @@ pub fn hybrid_merge(
     }
 
     for hit in embedding_hits {
-        let key = crate::db::fmt_id(&hit.source_id);
+        let key = hit.source_id.clone();
         let entry = merged.entry(key).or_insert_with(|| SearchHit {
             id: hit.source_id.clone(),
             title: String::new(),

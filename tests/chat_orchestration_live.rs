@@ -3,7 +3,6 @@
 mod common;
 
 use ghost::chat::ChatStopReason;
-use ghost::db::fmt_id;
 
 #[tokio::test]
 async fn session_chat_live_roundtrip_with_default_config() {
@@ -13,7 +12,7 @@ async fn session_chat_live_roundtrip_with_default_config() {
     let chat = env.chat();
     let (result, _metadata) = chat
         .chat(
-            &fmt_id(&session),
+            &session,
             "Reply in one short sentence: what is Rust best known for?",
             None,
         )

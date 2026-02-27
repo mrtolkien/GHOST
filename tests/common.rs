@@ -5,8 +5,6 @@ use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
 use ghost::config::{self, Config};
-#[cfg(feature = "live-tests")]
-use ghost::db::fmt_id;
 use ghost::db::{self, GhostDb};
 use ghost::knowledge::{NoteFrontMatter, serialize_note};
 use ghost::providers::{
@@ -15,8 +13,6 @@ use ghost::providers::{
 };
 use ghost::tools::{Tool, ToolContext, ToolError};
 use serde_json::json;
-#[cfg(feature = "live-tests")]
-use surrealdb::types::RecordId;
 use tempfile::TempDir;
 
 pub fn test_config() -> (Config, TempDir, TempDir) {
@@ -54,9 +50,9 @@ pub fn test_workspace() -> (Config, TempDir, TempDir) {
 #[allow(dead_code)]
 pub async fn test_database() -> (GhostDb, Config, TempDir, TempDir) {
     let (config, workspace, config_dir) = test_workspace();
-    let db = db::connect(&config.workspace)
+    let db = db::connect(&config.workspace, config.embeddings.dimension)
         .await
-        .expect("connect surrealdb");
+        .expect("connect sqlite");
     (db, config, workspace, config_dir)
 }
 
@@ -101,7 +97,7 @@ pub struct AgentOutcome {
     /// GHOST's follow-up response after receiving agent findings.
     pub chat_result: ghost::chat::ChatResult,
     /// The agent's session ID (for querying its messages/metrics).
-    pub agent_session: RecordId,
+    pub agent_session: String,
     /// The raw findings text from the agent.
     pub findings: String,
 }
@@ -142,10 +138,7 @@ impl LiveTestEnv {
     /// Collect messages from a session into a JSON array of simplified
     /// message objects for the diagnostic log. Each message is
     /// `{ "role", "content"?, "tool_calls"?, "tool_results"? }`.
-    pub async fn collect_session_json(
-        &self,
-        session_id: &surrealdb::types::RecordId,
-    ) -> Vec<serde_json::Value> {
+    pub async fn collect_session_json(&self, session_id: &str) -> Vec<serde_json::Value> {
         let messages = ghost::db::sessions::list_messages_by_session(&self.db, session_id)
             .await
             .unwrap_or_default();
@@ -160,7 +153,7 @@ impl LiveTestEnv {
                     obj.insert("content".into(), json!(truncate_str(&msg.content, 3000)));
                 }
 
-                if let Some(ref calls) = msg.tool_calls {
+                if let Some(calls) = msg.tool_calls_parsed() {
                     let simplified: Vec<serde_json::Value> = calls
                         .iter()
                         .map(|c| {
@@ -174,7 +167,7 @@ impl LiveTestEnv {
                     obj.insert("tool_calls".into(), json!(simplified));
                 }
 
-                if let Some(ref results) = msg.tool_results {
+                if let Some(results) = msg.tool_results_parsed() {
                     let simplified: Vec<serde_json::Value> = results
                         .iter()
                         .map(|r| {
@@ -208,7 +201,7 @@ impl LiveTestEnv {
     /// output under the given label (e.g. "chat", "agent", "reflection").
     /// Records a cursor so the next call to `log_session_json_since` on
     /// the same session only includes new messages.
-    pub async fn log_session_json(&self, label: &str, session_id: &surrealdb::types::RecordId) {
+    pub async fn log_session_json(&self, label: &str, session_id: &str) {
         let messages = self.collect_session_json(session_id).await;
         let count = messages.len();
         self.diagnostic_json
@@ -216,22 +209,18 @@ impl LiveTestEnv {
             .insert(label.to_string(), json!(messages));
         self.session_cursors
             .borrow_mut()
-            .insert(fmt_id(session_id), count);
+            .insert(session_id.to_string(), count);
     }
 
     /// Like `log_session_json`, but only includes messages added since the
     /// last `log_session_json` call for this session. Avoids duplicating
     /// already-logged content.
-    pub async fn log_session_json_since(
-        &self,
-        label: &str,
-        session_id: &surrealdb::types::RecordId,
-    ) {
+    pub async fn log_session_json_since(&self, label: &str, session_id: &str) {
         let all_messages = self.collect_session_json(session_id).await;
         let cursor = self
             .session_cursors
             .borrow()
-            .get(&fmt_id(session_id))
+            .get(session_id)
             .copied()
             .unwrap_or(0);
         let new_messages: Vec<_> = all_messages.into_iter().skip(cursor).collect();
@@ -241,7 +230,7 @@ impl LiveTestEnv {
             .insert(label.to_string(), json!(new_messages));
         self.session_cursors
             .borrow_mut()
-            .insert(fmt_id(session_id), count_after);
+            .insert(session_id.to_string(), count_after);
     }
 
     // -----------------------------------------------------------------
@@ -249,14 +238,14 @@ impl LiveTestEnv {
     // -----------------------------------------------------------------
 
     /// Create a bare session.
-    pub async fn create_session(&self) -> RecordId {
+    pub async fn create_session(&self) -> String {
         ghost::db::sessions::create_session(&self.db)
             .await
             .expect("create session")
     }
 
     /// Create a session with pre-filled messages.
-    pub async fn session_with_messages(&self, messages: &[(&str, &str)]) -> RecordId {
+    pub async fn session_with_messages(&self, messages: &[(&str, &str)]) -> String {
         let session_id = self.create_session().await;
         for (role, content) in messages {
             ghost::db::sessions::create_message(&self.db, &session_id, role, content)
@@ -270,7 +259,7 @@ impl LiveTestEnv {
     ///
     /// Each entry has `role`, optional `content`, optional `tool_calls`,
     /// optional `tool_results`. Returns the session ID with all messages stored.
-    pub async fn session_from_transcript(&self, transcript: &[serde_json::Value]) -> RecordId {
+    pub async fn session_from_transcript(&self, transcript: &[serde_json::Value]) -> String {
         let session_id = self.create_session().await;
         for msg in transcript {
             let role = msg.get("role").and_then(|v| v.as_str()).unwrap_or("user");
@@ -332,7 +321,7 @@ impl LiveTestEnv {
     /// chat-session diary/identity focus.
     pub async fn run_reflection(
         &self,
-        session_id: &RecordId,
+        session_id: &str,
         previous_handoff: Option<&str>,
         agent_name: &str,
     ) -> String {
@@ -394,7 +383,7 @@ impl LiveTestEnv {
     /// Times out after `timeout_secs` seconds.
     pub async fn wait_for_agents(
         &self,
-        session_id: &RecordId,
+        session_id: &str,
         timeout_secs: u64,
     ) -> Option<AgentOutcome> {
         use std::time::{Duration, Instant};
@@ -426,16 +415,15 @@ impl LiveTestEnv {
                         status.agent_name, status.message_count
                     ));
 
-                    // agent_id is "session:xxxxx" — parse it back into a RecordId
-                    let agent_session = agent_id
+                    // Extract bare session ID from agent_id
+                    let agent_session_id = agent_id
                         .split_once(':')
-                        .map(|(table, id)| RecordId::new(table, id));
+                        .map(|(_, id)| id.to_string())
+                        .unwrap_or_else(|| agent_id.clone());
 
-                    if let Some(ref thing) = agent_session {
-                        self.log_session_json("agent", thing).await;
-                    }
+                    self.log_session_json("agent", &agent_session_id).await;
 
-                    let parent_id = parent.unwrap_or_else(|| session_id.clone());
+                    let parent_id = parent.unwrap_or_else(|| session_id.to_string());
 
                     // Inject findings as system message
                     let system_msg =
@@ -452,11 +440,11 @@ impl LiveTestEnv {
                     // Trigger follow-up chat turn
                     let chat = self.chat();
                     let trigger = "[system] Research agent completed.";
-                    match chat.chat(&fmt_id(&parent_id), trigger, None).await {
+                    match chat.chat(&parent_id, trigger, None).await {
                         Ok((result, _metadata)) => {
                             return Some(AgentOutcome {
                                 chat_result: result,
-                                agent_session: agent_session.unwrap_or_else(|| session_id.clone()),
+                                agent_session: agent_session_id,
                                 findings: findings.to_string(),
                             });
                         }
@@ -477,15 +465,15 @@ impl LiveTestEnv {
     // -----------------------------------------------------------------
 
     /// Collect all tool call names from a session's messages, in order.
-    pub async fn collect_tool_calls(&self, session_id: &RecordId) -> Vec<String> {
+    pub async fn collect_tool_calls(&self, session_id: &str) -> Vec<String> {
         let messages = ghost::db::sessions::list_messages_by_session(&self.db, session_id)
             .await
             .expect("list session messages for tool calls");
 
         let mut names = Vec::new();
         for msg in &messages {
-            if let Some(ref calls) = msg.tool_calls {
-                for call in calls {
+            if let Some(calls) = msg.tool_calls_parsed() {
+                for call in &calls {
                     if let Some(name) = call.get("name").and_then(|v| v.as_str()) {
                         names.push(name.to_string());
                     }
@@ -506,7 +494,7 @@ impl LiveTestEnv {
     }
 
     /// Collect web_fetch metrics from an agent session's messages.
-    pub async fn collect_web_fetch_metrics(&self, session_id: &RecordId) -> WebFetchMetrics {
+    pub async fn collect_web_fetch_metrics(&self, session_id: &str) -> WebFetchMetrics {
         let messages = ghost::db::sessions::list_messages_by_session(&self.db, session_id)
             .await
             .expect("list session messages for metrics");
@@ -515,8 +503,8 @@ impl LiveTestEnv {
         let mut urls = Vec::new();
 
         for msg in &messages {
-            if let Some(ref calls) = msg.tool_calls {
-                for call in calls {
+            if let Some(calls) = msg.tool_calls_parsed() {
+                for call in &calls {
                     let name = call
                         .get("name")
                         .and_then(|v| v.as_str())
@@ -764,7 +752,7 @@ pub async fn live_test_database(test_name: &str) -> LiveTestEnv {
     let mut config = config::load_from_dir(config_dir.path()).expect("load config from temp dir");
     config.debug.save_requests = true;
     ghost::config_workspace::bootstrap_workspace(&config).expect("bootstrap temp workspace");
-    let db = db::connect(&config.workspace)
+    let db = db::connect(&config.workspace, config.embeddings.dimension)
         .await
         .expect("connect to fresh temp database");
 

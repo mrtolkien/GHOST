@@ -8,7 +8,7 @@ All reusable test infrastructure lives in `tests/common.rs`.
 | ----------------------------------------------------------- | ------------------------------------------------------------------ |
 | `test_config()`                                             | Temp config + workspace dirs, returns `(Config, TempDir, TempDir)` |
 | `test_workspace()`                                          | `test_config()` + bootstrapped workspace                           |
-| `test_database()`                                           | `test_workspace()` + connected SurrealDB                           |
+| `test_database()`                                           | `test_workspace()` + connected SQLite                              |
 | `write_test_note(workspace, title, body)`                   | Write a note file with frontmatter                                 |
 | `write_test_reference(workspace, topic, filename, content)` | Write a reference file                                             |
 

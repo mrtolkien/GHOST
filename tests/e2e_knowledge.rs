@@ -2,8 +2,6 @@
 
 mod common;
 
-use ghost::db::fmt_id;
-
 /// Smoke test: verify the model actually uses tools when asked directly.
 ///
 /// Asks the model to call `run_shell_command("pwd")` and use `respond`.
@@ -20,7 +18,7 @@ async fn e2e_tool_smoke() {
     let chat = env.chat();
     let (result, _metadata) = chat
         .chat(
-            &fmt_id(&session),
+            &session,
             "Use run_shell_command to run `pwd`, then use the respond tool to \
              tell me what directory you're in. You MUST use both tools.",
             None,
@@ -136,7 +134,7 @@ async fn e2e_complex_query_spawns_agent() {
     let _result = tokio::time::timeout(
         std::time::Duration::from_secs(120),
         chat.chat(
-            &fmt_id(&session),
+            &session,
             "I want to buy a corexy 3d printer to replace my Bambulab A1. \
              Horizontal desk space is a premium in my workspace, but I'd like \
              a tool changer to be able to easily print in PLA with PETG \
@@ -182,12 +180,12 @@ async fn e2e_complex_query_spawns_agent() {
 #[cfg(feature = "e2e-tests")]
 async fn run_initial_research(
     env: &common::LiveTestEnv,
-    session: &surrealdb::types::RecordId,
+    session: &str,
 ) -> Option<common::AgentOutcome> {
     let chat = env.chat();
     let (result, _metadata) = chat
         .chat(
-            &fmt_id(session),
+            session,
             "I want to buy a new enclosed 3D printer for home use, around $1000. What do you recommend?",
             None,
         )

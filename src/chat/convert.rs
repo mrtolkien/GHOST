@@ -1,5 +1,4 @@
 use serde_json::{Value, json};
-use surrealdb::types::RecordId;
 
 use crate::db;
 use crate::providers::{ChatMessage, ContentBlock, Role};
@@ -7,17 +6,17 @@ use crate::tools::ToolError;
 
 use super::types::ChatError;
 
-pub(super) fn parse_session_thing(session_id: &str) -> Result<RecordId, ChatError> {
+pub(super) fn parse_session_thing(session_id: &str) -> Result<String, ChatError> {
     if session_id.contains(':') {
         let mut parts = session_id.splitn(2, ':');
-        let table = parts.next().unwrap_or_default();
+        let _table = parts.next().unwrap_or_default();
         let id = parts.next().unwrap_or_default();
-        if table.is_empty() || id.is_empty() {
+        if id.is_empty() {
             return Err(ChatError::InvalidSessionId {
                 session_id: session_id.to_string(),
             });
         }
-        return Ok(RecordId::new(table, id));
+        return Ok(id.to_string());
     }
 
     if session_id.trim().is_empty() {
@@ -26,7 +25,7 @@ pub(super) fn parse_session_thing(session_id: &str) -> Result<RecordId, ChatErro
         });
     }
 
-    Ok(RecordId::new("session", session_id))
+    Ok(session_id.to_string())
 }
 
 pub(super) fn convert_stored_message_to_provider_message(
@@ -37,13 +36,18 @@ pub(super) fn convert_stored_message_to_provider_message(
         "assistant" => Role::Assistant,
         _ => Role::System,
     };
+    // Parse JSON fields before moving message.content
+    let tool_calls = message.tool_calls_parsed();
+    let tool_results = message.tool_results_parsed();
+    let raw_output = message.raw_output_parsed();
+
     let mut content = Vec::new();
     if !message.content.trim().is_empty() {
         content.push(ContentBlock::Text {
             text: message.content,
         });
     }
-    if let Some(tool_calls) = message.tool_calls {
+    if let Some(tool_calls) = tool_calls {
         for call in tool_calls {
             if let (Some(id), Some(name)) = (
                 call.get("id").and_then(Value::as_str),
@@ -57,7 +61,7 @@ pub(super) fn convert_stored_message_to_provider_message(
             }
         }
     }
-    if let Some(tool_results) = message.tool_results {
+    if let Some(tool_results) = tool_results {
         for result in tool_results {
             if let Some(tool_use_id) = result.get("tool_use_id").and_then(Value::as_str) {
                 content.push(ContentBlock::ToolResult {
@@ -75,7 +79,7 @@ pub(super) fn convert_stored_message_to_provider_message(
             }
         }
     }
-    if let Some(raw_output) = message.raw_output {
+    if let Some(raw_output) = raw_output {
         for item in raw_output {
             if let Some(original_type) = item.get("original_type").and_then(Value::as_str) {
                 let value = item.get("value").cloned().unwrap_or(Value::Null);

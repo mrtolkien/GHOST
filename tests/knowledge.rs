@@ -1,7 +1,6 @@
 mod common;
 
 use ghost::db;
-use ghost::db::fmt_id;
 use ghost::knowledge;
 use ghost::tools::{ToolContext, ToolManager};
 use serde_json::json;
@@ -46,7 +45,7 @@ async fn create_note_and_retrieve_all_fields() {
     assert_eq!(note.title, "Rust Language");
     assert_eq!(note.body, "A systems programming language.");
     assert_eq!(note.archetype.as_deref(), Some("concept"));
-    assert_eq!(note.tags, vec!["programming", "systems"]);
+    assert_eq!(note.tags_parsed(), vec!["programming", "systems"]);
     assert_eq!(note.trust, 8);
 }
 
@@ -76,7 +75,7 @@ async fn update_note_changes_fields() {
     let after = db::knowledge::get_note(&db, &id).await.expect("get after");
     assert_eq!(after.body, "new body");
     assert_eq!(after.archetype.as_deref(), Some("decision"));
-    assert_eq!(after.tags, vec!["updated"]);
+    assert_eq!(after.tags_parsed(), vec!["updated"]);
     assert_eq!(after.trust, 7);
     assert!(after.updated_at >= before.updated_at);
 }
@@ -114,7 +113,7 @@ async fn wiki_link_creates_relates_to_edge_and_stub() {
         .expect("outgoing");
     assert_eq!(edges.len(), 1);
     assert_eq!(edges[0].label, "relates_to");
-    assert_eq!(edges[0].out, stub.id);
+    assert_eq!(edges[0].to_id, stub.id);
 }
 
 #[tokio::test]
@@ -149,7 +148,7 @@ async fn typed_wiki_link_creates_labeled_edge() {
         .expect("outgoing");
     assert_eq!(edges.len(), 1);
     assert_eq!(edges[0].label, "written_in");
-    assert_eq!(edges[0].out, rust_id);
+    assert_eq!(edges[0].to_id, rust_id);
 }
 
 #[tokio::test]
@@ -263,11 +262,11 @@ async fn graph_chain_neighbors() {
     // B should have 1 outgoing (to C) and 1 incoming (from A)
     let outgoing = db::knowledge::outgoing_edges(&db, &b).await.expect("out");
     assert_eq!(outgoing.len(), 1);
-    assert_eq!(outgoing[0].out, c);
+    assert_eq!(outgoing[0].to_id, c);
 
     let incoming = db::knowledge::incoming_edges(&db, &b).await.expect("in");
     assert_eq!(incoming.len(), 1);
-    assert_eq!(incoming[0].in_node, a);
+    assert_eq!(incoming[0].from_id, a);
 }
 
 // --- Knowledge write tools via ToolManager ---
@@ -283,7 +282,7 @@ async fn note_write_tool_creates_file_and_db_record() {
         cwd: config.workspace.clone(),
         db: db.clone(),
         config: config.clone(),
-        session_id: fmt_id(&session_id),
+        session_id: session_id.clone(),
         task_runner: None,
     };
     let manager = ToolManager::for_agent(&reflection_tools());
@@ -316,7 +315,7 @@ async fn note_write_tool_creates_file_and_db_record() {
         .expect("find")
         .expect("exists");
     assert_eq!(note.trust, 7);
-    assert_eq!(note.tags, vec!["test"]);
+    assert_eq!(note.tags_parsed(), vec!["test"]);
 }
 
 // --- Tags with counts ---

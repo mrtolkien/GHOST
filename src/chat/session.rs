@@ -1,10 +1,8 @@
 use std::sync::Arc;
 
+use crate::db::GhostDb;
 use async_trait::async_trait;
 use serde_json::{Value, json};
-use surrealdb::Surreal;
-use surrealdb::engine::local::Db;
-use surrealdb::types::RecordId;
 
 use crate::agents::definition::TaskDefinition;
 use crate::agents::{
@@ -27,7 +25,7 @@ use super::types::{
 };
 
 pub struct SessionChat {
-    db: Surreal<Db>,
+    db: GhostDb,
     provider: Arc<dyn Provider>,
     tool_manager: ToolManager,
     config: Config,
@@ -47,7 +45,7 @@ impl std::fmt::Debug for SessionChat {
 
 impl SessionChat {
     #[tracing::instrument(name = "create session_chat", skip_all)]
-    pub fn from_config(db: Surreal<Db>, config: Config) -> Result<Self, ChatError> {
+    pub fn from_config(db: GhostDb, config: Config) -> Result<Self, ChatError> {
         let provider = provider_for_alias(&config, None)?;
 
         Ok(Self::new(db, provider, ToolManager::for_chat(), config))
@@ -55,7 +53,7 @@ impl SessionChat {
 
     #[must_use]
     pub fn new(
-        db: Surreal<Db>,
+        db: GhostDb,
         provider: Arc<dyn Provider>,
         tool_manager: ToolManager,
         config: Config,
@@ -239,7 +237,7 @@ impl SessionChat {
         let new_session = db::sessions::create_session(&self.db).await?;
         db::interface_sessions::replace_session_everywhere(&self.db, &old_session, &new_session)
             .await?;
-        Ok(crate::db::fmt_id(&new_session))
+        Ok(new_session)
     }
 
     /// Load provider history, returning `(messages, stored_message_ids)`.
@@ -250,7 +248,7 @@ impl SessionChat {
     #[tracing::instrument(skip_all, level = "debug", fields(session_id = ?session_id))]
     pub(super) async fn load_provider_history(
         &self,
-        session_id: &RecordId,
+        session_id: &str,
     ) -> Result<(Vec<ChatMessage>, Vec<String>), ChatError> {
         let session = db::sessions::get_session(&self.db, session_id).await?;
         let all_messages = db::sessions::list_messages_by_session(&self.db, session_id).await?;
@@ -272,10 +270,10 @@ impl SessionChat {
         let mut include = cursor.is_none();
         for msg in all_messages {
             if !include {
-                include = Some(crate::db::fmt_id(&msg.id)) == cursor;
+                include = Some(msg.id.clone()) == cursor;
                 continue;
             }
-            let msg_id = crate::db::fmt_id(&msg.id);
+            let msg_id = msg.id.clone();
             messages.push(convert_stored_message_to_provider_message(msg));
             ids.push(msg_id);
         }
@@ -286,7 +284,7 @@ impl SessionChat {
     #[tracing::instrument(skip_all, level = "debug", fields(session_id = ?session_id))]
     pub(super) async fn todo_injection_message(
         &self,
-        session_id: &RecordId,
+        session_id: &str,
     ) -> Result<Option<String>, ChatError> {
         let todo = db::sessions::get_session_todo_list(&self.db, session_id).await?;
         let Some(items) = todo else {
@@ -359,7 +357,7 @@ impl SessionChat {
         Ok(model.model.clone())
     }
 
-    pub(super) fn db(&self) -> &Surreal<Db> {
+    pub(super) fn db(&self) -> &GhostDb {
         &self.db
     }
 
@@ -386,7 +384,7 @@ impl SessionChat {
 
 struct ChatHandler<'a> {
     session_chat: &'a SessionChat,
-    session_thing: &'a RecordId,
+    session_thing: &'a str,
     event_tx: Option<&'a EventSender>,
     pending_todo_update: bool,
 }
@@ -510,7 +508,7 @@ impl ToolLoopHandler for ChatHandler<'_> {
 
 struct TaskHandler<'a> {
     session_chat: &'a SessionChat,
-    session_thing: &'a RecordId,
+    session_thing: &'a str,
     system_prompt: String,
     progress_rules: Vec<ProgressRule>,
     progress_gate: Option<ProgressGateConfig>,

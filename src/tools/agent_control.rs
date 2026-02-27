@@ -96,7 +96,7 @@ impl AgentControl {
         let parent_session_id = parse_session_thing_opt(&ctx.session_id);
 
         let agent_id = runner
-            .start(agent_name, prompt, parent_session_id.as_ref())
+            .start(agent_name, prompt, parent_session_id.as_deref())
             .await
             .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
 
@@ -129,7 +129,7 @@ impl AgentControl {
         let parent_session_id = parse_session_thing_opt(&ctx.session_id);
 
         let agent_name = runner
-            .continue_task(agent_id, prompt, parent_session_id.as_ref())
+            .continue_task(agent_id, prompt, parent_session_id.as_deref())
             .await
             .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
 
@@ -202,14 +202,14 @@ impl AgentControl {
     }
 }
 
-fn parse_session_thing_opt(session_id: &str) -> Option<surrealdb::types::RecordId> {
-    if let Some((table, id)) = session_id.split_once(':') {
-        if table.is_empty() || id.is_empty() {
+fn parse_session_thing_opt(session_id: &str) -> Option<String> {
+    if let Some((_table, id)) = session_id.split_once(':') {
+        if id.is_empty() {
             return None;
         }
-        Some(surrealdb::types::RecordId::new(table, id))
+        Some(id.to_string())
     } else if !session_id.is_empty() {
-        Some(surrealdb::types::RecordId::new("session", session_id))
+        Some(session_id.to_string())
     } else {
         None
     }

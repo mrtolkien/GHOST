@@ -3,13 +3,12 @@ use std::sync::Arc;
 use serenity::http::Http;
 use serenity::model::id::ChannelId;
 use serenity::prelude::*;
-use surrealdb::Surreal;
-use surrealdb::engine::local::Db;
 use tokio::task::JoinHandle;
 use tracing::info;
 
 use crate::chat::SessionChat;
 use crate::config::Config;
+use crate::db::GhostDb;
 
 use super::components_v2::{container, send_v2_message, text_display};
 use super::send::{GATEWAY_EMBED_COLOR, send_assistant_v2, send_gateway_v2};
@@ -82,7 +81,7 @@ impl DiscordSender {
 pub async fn start_discord(
     config: &Config,
     session_chat: Arc<SessionChat>,
-    db: Surreal<Db>,
+    db: GhostDb,
 ) -> Result<Option<(DiscordSender, JoinHandle<()>)>, DiscordError> {
     if !config.discord.enabled {
         info!("Discord is disabled in config");

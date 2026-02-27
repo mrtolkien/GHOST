@@ -40,7 +40,8 @@ several things).
 
 - Single binary, single crate
 - One GHOST, one OPERATOR — identity lives in workspace files, not database tables
-- SurrealDB (embedded) for storage — enables graph-based knowledge with typed edges
+- SQLite (embedded via sqlx) for storage — sqlite-vec for vector KNN, FTS5 for full-text
+  search, typed edges for knowledge graph
 - Logfire for observability — mandatory tracing spans on all meaningful operations
 - CLI-first — all features accessible through direct commands (`ghost daemon`,
   `ghost job validate`, etc.)
@@ -56,8 +57,8 @@ several things).
 - **Session**: Chat thread between OPERATOR and GHOST.
 - **Job**: Markdown file in `$WORKSPACE/jobs/` with YAML frontmatter. Cron-scheduled.
   Heartbeat and reflection are dedicated subsystems (not regular jobs).
-- **Knowledge**: Notes, references, and diary entries stored in SurrealDB with typed
-  graph edges and embeddings search.
+- **Knowledge**: Notes, references, and diary entries stored in SQLite with typed graph
+  edges and embeddings search (sqlite-vec + FTS5).
 - **Skill**: agentskills.io-compatible files in `$WORKSPACE/skills/`. Read via standard
   file tools.
 - **Provider**: LLM backend. Provider trait with implementations for OpenRouter, Kimi,
@@ -158,7 +159,7 @@ Core stack (do not change without discussion):
 - **Async runtime**: Tokio
 - **HTTP framework**: Axum
 - **HTTP client**: reqwest (rustls)
-- **Database**: SurrealDB (embedded, surrealkv backend)
+- **Database**: SQLite (embedded via sqlx) + sqlite-vec + FTS5
 - **Discord**: serenity
 - **Observability**: logfire + tracing
 - **Error handling**: thiserror
@@ -200,9 +201,8 @@ src/
 ├── config.rs            # Config types, loading, defaults
 ├── config_cli.rs        # CLI config get/set operations
 ├── config_workspace.rs  # Workspace bootstrapping
-├── db/                  # SurrealDB schema, queries, connection
-│   ├── knowledge/       # Notes, references, diary (crud, search, graph, stats)
-│   └── query.rs         # Shared query helpers (take_one, take_many, query_exec)
+├── db/                  # SQLite schema (sqlx migrations), queries, connection
+│   └── knowledge/       # Notes, references, diary (crud, search, graph, stats)
 ├── providers/           # Provider trait + implementations (OpenRouter, Kimi, OpenAI OAuth)
 ├── chat/                # Chat orchestration, session management, compaction
 │   └── tool_loop.rs     # Shared tool-use loop (ToolLoopHandler trait)

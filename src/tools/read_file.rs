@@ -75,7 +75,7 @@ mod tests {
         ToolContext {
             workspace: workspace.to_path_buf(),
             cwd: workspace.to_path_buf(),
-            db: surrealdb::Surreal::init(),
+            db: sqlx::SqlitePool::connect_lazy("sqlite::memory:").unwrap(),
             config: crate::config::test_config(workspace),
             session_id: "test".to_string(),
             task_runner: None,

@@ -1,14 +1,12 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use surrealdb::Surreal;
-use surrealdb::engine::local::Db;
-use surrealdb::types::RecordId;
 use tokio::sync::watch;
 use tokio::task::JoinHandle;
 
 use crate::chat::SessionChat;
 use crate::db;
+use crate::db::GhostDb;
 use crate::interfaces::discord::DiscordSender;
 use crate::jobs::ReflectionManager;
 
@@ -22,7 +20,7 @@ pub fn spawn_task_watcher(
     session_chat: Arc<SessionChat>,
     discord_sender: Arc<DiscordSender>,
     reflection: Arc<ReflectionManager>,
-    db: Surreal<Db>,
+    db: GhostDb,
     mut shutdown: watch::Receiver<bool>,
 ) -> JoinHandle<()> {
     logfire::info!("agent watcher started");
@@ -58,7 +56,7 @@ async fn check_completed_tasks(
     session_chat: &SessionChat,
     discord_sender: &DiscordSender,
     reflection: &Arc<ReflectionManager>,
-    db: &Surreal<Db>,
+    db: &GhostDb,
 ) {
     let agent_ids = task_runner.list_task_ids().await;
 
@@ -120,10 +118,7 @@ async fn check_completed_tasks(
 
         // Trigger a new chat turn with a synthetic user message
         let trigger = "[system] Research agent completed.";
-        match session_chat
-            .chat(&crate::db::fmt_id(&parent_id), trigger, None)
-            .await
-        {
+        match session_chat.chat(&parent_id, trigger, None).await {
             Ok((result, _metadata)) => {
                 if let Some(channel_id) = discord_channel_id
                     && let Err(e) = discord_sender
@@ -156,13 +151,18 @@ async fn check_completed_tasks(
     }
 }
 
-/// Parse "session:abc123" into a RecordId.
-fn parse_agent_session_thing(agent_id: &str) -> Option<RecordId> {
-    let (table, id) = agent_id.split_once(':')?;
-    if table.is_empty() || id.is_empty() {
-        return None;
+/// Parse "session:abc123" into a bare ID string.
+fn parse_agent_session_thing(agent_id: &str) -> Option<String> {
+    if let Some((_table, id)) = agent_id.split_once(':') {
+        if id.is_empty() {
+            return None;
+        }
+        Some(id.to_string())
+    } else if !agent_id.is_empty() {
+        Some(agent_id.to_string())
+    } else {
+        None
     }
-    Some(RecordId::new(table, id))
 }
 
 /// Extract channel ID from an interface key like "discord:channel:123456".

@@ -3,95 +3,99 @@
 //! It is expected to be revisited/reworked in full Discord interface work (spec 09).
 
 use serde::Deserialize;
-use surrealdb::Surreal;
-use surrealdb::engine::local::Db;
-use surrealdb::types::{RecordId, SurrealValue};
+use sqlx::SqlitePool;
 
 use crate::db::error::DatabaseError;
-use crate::db::query::{query_exec, take_many};
-
-#[derive(Debug, Deserialize, SurrealValue)]
-#[surreal(crate = "surrealdb::types")]
-struct SessionRow {
-    session: RecordId,
-}
+use crate::db::{new_id, now};
 
 #[tracing::instrument(skip_all, level = "debug", fields(interface = interface))]
 pub async fn get_active_session_for_interface(
-    db: &Surreal<Db>,
+    db: &SqlitePool,
     interface: &str,
-) -> Result<Option<RecordId>, DatabaseError> {
-    let mut resp = query_exec(
-        db.query("SELECT session FROM interface_session WHERE interface = $interface LIMIT 1")
-            .bind(("interface", interface.to_string())),
-        "interface_session",
-        "get_active",
-    )
-    .await?;
+) -> Result<Option<String>, DatabaseError> {
+    #[derive(sqlx::FromRow)]
+    struct SessionRow {
+        session_id: String,
+    }
 
-    let rows: Vec<SessionRow> = take_many(&mut resp, 0, "interface_session", "get_active")?;
-    Ok(rows.first().map(|row| row.session.clone()))
+    let row = sqlx::query_as::<_, SessionRow>(
+        "SELECT session_id FROM interface_session WHERE interface = ? LIMIT 1",
+    )
+    .bind(interface)
+    .fetch_optional(db)
+    .await
+    .map_err(|source| DatabaseError::Query {
+        table: "interface_session",
+        operation: "get_active",
+        source,
+    })?;
+
+    Ok(row.map(|r| r.session_id))
 }
 
-#[tracing::instrument(skip_all, level = "debug", fields(interface = interface, session_id = ?session_id))]
+#[tracing::instrument(skip_all, level = "debug", fields(interface = interface, session_id = %session_id))]
 pub async fn set_active_session_for_interface(
-    db: &Surreal<Db>,
+    db: &SqlitePool,
     interface: &str,
-    session_id: &RecordId,
+    session_id: &str,
 ) -> Result<(), DatabaseError> {
-    query_exec(
-        db.query(
-            "UPSERT interface_session SET \
-                interface = $interface, \
-                session = $session_id, \
-                created_at = time::now() \
-             WHERE interface = $interface",
-        )
-        .bind(("interface", interface.to_string()))
-        .bind(("session_id", session_id.clone())),
-        "interface_session",
-        "set_active",
+    let id = new_id();
+    sqlx::query(
+        "INSERT INTO interface_session (id, interface, session_id, created_at) \
+         VALUES (?, ?, ?, ?) \
+         ON CONFLICT(interface) DO UPDATE SET session_id = excluded.session_id",
     )
-    .await?;
+    .bind(&id)
+    .bind(interface)
+    .bind(session_id)
+    .bind(now())
+    .execute(db)
+    .await
+    .map_err(|source| DatabaseError::Query {
+        table: "interface_session",
+        operation: "set_active",
+        source,
+    })?;
     Ok(())
 }
 
-#[derive(Debug, Deserialize, SurrealValue)]
-#[surreal(crate = "surrealdb::types")]
+#[derive(Debug, Deserialize, sqlx::FromRow)]
 pub struct InterfaceSessionRecord {
     pub interface: String,
-    pub session: RecordId,
+    pub session_id: String,
 }
 
 #[tracing::instrument(skip_all, level = "debug")]
 pub async fn list_all_interface_sessions(
-    db: &Surreal<Db>,
+    db: &SqlitePool,
 ) -> Result<Vec<InterfaceSessionRecord>, DatabaseError> {
-    let mut resp = query_exec(
-        db.query("SELECT interface, session FROM interface_session"),
-        "interface_session",
-        "list_all",
+    sqlx::query_as::<_, InterfaceSessionRecord>(
+        "SELECT interface, session_id FROM interface_session",
     )
-    .await?;
-
-    take_many(&mut resp, 0, "interface_session", "list_all")
+    .fetch_all(db)
+    .await
+    .map_err(|source| DatabaseError::Query {
+        table: "interface_session",
+        operation: "list_all",
+        source,
+    })
 }
 
-#[tracing::instrument(skip_all, level = "debug", fields(old_session_id = ?old_session_id, new_session_id = ?new_session_id))]
+#[tracing::instrument(skip_all, level = "debug", fields(old_session_id = %old_session_id, new_session_id = %new_session_id))]
 pub async fn replace_session_everywhere(
-    db: &Surreal<Db>,
-    old_session_id: &RecordId,
-    new_session_id: &RecordId,
+    db: &SqlitePool,
+    old_session_id: &str,
+    new_session_id: &str,
 ) -> Result<(), DatabaseError> {
-    query_exec(
-        db.query(
-            "UPDATE interface_session SET session = $new_session_id WHERE session = $old_session_id",
-        )
-        .bind(("old_session_id", old_session_id.clone()))
-        .bind(("new_session_id", new_session_id.clone())),
-        "interface_session",
-        "replace_session_everywhere",
-    )
-    .await?;
+    sqlx::query("UPDATE interface_session SET session_id = ? WHERE session_id = ?")
+        .bind(new_session_id)
+        .bind(old_session_id)
+        .execute(db)
+        .await
+        .map_err(|source| DatabaseError::Query {
+            table: "interface_session",
+            operation: "replace_session_everywhere",
+            source,
+        })?;
     Ok(())
 }

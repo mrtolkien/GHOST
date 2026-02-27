@@ -1,13 +1,12 @@
 mod common;
 
 use ghost::db;
-use ghost::db::fmt_id;
 use ghost::tools::{TodoStatus, ToolContext, ToolManager};
 use serde_json::json;
 
 fn tool_ctx(
     config: &ghost::config::Config,
-    db: &surrealdb::Surreal<surrealdb::engine::local::Db>,
+    db: &ghost::db::GhostDb,
     session_id: &str,
 ) -> ToolContext {
     ToolContext {
@@ -76,7 +75,7 @@ async fn todo_round_trip_through_db() {
     let session_id = db::sessions::create_session(&db)
         .await
         .expect("create session");
-    let ctx = tool_ctx(&config, &db, &fmt_id(&session_id));
+    let ctx = tool_ctx(&config, &db, &session_id);
     let manager = ToolManager::for_chat();
 
     // Plan
@@ -182,7 +181,7 @@ async fn chained_write_edit_read() {
     let session_id = db::sessions::create_session(&db)
         .await
         .expect("create session");
-    let ctx = tool_ctx(&config, &db, &fmt_id(&session_id));
+    let ctx = tool_ctx(&config, &db, &session_id);
     let manager = ToolManager::for_chat();
 
     // Write a file
@@ -233,7 +232,7 @@ async fn shell_runs_in_workspace() {
     let session_id = db::sessions::create_session(&db)
         .await
         .expect("create session");
-    let ctx = tool_ctx(&config, &db, &fmt_id(&session_id));
+    let ctx = tool_ctx(&config, &db, &session_id);
     let manager = ToolManager::for_chat();
 
     let result = manager
@@ -250,7 +249,7 @@ async fn todo_invalid_index_returns_error() {
     let session_id = db::sessions::create_session(&db)
         .await
         .expect("create session");
-    let ctx = tool_ctx(&config, &db, &fmt_id(&session_id));
+    let ctx = tool_ctx(&config, &db, &session_id);
     let manager = ToolManager::for_chat();
 
     // Plan with one item
@@ -288,7 +287,7 @@ async fn unknown_tool_returns_not_found() {
     let ctx = ToolContext {
         workspace: std::path::PathBuf::from("/tmp"),
         cwd: std::path::PathBuf::from("/tmp"),
-        db: surrealdb::Surreal::init(),
+        db: sqlx::SqlitePool::connect_lazy("sqlite::memory:").unwrap(),
         config: ghost::config::test_config(std::path::Path::new("/tmp")),
         session_id: "test".to_string(),
         task_runner: None,

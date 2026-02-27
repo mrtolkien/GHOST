@@ -1,11 +1,9 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use surrealdb::Surreal;
-use surrealdb::engine::local::Db;
-
 use crate::agents::TaskRunner;
 use crate::config::Config;
+use crate::db::GhostDb;
 
 use super::ToolError;
 
@@ -13,7 +11,7 @@ use super::ToolError;
 pub struct ToolContext {
     pub workspace: PathBuf,
     pub cwd: PathBuf,
-    pub db: Surreal<Db>,
+    pub db: GhostDb,
     pub config: Config,
     pub session_id: String,
     pub task_runner: Option<Arc<TaskRunner>>,

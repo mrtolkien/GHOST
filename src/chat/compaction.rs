@@ -9,8 +9,6 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use surrealdb::types::RecordId;
-
 use crate::config::CompactionConfig;
 use crate::db;
 use crate::providers::{
@@ -397,7 +395,7 @@ impl SessionChat {
     #[tracing::instrument(skip_all, level = "debug", fields(session_id = ?session_id))]
     pub(super) async fn compact_if_needed(
         &self,
-        session_id: &RecordId,
+        session_id: &str,
         history: &mut Vec<ChatMessage>,
         stored_message_ids: &[String],
     ) {
@@ -462,7 +460,7 @@ impl SessionChat {
         // Phase 2: LLM summarization
         logfire::info!("Masking insufficient — proceeding to Phase 2");
 
-        let cache_key = crate::db::fmt_id(session_id);
+        let cache_key = session_id.to_string();
         match summarize_older_messages(
             self.provider(),
             &model_name,

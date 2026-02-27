@@ -1,9 +1,7 @@
 use sha2::{Digest, Sha256};
-use surrealdb::Surreal;
-use surrealdb::engine::local::Db;
-use surrealdb::types::RecordId;
 
 use crate::db;
+use crate::db::GhostDb;
 
 use super::chunker::{Chunk, chunk_text};
 use super::client::EmbeddingClient;
@@ -33,9 +31,9 @@ pub fn content_hash(content: &str) -> String {
 ))]
 pub async fn embed_source(
     client: &EmbeddingClient,
-    db: &Surreal<Db>,
+    db: &GhostDb,
     source_table: &str,
-    source_id: &RecordId,
+    source_id: &str,
     content: &str,
     tags: &[String],
 ) -> Result<usize, PipelineError> {
@@ -58,9 +56,9 @@ pub async fn embed_source(
 )]
 pub async fn embed_source_forced(
     client: &EmbeddingClient,
-    db: &Surreal<Db>,
+    db: &GhostDb,
     source_table: &str,
-    source_id: &RecordId,
+    source_id: &str,
     content: &str,
     tags: &[String],
 ) -> Result<usize, PipelineError> {
@@ -70,9 +68,9 @@ pub async fn embed_source_forced(
 
 async fn embed_source_inner(
     client: &EmbeddingClient,
-    db: &Surreal<Db>,
+    db: &GhostDb,
     source_table: &str,
-    source_id: &RecordId,
+    source_id: &str,
     content: &str,
     tags: &[String],
     hash: &str,
@@ -123,7 +121,7 @@ async fn embed_chunks(
 #[derive(Debug)]
 pub struct EmbedRequest {
     pub source_table: String,
-    pub source_id: RecordId,
+    pub source_id: String,
     pub content: String,
     pub tags: Vec<String>,
 }
@@ -141,7 +139,7 @@ pub struct EmbedRequest {
 ))]
 pub async fn embed_sources(
     client: &EmbeddingClient,
-    db: &Surreal<Db>,
+    db: &GhostDb,
     requests: Vec<EmbedRequest>,
 ) -> Result<usize, PipelineError> {
     if requests.is_empty() {
@@ -151,7 +149,7 @@ pub async fn embed_sources(
     // Phase 1: filter unchanged sources and chunk the rest
     struct PreparedSource {
         table: String,
-        id: RecordId,
+        id: String,
         hash: String,
         chunks: Vec<Chunk>,
     }
@@ -244,7 +242,7 @@ const RECONCILE_PAGE_SIZE: usize = 50;
 ))]
 pub async fn reconcile_embeddings(
     client: &EmbeddingClient,
-    db: &Surreal<Db>,
+    db: &GhostDb,
 ) -> Result<(usize, usize), PipelineError> {
     let mut embedded = 0usize;
     let mut skipped = 0usize;
@@ -256,7 +254,8 @@ pub async fn reconcile_embeddings(
         let notes = db::knowledge::list_notes_page(db, offset, RECONCILE_PAGE_SIZE).await?;
         let batch_len = notes.len();
         for note in &notes {
-            let count = embed_source(client, db, "note", &note.id, &note.body, &note.tags).await?;
+            let tags = note.tags_parsed();
+            let count = embed_source(client, db, "note", &note.id, &note.body, &tags).await?;
             if count > 0 {
                 embedded += count;
             } else {

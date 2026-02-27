@@ -75,8 +75,8 @@ async fn upsert_overwrites_on_duplicate_source_and_chunk() {
 async fn get_content_hash_returns_none_for_missing_source() {
     let (db, _config, _workspace, _config_dir) = common::test_database().await;
 
-    let fake_id = surrealdb::types::RecordId::new("note", "nonexistent");
-    let hash = db::embeddings::get_content_hash(&db, &fake_id)
+    let fake_id = "nonexistent";
+    let hash = db::embeddings::get_content_hash(&db, fake_id)
         .await
         .expect("get hash");
     assert!(hash.is_none());
@@ -273,7 +273,7 @@ async fn count_embeddings_empty_table() {
 #[test]
 fn hybrid_merge_combines_bm25_and_embedding_scores() {
     let bm25_hits = vec![db::knowledge::SearchHit {
-        id: surrealdb::types::RecordId::new("note", "abc"),
+        id: "abc".to_string(),
         title: "BM25 Hit".to_string(),
         snippet: "snippet".to_string(),
         score: 1.0,
@@ -281,7 +281,7 @@ fn hybrid_merge_combines_bm25_and_embedding_scores() {
     }];
 
     let embedding_hits = vec![db::embeddings::EmbeddingHit {
-        source_id: surrealdb::types::RecordId::new("note", "abc"),
+        source_id: "abc".to_string(),
         source_table: "note".to_string(),
         chunk_text: "chunk".to_string(),
         score: 0.8,
@@ -298,7 +298,7 @@ fn hybrid_merge_combines_bm25_and_embedding_scores() {
 fn hybrid_merge_includes_embedding_only_hits() {
     let bm25_hits = vec![];
     let embedding_hits = vec![db::embeddings::EmbeddingHit {
-        source_id: surrealdb::types::RecordId::new("note", "xyz"),
+        source_id: "xyz".to_string(),
         source_table: "note".to_string(),
         chunk_text: "only in embeddings".to_string(),
         score: 0.9,
@@ -313,7 +313,7 @@ fn hybrid_merge_includes_embedding_only_hits() {
 fn hybrid_merge_respects_limit() {
     let bm25_hits: Vec<db::knowledge::SearchHit> = (0..5)
         .map(|i| db::knowledge::SearchHit {
-            id: surrealdb::types::RecordId::new("note", format!("n{i}").as_str()),
+            id: format!("n{i}"),
             title: format!("Note {i}"),
             snippet: String::new(),
             score: 1.0,
@@ -325,15 +325,14 @@ fn hybrid_merge_respects_limit() {
     assert_eq!(merged.len(), 3);
 }
 
-// --- SurrealDB array<float> memory reproduction ---
+// --- Vector insert memory reproduction ---
 
 /// Reproduces the production path: for each source, delete old embeddings then
 /// insert new ones with 1024-dim vectors. Also includes large chunk_text to
-/// simulate real reference documents. Measures RSS to detect SurrealDB memory
+/// simulate real reference documents. Measures RSS to detect memory
 /// amplification.
 ///
-/// Production observed: 150 vectors (600 KB raw) → 12 GB RSS on the server.
-/// This test checks whether the pattern reproduces locally.
+/// This test checks whether the pattern stays bounded locally.
 #[tokio::test]
 async fn vector_insert_memory_stays_bounded() {
     let (db, _config, _workspace, _config_dir) = common::test_database().await;
@@ -420,7 +419,7 @@ async fn vector_insert_memory_stays_bounded() {
     );
 }
 
-/// Same as vector_insert_memory_stays_bounded but with concurrent SurrealDB
+/// Same as vector_insert_memory_stays_bounded but with concurrent database
 /// operations (queries + inserts) to simulate the daemon environment where
 /// Discord, scheduler, and watcher all share the same DB connection.
 #[tokio::test]
@@ -436,10 +435,14 @@ async fn vector_insert_concurrent_stays_bounded() {
     let background_queries = tokio::spawn(async move {
         for _ in 0..500 {
             // Simulate session/message queries that happen during Discord chat
-            let _ = db_bg.query("SELECT count() FROM embedding GROUP ALL").await;
-            let _ = db_bg.query("SELECT * FROM session LIMIT 10").await;
-            let _ = db_bg
-                .query("SELECT * FROM message ORDER BY created_at DESC LIMIT 20")
+            let _ = sqlx::query("SELECT count(*) FROM embedding")
+                .fetch_optional(&db_bg)
+                .await;
+            let _ = sqlx::query("SELECT * FROM session LIMIT 10")
+                .fetch_all(&db_bg)
+                .await;
+            let _ = sqlx::query("SELECT * FROM message ORDER BY created_at DESC LIMIT 20")
+                .fetch_all(&db_bg)
                 .await;
             tokio::time::sleep(std::time::Duration::from_millis(10)).await;
         }
@@ -508,13 +511,8 @@ async fn vector_insert_concurrent_stays_bounded() {
     let db_bg2 = db.clone();
     let bg2 = tokio::spawn(async move {
         for _ in 0..200 {
-            let _ = db_bg2
-                .query(
-                    "SELECT source_id, chunk_text,
-                     vector::similarity::cosine(vector, $qv) AS score
-                     FROM embedding ORDER BY score DESC LIMIT 5",
-                )
-                .bind(("qv", vec![1.0_f32; 1024]))
+            let _ = sqlx::query("SELECT source_id, chunk_text FROM embedding LIMIT 5")
+                .fetch_all(&db_bg2)
                 .await;
             tokio::time::sleep(std::time::Duration::from_millis(20)).await;
         }

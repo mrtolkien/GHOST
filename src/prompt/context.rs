@@ -115,10 +115,10 @@ pub fn build_ghost_agents(workspace: &Path) -> String {
     )
 }
 
-/// Placeholder for diary content. Will be wired to SurrealDB in spec 15.
+/// Placeholder for diary content. Will be wired to the database in a future spec.
 #[tracing::instrument(skip_all, level = "debug")]
 pub fn build_ghost_diary() -> String {
-    // TODO(spec-15): wire to SurrealDB diary query
+    // TODO(spec-15): wire to diary query
     String::new()
 }
 

@@ -1,49 +1,76 @@
 use std::path::Path;
+use std::sync::Once;
 
-use surrealdb::Surreal;
-use surrealdb::engine::local::{Db, SurrealKv};
+use sqlx::SqlitePool;
+use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions};
 use tracing::info;
 
 use super::error::DatabaseError;
-use super::schema;
 
-const NAMESPACE: &str = "ghost";
-const DATABASE: &str = "main";
+pub type GhostDb = SqlitePool;
 
-pub type GhostDb = Surreal<Db>;
+static SQLITE_VEC_INIT: Once = Once::new();
 
 #[tracing::instrument(skip_all, fields(db_path = %workspace.join("ghost.db").display()))]
-pub async fn connect(workspace: &Path) -> Result<GhostDb, DatabaseError> {
-    // Safety net: cap SurrealDB memory to 4 GiB unless the operator overrides.
-    // SAFETY: called before any SurrealDB threads are spawned.
-    if std::env::var_os("SURREAL_MEMORY_THRESHOLD").is_none() {
-        unsafe { std::env::set_var("SURREAL_MEMORY_THRESHOLD", "4GiB") };
-    }
+pub async fn connect(workspace: &Path, embedding_dim: usize) -> Result<GhostDb, DatabaseError> {
+    // Register sqlite-vec extension once per process.
+    // SAFETY: must be called before any SQLite connections are opened.
+    SQLITE_VEC_INIT.call_once(|| unsafe {
+        libsqlite3_sys::sqlite3_auto_extension(Some(std::mem::transmute::<
+            *const (),
+            unsafe extern "C" fn(
+                *mut libsqlite3_sys::sqlite3,
+                *mut *mut i8,
+                *const libsqlite3_sys::sqlite3_api_routines,
+            ) -> i32,
+        >(
+            sqlite_vec::sqlite3_vec_init as *const ()
+        )));
+    });
 
     let db_path = workspace.join("ghost.db");
 
-    let db = Surreal::new::<SurrealKv>(db_path.clone())
+    let opts = SqliteConnectOptions::new()
+        .filename(&db_path)
+        .create_if_missing(true)
+        .journal_mode(SqliteJournalMode::Wal)
+        .foreign_keys(true)
+        .busy_timeout(std::time::Duration::from_secs(5))
+        .pragma("cache_size", "-65536"); // 64 MB
+
+    let pool = SqlitePoolOptions::new()
+        .connect_with(opts)
         .await
         .map_err(|source| DatabaseError::Connect {
             path: db_path.clone(),
             source,
         })?;
 
-    db.use_ns(NAMESPACE)
-        .use_db(DATABASE)
-        .await
-        .map_err(|source| DatabaseError::SelectNamespace {
-            namespace: NAMESPACE,
-            database: DATABASE,
-            source,
-        })?;
-
     let start = std::time::Instant::now();
-    schema::apply_schema(&db).await?;
+
+    sqlx::migrate!("./migrations")
+        .run(&pool)
+        .await
+        .map_err(|source| DatabaseError::Migrate { source })?;
+
+    // Create vec0 virtual table with dynamic embedding dimension.
+    // This lives outside the migration because the dimension comes from config.
+    sqlx::query(&format!(
+        "CREATE VIRTUAL TABLE IF NOT EXISTS vec_embedding \
+         USING vec0(embedding float[{embedding_dim}] distance_metric=cosine)"
+    ))
+    .execute(&pool)
+    .await
+    .map_err(|source| DatabaseError::Query {
+        table: "vec_embedding",
+        operation: "create_virtual_table",
+        source,
+    })?;
+
     info!(
         elapsed_ms = start.elapsed().as_millis() as u64,
         "schema applied"
     );
 
-    Ok(db)
+    Ok(pool)
 }

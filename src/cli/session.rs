@@ -19,7 +19,7 @@ pub enum SessionCommand {
 pub async fn execute(command: SessionCommand) -> Result<(), GhostError> {
     let config = crate::config::load()?;
     crate::config_workspace::bootstrap_workspace(&config)?;
-    let db = crate::db::connect(&config.workspace).await?;
+    let db = crate::db::connect(&config.workspace, config.embeddings.dimension).await?;
 
     match command {
         SessionCommand::List => {
@@ -31,8 +31,8 @@ pub async fn execute(command: SessionCommand) -> Result<(), GhostError> {
                     crate::db::sessions::get_interface_for_session(&db, &session.id).await?;
                 println!(
                     "{}  {}  {} messages  {}  {}",
-                    crate::db::fmt_id(&session.id),
-                    render_date(&session.last_activity_at.to_string()),
+                    session.id,
+                    render_date(&session.last_activity_at),
                     message_count,
                     session.status,
                     interface.unwrap_or_else(|| "-".to_string())
@@ -45,14 +45,12 @@ pub async fn execute(command: SessionCommand) -> Result<(), GhostError> {
             count,
             around,
         } => {
-            let session_thing = parse_session_thing(&session_id)?;
+            let session_thing = parse_session_id(&session_id)?;
             let messages =
                 crate::db::sessions::list_messages_by_session(&db, &session_thing).await?;
 
             let selected = if let Some(around_id) = around {
-                let middle = messages
-                    .iter()
-                    .position(|message| crate::db::fmt_id(&message.id) == around_id);
+                let middle = messages.iter().position(|message| message.id == around_id);
                 if let Some(index) = middle {
                     let half = count / 2;
                     let start = index.saturating_sub(half);
@@ -84,11 +82,11 @@ pub async fn execute(command: SessionCommand) -> Result<(), GhostError> {
             for message in selected {
                 println!(
                     "[{}] {}  {}",
-                    crate::db::fmt_id(&message.id),
+                    message.id,
                     message.role.to_uppercase(),
                     message.content
                 );
-                if let Some(tool_calls) = message.tool_calls
+                if let Some(tool_calls) = message.tool_calls_parsed()
                     && !tool_calls.is_empty()
                 {
                     println!(
@@ -107,18 +105,16 @@ fn render_date(value: &str) -> String {
     value.chars().take(10).collect()
 }
 
-fn parse_session_thing(session_id: &str) -> Result<surrealdb::types::RecordId, GhostError> {
-    if session_id.contains(':') {
-        let mut parts = session_id.splitn(2, ':');
-        let table = parts.next().unwrap_or_default();
-        let id = parts.next().unwrap_or_default();
-        if table.is_empty() || id.is_empty() {
+fn parse_session_id(session_id: &str) -> Result<String, GhostError> {
+    // Extract bare ID from "table:id" format if present
+    if let Some((_table, id)) = session_id.split_once(':') {
+        if id.is_empty() {
             return Err(ChatError::InvalidSessionId {
                 session_id: session_id.to_string(),
             }
             .into());
         }
-        return Ok(surrealdb::types::RecordId::new(table, id));
+        return Ok(id.to_string());
     }
     if session_id.trim().is_empty() {
         return Err(ChatError::InvalidSessionId {
@@ -126,5 +122,5 @@ fn parse_session_thing(session_id: &str) -> Result<surrealdb::types::RecordId, G
         }
         .into());
     }
-    Ok(surrealdb::types::RecordId::new("session", session_id))
+    Ok(session_id.to_string())
 }

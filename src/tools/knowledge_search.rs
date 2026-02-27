@@ -133,7 +133,7 @@ impl Tool for KnowledgeSearch {
 /// is unavailable or embedding fails.
 async fn try_hybrid_search(
     embeddings_config: &crate::config::EmbeddingsConfig,
-    db: &surrealdb::Surreal<surrealdb::engine::local::Db>,
+    db: &crate::db::GhostDb,
     bm25_hits: Vec<SearchHit>,
     query: &str,
     limit: usize,
@@ -250,10 +250,7 @@ fn format_results(hits: &[SearchHit]) -> Result<String, ToolError> {
 
         output.push_str(&format!(
             "- **{}** (id: {}, score: {:.2})\n  {}\n\n",
-            hit.title,
-            crate::db::fmt_id(&hit.id),
-            hit.score,
-            hit.snippet,
+            hit.title, hit.id, hit.score, hit.snippet,
         ));
     }
 

@@ -7,14 +7,13 @@ use serenity::model::channel::Message;
 use serenity::model::gateway::Ready;
 use serenity::model::id::ChannelId;
 use serenity::prelude::*;
-use surrealdb::Surreal;
-use surrealdb::engine::local::Db;
 use tokio::task::JoinHandle;
 use tracing::{error, info, warn};
 
 use crate::chat::{ChatStopReason, SessionChat};
 use crate::config::Config;
 use crate::db;
+use crate::db::GhostDb;
 
 use super::send::{WARNING_EMBED_COLOR, send_assistant_v2, send_gateway_v2};
 use super::ui_events::DiscordUiRenderer;
@@ -63,7 +62,7 @@ impl Drop for TimedTyping {
 
 pub(super) struct Handler {
     session_chat: Arc<SessionChat>,
-    db: Surreal<Db>,
+    db: GhostDb,
     config: Config,
     allowed_user_id: String,
     bot_user_id: OnceLock<String>,
@@ -73,7 +72,7 @@ pub(super) struct Handler {
 impl Handler {
     pub fn new(
         session_chat: Arc<SessionChat>,
-        db: Surreal<Db>,
+        db: GhostDb,
         config: Config,
         allowed_user_id: String,
     ) -> Self {
@@ -115,13 +114,13 @@ impl Handler {
         if let Some(thing) =
             db::interface_sessions::get_active_session_for_interface(&self.db, &iface).await?
         {
-            return Ok(crate::db::fmt_id(&thing));
+            return Ok(thing);
         }
 
         let new_session = db::sessions::create_session(&self.db).await?;
         db::interface_sessions::set_active_session_for_interface(&self.db, &iface, &new_session)
             .await?;
-        let new_session_str = crate::db::fmt_id(&new_session);
+        let new_session_str = new_session;
         info!(
             session_id = %new_session_str,
             channel_id = %channel_id,
