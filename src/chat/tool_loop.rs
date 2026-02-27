@@ -3,7 +3,7 @@ use std::time::Duration;
 use async_trait::async_trait;
 use serde_json::Value;
 
-use crate::providers::types::{DebugContext, ProviderError};
+use crate::providers::types::{DebugContext, ProviderError, ReasoningEffort};
 use crate::providers::{ChatMessage, ChatRequest, ContentBlock, Role, StopReason};
 
 use super::convert::{
@@ -67,11 +67,13 @@ pub(super) trait ToolLoopHandler: Send {
 }
 
 /// Shared tool-use loop for both interactive chat and background jobs.
+#[allow(clippy::too_many_arguments)]
 pub(super) async fn run_tool_loop(
     session_chat: &SessionChat,
     session_id: &str,
     model: &str,
     max_iterations: usize,
+    reasoning_effort: ReasoningEffort,
     handler: &mut (impl ToolLoopHandler + ?Sized),
     history: &mut Vec<ChatMessage>,
     event_tx: Option<&EventSender>,
@@ -96,6 +98,7 @@ pub(super) async fn run_tool_loop(
             max_tokens: None,
             temperature: None,
             system: Some(prompt),
+            reasoning_effort: Some(reasoning_effort),
             cache_key: session_id.to_string(),
             debug_context: Some(DebugContext {
                 session_id: session_id.to_string(),

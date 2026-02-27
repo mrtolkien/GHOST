@@ -214,6 +214,7 @@ fn job_to_task_definition(def: &JobDefinition) -> TaskDefinition {
         } else {
             Some(def.model.clone())
         },
+        reasoning_effort: def.reasoning_effort,
         progress_rules: vec![],
         skills: vec![],
         system_prompt_template: def.prompt.clone(),

@@ -188,8 +188,8 @@ pub(super) fn build_codex_request_body(
         tools,
         tool_choice,
         include: Some(vec!["reasoning.encrypted_content".to_string()]),
-        reasoning: Some(CodexReasoning {
-            effort: "high".to_string(),
+        reasoning: request.reasoning_effort.map(|e| CodexReasoning {
+            effort: e.as_str().to_string(),
         }),
         prompt_cache_key: cache_key,
         prompt_cache_retention: None,
@@ -576,6 +576,7 @@ mod tests {
     use serde_json::json;
 
     use super::*;
+    use crate::providers::types::ReasoningEffort;
     use crate::providers::{ChatMessage, Role, ToolDefinition};
 
     #[test]
@@ -600,6 +601,7 @@ mod tests {
             temperature: None,
             system: None,
             tools: None,
+            reasoning_effort: None,
             cache_key: "test".to_string(),
             debug_context: None,
         };
@@ -634,6 +636,7 @@ mod tests {
             max_tokens: None,
             temperature: None,
             system: None,
+            reasoning_effort: None,
             cache_key: "test".to_string(),
             debug_context: None,
         };
@@ -680,6 +683,7 @@ mod tests {
             max_tokens: None,
             temperature: None,
             system: None,
+            reasoning_effort: None,
             cache_key: "test".to_string(),
             debug_context: None,
         };
@@ -857,6 +861,7 @@ mod tests {
             max_tokens: None,
             temperature: None,
             system: None,
+            reasoning_effort: None,
             cache_key: "test".to_string(),
             debug_context: None,
         };
@@ -907,6 +912,7 @@ mod tests {
             max_tokens: None,
             temperature: None,
             system: None,
+            reasoning_effort: None,
             cache_key: "test".to_string(),
             debug_context: None,
         };
@@ -931,6 +937,7 @@ mod tests {
             max_tokens: None,
             temperature: None,
             system: None,
+            reasoning_effort: Some(ReasoningEffort::High),
             cache_key: "test".to_string(),
             debug_context: None,
         };
@@ -938,5 +945,32 @@ mod tests {
         let body = build_codex_request_body(&request).expect("request body");
         let json = serde_json::to_value(&body).expect("serialize");
         assert_eq!(json["reasoning"]["effort"], "high");
+    }
+
+    #[test]
+    fn build_request_omits_reasoning_when_none() {
+        let request = ChatRequest {
+            messages: vec![ChatMessage {
+                role: Role::User,
+                content: vec![ContentBlock::Text {
+                    text: "hello".to_string(),
+                }],
+            }],
+            model: "gpt-5.3-codex".to_string(),
+            tools: None,
+            max_tokens: None,
+            temperature: None,
+            system: None,
+            reasoning_effort: None,
+            cache_key: "test".to_string(),
+            debug_context: None,
+        };
+
+        let body = build_codex_request_body(&request).expect("request body");
+        let json = serde_json::to_value(&body).expect("serialize");
+        assert!(
+            json.get("reasoning").is_none() || json.get("reasoning").unwrap().is_null(),
+            "reasoning should be absent or null when effort is None"
+        );
     }
 }

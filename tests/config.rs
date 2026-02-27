@@ -5,6 +5,7 @@ use std::sync::{Mutex, OnceLock};
 
 use ghost::config::{self, CONFIG_DIR_ENV};
 use ghost::config_cli;
+use ghost::providers::ReasoningEffort;
 use tempfile::TempDir;
 
 fn env_lock() -> &'static Mutex<()> {
@@ -181,6 +182,43 @@ fn workspace_bootstrap_creates_identity_files() {
 
     // Default agent installed
     assert!(workspace.path().join("agents/deep-research.md").exists());
+}
+
+#[test]
+fn config_parses_reasoning_effort_on_model() {
+    let config_dir = TempDir::new().expect("config tempdir");
+    fs::write(
+        config_dir.path().join("config.toml"),
+        "[models]\ndefault = \"primary\"\n\n\
+         [models.primary]\n\
+         provider = \"openrouter\"\n\
+         model = \"test/model\"\n\
+         context_window = 200000\n\
+         reasoning_effort = \"low\"\n",
+    )
+    .expect("write config");
+
+    let config = config::load_from_dir(config_dir.path()).expect("load config");
+    let model = config.models.aliases.get("primary").expect("primary alias");
+    assert_eq!(model.reasoning_effort, Some(ReasoningEffort::Low));
+}
+
+#[test]
+fn config_reasoning_effort_defaults_to_none() {
+    let config_dir = TempDir::new().expect("config tempdir");
+    fs::write(
+        config_dir.path().join("config.toml"),
+        "[models]\ndefault = \"primary\"\n\n\
+         [models.primary]\n\
+         provider = \"openrouter\"\n\
+         model = \"test/model\"\n\
+         context_window = 200000\n",
+    )
+    .expect("write config");
+
+    let config = config::load_from_dir(config_dir.path()).expect("load config");
+    let model = config.models.aliases.get("primary").expect("primary alias");
+    assert!(model.reasoning_effort.is_none());
 }
 
 #[test]

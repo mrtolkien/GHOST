@@ -2,6 +2,8 @@ use std::path::Path;
 
 use serde::Deserialize;
 
+use crate::providers::types::ReasoningEffort;
+
 use super::error::TaskError;
 use super::nudges::{
     ContextPressureConfig, IterationCountdownRule, ProgressGateConfig, RecencyConfig,
@@ -54,6 +56,7 @@ struct TaskFrontmatter {
     progress: Vec<ProgressRule>,
     #[serde(default)]
     skills: Vec<String>,
+    reasoning_effort: Option<ReasoningEffort>,
     progress_gate: Option<ProgressGateConfig>,
     temporal: Option<TemporalConfig>,
     recency: Option<RecencyConfig>,
@@ -71,6 +74,7 @@ pub struct TaskDefinition {
     pub tools: Vec<String>,
     pub max_iterations: usize,
     pub model: Option<String>,
+    pub reasoning_effort: Option<ReasoningEffort>,
     pub progress_rules: Vec<ProgressRule>,
     pub skills: Vec<String>,
     pub system_prompt_template: String,
@@ -141,6 +145,7 @@ pub fn parse_task_file(content: &str) -> Result<TaskDefinition, TaskError> {
         tools: front.tools,
         max_iterations: front.max_iterations,
         model: front.model,
+        reasoning_effort: front.reasoning_effort,
         progress_rules: front.progress,
         skills: front.skills,
         system_prompt_template: body,
@@ -265,6 +270,14 @@ mod tests {
         let def = parse_task_file(content).unwrap();
         assert_eq!(def.max_iterations, 50);
         assert!(def.model.is_none());
+        assert!(def.reasoning_effort.is_none());
+    }
+
+    #[test]
+    fn parse_agent_with_reasoning_effort() {
+        let content = "---\nname: low-effort\ndescription: Low reasoning\ntools:\n  - todo\nreasoning_effort: low\n---\n\nBody.\n";
+        let def = parse_task_file(content).unwrap();
+        assert_eq!(def.reasoning_effort, Some(ReasoningEffort::Low));
     }
 
     #[test]
@@ -430,6 +443,11 @@ mod tests {
         assert_eq!(temporal.after_seconds, 300);
         assert!(temporal.message.iter().any(|m| m.contains("{minutes}")));
 
+        assert_eq!(
+            def.reasoning_effort,
+            Some(ReasoningEffort::High),
+            "deep-research should have high reasoning effort"
+        );
         assert!(def.recency.is_none(), "recency nudge removed");
 
         let pressure = def.context_pressure.as_ref().expect("context_pressure");
