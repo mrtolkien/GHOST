@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use tokio::sync::mpsc;
-use tracing::info;
+use tracing::{Instrument, info};
 
 use crate::config::EmbeddingsConfig;
 use crate::db::GhostDb;
@@ -65,25 +65,38 @@ pub fn spawn_watcher(
                 changed_paths.insert(path);
             }
 
-            for path in &changed_paths {
-                let kind = classify_watcher_kind(&workspace, path);
-                let _span = logfire::span!(
-                    "process file_change",
-                    kind = kind,
-                    path = path.display().to_string(),
-                );
-                if let Err(e) = process_change(&db, &workspace, &client, path).await {
-                    logfire::warn!(
-                        "embedding watcher error",
-                        path = path.display().to_string(),
-                        error = e.to_string(),
-                    );
-                }
-            }
+            process_batch(&db, &workspace, &client, &changed_paths).await;
         }
 
         info!("file watcher stopped");
     })
+}
+
+#[tracing::instrument(name = "process file_changes", skip_all, fields(count = paths.len()))]
+async fn process_batch(
+    db: &GhostDb,
+    workspace: &Path,
+    client: &EmbeddingClient,
+    paths: &HashSet<PathBuf>,
+) {
+    for path in paths {
+        let kind = classify_watcher_kind(workspace, path);
+        async {
+            if let Err(e) = process_change(db, workspace, client, path).await {
+                logfire::warn!(
+                    "embedding watcher error",
+                    path = path.display().to_string(),
+                    error = e.to_string(),
+                );
+            }
+        }
+        .instrument(logfire::span!(
+            "process file_change",
+            kind = kind,
+            path = path.display().to_string(),
+        ))
+        .await;
+    }
 }
 
 fn setup_watcher(
