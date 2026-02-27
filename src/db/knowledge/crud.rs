@@ -304,6 +304,37 @@ pub async fn delete_reference(db: &Surreal<Db>, ref_id: &RecordId) -> Result<(),
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = "debug", fields(path = %path))]
+pub async fn find_note_by_path(
+    db: &Surreal<Db>,
+    path: &str,
+) -> Result<Option<NoteRecord>, DatabaseError> {
+    let mut resp = query_exec(
+        db.query("SELECT * FROM note WHERE path = $path LIMIT 1")
+            .bind(("path", path.to_string())),
+        "note",
+        "find_by_path",
+    )
+    .await?;
+
+    let rows: Vec<NoteRecord> = take_many(&mut resp, 0, "note", "find_by_path")?;
+    Ok(rows.into_iter().next())
+}
+
+// --- Delete diary ---
+
+#[tracing::instrument(skip_all, level = "debug", fields(diary_id = ?diary_id))]
+pub async fn delete_diary(db: &Surreal<Db>, diary_id: &RecordId) -> Result<(), DatabaseError> {
+    query_exec(
+        db.query("DELETE $diary_id")
+            .bind(("diary_id", diary_id.clone())),
+        "diary",
+        "delete",
+    )
+    .await?;
+    Ok(())
+}
+
 // --- Reference updates ---
 
 #[tracing::instrument(skip_all, level = "debug", fields(ref_id = ?ref_id))]

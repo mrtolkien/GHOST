@@ -119,6 +119,121 @@ async fn embed_chunks(
     Ok(all_vectors)
 }
 
+/// A request to embed a single knowledge source, used for cross-file batching.
+#[derive(Debug)]
+pub struct EmbedRequest {
+    pub source_table: String,
+    pub source_id: RecordId,
+    pub content: String,
+    pub tags: Vec<String>,
+}
+
+/// Embed multiple knowledge sources in a single batched Ollama call.
+///
+/// Filters unchanged sources (hash check), chunks all changed sources,
+/// sends all chunks to Ollama in one (or few) batch call(s), then
+/// distributes the resulting vectors back to their respective sources.
+/// Returns the total number of chunks embedded.
+#[tracing::instrument(name = "embed sources", skip_all, fields(
+    sources = requests.len(),
+    embedded = tracing::field::Empty,
+    skipped = tracing::field::Empty,
+))]
+pub async fn embed_sources(
+    client: &EmbeddingClient,
+    db: &Surreal<Db>,
+    requests: Vec<EmbedRequest>,
+) -> Result<usize, PipelineError> {
+    if requests.is_empty() {
+        return Ok(0);
+    }
+
+    // Phase 1: filter unchanged sources and chunk the rest
+    struct PreparedSource {
+        table: String,
+        id: RecordId,
+        hash: String,
+        chunks: Vec<Chunk>,
+    }
+
+    let mut prepared: Vec<PreparedSource> = Vec::new();
+    let mut skipped = 0usize;
+
+    for req in &requests {
+        let hash = content_hash(&req.content);
+        if let Some(stored) = db::embeddings::get_content_hash(db, &req.source_id).await?
+            && stored == hash
+        {
+            skipped += 1;
+            continue;
+        }
+        let chunks = chunk_text(&req.content, &req.tags);
+        if chunks.is_empty() {
+            skipped += 1;
+            continue;
+        }
+        prepared.push(PreparedSource {
+            table: req.source_table.clone(),
+            id: req.source_id.clone(),
+            hash,
+            chunks,
+        });
+    }
+
+    tracing::Span::current().record("skipped", skipped as u64);
+
+    if prepared.is_empty() {
+        tracing::Span::current().record("embedded", 0u64);
+        return Ok(0);
+    }
+
+    // Phase 2: collect all chunk texts into one big batch
+    let mut all_texts: Vec<String> = Vec::new();
+    // Track which range of the flat vector belongs to each source
+    let mut ranges: Vec<std::ops::Range<usize>> = Vec::new();
+
+    for src in &prepared {
+        let start = all_texts.len();
+        all_texts.extend(src.chunks.iter().map(|c| c.text.clone()));
+        ranges.push(start..all_texts.len());
+    }
+
+    // Phase 3: embed all chunks in batch_size batches
+    let batch_size = client.batch_size();
+    let mut all_vectors: Vec<Vec<f32>> = Vec::with_capacity(all_texts.len());
+    for batch in all_texts.chunks(batch_size) {
+        let batch_strings: Vec<String> = batch.to_vec();
+        let vectors = client.embed_batch(&batch_strings).await?;
+        all_vectors.extend(vectors);
+    }
+
+    // Phase 4: distribute vectors back and persist
+    let mut total_embedded = 0usize;
+    for (src, range) in prepared.iter().zip(ranges.iter()) {
+        let src_vectors = &all_vectors[range.clone()];
+
+        db::embeddings::delete_embeddings_for_source(db, &src.id).await?;
+
+        for (chunk, vector) in src.chunks.iter().zip(src_vectors.iter()) {
+            db::embeddings::upsert_embedding(
+                db,
+                &src.table,
+                &src.id,
+                chunk.index,
+                &chunk.text,
+                &src.hash,
+                vector,
+            )
+            .await?;
+        }
+        total_embedded += src.chunks.len();
+    }
+
+    tracing::Span::current().record("embedded", total_embedded as u64);
+
+    Ok(total_embedded)
+}
+
 const RECONCILE_PAGE_SIZE: usize = 50;
 
 /// Run boot reconciliation: find sources that need embedding and embed them.

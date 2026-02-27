@@ -9,7 +9,7 @@ use tracing::{Instrument, info};
 use crate::config::EmbeddingsConfig;
 use crate::db::GhostDb;
 use crate::embeddings::EmbeddingClient;
-use crate::embeddings::pipeline::PipelineError;
+use crate::embeddings::pipeline::{EmbedRequest, PipelineError};
 use crate::knowledge;
 
 /// Spawn the file watcher. Returns a `JoinHandle` that runs until the
@@ -79,15 +79,22 @@ async fn process_batch(
     client: &EmbeddingClient,
     paths: &HashSet<PathBuf>,
 ) {
+    // Phase 1: process each file (DB upserts, deletions) and collect embed requests
+    let mut embed_requests: Vec<EmbedRequest> = Vec::new();
+
     for path in paths {
         let kind = classify_watcher_kind(workspace, path);
-        async {
-            if let Err(e) = process_change(db, workspace, client, path).await {
-                logfire::warn!(
-                    "embedding watcher error",
-                    path = path.display().to_string(),
-                    error = e.to_string(),
-                );
+        let req = async {
+            match process_change(db, workspace, path).await {
+                Ok(req) => req,
+                Err(e) => {
+                    logfire::warn!(
+                        "embedding watcher error",
+                        path = path.display().to_string(),
+                        error = e.to_string(),
+                    );
+                    None
+                }
             }
         }
         .instrument(logfire::span!(
@@ -96,6 +103,17 @@ async fn process_batch(
             path = path.display().to_string(),
         ))
         .await;
+
+        if let Some(r) = req {
+            embed_requests.push(r);
+        }
+    }
+
+    // Phase 2: batch-embed all collected sources in one call
+    if !embed_requests.is_empty()
+        && let Err(e) = crate::embeddings::pipeline::embed_sources(client, db, embed_requests).await
+    {
+        logfire::warn!("batch embedding error", error = e.to_string());
     }
 }
 
@@ -148,52 +166,58 @@ fn classify_watcher_kind(workspace: &Path, path: &Path) -> &'static str {
 async fn process_change(
     db: &GhostDb,
     workspace: &Path,
-    client: &EmbeddingClient,
     path: &Path,
-) -> Result<(), PipelineError> {
-    // Determine the kind of knowledge item from the path
+) -> Result<Option<EmbedRequest>, PipelineError> {
     let rel = match path.strip_prefix(workspace) {
         Ok(r) => r,
-        Err(_) => return Ok(()),
+        Err(_) => return Ok(None),
     };
 
     let rel_str = rel.to_string_lossy();
 
     if rel_str.starts_with("notes/") {
-        process_note_change(db, workspace, client, path).await
+        process_note_change(db, workspace, path).await
     } else if rel_str.starts_with("references/") {
-        process_reference_change(db, workspace, client, path).await
+        process_reference_change(db, workspace, path).await
     } else if rel_str.starts_with("diary/") {
-        process_diary_change(db, client, path).await
+        process_diary_change(db, path).await
     } else {
-        Ok(())
+        Ok(None)
     }
 }
 
-/// Sync a changed note file to the database and regenerate its embeddings.
+/// Sync a changed note file to the database.
 ///
-/// If the note already exists in the DB (matched by title), updates it in place.
-/// Otherwise creates a new DB record. Also reconciles wiki-link edges.
+/// Returns an `EmbedRequest` if the note needs (re-)embedding.
+/// When the file has been deleted, removes the DB record and its embeddings.
 async fn process_note_change(
     db: &GhostDb,
-    _workspace: &Path,
-    client: &EmbeddingClient,
+    workspace: &Path,
     path: &Path,
-) -> Result<(), PipelineError> {
+) -> Result<Option<EmbedRequest>, PipelineError> {
+    let rel_path = path
+        .strip_prefix(workspace)
+        .unwrap_or(path)
+        .to_string_lossy()
+        .to_string();
+
     if !path.exists() {
-        // File removed — we'd need to know the source_id to delete
-        // embeddings. Without DB lookup by path, skip.
-        return Ok(());
+        if let Ok(Some(note)) = crate::db::knowledge::find_note_by_path(db, &rel_path).await {
+            crate::db::embeddings::delete_embeddings_for_source(db, &note.id).await?;
+            crate::db::knowledge::delete_note(db, &note.id).await?;
+            logfire::info!("watcher: deleted note", path = rel_path);
+        }
+        return Ok(None);
     }
 
     let raw = match std::fs::read_to_string(path) {
         Ok(r) => r,
-        Err(_) => return Ok(()),
+        Err(_) => return Ok(None),
     };
 
     let parsed = match knowledge::parse_note(&raw) {
         Ok(p) => p,
-        Err(_) => return Ok(()),
+        Err(_) => return Ok(None),
     };
 
     let filename = path
@@ -204,11 +228,31 @@ async fn process_note_change(
     logfire::info!("watcher: processing note change", filename = filename,);
 
     // Look up the note in DB by title
-    let note = match crate::db::knowledge::find_note_by_title(db, &parsed.front.title).await {
-        Ok(Some(n)) => n,
+    let note_id = match crate::db::knowledge::find_note_by_title(db, &parsed.front.title).await {
+        Ok(Some(n)) => {
+            // Update existing note
+            let archetype_str = parsed.front.archetype.map(|a| a.to_string());
+            let _ = crate::db::knowledge::update_note(
+                db,
+                &n.id,
+                &parsed.body,
+                archetype_str.as_deref(),
+                &parsed.front.tags,
+                &parsed.front.sources,
+                parsed.front.trust,
+                Some(&rel_path),
+            )
+            .await;
+            let _ = knowledge::reconcile::reconcile_edges(
+                db,
+                &n.id,
+                &parsed.front.title,
+                &parsed.wiki_links,
+            )
+            .await;
+            n.id
+        }
         _ => {
-            // Not in DB yet — reindex will handle it.
-            // But let's try to upsert it first.
             let archetype_str = parsed.front.archetype.map(|a| a.to_string());
             match crate::db::knowledge::create_note_full(
                 db,
@@ -218,92 +262,61 @@ async fn process_note_change(
                 &parsed.front.tags,
                 &parsed.front.sources,
                 parsed.front.trust,
-                None,
+                Some(&rel_path),
             )
             .await
             {
-                Ok(note_id) => {
-                    // Reconcile edges
+                Ok(id) => {
                     let _ = knowledge::reconcile::reconcile_edges(
                         db,
-                        &note_id,
+                        &id,
                         &parsed.front.title,
                         &parsed.wiki_links,
                     )
                     .await;
-
-                    crate::embeddings::pipeline::embed_source(
-                        client,
-                        db,
-                        "note",
-                        &note_id,
-                        &parsed.body,
-                        &parsed.front.tags,
-                    )
-                    .await?;
-                    return Ok(());
+                    id
                 }
-                Err(_) => return Ok(()),
+                Err(_) => return Ok(None),
             }
         }
     };
 
-    // Update existing note in DB
-    let archetype_str = parsed.front.archetype.map(|a| a.to_string());
-    let _ = crate::db::knowledge::update_note(
-        db,
-        &note.id,
-        &parsed.body,
-        archetype_str.as_deref(),
-        &parsed.front.tags,
-        &parsed.front.sources,
-        parsed.front.trust,
-        None,
-    )
-    .await;
-
-    let _ = knowledge::reconcile::reconcile_edges(
-        db,
-        &note.id,
-        &parsed.front.title,
-        &parsed.wiki_links,
-    )
-    .await;
-
-    crate::embeddings::pipeline::embed_source(
-        client,
-        db,
-        "note",
-        &note.id,
-        &parsed.body,
-        &parsed.front.tags,
-    )
-    .await?;
-
-    Ok(())
+    Ok(Some(EmbedRequest {
+        source_table: "note".into(),
+        source_id: note_id,
+        content: parsed.body,
+        tags: parsed.front.tags,
+    }))
 }
 
-/// Sync a changed reference file to the database and regenerate its embeddings.
+/// Sync a changed reference file to the database.
+///
+/// Returns an `EmbedRequest` if the reference needs (re-)embedding.
+/// When the file has been deleted, removes the DB record and its embeddings.
 async fn process_reference_change(
     db: &GhostDb,
     workspace: &Path,
-    client: &EmbeddingClient,
     path: &Path,
-) -> Result<(), PipelineError> {
-    if !path.exists() {
-        return Ok(());
-    }
-
-    let content = match std::fs::read_to_string(path) {
-        Ok(c) => c,
-        Err(_) => return Ok(()),
-    };
-
+) -> Result<Option<EmbedRequest>, PipelineError> {
     let rel_path = path
         .strip_prefix(workspace)
         .unwrap_or(path)
         .to_string_lossy()
         .to_string();
+
+    if !path.exists() {
+        if let Ok(Some(ref_)) = crate::db::knowledge::find_reference_by_path(db, &rel_path).await {
+            crate::db::embeddings::delete_embeddings_for_source(db, &ref_.id).await?;
+            crate::db::knowledge::delete_reference(db, &ref_.id).await?;
+            logfire::info!("watcher: deleted reference", path = rel_path);
+        }
+        return Ok(None);
+    }
+
+    let content = match std::fs::read_to_string(path) {
+        Ok(c) => c,
+        Err(_) => return Ok(None),
+    };
 
     let topic = path
         .parent()
@@ -317,84 +330,68 @@ async fn process_reference_change(
         path = rel_path.clone(),
     );
 
-    let reference = match crate::db::knowledge::find_reference_by_path(db, &rel_path).await {
-        Ok(Some(r)) => r,
+    let ref_id = match crate::db::knowledge::find_reference_by_path(db, &rel_path).await {
+        Ok(Some(r)) => r.id,
         _ => {
             match crate::db::knowledge::create_reference(db, &topic, &rel_path, &content, None)
                 .await
             {
-                Ok(ref_id) => {
-                    crate::embeddings::pipeline::embed_source(
-                        client,
-                        db,
-                        "reference",
-                        &ref_id,
-                        &content,
-                        &[],
-                    )
-                    .await?;
-                    return Ok(());
-                }
-                Err(_) => return Ok(()),
+                Ok(id) => id,
+                Err(_) => return Ok(None),
             }
         }
     };
 
-    crate::embeddings::pipeline::embed_source(
-        client,
-        db,
-        "reference",
-        &reference.id,
-        &content,
-        &[],
-    )
-    .await?;
-
-    Ok(())
+    Ok(Some(EmbedRequest {
+        source_table: "reference".into(),
+        source_id: ref_id,
+        content,
+        tags: vec![],
+    }))
 }
 
+/// Sync a changed diary file to the database.
+///
+/// Returns an `EmbedRequest` if the diary entry needs (re-)embedding.
+/// When the file has been deleted, removes the DB record and its embeddings.
 async fn process_diary_change(
     db: &GhostDb,
-    client: &EmbeddingClient,
     path: &Path,
-) -> Result<(), PipelineError> {
-    if !path.exists() {
-        return Ok(());
-    }
-
-    let body = match std::fs::read_to_string(path) {
-        Ok(b) => b,
-        Err(_) => return Ok(()),
-    };
-
+) -> Result<Option<EmbedRequest>, PipelineError> {
     let date = path
         .file_stem()
         .and_then(|f| f.to_str())
         .unwrap_or("unknown")
         .to_string();
 
+    if !path.exists() {
+        if let Ok(Some(diary)) = crate::db::knowledge::get_diary_by_date(db, &date).await {
+            crate::db::embeddings::delete_embeddings_for_source(db, &diary.id).await?;
+            crate::db::knowledge::delete_diary(db, &diary.id).await?;
+            logfire::info!("watcher: deleted diary", date = date);
+        }
+        return Ok(None);
+    }
+
+    let body = match std::fs::read_to_string(path) {
+        Ok(b) => b,
+        Err(_) => return Ok(None),
+    };
+
     logfire::info!("watcher: processing diary change", date = date.clone(),);
 
-    let entry = match crate::db::knowledge::get_diary_by_date(db, &date).await {
-        Ok(Some(d)) => d,
+    let diary_id = match crate::db::knowledge::get_diary_by_date(db, &date).await {
+        Ok(Some(d)) => d.id,
         _ => match crate::db::knowledge::create_diary(db, &date, &body).await {
-            Ok(diary_id) => {
-                crate::embeddings::pipeline::embed_source(
-                    client,
-                    db,
-                    "diary",
-                    &diary_id,
-                    &body,
-                    &[],
-                )
-                .await?;
-                return Ok(());
-            }
-            Err(_) => return Ok(()),
+            Ok(id) => id,
+            Err(_) => return Ok(None),
         },
     };
 
-    crate::embeddings::pipeline::embed_source(client, db, "diary", &entry.id, &body, &[]).await?;
-
-    Ok(())
+    Ok(Some(EmbedRequest {
+        source_table: "diary".into(),
+        source_id: diary_id,
+        content: body,
+        tags: vec![],
+    }))
 }
