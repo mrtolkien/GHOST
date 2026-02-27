@@ -132,10 +132,6 @@ impl SessionChat {
     ///
     /// Messages are persisted to the agent's own session. Returns the final
     /// assistant message.
-    #[tracing::instrument(name = "run agent", skip_all, fields(
-        gen_ai.agent.name = %definition.name,
-        session_id = session_id,
-    ))]
     pub async fn chat_agent(
         &self,
         session_id: &str,

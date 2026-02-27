@@ -125,10 +125,6 @@ impl TaskRunner {
     ///
     /// Creates DB records (session, job_log), runs the agent, finishes
     /// job_log. Returns the final findings message.
-    #[tracing::instrument(name = "run agent", skip_all, fields(
-        gen_ai.agent.name = %agent_name,
-        gen_ai.operation.name = "invoke_agent",
-    ))]
     pub async fn run_to_completion(
         &self,
         agent_name: &str,
@@ -191,10 +187,6 @@ impl TaskRunner {
     /// Like `run_to_completion`, but accepts a definition directly instead
     /// of loading it by name. Useful for cron jobs and other callers that
     /// already have a parsed definition.
-    #[tracing::instrument(name = "run agent", skip_all, fields(
-        gen_ai.agent.name = %definition.name,
-        gen_ai.operation.name = "invoke_agent",
-    ))]
     pub async fn run_definition_to_completion(
         &self,
         definition: &TaskDefinition,
