@@ -10,6 +10,7 @@ chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4", features = ["derive"] }
 cron = "0.12"
 dom_smoothie = "0.15"
+futures = "0.3"
 dotenvy = "0.15"
 gethostname = "1"
 hex = "0.4"

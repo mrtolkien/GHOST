@@ -7,6 +7,7 @@ use serde_json::{Value, json};
 use crate::agents::definition::TaskDefinition;
 use crate::agents::{
     ContextPressureConfig, ProgressGateConfig, ProgressRule, RecencyConfig, TemporalConfig,
+    ToolCountRule,
 };
 use crate::config::{self, Config};
 use crate::db;
@@ -159,7 +160,9 @@ impl SessionChat {
             recency: definition.recency.clone(),
             context_pressure: definition.context_pressure.clone(),
             started_at: std::time::Instant::now(),
-            temporal_nudge_fired: false,
+            temporal_nudge_count: 0,
+            iteration_count: 0,
+            max_iterations: definition.max_iterations,
             event_tx,
             pending_todo_update: false,
         };
@@ -213,7 +216,9 @@ impl SessionChat {
             recency: definition.recency.clone(),
             context_pressure: definition.context_pressure.clone(),
             started_at: std::time::Instant::now(),
-            temporal_nudge_fired: false,
+            temporal_nudge_count: 0,
+            iteration_count: 0,
+            max_iterations: definition.max_iterations,
             event_tx,
             pending_todo_update: false,
         };
@@ -302,19 +307,17 @@ impl SessionChat {
         session_id: &str,
         tool_calls: &[Value],
     ) -> Vec<ContentBlock> {
-        let mut results = Vec::new();
-        for call in tool_calls {
-            let Some(id) = call.get("id").and_then(Value::as_str) else {
-                continue;
-            };
-            let Some(name) = call.get("name").and_then(Value::as_str) else {
-                continue;
-            };
-            let input = call.get("input").cloned().unwrap_or_else(|| json!({}));
-            let tool_result = self.execute_single_tool(session_id, name, id, input).await;
-            results.push(tool_result);
-        }
-        results
+        let futures: Vec<_> = tool_calls
+            .iter()
+            .filter_map(|call| {
+                let id = call.get("id").and_then(Value::as_str)?;
+                let name = call.get("name").and_then(Value::as_str)?;
+                let input = call.get("input").cloned().unwrap_or_else(|| json!({}));
+                Some(self.execute_single_tool(session_id, name, id, input))
+            })
+            .collect();
+
+        futures::future::join_all(futures).await
     }
 
     async fn execute_single_tool(
@@ -516,7 +519,9 @@ struct TaskHandler<'a> {
     recency: Option<RecencyConfig>,
     context_pressure: Option<ContextPressureConfig>,
     started_at: std::time::Instant,
-    temporal_nudge_fired: bool,
+    temporal_nudge_count: usize,
+    iteration_count: usize,
+    max_iterations: usize,
     event_tx: Option<&'a EventSender>,
     pending_todo_update: bool,
 }
@@ -648,10 +653,25 @@ impl ToolLoopHandler for TaskHandler<'_> {
             });
         }
 
+        // Iteration countdown nudge (config-driven). Fires every turn
+        // within a band, picking the most urgent applicable rule.
+        self.iteration_count += 1;
+        let remaining = self.max_iterations.saturating_sub(self.iteration_count);
+        if let Some(reminder) = build_iteration_countdown_nudge(&self.progress_rules, remaining) {
+            history.push(ChatMessage {
+                role: Role::System,
+                content: vec![ContentBlock::Text { text: reminder }],
+            });
+        }
+
         // Temporal nudge (config-driven). Fires every iteration past
         // the threshold to keep pressuring the agent to wrap up.
-        if let Some(reminder) = build_temporal_nudge(self.started_at, self.temporal.as_ref()) {
-            self.temporal_nudge_fired = true;
+        if let Some(reminder) = build_temporal_nudge(
+            self.started_at,
+            self.temporal.as_ref(),
+            self.temporal_nudge_count,
+        ) {
+            self.temporal_nudge_count += 1;
             history.push(ChatMessage {
                 role: Role::System,
                 content: vec![ContentBlock::Text { text: reminder }],
@@ -671,7 +691,7 @@ impl ToolLoopHandler for TaskHandler<'_> {
 
         // If the temporal nudge has fired, let the model write — it's been
         // told to wrap up and we don't want to contradict that.
-        if self.temporal_nudge_fired {
+        if self.temporal_nudge_count > 0 {
             return Ok(None);
         }
 
@@ -802,14 +822,20 @@ fn build_context_pressure_reminder(
     ))
 }
 
-/// Nudge when wall-clock time exceeds a threshold. Fires once.
+/// Nudge when wall-clock time exceeds a threshold.
 /// Returns `None` when no config is present or before the threshold.
 /// Fires on **every** call past the threshold (not just once) so the
 /// agent keeps getting pressure to wrap up.
-/// `{minutes}` is interpolated into the message.
+///
+/// `fire_count` is 0-indexed: 0 for the first fire, 1 for the second, etc.
+/// The config's `message` list is indexed accordingly; the last element
+/// repeats for all subsequent fires.
+///
+/// `{minutes}` is interpolated into the selected message.
 fn build_temporal_nudge(
     started_at: std::time::Instant,
     config: Option<&TemporalConfig>,
+    fire_count: usize,
 ) -> Option<String> {
     let config = config?;
 
@@ -818,18 +844,27 @@ fn build_temporal_nudge(
         return None;
     }
 
+    let idx = fire_count.min(config.message.len() - 1);
     let mins = started_at.elapsed().as_secs() / 60;
-    let msg = config.message.replace("{minutes}", &mins.to_string());
+    let msg = config.message[idx].replace("{minutes}", &mins.to_string());
     Some(format!("<system-reminder>{msg}</system-reminder>"))
 }
 
-/// Build a progress nudge from declared rules.
+/// Build a progress nudge from declared tool-count rules.
 ///
-/// Returns `None` if there are no rules or no tracked tools have been
-/// called yet. Otherwise returns an XML `<progress>` block wrapped in
-/// `<system-reminder>`.
+/// Returns `None` if there are no tool-count rules or no tracked tools
+/// have been called yet. Otherwise returns an XML `<progress>` block
+/// wrapped in `<system-reminder>`.
 fn build_progress_nudge(rules: &[ProgressRule], history: &[ChatMessage]) -> Option<String> {
-    if rules.is_empty() {
+    let tool_rules: Vec<&ToolCountRule> = rules
+        .iter()
+        .filter_map(|r| match r {
+            ProgressRule::ToolCount(tc) => Some(tc),
+            _ => None,
+        })
+        .collect();
+
+    if tool_rules.is_empty() {
         return None;
     }
 
@@ -841,7 +876,7 @@ fn build_progress_nudge(rules: &[ProgressRule], history: &[ChatMessage]) -> Opti
         }
         for block in &msg.content {
             if let ContentBlock::ToolUse { name, .. } = block
-                && rules.iter().any(|r| r.tool == name.as_str())
+                && tool_rules.iter().any(|r| r.tool == name.as_str())
             {
                 *counts.entry(name.as_str()).or_default() += 1;
             }
@@ -854,7 +889,7 @@ fn build_progress_nudge(rules: &[ProgressRule], history: &[ChatMessage]) -> Opti
     }
 
     let mut tool_elements = Vec::new();
-    for rule in rules {
+    for rule in &tool_rules {
         let count = counts.get(rule.tool.as_str()).copied().unwrap_or(0);
 
         let nudge_text = match (&rule.min, &rule.nudge) {
@@ -899,24 +934,43 @@ fn build_progress_nudge(rules: &[ProgressRule], history: &[ChatMessage]) -> Opti
     ))
 }
 
+/// Build an iteration countdown nudge from declared rules.
+///
+/// Among all countdown rules where `remaining <= rule.remaining_iterations`,
+/// fires only the one with the **lowest** `remaining_iterations` value
+/// (the most urgent). Interpolates `{remaining}` in the message.
+fn build_iteration_countdown_nudge(rules: &[ProgressRule], remaining: usize) -> Option<String> {
+    let best = rules
+        .iter()
+        .filter_map(|r| match r {
+            ProgressRule::IterationCountdown(ic) => Some(ic),
+            _ => None,
+        })
+        .filter(|ic| remaining <= ic.remaining_iterations)
+        .min_by_key(|ic| ic.remaining_iterations)?;
+
+    let msg = best.message.replace("{remaining}", &remaining.to_string());
+    Some(format!("<system-reminder>{msg}</system-reminder>"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     fn rule(tool: &str, min: u32) -> ProgressRule {
-        ProgressRule {
+        ProgressRule::ToolCount(ToolCountRule {
             tool: tool.to_string(),
             min: Some(min),
             nudge: None,
-        }
+        })
     }
 
     fn rule_with_nudge(tool: &str, min: Option<u32>, nudge: &str) -> ProgressRule {
-        ProgressRule {
+        ProgressRule::ToolCount(ToolCountRule {
             tool: tool.to_string(),
             min,
             nudge: Some(nudge.to_string()),
-        }
+        })
     }
 
     fn assistant_tool_use(name: &str) -> ChatMessage {
@@ -1031,11 +1085,11 @@ mod tests {
 
     #[test]
     fn no_min_no_nudge_self_closing() {
-        let rules = vec![ProgressRule {
+        let rules = vec![ProgressRule::ToolCount(ToolCountRule {
             tool: "note_write".to_string(),
             min: None,
             nudge: None,
-        }];
+        })];
         let history = vec![assistant_tool_use("note_write")];
         let nudge = build_progress_nudge(&rules, &history).unwrap();
         assert!(nudge.contains("count=\"1\""));
@@ -1125,17 +1179,17 @@ mod tests {
     #[test]
     fn temporal_none_config_returns_none() {
         let started = std::time::Instant::now() - std::time::Duration::from_secs(600);
-        assert!(build_temporal_nudge(started, None).is_none());
+        assert!(build_temporal_nudge(started, None, 0).is_none());
     }
 
     #[test]
     fn temporal_fires_after_threshold() {
         let config = TemporalConfig {
             after_seconds: 60,
-            message: "Been working {minutes} min.".to_string(),
+            message: vec!["Been working {minutes} min.".to_string()],
         };
         let started = std::time::Instant::now() - std::time::Duration::from_secs(120);
-        let nudge = build_temporal_nudge(started, Some(&config)).unwrap();
+        let nudge = build_temporal_nudge(started, Some(&config), 0).unwrap();
         assert!(nudge.contains("Been working 2 min."));
     }
 
@@ -1143,22 +1197,48 @@ mod tests {
     fn temporal_fires_repeatedly() {
         let config = TemporalConfig {
             after_seconds: 60,
-            message: "Wrap up.".to_string(),
+            message: vec!["Wrap up.".to_string()],
         };
         let started = std::time::Instant::now() - std::time::Duration::from_secs(120);
         // Should fire every time past the threshold, not just once
-        assert!(build_temporal_nudge(started, Some(&config)).is_some());
-        assert!(build_temporal_nudge(started, Some(&config)).is_some());
+        assert!(build_temporal_nudge(started, Some(&config), 0).is_some());
+        assert!(build_temporal_nudge(started, Some(&config), 1).is_some());
     }
 
     #[test]
     fn temporal_skips_before_threshold() {
         let config = TemporalConfig {
             after_seconds: 300,
-            message: "Wrap up.".to_string(),
+            message: vec!["Wrap up.".to_string()],
         };
         let started = std::time::Instant::now();
-        assert!(build_temporal_nudge(started, Some(&config)).is_none());
+        assert!(build_temporal_nudge(started, Some(&config), 0).is_none());
+    }
+
+    #[test]
+    fn temporal_escalates_messages() {
+        let config = TemporalConfig {
+            after_seconds: 60,
+            message: vec![
+                "Gentle: wrap up.".to_string(),
+                "Firm: stop now.".to_string(),
+                "Final: report immediately.".to_string(),
+            ],
+        };
+        let started = std::time::Instant::now() - std::time::Duration::from_secs(120);
+
+        let n0 = build_temporal_nudge(started, Some(&config), 0).unwrap();
+        assert!(n0.contains("Gentle"), "first fire should use index 0");
+
+        let n1 = build_temporal_nudge(started, Some(&config), 1).unwrap();
+        assert!(n1.contains("Firm"), "second fire should use index 1");
+
+        let n2 = build_temporal_nudge(started, Some(&config), 2).unwrap();
+        assert!(n2.contains("Final"), "third fire should use index 2");
+
+        // Beyond the list — last element repeats
+        let n5 = build_temporal_nudge(started, Some(&config), 5).unwrap();
+        assert!(n5.contains("Final"), "past end should repeat last");
     }
 
     #[test]
@@ -1209,5 +1289,70 @@ mod tests {
             },
         ];
         assert!(build_context_pressure_reminder(&history, Some(&config)).is_none());
+    }
+
+    // --- Iteration countdown nudge tests ---
+
+    use crate::agents::IterationCountdownRule;
+
+    fn countdown_rules() -> Vec<ProgressRule> {
+        vec![
+            ProgressRule::IterationCountdown(IterationCountdownRule {
+                remaining_iterations: 10,
+                message: "{remaining} iterations left. Wrap up.".to_string(),
+            }),
+            ProgressRule::IterationCountdown(IterationCountdownRule {
+                remaining_iterations: 5,
+                message: "{remaining} left. Write report NOW.".to_string(),
+            }),
+        ]
+    }
+
+    #[test]
+    fn countdown_no_rules_returns_none() {
+        assert!(build_iteration_countdown_nudge(&[], 8).is_none());
+    }
+
+    #[test]
+    fn countdown_above_all_thresholds_returns_none() {
+        let rules = countdown_rules();
+        assert!(build_iteration_countdown_nudge(&rules, 12).is_none());
+    }
+
+    #[test]
+    fn countdown_fires_first_band() {
+        let rules = countdown_rules();
+        let nudge = build_iteration_countdown_nudge(&rules, 8).unwrap();
+        assert!(nudge.contains("8 iterations left. Wrap up."));
+        assert!(nudge.contains("<system-reminder>"));
+    }
+
+    #[test]
+    fn countdown_fires_at_exact_threshold() {
+        let rules = countdown_rules();
+        let nudge = build_iteration_countdown_nudge(&rules, 10).unwrap();
+        assert!(nudge.contains("10 iterations left. Wrap up."));
+    }
+
+    #[test]
+    fn countdown_escalates_to_most_urgent() {
+        let rules = countdown_rules();
+        let nudge = build_iteration_countdown_nudge(&rules, 4).unwrap();
+        // Should pick the 5-remaining rule (most urgent applicable)
+        assert!(nudge.contains("4 left. Write report NOW."));
+        assert!(!nudge.contains("iterations left. Wrap up."));
+    }
+
+    #[test]
+    fn countdown_fires_at_zero() {
+        let rules = countdown_rules();
+        let nudge = build_iteration_countdown_nudge(&rules, 0).unwrap();
+        assert!(nudge.contains("0 left. Write report NOW."));
+    }
+
+    #[test]
+    fn countdown_ignores_tool_count_rules() {
+        let rules = vec![rule("web_fetch", 5)];
+        assert!(build_iteration_countdown_nudge(&rules, 3).is_none());
     }
 }
