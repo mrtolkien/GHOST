@@ -36,6 +36,11 @@ async fn printer_3d_step_01_spawn_agent() {
         .map(|(_, id)| id.to_string())
         .unwrap_or_else(|| agent_id.clone());
 
+    // Stop the agent and reset its session to just the initial user message.
+    // This ensures a clean snapshot — no mid-flight tool calls or partial
+    // results from the agent running concurrently during the chat.
+    env.stop_and_reset_agent(&agent_id).await;
+
     let mut state = harness::fresh_step_state(
         harness::SCENARIO_PRINTER_3D,
         harness::STEP_01,

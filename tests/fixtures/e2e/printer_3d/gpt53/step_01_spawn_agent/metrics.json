@@ -4,9 +4,20 @@
   "chat_tool_calls": [
     "todo",
     "todo",
-    "knowledge_search",
     "read_file",
     "todo",
-    "agent_control"
+    "knowledge_search",
+    "agent_control",
+    "todo",
+    "agent_control",
+    "agent_control",
+    "agent_control",
+    "run_shell_command",
+    "agent_control",
+    "run_shell_command",
+    "agent_control",
+    "run_shell_command",
+    "agent_control",
+    "run_shell_command"
   ]
 }

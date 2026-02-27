@@ -6,7 +6,9 @@
 
 **Content**
 
+```text
 I want to buy a new enclosed 3D printer for home use around $1000 in 2026. Please do deep research with concrete model recommendations, pricing, and sources.
+```
 
 ### 2. assistant
 
@@ -24,20 +26,20 @@ I want to buy a new enclosed 3D printer for home use around $1000 in 2026. Pleas
   "index": 0,
   "items": [
     {
-      "description": "Check existing knowledge base for prior 3D printer research and relevant references",
-      "title": "Search knowledge base"
+      "description": "Read required deep-research skill and decide workflow",
+      "title": "Load skill instructions"
     },
     {
-      "description": "Read deep-research skill and decide execution strategy",
-      "title": "Load deep-research workflow"
+      "description": "Search knowledge base for existing 3D printer notes/references",
+      "title": "Check prior knowledge"
     },
     {
-      "description": "Gather current 2026 models, prices, and reviews from web sources",
-      "title": "Collect web sources"
+      "description": "Conduct web research on enclosed home 3D printers around $1000 in 2026",
+      "title": "Collect current market data"
     },
     {
-      "description": "Synthesize recommendations for enclosed home-use printers around $1000",
-      "title": "Build ranked recommendations"
+      "description": "Compare models and produce concrete recommendations with pricing and sources",
+      "title": "Synthesize recommendations"
     }
   ],
   "note": "",
@@ -51,13 +53,14 @@ I want to buy a new enclosed 3D printer for home use around $1000 in 2026. Pleas
 
 **Tool Results**
 
-- error=False
+- error=false
 ```text
 TODO [0/4]
-1. ○ Search knowledge base — Check existing knowledge base for prior 3D printer research and relevant references
-2. ○ Load deep-research workflow — Read deep-research skill and decide execution strategy
-3. ○ Collect web sources — Gather current 2026 models, prices, and reviews from web sources
-4. ○ Build ranked recommendations — Synthesize recommendations for enclosed home-use printers around $1000
+1. ○ Load skill instructions — Read required deep-research skill and decide workflow
+2. ○ Check prior knowledge — Search knowledge base for existing 3D printer notes/references
+3. ○ Collect current market data — Conduct web research on enclosed home 3D printers around $1000 in 2026
+4. ○ Synthesize recommendations — Compare models and produce concrete recommendations with pricing and sources
+
 ```
 
 ### 4. assistant
@@ -71,43 +74,14 @@ TODO [0/4]
 - `todo`
 ```json
 {
-  "action": "batch_update",
+  "action": "update",
   "description": "",
-  "index": 0,
+  "index": 1,
   "items": [],
-  "note": "",
+  "note": "Reading deep-research skill before proceeding.",
   "status": "in_progress",
   "title": "",
-  "updates": [
-    {
-      "index": 1,
-      "note": "Starting knowledge lookup for prior notes/references.",
-      "status": "in_progress"
-    },
-    {
-      "index": 2,
-      "note": "Reading deep-research skill before deciding approach.",
-      "status": "in_progress"
-    }
-  ]
-}
-```
-- `knowledge_search`
-```json
-{
-  "categories": [
-    "notes",
-    "references",
-    "diary"
-  ],
-  "limit": 10,
-  "query": "enclosed 3D printer home use around $1000 Bambu Lab P1S X1C Qidi Q1 Pro Creality K1C 2026 pricing"
-}
-```
-- `read_file`
-```json
-{
-  "path": "skills/deep-research/skill.md"
+  "updates": []
 }
 ```
 
@@ -115,21 +89,38 @@ TODO [0/4]
 
 **Tool Results**
 
-- error=False
+- error=false
 ```text
 TODO [0/4]
-1. ◉ Search knowledge base — Check existing knowledge base for prior 3D printer research and relevant references [Starting knowledge lookup for prior notes/references.]
-2. ◉ Load deep-research workflow — Read deep-research skill and decide execution strategy [Reading deep-research skill before deciding approach.]
-3. ○ Collect web sources — Gather current 2026 models, prices, and reviews from web sources
-4. ○ Build ranked recommendations — Synthesize recommendations for enclosed home-use printers around $1000
+1. ◉ Load skill instructions — Read required deep-research skill and decide workflow [Reading deep-research skill before proceeding.]
+2. ○ Check prior knowledge — Search knowledge base for existing 3D printer notes/references
+3. ○ Collect current market data — Conduct web research on enclosed home 3D printers around $1000 in 2026
+4. ○ Synthesize recommendations — Compare models and produce concrete recommendations with pricing and sources
+
 ```
-- error=False
-```text
-No results found.
+
+### 6. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `read_file`
+```json
+{
+  "path": "skills/deep-research/skill.md"
+}
 ```
-- error=False
+
+### 7. user
+
+**Tool Results**
+
+- error=false
 ```text
-File: skills/deep-research/skill.md (67 lines)
+File: skills/deep-research/skill.md (72 lines)
   1 | ---
   2 | name: deep-research
   3 | description:
@@ -170,10 +161,10 @@ File: skills/deep-research/skill.md (67 lines)
  38 | `web_search` or `web_fetch` — every page you fetch inline is context you can never
  39 | reclaim. Let the agent do the heavy reading.
  40 | 
- 4…[3278b total]
+ 4…[3680b total]
 ```
 
-### 6. assistant
+### 8. assistant
 
 **Thinking / Raw Output**
 
@@ -189,72 +180,407 @@ File: skills/deep-research/skill.md (67 lines)
   "index": 0,
   "items": [],
   "note": "",
-  "status": "done",
+  "status": "pending",
   "title": "",
   "updates": [
     {
       "index": 1,
-      "note": "No existing notes/references found for this query.",
+      "note": "Read deep-research skill; must run knowledge check then spawn agent for heavy web work.",
       "status": "done"
     },
     {
       "index": 2,
-      "note": "Deep-research skill loaded; must delegate web research to agent.",
-      "status": "done"
-    },
-    {
-      "index": 3,
-      "note": "Delegating collection to deep-research agent.",
+      "note": "Running knowledge search for existing 3D printer research.",
       "status": "in_progress"
     }
   ]
 }
 ```
+
+### 9. user
+
+**Tool Results**
+
+- error=false
+```text
+TODO [1/4]
+1. ✓ Load skill instructions — Read required deep-research skill and decide workflow [Read deep-research skill; must run knowledge check then spawn agent for heavy web work.]
+2. ◉ Check prior knowledge — Search knowledge base for existing 3D printer notes/references [Running knowledge search for existing 3D printer research.]
+3. ○ Collect current market data — Conduct web research on enclosed home 3D printers around $1000 in 2026
+4. ○ Synthesize recommendations — Compare models and produce concrete recommendations with pricing and sources
+
+```
+
+### 10. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `knowledge_search`
+```json
+{
+  "categories": [
+    "notes",
+    "references",
+    "diary"
+  ],
+  "limit": 10,
+  "query": "enclosed 3D printer home use around $1000 Bambu Prusa QIDI 2026 pricing recommendations"
+}
+```
+
+### 11. user
+
+**Tool Results**
+
+- error=false
+```text
+No results found.
+```
+
+### 12. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
 - `agent_control`
 ```json
 {
   "action": "start",
   "agent": "deep-research",
   "agent_id": "",
-  "prompt": "Research and recommend enclosed 3D printers for home use with target budget around USD $1000 in 2026.\n\nOperator needs: concrete model recommendations, current pricing, and source-backed rationale.\n\nPlease investigate:\n1) Best enclosed printers around $700-$1300 (core around $1000), including strong alternatives above/below budget.\n2) For each model: current street price and MSRP (if available), enclosure status, build volume, key strengths/weaknesses, reliability/quality concerns, ecosystem/software, noise and home-friendliness, material support, and total ownership considerations.\n3) Compare at least 6-10 credible current models likely relevant in 2026 (e.g., Bambu Lab P1S/X1C class, Creality K1/K2 line, QIDI, Prusa Core One/MK4S enclosure bundles, Anycubic, etc. but do not assume these are best).\n4) Include concrete buying guidance: best overall around $1000, best value under $800, best premium stretch near $1300, and best for reliability/repairability.\n5) Include explicit sources with URLs for every pricing/spec/review claim. Prefer manufacturer pages for specs/prices and reputable review/testing sources for performance/reliability.\n6) Emphasize recency: prioritize late 2025-2026 data; flag outdated prices.\n7) Deliver a concise decision table plus final ranked picks for this operator profile (home use, enclosed needed, around $1000).\n\nReturn findings with citations (URL per claim)."
+  "prompt": "Research and recommend enclosed 3D printers for home use with target budget around USD $1000 in 2026. Deliver concrete model recommendations with current pricing and source URLs.\n\nContext and constraints:\n- Buyer wants a new enclosed printer for home use.\n- Budget center: about $1000 (acceptable range roughly $700–$1300 if justified).\n- Timeframe: 2026 market context; prioritize data from late 2025–2026.\n- Primary use: general home maker use (reliability, ease of use, print quality, safety/noise suitable for home).\n\nResearch scope:\n1) Identify strongest currently sold enclosed models near this budget.\n2) Gather current official MSRP and/or typical street prices from reputable retailers.\n3) Verify core specs relevant to home users: build volume, max temps, enclosure type, materials support, speed claims (and realistic caveats where available), noise/safety features, ecosystem/software support.\n4) Include availability caveats by region if pricing differs significantly.\n5) Check for known reliability concerns, QC issues, or support/warranty signals from credible reviews/community sources.\n6) Compare value vs alternatives and provide a ranked shortlist (e.g., best overall, best value, best for advanced materials, best low-maintenance).\n\nMethod requirements:\n- Discover options through web research (do not assume specific models up front).\n- Read multiple sources per recommendation (official pages + at least one independent review/source when possible).\n- Prefer original sources and clearly mark uncertain/outdated prices.\n\nOutput format:\n- Table of top recommendations with: model, enclosed status, current price, key strengths, key drawbacks, who it’s for, source URLs.\n- Short buying advice section with trade-offs and what to avoid.\n- Explicit source list with direct URLs for every major claim."
 }
 ```
 
-### 7. user
+### 13. user
 
 **Tool Results**
 
-- error=False
+- error=false
 ```text
-TODO [2/4]
-1. ✓ Search knowledge base — Check existing knowledge base for prior 3D printer research and relevant references [No existing notes/references found for this query.]
-2. ✓ Load deep-research workflow — Read deep-research skill and decide execution strategy [Deep-research skill loaded; must delegate web research to agent.]
-3. ◉ Collect web sources — Gather current 2026 models, prices, and reviews from web sources [Delegating collection to deep-research agent.]
-4. ○ Build ranked recommendations — Synthesize recommendations for enclosed home-use printers around $1000
-```
-- error=False
-```text
-Agent 'deep-research' started (agent_id: 01KJF0EWBDRY6DMAF4715DE6JT). Check progress with agent_control(action: 'status', agent_id: '01KJF0EWBDRY6DMAF4715DE6JT').
+Agent 'deep-research' started (agent_id: 01KJFP5VEZTP1MHGPJH0J7QAVQ). Check progress with agent_control(action: 'status', agent_id: '01KJFP5VEZTP1MHGPJH0J7QAVQ').
 ```
 
-### 8. assistant
-
-**Content**
-
-Great request — I’ve started a **deep-research background agent** to do this properly with current 2026 pricing and source-backed comparisons.
-
-I’ll come back with:
-- a short list of the best enclosed home-use printers around **$1000**
-- concrete pricing (and whether it’s MSRP vs street price)
-- tradeoffs (print quality, reliability, noise, ecosystem, materials)
-- clear “best overall / best value / best premium stretch / most repairable” picks
-- direct URLs for every key claim
-
-I’m on it now.
+### 14. assistant
 
 **Thinking / Raw Output**
 
 - `reasoning`: 
+
+**Tool Calls**
+
+- `todo`
+```json
+{
+  "action": "batch_update",
+  "description": "",
+  "index": 0,
+  "items": [],
+  "note": "",
+  "status": "pending",
+  "title": "",
+  "updates": [
+    {
+      "index": 2,
+      "note": "No relevant internal notes found; spawned deep-research agent.",
+      "status": "done"
+    },
+    {
+      "index": 3,
+      "note": "Background deep-research agent is collecting pricing/spec/review sources.",
+      "status": "in_progress"
+    }
+  ]
+}
+```
+
+### 15. user
+
+**Tool Results**
+
+- error=false
+```text
+TODO [2/4]
+1. ✓ Load skill instructions — Read required deep-research skill and decide workflow [Read deep-research skill; must run knowledge check then spawn agent for heavy web work.]
+2. ✓ Check prior knowledge — Search knowledge base for existing 3D printer notes/references [No relevant internal notes found; spawned deep-research agent.]
+3. ◉ Collect current market data — Conduct web research on enclosed home 3D printers around $1000 in 2026 [Background deep-research agent is collecting pricing/spec/review sources.]
+4. ○ Synthesize recommendations — Compare models and produce concrete recommendations with pricing and sources
+
+```
+
+### 16. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `agent_control`
+```json
+{
+  "action": "status",
+  "agent": "deep-research",
+  "agent_id": "01KJFP5VEZTP1MHGPJH0J7QAVQ",
+  "prompt": ""
+}
+```
+
+### 17. user
+
+**Tool Results**
+
+- error=false
+```text
+Agent 'deep-research' — running
+Messages: 4
+
+```
+
+### 18. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `agent_control`
+```json
+{
+  "action": "status",
+  "agent": "deep-research",
+  "agent_id": "01KJFP5VEZTP1MHGPJH0J7QAVQ",
+  "prompt": ""
+}
+```
+
+### 19. user
+
+**Tool Results**
+
+- error=false
+```text
+Agent 'deep-research' — running
+Messages: 4
+
+```
+
+### 20. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `agent_control`
+```json
+{
+  "action": "status",
+  "agent": "deep-research",
+  "agent_id": "01KJFP5VEZTP1MHGPJH0J7QAVQ",
+  "prompt": ""
+}
+```
+
+### 21. user
+
+**Tool Results**
+
+- error=false
+```text
+Agent 'deep-research' — running
+Messages: 4
+
+```
+
+### 22. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `run_shell_command`
+```json
+{
+  "command": "sleep 5",
+  "directory": ".",
+  "timeout_ms": 10000
+}
+```
+
+### 23. user
+
+**Tool Results**
+
+- error=false
+```text
+Exit code: 0
+
+(no output)
+```
+
+### 24. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `agent_control`
+```json
+{
+  "action": "status",
+  "agent": "deep-research",
+  "agent_id": "01KJFP5VEZTP1MHGPJH0J7QAVQ",
+  "prompt": ""
+}
+```
+
+### 25. user
+
+**Tool Results**
+
+- error=false
+```text
+Agent 'deep-research' — running
+Messages: 6
+
+```
+
+### 26. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `run_shell_command`
+```json
+{
+  "command": "sleep 6",
+  "directory": ".",
+  "timeout_ms": 15000
+}
+```
+
+### 27. user
+
+**Tool Results**
+
+- error=false
+```text
+Exit code: 0
+
+(no output)
+```
+
+### 28. assistant
+
+**Tool Calls**
+
+- `agent_control`
+```json
+{
+  "action": "status",
+  "agent": "deep-research",
+  "agent_id": "01KJFP5VEZTP1MHGPJH0J7QAVQ",
+  "prompt": ""
+}
+```
+
+### 29. user
+
+**Tool Results**
+
+- error=false
+```text
+Agent 'deep-research' — running
+Messages: 8
+
+```
+
+### 30. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `run_shell_command`
+```json
+{
+  "command": "sleep 8",
+  "directory": ".",
+  "timeout_ms": 20000
+}
+```
+
+### 31. user
+
+**Tool Results**
+
+- error=false
+```text
+Exit code: 0
+
+(no output)
+```
+
+### 32. assistant
+
+**Tool Calls**
+
+- `agent_control`
+```json
+{
+  "action": "status",
+  "agent": "deep-research",
+  "agent_id": "01KJFP5VEZTP1MHGPJH0J7QAVQ",
+  "prompt": ""
+}
+```
+
+### 33. user
+
+**Tool Results**
+
+- error=false
+```text
+Agent 'deep-research' — running
+Messages: 10
+
+```
+
+### 34. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `run_shell_command`
+```json
+{
+  "command": "sleep 10",
+  "directory": ".",
+  "timeout_ms": 25000
+}
+```
 
 ## Agent
 
@@ -262,17 +588,31 @@ I’m on it now.
 
 **Content**
 
-Research and recommend enclosed 3D printers for home use with target budget around USD $1000 in 2026.
+```text
+Research and recommend enclosed 3D printers for home use with target budget around USD $1000 in 2026. Deliver concrete model recommendations with current pricing and source URLs.
 
-Operator needs: concrete model recommendations, current pricing, and source-backed rationale.
+Context and constraints:
+- Buyer wants a new enclosed printer for home use.
+- Budget center: about $1000 (acceptable range roughly $700–$1300 if justified).
+- Timeframe: 2026 market context; prioritize data from late 2025–2026.
+- Primary use: general home maker use (reliability, ease of use, print quality, safety/noise suitable for home).
 
-Please investigate:
-1) Best enclosed printers around $700-$1300 (core around $1000), including strong alternatives above/below budget.
-2) For each model: current street price and MSRP (if available), enclosure status, build volume, key strengths/weaknesses, reliability/quality concerns, ecosystem/software, noise and home-friendliness, material support, and total ownership considerations.
-3) Compare at least 6-10 credible current models likely relevant in 2026 (e.g., Bambu Lab P1S/X1C class, Creality K1/K2 line, QIDI, Prusa Core One/MK4S enclosure bundles, Anycubic, etc. but do not assume these are best).
-4) Include concrete buying guidance: best overall around $1000, best value under $800, best premium stretch near $1300, and best for reliability/repairability.
-5) Include explicit sources with URLs for every pricing/spec/review claim. Prefer manufacturer pages for specs/prices and reputable review/testing sources for performance/reliability.
-6) Emphasize recency: prioritize late 2025-2026 data; flag outdated prices.
-7) Deliver a concise decision table plus final ranked picks for this operator profile (home use, enclosed needed, around $1000).
+Research scope:
+1) Identify strongest currently sold enclosed models near this budget.
+2) Gather current official MSRP and/or typical street prices from reputable retailers.
+3) Verify core specs relevant to home users: build volume, max temps, enclosure type, materials support, speed claims (and realistic caveats where available), noise/safety features, ecosystem/software support.
+4) Include availability caveats by region if pricing differs significantly.
+5) Check for known reliability concerns, QC issues, or support/warranty signals from credible reviews/community sources.
+6) Compare value vs alternatives and provide a ranked shortlist (e.g., best overall, best value, best for advanced materials, best low-maintenance).
 
-Return findings with citations (URL per claim).
+Method requirements:
+- Discover options through web research (do not assume specific models up front).
+- Read multiple sources per recommendation (official pages + at least one independent review/source when possible).
+- Prefer original sources and clearly mark uncertain/outdated prices.
+
+Output format:
+- Table of top recommendations with: model, enclosed status, current price, key strengths, key drawbacks, who it’s for, source URLs.
+- Short buying advice section with trade-offs and what to avoid.
+- Explicit source list with direct URLs for every major claim.
+```
+

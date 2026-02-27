@@ -125,7 +125,7 @@ pub(crate) fn build_request_body(request: &ChatRequest) -> ChatCompletionsReques
             .map(|tools| tools.iter().map(convert_tool).collect()),
         max_tokens: request.max_tokens,
         temperature: request.temperature,
-        reasoning_effort: Some("medium".to_string()),
+        reasoning_effort: Some("high".to_string()),
     }
 }
 

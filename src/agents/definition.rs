@@ -3,15 +3,17 @@ use std::path::Path;
 use serde::Deserialize;
 
 use super::error::TaskError;
-use super::nudges::{ContextPressureConfig, ProgressGateConfig, RecencyConfig, TemporalConfig};
+use super::nudges::{
+    ContextPressureConfig, IterationCountdownRule, ProgressGateConfig, RecencyConfig,
+    TemporalConfig,
+};
 
 const DELIMITER: &str = "---";
 
-/// A progress rule declared in agent YAML frontmatter.
+/// A tool-count progress rule declared in agent YAML frontmatter.
 ///
-/// Agents can declare minimum tool call counts with custom feedback
-/// messages. The runtime injects these as XML `<progress>` system
-/// reminders after each tool iteration.
+/// Tracks how many times a tool has been called and optionally nudges the
+/// model when below a minimum.
 ///
 /// | `min` | `nudge` | Behavior                                     |
 /// | ----- | ------- | -------------------------------------------- |
@@ -20,12 +22,24 @@ const DELIMITER: &str = "---";
 /// | set   | unset   | Count shown; nothing else                    |
 /// | unset | unset   | Count shown; nothing else                    |
 #[derive(Debug, Clone, Deserialize)]
-pub struct ProgressRule {
+pub struct ToolCountRule {
     pub tool: String,
     #[serde(default)]
     pub min: Option<u32>,
     #[serde(default)]
     pub nudge: Option<String>,
+}
+
+/// A progress rule declared in agent YAML frontmatter.
+///
+/// Can be either a tool-count rule (has `tool` field) or an iteration
+/// countdown rule (has `remaining_iterations` field). Uses serde's
+/// untagged enum to distinguish the two shapes.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(untagged)]
+pub enum ProgressRule {
+    IterationCountdown(IterationCountdownRule),
+    ToolCount(ToolCountRule),
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -152,17 +166,14 @@ const DEFAULT_TASKS: &[(&str, &str)] = &[
     ),
 ];
 
-/// Install default agent definitions into `$WORKSPACE/agents/` if they don't
-/// already exist.
+/// Install default agent definitions into `$WORKSPACE/agents/`, always
+/// overwriting with the binary's built-in versions.
 pub fn install_default_tasks(workspace: &Path) -> Result<(), std::io::Error> {
     let agents_dir = workspace.join("agents");
     std::fs::create_dir_all(&agents_dir)?;
 
     for (name, content) in DEFAULT_TASKS {
-        let agent_file = agents_dir.join(format!("{name}.md"));
-        if !agent_file.exists() {
-            std::fs::write(&agent_file, content)?;
-        }
+        std::fs::write(agents_dir.join(format!("{name}.md")), content)?;
     }
 
     Ok(())
@@ -308,7 +319,7 @@ mod tests {
     }
 
     #[test]
-    fn install_default_tasks_does_not_overwrite() {
+    fn install_default_tasks_overwrites_existing() {
         let dir = tempfile::TempDir::new().unwrap();
         install_default_tasks(dir.path()).unwrap();
 
@@ -321,7 +332,7 @@ mod tests {
         install_default_tasks(dir.path()).unwrap();
 
         let content = std::fs::read_to_string(&agent_file).unwrap();
-        assert_eq!(content, "custom content");
+        assert_ne!(content, "custom content", "should overwrite existing files");
     }
 
     #[test]
@@ -378,11 +389,37 @@ mod tests {
         assert!(def.tools.contains(&"web_search".to_string()));
         assert!(def.tools.contains(&"web_fetch".to_string()));
         assert!(def.tools.contains(&"todo".to_string()));
+        assert_eq!(def.max_iterations, 30);
         assert!(def.system_prompt_template.contains("{{ date }}"));
-        assert!(
-            def.progress_rules.is_empty(),
-            "deep-research has no progress rules (reasoning=high makes them unnecessary)"
+
+        // Iteration countdown rules
+        let countdown_rules: Vec<_> = def
+            .progress_rules
+            .iter()
+            .filter_map(|r| match r {
+                ProgressRule::IterationCountdown(ic) => Some(ic),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            countdown_rules.len(),
+            3,
+            "deep-research has 3 countdown rules"
         );
+        assert_eq!(countdown_rules[0].remaining_iterations, 10);
+        assert_eq!(countdown_rules[1].remaining_iterations, 5);
+        assert_eq!(countdown_rules[2].remaining_iterations, 2);
+
+        // No tool-count rules
+        let tool_count_rules: Vec<_> = def
+            .progress_rules
+            .iter()
+            .filter_map(|r| match r {
+                ProgressRule::ToolCount(tc) => Some(tc),
+                _ => None,
+            })
+            .collect();
+        assert!(tool_count_rules.is_empty());
 
         // Nudge configs
         let gate = def.progress_gate.as_ref().expect("progress_gate");
@@ -391,12 +428,9 @@ mod tests {
 
         let temporal = def.temporal.as_ref().expect("temporal");
         assert_eq!(temporal.after_seconds, 300);
-        assert!(temporal.message.contains("{minutes}"));
+        assert!(temporal.message.iter().any(|m| m.contains("{minutes}")));
 
-        assert!(
-            def.recency.is_none(),
-            "recency removed — unnecessary with reasoning=high"
-        );
+        assert!(def.recency.is_none(), "recency nudge removed");
 
         let pressure = def.context_pressure.as_ref().expect("context_pressure");
         assert_eq!(pressure.threshold_chars, 250_000);
@@ -440,7 +474,9 @@ mod tests {
         let content = "---\nname: test-agent\ndescription: Test agent with progress\ntools:\n  - web_fetch\nprogress:\n  - tool: web_fetch\n    min: 3\n    nudge: \"Need {min} {tool} calls (have {count}). Keep going.\"\n---\n\nBody here.\n";
         let def = parse_task_file(content).unwrap();
         assert_eq!(def.progress_rules.len(), 1);
-        let rule = &def.progress_rules[0];
+        let ProgressRule::ToolCount(rule) = &def.progress_rules[0] else {
+            panic!("expected ToolCount variant");
+        };
         assert_eq!(rule.tool, "web_fetch");
         assert_eq!(rule.min, Some(3));
         assert_eq!(
@@ -454,12 +490,18 @@ mod tests {
         let content = "---\nname: multi\ndescription: Multiple rules\ntools:\n  - web_fetch\n  - web_search\nprogress:\n  - tool: web_fetch\n    min: 5\n  - tool: web_search\n    min: 3\n    nudge: Search more.\n---\n\nBody.\n";
         let def = parse_task_file(content).unwrap();
         assert_eq!(def.progress_rules.len(), 2);
-        assert_eq!(def.progress_rules[0].tool, "web_fetch");
-        assert_eq!(def.progress_rules[0].min, Some(5));
-        assert!(def.progress_rules[0].nudge.is_none());
-        assert_eq!(def.progress_rules[1].tool, "web_search");
-        assert_eq!(def.progress_rules[1].min, Some(3));
-        assert_eq!(def.progress_rules[1].nudge.as_deref(), Some("Search more."));
+        let ProgressRule::ToolCount(r0) = &def.progress_rules[0] else {
+            panic!("expected ToolCount");
+        };
+        assert_eq!(r0.tool, "web_fetch");
+        assert_eq!(r0.min, Some(5));
+        assert!(r0.nudge.is_none());
+        let ProgressRule::ToolCount(r1) = &def.progress_rules[1] else {
+            panic!("expected ToolCount");
+        };
+        assert_eq!(r1.tool, "web_search");
+        assert_eq!(r1.min, Some(3));
+        assert_eq!(r1.nudge.as_deref(), Some("Search more."));
     }
 
     #[test]
@@ -477,8 +519,17 @@ mod tests {
 
     #[test]
     fn parse_agent_with_all_nudge_sections() {
-        let content = "---\nname: nudgy\ndescription: Agent with all nudges\ntools:\n  - web_fetch\n  - todo\nprogress_gate:\n  no_todo: Make a plan first.\n  incomplete: \"{incomplete} items left.\"\ntemporal:\n  after_seconds: 120\n  message: \"Been working {minutes} min.\"\nrecency:\n  tool: web_fetch\n  window: 2\n  message: Fetch something.\ncontext_pressure:\n  threshold_chars: 100000\n  message: Context large.\n---\n\nBody.\n";
+        let content = "---\nname: nudgy\ndescription: Agent with all nudges\ntools:\n  - web_fetch\n  - todo\nprogress:\n  - tool: web_fetch\n    min: 5\n  - remaining_iterations: 10\n    message: \"{remaining} left.\"\nprogress_gate:\n  no_todo: Make a plan first.\n  incomplete: \"{incomplete} items left.\"\ntemporal:\n  after_seconds: 120\n  message: \"Been working {minutes} min.\"\nrecency:\n  tool: web_fetch\n  window: 2\n  message: Fetch something.\ncontext_pressure:\n  threshold_chars: 100000\n  message: Context large.\n---\n\nBody.\n";
         let def = parse_task_file(content).unwrap();
+
+        // Mixed progress rules: one tool-count + one iteration countdown
+        assert_eq!(def.progress_rules.len(), 2);
+        assert!(
+            matches!(&def.progress_rules[0], ProgressRule::ToolCount(r) if r.tool == "web_fetch")
+        );
+        assert!(
+            matches!(&def.progress_rules[1], ProgressRule::IterationCountdown(r) if r.remaining_iterations == 10)
+        );
 
         let gate = def.progress_gate.unwrap();
         assert_eq!(gate.no_todo, "Make a plan first.");
@@ -486,7 +537,7 @@ mod tests {
 
         let temporal = def.temporal.unwrap();
         assert_eq!(temporal.after_seconds, 120);
-        assert_eq!(temporal.message, "Been working {minutes} min.");
+        assert_eq!(temporal.message, vec!["Been working {minutes} min."]);
 
         let recency = def.recency.unwrap();
         assert_eq!(recency.tool, "web_fetch");
@@ -496,6 +547,23 @@ mod tests {
         let pressure = def.context_pressure.unwrap();
         assert_eq!(pressure.threshold_chars, 100_000);
         assert_eq!(pressure.message, "Context large.");
+    }
+
+    #[test]
+    fn parse_agent_with_iteration_countdown_rules() {
+        let content = "---\nname: countdown\ndescription: Countdown agent\ntools:\n  - todo\nprogress:\n  - remaining_iterations: 10\n    message: \"{remaining} iterations left.\"\n  - remaining_iterations: 5\n    message: \"Only {remaining} left!\"\n---\n\nBody.\n";
+        let def = parse_task_file(content).unwrap();
+        assert_eq!(def.progress_rules.len(), 2);
+        let ProgressRule::IterationCountdown(r0) = &def.progress_rules[0] else {
+            panic!("expected IterationCountdown");
+        };
+        assert_eq!(r0.remaining_iterations, 10);
+        assert_eq!(r0.message, "{remaining} iterations left.");
+        let ProgressRule::IterationCountdown(r1) = &def.progress_rules[1] else {
+            panic!("expected IterationCountdown");
+        };
+        assert_eq!(r1.remaining_iterations, 5);
+        assert_eq!(r1.message, "Only {remaining} left!");
     }
 
     #[test]

@@ -14,6 +14,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
+import subprocess
 from pathlib import Path
 
 import questionary
@@ -33,9 +35,7 @@ def _write_message(out: list[str], msg: dict, index: int) -> None:
     if content:
         out.append("**Content**")
         out.append("")
-        out.append("```text")
         out.append(content)
-        out.append("```")
         out.append("")
 
     raw_output = msg.get("raw_output") or []
@@ -110,6 +110,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--input", type=Path, help="Path to transcript.json")
     parser.add_argument("--step-dir", type=Path, help="Step directory containing transcript.json")
     parser.add_argument("--output", type=Path, help="Output markdown path")
+    parser.add_argument(
+        "--no-open",
+        action="store_true",
+        help="Do not open the rendered transcript in a pager",
+    )
     return parser.parse_args(argv)
 
 
@@ -141,6 +146,24 @@ def main(argv: list[str] | None = None) -> None:
 
     out_path.write_text(rendered)
     print(out_path)
+    if not args.no_open:
+        open_in_pager(out_path)
+
+
+def open_in_pager(path: Path) -> None:
+    bat = shutil.which("bat") or shutil.which("batcat")
+    if bat:
+        subprocess.run([bat, "--paging=always", str(path)], check=False)
+        return
+
+    less = shutil.which("less")
+    if less:
+        subprocess.run([less, "-R", str(path)], check=False)
+        return
+
+    cat = shutil.which("cat")
+    if cat:
+        subprocess.run([cat, str(path)], check=False)
 
 
 if __name__ == "__main__":

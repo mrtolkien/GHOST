@@ -134,8 +134,8 @@ pub fn discover_skills(workspace: &Path) -> Vec<Skill> {
     skills
 }
 
-/// Install default skills into `$WORKSPACE/skills/` if they don't already
-/// exist. Each skill is a subdirectory with a `skill.md` file.
+/// Install default skills into `$WORKSPACE/skills/`, always overwriting
+/// with the binary's built-in versions.
 #[tracing::instrument(skip_all, level = "debug", fields(workspace = %workspace.display()))]
 pub fn install_default_skills(workspace: &Path) -> Result<(), std::io::Error> {
     let skills_dir = workspace.join("skills");
@@ -143,11 +143,7 @@ pub fn install_default_skills(workspace: &Path) -> Result<(), std::io::Error> {
     for (name, content) in DEFAULT_SKILLS {
         let skill_dir = skills_dir.join(name);
         fs::create_dir_all(&skill_dir)?;
-
-        let skill_file = skill_dir.join("skill.md");
-        if !skill_file.exists() {
-            fs::write(&skill_file, content)?;
-        }
+        fs::write(skill_dir.join("skill.md"), content)?;
     }
 
     Ok(())
@@ -316,7 +312,7 @@ name: no-desc
     }
 
     #[test]
-    fn install_default_skills_does_not_overwrite() {
+    fn install_default_skills_overwrites_existing() {
         let dir = TempDir::new().unwrap();
         let skills = dir.path().join("skills");
         fs::create_dir_all(&skills).unwrap();
@@ -330,6 +326,6 @@ name: no-desc
         install_default_skills(dir.path()).unwrap();
 
         let content = fs::read_to_string(&skill_file).unwrap();
-        assert_eq!(content, "custom content");
+        assert_ne!(content, "custom content", "should overwrite existing files");
     }
 }

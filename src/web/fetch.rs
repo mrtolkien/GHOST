@@ -5,14 +5,15 @@ use url::Url;
 
 use super::{ExtractedContent, FetchOptions, WebError};
 
-/// Default safety cap for extracted text. Pages exceeding this are truncated.
+/// Safety cap for extracted text. Pages exceeding this are truncated.
 /// When htmd produces content above this limit, we auto-retry with readability
 /// mode to strip boilerplate before truncating.
 ///
-/// 30K chars ≈ 7.5K tokens — allows ~10 fetches before hitting context pressure.
-/// Key content (recommendations, prices, brand mentions) clusters in the first
-/// 30K of most review/article pages.
-const MAX_EXTRACT_CHARS: usize = 30_000;
+/// 120K chars ≈ 30K tokens. We keep this generous so the agent sees full pages
+/// (including product lists, price trackers, and deep reviews) without silent
+/// truncation. The agent-level context_pressure nudge at 250K chars handles
+/// overall context budget.
+const MAX_EXTRACT_CHARS: usize = 120_000;
 
 static HTTP_CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
 
@@ -104,32 +105,7 @@ pub async fn fetch(
     );
 
     if is_html {
-        let mut content = extract_content(&raw_text, url, options);
-
-        if !options.raw
-            && content.word_count < 500
-            && let Some(c4ai_url) = crawl4ai_url
-        {
-            logfire::info!(
-                "reqwest extraction yielded low content, trying crawl4ai",
-                url = url.to_string(),
-                word_count = content.word_count as u64,
-            );
-
-            match super::browser::fetch_with_crawl4ai(c4ai_url, url).await {
-                Ok(markdown) => {
-                    content = markdown_to_content(markdown, content.title);
-                }
-                Err(e) => {
-                    logfire::warn!(
-                        "crawl4ai fallback failed, returning reqwest result",
-                        url = url.to_string(),
-                        error = e.to_string(),
-                    );
-                }
-            }
-        }
-
+        let content = extract_content(&raw_text, url, options);
         Ok(content)
     } else {
         let text = raw_text.replace('\0', "");
@@ -383,12 +359,14 @@ mod tests {
         // Use repeated paragraphs in an <article> — this is the dominant
         // content, so readability should extract it and produce a smaller
         // result than the raw htmd of the full page.
+        // Scale repeats so the test works regardless of MAX_EXTRACT_CHARS value.
+        let repeats = MAX_EXTRACT_CHARS / 80 + 100;
         let article_paragraphs = "<p>This is important article content that \
             discusses 3D printer reviews in detail with specs and benchmarks. \
             </p>"
-            .repeat(1500);
-        let sidebar = "<div class=\"ad\">Buy now! Special offer!</div>".repeat(200);
-        let comments = "<p>User comment filler text. </p>".repeat(200);
+            .repeat(repeats);
+        let sidebar = "<div class=\"ad\">Buy now! Special offer!</div>".repeat(repeats / 5);
+        let comments = "<p>User comment filler text. </p>".repeat(repeats / 5);
         let html = format!(
             r#"<html><head><title>Test Article</title></head><body>
             <div id="sidebar">{sidebar}</div>

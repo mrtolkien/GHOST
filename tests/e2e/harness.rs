@@ -40,7 +40,11 @@ pub struct LoadedStep {
 }
 
 pub fn model_alias() -> String {
-    std::env::var("GHOST_E2E_MODEL").unwrap_or_else(|_| "primary".to_string())
+    if let Ok(model) = std::env::var("GHOST_E2E_MODEL") {
+        return model;
+    }
+
+    default_model_alias_from_config().unwrap_or_else(|| "primary".to_string())
 }
 
 pub fn scenario_model_dir(scenario: &str, model: &str) -> PathBuf {
@@ -65,16 +69,19 @@ pub async fn load_previous_step_or_fail(
     let previous_dir = step_dir(scenario, &model, previous_step);
     let state_path = previous_dir.join(STATE_FILE);
     let archive_path = previous_dir.join(ARCHIVE_FILE);
+    let available_models = available_models_for_scenario(scenario);
 
     assert!(
         state_path.exists(),
-        "missing predecessor state for {scenario}/{model}/{current_step}: {}",
-        state_path.display()
+        "missing predecessor state for {scenario}/{model}/{current_step}: {}. available models: {:?}",
+        state_path.display(),
+        available_models
     );
     assert!(
         archive_path.exists(),
-        "missing predecessor archive for {scenario}/{model}/{current_step}: {}",
-        archive_path.display()
+        "missing predecessor archive for {scenario}/{model}/{current_step}: {}. available models: {:?}",
+        archive_path.display(),
+        available_models
     );
 
     let raw = fs::read_to_string(&state_path)
@@ -86,6 +93,42 @@ pub async fn load_previous_step_or_fail(
     let env = common::live_test_database_from_snapshot(&env_name, Some(&archive_path)).await;
 
     LoadedStep { env, state }
+}
+
+fn default_model_alias_from_config() -> Option<String> {
+    let config_dir = std::env::var_os(ghost::config::CONFIG_DIR_ENV)
+        .map(PathBuf::from)
+        .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".config/ghost")))?;
+    let raw = fs::read_to_string(config_dir.join("config.toml")).ok()?;
+    let value: toml::Value = toml::from_str(&raw).ok()?;
+    value
+        .get("models")
+        .and_then(|v| v.get("default"))
+        .and_then(toml::Value::as_str)
+        .map(str::to_string)
+}
+
+fn available_models_for_scenario(scenario: &str) -> Vec<String> {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("tests")
+        .join("fixtures")
+        .join("e2e")
+        .join(scenario);
+    let Ok(entries) = fs::read_dir(root) else {
+        return Vec::new();
+    };
+    let mut names: Vec<String> = entries
+        .filter_map(|e| e.ok())
+        .filter_map(|e| {
+            if e.file_type().ok()?.is_dir() {
+                e.file_name().into_string().ok()
+            } else {
+                None
+            }
+        })
+        .collect();
+    names.sort();
+    names
 }
 
 pub async fn save_step_snapshot(env: &common::LiveTestEnv, state: &StepState) {

@@ -619,6 +619,43 @@ impl LiveTestEnv {
         }
     }
 
+    /// Stop a running agent and reset its session to only the initial user
+    /// message (the spawning prompt). This gives a clean DB state for
+    /// snapshotting — no mid-flight tool calls or partial results.
+    pub async fn stop_and_reset_agent(&self, agent_id: &str) {
+        // Stop the agent (cancels the background task)
+        let _ = self.task_runner.stop(agent_id).await;
+
+        // Parse bare session ID from agent_id (e.g. "session:abc" → "abc")
+        let session_id = agent_id
+            .split_once(':')
+            .map(|(_, id)| id)
+            .unwrap_or(agent_id);
+
+        // Keep only the first message (the initial user prompt).
+        // Delete everything else — assistant tool calls, tool results, etc.
+        sqlx::query(
+            "DELETE FROM message WHERE session_id = ?1
+             AND id != (
+                 SELECT id FROM message
+                 WHERE session_id = ?1
+                 ORDER BY created_at ASC
+                 LIMIT 1
+             )",
+        )
+        .bind(session_id)
+        .execute(&self.db)
+        .await
+        .unwrap_or_else(|e| panic!("reset agent session {session_id}: {e}"));
+
+        // Also clear any TODO state the agent may have created
+        sqlx::query("UPDATE session SET todo_list = NULL WHERE id = ?1")
+            .bind(session_id)
+            .execute(&self.db)
+            .await
+            .unwrap_or_else(|e| panic!("clear agent todo for {session_id}: {e}"));
+    }
+
     /// Check if a file exists under the workspace.
     pub fn workspace_file_exists(&self, relative_path: &str) -> bool {
         self.workspace.path().join(relative_path).exists()
@@ -824,6 +861,12 @@ pub async fn live_test_database_from_snapshot(
                 snapshot_path.display()
             )
         });
+        // install_default_tasks/skills always overwrite, so the restored
+        // snapshot gets the binary's current prompts, not stale fixture versions.
+        ghost::agents::definition::install_default_tasks(&config.workspace)
+            .expect("install agents after snapshot restore");
+        ghost::skills::install_default_skills(&config.workspace)
+            .expect("install skills after snapshot restore");
     }
     let db = db::connect(&config.workspace, config.embeddings.dimension)
         .await

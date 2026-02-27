@@ -48,6 +48,11 @@ Use `agent_control(action: 'start', agent: 'deep-research', prompt: '...')`. Inc
 - **Recency** — remind the agent to look for recent developments
 - **Known sources** — if your knowledge base has source quality notes for this domain,
   pass them to the agent so it can skip the source-discovery phase
+- **Don't name specific options** — describe the category, constraints, and use case,
+  but do NOT pre-populate specific names, brands, or recommendations from your training
+  data. Your knowledge is outdated — let the agent discover the current landscape
+  through research. Bad: "looking at X, Y, and Z". Good: "looking for a [category] that
+  meets [constraints]".
 
 After spawning, tell the OPERATOR you've started a background research task and you'll
 share findings when it completes.

@@ -30,15 +30,6 @@ impl Tool for WebFetch {
                     "url": {
                         "type": "string",
                         "description": "The URL to fetch."
-                    },
-                    "readability": {
-                        "type": "boolean",
-                        "description": "Use Readability to extract article content \
-                                        only, stripping navigation and sidebars. \
-                                        Best for single articles. Do NOT use for \
-                                        pages that list many items (catalogs, price \
-                                        trackers, comparison tables) — you need the \
-                                        full page for those (default: false)."
                     }
                 },
                 "required": ["url"]
@@ -51,15 +42,7 @@ impl Tool for WebFetch {
             ToolError::InvalidParams("missing required parameter: url".to_string())
         })?;
 
-        let readability = params
-            .get("readability")
-            .and_then(Value::as_bool)
-            .unwrap_or(false);
-
-        let options = FetchOptions {
-            readability,
-            raw: false,
-        };
+        let options = FetchOptions::default();
 
         let content = fetch(url, &options, ctx.config.web.crawl4ai_url.as_deref())
             .await

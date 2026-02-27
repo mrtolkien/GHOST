@@ -24,10 +24,10 @@ async fn printer_3d_step_02_run_agent_completion() {
         .await
         .expect("continue_task from step_01 state");
 
-    let deadline = Instant::now() + Duration::from_secs(480);
+    let deadline = Instant::now() + Duration::from_secs(600);
     let findings = loop {
         if Instant::now() >= deadline {
-            panic!("TIMEOUT: agent did not complete in step_02 within 8 minutes");
+            panic!("TIMEOUT: agent did not complete in step_02 within 10 minutes");
         }
 
         if let Some((status, _parent)) = env.task_runner.take_completed(&agent_id).await {
@@ -48,6 +48,7 @@ async fn printer_3d_step_02_run_agent_completion() {
         .clone()
         .expect("step_01 must provide agent_session_id");
     let metrics = env.collect_web_fetch_metrics(&agent_session).await;
+
     env.assert_research_quality(
         &findings,
         &metrics,

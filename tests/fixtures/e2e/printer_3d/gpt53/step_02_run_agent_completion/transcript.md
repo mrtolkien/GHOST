@@ -1,0 +1,2288 @@
+# E2E Transcript
+
+## Chat
+
+### 1. user
+
+**Content**
+
+I want to buy a new enclosed 3D printer for home use around $1000 in 2026. Please do deep research with concrete model recommendations, pricing, and sources.
+
+### 2. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `todo`
+```json
+{
+  "action": "plan",
+  "description": "",
+  "index": 0,
+  "items": [
+    {
+      "description": "Check existing knowledge base for prior 3D printer research and relevant references",
+      "title": "Search knowledge base"
+    },
+    {
+      "description": "Read deep-research skill and decide execution strategy",
+      "title": "Load deep-research workflow"
+    },
+    {
+      "description": "Gather current 2026 models, prices, and reviews from web sources",
+      "title": "Collect web sources"
+    },
+    {
+      "description": "Synthesize recommendations for enclosed home-use printers around $1000",
+      "title": "Build ranked recommendations"
+    }
+  ],
+  "note": "",
+  "status": "pending",
+  "title": "",
+  "updates": []
+}
+```
+
+### 3. user
+
+**Tool Results**
+
+- error=False
+```text
+TODO [0/4]
+1. ○ Search knowledge base — Check existing knowledge base for prior 3D printer research and relevant references
+2. ○ Load deep-research workflow — Read deep-research skill and decide execution strategy
+3. ○ Collect web sources — Gather current 2026 models, prices, and reviews from web sources
+4. ○ Build ranked recommendations — Synthesize recommendations for enclosed home-use printers around $1000
+```
+
+### 4. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `todo`
+```json
+{
+  "action": "batch_update",
+  "description": "",
+  "index": 0,
+  "items": [],
+  "note": "",
+  "status": "in_progress",
+  "title": "",
+  "updates": [
+    {
+      "index": 1,
+      "note": "Starting knowledge lookup for prior notes/references.",
+      "status": "in_progress"
+    },
+    {
+      "index": 2,
+      "note": "Reading deep-research skill before deciding approach.",
+      "status": "in_progress"
+    }
+  ]
+}
+```
+- `knowledge_search`
+```json
+{
+  "categories": [
+    "notes",
+    "references",
+    "diary"
+  ],
+  "limit": 10,
+  "query": "enclosed 3D printer home use around $1000 Bambu Lab P1S X1C Qidi Q1 Pro Creality K1C 2026 pricing"
+}
+```
+- `read_file`
+```json
+{
+  "path": "skills/deep-research/skill.md"
+}
+```
+
+### 5. user
+
+**Tool Results**
+
+- error=False
+```text
+TODO [0/4]
+1. ◉ Search knowledge base — Check existing knowledge base for prior 3D printer research and relevant references [Starting knowledge lookup for prior notes/references.]
+2. ◉ Load deep-research workflow — Read deep-research skill and decide execution strategy [Reading deep-research skill before deciding approach.]
+3. ○ Collect web sources — Gather current 2026 models, prices, and reviews from web sources
+4. ○ Build ranked recommendations — Synthesize recommendations for enclosed home-use printers around $1000
+```
+- error=False
+```text
+No results found.
+```
+- error=False
+```text
+File: skills/deep-research/skill.md (67 lines)
+  1 | ---
+  2 | name: deep-research
+  3 | description:
+  4 |   Read when the OPERATOR asks a question that will require web research across multiple
+  5 |   sources — recommendations, comparisons, evaluations, multi-factor decisions, "what
+  6 |   should I buy/use", or any question where you'd need to read several web pages. This
+  7 |   skill decides whether to spawn a background research agent (to protect your context
+  8 |   from heavy fetching) or handle it yourself. Do NOT read for simple factual lookups or
+  9 |   questions fully answered by your knowledge base.
+ 10 | ---
+ 11 | 
+ 12 | # Deep Research Skill
+ 13 | 
+ 14 | You're reading this because the OPERATOR's question needs multi-source research.
+ 15 | 
+ 16 | ## Why the Agent Exists
+ 17 | 
+ 18 | Each `web_fetch` dumps thousands of tokens into your context. Doing several fetches
+ 19 | inline to answer one question pollutes your main conversation — past messages get
+ 20 | compressed, future turns get worse. The deep-research agent runs in an **isolated
+ 21 | context** that is discarded after it delivers a summary. It protects your conversation
+ 22 | while doing the heavy reading.
+ 23 | 
+ 24 | ## Decision Process
+ 25 | 
+ 26 | ### Step 1: Check knowledge
+ 27 | 
+ 28 | Call `knowledge_search` first. If you find existing notes or references that adequately
+ 29 | answer the question, use them and respond directly. No agent needed.
+ 30 | 
+ 31 | ### Step 2: Spawn the agent
+ 32 | 
+ 33 | If knowledge didn't have a good answer, spawn the deep-research agent. You matched this
+ 34 | skill's description because the question needs multi-source research — that research
+ 35 | belongs in the agent's isolated context, not inline.
+ 36 | 
+ 37 | **Your next tool call after the knowledge check must be `agent_control`.** Do not call
+ 38 | `web_search` or `web_fetch` — every page you fetch inline is context you can never
+ 39 | reclaim. Let the agent do the heavy reading.
+ 40 | 
+ 4…[3278b total]
+```
+
+### 6. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `todo`
+```json
+{
+  "action": "batch_update",
+  "description": "",
+  "index": 0,
+  "items": [],
+  "note": "",
+  "status": "done",
+  "title": "",
+  "updates": [
+    {
+      "index": 1,
+      "note": "No existing notes/references found for this query.",
+      "status": "done"
+    },
+    {
+      "index": 2,
+      "note": "Deep-research skill loaded; must delegate web research to agent.",
+      "status": "done"
+    },
+    {
+      "index": 3,
+      "note": "Delegating collection to deep-research agent.",
+      "status": "in_progress"
+    }
+  ]
+}
+```
+- `agent_control`
+```json
+{
+  "action": "start",
+  "agent": "deep-research",
+  "agent_id": "",
+  "prompt": "Research and recommend enclosed 3D printers for home use with target budget around USD $1000 in 2026.\n\nOperator needs: concrete model recommendations, current pricing, and source-backed rationale.\n\nPlease investigate:\n1) Best enclosed printers around $700-$1300 (core around $1000), including strong alternatives above/below budget.\n2) For each model: current street price and MSRP (if available), enclosure status, build volume, key strengths/weaknesses, reliability/quality concerns, ecosystem/software, noise and home-friendliness, material support, and total ownership considerations.\n3) Compare at least 6-10 credible current models likely relevant in 2026 (e.g., Bambu Lab P1S/X1C class, Creality K1/K2 line, QIDI, Prusa Core One/MK4S enclosure bundles, Anycubic, etc. but do not assume these are best).\n4) Include concrete buying guidance: best overall around $1000, best value under $800, best premium stretch near $1300, and best for reliability/repairability.\n5) Include explicit sources with URLs for every pricing/spec/review claim. Prefer manufacturer pages for specs/prices and reputable review/testing sources for performance/reliability.\n6) Emphasize recency: prioritize late 2025-2026 data; flag outdated prices.\n7) Deliver a concise decision table plus final ranked picks for this operator profile (home use, enclosed needed, around $1000).\n\nReturn findings with citations (URL per claim)."
+}
+```
+
+### 7. user
+
+**Tool Results**
+
+- error=False
+```text
+TODO [2/4]
+1. ✓ Search knowledge base — Check existing knowledge base for prior 3D printer research and relevant references [No existing notes/references found for this query.]
+2. ✓ Load deep-research workflow — Read deep-research skill and decide execution strategy [Deep-research skill loaded; must delegate web research to agent.]
+3. ◉ Collect web sources — Gather current 2026 models, prices, and reviews from web sources [Delegating collection to deep-research agent.]
+4. ○ Build ranked recommendations — Synthesize recommendations for enclosed home-use printers around $1000
+```
+- error=False
+```text
+Agent 'deep-research' started (agent_id: 01KJF0EWBDRY6DMAF4715DE6JT). Check progress with agent_control(action: 'status', agent_id: '01KJF0EWBDRY6DMAF4715DE6JT').
+```
+
+### 8. assistant
+
+**Content**
+
+Great request — I’ve started a **deep-research background agent** to do this properly with current 2026 pricing and source-backed comparisons.
+
+I’ll come back with:
+- a short list of the best enclosed home-use printers around **$1000**
+- concrete pricing (and whether it’s MSRP vs street price)
+- tradeoffs (print quality, reliability, noise, ecosystem, materials)
+- clear “best overall / best value / best premium stretch / most repairable” picks
+- direct URLs for every key claim
+
+I’m on it now.
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+## Agent
+
+### 1. user
+
+**Content**
+
+Research and recommend enclosed 3D printers for home use with target budget around USD $1000 in 2026.
+
+Operator needs: concrete model recommendations, current pricing, and source-backed rationale.
+
+Please investigate:
+1) Best enclosed printers around $700-$1300 (core around $1000), including strong alternatives above/below budget.
+2) For each model: current street price and MSRP (if available), enclosure status, build volume, key strengths/weaknesses, reliability/quality concerns, ecosystem/software, noise and home-friendliness, material support, and total ownership considerations.
+3) Compare at least 6-10 credible current models likely relevant in 2026 (e.g., Bambu Lab P1S/X1C class, Creality K1/K2 line, QIDI, Prusa Core One/MK4S enclosure bundles, Anycubic, etc. but do not assume these are best).
+4) Include concrete buying guidance: best overall around $1000, best value under $800, best premium stretch near $1300, and best for reliability/repairability.
+5) Include explicit sources with URLs for every pricing/spec/review claim. Prefer manufacturer pages for specs/prices and reputable review/testing sources for performance/reliability.
+6) Emphasize recency: prioritize late 2025-2026 data; flag outdated prices.
+7) Deliver a concise decision table plus final ranked picks for this operator profile (home use, enclosed needed, around $1000).
+
+Return findings with citations (URL per claim).
+
+### 2. user
+
+**Content**
+
+Continue and finish this research task.
+
+### 3. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `knowledge_search`
+```json
+{
+  "categories": [
+    "notes",
+    "diary",
+    "references"
+  ],
+  "limit": 5,
+  "query": "enclosed 3D printers home use 2026 Bambu P1S X1C Creality K1 QIDI Prusa CORE One pricing"
+}
+```
+
+### 4. user
+
+**Tool Results**
+
+- error=False
+```text
+No results found.
+```
+
+### 5. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `web_search`
+```json
+{
+  "max_results": 8,
+  "query": "best enclosed 3D printers 2026 review"
+}
+```
+- `web_search`
+```json
+{
+  "max_results": 8,
+  "query": "3D printing community trusted review sites enclosed printer reddit"
+}
+```
+- `web_search`
+```json
+{
+  "max_results": 8,
+  "query": "Bambu Lab P1S price 2026 Creality K2 Plus QIDI Plus4 Prusa CORE One price"
+}
+```
+
+### 6. user
+
+**Tool Results**
+
+- error=False
+```text
+1. The Best 3D Printers We've Tested for 2026 | PCMag
+   https://www.pcmag.com/picks/the-best-3d-printers
+   As for the materials you'll use to print with, most affordable 3D printers use the abovementioned FFF technique, in which plastic filament—available in spools—is melted and extruded, then solidifies to form the object. The two most common types of filament are acrylonitrile butadiene styrene (ABS) and polylactic acid (PLA). Each has slightly different properties. For example, ABS melts at a higher temperature than PLA and is more flexible, but emits fumes when melted that many users find unpleasant, and it requires a heated print bed. PLA prints look smooth, but they tend to be on the brittle side. Other materials used in FFF printing include, but are not limited to, high-impact polystyrene (HIPS); composite filaments made of wood, bronze, and copper; UV-luminescent filaments; nylon; Tritan copolyester; polyvinyl alcohol (PVA); polyethylene terephthalate (PETT); polycarbonate; conductive PLA and ABS; plasticized copolyamide thermoplastic elastomer (PCTPE); and PC-ABS. Each material has a different melting point, so use of some exotic filaments is limited to printers designed for them or ones with software that lets you control the extruder temperature. So your printer needs to support a given kind of filament to use it. Filament comes in two diameters—1.85mm and 3mm—with most models using the smaller of the two. Filament is sold in spools, generally 1 kilogram (2.2 pounds), and costs $20 to $50 per kilogram for ABS and PLA. Although many 3D printers will accept generic spools, some companies' printers use proprietary spools or cartridges. These may contain an RFID chip that allows a printer to identify the filament type and properties but restricts the material to the manufacturer's compatible printers. Make sure the filament is the right diameter for your printer, and that the spool is the right size. In many cases, you can buy or make (even 3D print…[5043b total]
+```
+- error=False
+```text
+1. Enclosed CoreXY Printer Recommendations : r/3dprinter
+   https://www.reddit.com/r/3dprinter/comments/1lflvoj/enclosed_corexy_printer_recommendations/
+   Either Q1 Pro or P1S. P1S is more fool-proof, Q1 Pro has an active heating chamber -> you can print way more materials (and overall prints are stronger and ...
+   Sources: google #1 · score: 1.0
+
+2. 3D printer recommendations for 2025? : r/gridfinity
+   https://www.reddit.com/r/gridfinity/comments/1i23bm9/3d_printer_recommendations_for_2025/
+   the Prusa mk4s is probably your safest bet under 1.5k. it's solid out of the box, works fine with macos (via Prusaslicer) and the support/ ...
+   Sources: google #2 · score: 0.5
+
+3. For real 3D printer people, what is the bambu experience like? : r/BambuLab
+   https://www.reddit.com/r/BambuLab/comments/1emdowm/for_real_3d_printer_people_what_is_the_bambu/
+   If you enjoy printing things without any issues and in higher quality than basically anything on the market, Bambu Lab is the only choice.
+   Sources: google #3 · score: 0.3
+
+4. Most reliable 3D printer? : r/3Dprinting
+   https://www.reddit.com/r/3Dprinting/comments/1dvtpn1/most_reliable_3d_printer/
+   Is it still Prusa?
+   Sources: google #4 · score: 0.2
+
+5. Best 3d Printer? : r/3dprinter
+   https://www.reddit.com/r/3dprinter/comments/1q8bgrv/best_3d_printer/
+   Hello, I am looking for a 3d printer for my first printer. I’m pretty new to 3d printing and want to finally get my own. I would like one that can ...
+   Sources: google #5 · score: 0.2
+
+6. Enclosed 3D Printers with Heated Chambers – Thoughts on the Qidi Q1 ...
+   https://www.reddit.com/r/QidiTech3D/comments/1hqggzy/enclosed_3d_printers_with_heated_chambers/
+   Hi everyone, I’m looking for an enclosed 3D printer with a heated chamber, and I came across the Qidi Q1 Pro. It seems like a solid choice for its $450 ...
+   Sources: google #6 · score: 0.2
+
+7. Purchase Advice Megathread - February 2025 : r/3Dprinting
+   https://www.reddit.com/r/3Dprinting/…[2596b total]
+```
+- error=False
+```text
+1. Bambu Lab P1S Combo 3D Printer, P1S Multi-Color 3D Printer & AMS ...
+   https://www.amazon.co.jp/-/en/P1S-Combo-Multicolor-Temperature-Construction/dp/B0CHDS1DMC
+   1 offer from ¥71,999 · Creality K2 Plus Combo 3D Printer, Multi-Color Modeling, 3D ...
+   Sources: google #1 · score: 1.0
+
+2. Purchase Advice Megathread - January 2026 : r/3Dprinting
+   https://www.reddit.com/r/3Dprinting/comments/1q0w7x6/purchase_advice_megathread_january_2026/
+   Right now the Bambu P1s combo is $639 with the ams2 and $549 with the old AMS system. The Bambu P2s combo is $799. The snapmaker U1 is $850 but ...
+   Sources: google #2 · score: 0.5
+
+3. 3D Printer Price Tracker & Comparison by Aurora Tech Channel (FDM)
+   https://auroratechchannel.com/3d-printer-price.php
+   Creality K2 PLUS, $1,299.00, $1,199.00 to $1,649.00, 350x350x350 mm. Mid, Linear Rods, CoreXY, 600mm/s, 300mm/s, 350C/120C, Klipper, YES, ABL, Auto Z. Prusa
+   Sources: google #3 · score: 0.3
+
+4. Best 3D Printers 2026: Our Top Picks in 24 Categories
+   https://all3dp.com/1/best-3d-printer-reviews-top-3d-printers-home-3-d-printer-3d/
+   Also, the Creality K2 Pro is our new under $1,000 pick, our former pick, the Bambu Lab P1S, is now our recommendation under $500, and we've nixed the “Premium” ...
+   Sources: google #4 · score: 0.2
+
+5. Bambu Lab P1S 3D Printer
+   https://jp.store.bambulab.com/en/products/p1s
+   Bambu Lab P1S 3D Printer. SKU: PF001-U+SA001-JP. ¥99,000 円 ¥140,000 円. /. 税込価格. Save. Code: Copy. 特徴 ... PETG Translucent. 35% off. ¥2,210 円. ¥3,400 円.
+   Sources: google #5 · score: 0.2
+
+6. I reviewed more than 50 of the best 3D printers of 2026
+   https://www.techradar.com/best/best-3d-printers
+   7 日前 — Bambu Lab H2D 4-in-1 3D printer review. ^ Back to top. Best 3D ... Prusa Original Prusa Core One · Amazon. $1,446.96 · View · See all prices.
+   Sources: google #6 · score: 0.2
+
+7. Core-XY 3D Printers - Top 3D Shop
+   https://top3dshop.com/3d-printers/core-xy-kinemat…[2515b total]
+```
+
+### 7. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `web_search`
+```json
+{
+  "max_results": 10,
+  "query": "most trusted 3D printer review sites reddit all3dp tomshardware aurora tech channel makers muse"
+}
+```
+
+### 8. user
+
+**Tool Results**
+
+- error=False
+```text
+1. fanboy-cookiemonster.txt - V
+   https://easylist-downloads.adblockplus.org/fanboy-cookiemonster.txt
+   ... review ###gsk-consent ###gsoi-consent ###gtcookies-modal ###gtcookies-overlay ###gtd-cookie-consent ###gtm_cookie_panel ###gtm_privacy ###gujems-cookie ...
+   Sources: google #1 · score: 1.0
+
+2. 241.txt
+   https://filters.adtidy.org/windows/filters/241.txt
+   ... review ###gsk-consent ###gsoi-consent ###gtcookies-modal ###gtcookies ... aurora-nanobar ##.auskunft-cookies ##.austria_cookie_law ##.auth-cookie ...
+   Sources: google #2 · score: 0.5
+
+3. filter.txt - GitHub
+   https://raw.githubusercontent.com/AdguardTeam/FiltersRegistry/master/filters/ThirdParty/filter_241_FanboyCookiemonster/filter.txt
+   ... review ###gsk-consent ###gsoi-consent ###gtcookies-modal ###gtcookies-overlay ###gtd-cookie-consent ###gtm_cookie_panel ###gujems-cookie-banner ###gve ...
+   Sources: google #3 · score: 0.3
+
+4. fanboy-cookiemonster.txt
+   https://secure.fanboy.co.nz/fanboy-cookiemonster.txt
+   ... review ###gsk-consent ###gsoi-consent ###gtcookies-modal ###gtcookies-overlay ###gtd-cookie-consent ###gtm_cookie_panel ###gujems-cookie-banner ###gve ...
+   Sources: google #4 · score: 0.2
+
+5. EasyList – Cookie Notices
+   https://ublockorigin.pages.dev/thirdparties/easylist-cookies.txt
+   ... review ###gsk-consent ###gsoi-consent ###gtcookies-modal ###gtcookies-overlay ###gtd-cookie-consent ###gtm_cookie_panel ###gujems-cookie-banner ###gve ...
+   Sources: google #5 · score: 0.2
+
+6. 241.txt
+   https://filters.adtidy.org/extension/chromium/filters/241.txt
+   ... review ###gsk-consent ###gsoi-consent ###gtcookies-modal ###gtcookies ... aurora-nanobar ##.auskunft-cookies ##.austria_cookie_law ##.auth-cookie ...
+   Sources: google #6 · score: 0.2
+
+7. fanboy-cookiemonster.txt
+   http://136.243.188.188/fanboy-cookiemonster.txt
+   ... review ###gsk-consent ###gsoi-consent ###gtcookies-modal ###gtcookies-overlay ###gtd-cookie-consent ###gtm_cookie_panel ###gujems-cookie-banner ##…[3014b total]
+```
+
+### 9. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `web_search`
+```json
+{
+  "max_results": 8,
+  "query": "reddit trusted 3d printer reviewers Aurora Tech Channel CNC Kitchen Teaching Tech"
+}
+```
+- `web_search`
+```json
+{
+  "max_results": 8,
+  "query": "best 3d printer review websites all3dp tomshardware pcmag 2026"
+}
+```
+- `web_search`
+```json
+{
+  "max_results": 8,
+  "query": "enclosed corexy printer recommendations reddit P1S QIDI K1C 2026"
+}
+```
+
+### 10. user
+
+**Tool Results**
+
+- error=False
+```text
+1. Which YouTubers Can Be Trusted To Give Impartial Reviews? : r/3Dprinting
+   https://www.reddit.com/r/3Dprinting/comments/1rfg867/which_youtubers_can_be_trusted_to_give_impartial/
+   I'm in the market for my first printer. I'm considering a Qidi Q2, Bambu P1S or P2S, and maybe a Sovol SV08 or Elegoo CC. A lot of YouTubers seem ...
+   Sources: google #1 · score: 1.0
+
+2. Who is your favourite 3D printing youtuber? Honestly, some are losing ...
+   https://www.reddit.com/r/3Dprinting/comments/1f1lbq2/who_is_your_favourite_3d_printing_youtuber/
+   CNC Kitchen is a gem. He has done a lot of good for the hobby. Thomas Sandlerer had a lul for a while but his recent content has featured some really good ...
+   Sources: google #2 · score: 0.5
+
+3. What's your favourite 3D printing youtuber? : r/3Dprinting
+   https://www.reddit.com/r/3Dprinting/comments/187kpnt/whats_your_favourite_3d_printing_youtuber/
+   No one has mentioned Aurora Tech Channel? Most ... I'd say teaching tech, CNC kitchen rclifeon and rctestflight are my current favourites.
+   Sources: google #3 · score: 0.3
+
+4. Youtubers : r/3Dprinting
+   https://www.reddit.com/r/3Dprinting/comments/1iu7b39/youtubers/
+   They do more than just 3d printing but are head and shoulders above every 3d printing channel as they focus on building instead of reviews.
+   Sources: google #4 · score: 0.2
+
+5. An amazing Youtuber: AuroraTech : r/3Dprinting
+   https://www.reddit.com/r/3Dprinting/comments/1m5lglo/an_amazing_youtuber_auroratech/
+   Aurora Tech is straight to the point, does solid comparisons, and her attention to detail really helped me make some informed choices. You can ...
+   Sources: google #5 · score: 0.2
+
+6. Don't trust these bambu videos! : r/prusa3d
+   https://www.reddit.com/r/prusa3d/comments/1jk6235/dont_trust_these_bambu_videos/
+   CNCKitchen and Aurora Tech seem to provide objective reviews. CNC Kitchen already has a review out, Aurora Tech seems to get review units a ...
+   Sources: google #6 · score: 0.…[2324b total]
+```
+- error=False
+```text
+1. The Best 3D Printers We've Tested for 2026
+   https://www.pcmag.com/picks/the-best-3d-printers
+   2026/01/14 — The Best 3D Printer for 2026 ; Bambu Lab P2S. $549.00 at Bambu Lab ; Bambu Lab H2S. $1,499.99 at Best Buy ; Bambu Lab A1 mini. $249.99 at Best Buy.
+   Sources: google #1 · score: 1.0
+
+2. The Best 3D Printers for Home, Workshop or Business in 2026
+   https://www.tomshardware.com/best-picks/best-3d-printers
+   2026/02/12 — I've reviewed a hundred 3D printers since joining the Tom's Hardware team, putting each through rigorous testing for speed and accuracy.
+   Sources: google #2 · score: 0.5
+
+3. Best 3D Printers 2026: Our Top Picks in 24 Categories
+   https://all3dp.com/1/best-3d-printer-reviews-top-3d-printers-home-3-d-printer-3d/
+   Our updated buyer's guide to the best 3D printers in 24 categories, incl. home, pro, budget, & beginner's picks, backed by testing & reviews.
+   Sources: google #3 · score: 0.3
+
+4. The 3 Best 3D Printers of 2026 | Reviews by Wirecutter
+   https://www.nytimes.com/wirecutter/reviews/best-home-3d-printer/
+   2025/11/25 — We recommend the Bambu Lab A1 Mini because it's easy to set up and makes high-quality prints without needing any manual calibration.
+   Sources: google #4 · score: 0.2
+
+5. Best Budget 3D Printers Expert Review and Recommendations
+   https://3dprintingspace.com/t/best-budget-3d-printers-expert-review-and-recommendations/10264
+   2025/10/31 — I read reviews on Tom's Hardware, PCMag, and All3DP, and they are marking these two as the best options: FLASHFORGE Adventurer 5M Pro 3D Printer.
+   Sources: google #5 · score: 0.2
+
+6. Backlinks Outgoing Domains | PDF
+   https://www.scribd.com/document/881661960/Tomshardware-com-backlinks-Outgoing-Domains
+   The document contains a list of domains along with their associated metrics such as the number of links, first seen date, and last seen date.
+   Sources: google #6 · score: 0.2
+```
+- error=False
+```text
+1. Enclosed CoreXY printer recommendations? : r/3dprinter
+   https://www.reddit.com/r/3dprinter/comments/1ofhm2n/enclosed_corexy_printer_recommendations/
+   I'm looking to replace my OG Ender 3 with a second enclosed core by printer (I have a kobra s1). My question is can anyone suggest a printer thats quieter ...
+   Sources: google #1 · score: 1.0
+
+2. Best 3D Printer in 2026, If You Already Own a Bambu? : r/BambuLab
+   https://www.reddit.com/r/BambuLab/comments/1qyfxkw/best_3d_printer_in_2026_if_you_already_own_a_bambu/
+   TL;DR: If you want massive resin detail get the Anycubic M7. For high-temp materials get the QIDI Q2. For the best user-friendly experience get ...
+   Sources: google #2 · score: 0.5
+
+3. What's the best 3D printer for a beginner? (Little to no setup or easy ...
+   https://www.reddit.com/r/3dprinter/comments/1oh284g/whats_the_best_3d_printer_for_a_beginner_little/
+   I used to own a Creality Ender v3 but I ended up selling it because I was sick and tired of it working at random, one print it could go smooth and ...
+   Sources: google #3 · score: 0.3
+
+4. Enclosed CoreXY Printer Recommendations : r/3dprinter
+   https://www.reddit.com/r/3dprinter/comments/1lflvoj/enclosed_corexy_printer_recommendations/
+   Either Q1 Pro or P1S. P1S is more fool-proof, Q1 Pro has an active heating chamber -> you can print way more materials (and overall prints are stronger and ...
+   Sources: google #4 · score: 0.2
+
+5. Purchase Advice Megathread - January 2026 : r/3Dprinting
+   https://www.reddit.com/r/3Dprinting/comments/1q0w7x6/purchase_advice_megathread_january_2026/
+   Yeah coreXY is better in almost every way. Bed slingers need to move the mass of the whole hotbed which causes more vibration and slower print ...
+   Sources: google #5 · score: 0.2
+
+6. Looking for a Core-xy enclosed printer, Need help for final decision.
+   https://www.reddit.com/r/3Dprinting/comments/1pawq7y/buying_advice_looking_for_a_corexy_enclosed/
+   - Noise Doesn't matter, seperate room…[2790b total]
+```
+
+### 11. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `web_fetch`
+```json
+{
+  "readability": true,
+  "url": "https://www.reddit.com/r/3Dprinting/comments/1rfg867/which_youtubers_can_be_trusted_to_give_impartial/"
+}
+```
+- `web_fetch`
+```json
+{
+  "readability": true,
+  "url": "https://www.reddit.com/r/3dprinter/comments/1lflvoj/enclosed_corexy_printer_recommendations/"
+}
+```
+
+### 12. user
+
+**Tool Results**
+
+- error=False
+```text
+[ Skip to main content ](https://www.reddit.com/r/3Dprinting/comments/1rfg867/which_youtubers_can_be_trusted_to_give_impartial/#main-content)
+Which YouTubers Can Be Trusted To Give Impartial Reviews? : r/3Dprinting
+[ Go to 3Dprinting  ](https://www.reddit.com/r/3Dprinting/)
+[r/3Dprinting](https://www.reddit.com/r/3Dprinting/) • 18h ago
+[jefflovesyou](https://www.reddit.com/user/jefflovesyou/)
+#  Which YouTubers Can Be Trusted To Give Impartial Reviews? 
+I'm in the market for my first printer. I'm considering a Qidi Q2, Bambu P1S or P2S, and maybe a Sovol SV08 or Elegoo CC. 
+A lot of YouTubers seem to be sponsored or have some kind of stake in the printers they review. Who are the most trustworthy reviewers? 
+Read more 
+Share 
+[ Meshyai](https://www.reddit.com/user/Meshyai/) • Promoted
+At this point I’ve stopped pretending I’ll “hand-sculpt” everything. Meshy 6 just… gets it. NanoBanana makes surfaces look like I actually know what I’m doing 😅. Drop in your model → get studio-quality render → done. 🐶Limited time offer - 50% off for new users
+Sign Up
+meshy.ai 
+Collapse video player 
+[ Causification ](https://www.reddit.com/user/Causification/)
+• [ 17h ago ](https://www.reddit.com/r/3Dprinting/comments/1rfg867/comment/o7jsqrv/)
+Many youtubers are themselves trustworthy, but manufacturers are absolutely not trustworthy when it comes to sending out review units. If the youtuber got it for free it's almost certainly been ​carefully tested and hand-tuned by the manufacturer to give the absolute best performance possible. Always follow-up with reviews of off the shelf units. 
+18
+[ Single_Sea_6555 ](https://www.reddit.com/user/Single_Sea_6555/)
+• [ 17h ago ](https://www.reddit.com/r/3Dprinting/comments/1rfg867/comment/o7jus8h/)
+This ⬆️ Especially since reliability is one of the biggest areas where cost cutting or poor design can have an impact. And to be fair, even if the reviewer got a random printer (not hand selected), long term reviews…[10393b total]
+```
+- error=False
+```text
+# The heart of the internet
+
+[ Skip to main content ](https://www.reddit.com/r/3dprinter/comments/1lflvoj/enclosed_corexy_printer_recommendations/#main-content)
+Enclosed CoreXY Printer Recommendations : r/3dprinter
+[ Go to 3dprinter  ](https://www.reddit.com/r/3dprinter/)
+[r/3dprinter](https://www.reddit.com/r/3dprinter/) • 8mo ago
+[TapDeep1315](https://www.reddit.com/user/TapDeep1315/)
+#  Enclosed CoreXY Printer Recommendations 
+Hi all, 
+i am looking for some printer recommendations for an enclosed coreXY printer. There seems to be quite a few to pick through on the market and was looking for recommendations / experiences? 
+For context: I am coming from a 2014 Monoprice dual extruder & an original ender 3. So anything is going to be a massive improvement. 
+Currently browsing but not limited to: 
+Anycubic Kobra S1 
+Flashforge Adventurer 5M Pro 
+Elegoo Centauri Carbon 
+Sovol SV08 
+Creality K1 
+Bambu P1S 
+Qidi Tech Q1 Pro 3D Printer 
+Artillery M1 Pro 
+Thoughts on these? Best bang for your buck? Tinkering vs print time? Looking for personal experiences before I purchase. Thanks! 
+Read more 
+Share 
+[ maxpower__ ](https://www.reddit.com/user/maxpower__/)
+• [ 8mo ago ](https://www.reddit.com/r/3dprinter/comments/1lflvoj/comment/myq0k8g/)
+Bambu P1S, no messing around, just works. 
+[ TapDeep1315 ](https://www.reddit.com/user/TapDeep1315/)
+• [ 8mo ago ](https://www.reddit.com/r/3dprinter/comments/1lflvoj/comment/myt1vht/)
+bambu is always the most recommended. Other than pure functionality (which is all you ever need), is there any other advantage with choosing bambu? community, slicer, support etc? 
+[ Strict_Bird_2887 ](https://www.reddit.com/user/Strict_Bird_2887/)
+• [ 8mo ago ](https://www.reddit.com/r/3dprinter/comments/1lflvoj/comment/mywos9m/)
+The major disadvantage is Bambu locking down their ecosystem so that it wont work with 3rd party apps. 
+You also missed the Prusa CoreOne, which is probably one of the most premium CoreXY offerings currently, is open sourc…[15875b total]
+```
+
+### 13. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `todo`
+```json
+{
+  "action": "plan",
+  "description": "",
+  "index": 0,
+  "items": [
+    {
+      "description": "Fetch Aurora Tech Channel 3D printer price tracker/comparison page (community-trusted source for current street prices).",
+      "title": "Read specialist source: Aurora Tech price tracker"
+    },
+    {
+      "description": "Fetch Tom's Hardware 'Best 3D Printers' 2026 buyer guide (hands-on testing roundup).",
+      "title": "Read specialist source: Tom's Hardware roundup"
+    },
+    {
+      "description": "Fetch All3DP 2026 best 3D printers guide (broad category roundup).",
+      "title": "Read specialist source: All3DP roundup"
+    },
+    {
+      "description": "Fetch Reddit community discussion on trusted reviewers (to validate trusted-source selection: Aurora Tech/CNC Kitchen/etc.).",
+      "title": "Read community source: trusted reviewers thread"
+    },
+    {
+      "description": "Fetch Reddit enclosed CoreXY recommendations thread (community priorities and pain points).",
+      "title": "Read community source: enclosed CoreXY thread"
+    },
+    {
+      "description": "Fetch official Bambu Lab P1S product/store page for MSRP/specs.",
+      "title": "Fetch model spec/price: Bambu P1S"
+    },
+    {
+      "description": "Fetch official Bambu Lab X1 Carbon product/store page for MSRP/specs.",
+      "title": "Fetch model spec/price: Bambu X1C"
+    },
+    {
+      "description": "Fetch official Creality K1C page for MSRP/specs.",
+      "title": "Fetch model spec/price: Creality K1C"
+    },
+    {
+      "description": "Fetch official Creality K2 Plus page for MSRP/specs.",
+      "title": "Fetch model spec/price: Creality K2 Plus"
+    },
+    {
+      "description": "Fetch official QIDI Plus4 page for MSRP/specs.",
+      "title": "Fetch model spec/price: QIDI Plus4"
+    },
+    {
+      "description": "Fetch official QIDI Q1 Pro page for MSRP/specs.",
+      "title": "Fetch model spec/price: QIDI Q1 Pro"
+    },
+    {
+      "description": "Fetch official Prusa CORE One page for MSRP/specs.",
+      "title": "Fetch model spec/price: Prusa CORE One"
+    },
+    {
+      "description": "Fetch official Prusa MK4S + enclosure/bundle page for MSRP/specs.",
+      "title": "Fetch model spec/price: Prusa MK4S + enclosure"
+    },
+    {
+      "description": "Fetch official Anycubic Kobra S1 Combo page for MSRP/specs.",
+      "title": "Fetch model spec/price: Anycubic Kobra S1 Combo"
+    },
+    {
+      "description": "Fetch official Flashforge Adventurer 5M Pro page for MSRP/specs.",
+      "title": "Fetch model spec/price: Flashforge 5M Pro"
+    },
+    {
+      "description": "Fetch targeted review pages for key models (Tom's/PCMag/All3DP/Aurora) to collect strengths, weaknesses, reliability, noise, ecosystem.",
+      "title": "Fetch model review evidence"
+    }
+  ],
+  "note": "",
+  "status": "pending",
+  "title": "",
+  "updates": []
+}
+```
+
+### 14. user
+
+**Tool Results**
+
+- error=False
+```text
+TODO [0/16]
+1. ○ Read specialist source: Aurora Tech price tracker — Fetch Aurora Tech Channel 3D printer price tracker/comparison page (community-trusted source for current street prices).
+2. ○ Read specialist source: Tom's Hardware roundup — Fetch Tom's Hardware 'Best 3D Printers' 2026 buyer guide (hands-on testing roundup).
+3. ○ Read specialist source: All3DP roundup — Fetch All3DP 2026 best 3D printers guide (broad category roundup).
+4. ○ Read community source: trusted reviewers thread — Fetch Reddit community discussion on trusted reviewers (to validate trusted-source selection: Aurora Tech/CNC Kitchen/etc.).
+5. ○ Read community source: enclosed CoreXY thread — Fetch Reddit enclosed CoreXY recommendations thread (community priorities and pain points).
+6. ○ Fetch model spec/price: Bambu P1S — Fetch official Bambu Lab P1S product/store page for MSRP/specs.
+7. ○ Fetch model spec/price: Bambu X1C — Fetch official Bambu Lab X1 Carbon product/store page for MSRP/specs.
+8. ○ Fetch model spec/price: Creality K1C — Fetch official Creality K1C page for MSRP/specs.
+9. ○ Fetch model spec/price: Creality K2 Plus — Fetch official Creality K2 Plus page for MSRP/specs.
+10. ○ Fetch model spec/price: QIDI Plus4 — Fetch official QIDI Plus4 page for MSRP/specs.
+11. ○ Fetch model spec/price: QIDI Q1 Pro — Fetch official QIDI Q1 Pro page for MSRP/specs.
+12. ○ Fetch model spec/price: Prusa CORE One — Fetch official Prusa CORE One page for MSRP/specs.
+13. ○ Fetch model spec/price: Prusa MK4S + enclosure — Fetch official Prusa MK4S + enclosure/bundle page for MSRP/specs.
+14. ○ Fetch model spec/price: Anycubic Kobra S1 Combo — Fetch official Anycubic Kobra S1 Combo page for MSRP/specs.
+15. ○ Fetch model spec/price: Flashforge 5M Pro — Fetch official Flashforge Adventurer 5M Pro page for MSRP/specs.
+16. ○ Fetch model review evidence — Fetch targeted review pages for key models (Tom's/PCMag/All3DP/Aurora) to collect strengths…[2045b total]
+```
+
+### 15. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `web_fetch`
+```json
+{
+  "readability": false,
+  "url": "https://auroratechchannel.com/3d-printer-price.php"
+}
+```
+
+### 16. user
+
+**Tool Results**
+
+- error=False
+```text
+3D Printer Price Tracker & Comparison by Aurora Tech Channel (FDM)
+
+![Banner Image](images/banner-img.jpg)
+
+Recommendation list and Price Tracker of 3D Printers, Laser Engravers, and CNC Machines.
+
+[Visit Our YouTube Channel](https://www.youtube.com/@AuroraTech/videos) 
+
+#### Recent price drops detected for FDM 3D Printers (last 60 days)
+
+[![HI Combo](images/75/hicombo.jpg)](<redirect.php?brand=Creality&model=HI Combo>)
+
+Creality HI Combo
+
+$449.00  
+**$319.00**
+
+Price dropped by:  
+**$130.00 (28.95%)  
+Detected on Feb 26, 2026**  
+[Price history](<price-details.php?brand=Creality&model=HI Combo>)
+
+[![Kobra S1 Combo](images/75/kobras1combo.jpg)](<redirect.php?brand=AnyCubic&model=Kobra S1 Combo>)
+
+AnyCubic Kobra S1 Combo
+
+$499.00  
+**$429.00**
+
+Price dropped by:  
+**$70.00 (14.03%)  
+Detected on Feb 26, 2026**  
+[Price history](<price-details.php?brand=AnyCubic&model=Kobra S1 Combo>)
+
+[![Q2C](images/75/q2c.jpg)](redirect.php?brand=QiDi&model=Q2C)
+
+QiDi Q2C
+
+$399.00  
+**$379.00**
+
+Price dropped by:  
+**$20.00 (5.01%)  
+Detected on Feb 25, 2026**  
+[Price history](price-details.php?brand=QiDi&model=Q2C)
+
+[![H2D AMS](images/75/h2dams.jpg)](<redirect.php?brand=BambuLab&model=H2D AMS>)
+
+BambuLab H2D AMS
+
+$2,299.00  
+**$1,999.00**
+
+Price dropped by:  
+**$300.00 (13.05%)  
+Detected on Feb 15, 2026**  
+[Price history](<price-details.php?brand=BambuLab&model=H2D AMS>)
+
+[![P1S AMS](images/75/p1sams.jpg)](<redirect.php?brand=BambuLab&model=P1S AMS>)
+
+BambuLab P1S AMS
+
+$749.00  
+**$549.00**
+
+Price dropped by:  
+**$200.00 (26.70%)  
+Detected on Feb 15, 2026**  
+[Price history](<price-details.php?brand=BambuLab&model=P1S AMS>)
+
+[![P1S](images/75/p1s.jpg)](redirect.php?brand=BambuLab&model=P1S)
+
+BambuLab P1S
+
+$549.00  
+**$399.00**
+
+Price dropped by:  
+**$150.00 (27.32%)  
+Detected on Feb 15, 2026**  
+[Price history](price-details.php?brand=BambuLab&model=P1S)
+
+[![A1 Mini AMS Lite](images/75/a1miniamslite.jpg)](<redirect.php?brand=BambuLab&model=A1 Mini AMS Lite>)
+
+BambuLab A1 Mini …[48213b total]
+```
+
+### 17. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `todo`
+```json
+{
+  "action": "update",
+  "description": "",
+  "index": 1,
+  "items": [],
+  "note": "Fetched Aurora Tech price tracker with current prices, historical ranges, enclosure/build volume columns, and dated recent price drops (through Feb 2026).",
+  "status": "done",
+  "title": "",
+  "updates": []
+}
+```
+
+### 18. user
+
+**Tool Results**
+
+- error=False
+```text
+TODO [1/16]
+1. ✓ Read specialist source: Aurora Tech price tracker — Fetch Aurora Tech Channel 3D printer price tracker/comparison page (community-trusted source for current street prices). [Fetched Aurora Tech price tracker with current prices, historical ranges, enclosure/build volume columns, and dated recent price drops (through Feb 2026).]
+2. ○ Read specialist source: Tom's Hardware roundup — Fetch Tom's Hardware 'Best 3D Printers' 2026 buyer guide (hands-on testing roundup).
+3. ○ Read specialist source: All3DP roundup — Fetch All3DP 2026 best 3D printers guide (broad category roundup).
+4. ○ Read community source: trusted reviewers thread — Fetch Reddit community discussion on trusted reviewers (to validate trusted-source selection: Aurora Tech/CNC Kitchen/etc.).
+5. ○ Read community source: enclosed CoreXY thread — Fetch Reddit enclosed CoreXY recommendations thread (community priorities and pain points).
+6. ○ Fetch model spec/price: Bambu P1S — Fetch official Bambu Lab P1S product/store page for MSRP/specs.
+7. ○ Fetch model spec/price: Bambu X1C — Fetch official Bambu Lab X1 Carbon product/store page for MSRP/specs.
+8. ○ Fetch model spec/price: Creality K1C — Fetch official Creality K1C page for MSRP/specs.
+9. ○ Fetch model spec/price: Creality K2 Plus — Fetch official Creality K2 Plus page for MSRP/specs.
+10. ○ Fetch model spec/price: QIDI Plus4 — Fetch official QIDI Plus4 page for MSRP/specs.
+11. ○ Fetch model spec/price: QIDI Q1 Pro — Fetch official QIDI Q1 Pro page for MSRP/specs.
+12. ○ Fetch model spec/price: Prusa CORE One — Fetch official Prusa CORE One page for MSRP/specs.
+13. ○ Fetch model spec/price: Prusa MK4S + enclosure — Fetch official Prusa MK4S + enclosure/bundle page for MSRP/specs.
+14. ○ Fetch model spec/price: Anycubic Kobra S1 Combo — Fetch official Anycubic Kobra S1 Combo page for MSRP/specs.
+15. ○ Fetch model spec/price: Flashforge 5M Pro — Fetch official Flashforge Adventurer 5M…[2202b total]
+```
+
+### 19. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `web_fetch`
+```json
+{
+  "readability": true,
+  "url": "https://www.tomshardware.com/best-picks/best-3d-printers"
+}
+```
+
+### 20. user
+
+**Tool Results**
+
+- error=False
+```text
+# The Best 3D Printers for Home, Workshop or Business in 2026
+
+ ![Lineup of some of the best 3D printers of 2026 from Sovol, Elegoo, and Bambu Lab. Also showcasing the variety of 3D printer types we test and review — a bedslinger, a resin printer and a multi-color Core XY printer with AMS (automatic material system).](https://cdn.mos.cms.futurecdn.net/UJeoqPYwA7dSVuwKMj7RXa.png)
+
+(Image credit: Tom's Hardware) 
+
+I’ve reviewed a hundred 3D printers since joining the Tom’s Hardware team, putting each through rigorous testing for speed and accuracy. But a 3D printer can quickly turn into a fancy doorstop if it's not easy to use, maintain, and upgrade. I’ve traveled the globe, talking to both makers and manufacturers about what features make their favorite 3D printers the very best the world can offer.
+
+Consumer 3D printing is a rapidly evolving industry, going from bare wires and handmade nozzles to fully automatic plug-and-play machines in a mere dozen years. One of the most popular 3D printers on the market right now – the Bambu Lab X1C – launched as a Kickstarter project in 2022. This is why I review every 3D printer I can get my hands on, constantly marveling as manufacturers break records each and every year.
+
+It’s never been more affordable to get into 3D printing, with [Best Budget 3D Printers](https://www.tomshardware.com/best-picks/best-budget-3d-printers) starting at $200 or less. But not every printer is right for every job. High-precision prototyping requires a 3D printer like the [Prusa Original MK4S](https://www.tomshardware.com/3d-printing/prusa-mk4s-review), while colorful toys and games can be printed on your coffee table with [Best Multicolor 3D printers,](https://www.tomshardware.com/3d-printing/best-multicolor-3d-printers) such as the four-color [Bambu Lab A1 Mini](https://www.tomshardware.com/reviews/bambu-lab-a1-mini). Artists and tabletop gamers should check out our recommendations for the [Best Resin 3D Printers](https://www.tomsha…[48803b total]
+```
+
+### 21. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `todo`
+```json
+{
+  "action": "update",
+  "description": "",
+  "index": 2,
+  "items": [],
+  "note": "Fetched Tom's Hardware 2026 roundup with test methodology and model-specific strengths/weaknesses including enclosed recommendations and pricing references.",
+  "status": "done",
+  "title": "",
+  "updates": []
+}
+```
+
+### 22. user
+
+**Tool Results**
+
+- error=False
+```text
+TODO [2/16]
+1. ✓ Read specialist source: Aurora Tech price tracker — Fetch Aurora Tech Channel 3D printer price tracker/comparison page (community-trusted source for current street prices). [Fetched Aurora Tech price tracker with current prices, historical ranges, enclosure/build volume columns, and dated recent price drops (through Feb 2026).]
+2. ✓ Read specialist source: Tom's Hardware roundup — Fetch Tom's Hardware 'Best 3D Printers' 2026 buyer guide (hands-on testing roundup). [Fetched Tom's Hardware 2026 roundup with test methodology and model-specific strengths/weaknesses including enclosed recommendations and pricing references.]
+3. ○ Read specialist source: All3DP roundup — Fetch All3DP 2026 best 3D printers guide (broad category roundup).
+4. ○ Read community source: trusted reviewers thread — Fetch Reddit community discussion on trusted reviewers (to validate trusted-source selection: Aurora Tech/CNC Kitchen/etc.).
+5. ○ Read community source: enclosed CoreXY thread — Fetch Reddit enclosed CoreXY recommendations thread (community priorities and pain points).
+6. ○ Fetch model spec/price: Bambu P1S — Fetch official Bambu Lab P1S product/store page for MSRP/specs.
+7. ○ Fetch model spec/price: Bambu X1C — Fetch official Bambu Lab X1 Carbon product/store page for MSRP/specs.
+8. ○ Fetch model spec/price: Creality K1C — Fetch official Creality K1C page for MSRP/specs.
+9. ○ Fetch model spec/price: Creality K2 Plus — Fetch official Creality K2 Plus page for MSRP/specs.
+10. ○ Fetch model spec/price: QIDI Plus4 — Fetch official QIDI Plus4 page for MSRP/specs.
+11. ○ Fetch model spec/price: QIDI Q1 Pro — Fetch official QIDI Q1 Pro page for MSRP/specs.
+12. ○ Fetch model spec/price: Prusa CORE One — Fetch official Prusa CORE One page for MSRP/specs.
+13. ○ Fetch model spec/price: Prusa MK4S + enclosure — Fetch official Prusa MK4S + enclosure/bundle page for MSRP/specs.
+14. ○ Fetch model spec/price: Anycubic Kobra S1 Comb…[2361b total]
+```
+
+### 23. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `web_fetch`
+```json
+{
+  "readability": true,
+  "url": "https://all3dp.com/1/best-3d-printer-reviews-top-3d-printers-home-3-d-printer-3d/"
+}
+```
+
+### 24. user
+
+**Tool Results**
+
+- error=False
+```text
+# Best 3D Printers 2026: Our Top Picks in 24 Categories
+
+Our updated buyer's guide to the best 3D printers in 24 categories, incl. home, pro, budget, & beginner's picks, backed by testing & reviews.
+Advertisement
+**Jump to**
+  * [Overview](https://all3dp.com/1/best-3d-printer-reviews-top-3d-printers-home-3-d-printer-3d/#before-table)
+  * [What's Changed?](https://all3dp.com/1/best-3d-printer-reviews-top-3d-printers-home-3-d-printer-3d/#section-whats-changed)
+  * [Best 3D Printers 2026](https://all3dp.com/1/best-3d-printer-reviews-top-3d-printers-home-3-d-printer-3d/#section-best-3d-printers-2026)
+  * [Sponsored: Anycubic Kobra X](https://all3dp.com/1/best-3d-printer-reviews-top-3d-printers-home-3-d-printer-3d/#sponsored-anycubic-kobra-x)
+  * [Under $1,000 (Filament): Creality K2 Pro](https://all3dp.com/1/best-3d-printer-reviews-top-3d-printers-home-3-d-printer-3d/#under-1000-filament-creality-k2-pro)
+  * [Under $500 (Filament): Bambu Lab P1S](https://all3dp.com/1/best-3d-printer-reviews-top-3d-printers-home-3-d-printer-3d/#under-500-filament-bambu-lab-p1s)
+  * [Under $300 (Filament): Elegoo Centauri Carbon](https://all3dp.com/1/best-3d-printer-reviews-top-3d-printers-home-3-d-printer-3d/#under-300-filament-elegoo-centauri-carbon)
+  * [Under $200 (Filament): Creality Ender 3 V3 SE](https://all3dp.com/1/best-3d-printer-reviews-top-3d-printers-home-3-d-printer-3d/#under-200-filament-creality-ender-3-v3-se)
+  * [Enclosed: Prusa Core One+](https://all3dp.com/1/best-3d-printer-reviews-top-3d-printers-home-3-d-printer-3d/#enclosed-prusa-core-one)
+  * [Beginners: Bambu Lab A1 Mini](https://all3dp.com/1/best-3d-printer-reviews-top-3d-printers-home-3-d-printer-3d/#beginners-bambu-lab-a1-mini)
+  * [Large-Format: Original Prusa XL](https://all3dp.com/1/best-3d-printer-reviews-top-3d-printers-home-3-d-printer-3d/#large-format-original-prusa-xl)
+  * [Mid-Size: Qidi Tech Plus 4](https://all3dp.com/1/best-3d-printer-reviews-top-3d-printers-home-3-d-printer-3d/#mid-size-qidi-tech-pl…[88476b total]
+```
+
+### 25. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `todo`
+```json
+{
+  "action": "batch_update",
+  "description": "",
+  "index": 0,
+  "items": [],
+  "note": "",
+  "status": "pending",
+  "title": "",
+  "updates": [
+    {
+      "index": 3,
+      "note": "Fetched All3DP 2026 buyer guide including category winners, stated prices, update log through Jan 2026, and discussion of enclosure/material behavior.",
+      "status": "done"
+    },
+    {
+      "index": 4,
+      "note": "Fetched Reddit thread on trusted reviewers; repeated community mentions of Aurora Tech, CNC Kitchen, Thomas Sanladerer, plus caution about sponsored review units.",
+      "status": "done"
+    },
+    {
+      "index": 5,
+      "note": "Fetched Reddit enclosed CoreXY recommendation thread; strong community emphasis on P1S vs Q1 Pro/Plus4, Prusa CORE One reliability/service, and enclosure/chamber-heating tradeoffs.",
+      "status": "done"
+    }
+  ]
+}
+```
+
+### 26. user
+
+**Tool Results**
+
+- error=False
+```text
+TODO [5/16]
+1. ✓ Read specialist source: Aurora Tech price tracker — Fetch Aurora Tech Channel 3D printer price tracker/comparison page (community-trusted source for current street prices). [Fetched Aurora Tech price tracker with current prices, historical ranges, enclosure/build volume columns, and dated recent price drops (through Feb 2026).]
+2. ✓ Read specialist source: Tom's Hardware roundup — Fetch Tom's Hardware 'Best 3D Printers' 2026 buyer guide (hands-on testing roundup). [Fetched Tom's Hardware 2026 roundup with test methodology and model-specific strengths/weaknesses including enclosed recommendations and pricing references.]
+3. ✓ Read specialist source: All3DP roundup — Fetch All3DP 2026 best 3D printers guide (broad category roundup). [Fetched All3DP 2026 buyer guide including category winners, stated prices, update log through Jan 2026, and discussion of enclosure/material behavior.]
+4. ✓ Read community source: trusted reviewers thread — Fetch Reddit community discussion on trusted reviewers (to validate trusted-source selection: Aurora Tech/CNC Kitchen/etc.). [Fetched Reddit thread on trusted reviewers; repeated community mentions of Aurora Tech, CNC Kitchen, Thomas Sanladerer, plus caution about sponsored review units.]
+5. ✓ Read community source: enclosed CoreXY thread — Fetch Reddit enclosed CoreXY recommendations thread (community priorities and pain points). [Fetched Reddit enclosed CoreXY recommendation thread; strong community emphasis on P1S vs Q1 Pro/Plus4, Prusa CORE One reliability/service, and enclosure/chamber-heating tradeoffs.]
+6. ○ Fetch model spec/price: Bambu P1S — Fetch official Bambu Lab P1S product/store page for MSRP/specs.
+7. ○ Fetch model spec/price: Bambu X1C — Fetch official Bambu Lab X1 Carbon product/store page for MSRP/specs.
+8. ○ Fetch model spec/price: Creality K1C — Fetch official Creality K1C page for MSRP/specs.
+9. ○ Fetch model spec/price: Creality K2 Plus — Fetch official Creality…[2862b total]
+```
+
+### 27. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `web_search`
+```json
+{
+  "max_results": 5,
+  "query": "Bambu Lab P1S official store price specs"
+}
+```
+- `web_search`
+```json
+{
+  "max_results": 5,
+  "query": "Bambu Lab X1 Carbon official store price specs"
+}
+```
+- `web_search`
+```json
+{
+  "max_results": 5,
+  "query": "Creality K1C official store price specs"
+}
+```
+- `web_search`
+```json
+{
+  "max_results": 5,
+  "query": "Creality K2 Plus official store price specs"
+}
+```
+- `web_search`
+```json
+{
+  "max_results": 5,
+  "query": "QIDI Plus4 official price specs"
+}
+```
+
+### 28. user
+
+**Tool Results**
+
+- error=False
+```text
+No results found.
+```
+- error=False
+```text
+No results found.
+```
+- error=False
+```text
+No results found.
+```
+- error=False
+```text
+No results found.
+```
+- error=False
+```text
+No results found.
+```
+
+### 29. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `web_fetch`
+```json
+{
+  "readability": true,
+  "url": "https://us.store.bambulab.com/products/p1s"
+}
+```
+- `web_fetch`
+```json
+{
+  "readability": true,
+  "url": "https://us.store.bambulab.com/products/x1-carbon"
+}
+```
+- `web_fetch`
+```json
+{
+  "readability": true,
+  "url": "https://www.creality.com/products/creality-k1c-3d-printer"
+}
+```
+- `web_fetch`
+```json
+{
+  "readability": true,
+  "url": "https://www.creality.com/products/creality-k2-plus-combo-3d-printer"
+}
+```
+- `web_fetch`
+```json
+{
+  "readability": true,
+  "url": "https://qidi3d.com/products/plus4"
+}
+```
+
+### 30. user
+
+**Tool Results**
+
+- error=False
+```text
+# P1S 3D プリンター
+
+[コンテンツへ](https://jp.store.bambulab.com/products/p1s#main)
+カート
+よく一緒に購入されている商品
+対象オプションを一緒にカート追加でお得に
+※他のキャンペーンとの併用不可；請求書払いは対象外
+35% off
+¥2,210 円
+¥3,400 円
+1kg
+スプール付き
+グレー (10103)
+  * グレー (10103)
+  * シルバー (10102)
+  * ベージュ (10201)
+  * イエロー (10400)
+  * Bambu グリーン (10501)
+
+
+追加
+1 アイテム選択されました
+35% off
+¥2,210 円
+¥3,400 円
+1kg
+スプール付き
+マットアイボリーホワイト (11100)
+  * マットアイボリーホワイト (11100)
+  * マットアッシュグレー (11102)
+  * マットスカーレットレッド (11200)
+  * マット桜ピンク (11201)
+  * マットマリンブルー (11600)
+
+
+追加
+1 アイテム選択されました
+35% off
+¥2,210 円
+¥3,400 円
+1 kg
+スプール付き
+グレー (33101)
+  * グレー (33101)
+  * オレンジ (33300)
+  * ブルー (33600)
+
+
+追加
+1 アイテム選択されました
+35% off
+¥2,210 円
+¥3,400 円
+1 kg
+スプール付き
+半透明ティール (32501)
+  * 半透明ティール (32501)
+  * 半透明ピンク (32200)
+  * 半透明ライトブルー (32600)
+  * 半透明パープル (32700)
+  * 半透明ブラウン (32800)
+  * 半透明グレー (32100)
+  * 半透明オリーブ (32500)
+  * 半透明オレンジ (32300)
+  * クリア (32101)
+
+
+追加
+1 アイテム選択されました
+[Bambu ホットエンド - P1 シリーズ](https://jp.store.bambulab.com/products/bambu-hotend-p1-series?variant=44804676124964)
+30% off
+¥4,186 円
+¥5,980 円
+ステンレススチール 0.2mm ノズル / フルユニット
+  * ステンレススチール 0.2mm ノズル / フルユニット
+
+
+追加
+1 アイテム選択されました
+  * 日本国内倉庫から2営業日以内出荷（配送規約は[こちら](https://jp.store.bambulab.com/policies/shipping-policy)）
+  * 14日間…[6956b total]
+```
+- error=False
+```text
+# 3Dプリンター
+
+[コンテンツへ](https://jp.store.bambulab.com/collections/3d-printer#main)
+カート
+お薦め  売れ筋  アルファベット順, A-Z  アルファベット順, Z-A  価格の安い順  価格の高い順  古い商品順  新着順 
+並べ替え 
+Sold out
+On sale
+##  [Bambu Lab P2S](https://jp.store.bambulab.com/products/p2s?variant=51168775176484)
+¥148,000 ¥148,000 ¥0 ¥0 ¥148,000 ¥148,000 ¥148,000
+Sold out
+On sale
+##  [Bambu Lab H2D](https://jp.store.bambulab.com/products/h2d?variant=50569817620772)
+¥399,800 ¥399,800 ¥0 ¥0 ¥399,800 ¥399,800 ¥399,800
+Sold out
+On sale
+##  [Bambu Lab H2S](https://jp.store.bambulab.com/products/h2s?variant=51069891969316)
+¥249,800 ¥249,800 ¥0 ¥0 ¥249,800 ¥249,800 ¥249,800
+Sold out
+On sale
+##  [P1S 3D プリンター](https://jp.store.bambulab.com/products/p1s?variant=45822889951524)
+¥99,000 ¥99,000 ¥140,000 ¥140,000 ¥99,000 ¥99,000 ¥99,000
+Sold out
+On sale
+##  [Bambu Lab A1 mini 3D プリンター](https://jp.store.bambulab.com/products/a1-mini?variant=47751885848868)
+¥29,800 ¥29,800 ¥52,800 ¥52,800 ¥29,800 ¥29,800 ¥29,800
+Sold out
+On sale
+##  [Bambu Lab A1 3D プリンター](https://jp.store.bambulab.com/products/a1?variant=47751837384996)
+¥72,800 ¥72,800 ¥99,800 ¥99,800 ¥72,800 ¥72,800 ¥72,800
+##  [Bambu Lab X1E Combo](https://jp.store.bambulab.com/products/x1e)
+¥458,000 円
+Sold out
+On sale
+##  [Bambu Lab H2D Pro](https://jp.store.bambulab.com/products/h2d-pro?variant=51983010201892)
+¥598,000 ¥598,000 ¥0 ¥0 ¥598,000 ¥598,000 ¥598,000
+Sold out
+On sale
+##  [Bambu Lab H2C](https://jp.store.bambulab.com/products/h2c?variant=51402320871716)
+¥399,900 ¥399,900 ¥0 ¥0 ¥399,900 ¥399,900 ¥399,900
+お問合せ 
+テクニカルサポート
+```
+- error=False
+```text
+Welcome to Creality [ _SPARKX i7 Preorder_](https://www.creality.com/products/sparkx-i7) 🔥 
+## Oops! Page not found?
+Oops! Page not found? We are very sorry for inconvenience. It looks like you're trying to access a page that either has been deleted or never even existed.
+Back To Home
+This site doesn't match your current location. Would you like to switch?
+Continue HereSwitch Now
+This site doesn't match your current location. Would you like to switch?
+Continue HereSwitch Now
+```
+- error=False
+```text
+Welcome to Creality [ _SPARKX i7 Preorder_](https://www.creality.com/products/sparkx-i7) 🔥 
+## Oops! Page not found?
+Oops! Page not found? We are very sorry for inconvenience. It looks like you're trying to access a page that either has been deleted or never even existed.
+Back To Home
+This site doesn't match your current location. Would you like to switch?
+Continue HereSwitch Now
+This site doesn't match your current location. Would you like to switch?
+Continue HereSwitch Now
+```
+- error=False
+```text
+[Skip to content](https://qidi3d.com/products/plus4#MainContent)
+icon-X Close menu
+  * [🌿Spring Sale](https://qidi3d.com/pages/spring-sale "🌿Spring Sale")
+    *       * [⏳Weekly Deals](https://qidi3d.com/collections/weekly-deals "⏳Weekly Deals")
+        *           * [Sale Qidi Tech Online Store Basic filament mystery box ¥2,800¥16,300 ](https://qidi3d.com/products/basic-filament-mystery-box)
+[Sale Qidi Tech Online Store PEBA 95A ¥6,800¥8,000 ](https://qidi3d.com/products/peba-95a)
+[ Qidi Tech ABS-GF25 Filament ¥5,699 ](https://qidi3d.com/products/qidi-tech-abs-gf25-filament)
+[Sale Qidi Tech Online Store TPU-Aero Filament ¥6,700¥7,400 ](https://qidi3d.com/products/tpu-aero)
+[Sale Qidi Tech EU Online Shop Q2 Tungsten Carbide Bimetal Nozzle (1pc) ¥7,700¥9,600 ](https://qidi3d.com/products/q2-tungsten-carbide-bimetal-nozzle-1pc)
+[ Qidi Tech Plus4 Bimetal Nozzle hotend ¥6,699 ](https://qidi3d.com/products/plus4-bimetal-hot-end)
+[ Qidi Tech Q1-Pro/X-Max 3/X-Plus 3 Bimetal Nozzles (2pcs) ¥3,799 ](https://qidi3d.com/products/q1pro-bimetal-nozzles-2pcs)
+  * [🔥Printer](https://qidi3d.com/collections/3d-printers "🔥Printer")
+    *       * New Arrival
+      * [Sale Qidi Tech Online Store QIDI Max4 3D Printer ¥162,999¥177,999 ](https://qidi3d.com/products/max4)
+    *       * Q Series
+      * [ QIDI QIDI Q2 3D Printer ¥72,999 ](https://qidi3d.com/products/qidi-q2)
+      * [ Qidi Tech Online Store QIDI Q2C 3D Printer ¥60,300 ](https://qidi3d.com/products/q2c)
+      * [ Qidi Tech Qidi Tech Q1 Pro 3D Printer ¥59,999 ](https://qidi3d.com/products/q1-pro-3d-printer)
+    *       * Best-selling in 2025
+      * [ QIDI QIDI Plus4 3D Printer ¥102,999 ](https://qidi3d.com/products/plus4-3d-printer)
+      * [ Qidi Tech Qidi Tech X-Max 3 3D Printer ¥89,999 ](https://qidi3d.com/products/qidi-x-max-3)
+    *       * QIDI BOX
+      * [ Qidi Tech Online Store QIDI Box ¥32,999 ](https://qidi3d.com/products/qidi-box)
+  * [Filaments](https://qidi3d.com/collections/q…[9942b total]
+```
+
+### 31. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `web_search`
+```json
+{
+  "max_results": 5,
+  "query": "site:prusa3d.com Core One price kit assembled"
+}
+```
+- `web_search`
+```json
+{
+  "max_results": 5,
+  "query": "site:prusa3d.com MK4S enclosure bundle"
+}
+```
+- `web_search`
+```json
+{
+  "max_results": 5,
+  "query": "site:store.creality.com K1C price"
+}
+```
+- `web_search`
+```json
+{
+  "max_results": 5,
+  "query": "site:store.creality.com K2 Plus combo price"
+}
+```
+- `web_search`
+```json
+{
+  "max_results": 5,
+  "query": "site:qidi3d.com Q1 Pro 3D Printer price"
+}
+```
+
+### 32. user
+
+**Tool Results**
+
+- error=False
+```text
+No results found.
+```
+- error=False
+```text
+No results found.
+```
+- error=False
+```text
+No results found.
+```
+- error=False
+```text
+No results found.
+```
+- error=False
+```text
+No results found.
+```
+
+### 33. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `web_fetch`
+```json
+{
+  "readability": true,
+  "url": "https://auroratechchannel.com/redirect.php?brand=Prusa&model=Core%20One%20Assembled"
+}
+```
+- `web_fetch`
+```json
+{
+  "readability": true,
+  "url": "https://auroratechchannel.com/redirect.php?brand=Prusa&model=MK4S%20Assembled"
+}
+```
+- `web_fetch`
+```json
+{
+  "readability": true,
+  "url": "https://auroratechchannel.com/redirect.php?brand=AnyCubic&model=Kobra%20S1%20Combo"
+}
+```
+- `web_fetch`
+```json
+{
+  "readability": true,
+  "url": "https://auroratechchannel.com/redirect.php?brand=FlashForge&model=Adventurer%205M%20Pro"
+}
+```
+- `web_fetch`
+```json
+{
+  "readability": true,
+  "url": "https://auroratechchannel.com/redirect.php?brand=Creality&model=K1C"
+}
+```
+
+### 34. user
+
+**Tool Results**
+
+- error=False
+```text
+# Prusa CORE One+ | Original Prusa 3D printers directly from Josef Prusa
+
+Prusa CORE One marked a significant leap forward in the CoreXY market, with [TechRadar](https://www.techradar.com/pro/original-prusa-core-one-3d-printer-review) calling it “by far the most advanced and functional printer of this type on the market at present.” Recognized for its excellent build and professional-grade features, it delivers consistently reliable performance with top speed, accuracy, and versatility – earning it the title of “Best Enclosed 3D Printer of 2025” by [All3DP](https://all3dp.com/1/best-3d-printer-reviews-top-3d-printers-home-3-d-printer-3d/#enclosed-prusa-core-one). With a Red Dot Award to its name, it also proves that functionality can go hand-in-hand with standout design.
+
+## Seamless Workflow
+
+### Everything you need under one roof
+
+When you buy the Prusa CORE One+, you’re getting **a full experience** – a huge free 3D model library, an easy to use software, remote management, native mobile app, premium quality materials… everything is ready for your convenience!
+
+ 
+
+![Printables.com](https://auroratechchannel.com/cdn-cgi/image/width=640,format=auto,quality=30,blur=50/content/wysiwyg/fotky/C1/printables-large.jpg)![Printables.com](https://auroratechchannel.com/cdn-cgi/image/width=640,format=auto,quality=85/content/wysiwyg/fotky/C1/printables-large.jpg)
+
+### Printables.com
+
+You don’t have to be a designer to use a 3D printer! Our database of hundreds of thousands of free 3D models is just a click away. [Printables.com](https://www.printables.com/) is **actively developed and ever-growing,** so go ahead and **get amazing prints by talented creators and even official printable accessories** for a variety of popular products thanks to Printables Brands. You can send models from [Printables.com](https://www.printables.com/) to PrusaSlicer in a single click!
+
+![EasyPrint](https://www.prusa3d.com/cdn-cgi/image/width=640,format=auto,quality=30,blur=50/con…[56188b total]
+```
+- error=False
+```text
+# Original Prusa MK4S 3D Printer | Original Prusa 3D printers directly from Josef Prusa
+
+## Add-ons
+
+ 
+
+### MMU3
+
+MK4S can be enhanced by an optional add-on that allows your single-extruder printer to [print with up to 5 colors (materials) at the same time](https://auroratechchannel.com/product/original-prusa-mmu3-upgrade-kit-for-mk3-9-4/). Load the five colors of your choice, slice the object in PrusaSlicer, start the print, and let the MMU3 do the rest.
+
+With all-new plastic parts, reinforced metal parts and firmware built from the ground up, the [MMU3](https://auroratechchannel.com/product/original-prusa-mmu3-upgrade-kit-for-mk3-9-4/) delivers stunning multi-material prints faster and more efficiently than its competitors. With 25-35 seconds per filament change and optimized nozzle cleaning, the prints are beautifully fast and reliable, and you don’t have to worry about cleaning piles of wasted filament scraps from around your printer all the time.
+
+The MMU3 is up to three times more efficient in managing filament waste compared to other single-nozzle multi-material systems, bringing substantial cost savings.
+
+![MMU3](https://auroratechchannel.com/cdn-cgi/image/format=auto,quality=30,blur=50/content/wysiwyg/fotky/MK4/redesign/mmu3_add-on.jpg)![MMU3](https://auroratechchannel.com/cdn-cgi/image/format=auto,quality=85/content/wysiwyg/fotky/MK4/redesign/mmu3_add-on.jpg)
+
+The high-flow nozzle in the MK4S allows for much faster printing. However, when using the MMU3, the standard nozzle makes much more sense. Why? While the MMU3 works fine with a high-flow nozzle, the increased volumetric flow results in higher filament waste during printing. In other words, the MMU3 delivers the best performance, the same speed and the highest efficiency (lowest waste) when combined with the **standard** nozzle in both MK4 and MK4S.
+
+So, if you order a standalone MMU3 for the MK4S you will receive it along with the standard nozzle. In the MK4S/MMU3 bundle, you will receive both noz…[47583b total]
+```
+- error=False
+```text
+# Anycubic Kobra S1 Combo: Budget Multicolor 3D Printing | Anycubic
+
+1.  [Home](https://auroratechchannel.com/)
+2.  
+3.  Anycubic Kobra S1 Combo
+
+ 
+
+ Include Machine 
+
+ Include Filament 
+
+ Shipping & Adapter 
+
+ 
+
+ 
+
+ Features Specifications What's In Box Compare Reviews FAQs 
+
+Regular price $429.00 
+
+Sale price $429.00 Regular price $749.00 
+
+ Unit price  per  
+
+Add to cart
+
+ 
+
+*   Drying & Printing at the Same Time
+
+*   Vibrant 8-Color Printing
+
+*   Compatible with all Major Filaments
+
+*   Fully Enclosed Core XY Construction
+
+*   Printing Speed Up to 600mm/s
+
+*   320°C Hotend, 44dB Quiet Print Mode
+
+ 
+
+![](https://store.anycubic.com/cdn/shop/files/1400_840_-1.jpg?v=1750781808&width=1500) 
+
+## ACE Pro for Kobra S1 Printer & Dryer 2-in-1
+
+-Flawless Printing with PLA/ABS/ASA/PETG/TPU\[1\] filaments  
+-Active Drying While Printing
+
+ 
+
+ 
+
+![](https://store.anycubic.com/cdn/shop/files/1400_840_-2.jpg?v=1750782054&width=1500) 
+
+## Stunning 4- or 8-Color Printing\[2\]
+
+-Anti-Filament Entanglement\[3\]  
+-Auto-Filament Refill
+
+ 
+
+ 
+
+Superior Doesn't Even Begin to Describe it 
+
+ Fully-Enclosed CoreXY Construction 
+
+ LeviQ3.0 Auto-Leveling + Z-axis Offset 
+
+ Resonance Compensation 
+
+ Dynamic Flow Compensation 
+
+ 
+
+![](https://store.anycubic.com/cdn/shop/files/1400_840_-5.jpg?v=1750782786&width=1500) 
+
+-320℃ Tools-Free Quick-Release Hotend  
+-Aerospace-Grade Ceramic Composite Throat Tube  
+ Maximum Heat Resistance  
+ Low-Friction Surface  
+-It comes standard with 0.4mm hotend, and supports 0.2mm/0.6mm/0.8mm hotends\[4\]. 
+
+ 
+
+ 
+
+![](https://store.anycubic.com/cdn/shop/files/1400_840_-6.jpg?v=1750783007&width=1500) 
+
+## 4 Intuitive Designs
+
+-Standard Print Mode as Low as 46dB  
+ Quiet Print Mode as Low as 44dB\[5\]  
+-Unbox & Start Printing in 15mins  
+-4.3'' Adjustable Touchscreen  
+-Cleaning Channel Cut-Out 
+
+ 
+
+ 
+
+AI Takes Care of Everything 
+
+ -Spaghetti Detection\[6\] 
+
+ -Belt-Tension Monitoring 
+
+ -Power-Loss Resume 
+
+ 
+
+ ![ANYCUBIC-STORE](https://store.anycubic.com/…[11499b total]
+```
+- error=False
+```text
+# Flashforge Adventurer 5M Pro 3D Printer, Enclosed CoXY Metal Structure, Safe for Home Use
+
+#### **Save an extra $70, discount auto-applied in cart.**
+
+*   **10 Minutes or Less**: Quick Setup, No Experience Needed
+*   **220 × 220 × 220 mm**: Sufficient space for most prints
+*   **600mm/s**: Max Printing Speed
+*   **20000mm/s²**: Max Acceleration
+*   **CoXY structure**: Reduces errors from vibrations and shifts
+*   **Safe for Home or Classroom Use**: Block 99% of particulates and VOCs
+*   **Real-time Observation**: Monitor prints remotely and create time-lapse videos
+
+Shipping:Ship from the end of February
+
+Ship from the end of February 
+
+[Specs](#product_specs)[Reviews](#judgeme_product_reviews)
+
+## **Fast Shipping**
+
+3D printers are shipped from international local warehouses, while accessories come from the China warehouse. Orders with both will be split into multiple packages. 3D printers usually arrive in 2-5 working days, while accessories may take longer due to customs and other factors.
+
+###### **Note**：Actual delivery times may vary based on logistics. Please note that shipping delays can occur during peak seasons.
+
+## **30-Day Return**
+
+Flashforge accepts returns for 3D printers within 30 days of delivery. The Return Policy provides details on return options and procedures. For more information, please refer to the [return policy](https://flashforge.com/pages/shipping-policy)
+
+## **Fast Shipping**
+
+3D printers are shipped from international local warehouses, while accessories come from the China warehouse. Orders with both will be split into multiple packages. 3D printers usually arrive in 2-5 working days, while accessories may take longer due to customs and other factors.
+
+###### **Note**：Actual delivery times may vary based on logistics. Please note that shipping delays can occur during peak seasons.
+
+## **30-Day Return**
+
+Flashforge accepts returns for 3D printers within 30 days of delivery. The Return Policy provides details on return options a…[8469b total]
+```
+- error=False
+```text
+# K1C Carbon Fiber 3D Printer - Creality Store
+
+[🎓 6% Student Discount](https://store.creality.com/pages/student-discount) valid sitewide! 
+🚚 Free Shipping on All 3D Printers & Scanners
+[🔔 Subscribe ](https://id.creality.com/sign-up?app_id=creality_dtc&response_type=code&client_id=18faee077b54598f87f25aa0d6ca4eb7&redirect_uri=https%3A%2F%2Fstore.creality.com%2Faccount%2F&lang=en-US&siteCode=US) to obtain a **💵 $500** coupon pack for your order! 
+US
+[Store/](https://store.creality.com/)[Flagship Series/](https://store.creality.com/collections/flagship-series)[K1C 2025 3D Printer](https://store.creality.com/products/k1c-3d-printer)
+1 / 15
+14-Day Return & Refund
+100% Secure Checkout
+Up to 12-Month Warranty
+Lifetime Customer Support
+# K1C 2025 3D Printer
+## Note：The K1C 2025 keeps all the great features of the K1C and it is also set to unlock multi-color printing with the new CFS! Keep an eye out for the official launch details.
+141 reviews
+$499.00$559.00
+Save $60.00
+Earn 99 points.
+Discover More Products
+[K1C 2025 3D Printer](https://store.creality.com/products/k1c-3d-printer)[K1 Max AI Fast 3D Printer](https://store.creality.com/products/k1-max-3d-printer)[K1 3D Printer](https://store.creality.com/products/k1-3d-printer)
+##### Options
+K1C 2025 3D Printer
+$499.00
+Save $60.00
+K1C 3D Printer+ SpacePi X4+Hyper RFID*2
+$514.19
+Save $259.79
+Combo Details
+K1C+Hyper PLA*2+Dryer Plus+Nozzle Kit
+$454.19
+Save $272.75
+Combo Details
+K1C+Hyper PLA-CF*2
+$416.99
+Save $183.99
+Combo Details
+##### Accessories
+Creality CFS-C Multicolor Kit
+$319.00
+-1+
+"Unicorn" Quick-Swap Nozzle Kit for K1C/Ender-3 V3/Ender-3 V3 Plus
+~~$40.94~~ $36.85
+-1+
+K1C PEI Build Plate（Without soft magnetic sticker）
+~~$23.31~~ $20.98
+-1+
+Teflon Tube Kit 2M
+~~$9.26~~ $8.33
+-1+
+-1+
+K1C 2025 3D Printer
+$499.00$559.00
+Save $60.00
+Worry-Free Delivery available with seel.
+Safe & secure checkout
+Estimated Shipping Date
+Feb 27 - Mar 1
+Share
+### K1C 
+Champion of Speed & Skills 
+Suitable for Carbon Fiber 3D …[20417b total]
+```
+
+### 35. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `web_fetch`
+```json
+{
+  "readability": true,
+  "url": "https://store.creality.com/products/creality-k2-plus-combo-3d-printer"
+}
+```
+- `web_fetch`
+```json
+{
+  "readability": true,
+  "url": "https://auroratechchannel.com/redirect.php?brand=QiDi&model=PLUS%204"
+}
+```
+- `web_fetch`
+```json
+{
+  "readability": true,
+  "url": "https://auroratechchannel.com/redirect.php?brand=QiDi&model=Q1%20Pro"
+}
+```
+- `web_fetch`
+```json
+{
+  "readability": true,
+  "url": "https://bambulab.com/en/x1"
+}
+```
+- `web_fetch`
+```json
+{
+  "readability": true,
+  "url": "https://auroratechchannel.com/redirect.php?brand=BambuLab&model=P1S"
+}
+```
+
+### 36. user
+
+**Tool Results**
+
+- error=False
+```text
+# K2 Plus Combo 3D Printer - Large Volume, Multi-Color
+
+[🎓 6% Student Discount](https://store.creality.com/pages/student-discount) valid sitewide! 
+🚚 Free Shipping on All 3D Printers & Scanners
+[🔔 Subscribe ](https://id.creality.com/sign-up?app_id=creality_dtc&response_type=code&client_id=18faee077b54598f87f25aa0d6ca4eb7&redirect_uri=https%3A%2F%2Fstore.creality.com%2Faccount%2F&lang=en-US&siteCode=US) to obtain a **💵 $500** coupon pack for your order! 
+US
+[Store/](https://store.creality.com/)[Flagship Series/](https://store.creality.com/collections/flagship-series)[K2 Plus Combo 3D Printer](https://store.creality.com/products/creality-k2-plus-combo-3d-printer)
+2 / 23
+14-Day Return & Refund
+100% Secure Checkout
+Up to 12-Month Warranty
+Lifetime Customer Support
+# K2 Plus Combo 3D Printer
+Pay in 4, Interest-FreeFree ShippingCreality Cloud 1 Year Premium
+## 🔥 🔥 Hot Sale Now! 🔔Friendly Reminder: Due to multiple combo options, please select and confirm your desired model before placing your order.
+428 reviews
+$1,299.00$1,499.00
+Save $200.00
+Earn 259 points.
+Discover More Products
+[K2 Plus Combo 3D Printer](https://store.creality.com/products/creality-k2-plus-combo-3d-printer)[Creality K2 Plus 3D Printer](https://store.creality.com/products/creality-k2-plus-3d-printer)
+##### Options
+K2 Plus Combo( CFS*1+Filament*4)
+$1,299.00
+Save $200.00
+🔥Top Seller 
+K2 Plus+ CFS + Unicorn" Nozzle Kit + Build Plate
+$1,388.39
+Save $643.41
+Combo Details
+Best Value
+K2 Plus+CFS*1
+$1,354.20
+Save $413.80
+Combo Details
+K2 Plus 3D Printer with CFS*4 High-End Combo
+$2,119.80
+Save $230.00
+Combo Details
+16-Color Printing
+K2 Plus/Combo 3D Printer with Scanner High-End Combo
+$1,918.00
+Save $690.00
+Combo Details
+High Value Combo
+K2 Plus 3D Printer with CFS*2 Advanced Combo
+$1,609.40
+Save $230.00
+Combo Details
+Creality K2 Plus 3D Printer & Falcon A1 10W Engraver Combo
+$1,738.20
+Save $509.80
+Combo Details
+##### Accessories
+"Unicorn" Quick-Swap Nozzle Kit (Compatible with K2/K2 Plu…[31840b total]
+```
+- error=False
+```text
+# QIDI Plus4 3D Printer
+
+*
+*   *   *   [Q2](https://auroratechchannel.com/products/qidi-q2)
+        *   [Plus4](https://auroratechchannel.com/products/plus4-3d-printer)
+        *   [Q1 Pro](https://auroratechchannel.com/products/q1-pro-3d-printer)
+        *   [X-Max3](https://auroratechchannel.com/products/qidi-x-max-3)
+
+    *   *   [X-Plus3](https://auroratechchannel.com/products/qidi-x-plus-3)
+        *   [X-Smart3](https://auroratechchannel.com/products/qidi-x-smart-3)
+        *   [X-CF Pro](https://auroratechchannel.com/products/qidi-x-cf-pro-especially-designed-for-printing-carbon-fiber-and-nylon)
+
+    *   *   [I-Fast](https://auroratechchannel.com/products/qidi-i-fast-a-pioneer-in-solving-complex-printing)
+
+*   *   *   [UltraPA-CF25(PPA-CF Core)](https://auroratechchannel.com/products/ultrapa-cf25-filament)
+        *   [PPS-CF](https://auroratechchannel.com/products/pps-cf-filament)
+        *   [PAHT-GF](https://auroratechchannel.com/products/paht-gf-filament)
+        *   [PET-GF](https://auroratechchannel.com/products/pet-gf-filament)
+        *   [🔥PET-CF](https://auroratechchannel.com/products/pet-cf-filament)
+        *   [PAHT-CF(PPA-CF)](https://auroratechchannel.com/products/qidi-paht-cf-carbon-fiber-filament)
+        *   [PA12-CF](https://auroratechchannel.com/products/qidi-carbon-fiber-filament-pa12-cf)
+        *   [Ultra PA Nylon](https://auroratechchannel.com/products/qidi-nylon-filament-ultrapa)
+        *   [PC/ABS-FR](https://auroratechchannel.com/products/qidi-tech-pc-abs-fr-filament)
+
+    *   *   [🚀PLA Basic](https://auroratechchannel.com/products/pla-basic)
+        *   [🚀PETG Basic](https://auroratechchannel.com/products/petg-basic)
+        *   [🚀PLA Matte Basic](https://auroratechchannel.com/products/pla-matte-basic)
+        *   [🚀PETG Translucent](https://auroratechchannel.com/products/petg-translucent)
+        *   [PLA Rapido](https://auroratechchannel.com/products/qidi-tech-pla-filament)
+        *   [ABS Rapido](https://aurorat…[18645b total]
+```
+- error=False
+```text
+# Qidi Tech Q1 Pro 3D Printer
+
+ ![Qidi Tech Q1 Pro 3D printer with a clear enclosure and touchscreen interface](https://qidi3d.com/cdn/shop/files/Q1_8f5e4162-cff8-4605-a580-c3ed6cb4f274.png?v=1761637698&width=1080) 
+
+ ![Qidi Tech Q1 Pro 3D printer featuring dual Z-axis motors, filament compatibility, and active chamber heating.](https://qidi3d.com/cdn/shop/files/1600_5498e86e-c24c-448a-9519-f0ea362b542b.jpg?v=1761637698&width=1800) 
+
+ ![Qidi Tech Q1 Pro 3D printer's dual motor Z-axis with automatic bed tilt adjustment for improved stability and precision.](https://qidi3d.com/cdn/shop/files/1600-2.jpg?v=1761637698&width=1800) 
+
+ ![Qidi Tech Q1 Pro 3D printer hotend with 350°C max heating for diverse filaments.](https://qidi3d.com/cdn/shop/files/1600-3_89fbe62a-5e92-4f50-a9f9-7952f58211d5.jpg?v=1761637698&width=1800) 
+
+ ![Qidi Tech Q1 Pro 3D printer dual sensor auto-leveling system ensures a perfect first layer.](https://qidi3d.com/cdn/shop/files/1600-4.jpg?v=1761637698&width=1800) 
+
+ ![Qidi Tech Q1 Pro: Active chamber heating reduces warping and cracking for perfect prints.](https://qidi3d.com/cdn/shop/files/1600-5.jpg?v=1761637698&width=1800) 
+
+ ![Qidi Tech Q1 Pro 3D Printer showcasing industrial-grade applications with gears, housings, and brackets.](https://qidi3d.com/cdn/shop/files/1600-6.jpg?v=1761637698&width=1800) 
+
+ ![Qidi Tech Q1 Pro specs: 245x245x240mm build volume, <600 mm/s speed, <350°C extruder, 60°C chamber heat, Klipper.](https://qidi3d.com/cdn/shop/files/Q1_-7.jpg?v=1761637698&width=1800) 
+
+ ![Qidi Tech Q1 Pro 3D printer with touchscreen display, showcasing its enclosed build chamber and CoreXY structure.](https://qidi3d.com/cdn/shop/files/3034a1133efe01daba919094b70c6310.jpg?v=1761637698&width=1080) 
+
+![Q1-IMG1](https://cdn.shopify.com/s/files/1/0587/5282/7532/files/Q1-IMG1.jpg?v=1710927394) ![Q1-IMG1-m](https://cdn.shopify.com/s/files/1/0587/5282/7532/files/Q1-IMG1-m.jpg?v=1710927394) 
+
+2024 Q1 Three Highlights
+
+### Independent dual Z motors
+
+!…[23815b total]
+```
+- error=False
+```text
+# Bambu Lab X1 Series | Desktop 3D Printer | X1C | Bambu Lab
+
+  * Products
+  * Filament
+[
+  * Accessories](https://store.bambulab.com/collections/accessories?from=home_web_top_navigation)
+  * Software
+  * MakerWorld
+  * Explore
+  * Support
+
+
+Bambu Lab X1 Series
+#  Bambu Lab X1 Series
+  * 16 Multi Color
+  * 7 μm Lidar Resolution
+  * CoreXY 20 m/s² Acceleration
+  * Dual Auto Bed Leveling
+
+
+  * 16
+Multi Color
+  * 7 μm
+Lidar Resolution
+  * 20 m/s²
+CoreXY
+  * Dual-ABL
+Auto Bed Leveling
+
+[Shop Now](https://bambulab.com/en/dealer)
+## 
+Prologue:
+We hated 3D printing
+as much as we loved It.
+We set 5 goals before we set off on this journey 22 months ago:
+  * No more Bed-Slingers
+  * No more bloodshed during support removal
+  * Sleep soundly during over-night prints
+  * Bring color back into the community
+  * Stiff PA-CF parts for my Nerf blaster
+
+
+### 
+Chapter 1:
+Colors & Beyond
+Color, the ultimate expression of emotions, is brought to you by Bambu Lab's Automatic Material System (AMS). You can now enjoy  printing freely in multiple colors and materials,  a 3D Printing Maestro.
+Airtight
+Humidity Sensor
+Parallel 4*4
+2-Stage Feeding
+Filament Buffer
+by Malolo
+Raspberry Pi 4 Case & Stands
+by Catiav5ftw
+Jet Engine
+by Bambu Lab
+Neuschwanstein Castle
+by ossum
+Ossum Rear Axle Mk III
+by Toymakr3d
+Kaiju
+by Thing-O-Fun
+Differential Gear
+Removing supports has never been easier.
+Bambu Lab X1 can use snap-away support material or dissolvable filament to minimize the pain of removing supports.
+Advanced processes enable advanced materials.
+Breaking free from low temperature and easy print PLA and PETG, the X1 unlocks more demanding material by utilizing advanced parts and sophisticated thermal control.
+All-Metal Hotend
+300℃
+Hardened Steel Nozzle
+50 HRC
+Hotbed
+120℃
+Chamber Temperature
+60℃
+Auxiliary Part Cooling Fan
+12W
+All-Metal Hotend
+300℃
+Hardened Steel Nozzle
+50 HRC
+Hotbed
+120℃
+Chamber Temperature
+60℃
+Auxiliary Part Cooling Fan
+12W
+by akira3dp0, barspin, BCN3D 
+Super rigid …[9991b total]
+```
+- error=False
+```text
+# P1S 3D プリンター
+
+[コンテンツへ](https://jp.store.bambulab.com/products/p1s?id=583855874739507213&sv1=affiliate&sv_campaign_id=2034479&utm_source=ShareASale&utm_medium=Affiliate&utm_campaign=2034479_https%3A%2F%2Fwww.youtube.com%2Fc%2Fauroratech&utm_term=0&sscid=46345_1772190573_554caf24de414df7e499d4bddcf7fd7f&awc=46345_1772190573_554caf24de414df7e499d4bddcf7fd7f#main)
+カート
+よく一緒に購入されている商品
+対象オプションを一緒にカート追加でお得に
+※他のキャンペーンとの併用不可；請求書払いは対象外
+35% off
+¥2,210 円
+¥3,400 円
+1kg
+スプール付き
+グレー (10103)
+  * グレー (10103)
+  * シルバー (10102)
+  * ベージュ (10201)
+  * イエロー (10400)
+  * Bambu グリーン (10501)
+
+
+追加
+1 アイテム選択されました
+35% off
+¥2,210 円
+¥3,400 円
+1kg
+スプール付き
+マットアイボリーホワイト (11100)
+  * マットアイボリーホワイト (11100)
+  * マットアッシュグレー (11102)
+  * マットスカーレットレッド (11200)
+  * マット桜ピンク (11201)
+  * マットマリンブルー (11600)
+
+
+追加
+1 アイテム選択されました
+35% off
+¥2,210 円
+¥3,400 円
+1 kg
+スプール付き
+グレー (33101)
+  * グレー (33101)
+  * オレンジ (33300)
+  * ブルー (33600)
+
+
+追加
+1 アイテム選択されました
+35% off
+¥2,210 円
+¥3,400 円
+1 kg
+スプール付き
+半透明ティール (32501)
+  * 半透明ティール (32501)
+  * 半透明ピンク (32200)
+  * 半透明ライトブルー (32600)
+  * 半透明パープル (32700)
+  * 半透明ブラウン (32800)
+  * 半透明グレー (32100)
+  * 半透明オリーブ (32500)
+  * 半透明オレンジ (32300)
+  * クリア (32101)
+
+
+追加
+1 アイテム選択されました
+[Bambu ホットエンド - P1 シリーズ](https://jp.store.bambulab.com/products/bambu-hotend-p1-series?variant=44804676124964)
+30% off
+¥4,186 円
+¥5,980 円
+ステンレススチール 0.2mm ノズ…[7247b total]
+```
+
+### 37. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `todo`
+```json
+{
+  "action": "batch_update",
+  "description": "",
+  "index": 0,
+  "items": [],
+  "note": "",
+  "status": "pending",
+  "title": "",
+  "updates": [
+    {
+      "index": 6,
+      "note": "Fetched Bambu P1S store/product page and specs via Bambu/Aurora redirect; collected enclosure, build volume, temperatures, and ecosystem notes.",
+      "status": "done"
+    },
+    {
+      "index": 7,
+      "note": "Fetched Bambu X1 series page (X1C specs/features vs X1), including lidar, chamber temp, and hardened components context.",
+      "status": "done"
+    },
+    {
+      "index": 8,
+      "note": "Fetched Creality K1C official store page with sale/list price and full specs.",
+      "status": "done"
+    },
+    {
+      "index": 9,
+      "note": "Fetched Creality K2 Plus Combo official store page with sale/list price, build volume, heated chamber, motion system, and materials data.",
+      "status": "done"
+    },
+    {
+      "index": 10,
+      "note": "Fetched QIDI Plus4 product page with current sale/list pricing and key specs (volume, chamber heat, temp limits, multi-material path).",
+      "status": "done"
+    },
+    {
+      "index": 11,
+      "note": "Fetched QIDI Q1 Pro product page with specs and capability details.",
+      "status": "done"
+    },
+    {
+      "index": 12,
+      "note": "Fetched Prusa CORE One(+) page/spec comparison including kit/assembled pricing and chamber behavior.",
+      "status": "done"
+    },
+    {
+      "index": 13,
+      "note": "Fetched Prusa MK4S page with optional enclosure notes, use-case limits, and core pricing for bundle math.",
+      "status": "done"
+    },
+    {
+      "index": 14,
+      "note": "Fetched Anycubic Kobra S1 Combo page with sale/list pricing and full specs/noise/material support.",
+      "status": "done"
+    },
+    {
+      "index": 15,
+      "note": "Fetched Flashforge Adventurer 5M Pro page with specs/noise/material/filter details; paired with Aurora tracker for current street pricing.",
+      "status": "done"
+    },
+    {
+      "index": 16,
+      "note": "Review evidence captured from Tom's Hardware and All3DP roundups plus model pages and community threads.",
+      "status": "done"
+    }
+  ]
+}
+```
+
+### 38. user
+
+**Tool Results**
+
+- error=False
+```text
+TODO [16/16]
+1. ✓ Read specialist source: Aurora Tech price tracker — Fetch Aurora Tech Channel 3D printer price tracker/comparison page (community-trusted source for current street prices). [Fetched Aurora Tech price tracker with current prices, historical ranges, enclosure/build volume columns, and dated recent price drops (through Feb 2026).]
+2. ✓ Read specialist source: Tom's Hardware roundup — Fetch Tom's Hardware 'Best 3D Printers' 2026 buyer guide (hands-on testing roundup). [Fetched Tom's Hardware 2026 roundup with test methodology and model-specific strengths/weaknesses including enclosed recommendations and pricing references.]
+3. ✓ Read specialist source: All3DP roundup — Fetch All3DP 2026 best 3D printers guide (broad category roundup). [Fetched All3DP 2026 buyer guide including category winners, stated prices, update log through Jan 2026, and discussion of enclosure/material behavior.]
+4. ✓ Read community source: trusted reviewers thread — Fetch Reddit community discussion on trusted reviewers (to validate trusted-source selection: Aurora Tech/CNC Kitchen/etc.). [Fetched Reddit thread on trusted reviewers; repeated community mentions of Aurora Tech, CNC Kitchen, Thomas Sanladerer, plus caution about sponsored review units.]
+5. ✓ Read community source: enclosed CoreXY thread — Fetch Reddit enclosed CoreXY recommendations thread (community priorities and pain points). [Fetched Reddit enclosed CoreXY recommendation thread; strong community emphasis on P1S vs Q1 Pro/Plus4, Prusa CORE One reliability/service, and enclosure/chamber-heating tradeoffs.]
+6. ✓ Fetch model spec/price: Bambu P1S — Fetch official Bambu Lab P1S product/store page for MSRP/specs. [Fetched Bambu P1S store/product page and specs via Bambu/Aurora redirect; collected enclosure, build volume, temperatures, and ecosystem notes.]
+7. ✓ Fetch model spec/price: Bambu X1C — Fetch official Bambu Lab X1 Carbon product/store page for MSRP/specs. [Fetched Bambu X1 series …[4119b total]
+```
+
+### 39. assistant
+
+**Content**
+
+## Summary
+For a **home user in 2026 wanting enclosed around $1,000**, my recommendation is:
+
+1. **Best overall around $1000:** **Prusa CORE One (kit $949 / assembled $1,199)** — best reliability/repairability balance, genuinely home-friendly enclosed behavior, strong long-term ownership value.  
+2. **Best value under $800:** **QIDI Plus4 (~$699 street)** if you want chamber heat + bigger volume; **Bambu P1S (~$399 street, ~$549 combo)** if you want easiest “just print” workflow.  
+3. **Best premium stretch near $1300:** **Creality K2 Plus Combo ($1,299 sale, $1,499 list)** for huge volume + multicolor.  
+4. **Best reliability/repairability:** **Prusa CORE One / MK4S+enclosure path** (open ecosystem, upgradeability, serviceability).
+
+## Key Findings
+- **Street prices have dropped hard in 2026** (e.g., P1S ~$399, Plus4 ~$699, K1C ~$499, K2 Plus ~$1,299) per Aurora tracker and All3DP/Tom’s updates.  
+  Sources: https://auroratechchannel.com/3d-printer-price.php , https://all3dp.com/1/best-3d-printer-reviews-top-3d-printers-home-3-d-printer-3d/
+- **Prusa CORE One is repeatedly positioned as top enclosed premium/home-safe pick**; Tom’s highlights quietness and enclosed operation, All3DP highlights closed-door usability across materials.  
+  Sources: https://www.tomshardware.com/best-picks/best-3d-printers , https://all3dp.com/1/best-3d-printer-reviews-top-3d-printers-home-3-d-printer-3d/
+- **Bambu ecosystem remains easiest for low-friction home use**, but with tradeoffs (more proprietary parts/ecosystem; multicolor waste in AMS workflows).  
+  Sources: https://www.tomshardware.com/best-picks/best-3d-printers , https://all3dp.com/1/best-3d-printer-reviews-top-3d-printers-home-3-d-printer-3d/
+- **QIDI Plus4/Q1 Pro stand out for active chamber heating and high-temp support at lower cost**, but brand-reputation/risk tolerance matters more than with Prusa/Bambu.  
+  Sources: https://qidi3d.com/products/plus4-3d-printer , https://qidi3d.com/products/q1-pro-3d-printer , https://all3dp.com/1/best-3d-printer-reviews-top-3d-printers-home-3-d-printer-3d/
+- **Community trust signals**: users repeatedly cite Aurora/CNC Kitchen/Thomas for less-hype reviews; community emphasizes P1S convenience vs Prusa openness/service vs QIDI chamber-heating value.  
+  Sources: https://www.reddit.com/r/3Dprinting/comments/1rfg867/which_youtubers_can_be_trusted_to_give_impartial/ , https://www.reddit.com/r/3dprinter/comments/1lflvoj/enclosed_corexy_printer_recommendations/
+
+## Detailed Comparison
+| Model | Current street (USD) | MSRP/List (USD) | Enclosure | Build volume | Strengths | Weaknesses / concerns |
+|---|---:|---:|---|---|---|---|
+| **Prusa CORE One** | ~$999 kit / ~$1,299 assembled (tracker) | $949 kit / $1,199 assembled (Prusa page snapshot) | Full | 250×220×270 | Reliability, quiet, strong slicer/ecosystem, serviceability | Higher cost vs Bambu/QIDI | 
+| **Bambu P1S** | ~$399 (tracker) / ~$549 combo | Historically higher (tracker range to $799/$1,049 combo)…[7107b total]

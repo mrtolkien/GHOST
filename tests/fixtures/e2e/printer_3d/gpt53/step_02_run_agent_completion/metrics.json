@@ -1,0 +1,33 @@
+{
+  "agent_web_fetch_count": 20,
+  "agent_web_fetch_urls": [
+    "https://www.reddit.com/r/3Dprinting/comments/1rfg867/which_youtubers_can_be_trusted_to_give_impartial/",
+    "https://www.reddit.com/r/3dprinter/comments/1lflvoj/enclosed_corexy_printer_recommendations/",
+    "https://auroratechchannel.com/3d-printer-price.php",
+    "https://www.tomshardware.com/best-picks/best-3d-printers",
+    "https://all3dp.com/1/best-3d-printer-reviews-top-3d-printers-home-3-d-printer-3d/",
+    "https://us.store.bambulab.com/products/p1s",
+    "https://us.store.bambulab.com/products/x1-carbon",
+    "https://www.creality.com/products/creality-k1c-3d-printer",
+    "https://www.creality.com/products/creality-k2-plus-combo-3d-printer",
+    "https://qidi3d.com/products/plus4",
+    "https://auroratechchannel.com/redirect.php?brand=Prusa&model=Core%20One%20Assembled",
+    "https://auroratechchannel.com/redirect.php?brand=Prusa&model=MK4S%20Assembled",
+    "https://auroratechchannel.com/redirect.php?brand=AnyCubic&model=Kobra%20S1%20Combo",
+    "https://auroratechchannel.com/redirect.php?brand=FlashForge&model=Adventurer%205M%20Pro",
+    "https://auroratechchannel.com/redirect.php?brand=Creality&model=K1C",
+    "https://store.creality.com/products/creality-k2-plus-combo-3d-printer",
+    "https://auroratechchannel.com/redirect.php?brand=QiDi&model=PLUS%204",
+    "https://auroratechchannel.com/redirect.php?brand=QiDi&model=Q1%20Pro",
+    "https://bambulab.com/en/x1",
+    "https://auroratechchannel.com/redirect.php?brand=BambuLab&model=P1S"
+  ],
+  "chat_tool_calls": [
+    "todo",
+    "todo",
+    "knowledge_search",
+    "read_file",
+    "todo",
+    "agent_control"
+  ]
+}
