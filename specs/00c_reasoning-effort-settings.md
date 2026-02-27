@@ -4,13 +4,13 @@
 
 ## Context
 
-We hardcode `reasoning_effort: "high"` for all provider calls (Codex Responses API and
+We hardcode `reasoning_effort: "medium"` for all provider calls (Codex Responses API and
 OpenRouter/Kimi Chat Completions). This was added to fix a critical issue: the model
 defaults to `effort: "none"` (zero chain-of-thought), causing ~20-30% empty responses
-per iteration in agentic loops. With `"high"`, the model gets thinking tokens at each
+per iteration in agentic loops. With `"medium"`, the model gets thinking tokens at each
 step.
 
-However, not every call needs high reasoning:
+However, not every call needs medium reasoning:
 
 - **Compaction** (summarizing conversation history) is mechanical — `"low"` or
   `"medium"` would save tokens and latency.
