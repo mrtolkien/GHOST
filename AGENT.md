@@ -243,7 +243,8 @@ user-facing behavior, read the `/docs` skill for file mappings and conventions.
 [uv inline script metadata](https://docs.astral.sh/uv/guides/scripts/#declaring-script-dependencies)
 so each script declares its own dependencies — no virtualenv or requirements.txt needed.
 
-Run with: `uv run scripts/<script>.py [args]`
+Run with: `uv run scripts/<path> [args]` (examples: `uv run scripts/e2e`,
+`uv run scripts/e2e/refresh.py --models primary`)
 
 Rule (MANDATORY): always use simple, reusable Python scripts run with `uv` instead of
 complex multi-step bash commands when possible. Complex bash commands often require user
@@ -255,7 +256,14 @@ bash/python one-liners. This keeps the logic reviewable and reusable.
 
 Current scripts:
 
-- `scripts/analyze-e2e.py` — Analyze deep research e2e-output diagnostic JSON files
+- `scripts/e2e` — Interactive launcher for e2e tooling (questionary picker)
+- `scripts/e2e/refresh.py` — Refresh step-based fixtures sequentially (model/step
+  selectors)
+- `scripts/e2e/render_log.py` — Render transcript JSON into readable markdown
+  (newest-first picker)
+- `scripts/e2e/diff.py` — Compare two fixture step outputs (interactive selector)
+- `scripts/e2e/analyze_request.py` — Inspect debug provider request payloads from
+  `e2e-output/`
 
 ## Specs
 
