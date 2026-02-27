@@ -188,8 +188,7 @@ mod tests {
     fn multibyte_text_does_not_panic() {
         // Japanese text that would break byte-based slicing at char boundaries
         let segment = "日本語のテスト文章です。これは長いテキストの分割をテストします。";
-        let text = std::iter::repeat(segment)
-            .take(40)
+        let text = std::iter::repeat_n(segment, 40)
             .collect::<Vec<_>>()
             .join("\n\n");
         assert!(text.len() > SHORT_THRESHOLD);

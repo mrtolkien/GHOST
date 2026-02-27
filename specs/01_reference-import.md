@@ -22,8 +22,8 @@ The right approach is therefore to:
 
 ## Implementation
 
-- The use of this tool should be hidden behind a skill. It's likely best to make it part
-  of the `ghost` cli instead of a tool, since it will be used rarely.
+- The use of this tool should be hidden behind a skill. It's best to make it part of the
+  `ghost` cli instead of a tool, since it will be used rarely.
 - We need this reference data to be easy to query without polluting other results. It
   should likely be a combination of topic + collection:
   - `knowledge_search(topic="dioxus/docs", query="xyz", categories=["reference"])`

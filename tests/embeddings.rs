@@ -416,7 +416,7 @@ async fn vector_insert_memory_stays_bounded() {
         total_delta_mb < 512,
         "RSS grew by {total_delta_mb}MB for 150 vectors (~1.2MB raw data). \
          SurrealDB Value representation is amplifying memory ~{multiplier}x",
-        multiplier = total_delta_mb as u64 * 1024 / 1200,
+        multiplier = total_delta_mb * 1024 / 1200,
     );
 }
 
