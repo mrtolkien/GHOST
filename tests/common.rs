@@ -1,5 +1,9 @@
 use std::collections::VecDeque;
 use std::fs;
+#[cfg(feature = "live-tests")]
+use std::io;
+#[cfg(feature = "live-tests")]
+use std::path::Path;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
@@ -135,6 +139,17 @@ pub struct LiveTestEnv {
 #[cfg(feature = "live-tests")]
 #[allow(dead_code)]
 impl LiveTestEnv {
+    /// Absolute path to this test environment's workspace directory.
+    pub fn workspace_path(&self) -> &Path {
+        self.workspace.path()
+    }
+
+    /// Write a full workspace snapshot as a tar.zst archive.
+    pub fn write_workspace_archive(&self, dest: &Path) {
+        write_workspace_archive(self.workspace.path(), dest)
+            .unwrap_or_else(|e| panic!("write workspace archive at {}: {e}", dest.display()));
+    }
+
     /// Collect messages from a session into a JSON array of simplified
     /// message objects for the diagnostic log. Each message is
     /// `{ "role", "content"?, "tool_calls"?, "tool_results"? }`.
@@ -185,6 +200,36 @@ impl LiveTestEnv {
                         })
                         .collect();
                     obj.insert("tool_results".into(), json!(simplified));
+                }
+
+                if let Some(raw) = msg.raw_output_parsed() {
+                    let simplified: Vec<serde_json::Value> = raw
+                        .iter()
+                        .map(|item| {
+                            let original_type = item
+                                .get("original_type")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("unknown");
+                            let summary = item
+                                .get("value")
+                                .and_then(|v| v.get("summary"))
+                                .and_then(|v| v.as_array())
+                                .map(|arr| {
+                                    arr.iter()
+                                        .filter_map(|s| s.get("text").and_then(|v| v.as_str()))
+                                        .collect::<Vec<_>>()
+                                        .join(" ")
+                                })
+                                .unwrap_or_default();
+                            json!({
+                                "original_type": original_type,
+                                "summary": truncate_str(&summary, 1200),
+                            })
+                        })
+                        .collect();
+                    if !simplified.is_empty() {
+                        obj.insert("raw_output".into(), json!(simplified));
+                    }
                 }
 
                 serde_json::Value::Object(obj)
@@ -698,6 +743,19 @@ impl Drop for LiveTestEnv {
 #[cfg(feature = "live-tests")]
 #[allow(dead_code)]
 pub async fn live_test_database(test_name: &str) -> LiveTestEnv {
+    live_test_database_from_snapshot(test_name, None).await
+}
+
+/// Create a live test environment restored from a tar.zst workspace snapshot.
+///
+/// The archive is extracted into the temp workspace after bootstrap and before
+/// database connection, so SQLite state is restored cleanly.
+#[cfg(feature = "live-tests")]
+#[allow(dead_code)]
+pub async fn live_test_database_from_snapshot(
+    test_name: &str,
+    snapshot: Option<&Path>,
+) -> LiveTestEnv {
     let _ = ghost::observability::init_for_live_tests();
 
     // Save current env state (before we change anything)
@@ -724,6 +782,13 @@ pub async fn live_test_database(test_name: &str) -> LiveTestEnv {
         "workspace".to_string(),
         toml::Value::String(workspace.path().display().to_string()),
     );
+    if let Ok(model_alias) = std::env::var("GHOST_E2E_MODEL")
+        && let Some(models) = toml_value
+            .get_mut("models")
+            .and_then(toml::Value::as_table_mut)
+    {
+        models.insert("default".to_string(), toml::Value::String(model_alias));
+    }
     let modified_toml = toml::to_string_pretty(&toml_value).expect("serialize config");
     fs::write(config_dir.path().join("config.toml"), &modified_toml)
         .expect("write temp config.toml");
@@ -752,6 +817,14 @@ pub async fn live_test_database(test_name: &str) -> LiveTestEnv {
     let mut config = config::load_from_dir(config_dir.path()).expect("load config from temp dir");
     config.debug.save_requests = true;
     ghost::config_workspace::bootstrap_workspace(&config).expect("bootstrap temp workspace");
+    if let Some(snapshot_path) = snapshot {
+        restore_workspace_archive(&config.workspace, snapshot_path).unwrap_or_else(|e| {
+            panic!(
+                "restore workspace snapshot from {}: {e}",
+                snapshot_path.display()
+            )
+        });
+    }
     let db = db::connect(&config.workspace, config.embeddings.dimension)
         .await
         .expect("connect to fresh temp database");
@@ -771,6 +844,43 @@ pub async fn live_test_database(test_name: &str) -> LiveTestEnv {
         diagnostic_json: std::cell::RefCell::new(serde_json::Map::new()),
         session_cursors: std::cell::RefCell::new(std::collections::HashMap::new()),
     }
+}
+
+#[cfg(feature = "live-tests")]
+fn write_workspace_archive(workspace: &Path, dest: &Path) -> io::Result<()> {
+    if let Some(parent) = dest.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    let file = fs::File::create(dest)?;
+    let encoder = zstd::stream::write::Encoder::new(file, 3)?;
+    let mut tar_builder = tar::Builder::new(encoder.auto_finish());
+    tar_builder.append_dir_all(".", workspace)?;
+    tar_builder.finish()?;
+    Ok(())
+}
+
+#[cfg(feature = "live-tests")]
+fn restore_workspace_archive(workspace: &Path, snapshot: &Path) -> io::Result<()> {
+    clear_dir_contents(workspace)?;
+    let file = fs::File::open(snapshot)?;
+    let decoder = zstd::stream::read::Decoder::new(file)?;
+    let mut archive = tar::Archive::new(decoder);
+    archive.unpack(workspace)?;
+    Ok(())
+}
+
+#[cfg(feature = "live-tests")]
+fn clear_dir_contents(dir: &Path) -> io::Result<()> {
+    for entry in fs::read_dir(dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        if entry.file_type()?.is_dir() {
+            fs::remove_dir_all(path)?;
+        } else {
+            fs::remove_file(path)?;
+        }
+    }
+    Ok(())
 }
 
 #[cfg(feature = "live-tests")]

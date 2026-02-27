@@ -1,0 +1,12 @@
+{
+  "agent_web_fetch_count": 0,
+  "agent_web_fetch_urls": [],
+  "chat_tool_calls": [
+    "todo",
+    "todo",
+    "knowledge_search",
+    "read_file",
+    "todo",
+    "agent_control"
+  ]
+}

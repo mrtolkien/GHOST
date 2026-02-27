@@ -408,7 +408,41 @@ timeout or OOM.
 - Assert: GHOST calls `knowledge_search` before answering
 - Soft assertion for reference-import suggestion (model might answer from training data)
 
-### 9d. Post-import search — NO feature flag
+### 9d. Shared step-based e2e harness (required baseline)
+
+All future `e2e-tests` scenarios (including reference-import scenarios) should use the
+step-based harness in `tests/e2e/`:
+
+- One test per action boundary (`step_01_*`, `step_02_*`, ...)
+- Hard fail if previous step fixture is missing
+- Full workspace snapshot persisted between steps as `workspace.tar.zst`
+- Step artifacts per model:
+  - `state.json` (session ids, assertion markers, previews)
+  - `transcript.json` + `transcript.md` (readable log with tool calls/results +
+    thinking)
+  - `metrics.json`
+- Manual refresh only: `uv run scripts/e2e refresh --models <aliases>`
+- Sequential execution only (`--test-threads=1`)
+
+Fixture root:
+
+```text
+tests/fixtures/e2e/<scenario>/<model_alias>/step_XX_<name>/
+```
+
+### 9e. Reference-import scenario onboarding (deferred)
+
+After Step 1-8 implementation is complete, add a dedicated reference-import scenario to
+the shared harness:
+
+- Step 01: import Dioxus docs reference topic
+- Step 02: ask a Dioxus question in chat
+- Step 03: verify topic-scoped retrieval and response quality
+- Optional Step 04: reflection checks on produced notes/references
+
+This is intentionally deferred until the reference import pipeline is implemented.
+
+### 9f. Post-import search — NO feature flag
 
 **`tests/reference_import_search.rs`**
 
@@ -445,6 +479,14 @@ with fake references + fake 1024-dim embeddings.
 | New    | `tests/reference_import_crawl.rs`                       |
 | New    | `tests/reference_import_search.rs`                      |
 | New    | `tests/reference_import_discovery.rs`                   |
+| New    | `tests/e2e_steps.rs`                                    |
+| New    | `tests/e2e/harness.rs`                                  |
+| New    | `scripts/e2e`                                           |
+| New    | `scripts/e2e/launcher.py`                               |
+| New    | `scripts/e2e/refresh.py`                                |
+| New    | `scripts/e2e/render_log.py`                             |
+| New    | `scripts/e2e/diff.py`                                   |
+| New    | `scripts/e2e/analyze_request.py`                        |
 | Modify | DB schema — versioning + topic fields                   |
 | Modify | DB embeddings — topic in upsert/search/hit              |
 | Modify | DB knowledge/search — topic filter                      |

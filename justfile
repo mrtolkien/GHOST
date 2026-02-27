@@ -28,6 +28,14 @@ clippy:
 test:
     cargo test
 
+# Run step-based e2e fixture refresh (manual, sequential)
+e2e-refresh models="primary":
+    uv run scripts/e2e refresh --models {{models}}
+
+# Compile step-based e2e tests without executing them
+e2e-check:
+    cargo test --features e2e-tests --test e2e_steps --no-run
+
 # Run all checks (format, clippy, test)
 ci: fmt check clippy test
 

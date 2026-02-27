@@ -5,7 +5,8 @@ description: >-
   before writing or modifying any test — unit tests, integration tests, or live tests.
   Covers: test helper functions (test_config, test_workspace, test_database),
   MockProvider, LiveTestEnv, live test isolation rules, and the non-negotiable
-  readability requirements. Failure to read this will produce duplicated boilerplate and
+  readability requirements. For step-based end-to-end tests, also read the
+  `e2e-testing` skill. Failure to read this will produce duplicated boilerplate and
   broken test isolation.
 ---
 
@@ -28,9 +29,8 @@ assertions to make a flaky test pass.** If the test fails, fix the agent behavio
 See `memory/deep-research-agent.md` for the full iteration history, known failure modes,
 and nudge architecture for the deep research agent specifically.
 
-Analysis tooling: `uv run scripts/analyze-e2e.py` summarizes e2e-output runs. Detailed
-experiment logs: `e2e-output/deep_research_iterations.md` and
-`e2e-output/deep_research_nudge_iterations.md`.
+For step-based e2e fixture/log tooling, use `uv run scripts/e2e` and select the
+operation (`refresh`, `render-log`, `diff`, `analyze-request`).
 
 ## Live Test Isolation (NON-NEGOTIABLE)
 

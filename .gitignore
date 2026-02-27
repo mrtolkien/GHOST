@@ -3,6 +3,7 @@
 .envrc
 
 # Rust build artifacts
+#
 /target/
 
 # IDE
@@ -26,6 +27,7 @@ node_modules/
 /feat
 /private-scripts
 /e2e-output
+__pycache__
 
 # Astro Starlight build output
 /docs/dist/

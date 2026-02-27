@@ -53,3 +53,5 @@ e2e-tests = ["live-tests"]
 chrono = "0.4"
 tempfile = "3"
 toml = "0.9"
+tar = "0.4"
+zstd = "0.13"
