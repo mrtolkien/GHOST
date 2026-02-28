@@ -12,7 +12,10 @@ use crate::agents::{
 use crate::config::{self, Config};
 use crate::db;
 use crate::prompt::{PromptContext, PromptRenderer};
-use crate::providers::{ChatMessage, ContentBlock, Provider, Role, StopReason, provider_for_alias};
+use crate::providers::{
+    ChatMessage, ContentBlock, Provider, ReasoningEffort, Role, StopReason, provider_for_alias,
+    resolve_reasoning_effort,
+};
 use crate::tools::{ToolContext, ToolManager, format_todo_injection};
 
 use super::convert::{
@@ -108,6 +111,7 @@ impl SessionChat {
         }
 
         let model = self.default_model_name()?;
+        let effort = resolve_reasoning_effort(None, None, self.model_reasoning_effort());
         let mut handler = ChatHandler {
             session_chat: self,
             session_thing: &session_thing,
@@ -120,6 +124,7 @@ impl SessionChat {
             session_id,
             &model,
             self.max_tool_iterations,
+            effort,
             &mut handler,
             &mut history,
             event_tx,
@@ -143,6 +148,11 @@ impl SessionChat {
         db::sessions::create_message(&self.db, &session_thing, "user", prompt).await?;
 
         let model = self.default_model_name()?;
+        let effort = resolve_reasoning_effort(
+            None,
+            definition.reasoning_effort,
+            self.model_reasoning_effort(),
+        );
         let mut history = vec![ChatMessage {
             role: Role::User,
             content: vec![ContentBlock::Text {
@@ -172,6 +182,7 @@ impl SessionChat {
             session_id,
             &model,
             definition.max_iterations,
+            effort,
             &mut handler,
             &mut history,
             event_tx,
@@ -203,6 +214,11 @@ impl SessionChat {
         db::sessions::create_message(&self.db, &session_thing, "user", prompt).await?;
 
         let model = self.default_model_name()?;
+        let effort = resolve_reasoning_effort(
+            None,
+            definition.reasoning_effort,
+            self.model_reasoning_effort(),
+        );
         // Load FULL history (all previous research + new user message)
         let (mut history, _stored_ids) = self.load_provider_history(&session_thing).await?;
 
@@ -228,6 +244,7 @@ impl SessionChat {
             session_id,
             &model,
             definition.max_iterations,
+            effort,
             &mut handler,
             &mut history,
             event_tx,
@@ -370,6 +387,15 @@ impl SessionChat {
 
     pub(super) fn config(&self) -> &Config {
         &self.config
+    }
+
+    /// Reasoning effort configured on the default model alias, if any.
+    fn model_reasoning_effort(&self) -> Option<ReasoningEffort> {
+        self.config
+            .models
+            .aliases
+            .get(&self.config.models.default)
+            .and_then(|m| m.reasoning_effort)
     }
 
     pub(super) fn tool_manager(&self) -> &ToolManager {

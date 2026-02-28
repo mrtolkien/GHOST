@@ -6,6 +6,8 @@ use std::sync::Once;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+use crate::providers::types::ReasoningEffort;
+
 pub const CONFIG_DIR_ENV: &str = "GHOST_CONFIG_DIR";
 const CONFIG_FILE_NAME: &str = "config.toml";
 const DEFAULT_WORKSPACE: &str = "~/GHOST";
@@ -93,6 +95,7 @@ pub struct ModelSettings {
     pub context_window: u32,
     #[serde(default)]
     pub headers: BTreeMap<String, String>,
+    pub reasoning_effort: Option<ReasoningEffort>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -179,6 +182,7 @@ pub struct ModelConfig {
     pub model: String,
     pub context_window: u32,
     pub headers: BTreeMap<String, String>,
+    pub reasoning_effort: Option<ReasoningEffort>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -272,6 +276,7 @@ impl Config {
                         model: model.model,
                         context_window: model.context_window,
                         headers: model.headers,
+                        reasoning_effort: model.reasoning_effort,
                     },
                 )
             })
@@ -504,6 +509,7 @@ pub fn test_config(workspace: &std::path::Path) -> Config {
             model: "test/model".to_string(),
             context_window: 200_000,
             headers: BTreeMap::new(),
+            reasoning_effort: None,
         },
     );
     Config {

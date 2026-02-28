@@ -13,6 +13,6 @@ pub use openai_oauth::OpenAiOAuthProvider;
 pub use openrouter::OpenRouterProvider;
 pub use types::{
     ChatMessage, ChatRequest, ChatResponse, ContentBlock, Provider, ProviderError,
-    ProviderInitError, Role, StopReason, ToolDefinition, Usage, model_from_alias,
-    provider_for_alias, user_message,
+    ProviderInitError, ReasoningEffort, Role, StopReason, ToolDefinition, Usage, model_from_alias,
+    provider_for_alias, resolve_reasoning_effort, user_message,
 };

@@ -78,6 +78,7 @@ fn tool_use_request(model: &str) -> ChatRequest {
         max_tokens: Some(1024),
         temperature: Some(0.0),
         system: Some(system_prompt()),
+        reasoning_effort: None,
         cache_key: "test".to_string(),
         debug_context: None,
     }

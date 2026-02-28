@@ -1,41 +1,34 @@
 # Per-Model / Per-Agent Reasoning Effort
 
-## Status: Backlog
+## Status: Done
 
 ## Context
 
-We hardcode `reasoning_effort: "medium"` for all provider calls (Codex Responses API and
-OpenRouter/Kimi Chat Completions). This was added to fix a critical issue: the model
-defaults to `effort: "none"` (zero chain-of-thought), causing ~20-30% empty responses
-per iteration in agentic loops. With `"medium"`, the model gets thinking tokens at each
-step.
-
-However, not every call needs medium reasoning:
-
-- **Compaction** (summarizing conversation history) is mechanical — `"low"` or
-  `"medium"` would save tokens and latency.
-- **Simple chat** (single-turn Q&A) may not need heavy reasoning.
-- **Agents** (deep-research, future coding agent) benefit from `"high"` or `"xhigh"`
-  since they make complex multi-step decisions.
-- **Heartbeat/reflection** jobs are lightweight — `"low"` suffices.
+Reasoning effort was hardcoded to `"high"` in both provider build functions. This wasted
+tokens and latency for calls that don't need heavy reasoning (compaction, heartbeat
+jobs), and prevented agents from requesting higher/lower effort.
 
 ## Design
 
-### Option A: Per-model config in `config.toml`
+Reasoning effort is configurable at three layers with a cascade resolution:
+
+```
+ChatRequest.reasoning_effort  (per-request, e.g. compaction → "low")
+  > TaskDefinition.reasoning_effort  (agent/job frontmatter)
+    > ModelConfig.reasoning_effort  (config.toml per-model)
+      > "medium"  (global default)
+```
+
+### Config
 
 ```toml
-[models.aliases.fast]
+[models.primary]
 provider = "openai_oauth"
 model = "gpt-5.3-codex"
 reasoning_effort = "high"
-
-[models.aliases.cheap]
-provider = "openrouter"
-model = "moonshotai/kimi-k2.5"
-reasoning_effort = "low"
 ```
 
-### Option B: Per-agent in frontmatter
+### Agent/job frontmatter
 
 ```yaml
 ---
@@ -44,27 +37,23 @@ reasoning_effort: high
 ---
 ```
 
-### Option C: Both (agent overrides model default)
-
-Agent frontmatter > model config > global default (`"high"`).
-
 ## Provider Mapping
 
-| Our value | OpenAI Codex                 | OpenRouter                   | Anthropic                              | Gemini 3.x                 |
-| --------- | ---------------------------- | ---------------------------- | -------------------------------------- | -------------------------- |
-| `none`    | `reasoning.effort: "none"`   | `reasoning_effort: "none"`   | `effort: "low"` + `thinking: disabled` | `thinkingLevel: "minimal"` |
-| `low`     | `reasoning.effort: "low"`    | `reasoning_effort: "low"`    | `effort: "low"`                        | `thinkingLevel: "low"`     |
-| `medium`  | `reasoning.effort: "medium"` | `reasoning_effort: "medium"` | `effort: "medium"`                     | `thinkingLevel: "medium"`  |
-| `high`    | `reasoning.effort: "high"`   | `reasoning_effort: "high"`   | `effort: "high"`                       | `thinkingLevel: "high"`    |
+| Our value | OpenAI Codex                 | OpenRouter                   |
+| --------- | ---------------------------- | ---------------------------- |
+| `none`    | `reasoning.effort: "none"`   | `reasoning_effort: "none"`   |
+| `low`     | `reasoning.effort: "low"`    | `reasoning_effort: "low"`    |
+| `medium`  | `reasoning.effort: "medium"` | `reasoning_effort: "medium"` |
+| `high`    | `reasoning.effort: "high"`   | `reasoning_effort: "high"`   |
 
-OpenRouter handles this mapping automatically when using `reasoning_effort`.
+OpenRouter handles cross-provider mapping automatically.
 
 ## Implementation
 
-1. Add `reasoning_effort: Option<String>` to `ModelSettings` / `ModelConfig`.
-2. Add `reasoning_effort: Option<String>` to agent `TaskFrontmatter`.
-3. Add `reasoning_effort: Option<String>` to `ChatRequest`.
-4. Resolution order: `ChatRequest` field (if set) > agent frontmatter > model config >
-   `"high"` default.
-5. Each provider maps to its native format (already done for Codex and OpenRouter).
-6. Compaction calls should use `"low"`.
+- `ReasoningEffort` enum (`None`/`Low`/`Medium`/`High`) in `src/providers/types.rs`
+- `resolve_reasoning_effort()` implements the three-layer cascade
+- `reasoning_effort: Option<ReasoningEffort>` on `ChatRequest`, `ModelConfig`,
+  `TaskDefinition`, `JobDefinition`
+- Providers read from `request.reasoning_effort` instead of hardcoding
+- Compaction uses `Low`; deep-research agent uses `High`
+- Default (when nothing is configured) is `Medium`

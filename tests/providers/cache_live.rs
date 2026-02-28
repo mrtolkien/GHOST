@@ -24,6 +24,7 @@ fn cache_test_request(model: &str, system: &str, history: Vec<ChatMessage>) -> C
         max_tokens: None,
         temperature: None,
         system: Some(system.to_string()),
+        reasoning_effort: None,
         cache_key: "cache-test".to_string(),
         debug_context: None,
     }

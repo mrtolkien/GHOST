@@ -4,6 +4,8 @@ use std::str::FromStr;
 use chrono::{DateTime, Utc};
 use serde::Deserialize;
 
+use crate::providers::types::ReasoningEffort;
+
 use super::error::JobError;
 
 const DELIMITER: &str = "---";
@@ -20,6 +22,7 @@ struct JobFrontmatter {
     tools: String,
     #[serde(default)]
     carry_last_output: bool,
+    reasoning_effort: Option<ReasoningEffort>,
 }
 
 fn default_enabled() -> bool {
@@ -49,6 +52,7 @@ pub struct JobDefinition {
     pub model: String,
     pub tools: JobToolSet,
     pub carry_last_output: bool,
+    pub reasoning_effort: Option<ReasoningEffort>,
     pub prompt: String,
     pub file_stem: String,
 }
@@ -100,6 +104,7 @@ pub fn parse_job_file(path: &Path, content: &str) -> Result<JobDefinition, JobEr
         model: front.model,
         tools,
         carry_last_output: front.carry_last_output,
+        reasoning_effort: front.reasoning_effort,
         prompt: body,
         file_stem,
     })
@@ -160,6 +165,14 @@ mod tests {
         assert_eq!(def.model, "default");
         assert_eq!(def.tools, JobToolSet::Chat);
         assert!(!def.carry_last_output);
+        assert!(def.reasoning_effort.is_none());
+    }
+
+    #[test]
+    fn parse_job_with_reasoning_effort() {
+        let content = "---\nname: Smart Job\nschedule: \"0 9 * * *\"\nreasoning_effort: medium\n---\nDo something smart.\n";
+        let def = parse_job_file(&test_path(), content).unwrap();
+        assert_eq!(def.reasoning_effort, Some(ReasoningEffort::Medium));
     }
 
     #[test]

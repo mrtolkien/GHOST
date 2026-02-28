@@ -6,6 +6,43 @@ use serde_json::Value;
 
 use crate::config::{Config, ModelConfig};
 
+/// Reasoning effort level for models that support it.
+///
+/// Resolution order (first `Some` wins):
+/// `ChatRequest.reasoning_effort` > `TaskDefinition.reasoning_effort`
+/// > `ModelConfig.reasoning_effort` > default (`Medium`).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ReasoningEffort {
+    None,
+    Low,
+    #[default]
+    Medium,
+    High,
+}
+
+impl ReasoningEffort {
+    #[must_use]
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::None => "none",
+            Self::Low => "low",
+            Self::Medium => "medium",
+            Self::High => "high",
+        }
+    }
+}
+
+/// Resolve reasoning effort from the three-layer cascade.
+#[must_use]
+pub fn resolve_reasoning_effort(
+    request: Option<ReasoningEffort>,
+    task: Option<ReasoningEffort>,
+    model: Option<ReasoningEffort>,
+) -> ReasoningEffort {
+    request.or(task).or(model).unwrap_or_default()
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct DebugContext {
     pub session_id: String,
@@ -25,6 +62,11 @@ pub struct ChatRequest {
     pub temperature: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub system: Option<String>,
+    /// Reasoning effort level for this request. Providers map this to
+    /// their native format (e.g. OpenRouter `reasoning_effort`, Codex
+    /// `reasoning.effort`).
+    #[serde(skip)]
+    pub reasoning_effort: Option<ReasoningEffort>,
     /// Stable identifier for prompt cache routing. Providers that support
     /// prompt caching (e.g. OpenAI Codex) use this as `prompt_cache_key`
     /// to steer requests with the same prefix to the same server.
@@ -216,5 +258,63 @@ pub fn user_message(content: impl Into<String>) -> ChatMessage {
         content: vec![ContentBlock::Text {
             text: content.into(),
         }],
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn reasoning_effort_default_is_medium() {
+        assert_eq!(ReasoningEffort::default(), ReasoningEffort::Medium);
+    }
+
+    #[test]
+    fn reasoning_effort_as_str() {
+        assert_eq!(ReasoningEffort::None.as_str(), "none");
+        assert_eq!(ReasoningEffort::Low.as_str(), "low");
+        assert_eq!(ReasoningEffort::Medium.as_str(), "medium");
+        assert_eq!(ReasoningEffort::High.as_str(), "high");
+    }
+
+    #[test]
+    fn resolve_request_wins() {
+        let result = resolve_reasoning_effort(
+            Some(ReasoningEffort::Low),
+            Some(ReasoningEffort::High),
+            Some(ReasoningEffort::Medium),
+        );
+        assert_eq!(result, ReasoningEffort::Low);
+    }
+
+    #[test]
+    fn resolve_task_wins_over_model() {
+        let result = resolve_reasoning_effort(
+            None,
+            Some(ReasoningEffort::High),
+            Some(ReasoningEffort::Low),
+        );
+        assert_eq!(result, ReasoningEffort::High);
+    }
+
+    #[test]
+    fn resolve_model_wins_over_default() {
+        let result = resolve_reasoning_effort(None, None, Some(ReasoningEffort::Low));
+        assert_eq!(result, ReasoningEffort::Low);
+    }
+
+    #[test]
+    fn resolve_falls_back_to_medium() {
+        let result = resolve_reasoning_effort(None, None, None);
+        assert_eq!(result, ReasoningEffort::Medium);
+    }
+
+    #[test]
+    fn reasoning_effort_serde_roundtrip() {
+        let json = serde_json::to_string(&ReasoningEffort::High).unwrap();
+        assert_eq!(json, "\"high\"");
+        let parsed: ReasoningEffort = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed, ReasoningEffort::High);
     }
 }

@@ -1,6 +1,7 @@
 ---
 name: deep-research
 description: Iterative web research with full page reading and source evaluation
+reasoning_effort: high
 tools:
   - knowledge_search
   - web_search

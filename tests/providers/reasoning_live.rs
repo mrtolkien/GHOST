@@ -1,7 +1,8 @@
 use std::collections::BTreeMap;
 
 use ghost::providers::{
-    ChatMessage, ChatRequest, ContentBlock, OpenAiOAuthProvider, Provider, Role, user_message,
+    ChatMessage, ChatRequest, ContentBlock, OpenAiOAuthProvider, Provider, ReasoningEffort, Role,
+    user_message,
 };
 
 /// Validates that reasoning effort "high" produces thinking blocks in the
@@ -37,6 +38,7 @@ async fn reasoning_effort_high_produces_thinking_block() {
         max_tokens: None,
         temperature: None,
         system: Some("You are a concise math assistant.".to_string()),
+        reasoning_effort: Some(ReasoningEffort::High),
         cache_key: "reasoning-test".to_string(),
         debug_context: None,
     };
@@ -112,6 +114,7 @@ async fn reasoning_effort_high_produces_thinking_block() {
         max_tokens: None,
         temperature: None,
         system: Some("You are a concise math assistant.".to_string()),
+        reasoning_effort: Some(ReasoningEffort::High),
         cache_key: "reasoning-test".to_string(),
         debug_context: None,
     };

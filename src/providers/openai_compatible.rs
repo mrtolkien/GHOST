@@ -125,7 +125,7 @@ pub(crate) fn build_request_body(request: &ChatRequest) -> ChatCompletionsReques
             .map(|tools| tools.iter().map(convert_tool).collect()),
         max_tokens: request.max_tokens,
         temperature: request.temperature,
-        reasoning_effort: Some("high".to_string()),
+        reasoning_effort: request.reasoning_effort.map(|e| e.as_str().to_string()),
     }
 }
 
@@ -428,6 +428,7 @@ mod tests {
             max_tokens: None,
             temperature: None,
             system: Some("be concise".to_string()),
+            reasoning_effort: None,
             cache_key: "test".to_string(),
             debug_context: None,
         };
@@ -519,6 +520,7 @@ mod tests {
             max_tokens: None,
             temperature: None,
             system: None,
+            reasoning_effort: None,
             cache_key: "test".to_string(),
             debug_context: None,
         };
@@ -563,6 +565,7 @@ mod tests {
             max_tokens: None,
             temperature: None,
             system: None,
+            reasoning_effort: None,
             cache_key: "test".to_string(),
             debug_context: None,
         };
