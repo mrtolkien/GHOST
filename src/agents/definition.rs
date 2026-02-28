@@ -445,9 +445,12 @@ mod tests {
             "deep-research should have high reasoning effort"
         );
         assert!(def.recency.is_none(), "recency nudge removed");
+        let pressure = def
+            .context_pressure
+            .expect("deep-research should have context_pressure");
         assert!(
-            def.context_pressure.is_none(),
-            "context_pressure disabled — masking handles context management"
+            (pressure.threshold_pct - 0.80).abs() < f64::EPSILON,
+            "context_pressure threshold should be 80%"
         );
     }
 
@@ -513,7 +516,7 @@ mod tests {
 
     #[test]
     fn parse_agent_with_all_nudge_sections() {
-        let content = "---\nname: nudgy\ndescription: Agent with all nudges\ntools:\n  - web_fetch\n  - todo\nprogress:\n  - tool: web_fetch\n    min: 5\n  - remaining_iterations: 10\n    message: \"{remaining} left.\"\nprogress_gate:\n  no_todo: Make a plan first.\n  incomplete: \"{incomplete} items left.\"\ntemporal:\n  after_seconds: 120\n  message: \"Been working {minutes} min.\"\nrecency:\n  tool: web_fetch\n  window: 2\n  message: Fetch something.\ncontext_pressure:\n  threshold_chars: 100000\n  message: Context large.\n---\n\nBody.\n";
+        let content = "---\nname: nudgy\ndescription: Agent with all nudges\ntools:\n  - web_fetch\n  - todo\nprogress:\n  - tool: web_fetch\n    min: 5\n  - remaining_iterations: 10\n    message: \"{remaining} left.\"\nprogress_gate:\n  no_todo: Make a plan first.\n  incomplete: \"{incomplete} items left.\"\ntemporal:\n  after_seconds: 120\n  message: \"Been working {minutes} min.\"\nrecency:\n  tool: web_fetch\n  window: 2\n  message: Fetch something.\ncontext_pressure:\n  threshold_pct: 0.7\n  message: Context large.\n---\n\nBody.\n";
         let def = parse_task_file(content).unwrap();
 
         // Mixed progress rules: one tool-count + one iteration countdown
@@ -539,7 +542,7 @@ mod tests {
         assert_eq!(recency.message, "Fetch something.");
 
         let pressure = def.context_pressure.unwrap();
-        assert_eq!(pressure.threshold_chars, 100_000);
+        assert_eq!(pressure.threshold_pct, 0.7);
         assert_eq!(pressure.message, "Context large.");
     }
 

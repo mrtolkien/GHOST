@@ -2,22 +2,8 @@
   "agent_web_fetch_count": 0,
   "agent_web_fetch_urls": [],
   "chat_tool_calls": [
-    "todo",
-    "todo",
     "read_file",
-    "todo",
     "knowledge_search",
-    "agent_control",
-    "todo",
-    "agent_control",
-    "agent_control",
-    "agent_control",
-    "run_shell_command",
-    "agent_control",
-    "run_shell_command",
-    "agent_control",
-    "run_shell_command",
-    "agent_control",
-    "run_shell_command"
+    "agent_control"
   ]
 }

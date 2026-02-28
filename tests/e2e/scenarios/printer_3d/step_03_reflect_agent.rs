@@ -49,6 +49,11 @@ async fn printer_3d_step_03_reflect_agent() {
         "agent_reflection_handoff".to_string(),
         serde_json::json!(findings),
     );
+    if let Some(agent_findings) = prev.assertion_markers.get("agent_findings") {
+        state
+            .assertion_markers
+            .insert("agent_findings".to_string(), agent_findings.clone());
+    }
 
     harness::save_step_snapshot_with_metadata(&env, &state, Some(&metadata)).await;
 }

@@ -49,6 +49,7 @@ pub(super) trait ToolLoopHandler: Send {
     async fn post_tool_iteration(
         &mut self,
         _history: &mut Vec<ChatMessage>,
+        _last_input_tokens: u32,
     ) -> Result<(), ChatError> {
         Ok(())
     }
@@ -244,7 +245,9 @@ pub(super) async fn run_tool_loop(
                     content: tool_results,
                 });
 
-                handler.post_tool_iteration(history).await?;
+                handler
+                    .post_tool_iteration(history, response.usage.input_tokens)
+                    .await?;
             }
             StopReason::EndTurn | StopReason::MaxTokens => {
                 let tool_uses = extract_tool_use_blocks(&response.content);

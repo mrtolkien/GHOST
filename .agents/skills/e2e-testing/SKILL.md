@@ -83,26 +83,58 @@ Required artifacts per step:
 
 ## Running And Refreshing
 
-Manual refresh (interactive or explicit):
+### Model Alias Resolution
+
+The harness resolves the model alias in this order:
+
+1. `GHOST_E2E_MODEL` env var (if set)
+2. `models.default` from `~/.config/ghost/config.toml`
+3. Fallback: `"primary"`
+
+Check which model aliases have fixtures: `ls tests/fixtures/e2e/<scenario>/`. If
+`GHOST_E2E_MODEL` doesn't match an existing fixture directory, predecessor steps will
+hard-fail. When running manually, always set the env var to match available fixtures.
+
+### Running A Single Step
+
+```sh
+GHOST_E2E_MODEL=gpt53 cargo test --features e2e-tests \
+  --test e2e_steps printer_3d_step_01 -- --nocapture --test-threads=1
+```
+
+### Refreshing Fixtures (Interactive Or Explicit)
 
 ```sh
 uv run scripts/e2e
 uv run scripts/e2e refresh --models primary,openai
 ```
 
-Run one step directly:
+### Debugging Test Output (NON-NEGOTIABLE)
 
-```sh
-GHOST_E2E_MODEL=primary cargo test --features e2e-tests --test e2e_steps printer_3d_step_01_spawn_agent -- --nocapture --test-threads=1
-```
+**Never debug from cargo test stdout/stderr.** Test runs produce verbose logs (often
+1MB+) that get truncated by terminal buffers and log filters. Instead:
 
-Inspect logs and diffs:
-
-```sh
-uv run scripts/e2e render-log
-uv run scripts/e2e diff
-uv run scripts/e2e analyze-request
-```
+1. **Run the test** — let it finish (pass or fail).
+2. **Find the e2e-output directory** — the test always prints the snapshot path:
+   ```
+   e2e snapshot: /path/to/ghost/e2e-output/<timestamp>_<scenario>_<step>/
+   ```
+   Or just: `ls -t e2e-output/ | head -1`
+3. **Inspect artifacts in the output directory**, not cargo output:
+   - `debug/requests/` — raw API request JSONs, one per iteration. File names encode
+     timestamp, session ID suffix, and iteration number.
+   - `transcript.json` / `transcript.md` — if the test passed and saved a snapshot.
+   - `notes/`, `references/`, `diary/` — workspace state at time of failure.
+   - `ghost.db` — the SQLite database, queryable with `sqlite3`.
+4. **Use the analysis scripts** to inspect structured data:
+   ```sh
+   uv run scripts/e2e render-log        # Readable markdown from fixture dirs
+   uv run scripts/e2e diff              # Compare two fixture outputs
+   uv run scripts/e2e analyze-request   # Inspect raw request payloads
+   ```
+5. **For a specific debug request**, read the JSON directly or write a small `scripts/`
+   Python script to extract what you need (e.g., list tool calls, find dangling function
+   calls, count tokens). Never try to grep through 1MB logs.
 
 ## Iterating On Failing E2E Tests (NON-NEGOTIABLE)
 

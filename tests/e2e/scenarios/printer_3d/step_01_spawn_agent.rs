@@ -8,7 +8,7 @@ async fn printer_3d_step_01_spawn_agent() {
     let session = env.create_session().await;
 
     let chat = env.chat();
-    let _ = tokio::time::timeout(
+    let (result, _metadata) = tokio::time::timeout(
         Duration::from_secs(90),
         chat.chat(
             &session,
@@ -17,7 +17,14 @@ async fn printer_3d_step_01_spawn_agent() {
             None,
         ),
     )
-    .await;
+    .await
+    .expect("TIMEOUT: chat should return promptly after spawning agent")
+    .expect("chat response failed in step_01");
+
+    assert!(
+        !result.message.trim().is_empty(),
+        "expected a text response after agent spawn, not an empty turn"
+    );
 
     let tool_calls = env.collect_tool_calls(&session).await;
     assert!(

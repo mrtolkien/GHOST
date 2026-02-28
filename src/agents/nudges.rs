@@ -85,10 +85,12 @@ pub struct IterationCountdownRule {
 
 /// Context-size threshold nudge, fires once (opt-in).
 ///
-/// When total conversation content exceeds `threshold_chars`, injects
-/// `message`.
+/// When estimated token usage exceeds `threshold_pct` of the model's
+/// context window, injects `message`. Uses the actual `input_tokens`
+/// from the last provider response as the base, plus estimated tokens
+/// for newly appended tool results.
 #[derive(Debug, Clone, Deserialize)]
 pub struct ContextPressureConfig {
-    pub threshold_chars: usize,
+    pub threshold_pct: f64,
     pub message: String,
 }

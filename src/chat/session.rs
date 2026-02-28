@@ -9,6 +9,7 @@ use crate::agents::{
     ContextPressureConfig, ProgressGateConfig, ProgressRule, RecencyConfig, TemporalConfig,
     ToolCountRule,
 };
+use crate::chat::compaction;
 use crate::config::{self, Config};
 use crate::db;
 use crate::prompt::{PromptContext, PromptRenderer};
@@ -160,6 +161,8 @@ impl SessionChat {
             }],
         }];
 
+        let context_window = self.model_context_window();
+
         let mut handler = TaskHandler {
             session_chat: self,
             session_thing: &session_thing,
@@ -169,6 +172,8 @@ impl SessionChat {
             temporal: definition.temporal.clone(),
             recency: definition.recency.clone(),
             context_pressure: definition.context_pressure.clone(),
+            context_window,
+            last_input_tokens: 0,
             started_at: std::time::Instant::now(),
             temporal_nudge_count: 0,
             iteration_count: 0,
@@ -222,6 +227,8 @@ impl SessionChat {
         // Load FULL history (all previous research + new user message)
         let (mut history, _stored_ids) = self.load_provider_history(&session_thing).await?;
 
+        let context_window = self.model_context_window();
+
         let mut handler = TaskHandler {
             session_chat: self,
             session_thing: &session_thing,
@@ -231,6 +238,8 @@ impl SessionChat {
             temporal: definition.temporal.clone(),
             recency: definition.recency.clone(),
             context_pressure: definition.context_pressure.clone(),
+            context_window,
+            last_input_tokens: 0,
             started_at: std::time::Instant::now(),
             temporal_nudge_count: 0,
             iteration_count: 0,
@@ -389,6 +398,16 @@ impl SessionChat {
         &self.config
     }
 
+    /// Context window size (in tokens) from the default model alias.
+    fn model_context_window(&self) -> usize {
+        self.config
+            .models
+            .aliases
+            .get(&self.config.models.default)
+            .map(|m| m.context_window as usize)
+            .unwrap_or(200_000)
+    }
+
     /// Reasoning effort configured on the default model alias, if any.
     fn model_reasoning_effort(&self) -> Option<ReasoningEffort> {
         self.config
@@ -500,6 +519,7 @@ impl ToolLoopHandler for ChatHandler<'_> {
     async fn post_tool_iteration(
         &mut self,
         history: &mut Vec<ChatMessage>,
+        _last_input_tokens: u32,
     ) -> Result<(), ChatError> {
         self.session_chat.apply_masking_if_needed(history);
 
@@ -544,6 +564,8 @@ struct TaskHandler<'a> {
     temporal: Option<TemporalConfig>,
     recency: Option<RecencyConfig>,
     context_pressure: Option<ContextPressureConfig>,
+    context_window: usize,
+    last_input_tokens: u32,
     started_at: std::time::Instant,
     temporal_nudge_count: usize,
     iteration_count: usize,
@@ -626,7 +648,9 @@ impl ToolLoopHandler for TaskHandler<'_> {
     async fn post_tool_iteration(
         &mut self,
         history: &mut Vec<ChatMessage>,
+        last_input_tokens: u32,
     ) -> Result<(), ChatError> {
+        self.last_input_tokens = last_input_tokens;
         self.session_chat.apply_masking_if_needed(history);
 
         // Inject TODO as a separate plain-text system message.
@@ -676,10 +700,13 @@ impl ToolLoopHandler for TaskHandler<'_> {
             });
         }
 
-        // Context-pressure nudge (config-driven).
-        if let Some(reminder) =
-            build_context_pressure_reminder(history, self.context_pressure.as_ref())
-        {
+        // Context-pressure nudge (config-driven, percentage-based).
+        if let Some(reminder) = build_context_pressure_reminder(
+            history,
+            self.context_pressure.as_ref(),
+            self.context_window,
+            self.last_input_tokens,
+        ) {
             history.push(ChatMessage {
                 role: Role::System,
                 content: vec![ContentBlock::Text { text: reminder }],
@@ -809,28 +836,38 @@ fn build_recency_reminder(
     ))
 }
 
-/// Nudge when accumulated conversation content is getting large.
+/// Nudge when estimated token usage approaches the context window.
 ///
-/// Estimates total content size from tool results and assistant text. Fires
-/// once when the threshold is exceeded. Returns `None` when no config is
-/// present.
+/// Uses the actual `input_tokens` from the last provider response as a
+/// reliable base, then adds estimated tokens for content appended since
+/// (tool results, nudge messages). Fires once when the ratio exceeds
+/// `threshold_pct` of `context_window`.
 fn build_context_pressure_reminder(
     history: &[ChatMessage],
     config: Option<&ContextPressureConfig>,
+    context_window: usize,
+    last_input_tokens: u32,
 ) -> Option<String> {
     let config = config?;
 
-    let total_chars: usize = history
+    if context_window == 0 || last_input_tokens == 0 {
+        return None;
+    }
+
+    // Estimate tokens for content added after the last API response
+    // (tool results and any nudge messages appended in post_tool_iteration).
+    // The last two messages are typically: assistant tool_use + user tool_results.
+    let new_content_tokens: usize = history
         .iter()
-        .flat_map(|m| &m.content)
-        .map(|block| match block {
-            ContentBlock::Text { text } => text.len(),
-            ContentBlock::ToolResult { content, .. } => content.len(),
-            _ => 0,
-        })
+        .rev()
+        .take(2)
+        .map(compaction::estimate_message_tokens)
         .sum();
 
-    if total_chars < config.threshold_chars {
+    let estimated_next_input = last_input_tokens as usize + new_content_tokens;
+    let ratio = estimated_next_input as f64 / context_window as f64;
+
+    if ratio < config.threshold_pct {
         return None;
     }
 
@@ -848,6 +885,14 @@ fn build_context_pressure_reminder(
     if already_nudged {
         return None;
     }
+
+    let pct = (ratio * 100.0).round() as u32;
+    logfire::warn!(
+        "context pressure nudge fired",
+        estimated_tokens = estimated_next_input as u64,
+        context_window = context_window as u64,
+        usage_pct = pct as u64,
+    );
 
     Some(format!(
         "<system-reminder>{}</system-reminder>",
@@ -1282,36 +1327,56 @@ mod tests {
                 text: "x".repeat(300_000),
             }],
         }];
-        assert!(build_context_pressure_reminder(&history, None).is_none());
+        assert!(build_context_pressure_reminder(&history, None, 200_000, 150_000).is_none());
     }
 
     #[test]
     fn context_pressure_fires_above_threshold() {
         let config = ContextPressureConfig {
-            threshold_chars: 100,
+            threshold_pct: 0.70,
             message: "Context large.".to_string(),
         };
+        // Simulate: last response used 80_000 input tokens out of 100_000 window (80%)
         let history = vec![ChatMessage {
             role: Role::User,
             content: vec![ContentBlock::Text {
-                text: "x".repeat(200),
+                text: "short".to_string(),
             }],
         }];
-        let nudge = build_context_pressure_reminder(&history, Some(&config)).unwrap();
+        let nudge =
+            build_context_pressure_reminder(&history, Some(&config), 100_000, 80_000).unwrap();
         assert!(nudge.contains("Context large."));
+    }
+
+    #[test]
+    fn context_pressure_does_not_fire_below_threshold() {
+        let config = ContextPressureConfig {
+            threshold_pct: 0.70,
+            message: "Context large.".to_string(),
+        };
+        // Simulate: last response used 50_000 input tokens out of 100_000 window (50%)
+        let history = vec![ChatMessage {
+            role: Role::User,
+            content: vec![ContentBlock::Text {
+                text: "short".to_string(),
+            }],
+        }];
+        assert!(
+            build_context_pressure_reminder(&history, Some(&config), 100_000, 50_000).is_none()
+        );
     }
 
     #[test]
     fn context_pressure_fires_once() {
         let config = ContextPressureConfig {
-            threshold_chars: 100,
+            threshold_pct: 0.70,
             message: "Context large.".to_string(),
         };
         let history = vec![
             ChatMessage {
                 role: Role::User,
                 content: vec![ContentBlock::Text {
-                    text: "x".repeat(200),
+                    text: "short".to_string(),
                 }],
             },
             ChatMessage {
@@ -1321,7 +1386,10 @@ mod tests {
                 }],
             },
         ];
-        assert!(build_context_pressure_reminder(&history, Some(&config)).is_none());
+        // Even though tokens are high, already nudged — should not fire again
+        assert!(
+            build_context_pressure_reminder(&history, Some(&config), 100_000, 80_000).is_none()
+        );
     }
 
     // --- Iteration countdown nudge tests ---

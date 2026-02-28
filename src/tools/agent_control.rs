@@ -102,7 +102,8 @@ impl AgentControl {
 
         Ok(format!(
             "Agent '{agent_name}' started (agent_id: {agent_id}). \
-             Check progress with agent_control(action: 'status', agent_id: '{agent_id}')."
+             The agent runs in the background — inform the OPERATOR \
+             and end your turn. Do NOT poll or wait for the agent."
         ))
     }
 
