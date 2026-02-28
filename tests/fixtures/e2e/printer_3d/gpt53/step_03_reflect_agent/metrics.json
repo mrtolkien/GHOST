@@ -42,5 +42,18 @@
     "run_shell_command",
     "agent_control",
     "run_shell_command"
-  ]
+  ],
+  "reflection": {
+    "cache_read_tokens": 1598464,
+    "input_tokens": 1977483,
+    "iterations": 13,
+    "output_tokens": 11393,
+    "tool_counts": {
+      "knowledge_search": 6,
+      "note_write": 21,
+      "run_shell_command": 2,
+      "todo": 5
+    },
+    "wall_clock_secs": 196.669405239
+  }
 }

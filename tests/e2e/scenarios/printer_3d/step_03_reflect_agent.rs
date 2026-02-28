@@ -18,12 +18,12 @@ async fn printer_3d_step_03_reflect_agent() {
         .clone()
         .expect("step_02 must provide agent_session_id");
 
-    let findings = tokio::time::timeout(
+    let (findings, metadata) = tokio::time::timeout(
         Duration::from_secs(300),
-        env.run_reflection(&agent_session, None, "reflection"),
+        env.run_reflection_fork(&agent_session),
     )
     .await
-    .expect("TIMEOUT: reflection agent did not complete in step_03");
+    .expect("TIMEOUT: fork reflection did not complete in step_03");
 
     assert!(
         !findings.trim().is_empty(),
@@ -50,7 +50,7 @@ async fn printer_3d_step_03_reflect_agent() {
         serde_json::json!(findings),
     );
 
-    harness::save_step_snapshot(&env, &state).await;
+    harness::save_step_snapshot_with_metadata(&env, &state, Some(&metadata)).await;
 }
 
 fn truncate_preview(s: &str) -> String {

@@ -128,7 +128,7 @@ impl TaskRunner {
         agent_name: &str,
         prompt: &str,
         parent_session_id: Option<&str>,
-    ) -> Result<String, TaskError> {
+    ) -> Result<(String, RunMetadata), TaskError> {
         let definition = load_task(&self.config.workspace, agent_name)?;
 
         let agent_session_id = db::sessions::create_agent_session(&self.db).await?;
@@ -153,15 +153,19 @@ impl TaskRunner {
         )
         .await;
 
-        let (status, transcript) = match result {
-            Ok((findings, _meta)) => ("ok", findings),
+        let (status, transcript, metadata) = match result {
+            Ok((findings, meta)) => ("ok", findings, meta),
             Err(e) => {
                 logfire::error!(
                     "agent run_to_completion failed",
                     agent_name = agent_name.to_string(),
                     error = e.to_string(),
                 );
-                ("failed", format!("Agent error: {e}"))
+                (
+                    "failed",
+                    format!("Agent error: {e}"),
+                    RunMetadata::default(),
+                )
             }
         };
 
@@ -177,7 +181,7 @@ impl TaskRunner {
             });
         }
 
-        Ok(transcript)
+        Ok((transcript, metadata))
     }
 
     /// Run a pre-parsed agent definition synchronously (await completion).
@@ -190,7 +194,7 @@ impl TaskRunner {
         definition: &TaskDefinition,
         prompt: &str,
         parent_session_id: Option<&str>,
-    ) -> Result<String, TaskError> {
+    ) -> Result<(String, RunMetadata), TaskError> {
         let agent_session_id = db::sessions::create_agent_session(&self.db).await?;
 
         let job_log_id = db::job_logs::create_agent_job_log(
@@ -213,15 +217,19 @@ impl TaskRunner {
         )
         .await;
 
-        let (status, transcript) = match result {
-            Ok((findings, _meta)) => ("ok", findings),
+        let (status, transcript, metadata) = match result {
+            Ok((findings, meta)) => ("ok", findings, meta),
             Err(e) => {
                 logfire::error!(
                     "agent run_definition_to_completion failed",
                     agent_name = definition.name.clone(),
                     error = e.to_string(),
                 );
-                ("failed", format!("Agent error: {e}"))
+                (
+                    "failed",
+                    format!("Agent error: {e}"),
+                    RunMetadata::default(),
+                )
             }
         };
 
@@ -237,7 +245,7 @@ impl TaskRunner {
             });
         }
 
-        Ok(transcript)
+        Ok((transcript, metadata))
     }
 
     /// Check agent status.
@@ -450,6 +458,74 @@ impl TaskRunner {
         );
 
         Ok(agent_name)
+    }
+
+    /// Continue an existing agent session synchronously (await completion).
+    ///
+    /// Like `continue_task` but blocks until the agent finishes, returning
+    /// the final findings string and run metadata. Used for reflection forks
+    /// where we need the result before proceeding.
+    #[tracing::instrument(name = "continue agent sync", skip_all, fields(
+        agent_session_id = agent_session_id,
+    ))]
+    pub async fn continue_to_completion(
+        &self,
+        agent_session_id: &str,
+        prompt: &str,
+    ) -> Result<(String, RunMetadata), TaskError> {
+        let agent_name = db::job_logs::get_agent_name_for_session(&self.db, agent_session_id)
+            .await?
+            .ok_or_else(|| TaskError::AgentSessionNotFound {
+                agent_session_id: agent_session_id.to_string(),
+            })?;
+
+        let definition = load_task(&self.config.workspace, &agent_name)?;
+
+        let job_log_id =
+            db::job_logs::create_agent_job_log(&self.db, &agent_name, None, agent_session_id)
+                .await?;
+
+        let cancel_token = CancellationToken::new();
+
+        let result = continue_task_run(
+            &self.db,
+            &self.config,
+            &definition,
+            prompt,
+            agent_session_id,
+            &cancel_token,
+        )
+        .await;
+
+        let (status, transcript, metadata) = match result {
+            Ok((findings, meta)) => ("ok", findings, meta),
+            Err(e) => {
+                logfire::error!(
+                    "agent continue_to_completion failed",
+                    agent_name = agent_name.clone(),
+                    error = e.to_string(),
+                );
+                (
+                    "failed",
+                    format!("Agent error: {e}"),
+                    RunMetadata::default(),
+                )
+            }
+        };
+
+        if let Err(e) =
+            db::job_logs::finish_job_log(&self.db, &job_log_id, status, &transcript).await
+        {
+            logfire::error!("failed to finish agent job_log", error = e.to_string(),);
+        }
+
+        if status == "failed" {
+            return Err(TaskError::ExecutionFailed {
+                message: transcript.to_string(),
+            });
+        }
+
+        Ok((transcript, metadata))
     }
 
     /// List all agent IDs (running and completed).

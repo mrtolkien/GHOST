@@ -132,6 +132,14 @@ fn available_models_for_scenario(scenario: &str) -> Vec<String> {
 }
 
 pub async fn save_step_snapshot(env: &common::LiveTestEnv, state: &StepState) {
+    save_step_snapshot_with_metadata(env, state, None).await;
+}
+
+pub async fn save_step_snapshot_with_metadata(
+    env: &common::LiveTestEnv,
+    state: &StepState,
+    reflection_metadata: Option<&ghost::chat::RunMetadata>,
+) {
     let dir = step_dir(&state.scenario, &state.model_alias, &state.step);
     fs::create_dir_all(&dir).unwrap_or_else(|e| panic!("mkdir {}: {e}", dir.display()));
 
@@ -169,6 +177,7 @@ pub async fn save_step_snapshot(env: &common::LiveTestEnv, state: &StepState) {
         env,
         &state.chat_session_id,
         state.agent_session_id.as_deref(),
+        reflection_metadata,
     )
     .await;
     let metrics_path = dir.join(METRICS_FILE);
@@ -223,6 +232,7 @@ async fn build_metrics(
     env: &common::LiveTestEnv,
     chat_session_id: &str,
     agent_session_id: Option<&str>,
+    reflection_metadata: Option<&ghost::chat::RunMetadata>,
 ) -> serde_json::Value {
     let chat_tools = env.collect_tool_calls(chat_session_id).await;
     let mut metrics = json!({
@@ -233,6 +243,17 @@ async fn build_metrics(
         let wf = env.collect_web_fetch_metrics(agent_session_id).await;
         metrics["agent_web_fetch_count"] = json!(wf.count);
         metrics["agent_web_fetch_urls"] = json!(wf.urls);
+    }
+
+    if let Some(meta) = reflection_metadata {
+        metrics["reflection"] = json!({
+            "wall_clock_secs": meta.duration.as_secs_f64(),
+            "input_tokens": meta.input_tokens,
+            "output_tokens": meta.output_tokens,
+            "cache_read_tokens": meta.cache_read_tokens,
+            "iterations": meta.iterations,
+            "tool_counts": meta.tool_counts,
+        });
     }
 
     metrics

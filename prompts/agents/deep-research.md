@@ -8,35 +8,36 @@ tools:
   - web_fetch
   - read_file
   - todo
+  - note_write
+  - run_shell_command
 max_iterations: 30
 progress:
   - remaining_iterations: 10
     message: >-
-      You have {remaining} iterations left. Prioritize: fetch your highest-value
+      You have {remaining} iterations left. Prioritize: complete your highest-value
       remaining TODO items and skip low-priority ones.
   - remaining_iterations: 5
     message: >-
-      Only {remaining} iterations left. Stop fetching. Mark remaining TODO items done or
-      skipped and write your report.
+      Only {remaining} iterations left. Stop starting new work. Mark remaining TODO
+      items done or skipped and write your final message.
   - remaining_iterations: 2
     message: >-
       FINAL WARNING: {remaining} iterations left. Your next response MUST be your final
-      report text. Do NOT call any tools except `todo`.
+      message text. Do NOT call any tools except `todo`.
 progress_gate:
-  no_todo: "REJECTED — create a TODO plan before writing your report."
+  no_todo: "REJECTED — create a TODO plan before proceeding."
   incomplete:
-    "REJECTED — you have {incomplete} incomplete TODO item(s). Keep researching or mark
-    items done before writing your report."
+    "REJECTED — you have {incomplete} incomplete TODO item(s). Complete or mark them
+    done/skipped before writing your final message."
 temporal:
   after_seconds: 300
   message:
     - "You've been working for {minutes} minutes. Start wrapping up: finish your current
-      fetch, mark remaining TODO items done or skipped, and write your report."
-    - "You've been working for {minutes} minutes. STOP fetching new pages. Write your
-      report NOW using what you have. Any tool call other than `todo` will be wasted
-      time."
-    - "FINAL WARNING ({minutes} min). Your next response MUST be your final report text.
-      Do NOT call any tools. Write your report immediately with the sources you have."
+      tasks, mark remaining TODO items done or skipped, and write your final message."
+    - "You've been working for {minutes} minutes. STOP starting new work. Write your
+      final message NOW using what you have."
+    - "FINAL WARNING ({minutes} min). Your next response MUST be your final message
+      text. Do NOT call any tools. Write your message immediately."
 # context_pressure disabled — masking handles context management for now.
 # If agents start hitting actual context limits, re-enable with a threshold
 # based on tokens (not chars). The old 250K chars threshold fired at ~62K tokens,

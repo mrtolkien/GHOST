@@ -417,10 +417,9 @@ impl LiveTestEnv {
         (findings, metadata)
     }
 
-    /// Fork reflection: continue the same agent session with a knowledge
-    /// extraction prompt instead of creating a new reflection agent.
-    ///
-    /// Benefits: warm prompt cache, preserved reasoning chain, simpler flow.
+    /// Agent reflection: continue the same agent session with a knowledge
+    /// extraction prompt. The model keeps its full research context (warm
+    /// prompt cache, preserved reasoning chain) and switches to note writing.
     /// Returns the findings string and run metadata.
     pub async fn run_reflection_fork(
         &self,
@@ -452,7 +451,7 @@ impl LiveTestEnv {
         let curation =
             ghost::jobs::reflection::curate_references(&self.config.workspace, &classified);
         self.log(format!(
-            "curate_references (fork): {} moved, {} deleted",
+            "curate_references: {} moved, {} deleted",
             curation.moved, curation.deleted,
         ));
 
@@ -463,7 +462,7 @@ impl LiveTestEnv {
             &classified,
         )
         .await;
-        self.log(format!("link_cited_edges (fork): {cited} created"));
+        self.log(format!("link_cited_edges: {cited} created"));
 
         (findings, metadata)
     }

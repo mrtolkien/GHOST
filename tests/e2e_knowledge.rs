@@ -72,7 +72,7 @@ async fn e2e_research() {
     // --- Reflection phase (3 min timeout each, sequential) ---
 
     // Agent session reflection: has full research transcript + web fetches
-    let _agent_reflection = tokio::time::timeout(
+    let (_agent_reflection, _agent_meta) = tokio::time::timeout(
         std::time::Duration::from_secs(180),
         env.run_reflection(&outcome.agent_session, None, "reflection"),
     )
@@ -83,7 +83,7 @@ async fn e2e_research() {
         .await;
 
     // Chat session reflection: user question + injected findings summary + diary
-    let _chat_reflection = tokio::time::timeout(
+    let (_chat_reflection, _chat_meta) = tokio::time::timeout(
         std::time::Duration::from_secs(180),
         env.run_reflection(&session, None, "chat-reflection"),
     )

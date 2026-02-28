@@ -73,11 +73,12 @@ impl ReflectionManager {
         self.run_inner(session_id, "chat-reflection").await;
     }
 
-    /// Run reflection after an agent handoff on the agent's own session.
-    /// Fully serialized via the mutex.
+    /// Run reflection after an agent handoff by continuing the same agent
+    /// session. The model keeps its full research context (warm prompt cache,
+    /// preserved reasoning chain) and switches to knowledge extraction mode.
     pub async fn run_after_agent_handoff(&self, agent_session_id: &str) {
         let _guard = self.running.lock().await;
-        self.run_inner(agent_session_id, "reflection").await;
+        self.run_fork_reflection(agent_session_id).await;
     }
 
     /// Spawn a background task that polls for idle chat sessions and triggers
@@ -159,6 +160,71 @@ impl ReflectionManager {
         }
     }
 
+    /// Fork reflection: continue the agent's own session with a knowledge
+    /// extraction prompt. Assumes the caller holds the mutex.
+    #[tracing::instrument(name = "fork reflection", skip_all, fields(
+        agent_session_id = agent_session_id,
+    ))]
+    async fn run_fork_reflection(&self, agent_session_id: &str) {
+        logfire::info!(
+            "fork reflection started",
+            agent_session_id = agent_session_id.to_string(),
+        );
+
+        // Classify web cache before reflection for post-processing
+        let messages =
+            match db::sessions::list_messages_by_session(&self.db, agent_session_id).await {
+                Ok(m) => m,
+                Err(e) => {
+                    logfire::error!(
+                        "fork reflection: failed to list messages",
+                        error = e.to_string(),
+                    );
+                    return;
+                }
+            };
+        let agent_findings = extract_agent_findings(&messages);
+        let classified =
+            classify_web_cache(&self.config.workspace, agent_findings.as_deref(), 1000);
+
+        let prompt = build_fork_reflection_prompt(&self.config.workspace);
+
+        match self
+            .task_runner
+            .continue_to_completion(agent_session_id, &prompt)
+            .await
+        {
+            Ok((findings, _meta)) => {
+                // Save handoff note
+                let state_dir = self.config.workspace.join(".state");
+                let _ = std::fs::create_dir_all(&state_dir);
+                let state_path = state_dir.join("reflection.last.md");
+                if let Err(e) = std::fs::write(&state_path, &findings) {
+                    logfire::warn!("reflection: failed to write state", error = e.to_string());
+                }
+
+                let curation = curate_references(&self.config.workspace, &classified);
+                let cited_count =
+                    link_cited_edges(&self.db, &self.config.workspace, &classified).await;
+
+                logfire::info!(
+                    "fork reflection completed",
+                    agent_session_id = agent_session_id.to_string(),
+                    refs_moved = curation.moved,
+                    refs_deleted = curation.deleted,
+                    cited_edges = cited_count,
+                );
+            }
+            Err(e) => {
+                logfire::error!(
+                    "fork reflection failed",
+                    agent_session_id = agent_session_id.to_string(),
+                    error = e.to_string(),
+                );
+            }
+        }
+    }
+
     /// Inner reflection logic — assumes the caller already holds the mutex.
     #[tracing::instrument(name = "run reflection", skip_all, fields(
         session_id = ?session_id,
@@ -184,7 +250,7 @@ impl ReflectionManager {
             .run_to_completion(agent_name, &user_message, Some(session_id))
             .await
         {
-            Ok(findings) => {
+            Ok((findings, _meta)) => {
                 // Save handoff note
                 let state_dir = self.config.workspace.join(".state");
                 let _ = std::fs::create_dir_all(&state_dir);
@@ -580,6 +646,70 @@ fn load_diary_today(workspace: &Path) -> Option<String> {
     match std::fs::read_to_string(&path) {
         Ok(content) if !content.trim().is_empty() => Some(content),
         _ => None,
+    }
+}
+
+/// Build a user message for the fork reflection approach.
+///
+/// Instead of starting a new agent session, this prompt is sent as a
+/// continuation of the existing research session. It instructs the model
+/// to switch from research to knowledge extraction mode.
+///
+/// Reads the note-writer skill from the workspace and inlines it.
+#[must_use]
+pub fn build_fork_reflection_prompt(workspace: &Path) -> String {
+    let skill_path = workspace
+        .join("skills")
+        .join("note-writer")
+        .join("skill.md");
+    let skill_body = match std::fs::read_to_string(&skill_path) {
+        Ok(content) => strip_skill_frontmatter(&content),
+        Err(_) => {
+            logfire::warn!(
+                "fork reflection: note-writer skill not found",
+                path = skill_path.display().to_string(),
+            );
+            "[note-writer skill not found — create structured notes with wiki links]".to_string()
+        }
+    };
+
+    format!(
+        "Your research phase is complete. Switch to knowledge extraction mode.\n\
+         \n\
+         **Do NOT search or fetch any more web pages.** Your only job now is to \
+         organize what you learned into structured knowledge notes.\n\
+         \n\
+         A text-only response (no tool calls) ends this session. Do all work \
+         through tools.\n\
+         \n\
+         ## Workflow\n\
+         1. Discover existing notes (`run_shell_command` to list notes/, \
+         `knowledge_search` to check for duplicates)\n\
+         2. Create a TODO plan listing every entity to write notes about\n\
+         3. Create notes following the guide below\n\
+         4. Verify completeness against your entity list\n\
+         5. Handoff (text-only summary of what you created)\n\
+         \n\
+         ## Note-Writer Guide\n\
+         \n\
+         {skill_body}"
+    )
+}
+
+/// Strip YAML frontmatter from a skill file.
+fn strip_skill_frontmatter(content: &str) -> String {
+    let trimmed = content.trim_start();
+    if !trimmed.starts_with("---") {
+        return content.to_string();
+    }
+    let after_open = &trimmed[3..];
+    if let Some(close) = after_open.find("\n---") {
+        let body_start = close + 4;
+        after_open[body_start..]
+            .trim_start_matches('\n')
+            .to_string()
+    } else {
+        content.to_string()
     }
 }
 

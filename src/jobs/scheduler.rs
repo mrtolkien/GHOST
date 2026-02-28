@@ -265,7 +265,7 @@ async fn execute_job(
     user_message.push_str("Execute the scheduled job.");
 
     let task_def = job_to_task_definition(def);
-    let response = task_runner
+    let (response, _meta) = task_runner
         .run_definition_to_completion(&task_def, &user_message, None)
         .await?;
 

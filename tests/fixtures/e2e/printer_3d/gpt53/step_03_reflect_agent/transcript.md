@@ -3070,3 +3070,1377 @@ If you’re buying an enclosed home FDM printer around **$1,000 in 2026**, the s
 
 - `reasoning`: 
 
+### 54. user
+
+**Content**
+
+```text
+Your research phase is complete. Switch to knowledge extraction mode.
+
+**Do NOT search or fetch any more web pages.** Your only job now is to organize what you learned into structured knowledge notes.
+
+A text-only response (no tool calls) ends this session. Do all work through tools.
+
+## Workflow
+1. Discover existing notes (`run_shell_command` to list notes/, `knowledge_search` to check for duplicates)
+2. Create a TODO plan listing every entity to write notes about
+3. Create notes following the guide below
+4. Verify completeness against your entity list
+5. Handoff (text-only summary of what you created)
+
+## Note-Writer Guide
+
+# Note Writer — Knowledge Note Guide
+
+This skill is the complete reference for writing structured knowledge notes. Follow
+every section when creating or updating notes.
+
+## Workflow
+
+### 1. Enumerate Entities
+
+Before writing any notes, list every distinct entity the source material explicitly
+named, recommended, or compared. Each one gets its own note — don't merge related items
+into a single note even if they're closely related or from the same category.
+
+### 2. Create Notes
+
+**Prioritize synthesized conclusions over raw data.** If Agent Findings are present, use
+them as your primary source. If web cache files are present, read them with `read_file`
+to extract concrete details.
+
+**What to create** — scale to the richness of the input:
+
+- **Entity notes** (archetype != topic): one per distinct person, project, concept,
+  tool, or other concrete entity. Include specific details — names, numbers, versions,
+  dates. Vague notes are useless.
+- **Decision note**: if comparisons or trade-offs were discussed, link entity notes with
+  rationale.
+- **Source quality note**: if external sources were used, rate at least one source's
+  reliability and depth. Tag under `{domain}/sources`. Title: "Source Name — Topic"
+  since the same site may have different quality across domains.
+
+Pass source URLs in the `sources` parameter of `note_write` — they will be preserved in
+structured frontmatter. Do NOT put bare URLs in the note body.
+
+Do NOT use `[[references/...]]` wiki links — references are managed automatically after
+your session.
+
+### 3. Verify Before Handoff
+
+Before writing your handoff message, check your work against the entity list:
+
+- Did you create or confirm a note exists for **every** entity you listed? If you missed
+  any → go back to step 2.
+- If external sources were used, did you create at least one **source quality note**? If
+  not → step 2.
+- If comparisons or trade-offs were discussed, did you create a **decision note**? If
+  not → step 2.
+
+## Note Guidelines
+
+- **Atomic**: one concept per note, 100-400 words typical.
+- **Specific**: exact names, numbers, versions, dates — never vague.
+- **Linked**: `[[Title]]` for default edges, `[[rel>Title]]` for typed edges.
+- **Tagged**: first tag = subfolder path (e.g. `rust/async`), lowercase,
+  slash-separated. Keep tags to 2 levels max.
+- **Trust**: start at …[5864b total]
+```
+
+### 55. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `run_shell_command`
+```json
+{
+  "command": "ls -R notes",
+  "directory": ".",
+  "timeout_ms": 120000
+}
+```
+
+### 56. user
+
+**Tool Results**
+
+- error=false
+```text
+Exit code: 0
+
+--- stdout ---
+notes:
+
+```
+
+### 57. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `knowledge_search`
+```json
+{
+  "categories": [
+    "notes",
+    "references",
+    "diary"
+  ],
+  "limit": 5,
+  "query": "Enclosed Home 3D Printers 2026"
+}
+```
+- `knowledge_search`
+```json
+{
+  "categories": [
+    "notes",
+    "references",
+    "diary"
+  ],
+  "limit": 5,
+  "query": "Bambu Lab P2S"
+}
+```
+- `knowledge_search`
+```json
+{
+  "categories": [
+    "notes",
+    "references",
+    "diary"
+  ],
+  "limit": 5,
+  "query": "Prusa CORE One"
+}
+```
+- `knowledge_search`
+```json
+{
+  "categories": [
+    "notes",
+    "references",
+    "diary"
+  ],
+  "limit": 5,
+  "query": "QIDI Plus4 Q2"
+}
+```
+- `knowledge_search`
+```json
+{
+  "categories": [
+    "notes",
+    "references",
+    "diary"
+  ],
+  "limit": 5,
+  "query": "Flashforge Adventurer 5M Pro"
+}
+```
+- `knowledge_search`
+```json
+{
+  "categories": [
+    "notes",
+    "references",
+    "diary"
+  ],
+  "limit": 5,
+  "query": "Tom's Hardware 3D printers source quality"
+}
+```
+
+### 58. user
+
+**Tool Results**
+
+- error=false
+```text
+No results found.
+```
+- error=false
+```text
+No results found.
+```
+- error=false
+```text
+No results found.
+```
+- error=false
+```text
+No results found.
+```
+- error=false
+```text
+No results found.
+```
+- error=false
+```text
+No results found.
+```
+
+### 59. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `todo`
+```json
+{
+  "action": "plan",
+  "description": "",
+  "index": 0,
+  "items": [
+    {
+      "description": "Create topic hub note to anchor all model and source notes",
+      "title": "Write note: Enclosed Home 3D Printers 2026"
+    },
+    {
+      "description": "Create model note with pricing, specs, and caveats",
+      "title": "Write note: Bambu Lab P2S"
+    },
+    {
+      "description": "Create model note with pricing, specs, and caveats",
+      "title": "Write note: Prusa CORE One"
+    },
+    {
+      "description": "Create model note with pricing, specs, and caveats",
+      "title": "Write note: QIDI Plus4"
+    },
+    {
+      "description": "Create model note with pricing, specs, and caveats",
+      "title": "Write note: QIDI Q2"
+    },
+    {
+      "description": "Create model note with pricing, specs, and caveats",
+      "title": "Write note: Flashforge Adventurer 5M Pro"
+    },
+    {
+      "description": "Create context model note for prior-gen value baseline",
+      "title": "Write note: Bambu Lab P1S"
+    },
+    {
+      "description": "Create model note focused on safety and reliability caveats",
+      "title": "Write note: QIDI Q1 Pro"
+    },
+    {
+      "description": "Create alternative model note with uncertainty on current pricing",
+      "title": "Write note: Creality K1C"
+    },
+    {
+      "description": "Create organization note linking ecosystem and key models",
+      "title": "Write note: Bambu Lab"
+    },
+    {
+      "description": "Create organization note linking ecosystem and key models",
+      "title": "Write note: Prusa Research"
+    },
+    {
+      "description": "Create organization note linking ecosystem and key models",
+      "title": "Write note: QIDI Tech"
+    },
+    {
+      "description": "Create organization note linking ecosystem and key models",
+      "title": "Write note: Flashforge"
+    },
+    {
+      "description": "Create organization note linking ecosystem and key models",
+      "title": "Write note: Creality"
+    },
+    {
+      "description": "Create source/entity note for review methodology reputation",
+      "title": "Write note: Tom's Hardware"
+    },
+    {
+      "description": "Create source/entity note for review methodology reputation",
+      "title": "Write note: CNET"
+    },
+    {
+      "description": "Create source/entity note for review methodology reputation",
+      "title": "Write note: PCMag"
+    },
+    {
+      "description": "Create source/entity note for pricing tracker/community sentiment role",
+      "title": "Write note: Aurora Tech Channel"
+    },
+    {
+      "description": "Create source/entity note for creator comparison perspective",
+      "title": "Write note: Tom's 3D"
+    },
+    {
+      "description": "Create decision note with ranked shortlist and trade-off logic",
+      "title": "Write decision note: Enclosed Home 3D Printer Shortlist 2026"
+    },
+    {
+      "description": "Create source quality note rating trust and limits for this research domain",
+      "title": "Write source quality note: Tom's Hardware — Enclosed Home 3D Printers"
+    }
+  ],
+  "note": "",
+  "status": "pending",
+  "title": "",
+  "updates": []
+}
+```
+
+### 60. user
+
+**Tool Results**
+
+- error=false
+```text
+TODO [0/21]
+1. ○ Write note: Enclosed Home 3D Printers 2026 — Create topic hub note to anchor all model and source notes
+2. ○ Write note: Bambu Lab P2S — Create model note with pricing, specs, and caveats
+3. ○ Write note: Prusa CORE One — Create model note with pricing, specs, and caveats
+4. ○ Write note: QIDI Plus4 — Create model note with pricing, specs, and caveats
+5. ○ Write note: QIDI Q2 — Create model note with pricing, specs, and caveats
+6. ○ Write note: Flashforge Adventurer 5M Pro — Create model note with pricing, specs, and caveats
+7. ○ Write note: Bambu Lab P1S — Create context model note for prior-gen value baseline
+8. ○ Write note: QIDI Q1 Pro — Create model note focused on safety and reliability caveats
+9. ○ Write note: Creality K1C — Create alternative model note with uncertainty on current pricing
+10. ○ Write note: Bambu Lab — Create organization note linking ecosystem and key models
+11. ○ Write note: Prusa Research — Create organization note linking ecosystem and key models
+12. ○ Write note: QIDI Tech — Create organization note linking ecosystem and key models
+13. ○ Write note: Flashforge — Create organization note linking ecosystem and key models
+14. ○ Write note: Creality — Create organization note linking ecosystem and key models
+15. ○ Write note: Tom's Hardware — Create source/entity note for review methodology reputation
+16. ○ Write note: CNET — Create source/entity note for review methodology reputation
+17. ○ Write note: PCMag — Create source/entity note for review methodology reputation
+18. ○ Write note: Aurora Tech Channel — Create source/entity note for pricing tracker/community sentiment role
+19. ○ Write note: Tom's 3D — Create source/entity note for creator comparison perspective
+20. ○ Write decision note: Enclosed Home 3D Printer Shortlist 2026 — Create decision note with ranked shortlist and trade-off logic
+21. ○ Write source quality note: Tom's Hardware …[2109b total]
+```
+
+### 61. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `note_write`
+```json
+{
+  "action": "create",
+  "archetype": "topic",
+  "body": "Home-focused research hub for enclosed FDM printers around a USD $1,000 center budget in 2026.\n\nPrimary shortlisted machines: [[Bambu Lab P2S]], [[Prusa CORE One]], [[QIDI Plus4]], [[QIDI Q2]], and [[Flashforge Adventurer 5M Pro]].\n\nSecondary/contrast options tracked: [[Bambu Lab P1S]], [[QIDI Q1 Pro]], and [[Creality K1C]].\n\nEvaluation priorities in this topic:\n- Reliability and low-maintenance operation for everyday maker use\n- Home suitability (noise, enclosure behavior, filtration/safety claims)\n- Realistic value near $700–$1300 rather than headline MSRP alone\n- Material flexibility (PLA/PETG first, plus ABS/ASA/engineering plastics when needed)\n\nDecision output for this topic is recorded in [[Enclosed Home 3D Printer Shortlist 2026]]. Source reliability assessment is recorded in [[Tom's Hardware — Enclosed Home 3D Printers]].",
+  "sources": [
+    "https://www.tomshardware.com/best-picks/best-3d-printers",
+    "https://www.cnet.com/tech/computing/best-3d-printer/",
+    "https://www.pcmag.com/picks/the-best-3d-printers"
+  ],
+  "tags": [
+    "3dprinting/home",
+    "enclosed"
+  ],
+  "title": "Enclosed Home 3D Printers 2026",
+  "trust": 7
+}
+```
+
+### 62. user
+
+**Tool Results**
+
+- error=false
+```text
+Created note 'Enclosed Home 3D Printers 2026' at /tmp/.tmpWjBAHo/notes/3dprinting/home/enclosed_home_3d_printers_2026.md
+DB record: 01KJH5XK10X9SEX6HGVC9TFQZN
+Edges: 10 created, 10 stubs created
+Index notes created: 2
+
+New stub notes created from wiki links:
+  - [[Bambu Lab P2S]]
+  - [[Prusa CORE One]]
+  - [[QIDI Plus4]]
+  - [[QIDI Q2]]
+  - [[Flashforge Adventurer 5M Pro]]
+  - [[Bambu Lab P1S]]
+  - [[QIDI Q1 Pro]]
+  - [[Creality K1C]]
+  - [[Enclosed Home 3D Printer Shortlist 2026]]
+  - [[Tom's Hardware — Enclosed Home 3D Printers]]
+If any of these deserve a full note, create them before your handoff.
+```
+
+### 63. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `note_write`
+```json
+{
+  "action": "update",
+  "archetype": "project",
+  "body": "[[Bambu Lab P2S]] is a fully enclosed CoreXY FDM printer positioned as a mainstream home option in the 2026 market. Relevant to [[Enclosed Home 3D Printers 2026]].\n\nCurrent pricing signals (US): about **$549 standalone** and about **$799.99 for the combo** configuration that includes multi-color hardware. Typical spec profile: **256×256×256 mm build volume**, automatic leveling, hardened 0.4 mm nozzle, and a 5-inch touch interface.\n\nHigh-value strengths for home users:\n- Strong out-of-box reliability and speed/quality balance\n- Improved airflow behavior versus prior generation, reducing the “door-open PLA” annoyance noted in older enclosed designs\n- Strong software/app ecosystem via [[Bambu Lab]]\n\nMain caveats:\n- Multi-color workflows still generate purge waste\n- Ecosystem lock-in and cloud/tooling preferences remain a consideration for advanced/tinker-heavy users\n\nPractical take: this is currently the most balanced “buy and print” enclosed machine near a $1k target when ease-of-use and consistent output matter more than maximum openness.",
+  "sources": [
+    "https://www.tomshardware.com/3d-printing/bambu-lab-p2s-review",
+    "https://www.cnet.com/tech/computing/best-3d-printer/",
+    "https://www.tomshardware.com/best-picks/best-3d-printers"
+  ],
+  "tags": [
+    "3dprinting/home",
+    "models"
+  ],
+  "title": "Bambu Lab P2S",
+  "trust": 8
+}
+```
+- `note_write`
+```json
+{
+  "action": "update",
+  "archetype": "project",
+  "body": "[[Prusa CORE One]] (current product page iteration: CORE One+) is a fully enclosed CoreXY printer from [[Prusa Research]] with a strong reliability/maintainability emphasis. Relevant to [[Enclosed Home 3D Printers 2026]].\n\nCurrent official pricing observed on Prusa’s store page (USD region): about **$1,202.78 assembled** and **$925 kit** (region, shipping, and taxes materially affect final total). Core specs include **250×220×270 mm build volume** and active chamber temperature control up to **55°C**.\n\nKey strengths:\n- Excellent long-term ownership posture (parts, upgrades, open tooling posture)\n- Strong print consistency and chamber-control behavior for both PLA and higher-temp materials\n- Better privacy/local-network flexibility than more cloud-dependent ecosystems\n\nTrade-offs:\n- Higher entry price than many alternatives\n- Optional accessories (camera/filtration/etc.) can raise effective cost\n\nPractical take: high-confidence choice for users who value durability, serviceability, and ecosystem openness over lowest upfront price.",
+  "sources": [
+    "https://www.prusa3d.com/product/prusa-core-one/",
+    "https://toms3d.org/2025/02/11/finally-prusa-takes-on-bambu-core-one-review-and-x1c-comparison/",
+    "https://www.cnet.com/tech/computing/best-3d-printer/"
+  ],
+  "tags": [
+    "3dprinting/home",
+    "models"
+  ],
+  "title": "Prusa CORE One",
+  "trust": 8
+}
+```
+- `note_write`
+```json
+{
+  "action": "update",
+  "archetype": "project",
+  "body": "[[QIDI Plus4]] is an enclosed CoreXY platform from [[QIDI Tech]] focused on higher-temperature materials at midrange pricing. Relevant to [[Enclosed Home 3D Printers 2026]].\n\nObserved official US-store pricing: about **$699 sale / $799 regular** for base configuration, and about **$849 combo**. Notable specs: **305×305×280 mm** build volume, high-temperature hotend class (up to 370°C on page claims), and actively heated chamber claims up to **65°C**.\n\nStrength profile:\n- Larger build area than many direct competitors near this budget\n- Strong engineering-material orientation (ABS/ASA/PA/PC and reinforced variants)\n- Good value if chambered high-temp printing is the priority\n\nCaveats:\n- More prosumer tuning burden than the most polished beginner-first ecosystems\n- Multi-color add-on maturity should be checked per current firmware/hardware revision\n\nPractical take: one of the best value options for users who specifically need large-format, heated-chamber capability without moving to much higher price tiers.",
+  "sources": [
+    "https://us.qidi3d.com/products/plus4-3d-printer",
+    "https://www.tomshardware.com/best-picks/best-3d-printers",
+    "https://www.cnet.com/tech/computing/best-3d-printer/"
+  ],
+  "tags": [
+    "3dprinting/home",
+    "models"
+  ],
+  "title": "QIDI Plus4",
+  "trust": 7
+}
+```
+- `note_write`
+```json
+{
+  "action": "update",
+  "archetype": "project",
+  "body": "[[QIDI Q2]] is a compact enclosed CoreXY model from [[QIDI Tech]] that targets high-temperature capability at budget-oriented pricing. Relevant to [[Enclosed Home 3D Printers 2026]].\n\nObserved pricing: about **$499 base** and **$649 combo**. Official and reviewed specs include **270×270×256 mm** build volume, hotend up to **370°C**, bed to **120°C**, and active chamber heating up to **65°C** with integrated filtration claims.\n\nStrengths:\n- Very strong materials capability per dollar\n- Enclosure + heated chamber + filtration package uncommon at this price\n- Good single-color performance in independent testing\n\nImportant caveat from independent review:\n- The combo multi-color accessory (“QIDI Box”) was reported as unreliable in one detailed review, with feed-path friction and failed color swaps\n- Noise was called out as relatively high\n\nPractical take: excellent value as a **single-color engineering-material** machine; treat multi-color combo claims cautiously unless newer revisions explicitly resolve known issues.",
+  "sources": [
+    "https://us.qidi3d.com/products/qidi-q2",
+    "https://www.tomshardware.com/3d-printing/qidi-q2-combo-review",
+    "https://www.tomshardware.com/best-picks/best-3d-printers"
+  ],
+  "tags": [
+    "3dprinting/home",
+    "models"
+  ],
+  "title": "QIDI Q2",
+  "trust": 7
+}
+```
+- `note_write`
+```json
+{
+  "action": "update",
+  "archetype": "project",
+  "body": "[[Flashforge Adventurer 5M Pro]] is an enclosed CoreXY printer from [[Flashforge]] aimed at safer/easier home and education use. Relevant to [[Enclosed Home 3D Printers 2026]].\n\nObserved pricing: about **$449 sale** vs **$599 list** on official store pages. Key specs: **220×220×220 mm** build volume, hotend up to **280°C**, advertised max motion speed **600 mm/s**, and low-noise mode claims around **50 dB**.\n\nStrength profile:\n- Strong ease-of-use and setup simplicity\n- Enclosure plus filtration messaging targeted at indoor/home operation\n- Usually one of the least expensive enclosed CoreXY options from a major brand\n\nLimitations:\n- Smaller build volume than many $700–$1000 alternatives\n- Not a primary choice for advanced multi-material workflows\n\nPractical take: great value for buyers prioritizing enclosed safety/noise and straightforward operation over maximum build volume or advanced engineering material workflows.",
+  "sources": [
+    "https://www.flashforge.com/products/adventurer-5m-pro-3d-printer",
+    "https://www.cnet.com/tech/computing/best-3d-printer/",
+    "https://www.tomshardware.com/best-picks/best-3d-printers"
+  ],
+  "tags": [
+    "3dprinting/home",
+    "models"
+  ],
+  "title": "Flashforge Adventurer 5M Pro",
+  "trust": 7
+}
+```
+
+### 64. user
+
+**Tool Results**
+
+- error=false
+```text
+Updated note 'Bambu Lab P2S' at /tmp/.tmpWjBAHo/notes/3dprinting/home/bambu_lab_p2s.md
+Edges: 3 created, 0 deleted, 1 stubs created
+
+New stub notes created from wiki links:
+  - [[Bambu Lab]]
+If any of these deserve a full note, create them before your handoff.
+```
+- error=false
+```text
+Updated note 'Prusa CORE One' at /tmp/.tmpWjBAHo/notes/3dprinting/home/prusa_core_one.md
+Edges: 3 created, 0 deleted, 1 stubs created
+
+New stub notes created from wiki links:
+  - [[Prusa Research]]
+If any of these deserve a full note, create them before your handoff.
+```
+- error=false
+```text
+Updated note 'QIDI Plus4' at /tmp/.tmpWjBAHo/notes/3dprinting/home/qidi_plus4.md
+Edges: 3 created, 0 deleted, 1 stubs created
+
+New stub notes created from wiki links:
+  - [[QIDI Tech]]
+If any of these deserve a full note, create them before your handoff.
+```
+- error=false
+```text
+Updated note 'QIDI Q2' at /tmp/.tmpWjBAHo/notes/3dprinting/home/qidi_q2.md
+Edges: 3 created, 0 deleted, 0 stubs created
+```
+- error=false
+```text
+Updated note 'Flashforge Adventurer 5M Pro' at /tmp/.tmpWjBAHo/notes/3dprinting/home/flashforge_adventurer_5m_pro.md
+Edges: 3 created, 0 deleted, 1 stubs created
+
+New stub notes created from wiki links:
+  - [[Flashforge]]
+If any of these deserve a full note, create them before your handoff.
+```
+
+### 65. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `todo`
+```json
+{
+  "action": "batch_update",
+  "description": "",
+  "index": 0,
+  "items": [],
+  "note": "",
+  "status": "pending",
+  "title": "",
+  "updates": [
+    {
+      "index": 1,
+      "note": "Created topic hub linking all shortlisted models and decision/source-quality notes.",
+      "status": "done"
+    },
+    {
+      "index": 2,
+      "note": "Created synthesized model note with pricing/specs/caveats.",
+      "status": "done"
+    },
+    {
+      "index": 3,
+      "note": "Created synthesized model note with pricing/specs/caveats.",
+      "status": "done"
+    },
+    {
+      "index": 4,
+      "note": "Created synthesized model note with pricing/specs/caveats.",
+      "status": "done"
+    },
+    {
+      "index": 5,
+      "note": "Created synthesized model note with pricing/specs/caveats.",
+      "status": "done"
+    },
+    {
+      "index": 6,
+      "note": "Created synthesized model note with pricing/specs/caveats.",
+      "status": "done"
+    }
+  ]
+}
+```
+
+### 66. user
+
+**Tool Results**
+
+- error=false
+```text
+TODO [6/21]
+1. ✓ Write note: Enclosed Home 3D Printers 2026 — Create topic hub note to anchor all model and source notes [Created topic hub linking all shortlisted models and decision/source-quality notes.]
+2. ✓ Write note: Bambu Lab P2S — Create model note with pricing, specs, and caveats [Created synthesized model note with pricing/specs/caveats.]
+3. ✓ Write note: Prusa CORE One — Create model note with pricing, specs, and caveats [Created synthesized model note with pricing/specs/caveats.]
+4. ✓ Write note: QIDI Plus4 — Create model note with pricing, specs, and caveats [Created synthesized model note with pricing/specs/caveats.]
+5. ✓ Write note: QIDI Q2 — Create model note with pricing, specs, and caveats [Created synthesized model note with pricing/specs/caveats.]
+6. ✓ Write note: Flashforge Adventurer 5M Pro — Create model note with pricing, specs, and caveats [Created synthesized model note with pricing/specs/caveats.]
+7. ○ Write note: Bambu Lab P1S — Create context model note for prior-gen value baseline
+8. ○ Write note: QIDI Q1 Pro — Create model note focused on safety and reliability caveats
+9. ○ Write note: Creality K1C — Create alternative model note with uncertainty on current pricing
+10. ○ Write note: Bambu Lab — Create organization note linking ecosystem and key models
+11. ○ Write note: Prusa Research — Create organization note linking ecosystem and key models
+12. ○ Write note: QIDI Tech — Create organization note linking ecosystem and key models
+13. ○ Write note: Flashforge — Create organization note linking ecosystem and key models
+14. ○ Write note: Creality — Create organization note linking ecosystem and key models
+15. ○ Write note: Tom's Hardware — Create source/entity note for review methodology reputation
+16. ○ Write note: CNET — Create source/entity note for review methodology reputation
+17. ○ Write note: PCMag — Create source/entity note for review methodology reputation
+18. …[2500b total]
+```
+
+### 67. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `note_write`
+```json
+{
+  "action": "update",
+  "archetype": "project",
+  "body": "[[Bambu Lab P1S]] is the previous-generation enclosed CoreXY baseline from [[Bambu Lab]] and remains a value reference in 2026. Relevant to [[Enclosed Home 3D Printers 2026]].\n\nRole in current market:\n- Still widely recommended as a capable enclosed home printer\n- Serves as the direct predecessor to [[Bambu Lab P2S]]\n- Often appears in aggressive promotional pricing windows, making it a strong budget-performance option when discounted\n\nSpecs/context seen across official and review coverage:\n- 256×256×256 mm class build volume\n- Enclosed design with camera and app ecosystem support\n- Combo variants add multi-color hardware\n\nCaveats versus newer generation:\n- Older UI/UX and airflow behavior compared with P2S refresh\n- Same general multi-color purge-waste considerations if using AMS workflows\n\nPractical take: if priced far below P2S in a given region, P1S can still be one of the strongest enclosed-value buys for home maker use.",
+  "sources": [
+    "https://us.store.bambulab.com/products/p1s",
+    "https://www.cnet.com/tech/computing/best-3d-printer/",
+    "https://www.tomshardware.com/3d-printing/bambu-lab-p2s-review"
+  ],
+  "tags": [
+    "3dprinting/home",
+    "models"
+  ],
+  "title": "Bambu Lab P1S",
+  "trust": 7
+}
+```
+- `note_write`
+```json
+{
+  "action": "update",
+  "archetype": "project",
+  "body": "[[QIDI Q1 Pro]] is an enclosed CoreXY model from [[QIDI Tech]] that targets lower-cost high-temperature-capable printing. Relevant to [[Enclosed Home 3D Printers 2026]].\n\nIndependent review context:\n- Pricing observed around **$599 list** with sale levels reported at **$469** and lower in some windows\n- Build volume around **245×245×240 mm**\n- Active chamber heating capability up to about **60°C** and hotend class up to **350°C**\n\nStrengths:\n- Strong value-to-capability ratio for enclosed CoreXY\n- Good practical performance on ABS/engineering-adjacent workloads for price\n\nKey caveat:\n- Reviewers flagged a safety concern around heater-area protection/marking in early units; manufacturer response indicated mitigation updates and printable guard guidance\n\nPractical take: strong budget enclosed option with advanced-material upside, but buyers should verify current hardware revision and safety updates before purchase.",
+  "sources": [
+    "https://www.tomshardware.com/3d-printing/qidi-tech-q1-pro-review",
+    "https://us.qidi3d.com/products/q1-pro-3d-printer",
+    "https://www.tomshardware.com/best-picks/best-3d-printers"
+  ],
+  "tags": [
+    "3dprinting/home",
+    "models"
+  ],
+  "title": "QIDI Q1 Pro",
+  "trust": 7
+}
+```
+- `note_write`
+```json
+{
+  "action": "update",
+  "archetype": "project",
+  "body": "[[Creality K1C]] is an enclosed CoreXY-class machine from [[Creality]] positioned around carbon-fiber-capable desktop printing. Relevant to [[Enclosed Home 3D Printers 2026]].\n\nWhat is clear from captured sources:\n- Enclosed high-speed CoreXY family positioning\n- Product messaging emphasizes carbon-fiber compatibility and future multi-color ecosystem alignment\n\nWhat remains uncertain in captured data:\n- Reliable current US street pricing was not clearly extracted in the fetched page snapshot\n- Independent 2026 home-use comparison coverage in this research set was thinner than for Bambu/Prusa/QIDI options\n\nPractical take: treat K1C as a viable alternative candidate, but validate up-to-date street price, firmware maturity, and current reliability/support sentiment before choosing it over better-documented options like [[Bambu Lab P2S]] or [[Prusa CORE One]].",
+  "sources": [
+    "https://store.creality.com/products/k1c-3d-printer",
+    "https://www.tomshardware.com/best-picks/best-3d-printers",
+    "https://www.cnet.com/tech/computing/best-3d-printer/"
+  ],
+  "tags": [
+    "3dprinting/home",
+    "models"
+  ],
+  "title": "Creality K1C",
+  "trust": 5
+}
+```
+- `note_write`
+```json
+{
+  "action": "update",
+  "archetype": "organization",
+  "body": "[[Bambu Lab]] is a major consumer FDM brand central to the enclosed-home-printer segment in [[Enclosed Home 3D Printers 2026]].\n\nIn this research set, Bambu’s key relevant models were [[Bambu Lab P2S]] and [[Bambu Lab P1S]], with P2S acting as the current mainstream enclosed recommendation near the $1k target budget.\n\nObserved ecosystem characteristics:\n- Strong out-of-box software/app workflow and high print success rates\n- Competitive speed/quality performance for consumer users\n- Multi-color convenience with trade-off in purge waste\n\nStrategic caveat discussed by community/reviewer ecosystem:\n- Some users prioritize openness/local-control concerns when comparing Bambu workflows versus more open alternatives like [[Prusa Research]] platforms.\n\nNet: very strong practical default for home users who prioritize convenience and consistent results.",
+  "sources": [
+    "https://www.tomshardware.com/3d-printing/bambu-lab-p2s-review",
+    "https://us.store.bambulab.com/products/p1s",
+    "https://toms3d.org/2025/02/11/finally-prusa-takes-on-bambu-core-one-review-and-x1c-comparison/"
+  ],
+  "tags": [
+    "3dprinting/home",
+    "brands"
+  ],
+  "title": "Bambu Lab",
+  "trust": 7
+}
+```
+- `note_write`
+```json
+{
+  "action": "update",
+  "archetype": "organization",
+  "body": "[[Prusa Research]] is a long-standing desktop 3D printing manufacturer with a strong reputation for reliability, support longevity, and open-tooling posture in [[Enclosed Home 3D Printers 2026]] research.\n\nPrimary relevant machine here: [[Prusa CORE One]] (CORE One+ page variant), which emphasizes enclosed CoreXY performance with active chamber management and upgrade paths.\n\nNotable ecosystem traits:\n- Strong local/network privacy options and open software posture\n- Kit and assembled purchasing paths\n- Long-term support/upgrade orientation (parts and conversion pathways)\n\nTrade-off versus faster-moving competitors:\n- Upfront price is often higher than value-driven alternatives\n- Accessories can push total ownership cost up\n\nNet: best aligned with users who value maintainability, platform openness, and long-term ownership confidence over lowest initial purchase price.",
+  "sources": [
+    "https://www.prusa3d.com/product/prusa-core-one/",
+    "https://toms3d.org/2025/02/11/finally-prusa-takes-on-bambu-core-one-review-and-x1c-comparison/",
+    "https://www.cnet.com/tech/computing/best-3d-printer/"
+  ],
+  "tags": [
+    "3dprinting/home",
+    "brands"
+  ],
+  "title": "Prusa Research",
+  "trust": 8
+}
+```
+
+### 68. user
+
+**Tool Results**
+
+- error=false
+```text
+Updated note 'Bambu Lab P1S' at /tmp/.tmpWjBAHo/notes/3dprinting/home/bambu_lab_p1s.md
+Edges: 4 created, 0 deleted, 0 stubs created
+```
+- error=false
+```text
+Updated note 'QIDI Q1 Pro' at /tmp/.tmpWjBAHo/notes/3dprinting/home/qidi_q1_pro.md
+Edges: 3 created, 0 deleted, 0 stubs created
+```
+- error=false
+```text
+Updated note 'Creality K1C' at /tmp/.tmpWjBAHo/notes/3dprinting/home/creality_k1c.md
+Edges: 5 created, 0 deleted, 1 stubs created
+
+New stub notes created from wiki links:
+  - [[Creality]]
+If any of these deserve a full note, create them before your handoff.
+```
+- error=false
+```text
+Updated note 'Bambu Lab' at /tmp/.tmpWjBAHo/notes/3dprinting/home/bambu_lab.md
+Edges: 5 created, 0 deleted, 0 stubs created
+```
+- error=false
+```text
+Updated note 'Prusa Research' at /tmp/.tmpWjBAHo/notes/3dprinting/home/prusa_research.md
+Edges: 3 created, 0 deleted, 0 stubs created
+```
+
+### 69. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `todo`
+```json
+{
+  "action": "batch_update",
+  "description": "",
+  "index": 0,
+  "items": [],
+  "note": "",
+  "status": "pending",
+  "title": "",
+  "updates": [
+    {
+      "index": 7,
+      "note": "Created context note for prior-generation baseline and discount-driven value role.",
+      "status": "done"
+    },
+    {
+      "index": 8,
+      "note": "Created note with safety/reliability caveats from independent review.",
+      "status": "done"
+    },
+    {
+      "index": 9,
+      "note": "Created alternative note with explicit pricing uncertainty caveat.",
+      "status": "done"
+    },
+    {
+      "index": 10,
+      "note": "Created brand-level ecosystem note linked to relevant models.",
+      "status": "done"
+    },
+    {
+      "index": 11,
+      "note": "Created brand-level ecosystem note linked to relevant models.",
+      "status": "done"
+    }
+  ]
+}
+```
+
+### 70. user
+
+**Tool Results**
+
+- error=false
+```text
+TODO [11/21]
+1. ✓ Write note: Enclosed Home 3D Printers 2026 — Create topic hub note to anchor all model and source notes [Created topic hub linking all shortlisted models and decision/source-quality notes.]
+2. ✓ Write note: Bambu Lab P2S — Create model note with pricing, specs, and caveats [Created synthesized model note with pricing/specs/caveats.]
+3. ✓ Write note: Prusa CORE One — Create model note with pricing, specs, and caveats [Created synthesized model note with pricing/specs/caveats.]
+4. ✓ Write note: QIDI Plus4 — Create model note with pricing, specs, and caveats [Created synthesized model note with pricing/specs/caveats.]
+5. ✓ Write note: QIDI Q2 — Create model note with pricing, specs, and caveats [Created synthesized model note with pricing/specs/caveats.]
+6. ✓ Write note: Flashforge Adventurer 5M Pro — Create model note with pricing, specs, and caveats [Created synthesized model note with pricing/specs/caveats.]
+7. ✓ Write note: Bambu Lab P1S — Create context model note for prior-gen value baseline [Created context note for prior-generation baseline and discount-driven value role.]
+8. ✓ Write note: QIDI Q1 Pro — Create model note focused on safety and reliability caveats [Created note with safety/reliability caveats from independent review.]
+9. ✓ Write note: Creality K1C — Create alternative model note with uncertainty on current pricing [Created alternative note with explicit pricing uncertainty caveat.]
+10. ✓ Write note: Bambu Lab — Create organization note linking ecosystem and key models [Created brand-level ecosystem note linked to relevant models.]
+11. ✓ Write note: Prusa Research — Create organization note linking ecosystem and key models [Created brand-level ecosystem note linked to relevant models.]
+12. ○ Write note: QIDI Tech — Create organization note linking ecosystem and key models
+13. ○ Write note: Flashforge — Create organization note linking ecosystem and key models
+14. ○ Write note:…[2855b total]
+```
+
+### 71. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `note_write`
+```json
+{
+  "action": "update",
+  "archetype": "organization",
+  "body": "[[QIDI Tech]] is a consumer/prosumer 3D printer manufacturer that has become highly competitive on enclosed CoreXY value in [[Enclosed Home 3D Printers 2026]].\n\nModels tracked in this research:\n- [[QIDI Plus4]] (larger-format, high-temp focus)\n- [[QIDI Q2]] (strong value, compact high-temp profile)\n- [[QIDI Q1 Pro]] (budget enclosure with notable early safety caveat in review coverage)\n\nObserved positioning:\n- Aggressive pricing for heated-chamber capability\n- Broad material support messaging, including engineering-grade composites\n- Rapid product iteration cadence\n\nMain caution for buyers:\n- Verify current hardware/firmware revision status for newer accessories and features before buying, especially around multi-color ecosystem maturity.\n\nNet: strong option when high-temperature material capability is required at lower budget levels.",
+  "sources": [
+    "https://us.qidi3d.com/products/qidi-q2",
+    "https://us.qidi3d.com/products/plus4-3d-printer",
+    "https://www.tomshardware.com/3d-printing/qidi-q2-combo-review"
+  ],
+  "tags": [
+    "3dprinting/home",
+    "brands"
+  ],
+  "title": "QIDI Tech",
+  "trust": 7
+}
+```
+- `note_write`
+```json
+{
+  "action": "update",
+  "archetype": "organization",
+  "body": "[[Flashforge]] is a long-running desktop 3D printer brand with strong education/home safety positioning in [[Enclosed Home 3D Printers 2026]].\n\nPrimary model in this research: [[Flashforge Adventurer 5M Pro]].\n\nObserved strengths:\n- Accessible enclosed CoreXY offerings at comparatively low prices\n- Strong setup simplicity and user-friendly onboarding\n- Home/classroom-oriented messaging around filtration and lower-noise operation\n\nObserved trade-off profile:\n- Smaller build volumes in mainstream value models\n- Less emphasis on high-end multi-material capability than some direct competitors\n\nNet: good brand fit for buyers prioritizing “simple enclosed printing” and safer indoor operation at lower cost.",
+  "sources": [
+    "https://www.flashforge.com/products/adventurer-5m-pro-3d-printer",
+    "https://www.cnet.com/tech/computing/best-3d-printer/",
+    "https://www.tomshardware.com/best-picks/best-3d-printers"
+  ],
+  "tags": [
+    "3dprinting/home",
+    "brands"
+  ],
+  "title": "Flashforge",
+  "trust": 7
+}
+```
+- `note_write`
+```json
+{
+  "action": "update",
+  "archetype": "organization",
+  "body": "[[Creality]] is one of the largest consumer 3D printer manufacturers and a frequent comparator in desktop FDM market analysis for [[Enclosed Home 3D Printers 2026]].\n\nRelevant tracked model in this research: [[Creality K1C]].\n\nObserved role in this specific research set:\n- Present as an enclosed CoreXY alternative with carbon-fiber-oriented messaging\n- Less complete pricing and independent 2026 comparison detail captured here than for [[Bambu Lab]], [[Prusa Research]], or [[QIDI Tech]]\n\nPractical implication:\n- Creality remains an important market player, but in this research slice it ranked as a “validate further before buy” option rather than a top-confidence recommendation.\n\nNet: likely competitive in many regions, but requires fresh region-specific price/support/reliability validation before final purchase decisions.",
+  "sources": [
+    "https://store.creality.com/products/k1c-3d-printer",
+    "https://www.tomshardware.com/best-picks/best-3d-printers",
+    "https://www.cnet.com/tech/computing/best-3d-printer/"
+  ],
+  "tags": [
+    "3dprinting/home",
+    "brands"
+  ],
+  "title": "Creality",
+  "trust": 6
+}
+```
+- `note_write`
+```json
+{
+  "action": "create",
+  "archetype": "organization",
+  "body": "[[Tom's Hardware]] is a high-value review source for [[Enclosed Home 3D Printers 2026]] because it combines roundup guidance with deep model-level hands-on reviews.\n\nWhy it mattered in this research:\n- Provided detailed technical and practical caveats (e.g., behavior of multi-material accessories, noise observations, safety notes)\n- Included transparent “verdict + pros/cons + specs + price context” structure\n- Helped distinguish official claim vs real-world reliability behavior\n\nKey model pages used: [[Bambu Lab P2S]], [[QIDI Q2]], and [[QIDI Q1 Pro]], plus category-level roundups.\n\nNet: one of the most decision-useful sources in this project due to concrete testing observations and explicit caveat reporting.",
+  "sources": [
+    "https://www.tomshardware.com/best-picks/best-3d-printers",
+    "https://www.tomshardware.com/3d-printing/bambu-lab-p2s-review",
+    "https://www.tomshardware.com/3d-printing/qidi-q2-combo-review",
+    "https://www.tomshardware.com/3d-printing/qidi-tech-q1-pro-review"
+  ],
+  "tags": [
+    "3dprinting/sources",
+    "reviewsites"
+  ],
+  "title": "Tom's Hardware",
+  "trust": 8
+}
+```
+
+### 72. user
+
+**Tool Results**
+
+- error=false
+```text
+Updated note 'QIDI Tech' at /tmp/.tmpWjBAHo/notes/3dprinting/home/qidi_tech.md
+Edges: 5 created, 0 deleted, 0 stubs created
+```
+- error=false
+```text
+Updated note 'Flashforge' at /tmp/.tmpWjBAHo/notes/3dprinting/home/flashforge.md
+Edges: 3 created, 0 deleted, 0 stubs created
+```
+- error=false
+```text
+Updated note 'Creality' at /tmp/.tmpWjBAHo/notes/3dprinting/home/creality.md
+Edges: 6 created, 0 deleted, 0 stubs created
+```
+- error=false
+```text
+Created note 'Tom's Hardware' at /tmp/.tmpWjBAHo/notes/3dprinting/sources/tom_s_hardware.md
+DB record: 01KJH60CMPTNSPRANZCNC0FJMG
+Edges: 5 created, 0 stubs created
+Index notes created: 1
+```
+
+### 73. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `todo`
+```json
+{
+  "action": "batch_update",
+  "description": "",
+  "index": 0,
+  "items": [],
+  "note": "",
+  "status": "pending",
+  "title": "",
+  "updates": [
+    {
+      "index": 12,
+      "note": "Created brand-level note linking Plus4/Q2/Q1 Pro and value/caveat profile.",
+      "status": "done"
+    },
+    {
+      "index": 13,
+      "note": "Created brand-level note linked to AD5M Pro and home/education positioning.",
+      "status": "done"
+    },
+    {
+      "index": 14,
+      "note": "Created brand-level note linked to K1C with explicit evidence limits.",
+      "status": "done"
+    },
+    {
+      "index": 15,
+      "note": "Created source/entity note emphasizing hands-on methodology and caveat depth.",
+      "status": "done"
+    }
+  ]
+}
+```
+
+### 74. user
+
+**Tool Results**
+
+- error=false
+```text
+TODO [15/21]
+1. ✓ Write note: Enclosed Home 3D Printers 2026 — Create topic hub note to anchor all model and source notes [Created topic hub linking all shortlisted models and decision/source-quality notes.]
+2. ✓ Write note: Bambu Lab P2S — Create model note with pricing, specs, and caveats [Created synthesized model note with pricing/specs/caveats.]
+3. ✓ Write note: Prusa CORE One — Create model note with pricing, specs, and caveats [Created synthesized model note with pricing/specs/caveats.]
+4. ✓ Write note: QIDI Plus4 — Create model note with pricing, specs, and caveats [Created synthesized model note with pricing/specs/caveats.]
+5. ✓ Write note: QIDI Q2 — Create model note with pricing, specs, and caveats [Created synthesized model note with pricing/specs/caveats.]
+6. ✓ Write note: Flashforge Adventurer 5M Pro — Create model note with pricing, specs, and caveats [Created synthesized model note with pricing/specs/caveats.]
+7. ✓ Write note: Bambu Lab P1S — Create context model note for prior-gen value baseline [Created context note for prior-generation baseline and discount-driven value role.]
+8. ✓ Write note: QIDI Q1 Pro — Create model note focused on safety and reliability caveats [Created note with safety/reliability caveats from independent review.]
+9. ✓ Write note: Creality K1C — Create alternative model note with uncertainty on current pricing [Created alternative note with explicit pricing uncertainty caveat.]
+10. ✓ Write note: Bambu Lab — Create organization note linking ecosystem and key models [Created brand-level ecosystem note linked to relevant models.]
+11. ✓ Write note: Prusa Research — Create organization note linking ecosystem and key models [Created brand-level ecosystem note linked to relevant models.]
+12. ✓ Write note: QIDI Tech — Create organization note linking ecosystem and key models [Created brand-level note linking Plus4/Q2/Q1 Pro and value/caveat profile.]
+13. ✓ Write note: Flashforge — …[3162b total]
+```
+
+### 75. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `note_write`
+```json
+{
+  "action": "create",
+  "archetype": "organization",
+  "body": "[[CNET]] is a mainstream tech review outlet that was useful in [[Enclosed Home 3D Printers 2026]] research for broad, editor-tested consumer guidance and current street-price context.\n\nHigh-value contribution in this project:\n- 2026 updated buyer guide with explicit editor picks and practical “who it is for” framing\n- Included comparative pricing references (e.g., retailer-linked street prices)\n- Documented test methodology themes (print quality, speed, setup, support factors)\n\nLimitations:\n- Less engineering-depth per model than specialist long-form reviews\n- Affiliate commerce structure means claims should be cross-checked with technical sources for edge cases\n\nNet: strong shortlist/navigation source; pair with deeper specialist reviews for reliability and high-temp-material caveats.",
+  "sources": [
+    "https://www.cnet.com/tech/computing/best-3d-printer/"
+  ],
+  "tags": [
+    "3dprinting/sources",
+    "reviewsites"
+  ],
+  "title": "CNET",
+  "trust": 7
+}
+```
+- `note_write`
+```json
+{
+  "action": "create",
+  "archetype": "organization",
+  "body": "[[PCMag]] is a broad consumer-tech review publication used as a secondary validation source for [[Enclosed Home 3D Printers 2026]].\n\nContribution in this research:\n- 2026 “best printers” roundup added another independent ranking layer and helped confirm market leaders around the target budget.\n\nConstraint observed in this session:\n- Direct access to at least one specific model review URL was blocked during fetch, so model-level validation leaned more heavily on [[Tom's Hardware]] and official product pages.\n\nNet: useful for cross-checking category picks and general market positioning, but in this project it functioned as a lighter-weight corroboration source rather than the primary technical evidence base.",
+  "sources": [
+    "https://www.pcmag.com/picks/the-best-3d-printers"
+  ],
+  "tags": [
+    "3dprinting/sources",
+    "reviewsites"
+  ],
+  "title": "PCMag",
+  "trust": 6
+}
+```
+- `note_write`
+```json
+{
+  "action": "create",
+  "archetype": "media",
+  "body": "[[Aurora Tech Channel]] served as a high-utility market radar source in [[Enclosed Home 3D Printers 2026]] research.\n\nWhy it mattered:\n- Fast-moving recommendation and pricing tracker format helped identify current deal bands and unexpected model entrants.\n- Frequently referenced by community discussions as part of the practical reviewer ecosystem.\n\nHow to use it well:\n- Best for discovery and price movement awareness.\n- Should be paired with deep hands-on technical reviews (e.g., [[Tom's Hardware]] or specialist creator testing) before final purchase decisions.\n\nNet: valuable “what changed this week” source for printer/value tracking, not a standalone final authority for reliability conclusions.",
+  "sources": [
+    "https://auroratechchannel.com/",
+    "https://www.reddit.com/r/3Dprinting/comments/1rfg867/which_youtubers_can_be_trusted_to_give_impartial/"
+  ],
+  "tags": [
+    "3dprinting/sources",
+    "community"
+  ],
+  "title": "Aurora Tech Channel",
+  "trust": 6
+}
+```
+- `note_write`
+```json
+{
+  "action": "create",
+  "archetype": "media",
+  "body": "[[Tom's 3D]] (Thomas Sanladerer) contributed high-context comparison insight for [[Enclosed Home 3D Printers 2026]], especially around ecosystem and ownership trade-offs.\n\nProject-specific value:\n- Detailed perspective on [[Prusa CORE One]] vs Bambu ecosystem behavior, including practical discussion of openness/local control and long-term platform direction.\n- Strong narrative about emotional UX vs technical design choices, useful for understanding buyer fit beyond raw specs.\n\nLimitation:\n- Creator-source format can be narrower than multi-reviewer lab publications, so best combined with additional independent sources.\n\nNet: high-signal specialist perspective, particularly for advanced users weighing open ecosystem priorities against convenience-first workflows.",
+  "sources": [
+    "https://toms3d.org/2025/02/11/finally-prusa-takes-on-bambu-core-one-review-and-x1c-comparison/",
+    "https://toms3d.org/2026/01/15/bambu-p2s-more-than-just-a-pretty-screen/"
+  ],
+  "tags": [
+    "3dprinting/sources",
+    "creators"
+  ],
+  "title": "Tom's 3D",
+  "trust": 7
+}
+```
+- `note_write`
+```json
+{
+  "action": "update",
+  "archetype": "decision",
+  "body": "Decision for [[Enclosed Home 3D Printers 2026]] with target budget centered near $1,000 (acceptable roughly $700–$1300 when justified).\n\nRanked shortlist:\n1. **Best overall:** [[Bambu Lab P2S]] (combo pricing near budget center, strongest ease/reliability balance)\n2. **Best long-term ownership:** [[Prusa CORE One]] (higher initial cost, strongest openness/serviceability posture)\n3. **Best value for advanced materials:** [[QIDI Plus4]]\n4. **Best compact high-temp value:** [[QIDI Q2]] (prefer single-color use until multi-color accessory maturity is clearly resolved)\n5. **Best lower-cost enclosed home option:** [[Flashforge Adventurer 5M Pro]]\n\nRejected/deprioritized in this decision set:\n- [[Creality K1C]] as a final pick due to weaker current-session evidence depth and less certain current street-price extraction.\n\nKey trade-off logic:\n- Convenience and reliability favored [[Bambu Lab P2S]].\n- Openness/privacy/upgradeability favored [[Prusa CORE One]].\n- Pure capability-per-dollar for heated-chamber engineering materials favored [[QIDI Plus4]] and [[QIDI Q2]].",
+  "sources": [
+    "https://www.tomshardware.com/best-picks/best-3d-printers",
+    "https://www.tomshardware.com/3d-printing/bambu-lab-p2s-review",
+    "https://www.prusa3d.com/product/prusa-core-one/",
+    "https://us.qidi3d.com/products/plus4-3d-printer",
+    "https://us.qidi3d.com/products/qidi-q2",
+    "https://www.flashforge.com/products/adventurer-5m-pro-3d-printer",
+    "https://www.cnet.com/tech/computing/best-3d-printer/"
+  ],
+  "tags": [
+    "3dprinting/home",
+    "decisions"
+  ],
+  "title": "Enclosed Home 3D Printer Shortlist 2026",
+  "trust": 8
+}
+```
+- `note_write`
+```json
+{
+  "action": "update",
+  "archetype": "concept",
+  "body": "Source-quality assessment for [[Tom's Hardware]] in the context of [[Enclosed Home 3D Printers 2026]].\n\nQuality rating in this domain: **High (8/10)**.\n\nWhy high:\n- Publishes both category roundups and long-form model reviews with explicit verdicts and caveats.\n- Includes concrete technical detail (build volume, thermal limits, enclosure behavior, material tests) and practical reliability findings.\n- Frequently documents negatives, not only strengths (e.g., accessory failures, noise, safety concerns).\n\nKnown limits:\n- Commerce-link structure means price boxes are useful snapshots, not stable truths.\n- Single-reviewer model pages can introduce test-style variance; cross-check with at least one additional source is still best practice.\n\nHow to use:\n- Treat as primary technical decision support for home FDM buying.\n- Pair with official product pages for latest MSRP/spec revisions and with a second reviewer/community signal for risk checks.",
+  "sources": [
+    "https://www.tomshardware.com/best-picks/best-3d-printers",
+    "https://www.tomshardware.com/3d-printing/qidi-q2-combo-review",
+    "https://www.tomshardware.com/3d-printing/qidi-tech-q1-pro-review",
+    "https://www.tomshardware.com/3d-printing/bambu-lab-p2s-review"
+  ],
+  "tags": [
+    "3dprinting/sources",
+    "quality"
+  ],
+  "title": "Tom's Hardware — Enclosed Home 3D Printers",
+  "trust": 8
+}
+```
+
+### 76. user
+
+**Tool Results**
+
+- error=false
+```text
+Created note 'CNET' at /tmp/.tmpWjBAHo/notes/3dprinting/sources/cnet.md
+DB record: 01KJH61CANCPBP0P1903YDVPBH
+Edges: 2 created, 0 stubs created
+```
+- error=false
+```text
+Created note 'PCMag' at /tmp/.tmpWjBAHo/notes/3dprinting/sources/pcmag.md
+DB record: 01KJH61CANEZV0F34BFCBZHBYN
+Edges: 3 created, 0 stubs created
+```
+- error=false
+```text
+Created note 'Aurora Tech Channel' at /tmp/.tmpWjBAHo/notes/3dprinting/sources/aurora_tech_channel.md
+DB record: 01KJH61CAPVM8J9G0K8NY2BWZD
+Edges: 3 created, 0 stubs created
+```
+- error=false
+```text
+Created note 'Tom's 3D' at /tmp/.tmpWjBAHo/notes/3dprinting/sources/tom_s_3d.md
+DB record: 01KJH61CAPVQ78TCR93CGVJ4D6
+Edges: 3 created, 0 stubs created
+```
+- error=false
+```text
+Updated note 'Enclosed Home 3D Printer Shortlist 2026' at /tmp/.tmpWjBAHo/notes/3dprinting/home/enclosed_home_3d_printer_shortlist_2026.md
+Edges: 11 created, 0 deleted, 0 stubs created
+```
+- error=false
+```text
+Updated note 'Tom's Hardware — Enclosed Home 3D Printers' at /tmp/.tmpWjBAHo/notes/3dprinting/sources/tom_s_hardware_enclosed_home_3d_printers.md
+Edges: 2 created, 0 deleted, 0 stubs created
+```
+
+### 77. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `todo`
+```json
+{
+  "action": "batch_update",
+  "description": "",
+  "index": 0,
+  "items": [],
+  "note": "",
+  "status": "pending",
+  "title": "",
+  "updates": [
+    {
+      "index": 16,
+      "note": "Created source/entity note covering methodology contribution and limitations.",
+      "status": "done"
+    },
+    {
+      "index": 17,
+      "note": "Created source/entity note covering corroboration role and fetch limitations.",
+      "status": "done"
+    },
+    {
+      "index": 18,
+      "note": "Created source/entity note for discovery and price-tracking role.",
+      "status": "done"
+    },
+    {
+      "index": 19,
+      "note": "Created source/entity note for creator-led comparison perspective.",
+      "status": "done"
+    },
+    {
+      "index": 20,
+      "note": "Created decision note with ranked shortlist and explicit trade-off logic.",
+      "status": "done"
+    },
+    {
+      "index": 21,
+      "note": "Created dedicated source quality assessment note with domain-specific trust rating.",
+      "status": "done"
+    }
+  ]
+}
+```
+
+### 78. user
+
+**Tool Results**
+
+- error=false
+```text
+TODO [21/21]
+1. ✓ Write note: Enclosed Home 3D Printers 2026 — Create topic hub note to anchor all model and source notes [Created topic hub linking all shortlisted models and decision/source-quality notes.]
+2. ✓ Write note: Bambu Lab P2S — Create model note with pricing, specs, and caveats [Created synthesized model note with pricing/specs/caveats.]
+3. ✓ Write note: Prusa CORE One — Create model note with pricing, specs, and caveats [Created synthesized model note with pricing/specs/caveats.]
+4. ✓ Write note: QIDI Plus4 — Create model note with pricing, specs, and caveats [Created synthesized model note with pricing/specs/caveats.]
+5. ✓ Write note: QIDI Q2 — Create model note with pricing, specs, and caveats [Created synthesized model note with pricing/specs/caveats.]
+6. ✓ Write note: Flashforge Adventurer 5M Pro — Create model note with pricing, specs, and caveats [Created synthesized model note with pricing/specs/caveats.]
+7. ✓ Write note: Bambu Lab P1S — Create context model note for prior-gen value baseline [Created context note for prior-generation baseline and discount-driven value role.]
+8. ✓ Write note: QIDI Q1 Pro — Create model note focused on safety and reliability caveats [Created note with safety/reliability caveats from independent review.]
+9. ✓ Write note: Creality K1C — Create alternative model note with uncertainty on current pricing [Created alternative note with explicit pricing uncertainty caveat.]
+10. ✓ Write note: Bambu Lab — Create organization note linking ecosystem and key models [Created brand-level ecosystem note linked to relevant models.]
+11. ✓ Write note: Prusa Research — Create organization note linking ecosystem and key models [Created brand-level ecosystem note linked to relevant models.]
+12. ✓ Write note: QIDI Tech — Create organization note linking ecosystem and key models [Created brand-level note linking Plus4/Q2/Q1 Pro and value/caveat profile.]
+13. ✓ Write note: Flashforge — …[3621b total]
+```
+
+### 79. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `run_shell_command`
+```json
+{
+  "command": "find notes -type f | sort",
+  "directory": ".",
+  "timeout_ms": 120000
+}
+```
+
+### 80. user
+
+**Tool Results**
+
+- error=false
+```text
+Exit code: 0
+
+--- stdout ---
+notes/3dprinting/home/bambu_lab.md
+notes/3dprinting/home/bambu_lab_p1s.md
+notes/3dprinting/home/bambu_lab_p2s.md
+notes/3dprinting/home/creality.md
+notes/3dprinting/home/creality_k1c.md
+notes/3dprinting/home/enclosed_home_3d_printer_shortlist_2026.md
+notes/3dprinting/home/enclosed_home_3d_printers_2026.md
+notes/3dprinting/home/flashforge.md
+notes/3dprinting/home/flashforge_adventurer_5m_pro.md
+notes/3dprinting/home/index.md
+notes/3dprinting/home/prusa_core_one.md
+notes/3dprinting/home/prusa_research.md
+notes/3dprinting/home/qidi_plus4.md
+notes/3dprinting/home/qidi_q1_pro.md
+notes/3dprinting/home/qidi_q2.md
+notes/3dprinting/home/qidi_tech.md
+notes/3dprinting/index.md
+notes/3dprinting/sources/aurora_tech_channel.md
+notes/3dprinting/sources/cnet.md
+notes/3dprinting/sources/index.md
+notes/3dprinting/sources/pcmag.md
+notes/3dprinting/sources/tom_s_3d.md
+notes/3dprinting/sources/tom_s_hardware.md
+notes/3dprinting/sources/tom_s_hardware_enclosed_home_3d_printers.md
+
+```
+
+### 81. assistant
+
+**Content**
+
+```text
+Knowledge extraction complete. I did not perform any new web research and only organized previously gathered findings.
+
+### What I created
+
+I created/updated structured notes for all 21 planned entities:
+
+- **Topic hub**
+  - `Enclosed Home 3D Printers 2026`
+
+- **Model notes**
+  - `Bambu Lab P2S`
+  - `Prusa CORE One`
+  - `QIDI Plus4`
+  - `QIDI Q2`
+  - `Flashforge Adventurer 5M Pro`
+  - `Bambu Lab P1S`
+  - `QIDI Q1 Pro`
+  - `Creality K1C`
+
+- **Organization/brand notes**
+  - `Bambu Lab`
+  - `Prusa Research`
+  - `QIDI Tech`
+  - `Flashforge`
+  - `Creality`
+
+- **Source/reviewer notes**
+  - `Tom's Hardware`
+  - `CNET`
+  - `PCMag`
+  - `Aurora Tech Channel`
+  - `Tom's 3D`
+
+- **Decision note**
+  - `Enclosed Home 3D Printer Shortlist 2026`
+
+- **Source quality note**
+  - `Tom's Hardware — Enclosed Home 3D Printers`
+
+### Verification
+
+- I verified note files on disk under:
+  - `notes/3dprinting/home/`
+  - `notes/3dprinting/sources/`
+- All entities from the TODO/entity list are covered.
+- Required special notes are present:
+  - ✅ Decision note
+  - ✅ Source quality note
+
+If you want, next step can be a **graph cleanup pass** (merge/rename stubs, normalize tags/trust scores across all 3D-printing notes).
+```
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
