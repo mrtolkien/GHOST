@@ -162,6 +162,13 @@ impl OpenAiCompatibleProvider {
             return Err(ProviderError::ModelNotFound(request.model.clone()));
         }
 
+        if status.is_server_error() {
+            self.circuit_breaker.record_failure(&request.model);
+            return Err(ProviderError::ServerError {
+                status: status.as_u16(),
+                message: extract_error_message(&response_body),
+            });
+        }
         if !status.is_success() {
             self.circuit_breaker.record_failure(&request.model);
             return Err(ProviderError::InvalidResponse(format!(

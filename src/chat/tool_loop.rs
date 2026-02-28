@@ -108,7 +108,30 @@ pub(super) async fn run_tool_loop(
         )
         .await
         {
-            Ok(result) => result.map_err(ChatError::from)?,
+            Ok(Ok(resp)) => resp,
+            Ok(Err(ProviderError::ServerError { status, message })) => {
+                logfire::warn!(
+                    "provider returned server error, retrying once",
+                    status = status,
+                    message = message.clone(),
+                    iteration = iterations as u64,
+                );
+                tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+                match tokio::time::timeout(
+                    PROVIDER_REQUEST_TIMEOUT,
+                    session_chat.provider().chat(request),
+                )
+                .await
+                {
+                    Ok(result) => result.map_err(ChatError::from)?,
+                    Err(_elapsed) => {
+                        return Err(ChatError::Provider(ProviderError::Timeout {
+                            seconds: PROVIDER_REQUEST_TIMEOUT.as_secs(),
+                        }));
+                    }
+                }
+            }
+            Ok(Err(e)) => return Err(ChatError::from(e)),
             Err(_elapsed) => {
                 logfire::warn!(
                     "provider request timed out, retrying once",

@@ -134,6 +134,9 @@ pub enum ProviderError {
     #[error("request failed: {0}")]
     Request(#[from] reqwest::Error),
 
+    #[error("server error (HTTP {status}): {message}")]
+    ServerError { status: u16, message: String },
+
     #[error("invalid response: {0}")]
     InvalidResponse(String),
 }
