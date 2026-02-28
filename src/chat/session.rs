@@ -604,12 +604,19 @@ impl ToolLoopHandler for TaskHandler<'_> {
         self.session_chat.apply_masking_if_needed(history);
 
         // Inject TODO as a separate plain-text system message.
+        // Remove any previous TODO injection first to avoid stacking.
         let todo_items =
             db::sessions::get_session_todo_list(self.session_chat.db(), self.session_thing).await?;
 
         if let Some(ref items) = todo_items
             && !items.is_empty()
         {
+            history.retain(|m| {
+                !(m.role == Role::System
+                    && m.content.iter().any(|b| {
+                        matches!(b, ContentBlock::Text { text } if text.starts_with("Current TODO"))
+                    }))
+            });
             history.push(ChatMessage {
                 role: Role::System,
                 content: vec![ContentBlock::Text {

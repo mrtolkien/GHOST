@@ -199,6 +199,78 @@ uv run scripts/e2e analyze-request
 uv run scripts/e2e refresh --models primary
 ```
 
+## Debugging Methodology (Systematic)
+
+When an agent-driven e2e test fails, follow this structured diagnostic process.
+Do NOT guess or make random prompt changes — diagnose first, then fix.
+
+### Step 1: Identify the Failing Assertion
+
+Read the panic message. Map it to the exact assertion in the test file. Know
+precisely what the test expected vs what it got (e.g., "P2S missing from
+findings", "findings only 49 chars", "web_fetch count < 5").
+
+### Step 2: Analyze the Agent Transcript
+
+Use `uv run scripts/e2e/analyze_step02.py` (or `render-log` for fixture dirs)
+to get a structured view of the agent's behavior. Key things to check:
+
+- **Tool call sequence**: Did the agent search, plan, fetch, then write? Or did
+  it short-circuit?
+- **TODO plan**: Was one created? How many items? Were they followed in order?
+- **Fetched URLs**: Did the agent fetch specialist review sites, or only Reddit?
+- **Token counts**: Are input tokens growing as expected, or stalling?
+- **Final text output**: How many chars? Does it contain the expected keywords?
+
+### Step 3: Check Whether the Data Exists in Context
+
+Before blaming the prompt, verify whether the expected information actually
+appeared in the agent's input. Use the analysis script to search for keywords
+(e.g., "P2S") across all tool results. If the data IS in the input but missing
+from the output, the problem is synthesis/reporting, not search. If the data is
+NOT in the input, the problem is search/fetch.
+
+### Step 4: Inspect Nudges and System Messages
+
+Count developer/system messages per iteration. Known failure modes:
+
+- **TODO injection stacking**: Each `post_tool_iteration` pushes TODO state.
+  If it doesn't remove the previous one, copies accumulate (fixed Feb 2026 —
+  `history.retain()` now removes old TODO messages before pushing new).
+- **Context pressure firing too early**: The `context_pressure.threshold_chars`
+  config counts characters, not tokens. A 250K char threshold fires at ~62K
+  tokens — way too early for a 250K-token context window. Currently disabled
+  for the deep-research agent; masking handles context management.
+- **Iteration countdown stacking**: Check if countdown nudges accumulate.
+- **Nudge-to-content ratio**: If developer messages exceed 50% of the final
+  iteration's input, the agent is being drowned in noise.
+
+### Step 5: Check for Infrastructure Issues
+
+- **Provider timeouts**: Look for `timed out, retrying` in test output. Two
+  consecutive timeouts kill the agent run.
+- **Web fetch failures**: Empty or error tool results mean the page didn't load.
+- **Masking artifacts**: If `apply_masking_if_needed` fires, old tool results
+  get truncated. This is normal but can lose information the agent needs.
+
+### Analysis Scripts
+
+```sh
+# Structured agent transcript analysis (works with Codex Responses API format)
+uv run scripts/e2e/analyze_step02.py [e2e-output-dir]
+
+# Interactive tools
+uv run scripts/e2e render-log        # Readable markdown from fixture dirs
+uv run scripts/e2e diff              # Compare two fixture outputs
+uv run scripts/e2e analyze-request   # Inspect raw request payloads
+```
+
+### Iteration Journal
+
+Save root-cause analyses and fixes to `e2e-output/iteration_journal.md`. One
+row per resolved issue, newest first. Always update the journal when closing
+an e2e debugging session so future runs start with context.
+
 ## Review Checklist
 
 - Does each step do exactly one thing?

@@ -36,10 +36,14 @@ temporal:
       time."
     - "FINAL WARNING ({minutes} min). Your next response MUST be your final report text.
       Do NOT call any tools. Write your report immediately with the sources you have."
-context_pressure:
-  threshold_chars: 250000
-  message:
-    "Context window is filling up. Wrap up your remaining items and write your report."
+# context_pressure disabled — masking handles context management for now.
+# If agents start hitting actual context limits, re-enable with a threshold
+# based on tokens (not chars). The old 250K chars threshold fired at ~62K tokens,
+# way too early for a 250K-token context window.
+# context_pressure:
+#   threshold_chars: 800000
+#   message:
+#     "Context window is filling up. Wrap up your remaining items and write your report."
 ---
 
 # Deep Research Agent
