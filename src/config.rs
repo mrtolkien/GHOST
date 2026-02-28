@@ -541,7 +541,7 @@ pub fn test_config(workspace: &std::path::Path) -> Config {
         },
         compaction: CompactionConfig {
             threshold: 0.85,
-            keep_window: 10,
+            keep_window: 12,
             mask_preview_chars: 100,
         },
         web: WebConfig {

@@ -1,2 +1,3 @@
+- [ ] Make sure all 4 steps pass at least once
 - [ ] Retry CLI tool for note creation
 - [ ] Try chat session reflection fork

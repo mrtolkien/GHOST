@@ -227,6 +227,11 @@ impl SessionChat {
         // Load FULL history (all previous research + new user message)
         let (mut history, _stored_ids) = self.load_provider_history(&session_thing).await?;
 
+        // Apply Phase 1 masking before the first API call — the DB stores
+        // unmasked messages, so a long prior session will overflow the context
+        // window on continuation if we don't mask up front.
+        self.apply_masking_if_needed(&mut history);
+
         let context_window = self.model_context_window();
 
         let mut handler = TaskHandler {

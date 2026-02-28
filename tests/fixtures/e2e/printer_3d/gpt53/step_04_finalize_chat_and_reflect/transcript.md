@@ -142,6 +142,131 @@ I’ll come back with:
 
 - `reasoning`: 
 
+### 7. system
+
+**Content**
+
+```text
+[agent:deep-research completed]
+
+## Summary
+If you want the **best new enclosed home printer around $1,000 in 2026**, buy the **Bambu Lab P2S Combo** first, and buy the **Prusa CORE One (assembled)** if you prioritize open ecosystem/serviceability over convenience.
+
+### Shortlist picks
+- **Best overall around $1,000:** **Bambu Lab P2S Combo** (typical US list ~$799 combo / $599 base in Tom’s 2026 roundup)  
+  https://www.tomshardware.com/best-picks/best-3d-printers  
+  https://us.store.bambulab.com/products/p2s
+- **Best value under $900:** **QIDI Plus4** ($699 sale / $799 regular official)  
+  https://qidi3d.com/products/plus4-3d-printer
+- **Best for multi-material:** **Bambu P2S Combo (AMS 2 Pro)**; strong automation stack + mature app/slicer ecosystem  
+  https://us.store.bambulab.com/products/p2s
+- **Best for tinkerers/open ecosystem:** **Prusa CORE One** (kit ~$925, assembled ~$1202.78 on official page)  
+  https://www.prusa3d.com/product/prusa-core-one/  
+- **Buy only on sale:** **Creality K1C** and **Flashforge Adventurer 5M Pro** (good hardware, but software/UX caveats in hands-on reviews).  
+  https://www.tomshardware.com/3d-printing/creality-k1c-review  
+  https://www.tomshardware.com/reviews/flashforge-adventurer-5m-pro-3d-printer
+
+## Key Findings
+- **QIDI Plus4 is the strongest high-temp value**: 305×305×280 mm, 370C nozzle, active heated chamber, $699 sale/$799 regular.  
+  https://qidi3d.com/products/plus4-3d-printer
+- **Prusa CORE One is the best open/serviceable platform**: enclosed CoreXY, active chamber control up to 55C, open-source software/firmware posture, MMU3 compatibility.  
+  https://www.prusa3d.com/product/prusa-core-one/
+- **Anycubic Kobra S1 Combo has aggressive pricing** ($429 sale / $749 regular), but Tom’s found slicer/purge-control limitations for multicolor.  
+  https://store.anycubic.com/products/kobra-s1-combo  
+  https://www.tomshardware.com/3d-printing/anycubic-kobra-s1-review
+- **Flashforge AD5M Pro is cheap and enclosed** ($449 sale / $599 regular), but Tom’s flagged software profile gaps and inconsistent auto-leveling at review time.  
+  https://www.flashforge.com/products/adventurer-5m-pro  
+  https://www.tomshardware.com/reviews/flashforge-adventurer-5m-pro-3d-printer
+
+## Detailed Comparison (if applicable)
+| Option | Strengths | Weaknesses | Key Details |
+|---|---|---|---|
+| Bambu P2S Combo | Easiest ownership, strong automation (AI detection/flow calibration), mature ecosystem | More closed ecosystem than Prusa | ~256³ mm, enclosed, multi-color via AMS 2 Pro; pricing anchor $599/$799 (Tom’s) — https://www.tomshardware.com/best-picks/best-3d-printers ; https://us.store.bambulab.com/products/p2s |
+| QIDI Plus4 | Best value for engineering materials | Color system ecosystem less mature than Bambu | 305×305×280, 370C nozzle, active chamber heating; $699 sale/$799 regular — https://qidi3d.com/products/plus4-3d-printer |
+| Prusa CORE One | Open ecosystem, parts/support longevity, mod-friendly…[5401b total]
+```
+
+### 8. user
+
+**Content**
+
+```text
+[system] Research agent completed.
+```
+
+### 9. assistant
+
+**Content**
+
+```text
+Great — the research run is complete. Here’s the practical buying answer.
+
+## TL;DR (2026, ~$1,000 enclosed home printer)
+
+If you want **the safest default buy**:  
+1) **Bambu Lab P2S Combo** (best overall convenience + multi-material)  
+2) **Prusa CORE One (assembled)** if you value openness/repairability more than “appliance-like” ease.
+
+---
+
+## Concrete recommendations
+
+### 1) Best overall around $1,000: **Bambu Lab P2S Combo**
+- **Why:** strongest “it just works” package for home users: automation, polished slicer/app ecosystem, and solid multi-material workflow (AMS 2 Pro combo).  
+- **Pricing (2026 anchors):** ~**$799 combo**, ~**$599 base** (Tom’s 2026 roundup), confirm region pricing in Bambu store checkout.  
+- **Sources:**  
+  - https://www.tomshardware.com/best-picks/best-3d-printers  
+  - https://us.store.bambulab.com/products/p2s
+
+### 2) Best value under $900: **QIDI Plus4**
+- **Why:** unusually strong hardware for price, especially for engineering materials.  
+- **Key specs:** 305×305×280 mm, up to 370°C nozzle, active heated chamber.  
+- **Pricing:** **$699 sale / $799 regular** (official), with retailer cross-checks.  
+- **Sources:**  
+  - https://qidi3d.com/products/plus4-3d-printer  
+  - https://machineshark.com/products/qidi-technology-plus4-3d-printer  
+  - https://www.tomshardware.com/3d-printing/qidi-plus4-review
+
+### 3) Best for multi-material: **Bambu P2S Combo**
+- **Why:** most mature color/material workflow in this class + strong software integration.  
+- **Sources:**  
+  - https://us.store.bambulab.com/products/p2s  
+  - https://www.tomshardware.com/best-picks/best-3d-printers
+
+### 4) Best for tinkerers / open ecosystem: **Prusa CORE One**
+- **Why:** open ecosystem posture, long-term serviceability, strong support reputation.  
+- **Pricing:** ~**$925 kit**, ~**$1202.78 assembled** (official page).  
+- **Sources:**  
+  - https://www.prusa3d.com/product/prusa-core-one/  
+  - https://www.tomshardware.com/3d-printing/prusa-core-one-review
+
+---
+
+## Models to buy only if discounted
+
+- **Anycubic Kobra S1 Combo** — attractive price/features, but review notes slicer/purge-control limitations for multicolor.  
+  - Price: **$429 sale / $749 regular**  
+  - Sources: https://store.anycubic.com/products/kobra-s1-combo, https://www.tomshardware.com/3d-printing/anycubic-kobra-s1-review
+
+- **Flashforge Adventurer 5M Pro** — good value enclosed unit, but review flagged software profile gaps and inconsistent auto-leveling at review time.  
+  - Price: **$449 sale / $599 regular**  
+  - Sources: https://www.flashforge.com/products/adventurer-5m-pro, https://www.tomshardware.com/reviews/flashforge-adventurer-5m-pro-3d-printer
+
+- **Creality K1C** — capable and often discounted, but review highlighted usability caveats (filament path/glue-stick dependence).  
+  - Sources: https://www.tomshardware.com/3d-printing/creality-k1c-review
+
+---
+
+## Quick comparison
+
+| Model | Typical price (2026) | Best for | Main tradeoff |
+|-…[4192b total]
+```
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
 ## Agent
 
 ### 1. user

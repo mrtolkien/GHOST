@@ -30,18 +30,5 @@
     "read_file",
     "knowledge_search",
     "agent_control"
-  ],
-  "reflection": {
-    "cache_read_tokens": 1696512,
-    "input_tokens": 2268884,
-    "iterations": 16,
-    "output_tokens": 11674,
-    "tool_counts": {
-      "knowledge_search": 1,
-      "note_write": 24,
-      "run_shell_command": 2,
-      "todo": 6
-    },
-    "wall_clock_secs": 207.39551771
-  }
+  ]
 }

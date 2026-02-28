@@ -20,7 +20,7 @@ fn config_loads_defaults_for_missing_fields() {
     assert_eq!(config.models.default, "primary");
     assert_eq!(config.embeddings.batch_size, 32);
     assert_eq!(config.compaction.threshold, 0.85);
-    assert_eq!(config.compaction.keep_window, 20);
+    assert_eq!(config.compaction.keep_window, 12);
 }
 
 #[test]
