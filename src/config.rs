@@ -372,7 +372,7 @@ impl Config {
                     .compaction
                     .as_ref()
                     .and_then(|c| c.keep_window)
-                    .unwrap_or(20),
+                    .unwrap_or(12),
                 mask_preview_chars: settings
                     .compaction
                     .as_ref()
@@ -541,7 +541,7 @@ pub fn test_config(workspace: &std::path::Path) -> Config {
         },
         compaction: CompactionConfig {
             threshold: 0.85,
-            keep_window: 20,
+            keep_window: 10,
             mask_preview_chars: 100,
         },
         web: WebConfig {
