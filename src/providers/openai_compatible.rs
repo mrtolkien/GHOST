@@ -5,6 +5,31 @@ use crate::providers::types::{
     ChatRequest, ChatResponse, ContentBlock, ProviderError, Role, StopReason, ToolDefinition, Usage,
 };
 
+/// OpenRouter provider routing preferences.
+///
+/// Included as the `provider` field in the request body. Only meaningful for
+/// OpenRouter — other endpoints silently ignore unknown top-level keys.
+/// See <https://openrouter.ai/docs/guides/routing/provider-selection>.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct ProviderRouting {
+    /// Whitelist: only route to these providers (e.g. `["anthropic", "openai"]`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub only: Option<Vec<String>>,
+    /// Blacklist: never route to these providers.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ignore: Option<Vec<String>>,
+    /// Preferred provider order (first = highest priority).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub order: Option<Vec<String>>,
+    /// Whether to fall back to other providers when preferred ones fail.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub allow_fallbacks: Option<bool>,
+    /// Only use providers that support all parameters in the request.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub require_parameters: Option<bool>,
+}
+
 #[derive(Debug, Serialize)]
 pub(crate) struct ChatCompletionsRequest {
     pub(crate) model: String,
@@ -18,6 +43,9 @@ pub(crate) struct ChatCompletionsRequest {
     /// OpenRouter unified reasoning effort (maps to provider-native parameters).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) reasoning_effort: Option<String>,
+    /// OpenRouter provider routing preferences.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) provider: Option<ProviderRouting>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -115,7 +143,10 @@ pub(crate) struct ProviderErrorPayload {
     pub(crate) message: Option<String>,
 }
 
-pub(crate) fn build_request_body(request: &ChatRequest) -> ChatCompletionsRequest {
+pub(crate) fn build_request_body(
+    request: &ChatRequest,
+    provider_routing: Option<&ProviderRouting>,
+) -> ChatCompletionsRequest {
     ChatCompletionsRequest {
         model: request.model.clone(),
         messages: convert_messages(request),
@@ -126,6 +157,7 @@ pub(crate) fn build_request_body(request: &ChatRequest) -> ChatCompletionsReques
         max_tokens: request.max_tokens,
         temperature: request.temperature,
         reasoning_effort: request.reasoning_effort.map(|e| e.as_str().to_string()),
+        provider: provider_routing.cloned(),
     }
 }
 

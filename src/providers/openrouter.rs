@@ -3,6 +3,7 @@ use std::collections::BTreeMap;
 use async_trait::async_trait;
 use reqwest::header::{HeaderMap, HeaderValue};
 
+use crate::providers::openai_compatible::ProviderRouting;
 use crate::providers::openai_compatible_provider::OpenAiCompatibleProvider;
 use crate::providers::types::{ChatRequest, ChatResponse, Provider, ProviderError};
 
@@ -16,7 +17,10 @@ pub struct OpenRouterProvider {
 
 impl OpenRouterProvider {
     #[tracing::instrument(skip_all)]
-    pub fn new(extra_headers: BTreeMap<String, String>) -> Result<Self, ProviderError> {
+    pub fn new(
+        extra_headers: BTreeMap<String, String>,
+        provider_routing: Option<ProviderRouting>,
+    ) -> Result<Self, ProviderError> {
         let mut headers = HeaderMap::new();
         headers.insert("X-Title", HeaderValue::from_static("ghost"));
 
@@ -26,6 +30,7 @@ impl OpenRouterProvider {
             OPENROUTER_API_KEY_ENV,
             headers,
             extra_headers,
+            provider_routing,
         )?;
         Ok(Self { inner })
     }

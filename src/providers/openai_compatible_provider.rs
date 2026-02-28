@@ -8,7 +8,7 @@ use tracing::Span;
 
 use crate::providers::circuit_breaker::CircuitBreaker;
 use crate::providers::openai_compatible::{
-    ChatCompletionsResponse, ProviderErrorBody, build_request_body, parse_response,
+    ChatCompletionsResponse, ProviderErrorBody, ProviderRouting, build_request_body, parse_response,
 };
 use crate::providers::types::{ChatRequest, ChatResponse, Provider, ProviderError};
 
@@ -18,6 +18,7 @@ pub struct OpenAiCompatibleProvider {
     circuit_breaker: CircuitBreaker,
     endpoint: String,
     provider_name: &'static str,
+    provider_routing: Option<ProviderRouting>,
     debug_save_requests: bool,
     debug_dir: Option<PathBuf>,
 }
@@ -30,6 +31,7 @@ impl OpenAiCompatibleProvider {
         auth_env_var: &'static str,
         mut default_headers: HeaderMap,
         extra_headers: BTreeMap<String, String>,
+        provider_routing: Option<ProviderRouting>,
     ) -> Result<Self, ProviderError> {
         let api_key = std::env::var(auth_env_var)
             .map_err(|_| ProviderError::Auth(format!("{auth_env_var} is not set")))?;
@@ -62,6 +64,7 @@ impl OpenAiCompatibleProvider {
             circuit_breaker: CircuitBreaker::default(),
             endpoint: endpoint.to_string(),
             provider_name,
+            provider_routing,
             debug_save_requests: false,
             debug_dir: None,
         })
@@ -81,6 +84,7 @@ impl OpenAiCompatibleProvider {
             circuit_breaker: CircuitBreaker::new(2, std::time::Duration::from_secs(10)),
             endpoint: endpoint.into(),
             provider_name,
+            provider_routing: None,
             debug_save_requests: false,
             debug_dir: None,
         }
@@ -114,7 +118,7 @@ impl OpenAiCompatibleProvider {
             });
         }
 
-        let body = build_request_body(request);
+        let body = build_request_body(request, self.provider_routing.as_ref());
         let request_json =
             serde_json::to_string(&body).unwrap_or_else(|e| format!("<serialization failed: {e}>"));
         let started = Instant::now();

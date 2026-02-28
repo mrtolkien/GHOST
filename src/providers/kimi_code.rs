@@ -30,6 +30,7 @@ impl KimiCodeProvider {
             KIMI_API_KEY_ENV,
             headers,
             extra_headers,
+            None,
         )?;
         Ok(Self { inner })
     }

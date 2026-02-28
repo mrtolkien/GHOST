@@ -240,8 +240,10 @@ pub fn provider_for_alias(
 
     match model.provider.as_str() {
         "openrouter" => {
-            let mut provider =
-                crate::providers::openrouter::OpenRouterProvider::new(model.headers.clone())?;
+            let mut provider = crate::providers::openrouter::OpenRouterProvider::new(
+                model.headers.clone(),
+                model.provider_routing.clone(),
+            )?;
             provider.set_debug(config.debug.save_requests, &config.workspace);
             Ok(Arc::new(provider))
         }

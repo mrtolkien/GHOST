@@ -23,6 +23,7 @@ default = "primary" # Which alias to use by default
 provider = "openrouter"
 model = "anthropic/claude-sonnet-4"
 context_window = 200000
+provider_routing = { only = ["anthropic", "openai", "google"] }
 
 [models.fast]
 provider = "kimi_code"

@@ -131,7 +131,7 @@ async fn openrouter_kimi25_calls_run_shell_command() {
         return;
     }
 
-    let provider = ghost::providers::OpenRouterProvider::new(BTreeMap::new())
+    let provider = ghost::providers::OpenRouterProvider::new(BTreeMap::new(), None)
         .expect("OpenRouterProvider init");
     let request = tool_use_request("moonshotai/kimi-k2.5");
 

@@ -39,6 +39,34 @@ needs `provider`, `model`, and `context_window`. You can optionally add
 `headers` for extra HTTP headers.
 :::
 
+## OpenRouter Provider Routing
+
+OpenRouter routes requests across multiple upstream providers. Use
+`provider_routing` to control which providers receive your requests — for
+example, to restrict to providers that support prompt caching:
+
+```toml title="~/.config/ghost/config.toml"
+[models.primary]
+provider = "openrouter"
+model = "anthropic/claude-sonnet-4"
+context_window = 200000
+provider_routing = { only = ["anthropic", "openai", "google", "deepseek"] }
+```
+
+Available fields:
+
+| Field                | Type       | Description                                       |
+| -------------------- | ---------- | ------------------------------------------------- |
+| `only`               | `string[]` | Whitelist: only route to these providers           |
+| `ignore`             | `string[]` | Blacklist: never route to these providers          |
+| `order`              | `string[]` | Preferred provider order (first = highest priority)|
+| `allow_fallbacks`    | `bool`     | Fall back when preferred providers fail            |
+| `require_parameters` | `bool`     | Only use providers supporting all request params   |
+
+This maps directly to the OpenRouter
+[provider preferences](https://openrouter.ai/docs/guides/routing/provider-selection)
+request field. It is ignored by other providers.
+
 ## Multiple Models
 
 Different features can use different models:

@@ -79,7 +79,7 @@ async fn openrouter_cache_validation() {
 
     let temp = tempfile::tempdir().unwrap();
     let mut provider =
-        OpenRouterProvider::new(BTreeMap::new()).expect("OPENROUTER_API_KEY must be set");
+        OpenRouterProvider::new(BTreeMap::new(), None).expect("OPENROUTER_API_KEY must be set");
     provider.set_debug(true, temp.path());
 
     let system = large_system_prompt();

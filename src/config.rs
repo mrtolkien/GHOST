@@ -6,6 +6,7 @@ use std::sync::Once;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+use crate::providers::openai_compatible::ProviderRouting;
 use crate::providers::types::ReasoningEffort;
 
 pub const CONFIG_DIR_ENV: &str = "GHOST_CONFIG_DIR";
@@ -96,6 +97,8 @@ pub struct ModelSettings {
     #[serde(default)]
     pub headers: BTreeMap<String, String>,
     pub reasoning_effort: Option<ReasoningEffort>,
+    /// OpenRouter provider routing preferences (only/ignore/order).
+    pub provider_routing: Option<ProviderRouting>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -183,6 +186,8 @@ pub struct ModelConfig {
     pub context_window: u32,
     pub headers: BTreeMap<String, String>,
     pub reasoning_effort: Option<ReasoningEffort>,
+    /// OpenRouter provider routing preferences (only/ignore/order).
+    pub provider_routing: Option<ProviderRouting>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -277,6 +282,7 @@ impl Config {
                         context_window: model.context_window,
                         headers: model.headers,
                         reasoning_effort: model.reasoning_effort,
+                        provider_routing: model.provider_routing,
                     },
                 )
             })
@@ -510,6 +516,7 @@ pub fn test_config(workspace: &std::path::Path) -> Config {
             context_window: 200_000,
             headers: BTreeMap::new(),
             reasoning_effort: None,
+            provider_routing: None,
         },
     );
     Config {
