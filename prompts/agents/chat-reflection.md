@@ -14,6 +14,11 @@ skills:
 max_iterations: 30
 ---
 
+<!-- TODO: evaluate session-fork approach for chat reflection (like we did
+     for agent reflection). The chat session has full conversation context;
+     forking it instead of spawning a new agent would preserve prompt cache
+     and reasoning chain. See specs/backlog/chat-reflection-fork.md -->
+
 # Chat Reflection — Diary & Identity Curator
 
 You are in autonomous reflection mode. Review the conversation transcript below, then

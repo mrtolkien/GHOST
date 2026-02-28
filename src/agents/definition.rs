@@ -165,10 +165,6 @@ const DEFAULT_TASKS: &[(&str, &str)] = &[
         "deep-research",
         include_str!("../../prompts/agents/deep-research.md"),
     ),
-    (
-        "reflection",
-        include_str!("../../prompts/agents/reflection.md"),
-    ),
 ];
 
 /// Install default agent definitions into `$WORKSPACE/agents/`, always
@@ -453,27 +449,6 @@ mod tests {
             def.context_pressure.is_none(),
             "context_pressure disabled — masking handles context management"
         );
-    }
-
-    #[test]
-    fn default_reflection_agent_parses() {
-        let content = include_str!("../../prompts/agents/reflection.md");
-        let def = parse_task_file(content).unwrap();
-        assert_eq!(def.name, "reflection");
-        assert!(def.tools.contains(&"note_write".to_string()));
-        assert!(def.system_prompt_template.contains("{{ date }}"));
-        assert!(
-            def.system_prompt_template
-                .contains("{{ skill:note-writer }}")
-        );
-        assert!(def.progress_rules.is_empty());
-        assert_eq!(def.skills, vec!["knowledge-navigator"]);
-
-        // Reflection has no nudge configs
-        assert!(def.progress_gate.is_none());
-        assert!(def.temporal.is_none());
-        assert!(def.recency.is_none());
-        assert!(def.context_pressure.is_none());
     }
 
     #[test]
