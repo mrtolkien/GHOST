@@ -8,14 +8,14 @@ description:
 import { FileTree, Tabs, TabItem } from "@astrojs/starlight/components";
 
 GHOST's knowledge system stores and connects information using three types of entries,
-backed by SurrealDB with graph edges and embedding-based semantic search.
+backed by SQLite with graph edges and embedding-based semantic search.
 
 ## Knowledge Types
 
 ### Notes
 
 Atomic knowledge entries with structured metadata. Your GHOST creates these during
-reflection and conversation.
+[reflection](/features/reflection/) and conversation.
 
 ```markdown title="notes/rust-error-handling.md"
 ---
@@ -56,7 +56,8 @@ Source material organized by topic in subdirectories:
 
 ### Diary
 
-Daily timeline entries (auto-maintained by the reflection agent):
+Daily timeline entries (auto-maintained by
+[reflection](/features/reflection/)):
 
 <FileTree>
 

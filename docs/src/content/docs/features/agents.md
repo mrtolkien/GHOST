@@ -191,7 +191,10 @@ context_pressure:
 | ------------------- | --------------------------------------------- | -------------- |
 | **deep-research**   | Iterative web research with full page reading | 30             |
 | **chat-reflection** | Knowledge extraction from chat sessions       | 30             |
-| **reflection**      | Knowledge extraction from agent sessions      | 60             |
+
+Agent reflection (after research) uses [session forking](/features/reflection/)
+instead of a dedicated agent — the research session continues in knowledge
+extraction mode.
 
 ## How Agents Work
 

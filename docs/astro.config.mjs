@@ -43,7 +43,24 @@ export default defineConfig({
           label: "Features",
           items: [
             { label: "Chat & Sessions", slug: "features/chat" },
-            { label: "Knowledge Base", slug: "features/knowledge" },
+            {
+              label: "Knowledge",
+              collapsed: false,
+              items: [
+                {
+                  label: "Knowledge Base",
+                  slug: "features/knowledge",
+                },
+                {
+                  label: "Reflection",
+                  slug: "features/reflection",
+                },
+                {
+                  label: "Knowledge Tools",
+                  slug: "features/tools-knowledge",
+                },
+              ],
+            },
             { label: "Skills", slug: "features/skills" },
             { label: "Agents", slug: "features/agents" },
             { label: "Jobs", slug: "features/jobs" },
@@ -53,10 +70,6 @@ export default defineConfig({
               collapsed: true,
               items: [
                 { label: "Core Tools", slug: "features/tools-core" },
-                {
-                  label: "Knowledge Tools",
-                  slug: "features/tools-knowledge",
-                },
                 { label: "Web Tools", slug: "features/tools-web" },
               ],
             },

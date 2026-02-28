@@ -63,8 +63,8 @@ heartbeat_continue_minutes = 30 # Max heartbeat duration
 
 ### Reflection
 
-Automatic knowledge extraction after conversations end. Runs when a session goes idle,
-creating notes and diary entries from the conversation.
+Automatic knowledge extraction after conversations and agent research.
+See the dedicated [Reflection](/features/reflection/) page for details.
 
 ```toml title="~/.config/ghost/config.toml"
 [timing]
