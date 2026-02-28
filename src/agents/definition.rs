@@ -449,9 +449,10 @@ mod tests {
             "deep-research should have high reasoning effort"
         );
         assert!(def.recency.is_none(), "recency nudge removed");
-
-        let pressure = def.context_pressure.as_ref().expect("context_pressure");
-        assert_eq!(pressure.threshold_chars, 250_000);
+        assert!(
+            def.context_pressure.is_none(),
+            "context_pressure disabled — masking handles context management"
+        );
     }
 
     #[test]
