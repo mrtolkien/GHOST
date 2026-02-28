@@ -1,0 +1,2 @@
+- [ ] Retry CLI tool for note creation
+- [ ] Try chat session reflection fork
