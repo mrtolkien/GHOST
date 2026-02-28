@@ -36,6 +36,7 @@ async fn openai_oauth_multi_turn_with_history() {
         system: Some("You are a concise assistant.".to_string()),
         reasoning_effort: None,
         cache_key: "test".to_string(),
+        turn_state: None,
         debug_context: None,
     };
 
@@ -81,6 +82,7 @@ async fn openai_oauth_multi_turn_with_history() {
         system: Some("You are a concise assistant.".to_string()),
         reasoning_effort: None,
         cache_key: "test".to_string(),
+        turn_state: None,
         debug_context: None,
     };
 

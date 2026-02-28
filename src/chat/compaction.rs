@@ -346,6 +346,7 @@ pub async fn summarize_older_messages(
             system: Some(COMPACTION_PROMPT.to_string()),
             reasoning_effort: Some(ReasoningEffort::Low),
             cache_key: cache_key.to_string(),
+            turn_state: None,
             debug_context: None,
         })
         .await?;

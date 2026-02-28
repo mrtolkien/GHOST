@@ -132,6 +132,23 @@ impl OpenAiOAuthProvider {
                 .map_err(|error| ProviderError::InvalidResponse(error.to_string()))?,
         );
 
+        // session_id header: stable session routing across turns.
+        if !request.cache_key.is_empty() {
+            if let Ok(v) = HeaderValue::from_str(&request.cache_key) {
+                headers.insert("session_id", v);
+            }
+        }
+
+        // x-codex-turn-state: sticky routing within a turn. The server
+        // returns this header in its response; we echo it back unchanged
+        // in subsequent requests so the load-balancer routes us to the
+        // same server that has our warm KV cache.
+        if let Some(ref ts) = request.turn_state {
+            if let Ok(v) = HeaderValue::from_str(ts) {
+                headers.insert("x-codex-turn-state", v);
+            }
+        }
+
         let body = build_codex_request_body(request)?;
         let request_json =
             serde_json::to_string(&body).unwrap_or_else(|e| format!("<serialization failed: {e}>"));
@@ -154,6 +171,11 @@ impl OpenAiOAuthProvider {
                 .get("Retry-After")
                 .and_then(|value| value.to_str().ok()),
         );
+        let turn_state = http_response
+            .headers()
+            .get("x-codex-turn-state")
+            .and_then(|v| v.to_str().ok())
+            .map(ToString::to_string);
         let response_body = http_response.text().await?;
         let duration_ms = started.elapsed().as_millis() as u64;
 
@@ -208,15 +230,17 @@ impl OpenAiOAuthProvider {
             )));
         }
 
-        let parsed = parse_codex_response(&response_body, &request.model).inspect_err(|error| {
-            logfire::error!(
-                "oauth provider response parse failed",
-                provider = "openai_oauth",
-                model = request.model.clone(),
-                error = error.to_string(),
-                raw_response = response_body.clone()
-            );
-        })?;
+        let mut parsed =
+            parse_codex_response(&response_body, &request.model).inspect_err(|error| {
+                logfire::error!(
+                    "oauth provider response parse failed",
+                    provider = "openai_oauth",
+                    model = request.model.clone(),
+                    error = error.to_string(),
+                    raw_response = response_body.clone()
+                );
+            })?;
+        parsed.turn_state = turn_state;
         self.circuit_breaker.record_success(&request.model);
 
         let response_json = serde_json::to_string(&parsed.content)

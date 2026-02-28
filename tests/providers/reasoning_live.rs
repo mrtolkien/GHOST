@@ -40,6 +40,7 @@ async fn reasoning_effort_high_produces_thinking_block() {
         system: Some("You are a concise math assistant.".to_string()),
         reasoning_effort: Some(ReasoningEffort::High),
         cache_key: "reasoning-test".to_string(),
+        turn_state: None,
         debug_context: None,
     };
 
@@ -116,6 +117,7 @@ async fn reasoning_effort_high_produces_thinking_block() {
         system: Some("You are a concise math assistant.".to_string()),
         reasoning_effort: Some(ReasoningEffort::High),
         cache_key: "reasoning-test".to_string(),
+        turn_state: None,
         debug_context: None,
     };
 

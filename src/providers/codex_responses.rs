@@ -334,6 +334,7 @@ fn parse_codex_sse_response(
             stop_reason: StopReason::EndTurn,
             model: fallback_model.to_string(),
             response_id: None,
+            turn_state: None,
         });
     }
 
@@ -568,6 +569,7 @@ pub(super) fn parse_codex_response_value(
         stop_reason,
         model,
         response_id,
+        turn_state: None,
     })
 }
 
@@ -603,6 +605,7 @@ mod tests {
             tools: None,
             reasoning_effort: None,
             cache_key: "test".to_string(),
+            turn_state: None,
             debug_context: None,
         };
 
@@ -638,6 +641,7 @@ mod tests {
             system: None,
             reasoning_effort: None,
             cache_key: "test".to_string(),
+            turn_state: None,
             debug_context: None,
         };
 
@@ -685,6 +689,7 @@ mod tests {
             system: None,
             reasoning_effort: None,
             cache_key: "test".to_string(),
+            turn_state: None,
             debug_context: None,
         };
 
@@ -863,6 +868,7 @@ mod tests {
             system: None,
             reasoning_effort: None,
             cache_key: "test".to_string(),
+            turn_state: None,
             debug_context: None,
         };
 
@@ -914,6 +920,7 @@ mod tests {
             system: None,
             reasoning_effort: None,
             cache_key: "test".to_string(),
+            turn_state: None,
             debug_context: None,
         };
 
@@ -939,6 +946,7 @@ mod tests {
             system: None,
             reasoning_effort: Some(ReasoningEffort::High),
             cache_key: "test".to_string(),
+            turn_state: None,
             debug_context: None,
         };
 
@@ -963,6 +971,7 @@ mod tests {
             system: None,
             reasoning_effort: None,
             cache_key: "test".to_string(),
+            turn_state: None,
             debug_context: None,
         };
 

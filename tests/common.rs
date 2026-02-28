@@ -369,7 +369,7 @@ impl LiveTestEnv {
         session_id: &str,
         previous_handoff: Option<&str>,
         agent_name: &str,
-    ) -> String {
+    ) -> (String, ghost::chat::RunMetadata) {
         let messages = ghost::db::sessions::list_messages_by_session(&self.db, session_id)
             .await
             .expect("list messages");
@@ -391,7 +391,7 @@ impl LiveTestEnv {
             &web_cache_section,
         );
 
-        let findings = self
+        let (findings, metadata) = self
             .task_runner
             .run_to_completion(agent_name, &user_message, Some(session_id))
             .await
@@ -414,7 +414,58 @@ impl LiveTestEnv {
         .await;
         self.log(format!("link_cited_edges: {cited} created"));
 
-        findings
+        (findings, metadata)
+    }
+
+    /// Fork reflection: continue the same agent session with a knowledge
+    /// extraction prompt instead of creating a new reflection agent.
+    ///
+    /// Benefits: warm prompt cache, preserved reasoning chain, simpler flow.
+    /// Returns the findings string and run metadata.
+    pub async fn run_reflection_fork(
+        &self,
+        agent_session_id: &str,
+    ) -> (String, ghost::chat::RunMetadata) {
+        // Classify web cache BEFORE reflection (for post-processing)
+        let messages = ghost::db::sessions::list_messages_by_session(&self.db, agent_session_id)
+            .await
+            .expect("list messages for fork reflection");
+        let agent_findings = ghost::jobs::reflection::extract_agent_findings(&messages);
+
+        let classified = ghost::jobs::reflection::classify_web_cache(
+            &self.config.workspace,
+            agent_findings.as_deref(),
+            1000,
+        );
+
+        // Build fork reflection prompt (reads note-writer skill, inlines it)
+        let prompt = ghost::jobs::reflection::build_fork_reflection_prompt(&self.config.workspace);
+
+        // Continue the SAME session
+        let (findings, metadata) = self
+            .task_runner
+            .continue_to_completion(agent_session_id, &prompt)
+            .await
+            .expect("reflection fork continue_to_completion");
+
+        // Post-processing: deterministic reference curation (matches production)
+        let curation =
+            ghost::jobs::reflection::curate_references(&self.config.workspace, &classified);
+        self.log(format!(
+            "curate_references (fork): {} moved, {} deleted",
+            curation.moved, curation.deleted,
+        ));
+
+        // Create cited edges (note → reference) in the knowledge graph
+        let cited = ghost::jobs::reflection::link_cited_edges(
+            &self.db,
+            &self.config.workspace,
+            &classified,
+        )
+        .await;
+        self.log(format!("link_cited_edges (fork): {cited} created"));
+
+        (findings, metadata)
     }
 
     // -----------------------------------------------------------------
@@ -1080,6 +1131,7 @@ pub fn response(content: Vec<ContentBlock>, stop_reason: StopReason) -> ChatResp
         stop_reason,
         model: "mock-model".to_string(),
         response_id: None,
+        turn_state: None,
     }
 }
 

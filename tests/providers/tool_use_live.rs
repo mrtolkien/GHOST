@@ -80,6 +80,7 @@ fn tool_use_request(model: &str) -> ChatRequest {
         system: Some(system_prompt()),
         reasoning_effort: None,
         cache_key: "test".to_string(),
+        turn_state: None,
         debug_context: None,
     }
 }

@@ -350,6 +350,7 @@ pub(crate) fn parse_response(
         },
         model: response.model.unwrap_or_default(),
         response_id: response.id,
+        turn_state: None,
     })
 }
 
@@ -430,6 +431,7 @@ mod tests {
             system: Some("be concise".to_string()),
             reasoning_effort: None,
             cache_key: "test".to_string(),
+            turn_state: None,
             debug_context: None,
         };
 
@@ -522,6 +524,7 @@ mod tests {
             system: None,
             reasoning_effort: None,
             cache_key: "test".to_string(),
+            turn_state: None,
             debug_context: None,
         };
 
@@ -567,6 +570,7 @@ mod tests {
             system: None,
             reasoning_effort: None,
             cache_key: "test".to_string(),
+            turn_state: None,
             debug_context: None,
         };
 

@@ -72,6 +72,12 @@ pub struct ChatRequest {
     /// to steer requests with the same prefix to the same server.
     #[serde(skip)]
     pub cache_key: String,
+    /// Opaque sticky-routing token from the previous response. Providers
+    /// that support it (Codex backend) echo this as the
+    /// `x-codex-turn-state` request header so the load-balancer routes
+    /// consecutive requests to the same server, maximizing cache hits.
+    #[serde(skip)]
+    pub turn_state: Option<String>,
     #[serde(skip)]
     pub debug_context: Option<DebugContext>,
 }
@@ -132,6 +138,12 @@ pub struct ChatResponse {
     pub model: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub response_id: Option<String>,
+    /// Sticky-routing token received from the server. The tool loop
+    /// carries this into the next `ChatRequest.turn_state` so the
+    /// provider can echo it back, keeping requests on the same server
+    /// for prompt cache locality.
+    #[serde(skip)]
+    pub turn_state: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

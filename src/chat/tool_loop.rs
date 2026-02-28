@@ -88,6 +88,10 @@ pub(super) async fn run_tool_loop(
     let mut last_result: Option<ChatResult> = None;
     let mut retried_empty = false;
     let mut progress_gate_retries = 0u8;
+    // Sticky-routing token from the server. Threaded from each response
+    // into the next request so the load-balancer keeps us on the same
+    // server for prompt cache locality.
+    let mut turn_state: Option<String> = None;
 
     loop {
         let prompt = handler.system_prompt()?;
@@ -100,6 +104,7 @@ pub(super) async fn run_tool_loop(
             system: Some(prompt),
             reasoning_effort: Some(reasoning_effort),
             cache_key: session_id.to_string(),
+            turn_state: turn_state.clone(),
             debug_context: Some(DebugContext {
                 session_id: session_id.to_string(),
                 iteration: iterations,
@@ -161,6 +166,11 @@ pub(super) async fn run_tool_loop(
                 }
             }
         };
+
+        // Capture sticky-routing token for next iteration.
+        if response.turn_state.is_some() {
+            turn_state = response.turn_state.clone();
+        }
 
         // Accumulate usage from every provider response
         metadata.input_tokens += response.usage.input_tokens;
