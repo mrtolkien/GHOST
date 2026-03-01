@@ -32,7 +32,7 @@ pub struct SessionChat {
     config: Config,
     prompt_renderer: PromptRenderer,
     max_tool_iterations: usize,
-    task_runner: Option<Arc<crate::agents::TaskRunner>>,
+    agent_runner: Option<Arc<crate::agents::AgentRunner>>,
 }
 
 impl std::fmt::Debug for SessionChat {
@@ -67,7 +67,7 @@ impl SessionChat {
             config,
             prompt_renderer,
             max_tool_iterations: DEFAULT_MAX_TOOL_ITERATIONS,
-            task_runner: None,
+            agent_runner: None,
         }
     }
 
@@ -78,8 +78,8 @@ impl SessionChat {
     }
 
     #[must_use]
-    pub fn with_task_runner(mut self, runner: Arc<crate::agents::TaskRunner>) -> Self {
-        self.task_runner = Some(runner);
+    pub fn with_agent_runner(mut self, runner: Arc<crate::agents::AgentRunner>) -> Self {
+        self.agent_runner = Some(runner);
         self
     }
 
@@ -204,7 +204,7 @@ impl SessionChat {
             db: self.db.clone(),
             config: self.config.clone(),
             session_id: session_id.to_string(),
-            task_runner: self.task_runner.clone(),
+            agent_runner: self.agent_runner.clone(),
         };
 
         match self.tool_manager.execute(name, input, &tool_ctx).await {
@@ -388,10 +388,10 @@ impl ToolLoopHandler for ChatHandler<'_> {
 }
 
 // ---------------------------------------------------------------------------
-// LuaTaskHandler — uses Lua hooks for nudges and gating
+// LuaAgentHandler — agent tool loop handler using Lua hooks for nudges and gating
 // ---------------------------------------------------------------------------
 
-struct LuaTaskHandler<'a> {
+struct LuaAgentHandler<'a> {
     session_chat: &'a SessionChat,
     session_thing: &'a str,
     system_prompt: String,
@@ -407,7 +407,7 @@ struct LuaTaskHandler<'a> {
 }
 
 #[async_trait]
-impl ToolLoopHandler for LuaTaskHandler<'_> {
+impl ToolLoopHandler for LuaAgentHandler<'_> {
     fn system_prompt(&self) -> Result<String, ChatError> {
         Ok(self.system_prompt.clone())
     }
@@ -561,7 +561,7 @@ impl ToolLoopHandler for LuaTaskHandler<'_> {
     }
 }
 
-impl LuaTaskHandler<'_> {
+impl LuaAgentHandler<'_> {
     fn build_pre_turn_state(
         &self,
         todo_items: &Option<Vec<crate::tools::TodoItem>>,
@@ -616,7 +616,7 @@ impl SessionChat {
         gen_ai.agent.name = %config.name,
         session_id = session_id,
     ))]
-    pub async fn chat_lua_agent(
+    pub async fn run_agent(
         &self,
         session_id: &str,
         prompt: &str,
@@ -638,7 +638,7 @@ impl SessionChat {
             }],
         }];
 
-        let mut handler = LuaTaskHandler {
+        let mut handler = LuaAgentHandler {
             session_chat: self,
             session_thing: &session_thing,
             system_prompt,
@@ -671,7 +671,7 @@ impl SessionChat {
         gen_ai.agent.name = %config.name,
         session_id = session_id,
     ))]
-    pub async fn continue_lua_agent(
+    pub async fn continue_agent(
         &self,
         session_id: &str,
         prompt: &str,
@@ -689,7 +689,7 @@ impl SessionChat {
         let (mut history, _stored_ids) = self.load_provider_history(&session_thing).await?;
         self.apply_masking_if_needed(&mut history);
 
-        let mut handler = LuaTaskHandler {
+        let mut handler = LuaAgentHandler {
             session_chat: self,
             session_thing: &session_thing,
             system_prompt,

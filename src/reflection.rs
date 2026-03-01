@@ -9,7 +9,7 @@ use tokio::task::JoinHandle;
 use regex::Regex;
 use std::sync::LazyLock;
 
-use crate::agents::TaskRunner;
+use crate::agents::AgentRunner;
 use crate::config::Config;
 use crate::db;
 use crate::db::GhostDb;
@@ -20,17 +20,17 @@ use crate::web::slug_from_url;
 pub struct ReflectionManager {
     db: GhostDb,
     config: Config,
-    task_runner: Arc<TaskRunner>,
+    agent_runner: Arc<AgentRunner>,
     running: Arc<Mutex<()>>,
 }
 
 impl ReflectionManager {
     #[must_use]
-    pub fn new(db: GhostDb, config: Config, task_runner: Arc<TaskRunner>) -> Self {
+    pub fn new(db: GhostDb, config: Config, agent_runner: Arc<AgentRunner>) -> Self {
         Self {
             db,
             config,
-            task_runner,
+            agent_runner,
             running: Arc::new(Mutex::new(())),
         }
     }
@@ -194,7 +194,7 @@ impl ReflectionManager {
         let prompt = build_fork_reflection_prompt(&self.config.workspace);
 
         match self
-            .task_runner
+            .agent_runner
             .continue_to_completion(agent_session_id, &prompt)
             .await
         {
@@ -251,7 +251,7 @@ impl ReflectionManager {
         };
 
         match self
-            .task_runner
+            .agent_runner
             .run_to_completion(agent_name, &user_message, Some(session_id))
             .await
         {

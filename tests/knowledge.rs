@@ -283,7 +283,7 @@ async fn note_write_tool_creates_file_and_db_record() {
         db: db.clone(),
         config: config.clone(),
         session_id: session_id.clone(),
-        task_runner: None,
+        agent_runner: None,
     };
     let manager = ToolManager::for_agent(&reflection_tools());
 

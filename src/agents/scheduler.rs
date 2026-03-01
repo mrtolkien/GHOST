@@ -16,7 +16,7 @@ use crate::scripting::AgentContext;
 use crate::scripting::types::AgentTrigger;
 
 use super::loader::{discover_agents, load_agent, load_agent_with_host};
-use super::runner::TaskRunner;
+use super::runner::AgentRunner;
 
 /// A scheduled Lua agent.
 #[derive(Debug)]
@@ -49,7 +49,7 @@ struct IdleAgent {
 /// and idle-triggered agents.
 #[tracing::instrument(name = "start scheduler", skip_all)]
 pub fn spawn_scheduler(
-    task_runner: Arc<TaskRunner>,
+    agent_runner: Arc<AgentRunner>,
     config: Config,
     db: GhostDb,
     mut shutdown: watch::Receiver<bool>,
@@ -86,8 +86,8 @@ pub fn spawn_scheduler(
         loop {
             tokio::select! {
                 _ = interval.tick() => {
-                    tick_scheduled(&task_runner, &db, &workspace, &mut scheduled).await;
-                    tick_idle(&task_runner, &db, &workspace, &idle_agents).await;
+                    tick_scheduled(&agent_runner, &db, &workspace, &mut scheduled).await;
+                    tick_idle(&agent_runner, &db, &workspace, &idle_agents).await;
                 }
                 path = fs_rx.recv() => {
                     if let Some(_path) = path {
@@ -173,7 +173,7 @@ fn build_entries(workspace: &Path) -> (Vec<TrackedEntry>, Vec<IdleAgent>) {
 
 /// Check and execute due scheduled entries.
 async fn tick_scheduled(
-    task_runner: &TaskRunner,
+    agent_runner: &AgentRunner,
     db: &GhostDb,
     workspace: &Path,
     entries: &mut [TrackedEntry],
@@ -234,7 +234,7 @@ async fn tick_scheduled(
 
         logfire::info!("executing scheduled agent", agent_name = name.clone());
 
-        match task_runner
+        match agent_runner
             .run_to_completion(name, "Execute the scheduled agent.", None)
             .await
         {
@@ -257,7 +257,7 @@ async fn tick_scheduled(
 
 /// Check idle sessions and trigger after_idle agents.
 async fn tick_idle(
-    task_runner: &TaskRunner,
+    agent_runner: &AgentRunner,
     db: &GhostDb,
     workspace: &Path,
     idle_agents: &[IdleAgent],
@@ -347,7 +347,7 @@ async fn tick_idle(
                 idle_minutes = agent.idle_minutes,
             );
 
-            match task_runner
+            match agent_runner
                 .run_to_completion(
                     &agent.name,
                     "Execute after idle period.",

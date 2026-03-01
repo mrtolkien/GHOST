@@ -14,12 +14,12 @@ use crate::scripting::AgentContext;
 use crate::scripting::build_custom_tools;
 use crate::tools::ToolManager;
 
-use super::error::TaskError;
+use super::error::AgentError;
 use super::loader::load_agent_with_host;
 
 /// Status snapshot of a running or completed agent.
 #[derive(Debug, Clone)]
-pub struct TaskStatus {
+pub struct AgentStatus {
     pub agent_id: String,
     pub agent_name: String,
     pub status: String,
@@ -30,26 +30,26 @@ pub struct TaskStatus {
 }
 
 /// Handle for a spawned agent task.
-struct TaskHandle {
+struct AgentHandle {
     agent_id: String,
     agent_name: String,
     parent_session_id: Option<String>,
     agent_session_id: String,
     run_id: String,
-    task_handle: JoinHandle<()>,
+    join_handle: JoinHandle<()>,
     cancel_token: CancellationToken,
     metadata: Arc<Mutex<Option<RunMetadata>>>,
 }
 
 /// Manages background agent execution.
 #[derive(Debug, Clone)]
-pub struct TaskRunner {
+pub struct AgentRunner {
     db: GhostDb,
     config: Config,
-    handles: Arc<Mutex<HashMap<String, TaskHandle>>>,
+    handles: Arc<Mutex<HashMap<String, AgentHandle>>>,
 }
 
-impl TaskRunner {
+impl AgentRunner {
     #[must_use]
     pub fn new(db: GhostDb, config: Config) -> Self {
         Self {
@@ -70,11 +70,11 @@ impl TaskRunner {
         agent_name: &str,
         prompt: &str,
         parent_session_id: Option<&str>,
-    ) -> Result<String, TaskError> {
+    ) -> Result<String, AgentError> {
         // Validate the agent exists
         let agent_dir = self.config.workspace.join("agents").join(agent_name);
         if !agent_dir.join("agent.lua").exists() {
-            return Err(TaskError::NotFound {
+            return Err(AgentError::NotFound {
                 name: agent_name.to_string(),
             });
         }
@@ -95,13 +95,13 @@ impl TaskRunner {
         let cancel_token = CancellationToken::new();
         let metadata_slot: Arc<Mutex<Option<RunMetadata>>> = Arc::new(Mutex::new(None));
 
-        let handle = TaskHandle {
+        let handle = AgentHandle {
             agent_id: agent_id.clone(),
             agent_name: agent_name.to_string(),
             parent_session_id: parent_session_id.map(|s| s.to_string()),
             agent_session_id: agent_session_id.clone(),
             run_id: run_id.clone(),
-            task_handle: self.spawn_task(
+            join_handle: self.spawn_run(
                 agent_name.to_string(),
                 prompt.to_string(),
                 agent_session_id,
@@ -133,7 +133,7 @@ impl TaskRunner {
         agent_name: &str,
         prompt: &str,
         parent_session_id: Option<&str>,
-    ) -> Result<(String, RunMetadata), TaskError> {
+    ) -> Result<(String, RunMetadata), AgentError> {
         let agent_session_id = db::sessions::create_agent_session(&self.db).await?;
 
         let run_id = db::agent_runs::create_agent_run(
@@ -146,7 +146,7 @@ impl TaskRunner {
 
         let cancel_token = CancellationToken::new();
 
-        let result = run_task(
+        let result = run_agent(
             &self.db,
             &self.config,
             agent_name,
@@ -177,7 +177,7 @@ impl TaskRunner {
         }
 
         if status == "failed" {
-            return Err(TaskError::ExecutionFailed {
+            return Err(AgentError::ExecutionFailed {
                 message: transcript.to_string(),
             });
         }
@@ -186,15 +186,15 @@ impl TaskRunner {
     }
 
     /// Check agent status.
-    pub async fn status(&self, agent_id: &str) -> Result<TaskStatus, TaskError> {
+    pub async fn status(&self, agent_id: &str) -> Result<AgentStatus, AgentError> {
         let handles = self.handles.lock().await;
         let handle = handles
             .get(agent_id)
-            .ok_or_else(|| TaskError::AgentNotFound {
+            .ok_or_else(|| AgentError::AgentNotFound {
                 agent_id: agent_id.to_string(),
             })?;
 
-        let is_finished = handle.task_handle.is_finished();
+        let is_finished = handle.join_handle.is_finished();
 
         // Read message count from agent session
         let message_count =
@@ -224,7 +224,7 @@ impl TaskRunner {
             None
         };
 
-        Ok(TaskStatus {
+        Ok(AgentStatus {
             agent_id: agent_id.to_string(),
             agent_name: handle.agent_name.clone(),
             status: status.to_string(),
@@ -236,11 +236,11 @@ impl TaskRunner {
     }
 
     /// Stop a running agent and return partial findings.
-    pub async fn stop(&self, agent_id: &str) -> Result<TaskStatus, TaskError> {
+    pub async fn stop(&self, agent_id: &str) -> Result<AgentStatus, AgentError> {
         let handles = self.handles.lock().await;
         let handle = handles
             .get(agent_id)
-            .ok_or_else(|| TaskError::AgentNotFound {
+            .ok_or_else(|| AgentError::AgentNotFound {
                 agent_id: agent_id.to_string(),
             })?;
 
@@ -276,7 +276,7 @@ impl TaskRunner {
             agent_id = agent_id_owned.clone(),
         );
 
-        Ok(TaskStatus {
+        Ok(AgentStatus {
             agent_id: agent_id.to_string(),
             agent_name,
             status: "stopped".to_string(),
@@ -288,10 +288,10 @@ impl TaskRunner {
     }
 
     /// Get findings for a completed agent, cleaning up its handle.
-    pub async fn take_completed(&self, agent_id: &str) -> Option<(TaskStatus, Option<String>)> {
+    pub async fn take_completed(&self, agent_id: &str) -> Option<(AgentStatus, Option<String>)> {
         let mut handles = self.handles.lock().await;
         let handle = handles.get(agent_id)?;
-        if !handle.task_handle.is_finished() {
+        if !handle.join_handle.is_finished() {
             return None;
         }
         let parent = handle.parent_session_id.clone();
@@ -315,7 +315,7 @@ impl TaskRunner {
         let findings = self.get_run_transcript(&run_id).await;
 
         Some((
-            TaskStatus {
+            AgentStatus {
                 agent_id: agent_id.to_string(),
                 agent_name,
                 status: "completed".to_string(),
@@ -331,22 +331,22 @@ impl TaskRunner {
     /// Continue an existing agent session with a new prompt.
     ///
     /// Looks up the agent name from previous runs, creates a new run entry
-    /// for this continuation, and spawns a task that resumes the existing
+    /// for this continuation, and spawns a background run that resumes the existing
     /// session with full history.
     #[tracing::instrument(name = "continue agent", skip_all, fields(agent_id = agent_id))]
-    pub async fn continue_task(
+    pub async fn continue_agent(
         &self,
         agent_id: &str,
         prompt: &str,
         parent_session_id: Option<&str>,
-    ) -> Result<String, TaskError> {
+    ) -> Result<String, AgentError> {
         // Parse agent_id to extract bare session ID
-        let agent_session_id = parse_task_session_thing(agent_id)?;
+        let agent_session_id = parse_agent_session_id(agent_id)?;
 
         // Look up agent name from previous runs
         let agent_name = db::agent_runs::get_agent_name_for_session(&self.db, &agent_session_id)
             .await?
-            .ok_or_else(|| TaskError::AgentSessionNotFound {
+            .ok_or_else(|| AgentError::AgentSessionNotFound {
                 agent_session_id: agent_id.to_string(),
             })?;
 
@@ -362,13 +362,13 @@ impl TaskRunner {
         let cancel_token = CancellationToken::new();
         let metadata_slot: Arc<Mutex<Option<RunMetadata>>> = Arc::new(Mutex::new(None));
 
-        let handle = TaskHandle {
+        let handle = AgentHandle {
             agent_id: agent_id.to_string(),
             agent_name: agent_name.clone(),
             parent_session_id: parent_session_id.map(|s| s.to_string()),
             agent_session_id: agent_session_id.clone(),
             run_id: run_id.clone(),
-            task_handle: self.spawn_continue_task(
+            join_handle: self.spawn_continue(
                 agent_name.clone(),
                 prompt.to_string(),
                 agent_session_id,
@@ -396,7 +396,7 @@ impl TaskRunner {
 
     /// Continue an existing agent session synchronously (await completion).
     ///
-    /// Like `continue_task` but blocks until the agent finishes, returning
+    /// Like `continue_agent` but blocks until the agent finishes, returning
     /// the final findings string and run metadata. Used for reflection forks
     /// where we need the result before proceeding.
     #[tracing::instrument(name = "continue agent sync", skip_all, fields(
@@ -406,10 +406,10 @@ impl TaskRunner {
         &self,
         agent_session_id: &str,
         prompt: &str,
-    ) -> Result<(String, RunMetadata), TaskError> {
+    ) -> Result<(String, RunMetadata), AgentError> {
         let agent_name = db::agent_runs::get_agent_name_for_session(&self.db, agent_session_id)
             .await?
-            .ok_or_else(|| TaskError::AgentSessionNotFound {
+            .ok_or_else(|| AgentError::AgentSessionNotFound {
                 agent_session_id: agent_session_id.to_string(),
             })?;
 
@@ -418,7 +418,7 @@ impl TaskRunner {
 
         let cancel_token = CancellationToken::new();
 
-        let result = continue_task(
+        let result = continue_agent_inner(
             &self.db,
             &self.config,
             &agent_name,
@@ -449,7 +449,7 @@ impl TaskRunner {
         }
 
         if status == "failed" {
-            return Err(TaskError::ExecutionFailed {
+            return Err(AgentError::ExecutionFailed {
                 message: transcript.to_string(),
             });
         }
@@ -458,11 +458,11 @@ impl TaskRunner {
     }
 
     /// List all agent IDs (running and completed).
-    pub async fn list_task_ids(&self) -> Vec<String> {
+    pub async fn list_agent_ids(&self) -> Vec<String> {
         self.handles.lock().await.keys().cloned().collect()
     }
 
-    fn spawn_task(
+    fn spawn_run(
         &self,
         agent_name: String,
         prompt: String,
@@ -475,7 +475,7 @@ impl TaskRunner {
         let config = self.config.clone();
 
         tokio::spawn(async move {
-            let result = run_task(
+            let result = run_agent(
                 &db,
                 &config,
                 &agent_name,
@@ -506,7 +506,7 @@ impl TaskRunner {
         })
     }
 
-    fn spawn_continue_task(
+    fn spawn_continue(
         &self,
         agent_name: String,
         prompt: String,
@@ -519,7 +519,7 @@ impl TaskRunner {
         let config = self.config.clone();
 
         tokio::spawn(async move {
-            let result = continue_task(
+            let result = continue_agent_inner(
                 &db,
                 &config,
                 &agent_name,
@@ -564,14 +564,14 @@ impl TaskRunner {
     gen_ai.agent.id = ?agent_session_id,
     gen_ai.operation.name = "invoke_agent",
 ))]
-async fn run_task(
+async fn run_agent(
     db: &GhostDb,
     config: &Config,
     agent_name: &str,
     prompt: &str,
     agent_session_id: &str,
     cancel_token: &CancellationToken,
-) -> Result<(String, RunMetadata), TaskError> {
+) -> Result<(String, RunMetadata), AgentError> {
     let (agent_config, script_host) = load_agent_with_host(&config.workspace, agent_name)?;
     let script_host = Arc::new(script_host);
 
@@ -617,7 +617,7 @@ async fn run_task(
         .with_max_tool_iterations(agent_config.max_iterations);
 
     let result = tokio::select! {
-        res = session_chat.chat_lua_agent(
+        res = session_chat.run_agent(
             agent_session_id,
             prompt,
             system_prompt,
@@ -668,14 +668,14 @@ async fn run_task(
     gen_ai.agent.id = ?agent_session_id,
     gen_ai.operation.name = "invoke_agent",
 ))]
-async fn continue_task(
+async fn continue_agent_inner(
     db: &GhostDb,
     config: &Config,
     agent_name: &str,
     prompt: &str,
     agent_session_id: &str,
     cancel_token: &CancellationToken,
-) -> Result<(String, RunMetadata), TaskError> {
+) -> Result<(String, RunMetadata), AgentError> {
     let (agent_config, script_host) = load_agent_with_host(&config.workspace, agent_name)?;
     let script_host = Arc::new(script_host);
 
@@ -721,7 +721,7 @@ async fn continue_task(
         .with_max_tool_iterations(agent_config.max_iterations);
 
     let result = tokio::select! {
-        res = session_chat.continue_lua_agent(
+        res = session_chat.continue_agent(
             agent_session_id,
             prompt,
             system_prompt,
@@ -767,10 +767,10 @@ async fn continue_task(
 }
 
 /// Parse an agent_id string (e.g. "session:abc123") into a bare ID string.
-fn parse_task_session_thing(agent_id: &str) -> Result<String, TaskError> {
+fn parse_agent_session_id(agent_id: &str) -> Result<String, AgentError> {
     if let Some((_table, id)) = agent_id.split_once(':') {
         if id.is_empty() {
-            return Err(TaskError::AgentSessionNotFound {
+            return Err(AgentError::AgentSessionNotFound {
                 agent_session_id: agent_id.to_string(),
             });
         }
@@ -778,18 +778,18 @@ fn parse_task_session_thing(agent_id: &str) -> Result<String, TaskError> {
     } else if !agent_id.is_empty() {
         Ok(agent_id.to_string())
     } else {
-        Err(TaskError::AgentSessionNotFound {
+        Err(AgentError::AgentSessionNotFound {
             agent_session_id: agent_id.to_string(),
         })
     }
 }
 
-impl std::fmt::Debug for TaskHandle {
+impl std::fmt::Debug for AgentHandle {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("TaskHandle")
+        f.debug_struct("AgentHandle")
             .field("agent_id", &self.agent_id)
             .field("agent_name", &self.agent_name)
-            .field("finished", &self.task_handle.is_finished())
+            .field("finished", &self.join_handle.is_finished())
             .finish()
     }
 }

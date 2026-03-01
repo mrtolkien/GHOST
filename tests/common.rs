@@ -123,7 +123,7 @@ pub struct WebFetchMetrics {
 pub struct LiveTestEnv {
     pub db: GhostDb,
     pub config: Config,
-    pub task_runner: Arc<ghost::agents::TaskRunner>,
+    pub agent_runner: Arc<ghost::agents::AgentRunner>,
     workspace: TempDir,
     _config_dir: TempDir,
     test_name: String,
@@ -348,7 +348,7 @@ impl LiveTestEnv {
     pub fn chat(&self) -> ghost::chat::SessionChat {
         ghost::chat::SessionChat::from_config(self.db.clone(), self.config.clone())
             .expect("build session chat")
-            .with_task_runner(Arc::clone(&self.task_runner))
+            .with_agent_runner(Arc::clone(&self.agent_runner))
     }
 
     // -----------------------------------------------------------------
@@ -393,7 +393,7 @@ impl LiveTestEnv {
         );
 
         let (findings, metadata) = self
-            .task_runner
+            .agent_runner
             .run_to_completion(agent_name, &user_message, Some(session_id))
             .await
             .expect("reflection run_to_completion");
@@ -441,7 +441,7 @@ impl LiveTestEnv {
 
         // Continue the SAME session
         let (findings, metadata) = self
-            .task_runner
+            .agent_runner
             .continue_to_completion(agent_session_id, &prompt)
             .await
             .expect("reflection fork continue_to_completion");
@@ -491,14 +491,14 @@ impl LiveTestEnv {
                 return None;
             }
 
-            let agent_ids = self.task_runner.list_task_ids().await;
+            let agent_ids = self.agent_runner.list_agent_ids().await;
             if agent_ids.is_empty() {
                 self.log("no agents found (model may not have spawned one)");
                 return None;
             }
 
             for agent_id in &agent_ids {
-                if let Some((status, parent)) = self.task_runner.take_completed(agent_id).await {
+                if let Some((status, parent)) = self.agent_runner.take_completed(agent_id).await {
                     let findings = status
                         .findings
                         .as_deref()
@@ -579,10 +579,10 @@ impl LiveTestEnv {
 
     /// Stop all running agents immediately and return how many were stopped.
     pub async fn stop_all_agents(&self) -> usize {
-        let ids = self.task_runner.list_task_ids().await;
+        let ids = self.agent_runner.list_agent_ids().await;
         let count = ids.len();
         for id in &ids {
-            let _ = self.task_runner.stop(id).await;
+            let _ = self.agent_runner.stop(id).await;
         }
         count
     }
@@ -673,7 +673,7 @@ impl LiveTestEnv {
     /// snapshotting — no mid-flight tool calls or partial results.
     pub async fn stop_and_reset_agent(&self, agent_id: &str) {
         // Stop the agent (cancels the background task)
-        let _ = self.task_runner.stop(agent_id).await;
+        let _ = self.agent_runner.stop(agent_id).await;
 
         // Parse bare session ID from agent_id (e.g. "session:abc" → "abc")
         let session_id = agent_id
@@ -925,12 +925,12 @@ pub async fn live_test_database_from_snapshot(
         .await
         .expect("connect to fresh temp database");
 
-    let task_runner = Arc::new(ghost::agents::TaskRunner::new(db.clone(), config.clone()));
+    let agent_runner = Arc::new(ghost::agents::AgentRunner::new(db.clone(), config.clone()));
 
     LiveTestEnv {
         db,
         config,
-        task_runner,
+        agent_runner,
         workspace,
         _config_dir: config_dir,
         test_name: test_name.to_string(),

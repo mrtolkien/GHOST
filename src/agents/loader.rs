@@ -3,7 +3,7 @@ use std::path::Path;
 use crate::scripting::host::ScriptHost;
 use crate::scripting::types::{AgentConfig, AgentTrigger};
 
-use super::error::TaskError;
+use super::error::AgentError;
 
 /// Minimal metadata for listing agents in the system prompt.
 #[derive(Debug, Clone)]
@@ -58,22 +58,22 @@ pub fn discover_agents(workspace: &Path) -> Vec<AgentInfo> {
 /// Load an agent's config from its Lua folder. Lightweight — drops the VM
 /// after extracting the config.
 #[tracing::instrument(skip_all, fields(agent_name = name))]
-pub fn load_agent(workspace: &Path, name: &str) -> Result<AgentConfig, TaskError> {
+pub fn load_agent(workspace: &Path, name: &str) -> Result<AgentConfig, AgentError> {
     let agent_dir = workspace.join("agents").join(name);
     let agent_lua = agent_dir.join("agent.lua");
 
     if !agent_lua.exists() {
-        return Err(TaskError::NotFound {
+        return Err(AgentError::NotFound {
             name: name.to_string(),
         });
     }
 
-    let mut host = ScriptHost::new(&agent_dir, workspace).map_err(|e| TaskError::ScriptError {
+    let mut host = ScriptHost::new(&agent_dir, workspace).map_err(|e| AgentError::ScriptError {
         agent: name.to_string(),
         message: e.to_string(),
     })?;
 
-    host.load_config().map_err(|e| TaskError::ScriptError {
+    host.load_config().map_err(|e| AgentError::ScriptError {
         agent: name.to_string(),
         message: e.to_string(),
     })
@@ -84,22 +84,22 @@ pub fn load_agent(workspace: &Path, name: &str) -> Result<AgentConfig, TaskError
 pub fn load_agent_with_host(
     workspace: &Path,
     name: &str,
-) -> Result<(AgentConfig, ScriptHost), TaskError> {
+) -> Result<(AgentConfig, ScriptHost), AgentError> {
     let agent_dir = workspace.join("agents").join(name);
     let agent_lua = agent_dir.join("agent.lua");
 
     if !agent_lua.exists() {
-        return Err(TaskError::NotFound {
+        return Err(AgentError::NotFound {
             name: name.to_string(),
         });
     }
 
-    let mut host = ScriptHost::new(&agent_dir, workspace).map_err(|e| TaskError::ScriptError {
+    let mut host = ScriptHost::new(&agent_dir, workspace).map_err(|e| AgentError::ScriptError {
         agent: name.to_string(),
         message: e.to_string(),
     })?;
 
-    let config = host.load_config().map_err(|e| TaskError::ScriptError {
+    let config = host.load_config().map_err(|e| AgentError::ScriptError {
         agent: name.to_string(),
         message: e.to_string(),
     })?;
@@ -324,7 +324,7 @@ mod tests {
     fn load_agent_not_found() {
         let dir = tempfile::TempDir::new().unwrap();
         let err = load_agent(dir.path(), "nonexistent").unwrap_err();
-        assert!(matches!(err, TaskError::NotFound { .. }));
+        assert!(matches!(err, AgentError::NotFound { .. }));
     }
 
     #[test]

@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use crate::agents::TaskRunner;
+use crate::agents::AgentRunner;
 use crate::config::Config;
 use crate::db::GhostDb;
 
@@ -14,7 +14,7 @@ pub struct ToolContext {
     pub db: GhostDb,
     pub config: Config,
     pub session_id: String,
-    pub task_runner: Option<Arc<TaskRunner>>,
+    pub agent_runner: Option<Arc<AgentRunner>>,
 }
 
 /// Resolve a path relative to a base directory and enforce that the result

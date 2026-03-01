@@ -15,7 +15,7 @@ fn tool_ctx(
         db: db.clone(),
         config: config.clone(),
         session_id: session_id.to_string(),
-        task_runner: None,
+        agent_runner: None,
     }
 }
 
@@ -290,7 +290,7 @@ async fn unknown_tool_returns_not_found() {
         db: sqlx::SqlitePool::connect_lazy("sqlite::memory:").unwrap(),
         config: ghost::config::test_config(std::path::Path::new("/tmp")),
         session_id: "test".to_string(),
-        task_runner: None,
+        agent_runner: None,
     };
 
     let result = manager.execute("nonexistent_tool", json!({}), &ctx).await;

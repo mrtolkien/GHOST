@@ -1,7 +1,7 @@
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum TaskError {
+pub enum AgentError {
     #[error("agent '{name}' not found")]
     NotFound { name: String },
 
@@ -33,8 +33,8 @@ pub enum TaskError {
     Io(#[from] std::io::Error),
 }
 
-impl From<crate::db::DatabaseError> for TaskError {
+impl From<crate::db::DatabaseError> for AgentError {
     fn from(e: crate::db::DatabaseError) -> Self {
-        TaskError::Database(Box::new(e))
+        AgentError::Database(Box::new(e))
     }
 }

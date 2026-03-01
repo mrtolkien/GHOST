@@ -12,13 +12,13 @@ use crate::scripting::AgentContext;
 use crate::scripting::types::AgentTrigger;
 
 use super::loader::{discover_agents, load_agent, load_agent_with_host};
-use super::runner::TaskRunner;
+use super::runner::AgentRunner;
 
 const POLL_INTERVAL_SECS: u64 = 3;
 
 /// Poll for completed agents and inject their findings into parent sessions.
-pub fn spawn_task_watcher(
-    task_runner: Arc<TaskRunner>,
+pub fn spawn_agent_watcher(
+    agent_runner: Arc<AgentRunner>,
     session_chat: Arc<SessionChat>,
     discord_sender: Arc<DiscordSender>,
     db: GhostDb,
@@ -33,8 +33,8 @@ pub fn spawn_task_watcher(
         loop {
             tokio::select! {
                 _ = interval.tick() => {
-                    check_completed_tasks(
-                        &task_runner,
+                    check_completed_agents(
+                        &agent_runner,
                         &session_chat,
                         &discord_sender,
                         &db,
@@ -53,17 +53,17 @@ pub fn spawn_task_watcher(
 /// Poll for completed agent tasks and handle their results: inject findings
 /// into the parent session, notify Discord, trigger a continuation chat turn,
 /// and spawn post-agent hooks for after_agent agents.
-async fn check_completed_tasks(
-    task_runner: &TaskRunner,
+async fn check_completed_agents(
+    agent_runner: &AgentRunner,
     session_chat: &SessionChat,
     discord_sender: &DiscordSender,
     db: &GhostDb,
     workspace: &std::path::Path,
 ) {
-    let agent_ids = task_runner.list_task_ids().await;
+    let agent_ids = agent_runner.list_agent_ids().await;
 
     for agent_id in agent_ids {
-        let Some((status, parent_session)) = task_runner.take_completed(&agent_id).await else {
+        let Some((status, parent_session)) = agent_runner.take_completed(&agent_id).await else {
             continue;
         };
 
@@ -204,14 +204,14 @@ async fn check_completed_tasks(
                 }
             }
 
-            let task_runner = task_runner.clone();
+            let agent_runner = agent_runner.clone();
             let after_name = after_agent_name.clone();
             let thing = session_thing.clone();
 
             tokio::spawn(async move {
                 if continue_session {
                     // Continue the completed agent's session
-                    match task_runner
+                    match agent_runner
                         .continue_to_completion(&thing, "Continue with post-processing.")
                         .await
                     {
@@ -231,7 +231,7 @@ async fn check_completed_tasks(
                     }
                 } else {
                     // Start a fresh session
-                    match task_runner
+                    match agent_runner
                         .run_to_completion(&after_name, "Run post-agent processing.", Some(&thing))
                         .await
                     {

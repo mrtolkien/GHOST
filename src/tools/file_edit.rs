@@ -117,7 +117,7 @@ mod tests {
             db: sqlx::SqlitePool::connect_lazy("sqlite::memory:").unwrap(),
             config: crate::config::test_config(workspace),
             session_id: "test".to_string(),
-            task_runner: None,
+            agent_runner: None,
         }
     }
 

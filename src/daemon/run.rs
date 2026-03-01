@@ -4,7 +4,7 @@ use tokio::sync::watch;
 use tokio::task::JoinHandle;
 use tracing::info;
 
-use crate::agents::TaskRunner;
+use crate::agents::AgentRunner;
 use crate::chat::SessionChat;
 use crate::embeddings::EmbeddingClient;
 use crate::error::GhostError;
@@ -101,11 +101,11 @@ pub async fn boot() -> Result<BootResult, GhostError> {
     );
 
     // Create agent runner (shared between SessionChat, scheduler, agent watcher)
-    let task_runner = Arc::new(TaskRunner::new(db.clone(), config.clone()));
+    let agent_runner = Arc::new(AgentRunner::new(db.clone(), config.clone()));
 
     // Spawn the unified scheduler (handles both cron jobs and idle agents)
     let scheduler_handle = crate::agents::scheduler::spawn_scheduler(
-        Arc::clone(&task_runner),
+        Arc::clone(&agent_runner),
         config.clone(),
         db.clone(),
         shutdown_rx.clone(),
@@ -113,7 +113,7 @@ pub async fn boot() -> Result<BootResult, GhostError> {
 
     let session_chat = Arc::new(
         SessionChat::from_config(db.clone(), config.clone())?
-            .with_task_runner(Arc::clone(&task_runner)),
+            .with_agent_runner(Arc::clone(&agent_runner)),
     );
 
     let discord_result = discord::start_discord(&config, session_chat.clone(), db.clone()).await?;
@@ -122,8 +122,8 @@ pub async fn boot() -> Result<BootResult, GhostError> {
     let agent_watcher_handle = if let Some((ref sender, _)) = discord_result {
         let discord_sender = Arc::new(sender.clone());
 
-        Some(crate::agents::watcher::spawn_task_watcher(
-            Arc::clone(&task_runner),
+        Some(crate::agents::watcher::spawn_agent_watcher(
+            Arc::clone(&agent_runner),
             Arc::clone(&session_chat),
             Arc::clone(&discord_sender),
             db.clone(),

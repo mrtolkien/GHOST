@@ -60,7 +60,7 @@ impl Tool for AgentControl {
             })?;
 
         let runner = ctx
-            .task_runner
+            .agent_runner
             .as_ref()
             .ok_or_else(|| ToolError::ExecutionFailed("agent runner not available".to_string()))?;
 
@@ -82,7 +82,7 @@ impl AgentControl {
         &self,
         params: &Value,
         ctx: &ToolContext,
-        runner: &crate::agents::TaskRunner,
+        runner: &crate::agents::AgentRunner,
     ) -> Result<String, ToolError> {
         let agent_name = params.get("agent").and_then(Value::as_str).ok_or_else(|| {
             ToolError::InvalidParams("'start' requires an 'agent' name".to_string())
@@ -111,7 +111,7 @@ impl AgentControl {
         &self,
         params: &Value,
         ctx: &ToolContext,
-        runner: &crate::agents::TaskRunner,
+        runner: &crate::agents::AgentRunner,
     ) -> Result<String, ToolError> {
         let agent_id = params
             .get("agent_id")
@@ -130,7 +130,7 @@ impl AgentControl {
         let parent_session_id = parse_session_thing_opt(&ctx.session_id);
 
         let agent_name = runner
-            .continue_task(agent_id, prompt, parent_session_id.as_deref())
+            .continue_agent(agent_id, prompt, parent_session_id.as_deref())
             .await
             .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
 
@@ -144,7 +144,7 @@ impl AgentControl {
     async fn action_status(
         &self,
         params: &Value,
-        runner: &crate::agents::TaskRunner,
+        runner: &crate::agents::AgentRunner,
     ) -> Result<String, ToolError> {
         let agent_id = params
             .get("agent_id")
@@ -178,7 +178,7 @@ impl AgentControl {
     async fn action_stop(
         &self,
         params: &Value,
-        runner: &crate::agents::TaskRunner,
+        runner: &crate::agents::AgentRunner,
     ) -> Result<String, ToolError> {
         let agent_id = params
             .get("agent_id")

@@ -32,7 +32,7 @@ async fn printer_3d_step_01_spawn_agent() {
         "expected agent_control call in step 01, got: {tool_calls:?}"
     );
 
-    let agent_ids = env.task_runner.list_task_ids().await;
+    let agent_ids = env.agent_runner.list_agent_ids().await;
     assert!(
         !agent_ids.is_empty(),
         "expected at least one spawned agent in step 01"

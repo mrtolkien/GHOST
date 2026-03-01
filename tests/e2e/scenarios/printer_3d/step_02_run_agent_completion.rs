@@ -19,10 +19,10 @@ async fn printer_3d_step_02_run_agent_completion() {
         .clone()
         .expect("step_01 must provide agent_id");
 
-    env.task_runner
-        .continue_task(&agent_id, "Continue and finish this research task.", None)
+    env.agent_runner
+        .continue_agent(&agent_id, "Continue and finish this research task.", None)
         .await
-        .expect("continue_task from step_01 state");
+        .expect("continue_agent from step_01 state");
 
     let deadline = Instant::now() + Duration::from_secs(600);
     let findings = loop {
@@ -30,7 +30,7 @@ async fn printer_3d_step_02_run_agent_completion() {
             panic!("TIMEOUT: agent did not complete in step_02 within 10 minutes");
         }
 
-        if let Some((status, _parent)) = env.task_runner.take_completed(&agent_id).await {
+        if let Some((status, _parent)) = env.agent_runner.take_completed(&agent_id).await {
             break status.findings;
         }
 
