@@ -180,15 +180,15 @@ const DEFAULT_AGENTS: &[(&str, &[(&str, &str)])] = &[
         ],
     ),
     (
-        "reflection",
+        "chat-reflection",
         &[
             (
                 "agent.lua",
-                include_str!("../../prompts/agents/reflection/agent.lua"),
+                include_str!("../../prompts/agents/chat-reflection/agent.lua"),
             ),
             (
                 "prompt.md",
-                include_str!("../../prompts/agents/reflection/prompt.md"),
+                include_str!("../../prompts/agents/chat-reflection/prompt.md"),
             ),
         ],
     ),

@@ -29,7 +29,7 @@ return {
     --- Skip if the completed agent is itself a reflection agent.
     should_trigger = function(ctx)
         local trigger_agent = ctx.trigger_agent_name or ""
-        if trigger_agent == "reflection" or trigger_agent == "fork-reflection" then
+        if trigger_agent == "chat-reflection" or trigger_agent == "fork-reflection" then
             return false
         end
         return true

@@ -2,8 +2,8 @@
   "agent_web_fetch_count": 0,
   "agent_web_fetch_urls": [],
   "chat_tool_calls": [
-    "read_file",
     "knowledge_search",
+    "read_file",
     "agent_control"
   ]
 }

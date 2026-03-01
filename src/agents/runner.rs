@@ -502,7 +502,8 @@ impl AgentRunner {
                         agent_name = agent_name.clone(),
                         error = e.to_string(),
                     );
-                    ("failed", format!("Agent error: {e}"))
+                    let partial = last_assistant_message(&db, &agent_session_id).await;
+                    ("failed", partial)
                 }
             };
 
@@ -546,7 +547,8 @@ impl AgentRunner {
                         agent_name = agent_name.clone(),
                         error = e.to_string(),
                     );
-                    ("failed", format!("Agent error: {e}"))
+                    let partial = last_assistant_message(&db, &agent_session_id).await;
+                    ("failed", partial)
                 }
             };
 

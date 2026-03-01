@@ -201,7 +201,7 @@ fn workspace_bootstrap_creates_identity_files() {
     assert!(
         workspace
             .path()
-            .join("agents/reflection/agent.lua")
+            .join("agents/chat-reflection/agent.lua")
             .exists()
     );
 }

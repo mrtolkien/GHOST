@@ -18,12 +18,6 @@ I want to buy a new enclosed 3D printer for home use around $1000 in 2026. Pleas
 
 **Tool Calls**
 
-- `read_file`
-```json
-{
-  "path": "skills/deep-research/skill.md"
-}
-```
 - `knowledge_search`
 ```json
 {
@@ -33,11 +27,35 @@ I want to buy a new enclosed 3D printer for home use around $1000 in 2026. Pleas
     "diary"
   ],
   "limit": 10,
-  "query": "enclosed 3D printer home use around $1000 recommendations pricing 2026"
+  "query": "enclosed 3D printer home use around $1000 2026 recommendations"
 }
 ```
 
 ### 3. user
+
+**Tool Results**
+
+- error=false
+```text
+No results found.
+```
+
+### 4. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `read_file`
+```json
+{
+  "path": "skills/deep-research/skill.md"
+}
+```
+
+### 5. user
 
 **Tool Results**
 
@@ -86,12 +104,8 @@ File: skills/deep-research/skill.md (72 lines)
  40 | 
  4…[3680b total]
 ```
-- error=false
-```text
-No results found.
-```
 
-### 4. assistant
+### 6. assistant
 
 **Thinking / Raw Output**
 
@@ -105,37 +119,33 @@ No results found.
   "action": "start",
   "agent": "deep-research",
   "agent_id": "",
-  "prompt": "Research and recommend the best enclosed 3D printers for home use with a target budget around USD $1,000 in 2026. Deliver concrete model recommendations with current pricing and direct source URLs.\n\nOperator intent and constraints:\n- Wants a NEW enclosed printer\n- Home use (assume prosumer hobbyist use in a home environment)\n- Budget around $1,000 (include options roughly $700–$1,300 if justified)\n- Needs recommendations grounded in current 2026 market information\n\nScope to investigate:\n1) Identify strong enclosed FDM printers in this budget segment currently sold in 2026.\n2) For each candidate, collect:\n   - Typical current street price and MSRP (if available)\n   - Source links to manufacturer pages and reputable retailers/review outlets\n   - Build volume, max nozzle/bed temp, speed class, multi-material support, automation features (leveling, flow calibration, lidar/camera), noise/safety notes, and ecosystem/software maturity\n   - Reliability/QA and support/warranty reputation from trustworthy reviews/community signals\n3) Compare value for home users: ease-of-use vs tinkering, print quality consistency, maintenance burden, consumable lock-in/open-material stance, and long-term ownership costs.\n4) Produce a short list with clear buying guidance:\n   - “Best overall around $1,000”\n   - “Best value under $900”\n   - “Best for multi-material”\n   - “Best for tinkerers/open ecosystem”\n   - Mention any models to avoid or buy only on sale, with rationale.\n5) Include a concise comparison table and a final recommendation path by user profile.\n\nRecency/source quality:\n- Prioritize 2025–2026 sources and current product pages/listings.\n- Verify price points across multiple sources where possible.\n- Prefer primary/manufacturer and major retailer sources for pricing, plus reputable hands-on reviews for reliability context.\n\nOutput requirements:\n- Provide explicit citation URLs for every key claim and every price.\n- Note regional pricing caveats and date-sensitivity.\n- If a model is discontinued or often out of stock, flag that clearly."
+  "prompt": "Research and recommend enclosed 3D printers suitable for home use in 2026 with a target budget around USD $1,000 (roughly $700-$1,300 acceptable). Deliver concrete model recommendations with current pricing, region availability (prioritize US/global online pricing), key specs relevant to home use (enclosure quality, safety features, noise, ease of use, material support, reliability, support/warranty), and trade-offs. Include at least 5 strong candidates and a short-list ranking by best overall value. Verify prices from official stores and reputable retailers/reviews; note date checked and price variability. Include source URLs for every substantive claim and a comparison table."
 }
 ```
 
-### 5. user
+### 7. user
 
 **Tool Results**
 
 - error=false
 ```text
-Agent 'deep-research' started (agent_id: 01KJHYB12720F9X7XW01RESK90). The agent runs in the background — inform the OPERATOR and end your turn. Do NOT poll or wait for the agent.
+Agent 'deep-research' started (agent_id: 01KJMX4Q7SHNMQFV7CSKF2TM05). The agent runs in the background — inform the OPERATOR and end your turn. Do NOT poll or wait for the agent.
 ```
 
-### 6. assistant
+### 8. assistant
 
 **Content**
 
 ```text
-Great request — this definitely needs deep research, so I’ve started a background research task now.
-
-**Research agent started:** `deep-research`  
-**Agent ID:** `01KJHYB12720F9X7XW01RESK90`
+Great — I’ve started a **background deep-research task** for this.
 
 I’ll come back with:
-- concrete enclosed model picks around **$1,000**
-- **current 2026 pricing**
-- a comparison table
-- clear “best for X” recommendations
-- direct source URLs for every key claim and price
+- concrete enclosed printer model recommendations for home use (2026),
+- current pricing around your ~$1,000 target,
+- a ranked shortlist,
+- and source URLs for every key claim.
 
-
+I’ll share the findings as soon as the research agent finishes.
 ```
 
 **Thinking / Raw Output**
@@ -149,38 +159,6 @@ I’ll come back with:
 **Content**
 
 ```text
-Research and recommend the best enclosed 3D printers for home use with a target budget around USD $1,000 in 2026. Deliver concrete model recommendations with current pricing and direct source URLs.
-
-Operator intent and constraints:
-- Wants a NEW enclosed printer
-- Home use (assume prosumer hobbyist use in a home environment)
-- Budget around $1,000 (include options roughly $700–$1,300 if justified)
-- Needs recommendations grounded in current 2026 market information
-
-Scope to investigate:
-1) Identify strong enclosed FDM printers in this budget segment currently sold in 2026.
-2) For each candidate, collect:
-   - Typical current street price and MSRP (if available)
-   - Source links to manufacturer pages and reputable retailers/review outlets
-   - Build volume, max nozzle/bed temp, speed class, multi-material support, automation features (leveling, flow calibration, lidar/camera), noise/safety notes, and ecosystem/software maturity
-   - Reliability/QA and support/warranty reputation from trustworthy reviews/community signals
-3) Compare value for home users: ease-of-use vs tinkering, print quality consistency, maintenance burden, consumable lock-in/open-material stance, and long-term ownership costs.
-4) Produce a short list with clear buying guidance:
-   - “Best overall around $1,000”
-   - “Best value under $900”
-   - “Best for multi-material”
-   - “Best for tinkerers/open ecosystem”
-   - Mention any models to avoid or buy only on sale, with rationale.
-5) Include a concise comparison table and a final recommendation path by user profile.
-
-Recency/source quality:
-- Prioritize 2025–2026 sources and current product pages/listings.
-- Verify price points across multiple sources where possible.
-- Prefer primary/manufacturer and major retailer sources for pricing, plus reputable hands-on reviews for reliability context.
-
-Output requirements:
-- Provide explicit citation URLs for every key claim and every price.
-- Note regional pricing caveats and date-sensitivity.
-- If a model is discontinued or often out of stock, flag that clearly.
+Research and recommend enclosed 3D printers suitable for home use in 2026 with a target budget around USD $1,000 (roughly $700-$1,300 acceptable). Deliver concrete model recommendations with current pricing, region availability (prioritize US/global online pricing), key specs relevant to home use (enclosure quality, safety features, noise, ease of use, material support, reliability, support/warranty), and trade-offs. Include at least 5 strong candidates and a short-list ranking by best overall value. Verify prices from official stores and reputable retailers/reviews; note date checked and price variability. Include source URLs for every substantive claim and a comparison table.
 ```
 
