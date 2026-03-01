@@ -650,7 +650,7 @@ fn load_state_file(workspace: &Path, filename: &str) -> Option<String> {
     }
 }
 
-fn load_diary_today(workspace: &Path) -> Option<String> {
+pub fn load_diary_today(workspace: &Path) -> Option<String> {
     let today = Utc::now().format("%Y-%m-%d").to_string();
     let path = workspace.join("diary").join(format!("{today}.md"));
     match std::fs::read_to_string(&path) {

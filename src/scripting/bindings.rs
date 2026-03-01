@@ -89,6 +89,35 @@ impl LuaUserData for AgentContext {
             Ok(table)
         });
 
+        // ctx:filter_transcript(session_id) -> string
+        methods.add_async_method("filter_transcript", |_, this, sid: String| async move {
+            let messages = crate::db::sessions::list_messages_by_session(&this.db, &sid)
+                .await
+                .map_err(|e| LuaError::external(e.to_string()))?;
+            Ok(crate::reflection::filter_transcript(&messages))
+        });
+
+        // ctx:load_diary_today() -> string|nil
+        methods.add_method("load_diary_today", |_, this, ()| {
+            Ok(crate::reflection::load_diary_today(&this.workspace))
+        });
+
+        // ctx:list_messages(session_id) -> [{role, content, created_at}]
+        methods.add_async_method("list_messages", |lua, this, sid: String| async move {
+            let messages = crate::db::sessions::list_messages_by_session(&this.db, &sid)
+                .await
+                .map_err(|e| LuaError::external(e.to_string()))?;
+            let table = lua.create_table()?;
+            for (i, msg) in messages.iter().enumerate() {
+                let row = lua.create_table()?;
+                row.set("role", msg.role.clone())?;
+                row.set("content", msg.content.clone())?;
+                row.set("created_at", msg.created_at.clone())?;
+                table.raw_set(i + 1, row)?;
+            }
+            Ok(table)
+        });
+
         // ctx:curate_web_cache() -> {moved=N, deleted=N, edges=N}
         methods.add_async_method("curate_web_cache", |lua, this, ()| async move {
             let messages =
