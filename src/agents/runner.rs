@@ -557,10 +557,11 @@ impl AgentRunner {
     }
 
     async fn get_run_transcript(&self, run_id: &str) -> Option<String> {
-        let logs = db::agent_runs::list_runs(&self.db, None, 100).await.ok()?;
-        logs.into_iter()
-            .find(|log| log.id == run_id)
-            .and_then(|log| log.transcript)
+        db::agent_runs::get_run(&self.db, run_id)
+            .await
+            .ok()
+            .flatten()
+            .and_then(|run| run.transcript)
     }
 }
 

@@ -99,7 +99,9 @@ impl Tool for LuaToolAdapter {
             ))
         })?;
 
-        let result: LuaValue = handler.call(lua_args).map_err(|e| {
+        // Pass ctx (registered during build hook) as first arg
+        let ctx_val: LuaValue = lua.globals().get("ctx").unwrap_or(LuaValue::Nil);
+        let result: LuaValue = handler.call((ctx_val, lua_args)).map_err(|e| {
             ToolError::ExecutionFailed(format!("lua tool '{}': handler error: {e}", self.tool_name))
         })?;
 

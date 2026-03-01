@@ -11,7 +11,7 @@ use crate::interfaces::discord::DiscordSender;
 use crate::scripting::AgentContext;
 use crate::scripting::types::AgentTrigger;
 
-use super::loader::{discover_agents, load_agent, load_agent_with_host};
+use super::loader::{discover_agents_by_trigger, load_agent, load_agent_with_host};
 use super::runner::AgentRunner;
 
 const POLL_INTERVAL_SECS: u64 = 3;
@@ -258,17 +258,9 @@ async fn check_completed_agents(
 
 /// Find all Lua agents with trigger=after_agent.
 fn find_after_agent_agents(workspace: &std::path::Path) -> Vec<String> {
-    let agents = discover_agents(workspace);
-    agents
+    discover_agents_by_trigger(workspace, &AgentTrigger::AfterAgent)
         .into_iter()
-        .filter_map(|info| {
-            let config = load_agent(workspace, &info.name).ok()?;
-            if matches!(config.trigger, AgentTrigger::AfterAgent) {
-                Some(config.name)
-            } else {
-                None
-            }
-        })
+        .map(|info| info.name)
         .collect()
 }
 

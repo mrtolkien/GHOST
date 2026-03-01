@@ -107,6 +107,25 @@ pub async fn list_runs(
     })
 }
 
+/// Fetch a single agent run by ID.
+pub async fn get_run(
+    db: &SqlitePool,
+    run_id: &str,
+) -> Result<Option<AgentRunRecord>, DatabaseError> {
+    sqlx::query_as::<_, AgentRunRecord>(
+        "SELECT id, agent_name, run_kind, started_at, finished_at, status, transcript, \
+         agent_session_id FROM agent_run WHERE id = ?",
+    )
+    .bind(run_id)
+    .fetch_optional(db)
+    .await
+    .map_err(|source| DatabaseError::Query {
+        table: "agent_run",
+        operation: "get_run",
+        source,
+    })
+}
+
 /// Look up the agent name from an agent_run record by agent session ID.
 #[tracing::instrument(skip_all, level = "debug", fields(agent_session_id = %agent_session_id))]
 pub async fn get_agent_name_for_session(
