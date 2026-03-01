@@ -7,9 +7,9 @@
 - [ ] Validate Lua migration by running 4 steps e2e
 - [ ] Review prompt building system in Lua, messages types, ...
 - [ ] Add lua formatter + tooling
-- [ ] Change trigger system: crontab + dispatch only
+- [ ] Change trigger system: crontab + dispatch only -> deep research triggers
+      reflection
 - [ ] Add compaction to agents (pre-emptive or post-error + special compaction prompt)
 - [ ] Try deep research `respond` tool: report, sources, negative_information
-- [ ] Review reflection trigger (on compaction?)
 - [ ] Web cache per session
 - [ ] Try chat session reflection fork -> LATER
