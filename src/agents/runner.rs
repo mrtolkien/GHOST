@@ -11,7 +11,9 @@ use crate::db;
 use crate::db::GhostDb;
 use crate::providers::provider_for_alias;
 use crate::scripting::AgentContext;
+use crate::scripting::ScriptHost;
 use crate::scripting::build_custom_tools;
+use crate::scripting::types::{AgentConfig, BuildResult};
 use crate::tools::ToolManager;
 
 use super::error::AgentError;
@@ -562,24 +564,24 @@ impl AgentRunner {
     }
 }
 
-/// Execute a Lua-defined agent in a fresh session.
-#[tracing::instrument(name = "run agent", skip_all, fields(
-    gen_ai.agent.name = %agent_name,
-    gen_ai.agent.id = ?agent_session_id,
-    gen_ai.operation.name = "invoke_agent",
-))]
-async fn run_agent(
+/// Shared setup for both fresh and continuation agent runs.
+struct AgentSetup {
+    config: AgentConfig,
+    build_result: BuildResult,
+    script_host: Arc<ScriptHost>,
+    session_chat: SessionChat,
+}
+
+fn setup_agent(
     db: &GhostDb,
     config: &Config,
     agent_name: &str,
     prompt: &str,
     agent_session_id: &str,
-    cancel_token: &CancellationToken,
-) -> Result<(String, RunMetadata), AgentError> {
+) -> Result<AgentSetup, AgentError> {
     let (agent_config, script_host) = load_agent_with_host(&config.workspace, agent_name)?;
     let script_host = Arc::new(script_host);
 
-    // Call build(ctx, args) to get system prompt and initial messages
     let ctx = AgentContext {
         db: db.clone(),
         workspace: config.workspace.clone(),
@@ -610,30 +612,23 @@ async fn run_agent(
     let session_chat = SessionChat::new(db.clone(), provider, tool_manager, config.clone())
         .with_max_tool_iterations(agent_config.max_iterations);
 
-    let result = tokio::select! {
-        res = session_chat.run_agent(
-            agent_session_id,
-            build_result,
-            &agent_config,
-            &script_host,
-            None,
-        ) => res?,
-        () = cancel_token.cancelled() => {
-            logfire::info!("agent cancelled", agent_name = agent_name.to_string());
-            let messages = db::sessions::list_messages_by_session(db, agent_session_id)
-                .await
-                .unwrap_or_default();
-            let last_assistant = messages
-                .iter()
-                .rev()
-                .find(|m| m.role == "assistant" && !m.content.is_empty())
-                .map(|m| m.content.clone())
-                .unwrap_or_else(|| "Agent was cancelled before producing findings.".to_string());
-            return Ok((last_assistant, RunMetadata::default()));
-        }
-    };
+    Ok(AgentSetup {
+        config: agent_config,
+        build_result,
+        script_host,
+        session_chat,
+    })
+}
 
-    // Wire post_completion hook
+/// Run the post_completion hook if present.
+fn run_post_completion(
+    agent_config: &AgentConfig,
+    script_host: &ScriptHost,
+    db: &GhostDb,
+    config: &Config,
+    agent_name: &str,
+    agent_session_id: &str,
+) {
     if agent_config.has_post_completion {
         let ctx = AgentContext {
             db: db.clone(),
@@ -651,7 +646,58 @@ async fn run_agent(
             );
         }
     }
+}
 
+/// Extract last assistant message for cancelled agents.
+async fn last_assistant_message(db: &GhostDb, session_id: &str) -> String {
+    db::sessions::list_messages_by_session(db, session_id)
+        .await
+        .unwrap_or_default()
+        .iter()
+        .rev()
+        .find(|m| m.role == "assistant" && !m.content.is_empty())
+        .map(|m| m.content.clone())
+        .unwrap_or_else(|| "Agent was cancelled before producing findings.".to_string())
+}
+
+/// Execute a Lua-defined agent in a fresh session.
+#[tracing::instrument(name = "run agent", skip_all, fields(
+    gen_ai.agent.name = %agent_name,
+    gen_ai.agent.id = ?agent_session_id,
+    gen_ai.operation.name = "invoke_agent",
+))]
+async fn run_agent(
+    db: &GhostDb,
+    config: &Config,
+    agent_name: &str,
+    prompt: &str,
+    agent_session_id: &str,
+    cancel_token: &CancellationToken,
+) -> Result<(String, RunMetadata), AgentError> {
+    let setup = setup_agent(db, config, agent_name, prompt, agent_session_id)?;
+
+    let result = tokio::select! {
+        res = setup.session_chat.run_agent(
+            agent_session_id,
+            setup.build_result,
+            &setup.config,
+            &setup.script_host,
+            None,
+        ) => res?,
+        () = cancel_token.cancelled() => {
+            logfire::info!("agent cancelled", agent_name = agent_name.to_string());
+            return Ok((last_assistant_message(db, agent_session_id).await, RunMetadata::default()));
+        }
+    };
+
+    run_post_completion(
+        &setup.config,
+        &setup.script_host,
+        db,
+        config,
+        agent_name,
+        agent_session_id,
+    );
     Ok((result.0.message, result.1))
 }
 
@@ -669,83 +715,31 @@ async fn continue_agent_inner(
     agent_session_id: &str,
     cancel_token: &CancellationToken,
 ) -> Result<(String, RunMetadata), AgentError> {
-    let (agent_config, script_host) = load_agent_with_host(&config.workspace, agent_name)?;
-    let script_host = Arc::new(script_host);
-
-    // Call build(ctx, args) to get system prompt (messages ignored for continuation)
-    let ctx = AgentContext {
-        db: db.clone(),
-        workspace: config.workspace.clone(),
-        agent_slug: agent_name.to_string(),
-        session_id: agent_session_id.to_string(),
-        trigger_session_id: None,
-        trigger_agent_name: None,
-    };
-    let args = std::collections::HashMap::from([("prompt".into(), prompt.to_string())]);
-    let build_result = script_host
-        .call_build(ctx, args)
-        .map_err(|e| AgentError::ScriptError {
-            agent: agent_name.to_string(),
-            message: format!("build hook failed: {e}"),
-        })?;
-
-    let provider = provider_for_alias(config, agent_config.model.as_deref())?;
-
-    let mut tools = agent_config.tools.clone();
-    if !agent_config.skills.is_empty() && !tools.iter().any(|t| t == "read_file") {
-        tools.push("read_file".to_string());
-    }
-    let mut tool_manager = ToolManager::for_agent(&tools);
-    for custom_tool in build_custom_tools(&agent_config, &script_host) {
-        tool_manager.register(custom_tool);
-    }
-
-    let session_chat = SessionChat::new(db.clone(), provider, tool_manager, config.clone())
-        .with_max_tool_iterations(agent_config.max_iterations);
+    let setup = setup_agent(db, config, agent_name, prompt, agent_session_id)?;
 
     let result = tokio::select! {
-        res = session_chat.continue_agent(
+        res = setup.session_chat.continue_agent(
             agent_session_id,
             prompt,
-            build_result.system_prompt,
-            &agent_config,
-            &script_host,
+            setup.build_result.system_prompt,
+            &setup.config,
+            &setup.script_host,
             None,
         ) => res?,
         () = cancel_token.cancelled() => {
             logfire::info!("agent continuation cancelled", agent_name = agent_name.to_string());
-            let messages = db::sessions::list_messages_by_session(db, agent_session_id)
-                .await
-                .unwrap_or_default();
-            let last_assistant = messages
-                .iter()
-                .rev()
-                .find(|m| m.role == "assistant" && !m.content.is_empty())
-                .map(|m| m.content.clone())
-                .unwrap_or_else(|| "Agent was cancelled before producing findings.".to_string());
-            return Ok((last_assistant, RunMetadata::default()));
+            return Ok((last_assistant_message(db, agent_session_id).await, RunMetadata::default()));
         }
     };
 
-    // Wire post_completion hook
-    if agent_config.has_post_completion {
-        let ctx = AgentContext {
-            db: db.clone(),
-            workspace: config.workspace.clone(),
-            agent_slug: agent_name.to_string(),
-            session_id: agent_session_id.to_string(),
-            trigger_session_id: None,
-            trigger_agent_name: None,
-        };
-        if let Err(e) = script_host.call_post_completion(ctx) {
-            logfire::warn!(
-                "post_completion hook error",
-                agent_name = agent_name.to_string(),
-                error = e.to_string(),
-            );
-        }
-    }
-
+    run_post_completion(
+        &setup.config,
+        &setup.script_host,
+        db,
+        config,
+        agent_name,
+        agent_session_id,
+    );
     Ok((result.0.message, result.1))
 }
 
