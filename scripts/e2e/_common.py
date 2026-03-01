@@ -61,3 +61,28 @@ def short(text: str, limit: int = 120) -> str:
     if len(text) <= limit:
         return text
     return text[: limit - 1] + "…"
+
+
+def list_workspace_dirs() -> list[tuple[str, Path]]:
+    """Return (label, path) pairs for all fixture and e2e-output dirs that have a workspace."""
+    choices: list[tuple[str, Path]] = []
+
+    # Fixture step dirs (have workspace.tar.zst)
+    for sd in list_step_dirs():
+        if (sd.path / "workspace.tar.zst").exists():
+            choices.append((f"[fixture] {step_label(sd)}", sd.path))
+
+    # e2e-output dirs (have agents/ or skills/ directly)
+    if E2E_OUTPUT_ROOT.exists():
+        for d in sorted(E2E_OUTPUT_ROOT.iterdir(), reverse=True):
+            if not d.is_dir():
+                continue
+            has_workspace = (
+                (d / "agents").exists()
+                or (d / "skills").exists()
+                or (d / "workspace.tar.zst").exists()
+            )
+            if has_workspace:
+                choices.append((f"[output] {d.name}", d))
+
+    return choices

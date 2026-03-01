@@ -16,12 +16,11 @@ rerunnable. Shell one-liners are none of those things.
 
 ## Before Writing a New Script (MANDATORY)
 
-ALWAYS search existing scripts first:
+ALWAYS run the discovery script first:
 
 ```bash
-ls scripts/         # top-level scripts
-ls scripts/e2e/     # e2e-specific tooling
-ls scripts/tmp/     # throwaway scripts
+uv run scripts/discover_scripts.py           # list all scripts with descriptions
+uv run scripts/discover_scripts.py --include-tmp  # include throwaway scripts
 ```
 
 If an existing script does what you need (or nearly does), **extend it with new CLI
