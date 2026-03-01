@@ -32,11 +32,11 @@ CREATE TABLE interface_session (
     created_at TEXT NOT NULL
 );
 
--- Job execution logging
-CREATE TABLE job_log (
+-- Agent run logging
+CREATE TABLE agent_run (
     id TEXT PRIMARY KEY NOT NULL,
-    job_name TEXT NOT NULL,
-    job_kind TEXT NOT NULL,
+    agent_name TEXT NOT NULL,
+    run_kind TEXT NOT NULL,
     session_id TEXT REFERENCES session(id) ON DELETE SET NULL,
     agent_session_id TEXT REFERENCES session(id) ON DELETE SET NULL,
     started_at TEXT NOT NULL,

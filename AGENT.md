@@ -14,7 +14,7 @@ right. DO NOT MAKE ASSUMPTIONS ABOUT WHAT THE USER WANTS: ASK THEM.
 ## Project Overview
 
 GHOST is a personal AI agent platform. A single binary (`ghost`) runs one GHOST for one
-OPERATOR — persistent memory, background jobs, multi-interface communication (Discord
+OPERATOR — persistent memory, background agents, multi-interface communication (Discord
 primary for PoC).
 
 **Predecessor**: Reboot of `../t-koma`. Consult it for patterns; spec files link to
@@ -34,14 +34,14 @@ changes requiring re-creating the full GHOST workspace. Never care about migrati
 ### Core Concepts
 
 - **GHOST/OPERATOR**: AI agent / human user. One each per installation.
-- **Session**: Chat thread. **Job**: Markdown + YAML frontmatter, cron-scheduled.
+- **Session**: Chat thread. **Agent**: Lua-defined autonomous worker (`agents/<name>/`).
 - **Knowledge**: Notes/references/diary in SQLite with graph edges + embeddings.
 - **Skill**: agentskills.io files in `$WORKSPACE/skills/`, read via file tools.
 - **Provider**: LLM backend (OpenRouter, Kimi, OpenAI OAuth/Codex Responses API).
 
 ## Design Philosophy
 
-- **Text-first**: Plain text files as primary feature surface (jobs, skills, identity,
+- **Text-first**: Plain text files as primary feature surface (agents, skills, identity,
   notes). Add a tool only when text + CLI can't deliver safely. Ask user first.
 - **Prompt design**: System prompt stays generic; specific workflows live in skills;
   complex workflows get dedicated agents. See `specs/notes/prompt-design.md`.
@@ -122,7 +122,10 @@ src/
 ├── chat/                # Chat orchestration, session management, compaction
 │   └── tool_loop.rs     # Shared tool-use loop (ToolLoopHandler trait)
 ├── tools/               # Tool definitions and implementations
-├── jobs/                # Cron scheduling, heartbeat, reflection
+├── agents/              # Lua agent loading, scheduling, runner, watcher
+│   └── scheduler.rs     # Unified cron + idle scheduler
+├── scripting/           # Lua VM (ScriptHost), nudge library, custom tools
+├── reflection.rs        # Reflection utilities (web cache curation, cited edges)
 ├── knowledge/           # Knowledge types, wiki links, file operations
 ├── interfaces/discord/  # Discord bot transport, DiscordSender
 ├── prompt/              # System prompt rendering

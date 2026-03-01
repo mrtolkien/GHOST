@@ -8,8 +8,10 @@ use crate::chat::SessionChat;
 use crate::db;
 use crate::db::GhostDb;
 use crate::interfaces::discord::DiscordSender;
-use crate::jobs::ReflectionManager;
+use crate::scripting::AgentContext;
+use crate::scripting::types::AgentTrigger;
 
+use super::loader::{discover_agents, load_agent, load_agent_with_host};
 use super::runner::TaskRunner;
 
 const POLL_INTERVAL_SECS: u64 = 3;
@@ -19,8 +21,8 @@ pub fn spawn_task_watcher(
     task_runner: Arc<TaskRunner>,
     session_chat: Arc<SessionChat>,
     discord_sender: Arc<DiscordSender>,
-    reflection: Arc<ReflectionManager>,
     db: GhostDb,
+    workspace: std::path::PathBuf,
     mut shutdown: watch::Receiver<bool>,
 ) -> JoinHandle<()> {
     logfire::info!("agent watcher started");
@@ -35,8 +37,8 @@ pub fn spawn_task_watcher(
                         &task_runner,
                         &session_chat,
                         &discord_sender,
-                        &reflection,
                         &db,
+                        &workspace,
                     ).await;
                 }
                 _ = shutdown.changed() => {
@@ -50,13 +52,13 @@ pub fn spawn_task_watcher(
 
 /// Poll for completed agent tasks and handle their results: inject findings
 /// into the parent session, notify Discord, trigger a continuation chat turn,
-/// and spawn post-agent reflection.
+/// and spawn post-agent hooks for after_agent agents.
 async fn check_completed_tasks(
     task_runner: &TaskRunner,
     session_chat: &SessionChat,
     discord_sender: &DiscordSender,
-    reflection: &Arc<ReflectionManager>,
     db: &GhostDb,
+    workspace: &std::path::Path,
 ) {
     let agent_ids = task_runner.list_task_ids().await;
 
@@ -139,16 +141,131 @@ async fn check_completed_tasks(
             }
         }
 
-        // Spawn agent reflection on the agent's own session (skip self-reflection)
-        if !status.agent_name.contains("reflection")
-            && let Some(thing) = parse_agent_session_thing(&agent_id)
-        {
-            let reflection = Arc::clone(reflection);
+        // Discover and run after_agent Lua agents
+        let completed_agent_name = status.agent_name.clone();
+        let agent_session_thing = parse_agent_session_thing(&agent_id);
+        let after_agents = find_after_agent_agents(workspace);
+
+        for after_agent_name in after_agents {
+            // Skip self-triggering
+            if after_agent_name == completed_agent_name {
+                continue;
+            }
+
+            let Some(ref session_thing) = agent_session_thing else {
+                continue;
+            };
+
+            // Check if the after_agent should continue the trigger session
+            let after_config = match load_agent(workspace, &after_agent_name) {
+                Ok(c) => c,
+                Err(_) => continue,
+            };
+            let continue_session = after_config.continue_trigger_session;
+
+            // Check should_trigger hook
+            if after_config.has_should_trigger {
+                match load_agent_with_host(workspace, &after_agent_name) {
+                    Ok((_config, host)) => {
+                        let ctx = AgentContext {
+                            db: db.clone(),
+                            workspace: workspace.to_path_buf(),
+                            agent_slug: after_agent_name.clone(),
+                            session_id: String::new(),
+                            trigger_session_id: Some(session_thing.clone()),
+                            trigger_agent_name: Some(completed_agent_name.clone()),
+                        };
+                        match host.call_should_trigger(ctx) {
+                            Ok(false) => {
+                                logfire::debug!(
+                                    "after_agent skipped by should_trigger",
+                                    agent_name = after_agent_name.clone(),
+                                    trigger_agent = completed_agent_name.clone(),
+                                );
+                                continue;
+                            }
+                            Err(e) => {
+                                logfire::warn!(
+                                    "should_trigger hook error, proceeding anyway",
+                                    agent_name = after_agent_name.clone(),
+                                    error = e.to_string(),
+                                );
+                            }
+                            Ok(true) => {}
+                        }
+                    }
+                    Err(e) => {
+                        logfire::warn!(
+                            "failed to load agent for should_trigger check",
+                            agent_name = after_agent_name.clone(),
+                            error = e.to_string(),
+                        );
+                    }
+                }
+            }
+
+            let task_runner = task_runner.clone();
+            let after_name = after_agent_name.clone();
+            let thing = session_thing.clone();
+
             tokio::spawn(async move {
-                reflection.run_after_agent_handoff(&thing).await;
+                if continue_session {
+                    // Continue the completed agent's session
+                    match task_runner
+                        .continue_to_completion(&thing, "Continue with post-processing.")
+                        .await
+                    {
+                        Ok((_findings, _meta)) => {
+                            logfire::info!(
+                                "after_agent completed (continued session)",
+                                agent_name = after_name,
+                            );
+                        }
+                        Err(e) => {
+                            logfire::error!(
+                                "after_agent failed (continued session)",
+                                agent_name = after_name,
+                                error = e.to_string(),
+                            );
+                        }
+                    }
+                } else {
+                    // Start a fresh session
+                    match task_runner
+                        .run_to_completion(&after_name, "Run post-agent processing.", Some(&thing))
+                        .await
+                    {
+                        Ok((_findings, _meta)) => {
+                            logfire::info!("after_agent completed", agent_name = after_name,);
+                        }
+                        Err(e) => {
+                            logfire::error!(
+                                "after_agent failed",
+                                agent_name = after_name,
+                                error = e.to_string(),
+                            );
+                        }
+                    }
+                }
             });
         }
     }
+}
+
+/// Find all Lua agents with trigger=after_agent.
+fn find_after_agent_agents(workspace: &std::path::Path) -> Vec<String> {
+    let agents = discover_agents(workspace);
+    agents
+        .into_iter()
+        .filter_map(|info| {
+            let config = load_agent(workspace, &info.name).ok()?;
+            if matches!(config.trigger, AgentTrigger::AfterAgent) {
+                Some(config.name)
+            } else {
+                None
+            }
+        })
+        .collect()
 }
 
 /// Parse "session:abc123" into a bare ID string.

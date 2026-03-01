@@ -1,15 +1,11 @@
-pub mod definition;
 pub mod error;
-pub mod nudges;
+pub mod loader;
 pub mod runner;
+pub mod scheduler;
 pub mod watcher;
 
-pub use definition::{
-    ProgressRule, TaskDefinition, TaskInfo, ToolCountRule, discover_tasks, load_task,
-};
 pub use error::TaskError;
-pub use nudges::{
-    ContextPressureConfig, IterationCountdownRule, ProgressGateConfig, RecencyConfig,
-    TemporalConfig,
+pub use loader::{
+    AgentInfo, discover_agents, install_default_agents, load_agent, load_agent_with_host,
 };
 pub use runner::TaskRunner;

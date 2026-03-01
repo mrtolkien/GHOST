@@ -4,7 +4,7 @@ use chrono::Utc;
 
 use super::{ExtractedContent, SearchResult, WebError};
 
-const WEB_CACHE_DIR: &str = ".web-cache";
+const CACHE_BASE_DIR: &str = ".cache";
 
 /// Format SearXNG-specific metadata into a "Sources: ... · score: N" line.
 /// Returns `None` when no metadata is present (e.g. Brave results).
@@ -45,6 +45,7 @@ pub fn format_search_metadata(result: &SearchResult) -> Option<String> {
 
 pub fn save_fetch_cache(
     workspace: &Path,
+    session_id: &str,
     url: &str,
     content: &ExtractedContent,
 ) -> Result<PathBuf, WebError> {
@@ -52,7 +53,12 @@ pub fn save_fetch_cache(
     let timestamp = now.format("%Y-%m-%dT%H-%M-%S");
     let slug = slug_from_url(url);
     let filename = format!("{timestamp}_{slug}.md");
-    let path = workspace.join(WEB_CACHE_DIR).join(&filename);
+    let cache_dir = workspace.join(CACHE_BASE_DIR).join(session_id);
+    std::fs::create_dir_all(&cache_dir).map_err(|source| WebError::CacheWrite {
+        path: cache_dir.clone(),
+        source,
+    })?;
+    let path = cache_dir.join(&filename);
 
     let title_header = content
         .title
@@ -76,6 +82,7 @@ pub fn save_fetch_cache(
 
 pub fn save_search_cache(
     workspace: &Path,
+    session_id: &str,
     query: &str,
     results: &[SearchResult],
 ) -> Result<PathBuf, WebError> {
@@ -83,7 +90,12 @@ pub fn save_search_cache(
     let timestamp = now.format("%Y-%m-%dT%H-%M-%S");
     let slug = slug_from_query(query);
     let filename = format!("{timestamp}_{slug}.md");
-    let path = workspace.join(WEB_CACHE_DIR).join(&filename);
+    let cache_dir = workspace.join(CACHE_BASE_DIR).join(session_id);
+    std::fs::create_dir_all(&cache_dir).map_err(|source| WebError::CacheWrite {
+        path: cache_dir.clone(),
+        source,
+    })?;
+    let path = cache_dir.join(&filename);
 
     let mut body = format!(
         "---\nquery: {query}\nsearched_at: {iso}\n---\n\n",
@@ -110,8 +122,8 @@ pub fn save_search_cache(
     Ok(path)
 }
 
-pub fn scan_web_cache(workspace: &Path) -> Result<Option<String>, WebError> {
-    let cache_dir = workspace.join(WEB_CACHE_DIR);
+pub fn scan_web_cache(workspace: &Path, session_id: &str) -> Result<Option<String>, WebError> {
+    let cache_dir = workspace.join(CACHE_BASE_DIR).join(session_id);
 
     if !cache_dir.exists() {
         return Ok(None);
@@ -147,7 +159,7 @@ pub fn scan_web_cache(workspace: &Path) -> Result<Option<String>, WebError> {
             .unwrap_or("unknown");
 
         let label = extract_frontmatter_label(path);
-        lines.push(format!("- `.web-cache/{filename}` — {label}"));
+        lines.push(format!("- `.cache/{session_id}/{filename}` — {label}"));
     }
 
     Ok(Some(lines.join("\n")))
@@ -230,9 +242,11 @@ mod tests {
     use super::*;
     use tempfile::TempDir;
 
+    const TEST_SESSION: &str = "test-session";
+
     fn test_workspace() -> (PathBuf, TempDir) {
         let dir = TempDir::new().unwrap();
-        let cache_dir = dir.path().join(WEB_CACHE_DIR);
+        let cache_dir = dir.path().join(CACHE_BASE_DIR).join(TEST_SESSION);
         std::fs::create_dir_all(&cache_dir).unwrap();
         (dir.path().to_path_buf(), dir)
     }
@@ -247,7 +261,13 @@ mod tests {
             truncated: false,
         };
 
-        let path = save_fetch_cache(&workspace, "https://example.com/page", &content).unwrap();
+        let path = save_fetch_cache(
+            &workspace,
+            TEST_SESSION,
+            "https://example.com/page",
+            &content,
+        )
+        .unwrap();
 
         assert!(path.exists());
         let body = std::fs::read_to_string(&path).unwrap();
@@ -281,7 +301,7 @@ mod tests {
             },
         ];
 
-        let path = save_search_cache(&workspace, "test query", &results).unwrap();
+        let path = save_search_cache(&workspace, TEST_SESSION, "test query", &results).unwrap();
 
         assert!(path.exists());
         let body = std::fs::read_to_string(&path).unwrap();
@@ -330,7 +350,13 @@ mod tests {
             word_count: 2,
             truncated: false,
         };
-        save_fetch_cache(&workspace, "https://doc.rust-lang.org", &fetch_content).unwrap();
+        save_fetch_cache(
+            &workspace,
+            TEST_SESSION,
+            "https://doc.rust-lang.org",
+            &fetch_content,
+        )
+        .unwrap();
 
         let results = vec![SearchResult {
             title: "Result".to_string(),
@@ -341,25 +367,25 @@ mod tests {
             score: None,
             published_date: None,
         }];
-        save_search_cache(&workspace, "rust tutorials", &results).unwrap();
+        save_search_cache(&workspace, TEST_SESSION, "rust tutorials", &results).unwrap();
 
-        let listing = scan_web_cache(&workspace).unwrap().unwrap();
+        let listing = scan_web_cache(&workspace, TEST_SESSION).unwrap().unwrap();
 
         assert!(listing.contains("https://doc.rust-lang.org"));
         assert!(listing.contains("search: rust tutorials"));
-        assert!(listing.contains(".web-cache/"));
+        assert!(listing.contains(".cache/test-session/"));
         assert_eq!(listing.lines().count(), 2);
     }
 
     #[test]
     fn scan_web_cache_empty_returns_none() {
         let (workspace, _dir) = test_workspace();
-        assert!(scan_web_cache(&workspace).unwrap().is_none());
+        assert!(scan_web_cache(&workspace, TEST_SESSION).unwrap().is_none());
     }
 
     #[test]
     fn scan_web_cache_missing_dir_returns_none() {
         let dir = TempDir::new().unwrap();
-        assert!(scan_web_cache(dir.path()).unwrap().is_none());
+        assert!(scan_web_cache(dir.path(), "nonexistent").unwrap().is_none());
     }
 }

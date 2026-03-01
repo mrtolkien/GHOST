@@ -328,10 +328,10 @@ impl LiveTestEnv {
         session_id
     }
 
-    /// Copy a fixture directory into the workspace's `.web-cache/`.
-    pub fn install_web_cache_fixture(&self, fixture_dir: &std::path::Path) {
-        let dest = self.workspace.path().join(".web-cache");
-        fs::create_dir_all(&dest).expect("create .web-cache dir");
+    /// Copy a fixture directory into the workspace's `.cache/{session_id}/`.
+    pub fn install_web_cache_fixture(&self, session_id: &str, fixture_dir: &std::path::Path) {
+        let dest = self.workspace.path().join(".cache").join(session_id);
+        fs::create_dir_all(&dest).expect("create .cache dir");
         for entry in fs::read_dir(fixture_dir).expect("read fixture dir") {
             let entry = entry.expect("read dir entry");
             if entry.file_type().expect("file type").is_file() {
@@ -373,17 +373,18 @@ impl LiveTestEnv {
         let messages = ghost::db::sessions::list_messages_by_session(&self.db, session_id)
             .await
             .expect("list messages");
-        let agent_findings = ghost::jobs::reflection::extract_agent_findings(&messages);
-        let transcript = ghost::jobs::reflection::filter_transcript(&messages);
+        let agent_findings = ghost::reflection::extract_agent_findings(&messages);
+        let transcript = ghost::reflection::filter_transcript(&messages);
 
-        let classified = ghost::jobs::reflection::classify_web_cache(
+        let classified = ghost::reflection::classify_web_cache(
             &self.config.workspace,
+            session_id,
             agent_findings.as_deref(),
             1000,
         );
-        let web_cache_section = ghost::jobs::reflection::format_classified_cache(&classified);
+        let web_cache_section = ghost::reflection::format_classified_cache(&classified);
 
-        let user_message = ghost::jobs::reflection::build_reflection_user_message(
+        let user_message = ghost::reflection::build_reflection_user_message(
             previous_handoff.unwrap_or("No previous handoff."),
             "No diary entry for today.",
             &transcript,
@@ -399,19 +400,16 @@ impl LiveTestEnv {
 
         // Post-processing: deterministic reference curation (matches production)
         let curation =
-            ghost::jobs::reflection::curate_references(&self.config.workspace, &classified);
+            ghost::reflection::curate_references(&self.config.workspace, session_id, &classified);
         self.log(format!(
             "curate_references: {} moved, {} deleted",
             curation.moved, curation.deleted,
         ));
 
         // Create cited edges (note → reference) in the knowledge graph
-        let cited = ghost::jobs::reflection::link_cited_edges(
-            &self.db,
-            &self.config.workspace,
-            &classified,
-        )
-        .await;
+        let cited =
+            ghost::reflection::link_cited_edges(&self.db, &self.config.workspace, &classified)
+                .await;
         self.log(format!("link_cited_edges: {cited} created"));
 
         (findings, metadata)
@@ -429,16 +427,17 @@ impl LiveTestEnv {
         let messages = ghost::db::sessions::list_messages_by_session(&self.db, agent_session_id)
             .await
             .expect("list messages for fork reflection");
-        let agent_findings = ghost::jobs::reflection::extract_agent_findings(&messages);
+        let agent_findings = ghost::reflection::extract_agent_findings(&messages);
 
-        let classified = ghost::jobs::reflection::classify_web_cache(
+        let classified = ghost::reflection::classify_web_cache(
             &self.config.workspace,
+            agent_session_id,
             agent_findings.as_deref(),
             1000,
         );
 
         // Build fork reflection prompt (reads note-writer skill, inlines it)
-        let prompt = ghost::jobs::reflection::build_fork_reflection_prompt(&self.config.workspace);
+        let prompt = ghost::reflection::build_fork_reflection_prompt(&self.config.workspace);
 
         // Continue the SAME session
         let (findings, metadata) = self
@@ -448,20 +447,20 @@ impl LiveTestEnv {
             .expect("reflection fork continue_to_completion");
 
         // Post-processing: deterministic reference curation (matches production)
-        let curation =
-            ghost::jobs::reflection::curate_references(&self.config.workspace, &classified);
+        let curation = ghost::reflection::curate_references(
+            &self.config.workspace,
+            agent_session_id,
+            &classified,
+        );
         self.log(format!(
             "curate_references: {} moved, {} deleted",
             curation.moved, curation.deleted,
         ));
 
         // Create cited edges (note → reference) in the knowledge graph
-        let cited = ghost::jobs::reflection::link_cited_edges(
-            &self.db,
-            &self.config.workspace,
-            &classified,
-        )
-        .await;
+        let cited =
+            ghost::reflection::link_cited_edges(&self.db, &self.config.workspace, &classified)
+                .await;
         self.log(format!("link_cited_edges: {cited} created"));
 
         (findings, metadata)
@@ -726,11 +725,11 @@ impl LiveTestEnv {
         list_files_in(self.workspace.path(), "references")
     }
 
-    /// Load an agent definition from the temp workspace (populated by
-    /// `install_default_tasks()` during bootstrap).
-    pub fn load_task(&self, name: &str) -> ghost::agents::TaskDefinition {
-        ghost::agents::load_task(&self.config.workspace, name)
-            .unwrap_or_else(|e| panic!("load task '{name}': {e}"))
+    /// Load a Lua agent config from the temp workspace (populated by
+    /// `install_default_agents()` during bootstrap).
+    pub fn load_agent(&self, name: &str) -> ghost::scripting::types::AgentConfig {
+        ghost::agents::load_agent(&self.config.workspace, name)
+            .unwrap_or_else(|e| panic!("load agent '{name}': {e}"))
     }
 
     /// Recursively search for any file under a workspace subdirectory
@@ -915,9 +914,9 @@ pub async fn live_test_database_from_snapshot(
                 snapshot_path.display()
             )
         });
-        // install_default_tasks/skills always overwrite, so the restored
+        // install_default_agents/skills always overwrite, so the restored
         // snapshot gets the binary's current prompts, not stale fixture versions.
-        ghost::agents::definition::install_default_tasks(&config.workspace)
+        ghost::agents::install_default_agents(&config.workspace)
             .expect("install agents after snapshot restore");
         ghost::skills::install_default_skills(&config.workspace)
             .expect("install skills after snapshot restore");

@@ -404,7 +404,10 @@ main[data-pagefind-body] > .content-panel:first-child .sl-container > h1#_top,
     ghost-glow 8s ease-in-out infinite,
     ghost-glitch 3s steps(1, end) infinite,
     ghost-drift 7s ease-in-out infinite;
-  animation-delay: -3s, -1.7s, -5s;
+  animation-delay:
+    -3s,
+    -1.7s,
+    -5s;
 }
 
 /* Let the GHOST glow bleed out of the header's clipping boundaries. */

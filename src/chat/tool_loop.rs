@@ -240,6 +240,21 @@ pub(super) async fn run_tool_loop(
                     .await;
                 handler.on_tool_results(&tool_results).await?;
 
+                // Check for terminal tool calls — end the agent run immediately
+                let any_terminal = tool_uses.iter().any(|call| {
+                    let name = call.get("name").and_then(Value::as_str).unwrap_or("");
+                    session_chat.tool_manager().is_terminal(name)
+                });
+                if any_terminal {
+                    let terminal_result = extract_terminal_tool_result(&tool_results);
+                    let result = handler
+                        .on_end_turn(terminal_result, StopReason::EndTurn, &[], None)
+                        .await?;
+                    metadata.iterations = iterations;
+                    metadata.duration = started_at.elapsed();
+                    return Ok((result, metadata));
+                }
+
                 history.push(ChatMessage {
                     role: Role::User,
                     content: tool_results,
@@ -336,6 +351,16 @@ pub(super) async fn run_tool_loop(
             stop_reason: ChatStopReason::EndTurn,
         });
     }
+}
+
+/// Extract the text result from the first terminal tool's result block.
+fn extract_terminal_tool_result(tool_results: &[ContentBlock]) -> String {
+    for block in tool_results {
+        if let ContentBlock::ToolResult { content, .. } = block {
+            return content.clone();
+        }
+    }
+    String::new()
 }
 
 const ARG_VALUE_MAX: usize = 60;

@@ -133,20 +133,20 @@ impl OpenAiOAuthProvider {
         );
 
         // session_id header: stable session routing across turns.
-        if !request.cache_key.is_empty() {
-            if let Ok(v) = HeaderValue::from_str(&request.cache_key) {
-                headers.insert("session_id", v);
-            }
+        if !request.cache_key.is_empty()
+            && let Ok(v) = HeaderValue::from_str(&request.cache_key)
+        {
+            headers.insert("session_id", v);
         }
 
         // x-codex-turn-state: sticky routing within a turn. The server
         // returns this header in its response; we echo it back unchanged
         // in subsequent requests so the load-balancer routes us to the
         // same server that has our warm KV cache.
-        if let Some(ref ts) = request.turn_state {
-            if let Ok(v) = HeaderValue::from_str(ts) {
-                headers.insert("x-codex-turn-state", v);
-            }
+        if let Some(ref ts) = request.turn_state
+            && let Ok(v) = HeaderValue::from_str(ts)
+        {
+            headers.insert("x-codex-turn-state", v);
         }
 
         let body = build_codex_request_body(request)?;

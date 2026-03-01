@@ -1,214 +1,278 @@
 ---
 title: Agents
 description:
-  Autonomous background workers for complex multi-step tasks with configurable nudge
+  Lua-defined autonomous workers with configurable triggers, tools, hooks, and nudge
   systems.
 ---
 
-Agents are autonomous background workers that handle complex, multi-step tasks. They run
-independently with their own tool sets, iteration limits, and system prompts.
+Agents are Lua-defined autonomous workers that handle complex, multi-step tasks. They
+run independently with their own tool sets, iteration limits, system prompts, and
+hook-based nudge systems.
 
-## Agent Format
+## Agent Folder Structure
 
-Each agent is a markdown file with YAML frontmatter in `$WORKSPACE/agents/`:
+Each agent lives in `$WORKSPACE/agents/<name>/` with two files:
 
-```markdown title="agents/my-agent.md"
----
-name: my-agent
-description: What this agent does
-tools:
-  - web_search
-  - web_fetch
-  - read_file
-  - todo
-max_iterations: 50
-model: primary
-skills:
-  - knowledge-navigator
-progress:
-  - tool: web_fetch
-    min: 7
-    nudge: "Need {min} {tool} calls (have {count}). Keep going."
----
-
-# Agent System Prompt
-
-Detailed instructions for the agent's behavior...
+```
+agents/
+└── my-agent/
+    ├── agent.lua    # Configuration and hooks (required)
+    └── prompt.md    # System prompt template (required)
 ```
 
-### Key Fields
+## `agent.lua` Contract
 
-| Field            | Purpose                                            |
-| ---------------- | -------------------------------------------------- |
-| `name`           | Agent identifier (matches filename without `.md`)  |
-| `description`    | Shown in system prompt for agent selection         |
-| `tools`          | Whitelist of allowed tools                         |
-| `max_iterations` | Hard cap on tool loop iterations                   |
-| `model`          | Model alias to use (optional, defaults to primary) |
-| `skills`         | Skills available to this agent                     |
-| `progress`       | Periodic tool-count nudges (see below)             |
+```lua title="agents/my-agent/agent.lua"
+local nudges = require("ghost.nudges")
+local template = require("ghost.template")
 
-## Nudge Configuration
+return {
+    -- Required
+    name = "my-agent",
+    description = "What this agent does",
 
-All model-facing nudge strings live in agent frontmatter.
+    -- Trigger (required)
+    trigger = "dispatch",
 
-:::note Each section is optional — if an agent doesn't declare it, that nudge type
-simply doesn't fire. :::
+    -- Model settings (all optional)
+    model = nil,              -- nil = default, or "fast", "strong"
+    reasoning_effort = nil,   -- nil, "low", "medium", "high"
+    max_iterations = 30,      -- max tool loop iterations
 
-### `progress` — Tool Count & Iteration Countdown Nudges
+    -- Tools and skills
+    tools = { "web_search", "web_fetch", "read_file", "todo" },
+    skills = { "note-writer" },
 
-The `progress` list supports two rule shapes, distinguished by their fields.
+    -- System prompt (template interpolation)
+    system_prompt = template.render(read_file("prompt.md"), {
+        date = os.date("%Y-%m-%d"),
+    }),
 
-#### Tool Count Rules
-
-Track how many times a tool has been called and nudge the model when below a minimum.
-
-```yaml title="Tool count nudge"
-progress:
-  - tool: note_write
-    min: 3
-    nudge: "Need {min} {tool} calls (have {count}). Keep going."
+    -- Optional hooks
+    pre_turn = nudges.compose(...),
+    on_end_turn = nudges.progress_gate(...),
+    -- build_context = function(ctx) return "extra context" end,
+    -- post_completion = function(ctx) end,
+    -- should_trigger = function(ctx) return true end,
+}
 ```
 
-| Field   | Type         | Description                                                  |
-| ------- | ------------ | ------------------------------------------------------------ |
-| `tool`  | string       | Tool name to track                                           |
-| `min`   | number (opt) | Minimum call count; nudge fires while below                  |
-| `nudge` | string (opt) | Message to inject; interpolates `{tool}`, `{count}`, `{min}` |
+## Trigger Types
 
-#### Iteration Countdown Rules
+| Trigger       | When it runs                                           | Required fields                       |
+| ------------- | ------------------------------------------------------ | ------------------------------------- |
+| `dispatch`    | Manual (CLI `ghost agent run` or `agent_control` tool) | —                                     |
+| `schedule`    | Cron schedule (UTC, 5-field)                           | `schedule = "0 8 * * *"`              |
+| `after_idle`  | After interface sessions idle for N minutes            | `idle_minutes = 30`                   |
+| `after_agent` | After another agent completes                          | `continue_trigger_session` (optional) |
 
-Count down from `max_iterations` and nudge the model as remaining iterations drop. Among
-all applicable rules (where remaining &le; threshold), only the most urgent (lowest
-`remaining_iterations`) fires. Fires every turn within a band so the model can't ignore it.
+### Schedule
 
-```yaml title="Iteration countdown nudge"
-progress:
-  - remaining_iterations: 10
-    message: "{remaining} iterations left. Start wrapping up."
-  - remaining_iterations: 5
-    message: "Only {remaining} left. Write your report NOW."
-  - remaining_iterations: 2
-    message: "FINAL WARNING: {remaining} left. Stop calling tools."
+```lua
+trigger = "schedule",
+schedule = "0 8 * * *",   -- 5-field cron, UTC
 ```
 
-| Field                  | Type   | Description                                               |
-| ---------------------- | ------ | --------------------------------------------------------- |
-| `remaining_iterations` | number | Fire when remaining iterations drop to this value or below |
-| `message`              | string | Message to inject; interpolates `{remaining}`             |
+Schedule is interpreted in UTC. Missed runs are skipped when the system is down.
 
-#### Mixing Both Types
+### After Idle
 
-Both rule types can coexist in the same `progress` list:
-
-```yaml title="Mixed progress rules"
-progress:
-  - tool: web_fetch
-    min: 7
-    nudge: "Need {min} {tool} calls (have {count})."
-  - remaining_iterations: 10
-    message: "{remaining} iterations left."
+```lua
+trigger = "after_idle",
+idle_minutes = 30,
 ```
 
-### `progress_gate` — Block EndTurn Until TODO Complete
+The unified scheduler polls every `scheduler_tick_seconds` (default 60) and triggers the
+agent when any interface session has been idle for the configured duration.
 
-Prevents the agent from ending its turn without a completed TODO list.
+### After Agent
 
-```yaml title="Progress gate"
-progress_gate:
-  no_todo: Create your TODO checklist before writing.
-  incomplete: "You have {incomplete} incomplete items. Complete them."
+```lua
+trigger = "after_agent",
+continue_trigger_session = true,  -- optional: continue the completed agent's session
 ```
 
-| Field        | Type   | Description                                          |
-| ------------ | ------ | ---------------------------------------------------- |
-| `no_todo`    | string | Fired when no TODO list exists at all                |
-| `incomplete` | string | Fired when items remain; interpolates `{incomplete}` |
+When `continue_trigger_session = true`, the after-agent hook continues the completed
+agent's existing session instead of starting a fresh one. This preserves the full
+research context (see [Reflection](/features/reflection/)).
 
-### `temporal` — Wall-Clock Timer Nudge
+## Tools
 
-Fires after the specified number of seconds and repeats every iteration thereafter.
-Supports escalating messages: provide a list of strings where each entry is used in
-order, with the last entry repeating for all subsequent fires.
+Agents declare which tools they can use via the `tools` list. Available tools:
 
-```yaml title="Temporal nudge (single message)"
-temporal:
-  after_seconds: 300
-  message: "You've been working for {minutes} minutes. Wrap up now."
+| Tool                | Description                        |
+| ------------------- | ---------------------------------- |
+| `web_search`        | Search the web                     |
+| `web_fetch`         | Fetch and extract web page content |
+| `read_file`         | Read files from the workspace      |
+| `write_file`        | Write files to the workspace       |
+| `file_edit`         | Edit files in place                |
+| `run_shell_command` | Execute shell commands             |
+| `knowledge_search`  | Search the knowledge base          |
+| `note_write`        | Create knowledge notes             |
+| `todo`              | Manage a TODO checklist            |
+
+If an agent declares `skills`, `read_file` is automatically added to its tool set.
+
+## Custom Tools
+
+Agents can define their own tools directly in `agent.lua`:
+
+```lua
+custom_tools = {
+    {
+        name = "my_tool",
+        description = "What the tool does",
+        parameters = {
+            { name = "input", type = "string",
+              description = "The input", required = true },
+        },
+        terminal = false,  -- if true, result ends the session
+        handler = function(ctx, args)
+            return "tool result"
+        end,
+    },
+},
 ```
 
-```yaml title="Temporal nudge (escalating messages)"
-temporal:
-  after_seconds: 300
-  message:
-    - "You've been working for {minutes} minutes. Start wrapping up."
-    - "STOP researching. Write your report NOW."
-    - "FINAL WARNING. Your next response MUST be your report."
+## Hooks
+
+All hooks receive a `ctx` object providing agent context.
+
+| Hook              | When                                     | Return                       |
+| ----------------- | ---------------------------------------- | ---------------------------- |
+| `build_context`   | Before first turn                        | String to prepend to context |
+| `pre_turn`        | Before each model call                   | Nudge message or nil         |
+| `on_end_turn`     | After the model final response (EndTurn) | Rejection message or nil     |
+| `post_completion` | After agent finishes                     | —                            |
+| `should_trigger`  | Before scheduled/idle execution          | Boolean                      |
+
+## Nudge Library (`ghost.nudges`)
+
+The nudge library provides composable functions for `pre_turn` and `on_end_turn` hooks
+to keep agents on track.
+
+### `nudges.compose(...)`
+
+Combines multiple nudge functions into one. Each function is called in order; non-nil
+results are collected and wrapped in a `<system-reminder>` block.
+
+### `nudges.todo_list`
+
+Injects the current TODO list into the agent's context. Returns the pre-formatted TODO
+text from `state.todo_text`, or nil if no TODO exists.
+
+```lua
+nudges.todo_list()
 ```
 
-| Field           | Type                    | Description                                      |
-| --------------- | ----------------------- | ------------------------------------------------ |
-| `after_seconds` | number                  | Seconds before the nudge first fires             |
-| `message`       | string \| list\<string> | Message(s) to inject; interpolates `{minutes}`.  |
-|                 |                         | List entries escalate: index 0 first fire, index |
-|                 |                         | 1 second, last entry repeats thereafter.         |
+### `nudges.iteration_countdown`
 
-### `recency` — Tool Not Used Recently
+Count down remaining iterations and nudge the model to wrap up:
 
-Fires periodically when a tool hasn't been used in the last N assistant turns.
-
-```yaml title="Recency nudge"
-recency:
-  tool: web_fetch
-  window: 3
-  message: You haven't fetched any pages recently.
+```lua
+nudges.iteration_countdown({
+    { remaining = 10,
+      message = "{remaining} iterations left. Prioritize." },
+    { remaining = 5,
+      message = "Only {remaining} left. Stop new work." },
+    { remaining = 2,
+      message = "FINAL: {remaining} left. Write your report." },
+})
 ```
 
-| Field     | Type   | Description                               |
-| --------- | ------ | ----------------------------------------- |
-| `tool`    | string | Tool name to check for recent use         |
-| `window`  | number | Number of recent assistant turns to check |
-| `message` | string | Message to inject when tool is absent     |
+### `nudges.temporal`
 
-### `context_pressure` — Context Size Threshold
+Fire after a wall-clock duration with optional escalating messages:
 
-Fires once when total conversation content exceeds the character threshold.
-
-```yaml title="Context pressure nudge"
-context_pressure:
-  threshold_chars: 250000
-  message: Context filling up. Finish efficiently.
+```lua
+nudges.temporal({
+    after_seconds = 300,
+    messages = {
+        "Working for {minutes} minutes. Start wrapping up.",
+        "STOP new work. Write your report NOW.",
+    },
+})
 ```
 
-| Field             | Type   | Description                               |
-| ----------------- | ------ | ----------------------------------------- |
-| `threshold_chars` | number | Character count threshold                 |
-| `message`         | string | Message to inject when threshold exceeded |
+### `nudges.context_pressure`
+
+Fire when context window usage exceeds a percentage threshold:
+
+```lua
+nudges.context_pressure({
+    threshold_pct = 0.80,
+    message = "Context over 80% full. Finish with what you have.",
+})
+```
+
+### `nudges.progress_gate`
+
+Block end-of-turn until TODO items are completed (for `on_end_turn`):
+
+```lua
+nudges.progress_gate({
+    no_todo = "REJECTED — create a TODO plan first.",
+    incomplete = "REJECTED — {incomplete} items remain.",
+})
+```
+
+### `nudges.tool_count`
+
+Nudge when a specific tool hasn't been called enough times:
+
+```lua
+nudges.tool_count({
+    tool = "web_fetch",
+    min = 7,
+    nudge = "Need {min} {tool} calls (have {count}).",
+})
+```
+
+### `nudges.recency`
+
+Nudge when a tool hasn't been used in recent turns:
+
+```lua
+nudges.recency({
+    tool = "web_fetch",
+    window = 3,
+    message = "You haven't fetched any pages recently.",
+})
+```
 
 ## Default Agents
 
-| Agent               | Purpose                                       | Max Iterations |
-| ------------------- | --------------------------------------------- | -------------- |
-| **deep-research**   | Iterative web research with full page reading | 30             |
-| **chat-reflection** | Knowledge extraction from chat sessions       | 30             |
+| Agent               | Trigger       | Purpose                                                     |
+| ------------------- | ------------- | ----------------------------------------------------------- |
+| **deep-research**   | `dispatch`    | Iterative web research with full page reading               |
+| **reflection**      | `after_idle`  | Knowledge extraction from idle chat sessions                |
+| **fork-reflection** | `after_agent` | Knowledge extraction by continuing completed agent sessions |
 
-Agent reflection (after research) uses [session forking](/features/reflection/)
-instead of a dedicated agent — the research session continues in knowledge
-extraction mode.
+## CLI Commands
+
+```bash
+ghost agent list               # List available agents
+ghost agent validate <name>    # Validate an agent's Lua config
+ghost agent run <name> [prompt] # Run an agent manually
+ghost agent logs [name]        # View agent run logs
+```
 
 ## How Agents Work
 
-1. GHOST decides an agent is needed (based on context, skills, or user request)
-2. Agent spawns via the `agent_control` tool with a prompt
-3. Agent runs autonomously with its restricted tool set
-4. Findings are injected back into the parent chat
-5. GHOST can check status, continue, or stop agents mid-run
+1. Agent is triggered (manual dispatch, cron schedule, idle timeout, or agent
+   completion)
+2. Agent spawns with its own session and restricted tool set
+3. Agent runs autonomously, guided by nudge hooks
+4. When the agent finishes (text-only response), findings are captured
+5. For dispatched agents, findings are injected back into the parent chat
+6. After-agent hooks fire for any agents with `trigger = "after_agent"`
 
-## Agent Control
+## Agent Control (In-Chat)
 
-The GHOST manages agents through the `agent_control` tool:
+The GHOST manages agents through the `agent_control` tool during conversations:
 
-```text title="agent_control actions"
+```text
 start    — Spawn a new agent with name and prompt
 continue — Send follow-up instructions to a running agent
 status   — Check agent progress

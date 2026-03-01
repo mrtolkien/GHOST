@@ -14,6 +14,12 @@ pub trait Tool: Send + Sync {
     fn name(&self) -> &str;
     fn schema(&self) -> ToolDefinition;
     async fn execute(&self, params: Value, ctx: &ToolContext) -> Result<String, ToolError>;
+
+    /// Whether calling this tool should end the agent's run immediately.
+    /// Used by Lua-defined custom tools with `terminal = true`.
+    fn is_terminal(&self) -> bool {
+        false
+    }
 }
 
 #[derive(Default)]
@@ -91,6 +97,14 @@ impl ToolManager {
     #[must_use]
     pub fn all_tool_schemas(&self) -> Vec<ToolDefinition> {
         self.tools.values().map(|tool| tool.schema()).collect()
+    }
+
+    /// Check whether a tool is marked as terminal (ends the agent run).
+    #[must_use]
+    pub fn is_terminal(&self, tool_name: &str) -> bool {
+        self.tools
+            .get(tool_name)
+            .is_some_and(|tool| tool.is_terminal())
     }
 
     #[tracing::instrument(name = "run tool", skip_all, fields(

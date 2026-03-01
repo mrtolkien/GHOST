@@ -709,7 +709,7 @@ mod tests {
         let lines = vec![
             "| Skill | When to Use |".to_string(),
             "|-------|-------------|".to_string(),
-            "| **cron-job-author** | When the OPERATOR wants to create **scheduled, recurring tasks** that run automatically. Examples: daily summaries, hourly checks, weekly reports. These live in `jobs/*.md` and run on cron schedules. |".to_string(),
+            "| **agent-creator** | When the OPERATOR wants to create **background agents** that run automatically. Examples: daily summaries, hourly checks, weekly reports. These live in `agents/<name>/` as Lua-defined agents. |".to_string(),
             "| **note-writer** | When you need to **persist important information** to the knowledge base. Examples: diary entries, identity notes, summaries of decisions, research findings that should be remembered long-term. |".to_string(),
             "| **reference-researcher** | When you need to do **deep research** on a topic and build a high-quality reference document. This guides systematic web searches, source evaluation, and creating authoritative references that can be cited later. |".to_string(),
             "| **skill-creator** | When the OPERATOR wants to **create a new skill** or **update an existing one**. This provides guidance on structuring effective skills, writing clear instructions, and making them reusable. |".to_string(),

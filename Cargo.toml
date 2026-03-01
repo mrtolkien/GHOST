@@ -16,6 +16,7 @@ gethostname = "1"
 hex = "0.4"
 htmd = "0.5"
 logfire = "0.9"
+mlua = { version = "0.10", features = ["lua54", "async", "serialize", "send"] }
 notify = { version = "8", default-features = false, features = ["macos_fsevent"] }
 rand = "0.9"
 regex = "1"

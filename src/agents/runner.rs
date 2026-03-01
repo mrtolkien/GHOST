@@ -1,9 +1,6 @@
 use std::collections::HashMap;
-use std::path::Path;
 use std::sync::Arc;
 
-use regex::Regex;
-use std::sync::LazyLock;
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
@@ -13,10 +10,12 @@ use crate::config::Config;
 use crate::db;
 use crate::db::GhostDb;
 use crate::providers::provider_for_alias;
+use crate::scripting::AgentContext;
+use crate::scripting::build_custom_tools;
 use crate::tools::ToolManager;
 
-use super::definition::{TaskDefinition, load_task};
 use super::error::TaskError;
+use super::loader::load_agent_with_host;
 
 /// Status snapshot of a running or completed agent.
 #[derive(Debug, Clone)]
@@ -36,7 +35,7 @@ struct TaskHandle {
     agent_name: String,
     parent_session_id: Option<String>,
     agent_session_id: String,
-    job_log_id: String,
+    run_id: String,
     task_handle: JoinHandle<()>,
     cancel_token: CancellationToken,
     metadata: Arc<Mutex<Option<RunMetadata>>>,
@@ -72,14 +71,20 @@ impl TaskRunner {
         prompt: &str,
         parent_session_id: Option<&str>,
     ) -> Result<String, TaskError> {
-        let definition = load_task(&self.config.workspace, agent_name)?;
+        // Validate the agent exists
+        let agent_dir = self.config.workspace.join("agents").join(agent_name);
+        if !agent_dir.join("agent.lua").exists() {
+            return Err(TaskError::NotFound {
+                name: agent_name.to_string(),
+            });
+        }
 
         // Create agent session
         let agent_session_id = db::sessions::create_agent_session(&self.db).await?;
         let agent_id = agent_session_id.clone();
 
-        // Create job_log
-        let job_log_id = db::job_logs::create_agent_job_log(
+        // Create agent run record
+        let run_id = db::agent_runs::create_agent_run(
             &self.db,
             agent_name,
             parent_session_id,
@@ -95,12 +100,12 @@ impl TaskRunner {
             agent_name: agent_name.to_string(),
             parent_session_id: parent_session_id.map(|s| s.to_string()),
             agent_session_id: agent_session_id.clone(),
-            job_log_id: job_log_id.clone(),
+            run_id: run_id.clone(),
             task_handle: self.spawn_task(
-                definition,
+                agent_name.to_string(),
                 prompt.to_string(),
                 agent_session_id,
-                job_log_id,
+                run_id,
                 cancel_token.clone(),
                 Arc::clone(&metadata_slot),
             ),
@@ -121,19 +126,17 @@ impl TaskRunner {
 
     /// Run an agent synchronously (await completion).
     ///
-    /// Creates DB records (session, job_log), runs the agent, finishes
-    /// job_log. Returns the final findings message.
+    /// Creates DB records (session, agent run), runs the agent, finishes
+    /// the run. Returns the final findings message.
     pub async fn run_to_completion(
         &self,
         agent_name: &str,
         prompt: &str,
         parent_session_id: Option<&str>,
     ) -> Result<(String, RunMetadata), TaskError> {
-        let definition = load_task(&self.config.workspace, agent_name)?;
-
         let agent_session_id = db::sessions::create_agent_session(&self.db).await?;
 
-        let job_log_id = db::job_logs::create_agent_job_log(
+        let run_id = db::agent_runs::create_agent_run(
             &self.db,
             agent_name,
             parent_session_id,
@@ -146,7 +149,7 @@ impl TaskRunner {
         let result = run_task(
             &self.db,
             &self.config,
-            &definition,
+            agent_name,
             prompt,
             &agent_session_id,
             &cancel_token,
@@ -169,74 +172,8 @@ impl TaskRunner {
             }
         };
 
-        if let Err(e) =
-            db::job_logs::finish_job_log(&self.db, &job_log_id, status, &transcript).await
-        {
-            logfire::error!("failed to finish agent job_log", error = e.to_string(),);
-        }
-
-        if status == "failed" {
-            return Err(TaskError::ExecutionFailed {
-                message: transcript.to_string(),
-            });
-        }
-
-        Ok((transcript, metadata))
-    }
-
-    /// Run a pre-parsed agent definition synchronously (await completion).
-    ///
-    /// Like `run_to_completion`, but accepts a definition directly instead
-    /// of loading it by name. Useful for cron jobs and other callers that
-    /// already have a parsed definition.
-    pub async fn run_definition_to_completion(
-        &self,
-        definition: &TaskDefinition,
-        prompt: &str,
-        parent_session_id: Option<&str>,
-    ) -> Result<(String, RunMetadata), TaskError> {
-        let agent_session_id = db::sessions::create_agent_session(&self.db).await?;
-
-        let job_log_id = db::job_logs::create_agent_job_log(
-            &self.db,
-            &definition.name,
-            parent_session_id,
-            &agent_session_id,
-        )
-        .await?;
-
-        let cancel_token = CancellationToken::new();
-
-        let result = run_task(
-            &self.db,
-            &self.config,
-            definition,
-            prompt,
-            &agent_session_id,
-            &cancel_token,
-        )
-        .await;
-
-        let (status, transcript, metadata) = match result {
-            Ok((findings, meta)) => ("ok", findings, meta),
-            Err(e) => {
-                logfire::error!(
-                    "agent run_definition_to_completion failed",
-                    agent_name = definition.name.clone(),
-                    error = e.to_string(),
-                );
-                (
-                    "failed",
-                    format!("Agent error: {e}"),
-                    RunMetadata::default(),
-                )
-            }
-        };
-
-        if let Err(e) =
-            db::job_logs::finish_job_log(&self.db, &job_log_id, status, &transcript).await
-        {
-            logfire::error!("failed to finish agent job_log", error = e.to_string(),);
+        if let Err(e) = db::agent_runs::finish_run(&self.db, &run_id, status, &transcript).await {
+            logfire::error!("failed to finish agent run", error = e.to_string(),);
         }
 
         if status == "failed" {
@@ -272,9 +209,9 @@ impl TaskRunner {
             .flatten()
             .map(|items| crate::tools::format_todo_list(&items));
 
-        // Read findings from job_log transcript if finished
+        // Read findings from agent run transcript if finished
         let findings = if is_finished {
-            self.get_job_transcript(&handle.job_log_id).await
+            self.get_run_transcript(&handle.run_id).await
         } else {
             None
         };
@@ -311,7 +248,7 @@ impl TaskRunner {
         handle.cancel_token.cancel();
         let agent_name = handle.agent_name.clone();
         let agent_session_id = handle.agent_session_id.clone();
-        let job_log_id = handle.job_log_id.clone();
+        let run_id = handle.run_id.clone();
         drop(handles);
 
         // Give the task a moment to finish
@@ -327,7 +264,7 @@ impl TaskRunner {
             .flatten()
             .map(|items| crate::tools::format_todo_list(&items));
 
-        let findings = self.get_job_transcript(&job_log_id).await;
+        let findings = self.get_run_transcript(&run_id).await;
 
         // Clean up handle
         let agent_id_owned = agent_id.to_string();
@@ -360,7 +297,7 @@ impl TaskRunner {
         let parent = handle.parent_session_id.clone();
         let agent_name = handle.agent_name.clone();
         let agent_session_id = handle.agent_session_id.clone();
-        let job_log_id = handle.job_log_id.clone();
+        let run_id = handle.run_id.clone();
         let metadata = handle.metadata.lock().await.clone();
         handles.remove(agent_id);
         drop(handles);
@@ -375,7 +312,7 @@ impl TaskRunner {
             .flatten()
             .map(|items| crate::tools::format_todo_list(&items));
 
-        let findings = self.get_job_transcript(&job_log_id).await;
+        let findings = self.get_run_transcript(&run_id).await;
 
         Some((
             TaskStatus {
@@ -393,9 +330,9 @@ impl TaskRunner {
 
     /// Continue an existing agent session with a new prompt.
     ///
-    /// Looks up the agent name from the job_log, loads the agent definition,
-    /// creates a new job_log entry for this continuation, and spawns a task
-    /// that resumes the existing session with full history.
+    /// Looks up the agent name from previous runs, creates a new run entry
+    /// for this continuation, and spawns a task that resumes the existing
+    /// session with full history.
     #[tracing::instrument(name = "continue agent", skip_all, fields(agent_id = agent_id))]
     pub async fn continue_task(
         &self,
@@ -406,18 +343,15 @@ impl TaskRunner {
         // Parse agent_id to extract bare session ID
         let agent_session_id = parse_task_session_thing(agent_id)?;
 
-        // Look up agent name from job_log
-        let agent_name = db::job_logs::get_agent_name_for_session(&self.db, &agent_session_id)
+        // Look up agent name from previous runs
+        let agent_name = db::agent_runs::get_agent_name_for_session(&self.db, &agent_session_id)
             .await?
             .ok_or_else(|| TaskError::AgentSessionNotFound {
                 agent_session_id: agent_id.to_string(),
             })?;
 
-        // Load agent definition from workspace
-        let definition = load_task(&self.config.workspace, &agent_name)?;
-
-        // Create new job_log entry for this continuation
-        let job_log_id = db::job_logs::create_agent_job_log(
+        // Create new run entry for this continuation
+        let run_id = db::agent_runs::create_agent_run(
             &self.db,
             &agent_name,
             parent_session_id,
@@ -433,12 +367,12 @@ impl TaskRunner {
             agent_name: agent_name.clone(),
             parent_session_id: parent_session_id.map(|s| s.to_string()),
             agent_session_id: agent_session_id.clone(),
-            job_log_id: job_log_id.clone(),
+            run_id: run_id.clone(),
             task_handle: self.spawn_continue_task(
-                definition,
+                agent_name.clone(),
                 prompt.to_string(),
                 agent_session_id,
-                job_log_id,
+                run_id,
                 cancel_token.clone(),
                 Arc::clone(&metadata_slot),
             ),
@@ -473,24 +407,21 @@ impl TaskRunner {
         agent_session_id: &str,
         prompt: &str,
     ) -> Result<(String, RunMetadata), TaskError> {
-        let agent_name = db::job_logs::get_agent_name_for_session(&self.db, agent_session_id)
+        let agent_name = db::agent_runs::get_agent_name_for_session(&self.db, agent_session_id)
             .await?
             .ok_or_else(|| TaskError::AgentSessionNotFound {
                 agent_session_id: agent_session_id.to_string(),
             })?;
 
-        let definition = load_task(&self.config.workspace, &agent_name)?;
-
-        let job_log_id =
-            db::job_logs::create_agent_job_log(&self.db, &agent_name, None, agent_session_id)
-                .await?;
+        let run_id =
+            db::agent_runs::create_agent_run(&self.db, &agent_name, None, agent_session_id).await?;
 
         let cancel_token = CancellationToken::new();
 
-        let result = continue_task_run(
+        let result = continue_task(
             &self.db,
             &self.config,
-            &definition,
+            &agent_name,
             prompt,
             agent_session_id,
             &cancel_token,
@@ -513,10 +444,8 @@ impl TaskRunner {
             }
         };
 
-        if let Err(e) =
-            db::job_logs::finish_job_log(&self.db, &job_log_id, status, &transcript).await
-        {
-            logfire::error!("failed to finish agent job_log", error = e.to_string(),);
+        if let Err(e) = db::agent_runs::finish_run(&self.db, &run_id, status, &transcript).await {
+            logfire::error!("failed to finish agent run", error = e.to_string(),);
         }
 
         if status == "failed" {
@@ -535,10 +464,10 @@ impl TaskRunner {
 
     fn spawn_task(
         &self,
-        definition: TaskDefinition,
+        agent_name: String,
         prompt: String,
         agent_session_id: String,
-        job_log_id: String,
+        run_id: String,
         cancel_token: CancellationToken,
         metadata_slot: Arc<Mutex<Option<RunMetadata>>>,
     ) -> JoinHandle<()> {
@@ -549,7 +478,7 @@ impl TaskRunner {
             let result = run_task(
                 &db,
                 &config,
-                &definition,
+                &agent_name,
                 &prompt,
                 &agent_session_id,
                 &cancel_token,
@@ -564,27 +493,25 @@ impl TaskRunner {
                 Err(e) => {
                     logfire::error!(
                         "agent failed",
-                        agent_name = definition.name.clone(),
+                        agent_name = agent_name.clone(),
                         error = e.to_string(),
                     );
                     ("failed", format!("Agent error: {e}"))
                 }
             };
 
-            if let Err(e) =
-                db::job_logs::finish_job_log(&db, &job_log_id, status, &transcript).await
-            {
-                logfire::error!("failed to finish agent job_log", error = e.to_string(),);
+            if let Err(e) = db::agent_runs::finish_run(&db, &run_id, status, &transcript).await {
+                logfire::error!("failed to finish agent run", error = e.to_string(),);
             }
         })
     }
 
     fn spawn_continue_task(
         &self,
-        definition: TaskDefinition,
+        agent_name: String,
         prompt: String,
         agent_session_id: String,
-        job_log_id: String,
+        run_id: String,
         cancel_token: CancellationToken,
         metadata_slot: Arc<Mutex<Option<RunMetadata>>>,
     ) -> JoinHandle<()> {
@@ -592,10 +519,10 @@ impl TaskRunner {
         let config = self.config.clone();
 
         tokio::spawn(async move {
-            let result = continue_task_run(
+            let result = continue_task(
                 &db,
                 &config,
-                &definition,
+                &agent_name,
                 &prompt,
                 &agent_session_id,
                 &cancel_token,
@@ -610,172 +537,96 @@ impl TaskRunner {
                 Err(e) => {
                     logfire::error!(
                         "agent continuation failed",
-                        agent_name = definition.name.clone(),
+                        agent_name = agent_name.clone(),
                         error = e.to_string(),
                     );
                     ("failed", format!("Agent error: {e}"))
                 }
             };
 
-            if let Err(e) =
-                db::job_logs::finish_job_log(&db, &job_log_id, status, &transcript).await
-            {
-                logfire::error!("failed to finish agent job_log", error = e.to_string(),);
+            if let Err(e) = db::agent_runs::finish_run(&db, &run_id, status, &transcript).await {
+                logfire::error!("failed to finish agent run", error = e.to_string(),);
             }
         })
     }
 
-    async fn get_job_transcript(&self, job_log_id: &str) -> Option<String> {
-        let logs = db::job_logs::list_job_logs(&self.db, None, 100)
-            .await
-            .ok()?;
+    async fn get_run_transcript(&self, run_id: &str) -> Option<String> {
+        let logs = db::agent_runs::list_runs(&self.db, None, 100).await.ok()?;
         logs.into_iter()
-            .find(|log| log.id == job_log_id)
+            .find(|log| log.id == run_id)
             .and_then(|log| log.transcript)
     }
 }
 
-static SKILL_PLACEHOLDER_RE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"\{\{\s*skill:([a-z0-9_-]+)\s*\}\}").expect("skill regex"));
-
-/// Resolve `{{ skill:name }}` placeholders in a system prompt by inlining
-/// the skill file's body (YAML frontmatter stripped).
-///
-/// Reads `$WORKSPACE/skills/{name}/skill.md`, strips the `---` frontmatter
-/// block, and substitutes the body in place. Logs a warning if a referenced
-/// skill file is not found.
-fn interpolate_skill_content(system_prompt: &str, workspace: &Path) -> String {
-    SKILL_PLACEHOLDER_RE
-        .replace_all(system_prompt, |caps: &regex::Captures| {
-            let skill_name = &caps[1];
-            let skill_path = workspace.join("skills").join(skill_name).join("skill.md");
-
-            match std::fs::read_to_string(&skill_path) {
-                Ok(content) => strip_yaml_frontmatter(&content),
-                Err(_) => {
-                    logfire::warn!(
-                        "skill interpolation: file not found",
-                        skill = skill_name.to_string(),
-                        path = skill_path.display().to_string(),
-                    );
-                    format!("[skill '{skill_name}' not found]")
-                }
-            }
-        })
-        .into_owned()
-}
-
-/// Strip YAML frontmatter (--- ... ---) from skill content, returning the
-/// body after the closing delimiter.
-fn strip_yaml_frontmatter(content: &str) -> String {
-    let trimmed = content.trim_start();
-    if !trimmed.starts_with("---") {
-        return content.to_string();
-    }
-
-    let after_open = &trimmed[3..];
-    if let Some(close) = after_open.find("\n---") {
-        let body_start = close + 4; // skip "\n---"
-        after_open[body_start..]
-            .trim_start_matches('\n')
-            .to_string()
-    } else {
-        content.to_string()
-    }
-}
-
-/// Build a skills section to append to the agent system prompt.
-///
-/// If the agent definition declares `skills = [...]`, discover skills from
-/// the workspace, filter to matching names, and build an XML block (same
-/// format as `build_ghost_skills` in `prompt::context`).
-fn build_agent_skills_section(config: &Config, skills: &[String]) -> String {
-    if skills.is_empty() {
-        return String::new();
-    }
-
-    let discovered = crate::skills::discover_skills(&config.workspace);
-    let matched: Vec<_> = discovered
-        .iter()
-        .filter(|s| skills.contains(&s.name))
-        .collect();
-
-    if matched.is_empty() {
-        return String::new();
-    }
-
-    let entries: Vec<String> = matched
-        .iter()
-        .map(|s| {
-            let rel = s
-                .path
-                .strip_prefix(&config.workspace)
-                .unwrap_or(&s.path)
-                .display();
-            format!(
-                "  <skill>\n    <name>{}</name>\n    \
-                 <description>{}</description>\n    \
-                 <location>{rel}</location>\n  </skill>",
-                s.name, s.description,
-            )
-        })
-        .collect();
-
-    format!(
-        "\n\n## Available Skills\n\n\
-         ALWAYS read the full skill file with `read_file` before starting any task \
-         that matches a skill's description. Skills contain critical workflow \
-         instructions that you MUST follow.\n\n\
-         <available_skills>\n{}\n</available_skills>",
-        entries.join("\n"),
-    )
-}
-
-/// Execute the agent tool loop. Returns the final findings string.
+/// Execute a Lua-defined agent in a fresh session.
 #[tracing::instrument(name = "run agent", skip_all, fields(
-    gen_ai.agent.name = %definition.name,
+    gen_ai.agent.name = %agent_name,
     gen_ai.agent.id = ?agent_session_id,
     gen_ai.operation.name = "invoke_agent",
 ))]
 async fn run_task(
     db: &GhostDb,
     config: &Config,
-    definition: &TaskDefinition,
+    agent_name: &str,
     prompt: &str,
     agent_session_id: &str,
     cancel_token: &CancellationToken,
 ) -> Result<(String, RunMetadata), TaskError> {
-    let mut system_prompt = definition.render_system_prompt(prompt);
-    system_prompt = interpolate_skill_content(&system_prompt, &config.workspace);
+    let (agent_config, script_host) = load_agent_with_host(&config.workspace, agent_name)?;
+    let script_host = Arc::new(script_host);
 
-    // Append skills section if the agent declares any
-    system_prompt.push_str(&build_agent_skills_section(config, &definition.skills));
+    let mut system_prompt = agent_config.system_prompt.clone().unwrap_or_default();
 
-    // Resolve provider — use agent's model alias or default
-    let provider = provider_for_alias(config, definition.model.as_deref())?;
+    // Wire build_context hook
+    if agent_config.has_build_context {
+        let ctx = AgentContext {
+            db: db.clone(),
+            workspace: config.workspace.clone(),
+            agent_slug: agent_name.to_string(),
+            session_id: agent_session_id.to_string(),
+            trigger_session_id: None,
+            trigger_agent_name: None,
+        };
+        match script_host.call_build_context(ctx) {
+            Ok(Some(extra)) => {
+                system_prompt = format!("{extra}\n\n{system_prompt}");
+            }
+            Ok(None) => {}
+            Err(e) => {
+                logfire::warn!(
+                    "build_context hook error, using original prompt",
+                    agent_name = agent_name.to_string(),
+                    error = e.to_string(),
+                );
+            }
+        }
+    }
 
-    // Build restricted tool manager — include read_file if skills are declared
-    let mut tools = definition.tools.clone();
-    if !definition.skills.is_empty() && !tools.iter().any(|t| t == "read_file") {
+    let provider = provider_for_alias(config, agent_config.model.as_deref())?;
+
+    let mut tools = agent_config.tools.clone();
+    if !agent_config.skills.is_empty() && !tools.iter().any(|t| t == "read_file") {
         tools.push("read_file".to_string());
     }
-    let tool_manager = ToolManager::for_agent(&tools);
+    let mut tool_manager = ToolManager::for_agent(&tools);
+    for custom_tool in build_custom_tools(&agent_config, &script_host) {
+        tool_manager.register(custom_tool);
+    }
 
     let session_chat = SessionChat::new(db.clone(), provider, tool_manager, config.clone())
-        .with_max_tool_iterations(definition.max_iterations);
+        .with_max_tool_iterations(agent_config.max_iterations);
 
-    // Run with cancellation support
     let result = tokio::select! {
-        res = session_chat.chat_agent(
+        res = session_chat.chat_lua_agent(
             agent_session_id,
             prompt,
             system_prompt,
-            definition,
+            &agent_config,
+            &script_host,
             None,
         ) => res?,
         () = cancel_token.cancelled() => {
-            logfire::info!("agent cancelled", agent_name = definition.name.clone());
-            // Return partial findings from session
+            logfire::info!("agent cancelled", agent_name = agent_name.to_string());
             let messages = db::sessions::list_messages_by_session(db, agent_session_id)
                 .await
                 .unwrap_or_default();
@@ -789,54 +640,97 @@ async fn run_task(
         }
     };
 
+    // Wire post_completion hook
+    if agent_config.has_post_completion {
+        let ctx = AgentContext {
+            db: db.clone(),
+            workspace: config.workspace.clone(),
+            agent_slug: agent_name.to_string(),
+            session_id: agent_session_id.to_string(),
+            trigger_session_id: None,
+            trigger_agent_name: None,
+        };
+        if let Err(e) = script_host.call_post_completion(ctx) {
+            logfire::warn!(
+                "post_completion hook error",
+                agent_name = agent_name.to_string(),
+                error = e.to_string(),
+            );
+        }
+    }
+
     Ok((result.0.message, result.1))
 }
 
-/// Continue an existing agent session with a new prompt. Loads full history
-/// from DB instead of starting fresh.
+/// Continue a Lua-defined agent with full history from an existing session.
 #[tracing::instrument(name = "continue agent", skip_all, fields(
-    gen_ai.agent.name = %definition.name,
+    gen_ai.agent.name = %agent_name,
     gen_ai.agent.id = ?agent_session_id,
     gen_ai.operation.name = "invoke_agent",
 ))]
-async fn continue_task_run(
+async fn continue_task(
     db: &GhostDb,
     config: &Config,
-    definition: &TaskDefinition,
+    agent_name: &str,
     prompt: &str,
     agent_session_id: &str,
     cancel_token: &CancellationToken,
 ) -> Result<(String, RunMetadata), TaskError> {
-    // For continuation, interpolate a generic marker instead of the new prompt
-    // into the system prompt template, since the original query is already in
-    // the session history.
-    let mut system_prompt = definition.render_system_prompt(prompt);
-    system_prompt = interpolate_skill_content(&system_prompt, &config.workspace);
-    system_prompt.push_str(&build_agent_skills_section(config, &definition.skills));
+    let (agent_config, script_host) = load_agent_with_host(&config.workspace, agent_name)?;
+    let script_host = Arc::new(script_host);
 
-    let provider = provider_for_alias(config, definition.model.as_deref())?;
-    let mut tools = definition.tools.clone();
-    if !definition.skills.is_empty() && !tools.iter().any(|t| t == "read_file") {
+    let mut system_prompt = agent_config.system_prompt.clone().unwrap_or_default();
+
+    // Wire build_context hook
+    if agent_config.has_build_context {
+        let ctx = AgentContext {
+            db: db.clone(),
+            workspace: config.workspace.clone(),
+            agent_slug: agent_name.to_string(),
+            session_id: agent_session_id.to_string(),
+            trigger_session_id: None,
+            trigger_agent_name: None,
+        };
+        match script_host.call_build_context(ctx) {
+            Ok(Some(extra)) => {
+                system_prompt = format!("{extra}\n\n{system_prompt}");
+            }
+            Ok(None) => {}
+            Err(e) => {
+                logfire::warn!(
+                    "build_context hook error, using original prompt",
+                    agent_name = agent_name.to_string(),
+                    error = e.to_string(),
+                );
+            }
+        }
+    }
+
+    let provider = provider_for_alias(config, agent_config.model.as_deref())?;
+
+    let mut tools = agent_config.tools.clone();
+    if !agent_config.skills.is_empty() && !tools.iter().any(|t| t == "read_file") {
         tools.push("read_file".to_string());
     }
-    let tool_manager = ToolManager::for_agent(&tools);
+    let mut tool_manager = ToolManager::for_agent(&tools);
+    for custom_tool in build_custom_tools(&agent_config, &script_host) {
+        tool_manager.register(custom_tool);
+    }
 
     let session_chat = SessionChat::new(db.clone(), provider, tool_manager, config.clone())
-        .with_max_tool_iterations(definition.max_iterations);
+        .with_max_tool_iterations(agent_config.max_iterations);
 
     let result = tokio::select! {
-        res = session_chat.continue_task(
+        res = session_chat.continue_lua_agent(
             agent_session_id,
             prompt,
             system_prompt,
-            definition,
+            &agent_config,
+            &script_host,
             None,
         ) => res?,
         () = cancel_token.cancelled() => {
-            logfire::info!(
-                "agent continuation cancelled",
-                agent_name = definition.name.clone(),
-            );
+            logfire::info!("agent continuation cancelled", agent_name = agent_name.to_string());
             let messages = db::sessions::list_messages_by_session(db, agent_session_id)
                 .await
                 .unwrap_or_default();
@@ -845,12 +739,29 @@ async fn continue_task_run(
                 .rev()
                 .find(|m| m.role == "assistant" && !m.content.is_empty())
                 .map(|m| m.content.clone())
-                .unwrap_or_else(|| {
-                    "Agent was cancelled before producing findings.".to_string()
-                });
+                .unwrap_or_else(|| "Agent was cancelled before producing findings.".to_string());
             return Ok((last_assistant, RunMetadata::default()));
         }
     };
+
+    // Wire post_completion hook
+    if agent_config.has_post_completion {
+        let ctx = AgentContext {
+            db: db.clone(),
+            workspace: config.workspace.clone(),
+            agent_slug: agent_name.to_string(),
+            session_id: agent_session_id.to_string(),
+            trigger_session_id: None,
+            trigger_agent_name: None,
+        };
+        if let Err(e) = script_host.call_post_completion(ctx) {
+            logfire::warn!(
+                "post_completion hook error",
+                agent_name = agent_name.to_string(),
+                error = e.to_string(),
+            );
+        }
+    }
 
     Ok((result.0.message, result.1))
 }
@@ -880,61 +791,5 @@ impl std::fmt::Debug for TaskHandle {
             .field("agent_name", &self.agent_name)
             .field("finished", &self.task_handle.is_finished())
             .finish()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn interpolate_skill_replaces_placeholder() {
-        let dir = tempfile::TempDir::new().unwrap();
-        let skill_dir = dir.path().join("skills").join("note-writer");
-        std::fs::create_dir_all(&skill_dir).unwrap();
-        std::fs::write(
-            skill_dir.join("skill.md"),
-            "---\nname: note-writer\ndescription: Write notes.\n---\n\n# Note Guide\n\nWrite good notes.",
-        )
-        .unwrap();
-
-        let input = "Before\n\n{{ skill:note-writer }}\n\nAfter";
-        let result = interpolate_skill_content(input, dir.path());
-        assert!(result.contains("# Note Guide"));
-        assert!(result.contains("Write good notes."));
-        assert!(result.contains("Before"));
-        assert!(result.contains("After"));
-        // Frontmatter should be stripped
-        assert!(!result.contains("name: note-writer"));
-    }
-
-    #[test]
-    fn interpolate_skill_missing_file() {
-        let dir = tempfile::TempDir::new().unwrap();
-        let input = "Use {{ skill:nonexistent }} here";
-        let result = interpolate_skill_content(input, dir.path());
-        assert!(result.contains("[skill 'nonexistent' not found]"));
-    }
-
-    #[test]
-    fn interpolate_skill_no_placeholders() {
-        let dir = tempfile::TempDir::new().unwrap();
-        let input = "No placeholders here";
-        let result = interpolate_skill_content(input, dir.path());
-        assert_eq!(result, input);
-    }
-
-    #[test]
-    fn strip_yaml_frontmatter_removes_block() {
-        let content = "---\nname: test\ndescription: Test.\n---\n\n# Body\n\nContent.";
-        let result = strip_yaml_frontmatter(content);
-        assert_eq!(result, "# Body\n\nContent.");
-    }
-
-    #[test]
-    fn strip_yaml_frontmatter_no_frontmatter() {
-        let content = "# Just a body\n\nNo frontmatter.";
-        let result = strip_yaml_frontmatter(content);
-        assert_eq!(result, content);
     }
 }

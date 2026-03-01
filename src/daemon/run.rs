@@ -9,17 +9,10 @@ use crate::chat::SessionChat;
 use crate::embeddings::EmbeddingClient;
 use crate::error::GhostError;
 use crate::interfaces::discord::{self, DiscordSender};
-use crate::jobs::ReflectionManager;
 
 pub async fn run() -> Result<(), GhostError> {
-    let (
-        shutdown_tx,
-        watcher_handle,
-        scheduler_handle,
-        discord_result,
-        reflection_watcher_handle,
-        agent_watcher_handle,
-    ) = boot().await?;
+    let (shutdown_tx, watcher_handle, scheduler_handle, discord_result, agent_watcher_handle) =
+        boot().await?;
 
     if let Some((_sender, handle)) = discord_result {
         info!("GHOST daemon running — press Ctrl+C to stop");
@@ -37,13 +30,10 @@ pub async fn run() -> Result<(), GhostError> {
         let _ = tokio::signal::ctrl_c().await;
     }
 
-    // Signal shutdown to watcher, scheduler, reflection watcher, and agent watcher
+    // Signal shutdown to watcher, scheduler, and agent watcher
     let _ = shutdown_tx.send(true);
     let _ = watcher_handle.await;
     let _ = scheduler_handle.await;
-    if let Some(rw_handle) = reflection_watcher_handle {
-        let _ = rw_handle.await;
-    }
     if let Some(aw_handle) = agent_watcher_handle {
         let _ = aw_handle.await;
     }
@@ -57,7 +47,6 @@ type BootResult = (
     JoinHandle<()>,
     JoinHandle<()>,
     Option<(DiscordSender, JoinHandle<()>)>,
-    Option<JoinHandle<()>>,
     Option<JoinHandle<()>>,
 );
 
@@ -114,10 +103,11 @@ pub async fn boot() -> Result<BootResult, GhostError> {
     // Create agent runner (shared between SessionChat, scheduler, agent watcher)
     let task_runner = Arc::new(TaskRunner::new(db.clone(), config.clone()));
 
-    // Spawn the job scheduler
-    let scheduler_handle = crate::jobs::spawn_scheduler(
+    // Spawn the unified scheduler (handles both cron jobs and idle agents)
+    let scheduler_handle = crate::agents::scheduler::spawn_scheduler(
         Arc::clone(&task_runner),
         config.clone(),
+        db.clone(),
         shutdown_rx.clone(),
     );
 
@@ -128,34 +118,20 @@ pub async fn boot() -> Result<BootResult, GhostError> {
 
     let discord_result = discord::start_discord(&config, session_chat.clone(), db.clone()).await?;
 
-    // Spawn agent watcher + reflection idle watcher (only if Discord is available)
-    let reflection_watcher_handle;
-    let agent_watcher_handle;
-
-    if let Some((ref sender, _)) = discord_result {
+    // Spawn agent watcher (only if Discord is available)
+    let agent_watcher_handle = if let Some((ref sender, _)) = discord_result {
         let discord_sender = Arc::new(sender.clone());
 
-        let reflection = Arc::new(ReflectionManager::new(
-            db.clone(),
-            config.clone(),
-            Arc::clone(&task_runner),
-        ));
-
-        // Agent watcher — polls for completed agents and injects findings
-        agent_watcher_handle = Some(crate::agents::watcher::spawn_task_watcher(
+        Some(crate::agents::watcher::spawn_task_watcher(
             Arc::clone(&task_runner),
             Arc::clone(&session_chat),
             Arc::clone(&discord_sender),
-            Arc::clone(&reflection),
             db.clone(),
+            config.workspace.clone(),
             shutdown_rx.clone(),
-        ));
-
-        // Reflection idle watcher — triggers chat reflection after idle period
-        reflection_watcher_handle = Some(reflection.spawn_idle_watcher(shutdown_rx.clone()));
+        ))
     } else {
-        reflection_watcher_handle = None;
-        agent_watcher_handle = None;
+        None
     };
 
     Ok((
@@ -163,7 +139,6 @@ pub async fn boot() -> Result<BootResult, GhostError> {
         watcher_handle,
         scheduler_handle,
         discord_result,
-        reflection_watcher_handle,
         agent_watcher_handle,
     ))
 }

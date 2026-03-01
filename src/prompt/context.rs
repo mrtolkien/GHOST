@@ -88,7 +88,7 @@ pub fn build_ghost_skills(workspace: &Path) -> String {
 /// agents found.
 #[tracing::instrument(skip_all, level = "debug", fields(workspace = %workspace.display()))]
 pub fn build_ghost_agents(workspace: &Path) -> String {
-    let agents = crate::agents::discover_tasks(workspace);
+    let agents = crate::agents::discover_agents(workspace);
 
     if agents.is_empty() {
         return String::new();
@@ -97,11 +97,12 @@ pub fn build_ghost_agents(workspace: &Path) -> String {
     let entries: Vec<String> = agents
         .iter()
         .map(|a| {
+            let location = format!("agents/{}/agent.lua", a.name);
             format!(
                 "  <agent>\n    <name>{}</name>\n    \
                  <description>{}</description>\n    \
-                 <location>agents/{}.md</location>\n  </agent>",
-                a.name, a.description, a.name,
+                 <location>{location}</location>\n  </agent>",
+                a.name, a.description,
             )
         })
         .collect();
@@ -223,16 +224,20 @@ mod tests {
     fn agents_uses_xml_format_with_location() {
         let dir = TempDir::new().unwrap();
         let agents = dir.path().join("agents");
-        fs::create_dir_all(&agents).unwrap();
 
+        let alpha = agents.join("alpha");
+        fs::create_dir_all(&alpha).unwrap();
         fs::write(
-            agents.join("zeta.md"),
-            "---\nname: zeta\ndescription: Z agent\ntools: []\n---\nBody\n",
+            alpha.join("agent.lua"),
+            r#"return { name = "alpha", description = "A agent", tools = {} }"#,
         )
         .unwrap();
+
+        let zeta = agents.join("zeta");
+        fs::create_dir_all(&zeta).unwrap();
         fs::write(
-            agents.join("alpha.md"),
-            "---\nname: alpha\ndescription: A agent\ntools: []\n---\nBody\n",
+            zeta.join("agent.lua"),
+            r#"return { name = "zeta", description = "Z agent", tools = {} }"#,
         )
         .unwrap();
 
@@ -240,7 +245,7 @@ mod tests {
         assert!(result.contains("<available_agents>"));
         assert!(result.contains("<name>alpha</name>"));
         assert!(result.contains("<description>A agent</description>"));
-        assert!(result.contains("<location>agents/alpha.md</location>"));
+        assert!(result.contains("<location>agents/alpha/agent.lua</location>"));
         assert!(result.contains("<name>zeta</name>"));
         assert!(result.contains("agent_control"));
 

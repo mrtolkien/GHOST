@@ -184,8 +184,12 @@ impl ReflectionManager {
                 }
             };
         let agent_findings = extract_agent_findings(&messages);
-        let classified =
-            classify_web_cache(&self.config.workspace, agent_findings.as_deref(), 1000);
+        let classified = classify_web_cache(
+            &self.config.workspace,
+            agent_session_id,
+            agent_findings.as_deref(),
+            1000,
+        );
 
         let prompt = build_fork_reflection_prompt(&self.config.workspace);
 
@@ -203,7 +207,8 @@ impl ReflectionManager {
                     logfire::warn!("reflection: failed to write state", error = e.to_string());
                 }
 
-                let curation = curate_references(&self.config.workspace, &classified);
+                let curation =
+                    curate_references(&self.config.workspace, agent_session_id, &classified);
                 let cited_count =
                     link_cited_edges(&self.db, &self.config.workspace, &classified).await;
 
@@ -260,7 +265,7 @@ impl ReflectionManager {
                 }
 
                 // Deterministic reference curation (replaces clear_web_cache)
-                let curation = curate_references(&self.config.workspace, &classified);
+                let curation = curate_references(&self.config.workspace, session_id, &classified);
 
                 // Create cited edges (note → reference) in the knowledge graph
                 let cited_count =
@@ -300,8 +305,12 @@ impl ReflectionManager {
         let agent_findings = extract_agent_findings(&messages);
         let transcript = filter_transcript(&messages);
 
-        let classified =
-            classify_web_cache(&self.config.workspace, agent_findings.as_deref(), 1000);
+        let classified = classify_web_cache(
+            &self.config.workspace,
+            session_id,
+            agent_findings.as_deref(),
+            1000,
+        );
         let web_cache_section = format_classified_cache(&classified);
 
         let message = build_reflection_user_message(
@@ -417,10 +426,11 @@ pub fn extract_source_urls(agent_findings: &str) -> Vec<String> {
 #[must_use]
 pub fn classify_web_cache(
     workspace: &Path,
+    session_id: &str,
     agent_findings: Option<&str>,
     preview_chars: usize,
 ) -> Vec<ClassifiedCacheFile> {
-    let cache_dir = workspace.join(".web-cache");
+    let cache_dir = workspace.join(".cache").join(session_id);
     if !cache_dir.exists() {
         return Vec::new();
     }
@@ -713,9 +723,9 @@ fn strip_skill_frontmatter(content: &str) -> String {
     }
 }
 
-/// Clear all files in the `.web-cache/` directory.
-pub fn clear_web_cache(workspace: &Path) -> Result<(), std::io::Error> {
-    let cache_dir = workspace.join(".web-cache");
+/// Clear all files in the `.cache/{session_id}/` directory.
+pub fn clear_web_cache(workspace: &Path, session_id: &str) -> Result<(), std::io::Error> {
+    let cache_dir = workspace.join(".cache").join(session_id);
     if !cache_dir.exists() {
         return Ok(());
     }
@@ -881,7 +891,11 @@ fn collect_note_sources_recursive(dir: &Path, out: &mut Vec<(String, Vec<String>
 /// - **Unused files from the captured list only** → delete
 /// - Files NOT in the captured list → untouched (belong to other sessions)
 #[tracing::instrument(skip_all, fields(total = classified.len()))]
-pub fn curate_references(workspace: &Path, classified: &[ClassifiedCacheFile]) -> CurationResult {
+pub fn curate_references(
+    workspace: &Path,
+    session_id: &str,
+    classified: &[ClassifiedCacheFile],
+) -> CurationResult {
     let mut result = CurationResult::default();
 
     if classified.is_empty() {
@@ -891,7 +905,7 @@ pub fn curate_references(workspace: &Path, classified: &[ClassifiedCacheFile]) -
     // Collect all URLs found in note bodies
     let note_urls = collect_note_urls(workspace);
 
-    let cache_dir = workspace.join(".web-cache");
+    let cache_dir = workspace.join(".cache").join(session_id);
 
     for file in classified {
         let cache_path = cache_dir.join(&file.filename);
@@ -1191,7 +1205,7 @@ mod tests {
     #[test]
     fn web_cache_clearing() {
         let dir = TempDir::new().unwrap();
-        let cache_dir = dir.path().join(".web-cache");
+        let cache_dir = dir.path().join(".cache").join("test-session");
         std::fs::create_dir_all(&cache_dir).unwrap();
 
         std::fs::write(cache_dir.join("file1.md"), "content").unwrap();
@@ -1199,7 +1213,7 @@ mod tests {
 
         assert!(cache_dir.join("file1.md").exists());
 
-        clear_web_cache(dir.path()).unwrap();
+        clear_web_cache(dir.path(), "test-session").unwrap();
 
         assert!(!cache_dir.join("file1.md").exists());
         assert!(!cache_dir.join("file2.md").exists());
@@ -1210,7 +1224,7 @@ mod tests {
     #[test]
     fn web_cache_clearing_missing_dir_is_ok() {
         let dir = TempDir::new().unwrap();
-        assert!(clear_web_cache(dir.path()).is_ok());
+        assert!(clear_web_cache(dir.path(), "nonexistent").is_ok());
     }
 
     #[test]
@@ -1336,7 +1350,7 @@ mod tests {
     #[test]
     fn classify_web_cache_matches_cited() {
         let dir = TempDir::new().unwrap();
-        let cache_dir = dir.path().join(".web-cache");
+        let cache_dir = dir.path().join(".cache").join("test-session");
         std::fs::create_dir_all(&cache_dir).unwrap();
 
         // Write a cache file with a URL in frontmatter
@@ -1354,7 +1368,7 @@ mod tests {
 
         let findings =
             "## Sources\n1. https://www.tomshardware.com/reviews/bambu-lab-p1s — review\n";
-        let classified = classify_web_cache(dir.path(), Some(findings), 500);
+        let classified = classify_web_cache(dir.path(), "test-session", Some(findings), 500);
 
         assert_eq!(classified.len(), 2);
         let cited: Vec<_> = classified.iter().filter(|f| f.cited).collect();
@@ -1372,7 +1386,7 @@ mod tests {
     #[test]
     fn classify_web_cache_empty_dir() {
         let dir = TempDir::new().unwrap();
-        let result = classify_web_cache(dir.path(), Some("no sources"), 500);
+        let result = classify_web_cache(dir.path(), "test-session", Some("no sources"), 500);
         assert!(result.is_empty());
     }
 
@@ -1422,7 +1436,7 @@ mod tests {
     #[test]
     fn curate_references_moves_cited_deletes_uncited() {
         let dir = TempDir::new().unwrap();
-        let cache_dir = dir.path().join(".web-cache");
+        let cache_dir = dir.path().join(".cache").join("test-session");
         std::fs::create_dir_all(&cache_dir).unwrap();
 
         // Create cache files
@@ -1454,7 +1468,7 @@ mod tests {
             },
         ];
 
-        let result = curate_references(dir.path(), &classified);
+        let result = curate_references(dir.path(), "test-session", &classified);
         assert_eq!(result.moved, 1);
         assert_eq!(result.deleted, 1);
 
@@ -1469,7 +1483,7 @@ mod tests {
     #[test]
     fn curate_references_skips_files_not_in_list() {
         let dir = TempDir::new().unwrap();
-        let cache_dir = dir.path().join(".web-cache");
+        let cache_dir = dir.path().join(".cache").join("test-session");
         std::fs::create_dir_all(&cache_dir).unwrap();
 
         // File from another session — not in the classified list
@@ -1485,7 +1499,7 @@ mod tests {
             preview: None,
         }];
 
-        let result = curate_references(dir.path(), &classified);
+        let result = curate_references(dir.path(), "test-session", &classified);
         assert_eq!(result.deleted, 1);
 
         // Other session's file untouched
@@ -1497,7 +1511,7 @@ mod tests {
     #[test]
     fn curate_references_url_in_notes_marks_as_used() {
         let dir = TempDir::new().unwrap();
-        let cache_dir = dir.path().join(".web-cache");
+        let cache_dir = dir.path().join(".cache").join("test-session");
         let notes_dir = dir.path().join("notes");
         std::fs::create_dir_all(&cache_dir).unwrap();
         std::fs::create_dir_all(&notes_dir).unwrap();
@@ -1524,7 +1538,7 @@ mod tests {
             preview: None,
         }];
 
-        let result = curate_references(dir.path(), &classified);
+        let result = curate_references(dir.path(), "test-session", &classified);
         assert_eq!(result.moved, 1, "URL in notes should trigger move");
         assert!(!cache_dir.join("article.md").exists());
         assert!(
@@ -1537,7 +1551,7 @@ mod tests {
     #[test]
     fn curate_references_scopes_under_note_topic() {
         let dir = TempDir::new().unwrap();
-        let cache_dir = dir.path().join(".web-cache");
+        let cache_dir = dir.path().join(".cache").join("test-session");
         let notes_dir = dir.path().join("notes/rust");
         std::fs::create_dir_all(&cache_dir).unwrap();
         std::fs::create_dir_all(&notes_dir).unwrap();
@@ -1563,7 +1577,7 @@ mod tests {
             preview: None,
         }];
 
-        let result = curate_references(dir.path(), &classified);
+        let result = curate_references(dir.path(), "test-session", &classified);
         assert_eq!(result.moved, 1);
 
         // Should be scoped under the note's first tag segment

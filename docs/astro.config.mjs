@@ -63,7 +63,6 @@ export default defineConfig({
             },
             { label: "Skills", slug: "features/skills" },
             { label: "Agents", slug: "features/agents" },
-            { label: "Jobs", slug: "features/jobs" },
             { label: "Web Research", slug: "features/web" },
             {
               label: "Tools",

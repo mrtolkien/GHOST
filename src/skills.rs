@@ -3,8 +3,8 @@ use std::path::{Path, PathBuf};
 
 const DEFAULT_SKILLS: &[(&str, &str)] = &[
     (
-        "cron-job-author",
-        include_str!("../prompts/skills/cron-job-author.md"),
+        "agent-creator",
+        include_str!("../prompts/skills/agent-creator.md"),
     ),
     (
         "knowledge-navigator",

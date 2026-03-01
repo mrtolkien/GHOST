@@ -176,8 +176,9 @@ async fn reboot_marks_old_session_and_creates_new_one() {
     assert_eq!(active, new_session);
 }
 
+/// Main chat does NOT inject TODO state — nudges are Lua-only (agents).
 #[tokio::test]
-async fn todo_state_is_injected_after_user_message() {
+async fn main_chat_does_not_inject_todo() {
     let (db, config, _workspace, _config_dir) = common::test_database().await;
     let session_id = ghost::db::sessions::create_session(&db)
         .await
@@ -205,36 +206,13 @@ async fn todo_state_is_injected_after_user_message() {
 
     let requests = requests.lock().expect("lock requests");
     let first = requests.first().expect("request");
-    assert!(
-        first
-            .system
-            .as_deref()
-            .unwrap_or_default()
-            .contains("GHOST")
-    );
-    let todo_message_index = first.messages.iter().position(|message| {
+    let has_todo = first.messages.iter().any(|message| {
         message.role == ghost::providers::Role::System
             && message.content.iter().any(
                 |block| matches!(block, ContentBlock::Text { text } if text.contains("Current TODO")),
             )
     });
-    assert!(
-        todo_message_index.is_some(),
-        "messages sent to provider: {:?}",
-        first.messages
-    );
-    let todo_message_index = todo_message_index.expect("todo injection");
-    let user_message_index = first
-        .messages
-        .iter()
-        .position(|message| {
-            message.role == ghost::providers::Role::User
-                && message.content.iter().any(
-                    |block| matches!(block, ContentBlock::Text { text } if text == "check todo"),
-                )
-        })
-        .expect("user message");
-    assert!(todo_message_index > user_message_index);
+    assert!(!has_todo, "main chat should not inject TODO state");
 }
 
 // ---------------------------------------------------------------------------

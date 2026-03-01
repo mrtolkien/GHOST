@@ -10,15 +10,17 @@ goes idle or an agent finishes research, reflection runs to organize what was
 learned into persistent knowledge — notes, diary entries, references, and
 identity file updates.
 
-Reflection is not a scheduled job. It triggers automatically based on activity:
+Reflection is not a scheduled task. It triggers automatically based on activity:
 
 - **After chat sessions** — when a conversation goes idle
-- **After agent research** — immediately when an agent hands off findings
+- **After agent research** — immediately when an agent completes
+
+Both reflection types are implemented as Lua agents with appropriate triggers.
 
 ## Chat Reflection
 
-When a chat session has been idle for the configured duration, GHOST spawns a
-dedicated `chat-reflection` agent that reviews the conversation transcript.
+The `reflection` agent has `trigger = "after_idle"` and runs when a chat
+session has been idle for the configured duration.
 
 ### What It Produces
 
@@ -30,21 +32,17 @@ dedicated `chat-reflection` agent that reviews the conversation transcript.
 
 ### How It Triggers
 
-A background watcher polls every 60 seconds. For each active chat session:
+The unified scheduler polls at the configured tick interval. For each active
+interface session:
 
-1. Check if the session has been idle longer than `reflection_idle_minutes`
-2. Check if there are new messages since the last reflection ran
-3. If both conditions are met, run chat reflection
-
-The dedup check prevents re-reflecting on the same conversation. The last
-reflection's handoff note is stored in `.state/reflection.last.md` — its
-file modification time serves as the "last reflected at" marker.
+1. Check if the session has been idle longer than `idle_minutes` (default 30)
+2. If the threshold is met, run the `reflection` agent
 
 ## Agent Reflection (Session Fork)
 
-After an agent completes research, GHOST continues the **same agent session**
-with a knowledge extraction prompt. This is called "session forking" — instead
-of spawning a separate reflection agent, the research agent switches modes.
+The `fork-reflection` agent has `trigger = "after_agent"` with
+`continue_trigger_session = true`. After an agent completes, the
+**same session** continues with a knowledge extraction prompt.
 
 ### Why Forking
 
@@ -61,17 +59,17 @@ same session:
 
 ### How It Works
 
-1. **Agent completes research** — the agent watcher detects the handoff
-2. **Web cache classified** — `.web-cache/` files are matched against the
-   agent's cited sources (URLs in the findings `## Sources` section)
-3. **Fork prompt injected** — a knowledge extraction prompt is appended to
-   the existing session, switching the model from research to curation mode
+1. **Agent completes** — the agent watcher detects the handoff
+2. **After-agent trigger fires** — the `fork-reflection` agent is found
+3. **Session continues** — because `continue_trigger_session = true`, the
+   completed agent's session continues with the knowledge extraction prompt
 4. **Model writes notes** — using `note_write`, `knowledge_search`, and
    `run_shell_command` to create structured notes following the note-writer
    skill
-5. **Post-processing** — cited web cache files are moved to `references/`,
-   uncited files are deleted, and `cited` edges are created in the knowledge
-   graph linking notes to their source references
+5. **Post-processing** — web cache curation via the `post_completion` hook
+
+The `should_trigger` hook skips execution when the completed agent is itself
+a reflection agent (prevents reflection loops).
 
 ### What It Produces
 
@@ -81,28 +79,15 @@ same session:
 | **References** | Web cache files promoted to `references/{topic}/{domain}/` |
 | **Citation edges** | Knowledge graph edges from notes to the references they cite |
 
-### The Fork Prompt
-
-The fork prompt tells the model to:
-
-1. Discover existing notes (avoid duplicates)
-2. Create a TODO plan listing every entity worth writing about
-3. Write notes following the note-writer skill conventions
-4. Verify completeness against the plan
-5. Hand off with a text-only summary
-
-The note-writer skill is inlined directly in the prompt so the model has full
-formatting instructions without needing to read a separate file.
-
 ## Configuration
 
 ```toml title="~/.config/ghost/config.toml"
 [timing]
-reflection_idle_minutes = 4  # Minutes idle before chat reflection triggers
+scheduler_tick_seconds = 60  # How often the scheduler polls
 ```
 
-Agent reflection has no timing config — it runs immediately when the agent
-hands off.
+The `reflection` agent's `idle_minutes` field controls when chat reflection
+triggers. Agent reflection runs immediately when any agent completes.
 
 ## Reference Curation
 
@@ -118,9 +103,3 @@ cache:
 
 This keeps the workspace clean while preserving source material for notes
 that reference it.
-
-## Serialization
-
-Both chat and agent reflection are serialized through a mutex — only one
-reflection can run at a time. This prevents race conditions when multiple
-sessions or agents complete close together.

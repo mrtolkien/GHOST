@@ -174,14 +174,36 @@ fn workspace_bootstrap_creates_identity_files() {
     assert!(workspace.path().join("BOOT.md").exists());
     assert!(workspace.path().join("SOUL.md").exists());
     assert!(workspace.path().join("OPERATOR.md").exists());
-    assert!(workspace.path().join("jobs").exists());
     assert!(workspace.path().join("skills").exists());
     assert!(workspace.path().join("agents").exists());
-    assert!(workspace.path().join(".web-cache").exists());
+    assert!(workspace.path().join(".cache").exists());
     assert!(workspace.path().join("notes").exists());
 
-    // Default agent installed
-    assert!(workspace.path().join("agents/deep-research.md").exists());
+    // Default agents installed as Lua folders
+    assert!(
+        workspace
+            .path()
+            .join("agents/deep-research/agent.lua")
+            .exists()
+    );
+    assert!(
+        workspace
+            .path()
+            .join("agents/deep-research/prompt.md")
+            .exists()
+    );
+    assert!(
+        workspace
+            .path()
+            .join("agents/fork-reflection/agent.lua")
+            .exists()
+    );
+    assert!(
+        workspace
+            .path()
+            .join("agents/reflection/agent.lua")
+            .exists()
+    );
 }
 
 #[test]

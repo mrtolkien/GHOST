@@ -199,14 +199,14 @@ async fn codex_turn_state_cache() {
     if debug_dir.exists() {
         for entry in std::fs::read_dir(&debug_dir).unwrap().flatten() {
             let path = entry.path();
-            if path.extension().is_some_and(|ext| ext == "json") {
-                if let Ok(content) = std::fs::read_to_string(&path) {
-                    eprintln!(
-                        "=== {} ===\n{}\n",
-                        path.file_name().unwrap_or_default().to_string_lossy(),
-                        &content[..content.len().min(500)]
-                    );
-                }
+            if path.extension().is_some_and(|ext| ext == "json")
+                && let Ok(content) = std::fs::read_to_string(&path)
+            {
+                eprintln!(
+                    "=== {} ===\n{}\n",
+                    path.file_name().unwrap_or_default().to_string_lossy(),
+                    &content[..content.len().min(500)]
+                );
             }
         }
     }

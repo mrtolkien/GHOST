@@ -50,7 +50,7 @@ pub async fn execute(command: WebCommand) -> Result<(), GhostError> {
                 }
             };
 
-            if let Err(e) = web::save_search_cache(&config.workspace, &query, &results) {
+            if let Err(e) = web::save_search_cache(&config.workspace, "cli", &query, &results) {
                 logfire::warn!("failed to cache search results", error = e.to_string(),);
             }
 
@@ -74,7 +74,7 @@ pub async fn execute(command: WebCommand) -> Result<(), GhostError> {
             let options = web::FetchOptions { readability, raw };
             let content = web::fetch(&url, &options, config.web.crawl4ai_url.as_deref()).await?;
 
-            match web::save_fetch_cache(&config.workspace, &url, &content) {
+            match web::save_fetch_cache(&config.workspace, "cli", &url, &content) {
                 Ok(path) => {
                     eprintln!("Cached to: {}", path.display());
                 }

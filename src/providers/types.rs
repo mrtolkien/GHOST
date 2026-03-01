@@ -9,7 +9,7 @@ use crate::config::{Config, ModelConfig};
 /// Reasoning effort level for models that support it.
 ///
 /// Resolution order (first `Some` wins):
-/// `ChatRequest.reasoning_effort` > `TaskDefinition.reasoning_effort`
+/// `ChatRequest.reasoning_effort` > `AgentConfig.reasoning_effort`
 /// > `ModelConfig.reasoning_effort` > default (`Medium`).
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]

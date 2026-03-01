@@ -1,8 +1,9 @@
+pub mod agent_runs;
+pub mod agent_state;
 mod connection;
 pub mod embeddings;
 mod error;
 pub mod interface_sessions;
-pub mod job_logs;
 pub mod knowledge;
 pub mod sessions;
 

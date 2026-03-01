@@ -49,7 +49,7 @@ impl Tool for WebFetch {
             .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
 
         // Cache for reflection to curate later
-        if let Err(e) = save_fetch_cache(&ctx.workspace, url, &content) {
+        if let Err(e) = save_fetch_cache(&ctx.workspace, &ctx.session_id, url, &content) {
             logfire::warn!("failed to cache fetch result", error = e.to_string(),);
         }
 

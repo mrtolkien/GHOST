@@ -427,8 +427,8 @@ async fn orphan_notes_detected() {
 
 #[tokio::test]
 async fn link_cited_edges_creates_note_to_reference_edges() {
-    use ghost::jobs::reflection::{ClassifiedCacheFile, link_cited_edges};
     use ghost::knowledge::{NoteFrontMatter, serialize_note};
+    use ghost::reflection::{ClassifiedCacheFile, link_cited_edges};
 
     let (db, config, _workspace, _config_dir) = common::test_database().await;
     let ws = &config.workspace;

@@ -5,15 +5,6 @@ pub enum TaskError {
     #[error("agent '{name}' not found")]
     NotFound { name: String },
 
-    #[error("invalid agent frontmatter: {reason}")]
-    InvalidFrontMatter { reason: String },
-
-    #[error("failed to parse agent frontmatter: {source}")]
-    FrontMatterParse {
-        #[source]
-        source: serde_yaml::Error,
-    },
-
     #[error("agent '{name}' is already running (agent_id: {agent_id})")]
     AlreadyRunning { name: String, agent_id: String },
 
@@ -25,6 +16,9 @@ pub enum TaskError {
 
     #[error("agent execution failed: {message}")]
     ExecutionFailed { message: String },
+
+    #[error("agent script error in '{agent}': {message}")]
+    ScriptError { agent: String, message: String },
 
     #[error(transparent)]
     Chat(#[from] crate::chat::ChatError),

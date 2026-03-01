@@ -15,6 +15,10 @@ struct Cli {
 enum Commands {
     Daemon,
     Init,
+    Agent {
+        #[command(subcommand)]
+        command: ghost::cli::agent::AgentCommand,
+    },
     Config {
         #[command(subcommand)]
         command: ghost::cli::config::ConfigCommand,
@@ -22,10 +26,6 @@ enum Commands {
     Auth {
         #[command(subcommand)]
         command: ghost::cli::auth::AuthCommand,
-    },
-    Job {
-        #[command(subcommand)]
-        command: ghost::cli::job::JobCommand,
     },
     Session {
         #[command(subcommand)]
@@ -56,9 +56,9 @@ async fn dispatch(command: Commands) -> Result<(), GhostError> {
     match command {
         Commands::Daemon => ghost::cli::daemon::execute().await,
         Commands::Init => ghost::cli::init::execute().await,
+        Commands::Agent { command } => ghost::cli::agent::execute(command).await,
         Commands::Config { command } => ghost::cli::config::execute(command).await,
         Commands::Auth { command } => ghost::cli::auth::execute(command).await,
-        Commands::Job { command } => ghost::cli::job::execute(command).await,
         Commands::Session { command } => ghost::cli::session::execute(command).await,
         Commands::Knowledge { command } => ghost::cli::knowledge::execute(command).await,
         Commands::Web { command } => ghost::cli::web::execute(command).await,

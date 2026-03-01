@@ -12,16 +12,7 @@ pub fn bootstrap_workspace(config: &Config) -> Result<(), ConfigError> {
         source,
     })?;
 
-    for dir in [
-        "jobs",
-        "skills",
-        "agents",
-        ".web-cache",
-        ".state",
-        "notes",
-        "references",
-        "diary",
-    ] {
+    for dir in ["skills", "agents", ".cache", "notes", "references", "diary"] {
         let path = config.workspace.join(dir);
         std::fs::create_dir_all(&path).map_err(|source| ConfigError::WriteFile { path, source })?;
     }
@@ -37,7 +28,7 @@ pub fn bootstrap_workspace(config: &Config) -> Result<(), ConfigError> {
         }
     })?;
 
-    crate::agents::definition::install_default_tasks(&config.workspace).map_err(|source| {
+    crate::agents::install_default_agents(&config.workspace).map_err(|source| {
         ConfigError::WriteFile {
             path: config.workspace.join("agents"),
             source,
