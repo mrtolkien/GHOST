@@ -20,6 +20,10 @@ primary for PoC).
 **Predecessor**: Reboot of `../t-koma`. Consult it for patterns; spec files link to
 relevant old code. Validate with user before carrying over behavior.
 
+**State**: We are currently in pre-alpha. The software is moving extremely fast. There
+is NO NEED FOR BACKWARDS COMPATIBILITY AT THE MOMENT. You are allowed to make breaking
+changes requiring re-creating the full GHOST workspace. Never care about migrations.
+
 ### Architecture
 
 - Single binary, single crate, CLI-first
@@ -92,8 +96,8 @@ tracing, thiserror, serde, toml, chrono, Ollama (HTTP API).
 
 - Small, atomic commits: `feat:`, `fix:`, `refactor:`, `test:`, `docs:`, `chore:`
 - Run `just ci` at each step. Offer PR via `gh` MCP when on a branch.
-- Integration tests with `live-tests` flag; unit tests only for complex logic.
-  Read `/testing` skill before writing any test.
+- Integration tests with `live-tests` flag; unit tests only for complex logic. Read
+  `/testing` skill before writing any test.
 
 ## Configuration
 

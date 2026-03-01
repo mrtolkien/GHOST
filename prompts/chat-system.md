@@ -211,5 +211,3 @@ When working on code tasks:
 {{ ghost_diary }}
 
 {{ ghost_skills }}
-
-{{ ghost_agents }}
