@@ -57,9 +57,12 @@ Before writing your handoff message, check your work against the entity list:
 
 - **Atomic**: one concept per note, 100-400 words typical.
 - **Specific**: exact names, numbers, versions, dates — never vague.
-- **Linked**: `[[Title]]` for default edges, `[[rel>Title]]` for typed edges.
-- **Tagged**: first tag = subfolder path (e.g. `rust/async`), lowercase,
-  slash-separated. Keep tags to 2 levels max.
+- **Linked**: always use typed edges `[[rel>Title]]` — never raw `[[Title]]`. Typed
+  edges make the graph navigable; untyped edges are noise.
+- **Tagged**: first tag = subfolder path, normally at least `topic/collection` depth
+  (e.g. `rust/async`, `cooking/techniques`). Root-level tags (e.g. `rust`) are allowed
+  when the note genuinely describes the topic itself rather than a subtopic within it.
+  Max depth is 3 levels (`topic/collection/subcollection`).
 - **Trust**: start at 5, raise with evidence, lower for speculation (1-10).
 
 ## Titles
@@ -77,20 +80,23 @@ Consistent titles prevent duplicates and make wiki links predictable.
 
 ## Linking (critical)
 
-Every entity note MUST contain at least one `[[wiki link]]`. If you mention another
-entity by name, wrap it: `[[Entity Name]]`.
+**Prefer typed edges** — use `[[rel>Title]]` over bare `[[Title]]` whenever a natural
+relationship label exists. Typed edges make the knowledge graph navigable: you can
+traverse by relationship kind (e.g. "show me everything this entity `uses`"). Bare
+`[[Title]]` links are acceptable when no clear relationship label fits, but they should
+be the exception.
+
+Every entity note MUST contain at least one link. If you mention another entity by name,
+link it — even if that entity doesn't have a note yet. Dangling links are fine; they
+create stubs that get filled in over time. Don't avoid linking just because the target
+note doesn't exist.
 
 Common patterns:
 
-- Entity notes → link related entities: `developed by [[Org Name]]`
-- Comparison notes → link all compared items: `[[Option A]] vs [[Option B]]`
-- Source quality notes → link domain context: `For [[Topic]] research...`
-
-When creating entity notes under a topic, link UP to the topic note:
-`Relevant to [[Topic Name]]`. This makes topic notes natural graph hubs with many
-incoming edges.
-
-Links create graph edges and stub notes. Use them liberally.
+- Entity notes → `[[created_by>Org Name]]`, `[[uses>Library]]`
+- Comparison notes → `[[compares>Option A]]` vs `[[compares>Option B]]`
+- Source quality notes → `[[about>Topic]]`
+- Entity under a topic → `[[about>Topic Name]]` (makes topic notes natural graph hubs)
 
 ## Archetypes
 
@@ -127,4 +133,5 @@ over creating new ones. Search what tags exist before creating notes.
 - Update existing notes over creating duplicates.
 - Notes under ~1500 characters index as a single embedding vector — keep concise.
 - Before creating notes, check existing folders and search for duplicates.
-- Include `[[wiki links]]` for every entity mentioned — this builds the knowledge graph.
+- Link every entity mentioned — prefer typed edges (`[[rel>Title]]`) to build a
+  navigable knowledge graph. Dangling links are fine.
