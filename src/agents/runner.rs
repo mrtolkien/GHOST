@@ -406,12 +406,16 @@ impl AgentRunner {
         &self,
         agent_session_id: &str,
         prompt: &str,
+        agent_name_override: Option<&str>,
     ) -> Result<(String, RunMetadata), AgentError> {
-        let agent_name = db::agent_runs::get_agent_name_for_session(&self.db, agent_session_id)
-            .await?
-            .ok_or_else(|| AgentError::AgentSessionNotFound {
-                agent_session_id: agent_session_id.to_string(),
-            })?;
+        let agent_name = match agent_name_override {
+            Some(name) => name.to_string(),
+            None => db::agent_runs::get_agent_name_for_session(&self.db, agent_session_id)
+                .await?
+                .ok_or_else(|| AgentError::AgentSessionNotFound {
+                    agent_session_id: agent_session_id.to_string(),
+                })?,
+        };
 
         let run_id =
             db::agent_runs::create_agent_run(&self.db, &agent_name, None, agent_session_id).await?;

@@ -400,6 +400,7 @@ struct LuaAgentHandler<'a> {
     started_at: std::time::Instant,
     iteration_count: usize,
     last_input_tokens: u32,
+    tool_counts: std::collections::HashMap<String, u32>,
     temporal_fire_count: usize,
     context_pressure_fired: bool,
     event_tx: Option<&'a EventSender>,
@@ -421,6 +422,13 @@ impl ToolLoopHandler for LuaAgentHandler<'_> {
         self.pending_todo_update = tool_uses
             .iter()
             .any(|t| t.get("name").and_then(Value::as_str) == Some("todo"));
+
+        // Accumulate tool usage counts for Lua nudges
+        for tool in tool_uses {
+            if let Some(name) = tool.get("name").and_then(Value::as_str) {
+                *self.tool_counts.entry(name.to_string()).or_insert(0) += 1;
+            }
+        }
 
         db::sessions::create_message_with_metadata(
             self.session_chat.db(),
@@ -504,18 +512,14 @@ impl ToolLoopHandler for LuaAgentHandler<'_> {
         if self.config.has_pre_turn {
             let state = self.build_pre_turn_state(&todo_items);
             match self.script_host.call_pre_turn(state) {
-                Ok(Some(nudge)) => {
-                    // Track temporal fire count by checking if nudge came from temporal
-                    self.temporal_fire_count = self.temporal_fire_count.saturating_add(
-                        if self.started_at.elapsed().as_secs() > 0 {
-                            1
-                        } else {
-                            0
-                        },
-                    );
+                Ok(Some(nudge_result)) => {
+                    self.temporal_fire_count += nudge_result.temporal_fired as usize;
+                    self.context_pressure_fired |= nudge_result.context_pressure_fired;
                     history.push(ChatMessage {
                         role: Role::System,
-                        content: vec![ContentBlock::Text { text: nudge }],
+                        content: vec![ContentBlock::Text {
+                            text: nudge_result.text,
+                        }],
                     });
                 }
                 Ok(None) => {}
@@ -599,7 +603,7 @@ impl LuaAgentHandler<'_> {
                 .max_iterations
                 .saturating_sub(self.iteration_count),
             elapsed_seconds: self.started_at.elapsed().as_secs(),
-            tool_counts: std::collections::HashMap::new(), // TODO: extract from history
+            tool_counts: self.tool_counts.clone(),
             last_input_tokens: self.last_input_tokens,
             context_window,
             todo_summary,
@@ -647,6 +651,7 @@ impl SessionChat {
             started_at: std::time::Instant::now(),
             iteration_count: 0,
             last_input_tokens: 0,
+            tool_counts: std::collections::HashMap::new(),
             temporal_fire_count: 0,
             context_pressure_fired: false,
             event_tx,
@@ -698,6 +703,7 @@ impl SessionChat {
             started_at: std::time::Instant::now(),
             iteration_count: 0,
             last_input_tokens: 0,
+            tool_counts: std::collections::HashMap::new(),
             temporal_fire_count: 0,
             context_pressure_fired: false,
             event_tx,

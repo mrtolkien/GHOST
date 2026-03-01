@@ -4,7 +4,7 @@ use mlua::prelude::*;
 use serde_json::Value;
 
 use super::bindings::{AgentContext, register_ctx};
-use super::types::{AgentConfig, AgentTrigger, LuaToolDef, PreTurnState};
+use super::types::{AgentConfig, AgentTrigger, LuaToolDef, NudgeResult, PreTurnState};
 use crate::providers::types::ReasoningEffort;
 
 const NUDGES_LUA: &str = include_str!("../../prompts/stdlib/nudges.lua");
@@ -75,8 +75,8 @@ impl ScriptHost {
         self.extract_config(&table)
     }
 
-    /// Call the `pre_turn(state)` hook. Returns the nudge string or None.
-    pub fn call_pre_turn(&self, state: PreTurnState) -> LuaResult<Option<String>> {
+    /// Call the `pre_turn(state)` hook. Returns a structured nudge result or None.
+    pub fn call_pre_turn(&self, state: PreTurnState) -> LuaResult<Option<NudgeResult>> {
         let globals = self.lua.globals();
         let agent_table: LuaTable = globals.get("__ghost_agent")?;
         let pre_turn: LuaValue = agent_table.get("pre_turn")?;
@@ -86,9 +86,26 @@ impl ScriptHost {
                 let result: LuaValue = f.call(state)?;
                 match result {
                     LuaValue::Nil => Ok(None),
-                    LuaValue::String(s) => Ok(Some(s.to_str()?.to_string())),
+                    LuaValue::String(s) => Ok(Some(NudgeResult {
+                        text: s.to_str()?.to_string(),
+                        temporal_fired: false,
+                        context_pressure_fired: false,
+                    })),
+                    LuaValue::Table(t) => {
+                        let text: String = t.get("text")?;
+                        let temporal_fired: bool =
+                            t.get::<Option<bool>>("temporal_fired")?.unwrap_or(false);
+                        let context_pressure_fired: bool = t
+                            .get::<Option<bool>>("context_pressure_fired")?
+                            .unwrap_or(false);
+                        Ok(Some(NudgeResult {
+                            text,
+                            temporal_fired,
+                            context_pressure_fired,
+                        }))
+                    }
                     other => Err(LuaError::external(format!(
-                        "pre_turn must return string or nil, got {other:?}"
+                        "pre_turn must return string, table, or nil, got {other:?}"
                     ))),
                 }
             }
@@ -930,7 +947,11 @@ mod tests {
         };
 
         let result = host.call_pre_turn(state).unwrap();
-        assert_eq!(result.as_deref(), Some("Hurry up! 5 iterations left."));
+        assert!(result.is_some());
+        let nudge = result.unwrap();
+        assert_eq!(nudge.text, "Hurry up! 5 iterations left.");
+        assert!(!nudge.temporal_fired);
+        assert!(!nudge.context_pressure_fired);
 
         // With plenty of remaining iterations
         let state2 = PreTurnState {
@@ -993,9 +1014,11 @@ mod tests {
 
         let result = host.call_pre_turn(state).unwrap();
         assert!(result.is_some());
-        let text = result.unwrap();
-        assert!(text.contains("<system-reminder>"));
-        assert!(text.contains("hurry up after 2 min"));
+        let nudge = result.unwrap();
+        assert!(nudge.text.contains("<system-reminder>"));
+        assert!(nudge.text.contains("hurry up after 2 min"));
+        assert!(nudge.temporal_fired);
+        assert!(!nudge.context_pressure_fired);
     }
 
     #[test]

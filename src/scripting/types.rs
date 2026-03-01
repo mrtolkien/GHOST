@@ -97,6 +97,14 @@ pub struct PreTurnState {
     pub context_pressure_fired: bool,
 }
 
+/// Structured result from a composed Lua nudge function.
+#[derive(Debug, Clone)]
+pub struct NudgeResult {
+    pub text: String,
+    pub temporal_fired: bool,
+    pub context_pressure_fired: bool,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TodoSummary {
     pub total: usize,

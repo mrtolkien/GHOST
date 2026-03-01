@@ -26,21 +26,35 @@ local function interpolate(text, vars)
 end
 
 --- Compose multiple nudge functions. Collects non-nil results and wraps them
---- in a single `<system-reminder>` block. Returns nil if no nudges fired.
----@param ... function  Nudge functions `(state) -> string|nil`
----@return function  `(state) -> string|nil`
+--- in a single `<system-reminder>` block. Returns a table with `text` and
+--- flag fields (`temporal_fired`, `context_pressure_fired`) for the Rust side.
+--- Nudge functions may return a plain string or a table with `text` + flags.
+---@param ... function  Nudge functions `(state) -> string|table|nil`
+---@return function  `(state) -> table|nil`
 function M.compose(...)
     local fns = {...}
     return function(state)
         local parts = {}
+        local temporal_fired = false
+        local context_pressure_fired = false
         for _, fn in ipairs(fns) do
             local result = fn(state)
             if result then
-                parts[#parts + 1] = result
+                if type(result) == "table" then
+                    parts[#parts + 1] = result.text
+                    if result.temporal_fired then temporal_fired = true end
+                    if result.context_pressure_fired then context_pressure_fired = true end
+                else
+                    parts[#parts + 1] = result
+                end
             end
         end
         if #parts == 0 then return nil end
-        return "<system-reminder>\n" .. table.concat(parts, "\n") .. "\n</system-reminder>"
+        return {
+            text = "<system-reminder>\n" .. table.concat(parts, "\n") .. "\n</system-reminder>",
+            temporal_fired = temporal_fired,
+            context_pressure_fired = context_pressure_fired,
+        }
     end
 end
 
@@ -85,7 +99,10 @@ function M.temporal(config)
         local messages = config.messages
         local idx = math.min(state.temporal_fire_count + 1, #messages)
         local minutes = math.floor(state.elapsed_seconds / 60)
-        return interpolate(messages[idx], { minutes = minutes })
+        return {
+            text = interpolate(messages[idx], { minutes = minutes }),
+            temporal_fired = true,
+        }
     end
 end
 
@@ -140,7 +157,10 @@ function M.context_pressure(config)
         end
         local ratio = state.last_input_tokens / state.context_window
         if ratio < config.threshold_pct then return nil end
-        return config.message
+        return {
+            text = config.message,
+            context_pressure_fired = true,
+        }
     end
 end
 

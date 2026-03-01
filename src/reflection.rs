@@ -195,7 +195,7 @@ impl ReflectionManager {
 
         match self
             .agent_runner
-            .continue_to_completion(agent_session_id, &prompt)
+            .continue_to_completion(agent_session_id, &prompt, None)
             .await
         {
             Ok((findings, _meta)) => {

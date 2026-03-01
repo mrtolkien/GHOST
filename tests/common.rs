@@ -442,7 +442,7 @@ impl LiveTestEnv {
         // Continue the SAME session
         let (findings, metadata) = self
             .agent_runner
-            .continue_to_completion(agent_session_id, &prompt)
+            .continue_to_completion(agent_session_id, &prompt, None)
             .await
             .expect("reflection fork continue_to_completion");
 

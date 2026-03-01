@@ -210,9 +210,13 @@ async fn check_completed_agents(
 
             tokio::spawn(async move {
                 if continue_session {
-                    // Continue the completed agent's session
+                    // Continue the completed agent's session with the after_agent's config
                     match agent_runner
-                        .continue_to_completion(&thing, "Continue with post-processing.")
+                        .continue_to_completion(
+                            &thing,
+                            "Continue with post-processing.",
+                            Some(&after_name),
+                        )
                         .await
                     {
                         Ok((_findings, _meta)) => {
