@@ -43,12 +43,11 @@ pub struct AgentConfig {
     pub schedule: Option<String>,
     pub idle_minutes: Option<u64>,
     pub tools: Vec<String>,
-    pub system_prompt: Option<String>,
     pub custom_tools: Vec<LuaToolDef>,
     pub skills: Vec<String>,
     pub continue_trigger_session: bool,
     // Hook presence flags (functions live in the Lua VM)
-    pub has_build_context: bool,
+    pub has_build: bool,
     pub has_pre_turn: bool,
     pub has_on_end_turn: bool,
     pub has_post_completion: bool,
@@ -67,11 +66,10 @@ impl Default for AgentConfig {
             schedule: None,
             idle_minutes: None,
             tools: Vec::new(),
-            system_prompt: None,
             custom_tools: Vec::new(),
             skills: Vec::new(),
             continue_trigger_session: false,
-            has_build_context: false,
+            has_build: false,
             has_pre_turn: false,
             has_on_end_turn: false,
             has_post_completion: false,
@@ -95,6 +93,20 @@ pub struct PreTurnState {
     pub todo_text: Option<String>,
     pub temporal_fire_count: usize,
     pub context_pressure_fired: bool,
+}
+
+/// Result of calling the `build(ctx, args)` hook.
+#[derive(Debug, Clone)]
+pub struct BuildResult {
+    pub system_prompt: String,
+    pub messages: Vec<BuildMessage>,
+}
+
+/// A single message returned from `build()`.
+#[derive(Debug, Clone)]
+pub struct BuildMessage {
+    pub role: String,
+    pub content: String,
 }
 
 /// Structured result from a composed Lua nudge function.

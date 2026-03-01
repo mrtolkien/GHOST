@@ -15,9 +15,16 @@ return {
 
     skills = { "note-writer" },
 
-    system_prompt = template.render(read_file("prompt.md"), {
-        date = os.date("%Y-%m-%d"),
-    }),
+    build = function(ctx, args)
+        return {
+            system_prompt = template.render(read_file("prompt.md"), {
+                date = os.date("%Y-%m-%d"),
+            }),
+            messages = {
+                { role = "user", content = args.prompt or "Begin knowledge extraction." },
+            },
+        }
+    end,
 
     --- Skip if the completed agent is itself a reflection agent.
     should_trigger = function(ctx)

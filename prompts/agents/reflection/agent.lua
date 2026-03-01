@@ -15,7 +15,14 @@ return {
 
     skills = { "knowledge-navigator", "note-writer" },
 
-    system_prompt = template.render(read_file("prompt.md"), {
-        date = os.date("%Y-%m-%d"),
-    }),
+    build = function(ctx, args)
+        return {
+            system_prompt = template.render(read_file("prompt.md"), {
+                date = os.date("%Y-%m-%d"),
+            }),
+            messages = {
+                { role = "user", content = args.prompt or "Begin reflection." },
+            },
+        }
+    end,
 }

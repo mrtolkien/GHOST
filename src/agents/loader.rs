@@ -231,6 +231,13 @@ pub fn validate_agent(workspace: &Path, name: &str) -> Vec<String> {
         errors.push("Missing required field: description".to_string());
     }
 
+    // Warn if build hook is missing
+    if !config.has_build {
+        errors.push(
+            "Missing build(ctx, args) function — agents must define a build hook".to_string(),
+        );
+    }
+
     // Validate tool names exist
     let known_tools = [
         "run_shell_command",
@@ -358,6 +365,7 @@ mod tests {
         let errors = validate_agent(dir.path(), "empty");
         assert!(errors.iter().any(|e| e.contains("name")));
         assert!(errors.iter().any(|e| e.contains("description")));
+        assert!(errors.iter().any(|e| e.contains("build")));
     }
 
     #[test]
@@ -406,6 +414,12 @@ mod tests {
                 name = "valid",
                 description = "A valid agent",
                 tools = { "web_search", "todo" },
+                build = function(ctx, args)
+                    return {
+                        system_prompt = "test",
+                        messages = {{ role = "user", content = args.prompt or "go" }},
+                    }
+                end,
             }"#,
         );
 

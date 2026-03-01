@@ -12,7 +12,7 @@ use crate::providers::{
     resolve_reasoning_effort,
 };
 use crate::scripting::ScriptHost;
-use crate::scripting::types::{PreTurnState, TodoSummary};
+use crate::scripting::types::{BuildResult, PreTurnState, TodoSummary};
 use crate::tools::{ToolContext, ToolManager, format_todo_injection};
 
 use super::convert::{
@@ -623,29 +623,38 @@ impl SessionChat {
     pub async fn run_agent(
         &self,
         session_id: &str,
-        prompt: &str,
-        system_prompt: String,
+        build_result: BuildResult,
         config: &crate::scripting::AgentConfig,
         script_host: &ScriptHost,
         event_tx: Option<&EventSender>,
     ) -> Result<(ChatResult, RunMetadata), ChatError> {
         let session_thing = parse_session_thing(session_id)?;
-        db::sessions::create_message(&self.db, &session_thing, "user", prompt).await?;
+
+        // Persist initial messages to DB and build provider history
+        let mut history = Vec::new();
+        for msg in &build_result.messages {
+            db::sessions::create_message(&self.db, &session_thing, &msg.role, &msg.content).await?;
+            let role = match msg.role.as_str() {
+                "assistant" => Role::Assistant,
+                "system" => Role::System,
+                _ => Role::User,
+            };
+            history.push(ChatMessage {
+                role,
+                content: vec![ContentBlock::Text {
+                    text: msg.content.clone(),
+                }],
+            });
+        }
 
         let model = self.default_model_name()?;
         let effort =
             resolve_reasoning_effort(None, config.reasoning_effort, self.model_reasoning_effort());
-        let mut history = vec![ChatMessage {
-            role: Role::User,
-            content: vec![ContentBlock::Text {
-                text: prompt.to_string(),
-            }],
-        }];
 
         let mut handler = LuaAgentHandler {
             session_chat: self,
             session_thing: &session_thing,
-            system_prompt,
+            system_prompt: build_result.system_prompt,
             config,
             script_host,
             started_at: std::time::Instant::now(),

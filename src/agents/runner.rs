@@ -579,32 +579,22 @@ async fn run_agent(
     let (agent_config, script_host) = load_agent_with_host(&config.workspace, agent_name)?;
     let script_host = Arc::new(script_host);
 
-    let mut system_prompt = agent_config.system_prompt.clone().unwrap_or_default();
-
-    // Wire build_context hook
-    if agent_config.has_build_context {
-        let ctx = AgentContext {
-            db: db.clone(),
-            workspace: config.workspace.clone(),
-            agent_slug: agent_name.to_string(),
-            session_id: agent_session_id.to_string(),
-            trigger_session_id: None,
-            trigger_agent_name: None,
-        };
-        match script_host.call_build_context(ctx) {
-            Ok(Some(extra)) => {
-                system_prompt = format!("{extra}\n\n{system_prompt}");
-            }
-            Ok(None) => {}
-            Err(e) => {
-                logfire::warn!(
-                    "build_context hook error, using original prompt",
-                    agent_name = agent_name.to_string(),
-                    error = e.to_string(),
-                );
-            }
-        }
-    }
+    // Call build(ctx, args) to get system prompt and initial messages
+    let ctx = AgentContext {
+        db: db.clone(),
+        workspace: config.workspace.clone(),
+        agent_slug: agent_name.to_string(),
+        session_id: agent_session_id.to_string(),
+        trigger_session_id: None,
+        trigger_agent_name: None,
+    };
+    let args = std::collections::HashMap::from([("prompt".into(), prompt.to_string())]);
+    let build_result = script_host
+        .call_build(ctx, args)
+        .map_err(|e| AgentError::ScriptError {
+            agent: agent_name.to_string(),
+            message: format!("build hook failed: {e}"),
+        })?;
 
     let provider = provider_for_alias(config, agent_config.model.as_deref())?;
 
@@ -623,8 +613,7 @@ async fn run_agent(
     let result = tokio::select! {
         res = session_chat.run_agent(
             agent_session_id,
-            prompt,
-            system_prompt,
+            build_result,
             &agent_config,
             &script_host,
             None,
@@ -683,32 +672,22 @@ async fn continue_agent_inner(
     let (agent_config, script_host) = load_agent_with_host(&config.workspace, agent_name)?;
     let script_host = Arc::new(script_host);
 
-    let mut system_prompt = agent_config.system_prompt.clone().unwrap_or_default();
-
-    // Wire build_context hook
-    if agent_config.has_build_context {
-        let ctx = AgentContext {
-            db: db.clone(),
-            workspace: config.workspace.clone(),
-            agent_slug: agent_name.to_string(),
-            session_id: agent_session_id.to_string(),
-            trigger_session_id: None,
-            trigger_agent_name: None,
-        };
-        match script_host.call_build_context(ctx) {
-            Ok(Some(extra)) => {
-                system_prompt = format!("{extra}\n\n{system_prompt}");
-            }
-            Ok(None) => {}
-            Err(e) => {
-                logfire::warn!(
-                    "build_context hook error, using original prompt",
-                    agent_name = agent_name.to_string(),
-                    error = e.to_string(),
-                );
-            }
-        }
-    }
+    // Call build(ctx, args) to get system prompt (messages ignored for continuation)
+    let ctx = AgentContext {
+        db: db.clone(),
+        workspace: config.workspace.clone(),
+        agent_slug: agent_name.to_string(),
+        session_id: agent_session_id.to_string(),
+        trigger_session_id: None,
+        trigger_agent_name: None,
+    };
+    let args = std::collections::HashMap::from([("prompt".into(), prompt.to_string())]);
+    let build_result = script_host
+        .call_build(ctx, args)
+        .map_err(|e| AgentError::ScriptError {
+            agent: agent_name.to_string(),
+            message: format!("build hook failed: {e}"),
+        })?;
 
     let provider = provider_for_alias(config, agent_config.model.as_deref())?;
 
@@ -728,7 +707,7 @@ async fn continue_agent_inner(
         res = session_chat.continue_agent(
             agent_session_id,
             prompt,
-            system_prompt,
+            build_result.system_prompt,
             &agent_config,
             &script_host,
             None,

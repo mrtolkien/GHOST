@@ -4,7 +4,9 @@ use mlua::prelude::*;
 use serde_json::Value;
 
 use super::bindings::{AgentContext, register_ctx};
-use super::types::{AgentConfig, AgentTrigger, LuaToolDef, NudgeResult, PreTurnState};
+use super::types::{
+    AgentConfig, AgentTrigger, BuildMessage, BuildResult, LuaToolDef, NudgeResult, PreTurnState,
+};
 use crate::providers::types::ReasoningEffort;
 
 const NUDGES_LUA: &str = include_str!("../../prompts/stdlib/nudges.lua");
@@ -162,29 +164,49 @@ impl ScriptHost {
         }
     }
 
-    /// Call the `build_context(ctx)` hook. Returns optional context string.
-    pub fn call_build_context(&self, ctx: AgentContext) -> LuaResult<Option<String>> {
+    /// Call the `build(ctx, args)` hook. Returns the system prompt and initial messages.
+    pub fn call_build(
+        &self,
+        ctx: AgentContext,
+        args: std::collections::HashMap<String, String>,
+    ) -> LuaResult<BuildResult> {
         register_ctx(&self.lua, ctx)?;
 
         let globals = self.lua.globals();
         let agent_table: LuaTable = globals.get("__ghost_agent")?;
-        let hook: LuaValue = agent_table.get("build_context")?;
+        let hook: LuaValue = agent_table.get("build")?;
 
         match hook {
             LuaValue::Function(f) => {
-                let globals = self.lua.globals();
                 let ctx_val: LuaValue = globals.get("ctx")?;
-                let result: LuaValue = f.call(ctx_val)?;
-                match result {
-                    LuaValue::Nil => Ok(None),
-                    LuaValue::String(s) => Ok(Some(s.to_str()?.to_string())),
-                    other => Err(LuaError::external(format!(
-                        "build_context must return string or nil, got {other:?}"
-                    ))),
+                let args_table = self.lua.create_table()?;
+                for (k, v) in &args {
+                    args_table.set(k.as_str(), v.as_str())?;
                 }
+                let result: LuaTable = f.call((ctx_val, args_table))?;
+
+                let system_prompt: String = result.get("system_prompt")?;
+
+                let mut messages = Vec::new();
+                let msgs_val: LuaValue = result.get("messages")?;
+                if let LuaValue::Table(msgs) = msgs_val {
+                    for pair in msgs.sequence_values::<LuaTable>() {
+                        let msg = pair?;
+                        let role: String = msg.get("role")?;
+                        let content: String = msg.get("content")?;
+                        messages.push(BuildMessage { role, content });
+                    }
+                }
+
+                Ok(BuildResult {
+                    system_prompt,
+                    messages,
+                })
             }
-            LuaValue::Nil => Ok(None),
-            _ => Err(LuaError::external("build_context must be a function")),
+            LuaValue::Nil => Err(LuaError::external(
+                "agent must define a build(ctx, args) function",
+            )),
+            _ => Err(LuaError::external("build must be a function")),
         }
     }
 
@@ -301,17 +323,11 @@ impl ScriptHost {
             _ => return Err(LuaError::external("skills must be a table")),
         };
 
-        // System prompt (pre-rendered by Lua)
-        let system_prompt: Option<String> = table.get("system_prompt")?;
-
         // Custom tools
         let custom_tools = self.extract_custom_tools(table)?;
 
         // Hook presence
-        let has_build_context = matches!(
-            table.get::<LuaValue>("build_context")?,
-            LuaValue::Function(_)
-        );
+        let has_build = matches!(table.get::<LuaValue>("build")?, LuaValue::Function(_));
         let has_pre_turn = matches!(table.get::<LuaValue>("pre_turn")?, LuaValue::Function(_));
         let has_on_end_turn =
             matches!(table.get::<LuaValue>("on_end_turn")?, LuaValue::Function(_));
@@ -334,11 +350,10 @@ impl ScriptHost {
             schedule,
             idle_minutes,
             tools,
-            system_prompt,
             custom_tools,
             skills,
             continue_trigger_session,
-            has_build_context,
+            has_build,
             has_pre_turn,
             has_on_end_turn,
             has_post_completion,
@@ -635,7 +650,7 @@ mod tests {
         assert!(matches!(config.trigger, AgentTrigger::Dispatch));
         assert!(!config.has_pre_turn);
         assert!(!config.has_on_end_turn);
-        assert!(!config.has_build_context);
+        assert!(!config.has_build);
     }
 
     #[test]
@@ -652,10 +667,14 @@ mod tests {
                 max_iterations = 30,
                 trigger = "dispatch",
                 tools = { "web_search", "web_fetch", "todo" },
-                system_prompt = "You are a research agent.",
+                build = function(ctx, args)
+                    return {
+                        system_prompt = "You are a research agent.",
+                        messages = {{ role = "user", content = args.prompt or "Begin." }},
+                    }
+                end,
                 pre_turn = function(state) return nil end,
                 on_end_turn = function(state) return nil end,
-                build_context = function(ctx) return {} end,
                 post_completion = function(ctx, result) end,
             }
             "#,
@@ -669,13 +688,9 @@ mod tests {
         assert_eq!(config.model.as_deref(), Some("fast"));
         assert_eq!(config.reasoning_effort, Some(ReasoningEffort::High));
         assert_eq!(config.max_iterations, 30);
-        assert_eq!(
-            config.system_prompt.as_deref(),
-            Some("You are a research agent.")
-        );
+        assert!(config.has_build);
         assert!(config.has_pre_turn);
         assert!(config.has_on_end_turn);
-        assert!(config.has_build_context);
         assert!(config.has_post_completion);
         assert!(!config.has_should_trigger);
     }
@@ -815,18 +830,24 @@ mod tests {
             dir.path(),
             r#"
             local content = read_file("prompt.md")
+            assert(content:find("Hello"), "read_file should load content")
             return {
                 name = "test",
                 description = "test",
                 tools = {},
-                system_prompt = content,
+                build = function(ctx, args)
+                    return {
+                        system_prompt = content,
+                        messages = {{ role = "user", content = "test" }},
+                    }
+                end,
             }
             "#,
         );
 
         let mut host = ScriptHost::new(&agent_dir, dir.path()).unwrap();
         let config = host.load_config().unwrap();
-        assert_eq!(config.system_prompt.as_deref(), Some("# Hello\nWorld"));
+        assert!(config.has_build);
     }
 
     #[test]
@@ -861,32 +882,19 @@ mod tests {
             dir.path(),
             r#"
             local skill = load_skill("note-writer")
+            assert(skill:find("Note Guide"), "guide")
+            assert(not skill:find("note%-writer"), "strip")
             return {
                 name = "test",
                 description = "test",
                 tools = {},
-                system_prompt = skill,
             }
             "#,
         );
 
         let agent_dir = dir.path().join("agents").join("test-agent");
         let mut host = ScriptHost::new(&agent_dir, dir.path()).unwrap();
-        let config = host.load_config().unwrap();
-        assert!(
-            config
-                .system_prompt
-                .as_deref()
-                .unwrap()
-                .contains("# Note Guide")
-        );
-        assert!(
-            !config
-                .system_prompt
-                .as_deref()
-                .unwrap()
-                .contains("name: note-writer")
-        );
+        host.load_config().unwrap();
     }
 
     #[test]
@@ -1134,7 +1142,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn build_context_returns_string() {
+    async fn build_hook_returns_system_prompt_and_messages() {
         let dir = test_workspace();
         write_agent_lua(
             dir.path(),
@@ -1143,8 +1151,13 @@ mod tests {
                 name = "test",
                 description = "test",
                 tools = {},
-                build_context = function(ctx)
-                    return "Extra context for " .. ctx.agent_slug
+                build = function(ctx, args)
+                    return {
+                        system_prompt = "Prompt for " .. ctx.agent_slug,
+                        messages = {
+                            { role = "user", content = args.prompt or "default" },
+                        },
+                    }
                 end,
             }
             "#,
@@ -1152,16 +1165,21 @@ mod tests {
 
         let agent_dir = dir.path().join("agents").join("test-agent");
         let mut host = ScriptHost::new(&agent_dir, dir.path()).unwrap();
-        host.load_config().unwrap();
+        let config = host.load_config().unwrap();
+        assert!(config.has_build);
 
         let db = test_db(dir.path()).await;
         let ctx = test_ctx(db, dir.path());
-        let result = host.call_build_context(ctx).unwrap();
-        assert_eq!(result.as_deref(), Some("Extra context for test-agent"));
+        let args = std::collections::HashMap::from([("prompt".into(), "Research topic X".into())]);
+        let result = host.call_build(ctx, args).unwrap();
+        assert_eq!(result.system_prompt, "Prompt for test-agent");
+        assert_eq!(result.messages.len(), 1);
+        assert_eq!(result.messages[0].role, "user");
+        assert_eq!(result.messages[0].content, "Research topic X");
     }
 
     #[tokio::test]
-    async fn build_context_returns_none_by_default() {
+    async fn build_hook_missing_returns_error() {
         let dir = test_workspace();
         write_agent_lua(
             dir.path(),
@@ -1176,11 +1194,13 @@ mod tests {
 
         let agent_dir = dir.path().join("agents").join("test-agent");
         let mut host = ScriptHost::new(&agent_dir, dir.path()).unwrap();
-        host.load_config().unwrap();
+        let config = host.load_config().unwrap();
+        assert!(!config.has_build);
 
         let db = test_db(dir.path()).await;
         let ctx = test_ctx(db, dir.path());
-        assert!(host.call_build_context(ctx).unwrap().is_none());
+        let result = host.call_build(ctx, std::collections::HashMap::new());
+        assert!(result.is_err());
     }
 
     #[tokio::test]
