@@ -1,6 +1,8 @@
 - [x] Make sure all 4 steps pass at least once
 - [x] Retry CLI tool for note creation
 - [x] Add more typed edge to note writer examples + better topics!
+- [x] Remove super verbose test output
+- [ ] Trydeep research `respond` tool: report, sources, negative_information
 - [ ] Add compaction to agents (pre-emptive or post-error + special compaction prompt)
 - [ ] Try chat session reflection fork -> LATER
 - [ ] Review reflection trigger (on compaction?)

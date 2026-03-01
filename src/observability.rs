@@ -55,7 +55,7 @@ pub fn init_for_live_tests() -> Result<DaemonObservability, ObservabilityError> 
     let mut result: Option<ObservabilityError> = None;
     INIT.call_once(|| {
         let _ = dotenvy::dotenv();
-        set_default_rust_log_filter();
+        set_default_rust_log_filter_for_tests();
         match logfire::configure()
             .with_service_name("GHOST")
             .with_environment("test")
@@ -118,6 +118,28 @@ fn set_default_rust_log_filter() {
         std::env::set_var(
             "RUST_LOG",
             "warn,ghost=info,usvg=off,resvg=off,html5ever=off",
+        );
+    }
+}
+
+fn set_default_rust_log_filter_for_tests() {
+    if std::env::var_os("RUST_LOG").is_some() {
+        return;
+    }
+
+    // Quieter defaults for tests: suppress provider request/response body
+    // logging (INFO-level in ghost::providers) which produces megabytes of
+    // output. Raw requests are still saved to debug/requests/ on disk via
+    // the debug.save_requests config flag.
+    //
+    // Override with RUST_LOG=warn,ghost=info,ghost::providers=debug to
+    // re-enable verbose provider logging when needed.
+    //
+    // SAFETY: test init sets process env before spawning runtime tasks.
+    unsafe {
+        std::env::set_var(
+            "RUST_LOG",
+            "warn,ghost=info,ghost::providers=warn,usvg=off,resvg=off,html5ever=off",
         );
     }
 }

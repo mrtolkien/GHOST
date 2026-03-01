@@ -783,7 +783,7 @@ impl Drop for LiveTestEnv {
             eprintln!("warning: failed to snapshot workspace: {e}");
         }
 
-        // Write JSON diagnostic (structured session data)
+        // Write JSON diagnostic (structured session data) — file only, not stderr
         let json_map = self.diagnostic_json.borrow();
         if !json_map.is_empty() {
             let json_value = serde_json::Value::Object(json_map.clone());
@@ -792,13 +792,9 @@ impl Drop for LiveTestEnv {
             if let Err(e) = fs::write(&json_path, &json_str) {
                 eprintln!("warning: failed to write diagnostic json: {e}");
             }
-            // Also print to stderr so --nocapture shows it
-            eprintln!("\n--- diagnostic json ({}) ---", self.test_name);
-            eprintln!("{json_str}");
-            eprintln!("--- end diagnostic json ---\n");
         }
 
-        // Write text log (freeform notes)
+        // Write text log (freeform notes) — file only, not stderr
         let log = self.diagnostic_log.borrow();
         if !log.is_empty() {
             let log_content = log.join("\n");
@@ -806,12 +802,20 @@ impl Drop for LiveTestEnv {
             if let Err(e) = fs::write(&log_path, &log_content) {
                 eprintln!("warning: failed to write diagnostic log: {e}");
             }
-            eprintln!("\n--- diagnostic log ({}) ---", self.test_name);
-            eprintln!("{log_content}");
-            eprintln!("--- end diagnostic log ---\n");
         }
 
-        eprintln!("e2e snapshot: {}", dest.display());
+        // Count raw request files saved by debug.save_requests
+        let requests_dir = dest.join("debug").join("requests");
+        let request_count = requests_dir
+            .read_dir()
+            .map(|rd| rd.filter_map(Result::ok).count())
+            .unwrap_or(0);
+
+        // One-line summary with paths to all artifacts
+        eprintln!(
+            "e2e snapshot: {} (diagnostic.json, diagnostic.log, {request_count} raw requests in debug/requests/)",
+            dest.display(),
+        );
 
         // Restore env vars
         match &self.prev_config_dir_env {
