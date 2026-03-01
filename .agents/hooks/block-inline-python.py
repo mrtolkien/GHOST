@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.11"
+# dependencies = []
+# ///
 """Claude Code PreToolUse hook: blocks inline data processing in bash.
 
 Enforces the Script-First Execution rule from CLAUDE.md.

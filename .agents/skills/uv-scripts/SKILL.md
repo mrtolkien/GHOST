@@ -2,9 +2,10 @@
 name: uv-scripts
 description: >-
   Writing and running Python code with uv inline scripts. MUST READ every time you need
-  to run Python code, execute multi-line shell logic, or build a one-off data processing
-  pipeline. Covers: inline dependency declarations, script placement, discoverability,
-  and why scripts beat giant shell one-liners.
+  to run ANY Python code, process JSON/data, execute multi-line shell logic, or feel
+  tempted to use python3 -c, jq, awk, or long bash pipes. ALWAYS search existing scripts
+  first (ls scripts/) and extend one before writing new. Covers: inline dependency
+  declarations, script placement, discoverability.
 ---
 
 # Python Scripts with uv (NON-NEGOTIABLE)
@@ -13,9 +14,9 @@ description: >-
 never paste 50+ lines into a shell command.** Scripts are reviewable, editable, and
 rerunnable. Shell one-liners are none of those things.
 
-## Before Writing a New Script
+## Before Writing a New Script (MANDATORY)
 
-Check what already exists:
+ALWAYS search existing scripts first:
 
 ```bash
 ls scripts/         # top-level scripts
@@ -23,8 +24,9 @@ ls scripts/e2e/     # e2e-specific tooling
 ls scripts/tmp/     # throwaway scripts
 ```
 
-If an existing script does what you need (or nearly does), extend it or reuse it instead
-of writing a new one.
+If an existing script does what you need (or nearly does), **extend it with new CLI
+flags/options** instead of writing a new script. Only create a new script when no
+existing one covers the domain.
 
 ## Where to Put Scripts
 

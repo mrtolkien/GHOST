@@ -1,195 +1,106 @@
 # GHOST — CLAUDE.md
 
-This file is the high-signal baseline for all agent runs. Feature-specific
-implementation details live in `specs/`.
-
-`AGENTS.md` is symlinked to this file.
+Baseline for all agent runs. `AGENTS.md` is symlinked here. Feature specs in `specs/`.
+Update this file when project-wide rules change or info becomes stale.
 
 ## HOW TO WORK
 
 ASK QUESTIONS ABOUT DESIGN. DON'T JUST START WRITING CODE.
 
-You are _great_ at writing code, but _horrendous_ at designing systems and products. You
-should make extremely few assumptions and regularly ask the user if your approach is
-right, and your understanding of the product and features are right. DO NOT MAKE
-ASSUMPTIONS ABOUT WHAT THE USER WANTS: ASK THEM.
-
-## CRUCIAL
-
-Always update this file when:
-
-- Project-wide core rules change
-- Information here is stale
-- An important assumption documented here is proven wrong
+You are _great_ at writing code, but _horrendous_ at designing systems and products.
+Make extremely few assumptions. Regularly ask if your approach and understanding are
+right. DO NOT MAKE ASSUMPTIONS ABOUT WHAT THE USER WANTS: ASK THEM.
 
 ## Project Overview
 
 GHOST is a personal AI agent platform. A single binary (`ghost`) runs one GHOST for one
-OPERATOR. It provides persistent memory, background jobs, and multi-interface
-communication (Discord as the primary interface for the PoC).
+OPERATOR — persistent memory, background jobs, multi-interface communication (Discord
+primary for PoC).
 
-### Predecessor
+**Predecessor**: Reboot of `../t-koma`. Consult it for patterns; spec files link to
+relevant old code. Validate with user before carrying over behavior.
 
-This project is a reboot of `../t-koma`. When implementing features, consult the old
-codebase for implementation patterns and prior art — individual spec files in `specs/`
-link to the relevant old code where useful. If you adapt behavior from t-koma, validate
-with the user that the behavior should carry over (the reboot intentionally changes
-several things).
+### Architecture
 
-### Architecture at a Glance
+- Single binary, single crate, CLI-first
+- One GHOST, one OPERATOR — identity in workspace files, not DB tables
+- SQLite (sqlx) + sqlite-vec (KNN) + FTS5 — Logfire for observability
+- Skills over tools — prefer agentskills.io skills + file reads over new tool APIs
 
-- Single binary, single crate
-- One GHOST, one OPERATOR — identity lives in workspace files, not database tables
-- SQLite (embedded via sqlx) for storage — sqlite-vec for vector KNN, FTS5 for full-text
-  search, typed edges for knowledge graph
-- Logfire for observability — mandatory tracing spans on all meaningful operations
-- CLI-first — all features accessible through direct commands (`ghost daemon`,
-  `ghost job validate`, etc.)
-- Skills over tools — prefer agentskills.io skills + file reads over adding new tool
-  APIs
+### Core Concepts
 
-## Core Concepts
+- **GHOST/OPERATOR**: AI agent / human user. One each per installation.
+- **Session**: Chat thread. **Job**: Markdown + YAML frontmatter, cron-scheduled.
+- **Knowledge**: Notes/references/diary in SQLite with graph edges + embeddings.
+- **Skill**: agentskills.io files in `$WORKSPACE/skills/`, read via file tools.
+- **Provider**: LLM backend (OpenRouter, Kimi, OpenAI OAuth/Codex Responses API).
 
-- **GHOST**: The AI agent. Identity defined by workspace files (BOOT.md, SOUL.md,
-  OPERATOR.md). One per installation.
-- **OPERATOR**: The human user. Identified by Discord user ID in config. One per
-  installation.
-- **Session**: Chat thread between OPERATOR and GHOST.
-- **Job**: Markdown file in `$WORKSPACE/jobs/` with YAML frontmatter. Cron-scheduled.
-  Heartbeat and reflection are dedicated subsystems (not regular jobs).
-- **Knowledge**: Notes, references, and diary entries stored in SQLite with typed graph
-  edges and embeddings search (sqlite-vec + FTS5).
-- **Skill**: agentskills.io-compatible files in `$WORKSPACE/skills/`. Read via standard
-  file tools.
-- **Provider**: LLM backend. Provider trait with implementations for OpenRouter, Kimi,
-  and OpenAI OAuth (Codex Responses API).
+## Design Philosophy
 
-## Workspace and Flow
-
-- Prefer small, atomic commits with conventional commit messages (`feat:`, `fix:`,
-  `refactor:`, `test:`, `docs:`, `chore:`).
-
-## Text-First Feature Design
-
-- Prefer plain text files in the GHOST workspace as the primary feature surface (jobs,
-  skills, identity files, knowledge notes).
-- Prefer skills + CLI workflows over adding new tool APIs.
-- Add a dedicated tool only when text + existing tools + CLI cannot deliver the feature
-  safely or ergonomically. Always ask the user before adding a tool.
-
-## Prompt Design
-
-See `specs/notes/prompt-design.md` for the full philosophy. Key rules:
-
-- **System prompt stays generic** — never add specialist knowledge or domain-specific
-  workflows. Conciseness reduces context fatigue.
-- **Specific workflows live in skills** — the skill's frontmatter `description` must be
-  strong enough to trigger the model to read it.
-- **Complex workflows get dedicated agents** — with their own prompts and optional
-  progress rules for runtime enforcement.
-- When debugging flaky model behavior, check the prompt layer (system/skill/agent) and
-  skill description strength before adding runtime hacks.
-
-## MCPs
-
-Make extensive use of MCPs available to you:
-
-- `context7` for up-to-date library documentation
-- `rust-analyzer-mcp` for refactors and code actions
-- `gh` for interacting with GitHub
-
-Prefer MCP-backed answers over assumptions for library/framework behavior.
+- **Text-first**: Plain text files as primary feature surface (jobs, skills, identity,
+  notes). Add a tool only when text + CLI can't deliver safely. Ask user first.
+- **Prompt design**: System prompt stays generic; specific workflows live in skills;
+  complex workflows get dedicated agents. See `specs/notes/prompt-design.md`.
+- **MCPs**: Use `context7`, `rust-analyzer-mcp`, `gh` extensively. Prefer MCP-backed
+  answers over assumptions.
 
 ## Code Quality Rules
 
+### Script-First Execution (NON-NEGOTIABLE)
+
+NEVER use `python3 -c`, `| jq`, `| awk`, or bash commands over ~80 chars for data
+processing. Instead:
+
+1. **Search first**: `ls scripts/` — find an existing script to extend or reuse
+2. Write a Python script to `scripts/<topic>/` with uv inline metadata (PEP 723)
+3. Run with `uv run scripts/<topic>/<name>.py [args]`
+4. Throwaway scripts go in `scripts/tmp/` (gitignored)
+
+Read the `/uv-scripts` skill before writing any script. A hook enforces this rule.
+
 ### Observability (NON-NEGOTIABLE)
 
-Instrument meaningful execution boundaries, not every function. Full conventions (span
-naming, OTel GenAI fields, span hierarchy) live in the `/tracing` skill — read it before
-adding or modifying any instrumentation.
+Instrument meaningful execution boundaries. Full conventions in `/tracing` skill — read
+before adding or modifying any instrumentation.
 
 ### Error Handling
 
-- Use `thiserror` for all error types — define domain-specific error enums
-- Do not use stringly-typed catch-all variants like `Config(String)` or
-  `Database(String)` for domain errors
-- Each module should define at least one local error enum once it has meaningful
-  behavior; convert into higher-level errors with `#[from]`
-- No `.unwrap()` or `.expect()` in production code (tests are fine)
-- Propagate errors with `?` — add context with `.map_err()` or a wrapper type
-- Log errors at the boundary where they are handled, not where they are created
-- Every error variant should carry enough context to diagnose the issue from logs alone
+- `thiserror` for all error types — domain-specific enums, not stringly-typed variants
+- No `.unwrap()`/`.expect()` in production (tests fine). Propagate with `?` + context.
+- One local error enum per module once it has behavior; convert up with `#[from]`
+- Log at handling boundary, not creation. Every variant must be self-diagnosable.
 
 ### Code Structure
 
-- Single crate, organized with modules.
-- If you need over 4 levels of indentation, break it into functions.
-- Add short `///` doc comments to public functions, structs, and traits that are
-  non-obvious — especially anything over ~50 lines. One or two sentences explaining
-  _what_ the function does and _why_, not restating the signature. Skip trivially
-  self-explanatory items (getters, simple constructors, trait method impls whose intent
-  is clear from the trait docs).
-- Avoid excess comments: code should be expressive and readable. If it requires
-  comments, it likely needs a refactor.
-- Break down complex systems into clear functions or traits, and if required, multiple
-  files with clear names.
-- A file over 500 LoC (excluding tests) likely means a design issue. Humans search code
-  through filenames.
-- Do not put logic in `mod.rs` files — they should be mostly barrel files (re-exports).
-- Prefer direct, domain-named module files when a module has one primary implementation:
-  use `src/config.rs`, not `src/config/service.rs` or similarly generic names.
-- Avoid generic filenames like `service.rs`, `manager.rs`, `utils.rs` unless scoped by a
-  domain folder containing multiple concrete modules.
+- Single crate. Max 4 levels of indentation — extract functions.
+- Short `///` docs on non-obvious public items (what + why, not signature restating).
+- Max ~500 LoC per file (excl. tests). No logic in `mod.rs` (barrel files only).
+- Domain-named files (`config.rs`), not generic names (`service.rs`, `utils.rs`).
 
 ### Rust Style
 
-- Use `just ci` to run format, check, clippy, and tests all at once. No need to run them
-  one by one.
-- Always fix all the issues in `just ci` before returning
-- Prefer `&str` over `String` in function parameters when ownership isn't needed.
-- Prefer `impl Trait` in argument position for flexibility.
-- Use `Arc` for shared state, not `Rc` (we are always async/multi-threaded).
-- Derive `Debug` on all public types.
-- Use `#[must_use]` on functions that return values that should not be ignored.
+- `just ci` for format + check + clippy + tests. Fix all issues before returning.
+- `&str` over `String` when ownership not needed. `impl Trait` in arguments.
+- `Arc` not `Rc`. `Debug` on all public types. `#[must_use]` where appropriate.
 
-### Dependencies
+### Dependencies (do not change without discussion)
 
-Core stack (do not change without discussion):
-
-- **Async runtime**: Tokio
-- **HTTP framework**: Axum
-- **HTTP client**: reqwest (rustls)
-- **Database**: SQLite (embedded via sqlx) + sqlite-vec + FTS5
-- **Discord**: serenity
-- **Observability**: logfire + tracing
-- **Error handling**: thiserror
-- **Serialization**: serde + format-specific crates
-- **Config**: toml
-- **Time**: chrono
-- **Embeddings**: Ollama (HTTP API)
+Tokio, Axum, reqwest (rustls), SQLite (sqlx) + sqlite-vec + FTS5, serenity, logfire +
+tracing, thiserror, serde, toml, chrono, Ollama (HTTP API).
 
 ## Development Flow
 
-Iterate until all spec items are built and tested:
-
-1. At each step, run `just ci`
-2. Once an atomic feature is complete, make a conventional commit.
-3. Offer the user to create a pull request with the `gh` MCP if working on a branch.
-
-## Testing Strategy
-
-Integration tests with `live-tests` feature flag; unit tests only for genuinely complex
-behaviors. Full conventions (helpers API, MockProvider, LiveTestEnv, readability rules,
-isolation rules) live in the `/testing` skill — read it before writing or modifying any
-test.
+- Small, atomic commits: `feat:`, `fix:`, `refactor:`, `test:`, `docs:`, `chore:`
+- Run `just ci` at each step. Offer PR via `gh` MCP when on a branch.
+- Integration tests with `live-tests` flag; unit tests only for complex logic.
+  Read `/testing` skill before writing any test.
 
 ## Configuration
 
-- Config file: `~/.config/ghost/config.toml` (non-sensitive settings)
-- Secrets: `.env` file or environment variables (API keys, tokens)
-- Workspace: `~/GHOST/` by default, configurable in `config.toml`
-- Path override: `GHOST_CONFIG_DIR` env var overrides config root
-- The GHOST can modify config through CLI commands (to minimize hand-editing failures)
+- Config: `~/.config/ghost/config.toml` (override: `GHOST_CONFIG_DIR` env var)
+- Secrets: `.env` / env vars. Never commit API keys.
+- Workspace: `~/GHOST/` default, configurable. GHOST modifies config via CLI commands.
+- Discord: `discord.allowed_user_id` required — rejects all other users.
 
 ## Project Layout
 
@@ -203,7 +114,7 @@ src/
 ├── config_workspace.rs  # Workspace bootstrapping
 ├── db/                  # SQLite schema (sqlx migrations), queries, connection
 │   └── knowledge/       # Notes, references, diary (crud, search, graph, stats)
-├── providers/           # Provider trait + implementations (OpenRouter, Kimi, OpenAI OAuth)
+├── providers/           # Provider trait + implementations
 ├── chat/                # Chat orchestration, session management, compaction
 │   └── tool_loop.rs     # Shared tool-use loop (ToolLoopHandler trait)
 ├── tools/               # Tool definitions and implementations
@@ -219,54 +130,12 @@ src/
 
 ## Formatting
 
-- Run `just fmt` to format everything
-- Line width: 88 characters (oxfmt for markdown/MDX/JSON/TOML, cargo fmt for Rust)
-- Docs content (`docs/src/content/**`) is excluded from oxfmt because Starlight's `:::`
-  admonition syntax is not supported by Prettier-compatible formatters
-- Terminology rule for docs/prose: always write `GHOST` and `OPERATOR` in all caps. Keep
-  real code/file identifiers (crate names, paths, variable names) unchanged.
+- `just fmt` — line width 88 (oxfmt for md/JSON/TOML, cargo fmt for Rust)
+- Docs content (`docs/src/content/**`) excluded from oxfmt (Starlight `:::` syntax)
+- Prose: `GHOST` and `OPERATOR` in all caps. Code identifiers unchanged.
 
-## Security
+## Documentation & Specs
 
-- Never commit API keys or tokens.
-- Use env vars / `.env` for secrets.
-- Discord bot requires `discord.allowed_user_id` in config — rejects all other users.
-
-## Documentation
-
-User-facing docs live in `docs/` (Astro Starlight). When making changes that affect
-user-facing behavior, read the `/docs` skill for file mappings and conventions.
-
-## Helper Scripts
-
-`scripts/` contains standalone Python scripts for analysis and automation. Use
-[uv inline script metadata](https://docs.astral.sh/uv/guides/scripts/#declaring-script-dependencies)
-so each script declares its own dependencies — no virtualenv or requirements.txt needed.
-
-Run with: `uv run scripts/<path> [args]` (examples: `uv run scripts/e2e`,
-`uv run scripts/e2e/refresh.py --models primary`)
-
-Rule (MANDATORY): always use simple, reusable Python scripts run with `uv` instead of
-complex multi-step bash commands when possible. Complex bash commands often require user
-approval and slow execution.
-
-When you need to do data processing, JSON analysis, or other tasks that are awkward in
-bash, **write a script to `scripts/` and run it with `uv run`** instead of inline
-bash/python one-liners. This keeps the logic reviewable and reusable.
-
-Current scripts:
-
-- `scripts/e2e` — Interactive launcher for e2e tooling (questionary picker)
-- `scripts/e2e/refresh.py` — Refresh step-based fixtures sequentially (model/step
-  selectors)
-- `scripts/e2e/render_log.py` — Render transcript JSON into readable markdown
-  (newest-first picker)
-- `scripts/e2e/diff.py` — Compare two fixture step outputs (interactive selector)
-- `scripts/e2e/analyze_request.py` — Inspect debug provider request payloads from
-  `e2e-output/`
-
-## Specs
-
-- `specs/TODO.md`: Ordered task list for reaching PoC. Each task references a spec file.
-- `specs/*.md`: One spec per feature/task.
-- `specs/backlog/*.md`: Future features not in the PoC path.
+- User-facing docs: `docs/` (Astro Starlight). Read `/docs` skill before changes.
+- `specs/TODO.md`: Ordered PoC task list. `specs/*.md`: Per-feature specs.
+- `specs/backlog/*.md`: Future features not in PoC path.
