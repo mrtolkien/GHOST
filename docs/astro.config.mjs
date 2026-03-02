@@ -43,6 +43,7 @@ export default defineConfig({
           label: "Features",
           items: [
             { label: "Chat & Sessions", slug: "features/chat" },
+            { label: "Compaction", slug: "features/compaction" },
             {
               label: "Knowledge",
               collapsed: false,

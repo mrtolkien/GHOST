@@ -306,6 +306,9 @@ fn render_messages_for_summary(messages: &[ChatMessage], preview_chars: usize) -
 ///
 /// `stored_message_ids` must be parallel to `messages` — one DB message ID
 /// per provider message. The cursor is set to the last summarized message's ID.
+///
+/// When `instructions` is provided, it is appended to the base compaction
+/// prompt as an "Additional instructions" section.
 #[tracing::instrument(skip_all, level = "debug", fields(
     total_messages = messages.len(),
     keep_window = config.keep_window,
@@ -317,6 +320,7 @@ pub async fn summarize_older_messages(
     messages: &[ChatMessage],
     stored_message_ids: &[String],
     config: &CompactionConfig,
+    instructions: Option<&str>,
 ) -> Result<CompactionResult, CompactionError> {
     let split = messages.len().saturating_sub(config.keep_window);
     let to_summarize = &messages[..split];
@@ -331,6 +335,11 @@ pub async fn summarize_older_messages(
         chars = conversation_text.len() as u64
     );
 
+    let system = match instructions {
+        Some(extra) => format!("{COMPACTION_PROMPT}\n\n## Additional instructions\n\n{extra}"),
+        None => COMPACTION_PROMPT.to_string(),
+    };
+
     let response: ChatResponse = provider
         .chat(ChatRequest {
             model: model.to_string(),
@@ -343,7 +352,7 @@ pub async fn summarize_older_messages(
             tools: None,
             max_tokens: Some(2048),
             temperature: Some(0.3),
-            system: Some(COMPACTION_PROMPT.to_string()),
+            system: Some(system),
             reasoning_effort: Some(ReasoningEffort::Low),
             cache_key: cache_key.to_string(),
             turn_state: None,
@@ -416,7 +425,7 @@ impl SessionChat {
             .map(|m| m.context_window as usize)
             .unwrap_or(200_000);
 
-        let compaction = &self.config().compaction;
+        let compaction = self.compaction_config();
         let tools = self.tool_manager().all_tool_schemas();
         let system_prompt = String::new(); // conservative: ignore system tokens
 
@@ -471,6 +480,7 @@ impl SessionChat {
             &masked,
             stored_message_ids,
             compaction,
+            compaction.instructions.as_deref(),
         )
         .await
         {
@@ -516,16 +526,8 @@ impl SessionChat {
     /// Lightweight Phase 1 masking during tool loops (no LLM call).
     #[tracing::instrument(skip_all, level = "debug")]
     pub(super) fn apply_masking_if_needed(&self, history: &mut Vec<ChatMessage>) {
-        let alias = &self.config().models.default;
-        let context_window = self
-            .config()
-            .models
-            .aliases
-            .get(alias)
-            .map(|m| m.context_window as usize)
-            .unwrap_or(200_000);
-
-        let compaction = &self.config().compaction;
+        let context_window = self.model_context_window();
+        let compaction = self.compaction_config();
         let tools = self.tool_manager().all_tool_schemas();
 
         let budget = compute_budget(context_window, "", &tools, history, compaction.threshold);
@@ -536,6 +538,155 @@ impl SessionChat {
 
         let keep_start = history.len().saturating_sub(compaction.keep_window);
         *history = mask_tool_results(history, keep_start, compaction.mask_preview_chars);
+    }
+
+    /// Full compaction (Phase 1 + Phase 2) for use during tool loops.
+    ///
+    /// Unlike `compact_if_needed` (called once per chat turn with pre-loaded
+    /// IDs), this loads stored message IDs from DB on demand when Phase 2 is
+    /// needed.
+    #[tracing::instrument(skip_all, level = "debug", fields(session_id = %session_id))]
+    pub(super) async fn compact_in_tool_loop(
+        &self,
+        session_id: &str,
+        history: &mut Vec<ChatMessage>,
+    ) {
+        let context_window = self.model_context_window();
+        let compaction = self.compaction_config();
+        let tools = self.tool_manager().all_tool_schemas();
+
+        let budget = compute_budget(context_window, "", &tools, history, compaction.threshold);
+
+        if !budget.needs_compaction {
+            return;
+        }
+
+        logfire::info!(
+            "Compaction triggered (tool loop)",
+            total = budget.total_estimated as u64,
+            window = budget.context_window as u64,
+            history = budget.history_tokens as u64
+        );
+
+        // Phase 1: mask tool results
+        let keep_start = history.len().saturating_sub(compaction.keep_window);
+        let masked = mask_tool_results(history, keep_start, compaction.mask_preview_chars);
+        let masked_tokens = estimate_history_tokens(&masked);
+
+        logfire::debug!(
+            "Phase 1 (tool loop): observation masking complete",
+            before = budget.history_tokens as u64,
+            after = masked_tokens as u64,
+            saved = budget.history_tokens.saturating_sub(masked_tokens) as u64
+        );
+
+        let total_after_mask = budget.system_tokens + budget.tool_tokens + masked_tokens;
+        let still_over =
+            total_after_mask as f64 > (budget.context_window as f64 * compaction.threshold);
+
+        if !still_over {
+            *history = masked;
+            return;
+        }
+
+        // Phase 2: LLM summarization
+        logfire::info!("Masking insufficient (tool loop) — proceeding to Phase 2");
+
+        let model_name = match self.default_model_name() {
+            Ok(m) => m,
+            Err(_) => {
+                *history = masked;
+                return;
+            }
+        };
+
+        // Load stored message IDs on demand
+        let stored_ids = match db::sessions::get_session_message_ids(self.db(), session_id).await {
+            Ok(ids) => ids,
+            Err(e) => {
+                logfire::warn!(
+                    "Failed to load message IDs for Phase 2 — using masked history",
+                    error = e.to_string()
+                );
+                *history = masked;
+                return;
+            }
+        };
+
+        // Build a parallel stored_message_ids vector matching the current
+        // history. The summary pseudo-message (if any) gets an empty string;
+        // remaining entries map to the DB IDs in order.
+        let session = match db::sessions::get_session(self.db(), session_id).await {
+            Ok(s) => s,
+            Err(_) => {
+                *history = masked;
+                return;
+            }
+        };
+
+        let mut parallel_ids = Vec::with_capacity(masked.len());
+        if session.compaction_summary.is_some() {
+            parallel_ids.push(String::new()); // summary pseudo-message
+        }
+        // The remaining history entries correspond to post-cursor messages
+        let cursor = &session.compaction_cursor_id;
+        let mut include = cursor.is_none();
+        for id in &stored_ids {
+            if !include {
+                include = Some(id.clone()) == *cursor;
+                continue;
+            }
+            parallel_ids.push(id.clone());
+        }
+
+        let cache_key = session_id.to_string();
+        match summarize_older_messages(
+            self.provider(),
+            &model_name,
+            &cache_key,
+            &masked,
+            &parallel_ids,
+            compaction,
+            compaction.instructions.as_deref(),
+        )
+        .await
+        {
+            Ok(result) => {
+                if let Err(e) = db::sessions::update_compaction(
+                    self.db(),
+                    session_id,
+                    &result.summary,
+                    &result.cursor_message_id,
+                )
+                .await
+                {
+                    logfire::error!(
+                        "Failed to persist compaction summary",
+                        error = e.to_string()
+                    );
+                    *history = masked;
+                    return;
+                }
+
+                match self.load_provider_history(session_id).await {
+                    Ok((reloaded, _ids)) => *history = reloaded,
+                    Err(e) => {
+                        logfire::error!(
+                            "Failed to reload history after compaction",
+                            error = e.to_string()
+                        );
+                        *history = masked;
+                    }
+                }
+            }
+            Err(e) => {
+                logfire::warn!(
+                    "Phase 2 summarization failed (tool loop) — using masked history",
+                    error = e.to_string()
+                );
+                *history = masked;
+            }
+        }
     }
 }
 

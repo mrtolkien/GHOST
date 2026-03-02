@@ -381,6 +381,26 @@ pub async fn count_messages_since(
     Ok(count.0.max(0) as usize)
 }
 
+/// Fetch all message IDs for a session, ordered by creation time.
+///
+/// Used by `compact_in_tool_loop` to obtain the `stored_message_ids` vector
+/// needed for Phase 2 summarization without loading full message content.
+#[tracing::instrument(skip_all, level = "debug", fields(session_id = %session_id))]
+pub async fn get_session_message_ids(
+    db: &SqlitePool,
+    session_id: &str,
+) -> Result<Vec<String>, DatabaseError> {
+    sqlx::query_scalar("SELECT id FROM message WHERE session_id = ? ORDER BY created_at ASC")
+        .bind(session_id)
+        .fetch_all(db)
+        .await
+        .map_err(|source| DatabaseError::Query {
+            table: "message",
+            operation: "get_session_message_ids",
+            source,
+        })
+}
+
 #[tracing::instrument(skip_all, level = "debug", fields(session_id = %session_id))]
 pub async fn get_interface_for_session(
     db: &SqlitePool,

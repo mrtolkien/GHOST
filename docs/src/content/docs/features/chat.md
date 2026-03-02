@@ -29,26 +29,12 @@ knowledge base, then fetching a web page, then composing a response.
 
 ## Compaction
 
-When the conversation approaches the model's context window limit (default: 85% full),
-GHOST automatically **compacts** the history:
+When the conversation approaches the model's context window limit, GHOST automatically
+compacts the history using a two-phase approach (tool result masking, then LLM
+summarization). This is transparent — the GHOST continues the conversation naturally.
 
-- Older messages are summarized into a compact form
-- The most recent messages (default: 20) are kept in full
-- Compaction is transparent — the GHOST continues the conversation naturally
-
-:::note
-Compaction is automatic and transparent. You don't need to manage context
-window usage manually.
-:::
-
-Configure in `config.toml`:
-
-```toml title="~/.config/ghost/config.toml"
-[compaction]
-threshold = 0.85 # Trigger at 85% context usage
-keep_window = 20 # Keep last 20 messages intact
-mask_preview_chars = 100
-```
+See [Compaction](/features/compaction/) for details on how it works, configuration
+options, and agent-specific overrides.
 
 ## Session Management
 

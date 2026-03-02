@@ -317,6 +317,24 @@ impl ScriptHost {
         // Custom tools
         let custom_tools = self.extract_custom_tools(table)?;
 
+        // Compaction overrides
+        let compaction = match table.get::<LuaValue>("compaction")? {
+            LuaValue::Table(t) => {
+                let threshold: Option<f64> = t.get("threshold")?;
+                let keep_window: Option<usize> = t.get("keep_window")?;
+                let mask_preview_chars: Option<usize> = t.get("mask_preview_chars")?;
+                let instructions: Option<String> = t.get("instructions")?;
+                Some(super::types::AgentCompactionOverrides {
+                    threshold,
+                    keep_window,
+                    mask_preview_chars,
+                    instructions,
+                })
+            }
+            LuaValue::Nil => None,
+            _ => return Err(LuaError::external("compaction must be a table")),
+        };
+
         // Hook presence
         let has_build = matches!(table.get::<LuaValue>("build")?, LuaValue::Function(_));
         let has_pre_turn = matches!(table.get::<LuaValue>("pre_turn")?, LuaValue::Function(_));
@@ -341,6 +359,7 @@ impl ScriptHost {
             tools,
             custom_tools,
             skills,
+            compaction,
             has_build,
             has_pre_turn,
             has_on_end_turn,

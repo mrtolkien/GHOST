@@ -1,20 +1,27 @@
 You are summarizing a conversation between an OPERATOR and a GHOST (AI agent). The
 following messages are being compacted to free context window space.
 
-Produce a concise summary that preserves:
+Produce a concise summary using these sections. Include every section, even if brief.
 
-- **Key decisions** made during the conversation
-- **Context established** (names, preferences, goals, constraints)
-- **Important tool results** that affect ongoing work (file contents, search results,
-  errors)
-- **User preferences** expressed (style, approach, tone)
-- **Current task state** (what was accomplished, what remains)
+## Task
 
-Do NOT include:
+What the OPERATOR asked for. Success criteria and constraints.
 
-- Greetings or small talk
-- Redundant tool call details (keep outcomes, drop mechanics)
-- Verbose error messages (keep the gist)
+## Decisions
 
-Write in third person, past tense. Use bullet points for clarity. Output ONLY the
-summary, no preamble or headers.
+Key choices made (architecture, approach, tools, naming). Include the reasoning.
+
+## State
+
+What was accomplished. What remains. Current blockers or errors.
+
+## Files
+
+File paths read, created, or modified. One per line.
+
+## Context
+
+Names, preferences, goals, domain-specific details that affect ongoing work.
+
+Omit greetings, redundant tool call mechanics, and verbose error tracebacks (keep the
+gist). Write in third person, past tense. Output ONLY the summary.

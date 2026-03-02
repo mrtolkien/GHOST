@@ -6,7 +6,7 @@ use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
 
 use crate::chat::{RunMetadata, SessionChat};
-use crate::config::Config;
+use crate::config::{CompactionConfig, Config};
 use crate::db;
 use crate::db::GhostDb;
 use crate::providers::provider_for_alias;
@@ -15,7 +15,7 @@ use crate::scripting::LuaMessage;
 use crate::scripting::ScriptHost;
 use crate::scripting::SpawnRequest;
 use crate::scripting::build_custom_tools;
-use crate::scripting::types::{AgentConfig, BuildResult};
+use crate::scripting::types::{AgentCompactionOverrides, AgentConfig, BuildResult};
 use crate::tools::ToolManager;
 
 use super::error::AgentError;
@@ -487,8 +487,12 @@ async fn setup_agent(
         tool_manager.register(custom_tool);
     }
 
+    let agent_compaction =
+        build_agent_compaction_config(&config.compaction, agent_config.compaction.as_ref());
+
     let session_chat = SessionChat::new(db.clone(), provider, tool_manager, config.clone())
-        .with_max_tool_iterations(agent_config.max_iterations);
+        .with_max_tool_iterations(agent_config.max_iterations)
+        .with_compaction_config(agent_compaction);
 
     Ok(AgentSetup {
         config: agent_config,
@@ -967,6 +971,40 @@ fn prompt_args(prompt: &str) -> HashMap<String, String> {
     HashMap::from([("prompt".into(), prompt.to_string())])
 }
 
+/// Build an agent-specific `CompactionConfig` by layering:
+/// 1. Agent defaults (keep_window=10, threshold=0.85)
+/// 2. Lua overrides from `agent_config.compaction` (any field present wins)
+/// 3. Global config `instructions` as fallback if the agent didn't specify any
+fn build_agent_compaction_config(
+    global: &CompactionConfig,
+    overrides: Option<&AgentCompactionOverrides>,
+) -> CompactionConfig {
+    // Agent defaults differ from chat defaults
+    let mut cfg = CompactionConfig {
+        threshold: 0.85,
+        keep_window: 10,
+        mask_preview_chars: 100,
+        instructions: global.instructions.clone(),
+    };
+
+    if let Some(o) = overrides {
+        if let Some(t) = o.threshold {
+            cfg.threshold = t;
+        }
+        if let Some(kw) = o.keep_window {
+            cfg.keep_window = kw;
+        }
+        if let Some(mpc) = o.mask_preview_chars {
+            cfg.mask_preview_chars = mpc;
+        }
+        if o.instructions.is_some() {
+            cfg.instructions = o.instructions.clone();
+        }
+    }
+
+    cfg
+}
+
 fn parse_agent_session_id(agent_id: &str) -> Result<String, AgentError> {
     if let Some((_table, id)) = agent_id.split_once(':') {
         if id.is_empty() {
@@ -991,5 +1029,79 @@ impl std::fmt::Debug for AgentHandle {
             .field("agent_name", &self.agent_name)
             .field("finished", &self.join_handle.is_finished())
             .finish()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn global_config() -> CompactionConfig {
+        CompactionConfig {
+            threshold: 0.85,
+            keep_window: 20,
+            mask_preview_chars: 100,
+            instructions: None,
+        }
+    }
+
+    #[test]
+    fn agent_compaction_defaults_without_overrides() {
+        let cfg = build_agent_compaction_config(&global_config(), None);
+
+        assert_eq!(cfg.keep_window, 10, "agent default differs from chat");
+        assert_eq!(cfg.threshold, 0.85);
+        assert_eq!(cfg.mask_preview_chars, 100);
+        assert!(cfg.instructions.is_none());
+    }
+
+    #[test]
+    fn agent_compaction_lua_overrides_win() {
+        let overrides = AgentCompactionOverrides {
+            keep_window: Some(8),
+            threshold: Some(0.70),
+            mask_preview_chars: None,
+            instructions: Some("Keep all URLs.".into()),
+        };
+
+        let cfg = build_agent_compaction_config(&global_config(), Some(&overrides));
+
+        assert_eq!(cfg.keep_window, 8);
+        assert_eq!(cfg.threshold, 0.70);
+        assert_eq!(cfg.mask_preview_chars, 100, "unset fields keep defaults");
+        assert_eq!(cfg.instructions.as_deref(), Some("Keep all URLs."));
+    }
+
+    #[test]
+    fn agent_compaction_inherits_global_instructions() {
+        let mut global = global_config();
+        global.instructions = Some("Global hint.".into());
+
+        let cfg = build_agent_compaction_config(&global, None);
+
+        assert_eq!(
+            cfg.instructions.as_deref(),
+            Some("Global hint."),
+            "agent inherits global instructions when no override"
+        );
+    }
+
+    #[test]
+    fn agent_compaction_lua_instructions_override_global() {
+        let mut global = global_config();
+        global.instructions = Some("Global hint.".into());
+
+        let overrides = AgentCompactionOverrides {
+            instructions: Some("Agent-specific.".into()),
+            ..Default::default()
+        };
+
+        let cfg = build_agent_compaction_config(&global, Some(&overrides));
+
+        assert_eq!(
+            cfg.instructions.as_deref(),
+            Some("Agent-specific."),
+            "Lua instructions replace global"
+        );
     }
 }

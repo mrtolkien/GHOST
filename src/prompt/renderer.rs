@@ -124,6 +124,7 @@ mod tests {
                 threshold: 0.7,
                 keep_window: 10,
                 mask_preview_chars: 200,
+                instructions: None,
             },
             web: WebConfig {
                 search_max_results: 5,

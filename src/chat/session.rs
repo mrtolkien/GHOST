@@ -33,6 +33,7 @@ pub struct SessionChat {
     prompt_renderer: PromptRenderer,
     max_tool_iterations: usize,
     agent_runner: Option<Arc<crate::agents::AgentRunner>>,
+    compaction_override: Option<config::CompactionConfig>,
 }
 
 impl std::fmt::Debug for SessionChat {
@@ -68,6 +69,7 @@ impl SessionChat {
             prompt_renderer,
             max_tool_iterations: DEFAULT_MAX_TOOL_ITERATIONS,
             agent_runner: None,
+            compaction_override: None,
         }
     }
 
@@ -81,6 +83,19 @@ impl SessionChat {
     pub fn with_agent_runner(mut self, runner: Arc<crate::agents::AgentRunner>) -> Self {
         self.agent_runner = Some(runner);
         self
+    }
+
+    #[must_use]
+    pub fn with_compaction_config(mut self, compaction: config::CompactionConfig) -> Self {
+        self.compaction_override = Some(compaction);
+        self
+    }
+
+    /// Return the effective compaction config (override if set, else global).
+    pub(super) fn compaction_config(&self) -> &config::CompactionConfig {
+        self.compaction_override
+            .as_ref()
+            .unwrap_or(&self.config.compaction)
     }
 
     #[tracing::instrument(name = "orchestrate response", skip_all, fields(session_id = session_id))]
@@ -244,7 +259,7 @@ impl SessionChat {
     }
 
     /// Context window size (in tokens) from the default model alias.
-    fn model_context_window(&self) -> usize {
+    pub(super) fn model_context_window(&self) -> usize {
         self.config
             .models
             .aliases
@@ -491,7 +506,9 @@ impl ToolLoopHandler for LuaAgentHandler<'_> {
         last_input_tokens: u32,
     ) -> Result<(), ChatError> {
         self.last_input_tokens = last_input_tokens;
-        self.session_chat.apply_masking_if_needed(history);
+        self.session_chat
+            .compact_in_tool_loop(self.session_thing, history)
+            .await;
 
         // Fetch TODO items for Lua state and UI events (injection is in Lua nudges)
         let todo_items =

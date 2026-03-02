@@ -130,6 +130,8 @@ pub struct CompactionSettings {
     pub threshold: Option<f64>,
     pub keep_window: Option<usize>,
     pub mask_preview_chars: Option<usize>,
+    /// Extra instructions appended to the compaction prompt.
+    pub instructions: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -215,6 +217,9 @@ pub struct CompactionConfig {
     pub threshold: f64,
     pub keep_window: usize,
     pub mask_preview_chars: usize,
+    /// Extra instructions appended to the compaction prompt.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub instructions: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -372,12 +377,16 @@ impl Config {
                     .compaction
                     .as_ref()
                     .and_then(|c| c.keep_window)
-                    .unwrap_or(12),
+                    .unwrap_or(20),
                 mask_preview_chars: settings
                     .compaction
                     .as_ref()
                     .and_then(|c| c.mask_preview_chars)
                     .unwrap_or(100),
+                instructions: settings
+                    .compaction
+                    .as_ref()
+                    .and_then(|c| c.instructions.clone()),
             },
             web: {
                 let search_provider = match settings.web.as_ref().and_then(|w| w.search.as_ref()) {
@@ -541,8 +550,9 @@ pub fn test_config(workspace: &std::path::Path) -> Config {
         },
         compaction: CompactionConfig {
             threshold: 0.85,
-            keep_window: 12,
+            keep_window: 20,
             mask_preview_chars: 100,
+            instructions: None,
         },
         web: WebConfig {
             search_max_results: 5,

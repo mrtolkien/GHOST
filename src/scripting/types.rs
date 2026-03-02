@@ -18,6 +18,15 @@ pub struct LuaToolDef {
     pub handler_key_index: usize,
 }
 
+/// Lua-level compaction overrides from the agent's `compaction` table.
+#[derive(Debug, Clone, Default)]
+pub struct AgentCompactionOverrides {
+    pub threshold: Option<f64>,
+    pub keep_window: Option<usize>,
+    pub mask_preview_chars: Option<usize>,
+    pub instructions: Option<String>,
+}
+
 /// Fully parsed agent configuration extracted from `agent.lua`.
 #[derive(Debug, Clone)]
 pub struct AgentConfig {
@@ -29,6 +38,7 @@ pub struct AgentConfig {
     pub tools: Vec<String>,
     pub custom_tools: Vec<LuaToolDef>,
     pub skills: Vec<String>,
+    pub compaction: Option<AgentCompactionOverrides>,
     // Hook presence flags (functions live in the Lua VM)
     pub has_build: bool,
     pub has_pre_turn: bool,
@@ -49,6 +59,7 @@ impl Default for AgentConfig {
             tools: Vec::new(),
             custom_tools: Vec::new(),
             skills: Vec::new(),
+            compaction: None,
             has_build: false,
             has_pre_turn: false,
             has_on_end_turn: false,
