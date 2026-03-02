@@ -127,7 +127,6 @@ pub async fn boot() -> Result<BootResult, GhostError> {
             Arc::clone(&session_chat),
             Arc::clone(&discord_sender),
             db.clone(),
-            config.workspace.clone(),
             shutdown_rx.clone(),
         ))
     } else {

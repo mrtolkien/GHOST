@@ -204,6 +204,10 @@ fn workspace_bootstrap_creates_identity_files() {
             .join("agents/chat-reflection/agent.lua")
             .exists()
     );
+    assert!(
+        workspace.path().join("agents/crontab.lua").exists(),
+        "crontab.lua should be installed by default"
+    );
 }
 
 #[test]

@@ -5,8 +5,6 @@ return {
     description = "Reflection on operator chat sessions",
 
     max_iterations = 30,
-    trigger = "after_idle",
-    idle_minutes = 30,
 
     tools = {
         "run_shell_command", "read_file", "write_file",

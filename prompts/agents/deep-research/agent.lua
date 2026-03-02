@@ -7,7 +7,6 @@ return {
 
     reasoning_effort = "high",
     max_iterations = 30,
-    trigger = "dispatch",
 
     tools = {
         "knowledge_search", "web_search", "web_fetch",
@@ -69,4 +68,8 @@ return {
         incomplete = "REJECTED — you have {incomplete} incomplete TODO item(s). Complete or "
             .. "mark them done/skipped before writing your final message.",
     }),
+
+    post_completion = function(ctx)
+        ctx:spawn_agent("fork-reflection", { session_id = ctx.session_id })
+    end,
 }

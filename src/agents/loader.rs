@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use crate::scripting::host::ScriptHost;
-use crate::scripting::types::{AgentConfig, AgentTrigger};
+use crate::scripting::types::AgentConfig;
 
 use super::error::AgentError;
 
@@ -107,50 +107,6 @@ pub fn load_agent_with_host(
     Ok((config, host))
 }
 
-/// Discover agents by trigger type.
-pub fn discover_agents_by_trigger(workspace: &Path, trigger: &AgentTrigger) -> Vec<AgentInfo> {
-    let agents_dir = workspace.join("agents");
-    let entries = match std::fs::read_dir(&agents_dir) {
-        Ok(entries) => entries,
-        Err(_) => return Vec::new(),
-    };
-
-    let mut result = Vec::new();
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if !path.is_dir() {
-            continue;
-        }
-        let agent_lua = path.join("agent.lua");
-        if !agent_lua.exists() {
-            continue;
-        }
-
-        let name = entry.file_name().to_string_lossy().to_string();
-        if let Ok(config) = load_agent(workspace, &name) {
-            let trigger_matches = matches!(
-                (&config.trigger, trigger),
-                (AgentTrigger::Dispatch, AgentTrigger::Dispatch)
-                    | (AgentTrigger::Schedule { .. }, AgentTrigger::Schedule { .. })
-                    | (
-                        AgentTrigger::AfterIdle { .. },
-                        AgentTrigger::AfterIdle { .. }
-                    )
-                    | (AgentTrigger::AfterAgent, AgentTrigger::AfterAgent)
-            );
-            if trigger_matches {
-                result.push(AgentInfo {
-                    name: config.name,
-                    description: config.description,
-                });
-            }
-        }
-    }
-
-    result.sort_by(|a, b| a.name.cmp(&b.name));
-    result
-}
-
 /// Embedded default agent files (agent.lua + prompt.md per agent).
 const DEFAULT_AGENTS: &[(&str, &[(&str, &str)])] = &[
     (
@@ -195,7 +151,8 @@ const DEFAULT_AGENTS: &[(&str, &[(&str, &str)])] = &[
 ];
 
 /// Install default agent folders into `$WORKSPACE/agents/`, always
-/// overwriting with the binary's built-in versions.
+/// overwriting with the binary's built-in versions. Also installs
+/// the default `crontab.lua`.
 pub fn install_default_agents(workspace: &Path) -> Result<(), std::io::Error> {
     let agents_dir = workspace.join("agents");
     std::fs::create_dir_all(&agents_dir)?;
@@ -207,6 +164,8 @@ pub fn install_default_agents(workspace: &Path) -> Result<(), std::io::Error> {
             std::fs::write(agent_dir.join(filename), content)?;
         }
     }
+
+    super::crontab::install_default_crontab(workspace)?;
 
     Ok(())
 }
@@ -254,15 +213,6 @@ pub fn validate_agent(workspace: &Path, name: &str) -> Vec<String> {
     for tool in &config.tools {
         if !known_tools.contains(&tool.as_str()) {
             errors.push(format!("Unknown tool: {tool}"));
-        }
-    }
-
-    // Validate cron expression if schedule trigger
-    if let AgentTrigger::Schedule { ref cron } = config.trigger {
-        // Prepend seconds field for the cron crate (it expects 7-field expressions)
-        let full = format!("0 {cron}");
-        if full.parse::<cron::Schedule>().is_err() {
-            errors.push(format!("Invalid cron expression: {cron}"));
         }
     }
 
@@ -383,25 +333,6 @@ mod tests {
                 .iter()
                 .any(|e| e.contains("Unknown tool: nonexistent_tool"))
         );
-    }
-
-    #[test]
-    fn validate_catches_invalid_cron() {
-        let dir = tempfile::TempDir::new().unwrap();
-        setup_lua_agent(
-            dir.path(),
-            "bad-cron",
-            r#"return {
-                name = "test",
-                description = "Test",
-                tools = {},
-                trigger = "schedule",
-                schedule = "not a cron",
-            }"#,
-        );
-
-        let errors = validate_agent(dir.path(), "bad-cron");
-        assert!(errors.iter().any(|e| e.contains("Invalid cron")));
     }
 
     #[test]
