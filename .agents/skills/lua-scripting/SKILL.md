@@ -36,7 +36,8 @@ prompts/
 
 1. `ScriptHost::new(agent_dir, workspace)` — creates Lua VM, sandboxes it, registers
    stdlib modules and host globals (`read_file`, `load_skill`, `json`, `print`)
-2. `load_config()` — executes `agent.lua`, extracts the returned table into `AgentConfig`
+2. `load_config()` — executes `agent.lua`, extracts the returned table into
+   `AgentConfig`
 3. Hook calls: `call_build()`, `call_pre_turn()`, `call_on_end_turn()`,
    `call_post_completion()`, `call_on_resume()` — invoke Lua functions via registry keys
 4. `call_custom_tool()` — dispatches a tool call to the Lua handler function
@@ -49,8 +50,8 @@ session's duration.
 
 `sandbox_lua()` in `host.rs` removes dangerous globals:
 
-- Removed: `os.execute`, `os.remove`, `os.rename`, `os.tmpname`, `os.exit`,
-  `io`, `loadfile`, `dofile`, `debug`
+- Removed: `os.execute`, `os.remove`, `os.rename`, `os.tmpname`, `os.exit`, `io`,
+  `loadfile`, `dofile`, `debug`
 - Kept: `os.date`, `os.time`, `os.clock`, `os.difftime`
 - `require()` is replaced with a custom loader that only resolves `ghost.*` modules
 
@@ -58,13 +59,13 @@ session's duration.
 
 Injected by `ScriptHost::new()`, available in all agent.lua files:
 
-| Global | Signature | Description |
-|--------|-----------|-------------|
-| `read_file(path)` | `string → string` | Read file relative to agent dir, sandboxed to workspace |
-| `load_skill(name)` | `string → string` | Read `skills/{name}/skill.md`, strips YAML frontmatter |
-| `json.encode(val)` | `any → string` | Serialize Lua value to JSON |
-| `json.decode(str)` | `string → any` | Parse JSON string to Lua value |
-| `print(...)` | `...any → ()` | Prints to stdout (sandboxed) |
+| Global             | Signature         | Description                                             |
+| ------------------ | ----------------- | ------------------------------------------------------- |
+| `read_file(path)`  | `string → string` | Read file relative to agent dir, sandboxed to workspace |
+| `load_skill(name)` | `string → string` | Read `skills/{name}/skill.md`, strips YAML frontmatter  |
+| `json.encode(val)` | `any → string`    | Serialize Lua value to JSON                             |
+| `json.decode(str)` | `string → any`    | Parse JSON string to Lua value                          |
+| `print(...)`       | `...any → ()`     | Prints to stdout (sandboxed)                            |
 
 ## ctx Bindings (AgentContext userdata)
 
@@ -73,34 +74,34 @@ Registered via `register_ctx()` when an agent has a database connection. Availab
 
 ### Fields (get/set)
 
-| Field | Type | Notes |
-|-------|------|-------|
-| `ctx.session_id` | `string` | Read-only |
-| `ctx.agent_slug` | `string` | Read-only |
-| `ctx.trigger_session_id` | `string?` | Read-only |
-| `ctx.workspace` | `string` | Read-only |
-| `ctx.system_prompt` | `string?` | Read/write — `on_resume` hook |
-| `ctx.messages` | `Message[]?` | Read/write — `on_resume` hook |
+| Field                    | Type         | Notes                         |
+| ------------------------ | ------------ | ----------------------------- |
+| `ctx.session_id`         | `string`     | Read-only                     |
+| `ctx.agent_slug`         | `string`     | Read-only                     |
+| `ctx.trigger_session_id` | `string?`    | Read-only                     |
+| `ctx.workspace`          | `string`     | Read-only                     |
+| `ctx.system_prompt`      | `string?`    | Read/write — `on_resume` hook |
+| `ctx.messages`           | `Message[]?` | Read/write — `on_resume` hook |
 
 ### Async Methods
 
-| Method | Signature | Description |
-|--------|-----------|-------------|
-| `ctx:get(key)` | `→ string?` | Get agent state KV |
-| `ctx:set(key, value)` | `→ ()` | Set agent state KV |
-| `ctx:delete(key)` | `→ ()` | Delete agent state KV |
-| `ctx:count_messages_since(sid, rfc3339)` | `→ integer` | Count messages after timestamp |
-| `ctx:list_interface_sessions()` | `→ {interface, session_id}[]` | All interface sessions |
-| `ctx:filter_transcript(sid)` | `→ string` | Filtered transcript for session |
-| `ctx:list_messages(sid)` | `→ {role, content, created_at}[]` | All messages in session |
-| `ctx:curate_web_cache()` | `→ {moved, deleted, edges}` | Classify + move web cache |
+| Method                                   | Signature                         | Description                     |
+| ---------------------------------------- | --------------------------------- | ------------------------------- |
+| `ctx:get(key)`                           | `→ string?`                       | Get agent state KV              |
+| `ctx:set(key, value)`                    | `→ ()`                            | Set agent state KV              |
+| `ctx:delete(key)`                        | `→ ()`                            | Delete agent state KV           |
+| `ctx:count_messages_since(sid, rfc3339)` | `→ integer`                       | Count messages after timestamp  |
+| `ctx:list_interface_sessions()`          | `→ {interface, session_id}[]`     | All interface sessions          |
+| `ctx:filter_transcript(sid)`             | `→ string`                        | Filtered transcript for session |
+| `ctx:list_messages(sid)`                 | `→ {role, content, created_at}[]` | All messages in session         |
+| `ctx:curate_web_cache()`                 | `→ {moved, deleted, edges}`       | Classify + move web cache       |
 
 ### Sync Methods
 
-| Method | Signature | Description |
-|--------|-----------|-------------|
-| `ctx:load_diary_today()` | `→ string?` | Today's diary entry |
-| `ctx:spawn_agent(name, args)` | `→ ()` | Queue child agent spawn |
+| Method                        | Signature   | Description             |
+| ----------------------------- | ----------- | ----------------------- |
+| `ctx:load_diary_today()`      | `→ string?` | Today's diary entry     |
+| `ctx:spawn_agent(name, args)` | `→ ()`      | Queue child agent spawn |
 
 ## AgentConfig Extraction
 
@@ -142,6 +143,7 @@ passed to `pre_turn(state)` and `on_end_turn(state)`:
 ## NudgeResult Contract
 
 `call_pre_turn()` expects the Lua function to return either:
+
 - `nil` — no nudge
 - A string — nudge text only
 - A table `{ text, temporal_fired, context_pressure_fired }` — full result

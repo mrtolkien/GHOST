@@ -186,5 +186,4 @@ mod tests {
         assert!(result.contains("ALWAYS read the full skill file"));
         assert!(result.contains("MUST follow"));
     }
-
 }

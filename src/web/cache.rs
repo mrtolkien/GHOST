@@ -319,10 +319,7 @@ mod tests {
             slug_from_url("https://www.example.com/page"),
             "example-com-page"
         );
-        assert_eq!(
-            slug_from_url("http://docs.rs/tokio"),
-            "docs-rs-tokio"
-        );
+        assert_eq!(slug_from_url("http://docs.rs/tokio"), "docs-rs-tokio");
     }
 
     #[test]

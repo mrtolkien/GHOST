@@ -11,11 +11,11 @@ description: >-
 # Self-Documentation
 
 You (Claude Code) are the primary consumer of `.agents/skills/`. These files are your
-persistent knowledge base for working on this codebase. They survive across sessions
-and make you effective from the first turn.
+persistent knowledge base for working on this codebase. They survive across sessions and
+make you effective from the first turn.
 
-**Core principle**: whenever you learn something useful that doesn't belong in CLAUDE.md,
-capture it in a skill so your future self doesn't have to rediscover it.
+**Core principle**: whenever you learn something useful that doesn't belong in
+CLAUDE.md, capture it in a skill so your future self doesn't have to rediscover it.
 
 ## When to Create or Update a Skill
 
@@ -37,8 +37,8 @@ public API — check if an existing skill references the old names and update it
 ### After debugging a non-obvious issue
 
 If you spent significant effort diagnosing something (e.g., "reqwest 0.13 renamed
-`rustls-tls` to `rustls`"), that's worth capturing. Future sessions shouldn't repeat
-the investigation.
+`rustls-tls` to `rustls`"), that's worth capturing. Future sessions shouldn't repeat the
+investigation.
 
 ### After discovering a pattern the codebase relies on
 
@@ -47,15 +47,15 @@ anywhere (e.g., "all provider errors use retry-after headers"), write it down.
 
 ## What Goes Where
 
-| Content | Destination | Why |
-|---------|-------------|-----|
-| Project-wide rules everyone must follow | `CLAUDE.md` | Always loaded, high visibility |
+| Content                                        | Destination                      | Why                                |
+| ---------------------------------------------- | -------------------------------- | ---------------------------------- |
+| Project-wide rules everyone must follow        | `CLAUDE.md`                      | Always loaded, high visibility     |
 | Subsystem-specific conventions & API reference | `.agents/skills/<name>/SKILL.md` | Loaded on demand via `/skill-name` |
-| Session-specific context, task state | Auto-memory (`memory/MEMORY.md`) | Lightweight, auto-managed |
-| Operator-facing workflows for the GHOST | `prompts/skills/<name>.md` | Embedded in binary, for runtime |
+| Session-specific context, task state           | Auto-memory (`memory/MEMORY.md`) | Lightweight, auto-managed          |
+| Operator-facing workflows for the GHOST        | `prompts/skills/<name>.md`       | Embedded in binary, for runtime    |
 
-**Rule of thumb**: if the information is needed *every* session, it goes in CLAUDE.md.
-If it's needed *when working on a specific subsystem*, it goes in a skill. If it's
+**Rule of thumb**: if the information is needed _every_ session, it goes in CLAUDE.md.
+If it's needed _when working on a specific subsystem_, it goes in a skill. If it's
 ephemeral or speculative, it goes in auto-memory (or nowhere).
 
 ## Skill File Format
@@ -66,9 +66,9 @@ Developer skills live in `.agents/skills/<name>/SKILL.md`:
 ---
 name: skill-name
 description: >-
-  One paragraph. Start with what it covers. Then say WHEN to read it (triggers).
-  The description is shown in the skill list — make it specific enough that you
-  know when to load the full file. Under 1024 chars.
+  One paragraph. Start with what it covers. Then say WHEN to read it (triggers). The
+  description is shown in the skill list — make it specific enough that you know when to
+  load the full file. Under 1024 chars.
 ---
 
 # Title
@@ -78,8 +78,8 @@ description: >-
 
 ### Description triggers
 
-The `description` field is what you see in the skill list. Write it so you'll know
-to load the skill at the right time. Good triggers:
+The `description` field is what you see in the skill list. Write it so you'll know to
+load the skill at the right time. Good triggers:
 
 - "MUST READ before modifying anything in src/scripting/"
 - "MUST READ before writing or modifying any test"
@@ -101,10 +101,10 @@ The GHOST runtime also has skills in `prompts/skills/`. These teach the GHOST ho
 perform operator tasks. Some are symlinked into `.agents/skills/` so you can read them
 too (e.g., `agent-creator`).
 
-| Directory | Audience | Loaded by |
-|-----------|----------|-----------|
-| `prompts/skills/` | GHOST runtime | Embedded in binary, installed to `$WORKSPACE/skills/` |
-| `.agents/skills/` | Claude Code (you) | Read via `/skill-name` in sessions |
+| Directory         | Audience          | Loaded by                                             |
+| ----------------- | ----------------- | ----------------------------------------------------- |
+| `prompts/skills/` | GHOST runtime     | Embedded in binary, installed to `$WORKSPACE/skills/` |
+| `.agents/skills/` | Claude Code (you) | Read via `/skill-name` in sessions                    |
 
 When modifying a runtime skill, remember it gets compiled into the binary via
 `include_str!()` in `src/skills.rs`.
@@ -113,11 +113,11 @@ When modifying a runtime skill, remember it gets compiled into the binary via
 
 Run this mentally before finishing any significant PR:
 
-1. **Did I change a subsystem that has a skill?** Grep: `rg "file_or_type_I_changed"
-   .agents/skills/`. Update any stale references.
-2. **Did I learn something non-obvious?** If yes, does it belong in an existing skill
-   or a new one?
+1. **Did I change a subsystem that has a skill?** Grep:
+   `rg "file_or_type_I_changed" .agents/skills/`. Update any stale references.
+2. **Did I learn something non-obvious?** If yes, does it belong in an existing skill or
+   a new one?
 3. **Are the description triggers still accurate?** Would you find the right skill when
    working on this feature next time?
-4. **Remove stale content** — delete sections about removed features, don't comment
-   them out.
+4. **Remove stale content** — delete sections about removed features, don't comment them
+   out.
