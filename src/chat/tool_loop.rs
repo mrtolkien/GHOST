@@ -3,6 +3,7 @@ use std::time::Duration;
 use async_trait::async_trait;
 use serde_json::Value;
 
+use crate::chat::compaction;
 use crate::providers::types::{DebugContext, ProviderError, ReasoningEffort};
 use crate::providers::{ChatMessage, ChatRequest, ContentBlock, Role, StopReason};
 
@@ -95,6 +96,30 @@ pub(super) async fn run_tool_loop(
     let mut turn_state: Option<String> = None;
 
     loop {
+        // Pre-send safety check: estimate token usage and compact if we'd
+        // exceed the context window. Normally post-response compaction keeps
+        // us under threshold, so this firing indicates a large tool result
+        // was appended since the last check.
+        {
+            let tools = session_chat.tool_manager().all_tool_schemas();
+            let budget = compaction::compute_budget(
+                session_chat.model_context_window(),
+                "",
+                &tools,
+                history,
+                session_chat.compaction_config().threshold,
+            );
+            if budget.needs_compaction {
+                logfire::warn!(
+                    "pre-send compaction triggered — history near context limit",
+                    total = budget.total_estimated as u64,
+                    window = budget.context_window as u64,
+                    threshold = session_chat.compaction_config().threshold,
+                );
+                handler.post_tool_iteration(history, 0).await?;
+            }
+        }
+
         let prompt = handler.system_prompt()?;
         let request = ChatRequest {
             model: model.to_string(),

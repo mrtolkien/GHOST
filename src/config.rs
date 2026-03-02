@@ -372,7 +372,7 @@ impl Config {
                     .compaction
                     .as_ref()
                     .and_then(|c| c.threshold)
-                    .unwrap_or(0.85),
+                    .unwrap_or(0.90),
                 keep_window: settings
                     .compaction
                     .as_ref()
@@ -549,7 +549,7 @@ pub fn test_config(workspace: &std::path::Path) -> Config {
             scheduler_tick_seconds: 10,
         },
         compaction: CompactionConfig {
-            threshold: 0.85,
+            threshold: 0.90,
             keep_window: 20,
             mask_preview_chars: 100,
             instructions: None,

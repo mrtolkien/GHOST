@@ -1004,7 +1004,7 @@ fn prompt_args(prompt: &str) -> HashMap<String, String> {
 }
 
 /// Build an agent-specific `CompactionConfig` by layering:
-/// 1. Agent defaults (keep_window=10, threshold=0.85)
+/// 1. Agent defaults (keep_window=10, threshold=0.90)
 /// 2. Lua overrides from `agent_config.compaction` (any field present wins)
 /// 3. Global config `instructions` as fallback if the agent didn't specify any
 fn build_agent_compaction_config(
@@ -1013,7 +1013,7 @@ fn build_agent_compaction_config(
 ) -> CompactionConfig {
     // Agent defaults differ from chat defaults
     let mut cfg = CompactionConfig {
-        threshold: 0.85,
+        threshold: 0.90,
         keep_window: 10,
         mask_preview_chars: 100,
         instructions: global.instructions.clone(),
@@ -1070,7 +1070,7 @@ mod tests {
 
     fn global_config() -> CompactionConfig {
         CompactionConfig {
-            threshold: 0.85,
+            threshold: 0.90,
             keep_window: 20,
             mask_preview_chars: 100,
             instructions: None,
@@ -1082,7 +1082,7 @@ mod tests {
         let cfg = build_agent_compaction_config(&global_config(), None);
 
         assert_eq!(cfg.keep_window, 10, "agent default differs from chat");
-        assert_eq!(cfg.threshold, 0.85);
+        assert_eq!(cfg.threshold, 0.90);
         assert_eq!(cfg.mask_preview_chars, 100);
         assert!(cfg.instructions.is_none());
     }

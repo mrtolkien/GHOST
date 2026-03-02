@@ -790,7 +790,7 @@ mod tests {
 
     #[test]
     fn compute_budget_no_compaction() {
-        let budget = compute_budget(200_000, "System prompt", &[], &[user_text("Hello")], 0.85);
+        let budget = compute_budget(200_000, "System prompt", &[], &[user_text("Hello")], 0.90);
         assert!(!budget.needs_compaction);
         assert!(budget.context_window > budget.total_estimated);
     }
@@ -798,8 +798,37 @@ mod tests {
     #[test]
     fn compute_budget_triggers_compaction() {
         let big = user_text(&"x".repeat(700_000)); // ~200K tokens
-        let budget = compute_budget(200_000, "System", &[], &[big], 0.85);
+        let budget = compute_budget(200_000, "System", &[], &[big], 0.90);
         assert!(budget.needs_compaction);
+    }
+
+    #[test]
+    fn compute_budget_threshold_boundary() {
+        // Build a history that uses exactly ~90_000 tokens against a 100K window.
+        // At 0.90 threshold (90K limit) it should trigger; at 0.89 it should not.
+        // estimate_tokens("x".repeat(n)) = ceil(n / 3.5), plus 4 per-message overhead.
+        // We want total ≈ 90_000. With one message: total = ceil(chars / 3.5) + 4.
+        // Solve: ceil(chars / 3.5) = 89_996 → chars = 89_996 * 3.5 = 314_986.
+        let chars = 314_986;
+        let msg = user_text(&"x".repeat(chars));
+        let total = estimate_history_tokens(std::slice::from_ref(&msg));
+        assert_eq!(total, 90_000, "sanity: estimated tokens should be 90_000");
+
+        // At 0.90 threshold → limit is 90_000 → triggers (90_000 > 90_000 is false,
+        // but we need strictly over). Add 1 more token worth of chars.
+        let msg_over = user_text(&"x".repeat(chars + 4)); // +4 chars ≈ +1 token
+        let budget_at_90 = compute_budget(100_000, "", &[], std::slice::from_ref(&msg_over), 0.90);
+        assert!(
+            budget_at_90.needs_compaction,
+            "should trigger at 0.90 threshold"
+        );
+
+        // At threshold 0.91 → limit is 91_000 → does not trigger
+        let budget_at_91 = compute_budget(100_000, "", &[], &[msg_over], 0.91);
+        assert!(
+            !budget_at_91.needs_compaction,
+            "should NOT trigger at 0.91 threshold"
+        );
     }
 
     // -----------------------------------------------------------------------
