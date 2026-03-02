@@ -21,10 +21,12 @@
 - [x] Message types? User, assistant, system?
 - [x] Review docs: flatter? "Features" is vague. Tools don't use the monospace font in
       the section titles.
-- [ ] Compaction reasoning level!
-- [ ] Review compaction: should we trigger failures sometimes?
+- [x] Review compaction: should we trigger failures sometimes?
+- [x] Compaction reasoning level!
 - [ ] Experimentations
   - [x] Try deep research `respond` tool: report, sources, negative_information
   - [x] Re-make agent reflection a fresh session instead of a fork
-  - [ ] Review standard reflection agent
+  - [x] Remove write note tool from deep research
+  - [x] Review standard reflection agent
   - [ ] Re-add an agent continuation test
+  - [ ] Review compaction token count

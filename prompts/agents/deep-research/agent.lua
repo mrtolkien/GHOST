@@ -21,7 +21,6 @@ return {
         "web_fetch",
         "read_file",
         "todo",
-        "note_write",
         "run_shell_command",
     },
 
