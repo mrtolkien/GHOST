@@ -9,12 +9,15 @@ default:
 fmt-rust:
     cargo fmt --all
 
+fmt-lua:
+    stylua .
+
 # Format markdown, MDX, JSON, and TOML files using oxfmt
-fmt-other:
+fmt-ox:
     npx oxfmt .
 
 # Format everything (Rust + Markdown/MDX/JSON/TOML)
-fmt: fmt-rust fmt-other
+fmt: fmt-rust fmt-ox fmt-lua
 
 # Run cargo check
 check:

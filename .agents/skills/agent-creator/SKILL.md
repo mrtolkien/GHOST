@@ -1,0 +1,1 @@
+/home/tolki/Development/ghost/prompts/skills/agent-creator.md

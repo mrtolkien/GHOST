@@ -15,14 +15,18 @@ local M = {}
 
 --- Interpolate placeholders like `{remaining}`, `{minutes}`, etc.
 local function interpolate(text, vars)
-    if not vars then return text end
-    return (text:gsub("{(%w+)}", function(key)
-        local val = vars[key]
-        if val ~= nil then
-            return tostring(val)
-        end
-        return "{" .. key .. "}"
-    end))
+    if not vars then
+        return text
+    end
+    return (
+        text:gsub("{(%w+)}", function(key)
+            local val = vars[key]
+            if val ~= nil then
+                return tostring(val)
+            end
+            return "{" .. key .. "}"
+        end)
+    )
 end
 
 --- Compose multiple nudge functions. Collects non-nil results and wraps them
@@ -32,7 +36,7 @@ end
 ---@param ... function  Nudge functions `(state) -> string|table|nil`
 ---@return function  `(state) -> table|nil`
 function M.compose(...)
-    local fns = {...}
+    local fns = { ... }
     return function(state)
         local parts = {}
         local temporal_fired = false
@@ -42,16 +46,24 @@ function M.compose(...)
             if result then
                 if type(result) == "table" then
                     parts[#parts + 1] = result.text
-                    if result.temporal_fired then temporal_fired = true end
-                    if result.context_pressure_fired then context_pressure_fired = true end
+                    if result.temporal_fired then
+                        temporal_fired = true
+                    end
+                    if result.context_pressure_fired then
+                        context_pressure_fired = true
+                    end
                 else
                     parts[#parts + 1] = result
                 end
             end
         end
-        if #parts == 0 then return nil end
+        if #parts == 0 then
+            return nil
+        end
         return {
-            text = "<system-reminder>\n" .. table.concat(parts, "\n") .. "\n</system-reminder>",
+            text = "<system-reminder>\n"
+                .. table.concat(parts, "\n")
+                .. "\n</system-reminder>",
             temporal_fired = temporal_fired,
             context_pressure_fired = context_pressure_fired,
         }
@@ -66,7 +78,9 @@ end
 ---@return function
 function M.iteration_countdown(rules)
     -- Sort by remaining ascending at definition time
-    table.sort(rules, function(a, b) return a.remaining < b.remaining end)
+    table.sort(rules, function(a, b)
+        return a.remaining < b.remaining
+    end)
 
     return function(state)
         local remaining = state.remaining
@@ -79,10 +93,12 @@ function M.iteration_countdown(rules)
                 if rule.remaining <= (best.remaining or math.huge) then
                     best = rule
                 end
-                break  -- already sorted, first match is the tightest
+                break -- already sorted, first match is the tightest
             end
         end
-        if not best then return nil end
+        if not best then
+            return nil
+        end
         return interpolate(best.message, { remaining = remaining })
     end
 end
@@ -113,7 +129,9 @@ function M.tool_count(config)
     return function(state)
         local counts = state.tool_counts or {}
         local count = counts[config.tool] or 0
-        if count == 0 then return nil end  -- don't nudge before first call
+        if count == 0 then
+            return nil
+        end -- don't nudge before first call
 
         local min = config.min
         local msg = config.message
@@ -151,12 +169,16 @@ end
 ---@return function
 function M.context_pressure(config)
     return function(state)
-        if state.context_pressure_fired then return nil end
+        if state.context_pressure_fired then
+            return nil
+        end
         if state.context_window == 0 or state.last_input_tokens == 0 then
             return nil
         end
         local ratio = state.last_input_tokens / state.context_window
-        if ratio < config.threshold_pct then return nil end
+        if ratio < config.threshold_pct then
+            return nil
+        end
         return {
             text = config.message,
             context_pressure_fired = true,
@@ -185,7 +207,9 @@ function M.progress_gate(config)
         end
 
         local todo = state.todo_summary
-        if not todo then return nil end
+        if not todo then
+            return nil
+        end
 
         if todo.total == 0 then
             return config.no_todo

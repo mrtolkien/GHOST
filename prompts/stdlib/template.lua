@@ -16,15 +16,19 @@ local M = {}
 ---@param vars table<string, string|number>  Key-value pairs to substitute
 ---@return string
 function M.render(text, vars)
-    if not vars then return text end
-    return (text:gsub("{{%s*(.-)%s*}}", function(key)
-        local val = vars[key]
-        if val ~= nil then
-            return tostring(val)
-        end
-        -- Leave unknown placeholders untouched
-        return "{{" .. key .. "}}"
-    end))
+    if not vars then
+        return text
+    end
+    return (
+        text:gsub("{{%s*(.-)%s*}}", function(key)
+            local val = vars[key]
+            if val ~= nil then
+                return tostring(val)
+            end
+            -- Leave unknown placeholders untouched
+            return "{{" .. key .. "}}"
+        end)
+    )
 end
 
 return M

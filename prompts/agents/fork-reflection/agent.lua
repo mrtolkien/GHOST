@@ -7,8 +7,12 @@ return {
     max_iterations = 30,
 
     tools = {
-        "run_shell_command", "read_file", "write_file",
-        "file_edit", "knowledge_search", "note_write",
+        "run_shell_command",
+        "read_file",
+        "write_file",
+        "file_edit",
+        "knowledge_search",
+        "note_write",
     },
 
     skills = { "note-writer" },

@@ -13,11 +13,11 @@
       ctx:list_messages(args.session_id)
 - [x] Recursive calling security
 - [ ] Remove agent descriptions, they don't serve any purpose
-- [ ] Add compaction to agents (pre-emptive or post-error + special compaction prompt)
 - [ ] Upgrade deps
 - [ ] Cleanup surrealdb references
-- [ ] Add lua formatter + tooling
 - [ ] Review CLAUDE skills (symlinks to agent skills for some?)
+- [ ] Add compaction to agents (pre-emptive or post-error + special compaction prompt)
+- [ ] Add lua formatter + tooling
 - [ ] Experimentations
   - [ ] Try deep research `respond` tool: report, sources, negative_information
   - [ ] Re-make agent reflection a fresh session instead of a fork

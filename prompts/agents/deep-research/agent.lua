@@ -9,8 +9,13 @@ return {
     max_iterations = 30,
 
     tools = {
-        "knowledge_search", "web_search", "web_fetch",
-        "read_file", "todo", "note_write", "run_shell_command",
+        "knowledge_search",
+        "web_search",
+        "web_fetch",
+        "read_file",
+        "todo",
+        "note_write",
+        "run_shell_command",
     },
 
     build = function(ctx, args)
