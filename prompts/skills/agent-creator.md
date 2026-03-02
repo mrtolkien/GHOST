@@ -16,8 +16,7 @@ Use this skill when the OPERATOR asks for background automation or scheduled tas
 
 ## Goal
 
-Design agents that run autonomously with clear trigger conditions and focused tool
-usage.
+Design agents that run autonomously with clear purpose and focused tool usage.
 
 ## Where Agents Live
 
@@ -37,15 +36,6 @@ return {
     name = "my-agent",
     description = "What this agent does",
 
-    -- Trigger (required) — determines when the agent runs
-    trigger = "dispatch",           -- manual via CLI or agent_control tool
-    -- trigger = "schedule",        -- cron-scheduled
-    -- schedule = "0 8 * * *",      -- 5-field cron (UTC), required when trigger = "schedule"
-    -- trigger = "after_idle",      -- runs after interface sessions go idle
-    -- idle_minutes = 30,           -- required when trigger = "after_idle"
-    -- trigger = "after_agent",     -- runs after another agent completes
-    -- continue_trigger_session = false, -- if true, continues the completed agent's session
-
     -- Model settings
     model = nil,                    -- nil = use default, or "fast", "strong", etc.
     reasoning_effort = nil,         -- nil, "low", "medium", "high"
@@ -61,28 +51,56 @@ return {
     -- Skills to inject (read via file tools)
     skills = { "note-writer" },
 
-    -- System prompt (use template.render for variable interpolation)
-    system_prompt = template.render(read_file("prompt.md"), {
-        date = os.date("%Y-%m-%d"),
-    }),
+    -- Build hook (required) — returns system prompt + initial messages
+    build = function(ctx, args)
+        return {
+            system_prompt = template.render(read_file("prompt.md"), {
+                date = os.date("%Y-%m-%d"),
+            }),
+            messages = {
+                { role = "user", content = args.prompt or "Begin." },
+            },
+        }
+    end,
 
-    -- Optional hooks (all receive a ctx object)
-    -- build_context = function(ctx) return "extra context" end,
-    -- pre_turn = function(ctx, state) return nil end,
-    -- on_end_turn = function(ctx, state) return nil end,
+    -- Optional hooks
+    -- pre_turn = nudges.compose(...),
+    -- on_end_turn = nudges.progress_gate(...),
     -- post_completion = function(ctx) end,
     -- should_trigger = function(ctx) return true end,
 }
 ```
 
-## Trigger Types
+## Scheduling
 
-| Trigger       | When it runs                                           | Required fields                       |
-| ------------- | ------------------------------------------------------ | ------------------------------------- |
-| `dispatch`    | Manual (CLI `ghost agent run` or `agent_control` tool) | —                                     |
-| `schedule`    | Cron schedule (UTC, 5-field)                           | `schedule = "0 8 * * *"`              |
-| `after_idle`  | After interface sessions idle for N minutes            | `idle_minutes = 30`                   |
-| `after_agent` | After another agent completes                          | `continue_trigger_session` (optional) |
+Agents are dispatch-only by default. To schedule your agent, add an entry to
+`$WORKSPACE/agents/crontab.lua`:
+
+```lua title="agents/crontab.lua"
+return {
+    { idle_minutes = 30, run = "chat-reflection" },
+    { cron = "0 9 * * 1", run = "weekly-digest" },  -- Monday 9:00 UTC
+}
+```
+
+Entry types:
+
+- `cron` — 5-field cron expression (UTC)
+- `idle_minutes` — trigger after interface sessions idle for N minutes
+
+## Chaining Agents
+
+To chain agents (run one after another), use `ctx:spawn_agent()` in `post_completion`:
+
+```lua
+post_completion = function(ctx)
+    ctx:spawn_agent("fork-reflection", {
+        session_id = ctx.session_id,
+    })
+end,
+```
+
+The child receives the full `args` table in its `build(ctx, args)` hook.
 
 ## Nudge Library (`ghost.nudges`)
 
@@ -167,12 +185,23 @@ local template = require("ghost.template")
 return {
     name = "weekly-digest",
     description = "Weekly summary of activity and knowledge",
-    trigger = "schedule",
-    schedule = "0 9 * * 1",  -- Monday 9:00 UTC
     max_iterations = 20,
     tools = { "knowledge_search", "read_file", "write_file", "run_shell_command" },
-    system_prompt = template.render(read_file("prompt.md"), {
-        date = os.date("%Y-%m-%d"),
-    }),
+    build = function(ctx, args)
+        return {
+            system_prompt = template.render(read_file("prompt.md"), {
+                date = os.date("%Y-%m-%d"),
+            }),
+            messages = {
+                { role = "user", content = args.prompt or "Create the weekly digest." },
+            },
+        }
+    end,
 }
+```
+
+Then add to `agents/crontab.lua`:
+
+```lua
+{ cron = "0 9 * * 1", run = "weekly-digest" },
 ```

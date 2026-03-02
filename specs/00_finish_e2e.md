@@ -6,15 +6,18 @@
 - [x] Remove super verbose test output
 - [x] Web cache per session
 - [x] Review prompt building system in Lua, messages types, ...
-- [ ] Validate Lua migration by running 4 steps e2e
-- [ ] Add lua formatter + tooling
-- [ ] Change trigger system: crontab + dispatch only -> deep research triggers
+- [x] Validate Lua migration by running 4 steps e2e
+- [x] Change trigger system: crontab + dispatch only -> deep research triggers
       reflection
+- [x] Review reflection building: fork-reflection uses
+      ctx:list_messages(args.session_id)
+- [x] Recursive calling security
+- [ ] Remove agent descriptions, they don't serve any purpose
 - [ ] Add compaction to agents (pre-emptive or post-error + special compaction prompt)
-- [ ] Experimentations
-  - [ ] Review reflection building: how to get all agent messages and cache, for
-        example?
-  - [ ] Try deep research `respond` tool: report, sources, negative_information
-  - [ ] Re-make agent reflection a fresh session
 - [ ] Upgrade deps
 - [ ] Cleanup surrealdb references
+- [ ] Add lua formatter + tooling
+- [ ] Review CLAUDE skills (symlinks to agent skills for some?)
+- [ ] Experimentations
+  - [ ] Try deep research `respond` tool: report, sources, negative_information
+  - [ ] Re-make agent reflection a fresh session instead of a fork
