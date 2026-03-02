@@ -18,12 +18,23 @@ async fn printer_3d_step_03_reflect_agent() {
         .clone()
         .expect("step_02 must provide agent_session_id");
 
+    // Extract the structured report data saved by step_02.
+    let report_data = prev
+        .assertion_markers
+        .get("report_data")
+        .and_then(|v| v.as_str())
+        .expect("step_02 must provide report_data in assertion_markers");
+
+    // Run the structured reflection agent — it receives only the report
+    // data (report, sources, secondary_info, negative_info), NOT the full
+    // research conversation. This tests whether structured output alone
+    // is sufficient for high-quality note extraction.
     let (findings, metadata) = tokio::time::timeout(
         Duration::from_secs(300),
-        env.run_reflection_fork(&agent_session),
+        env.run_structured_reflection(&agent_session, report_data),
     )
     .await
-    .expect("TIMEOUT: fork reflection did not complete in step_03");
+    .expect("TIMEOUT: structured reflection did not complete in step_03");
 
     assert!(
         !findings.trim().is_empty(),

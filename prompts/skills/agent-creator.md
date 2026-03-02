@@ -90,17 +90,32 @@ Entry types:
 
 ## Chaining Agents
 
-To chain agents (run one after another), use `ctx:spawn_agent()` in `post_completion`:
+To chain agents, use `ctx:spawn_agent()` in a terminal custom tool handler. The child
+receives the full `args` table in its `build(ctx, args)` hook:
 
 ```lua
-post_completion = function(ctx)
-    ctx:spawn_agent("fork-reflection", {
-        session_id = ctx.session_id,
-    })
-end,
+custom_tools = {
+    {
+        name = "report_findings",
+        description = "Submit findings and spawn reflection",
+        parameters = {
+            { name = "report", type = "string", required = true },
+            { name = "sources", type = "string", required = true },
+        },
+        terminal = true,
+        handler = function(ctx, args)
+            ctx:spawn_agent("deep-research-reflection", {
+                report = args.report,
+                sources = args.sources,
+            })
+            return "Reflection spawned."
+        end,
+    },
+},
 ```
 
-The child receives the full `args` table in its `build(ctx, args)` hook.
+You can also use `ctx:spawn_agent()` in `post_completion`, but terminal custom tools are
+preferred when the agent should decide what structured data to pass.
 
 ## Nudge Library (`ghost.nudges`)
 

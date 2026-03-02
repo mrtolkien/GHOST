@@ -14,7 +14,7 @@ Reflection is not a scheduled task in the traditional sense. It triggers
 automatically based on activity:
 
 - **After chat sessions** — when a conversation goes idle
-- **After agent research** — spawned by the agent's `post_completion` hook
+- **After agent research** — spawned by the agent's `report_findings` handler
 
 Both reflection types are implemented as [Lua agents](/agents/introduction/).
 
@@ -41,31 +41,34 @@ interface session:
    `crontab.lua`)
 2. If the threshold is met, run the `chat-reflection` agent
 
-## Agent Reflection (Fork-Reflection)
+## Agent Reflection (Deep-Research-Reflection)
 
-The `fork-reflection` agent is spawned by `deep-research`'s
-`post_completion` hook via `ctx:spawn_agent()`. It receives the
-parent's `session_id` in its args and loads the full research
-transcript in its `build()` hook using `ctx:list_messages()`.
+The `deep-research-reflection` agent is spawned by the `report_findings`
+terminal custom tool in `deep-research`. When deep-research calls
+`report_findings`, the tool's handler passes structured data (report,
+sources, secondary info, negative info) to the reflection agent via
+`ctx:spawn_agent()`.
 
 ### Why This Approach
 
-The research agent has the full context of what it found, what sources were
-good or bad, what dead ends it hit, and what caveats apply. By loading the
-parent session's messages:
+Instead of loading the full research transcript, the reflection agent
+receives only curated, structured data from the research agent:
 
-- **Full reasoning chain available** — the model sees everything the research
-  agent found, including negative evidence and rejected sources
-- **Higher quality notes** — empirically produces richer notes with better
-  negative-evidence coverage compared to a cold-start reflection
+- **Focused input** — the research agent distills its findings into a
+  report, sources list, secondary info, and negative evidence
+- **Higher quality notes** — the model works from organized data rather
+  than parsing a long transcript
+- **Lower token cost** — structured data is much smaller than the full
+  conversation history
 
 ### How It Works
 
-1. **Agent completes** — deep-research finishes its tool loop
-2. **`post_completion` fires** — calls
-   `ctx:spawn_agent("fork-reflection", { session_id = ctx.session_id })`
-3. **fork-reflection starts** — its `build()` loads the parent session's
-   messages via `ctx:list_messages(args.session_id)`
+1. **Agent calls `report_findings`** — deep-research submits its final
+   report via the terminal custom tool
+2. **Handler spawns reflection** — the `report_findings` handler calls
+   `ctx:spawn_agent("deep-research-reflection", { report, sources, secondary_info, negative_info })`
+3. **deep-research-reflection starts** — its `build()` receives the
+   structured data in `args` and renders it into the system prompt
 4. **Model writes notes** — using `note_write`, `knowledge_search`, and
    `run_shell_command` to create structured notes following the note-writer
    skill

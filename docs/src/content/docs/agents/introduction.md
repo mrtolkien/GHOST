@@ -57,21 +57,22 @@ GHOST ships three built-in agents, installed into
 | --- | --- |
 | **deep-research** | Iterative web research with full page reading and source evaluation |
 | **chat-reflection** | Knowledge extraction from idle chat sessions (scheduled via `crontab.lua`) |
-| **fork-reflection** | Knowledge extraction from completed agent sessions (spawned by deep-research's `post_completion`) |
+| **deep-research-reflection** | Knowledge extraction from completed research (spawned by `report_findings` handler in deep-research) |
 
 ## How Agents Work
 
 1. Agent is triggered (manual dispatch, cron schedule, idle timeout,
-   or spawned by another agent's `post_completion`)
+   or spawned by another agent)
 2. The `build(ctx, args)` hook produces a system prompt and initial
    messages
 3. Agent runs autonomously with its restricted tool set, guided by
    nudge hooks
-4. When the agent finishes (text-only response), findings are captured
+4. When the agent finishes (text-only response or terminal custom
+   tool), findings are captured
 5. For dispatched agents, findings are injected back into the parent
    chat session
-6. The `post_completion` hook runs — it can spawn child agents via
-   `ctx:spawn_agent()`
+6. Terminal custom tool handlers can spawn child agents with
+   structured data via `ctx:spawn_agent()`
 
 ## Running Agents
 

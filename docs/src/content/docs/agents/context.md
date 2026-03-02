@@ -65,19 +65,23 @@ local result = ctx:curate_web_cache()
 
 ### Agent Spawning
 
-Spawn child agents from `post_completion`. The child receives the
-full `args` table in its `build(ctx, args)` hook:
+Spawn child agents from hooks or custom tool handlers. The child
+receives the full `args` table in its `build(ctx, args)` hook:
 
 ```lua
-post_completion = function(ctx)
-    ctx:spawn_agent("fork-reflection", {
-        session_id = ctx.session_id,
+-- In a terminal custom tool handler:
+handler = function(ctx, args)
+    ctx:spawn_agent("deep-research-reflection", {
+        report = args.report,
+        sources = args.sources,
     })
+    return "Reflection spawned."
 end,
 ```
 
-The child agent runs in the background with a new session. The
-parent session ID is recorded for findings injection.
+The child agent runs in the background with a new session and
+receives only the structured data passed in args — not the full
+parent conversation.
 
 Multiple `ctx:spawn_agent()` calls are allowed — each spawns an
 independent child agent.

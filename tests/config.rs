@@ -195,7 +195,7 @@ fn workspace_bootstrap_creates_identity_files() {
     assert!(
         workspace
             .path()
-            .join("agents/fork-reflection/agent.lua")
+            .join("agents/deep-research-reflection/agent.lua")
             .exists()
     );
     assert!(

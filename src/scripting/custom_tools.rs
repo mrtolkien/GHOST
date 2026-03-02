@@ -99,9 +99,10 @@ impl Tool for LuaToolAdapter {
             ))
         })?;
 
-        // Pass ctx (registered during build hook) as first arg
+        // Pass ctx (registered during build hook) as first arg.
+        // Use call_async so handlers can call async ctx methods (e.g. ctx:set).
         let ctx_val: LuaValue = lua.globals().get("ctx").unwrap_or(LuaValue::Nil);
-        let result: LuaValue = handler.call((ctx_val, lua_args)).map_err(|e| {
+        let result: LuaValue = handler.call_async((ctx_val, lua_args)).await.map_err(|e| {
             ToolError::ExecutionFailed(format!("lua tool '{}': handler error: {e}", self.tool_name))
         })?;
 

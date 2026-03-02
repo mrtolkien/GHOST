@@ -126,15 +126,15 @@ const DEFAULT_AGENTS: &[(&str, &[(&str, &str)])] = &[
         ],
     ),
     (
-        "fork-reflection",
+        "deep-research-reflection",
         &[
             (
                 "agent.lua",
-                include_str!("../../prompts/agents/fork-reflection/agent.lua"),
+                include_str!("../../prompts/agents/deep-research-reflection/agent.lua"),
             ),
             (
                 "prompt.md",
-                include_str!("../../prompts/agents/fork-reflection/prompt.md"),
+                include_str!("../../prompts/agents/deep-research-reflection/prompt.md"),
             ),
         ],
     ),

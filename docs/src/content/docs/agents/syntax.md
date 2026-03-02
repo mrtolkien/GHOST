@@ -108,14 +108,38 @@ whatever the parent passed to `ctx:spawn_agent()`.
 
 ### `post_completion(ctx)`
 
-Runs after the agent finishes. Use it to spawn child agents:
+Runs after the agent finishes. Can perform cleanup or spawn child
+agents:
 
 ```lua
 post_completion = function(ctx)
-    ctx:spawn_agent("fork-reflection", {
-        session_id = ctx.session_id,
-    })
+    ctx:curate_web_cache()
 end,
+```
+
+For spawning child agents with structured data, prefer terminal
+custom tool handlers over `post_completion` — this lets the agent
+decide what data to pass:
+
+```lua
+custom_tools = {
+    {
+        name = "report_findings",
+        description = "Submit your final report",
+        parameters = {
+            { name = "report", type = "string", required = true },
+            { name = "sources", type = "string", required = true },
+        },
+        terminal = true,
+        handler = function(ctx, args)
+            ctx:spawn_agent("deep-research-reflection", {
+                report = args.report,
+                sources = args.sources,
+            })
+            return "Reflection spawned."
+        end,
+    },
+},
 ```
 
 ## Nudge Library (`ghost.nudges`)

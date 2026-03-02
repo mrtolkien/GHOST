@@ -415,36 +415,39 @@ impl LiveTestEnv {
         (findings, metadata)
     }
 
-    /// Agent reflection: run the fork-reflection agent with the parent
-    /// session's ID so it loads messages via `ctx:list_messages(args.session_id)`.
-    /// Returns the findings string and run metadata.
-    pub async fn run_reflection_fork(
+    /// Structured reflection: run the deep-research-reflection agent with
+    /// pre-extracted structured report data (from `report_findings` tool).
+    /// Avoids loading the full research conversation — the agent works
+    /// entirely from the structured JSON.
+    pub async fn run_structured_reflection(
         &self,
         agent_session_id: &str,
+        report_data_json: &str,
     ) -> (String, ghost::chat::RunMetadata) {
-        // Classify web cache BEFORE reflection (for post-processing)
-        let messages = ghost::db::sessions::list_messages_by_session(&self.db, agent_session_id)
-            .await
-            .expect("list messages for fork reflection");
-        let agent_findings = ghost::chat::extract_agent_findings(&messages);
+        // Classify web cache BEFORE reflection (for post-processing).
+        // Use the report field from structured data for citation matching.
+        let report_text: Option<String> =
+            serde_json::from_str::<serde_json::Value>(report_data_json)
+                .ok()
+                .and_then(|v| v.get("report").and_then(|r| r.as_str()).map(String::from));
 
         let classified = ghost::web::classify_web_cache(
             &self.config.workspace,
             agent_session_id,
-            agent_findings.as_deref(),
+            report_text.as_deref(),
             1000,
         );
 
-        // Run fork-reflection as a fresh agent, passing parent session_id
-        let args = std::collections::HashMap::from([(
-            "session_id".to_string(),
-            agent_session_id.to_string(),
-        )]);
+        // Run deep-research-reflection with structured data as args
+        let args = std::collections::HashMap::from([
+            ("report_data".to_string(), report_data_json.to_string()),
+            ("session_id".to_string(), agent_session_id.to_string()),
+        ]);
         let result = self
             .agent_runner
-            .run_with_args("fork-reflection", args, Some(agent_session_id))
+            .run_with_args("deep-research-reflection", args, Some(agent_session_id))
             .await
-            .expect("fork reflection run_with_args");
+            .expect("structured reflection run_with_args");
         let (findings, metadata) = (result.findings, result.metadata);
 
         // Post-processing: deterministic reference curation (matches production)

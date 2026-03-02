@@ -449,6 +449,9 @@ struct AgentSetup {
     build_result: BuildResult,
     script_host: Arc<ScriptHost>,
     session_chat: SessionChat,
+    /// Spawn requests accumulated by tool handlers via `ctx:spawn_agent`.
+    /// Kept separate from post_completion so both sources are collected.
+    build_spawn_requests: Arc<std::sync::Mutex<Vec<SpawnRequest>>>,
 }
 
 async fn setup_agent(
@@ -467,6 +470,9 @@ async fn setup_agent(
         agent_name.to_string(),
         agent_session_id.to_string(),
     );
+    // Keep a handle so spawn_requests from tool handlers aren't lost
+    // when post_completion creates a fresh ctx.
+    let build_spawn_requests = ctx.spawn_requests.clone();
     let build_result =
         script_host
             .call_build(ctx, args)
@@ -499,6 +505,7 @@ async fn setup_agent(
         build_result,
         script_host,
         session_chat,
+        build_spawn_requests,
     })
 }
 
@@ -510,6 +517,7 @@ struct ResumeSetup {
     db_message_count: usize,
     script_host: Arc<ScriptHost>,
     session_chat: SessionChat,
+    build_spawn_requests: Arc<std::sync::Mutex<Vec<SpawnRequest>>>,
 }
 
 async fn setup_resume(
@@ -579,6 +587,7 @@ async fn setup_resume(
             db_message_count,
             script_host: setup.script_host,
             session_chat: setup.session_chat,
+            build_spawn_requests: setup.build_spawn_requests,
         });
     }
 
@@ -595,6 +604,7 @@ async fn setup_resume(
         db_message_count,
         script_host: setup.script_host,
         session_chat: setup.session_chat,
+        build_spawn_requests: setup.build_spawn_requests,
     })
 }
 
@@ -663,15 +673,26 @@ async fn execute_agent(
         }
     };
 
-    let spawns = run_post_completion(
-        &setup.config,
-        &setup.script_host,
-        db,
-        config,
-        agent_name,
-        agent_session_id,
-    )
-    .await;
+    // Collect spawn requests from tool handlers (accumulated on the build ctx)
+    let mut spawns = std::mem::take(
+        &mut *setup
+            .build_spawn_requests
+            .lock()
+            .expect("build_spawn_requests lock"),
+    );
+
+    // Also collect spawns from the post_completion hook
+    spawns.extend(
+        run_post_completion(
+            &setup.config,
+            &setup.script_host,
+            db,
+            config,
+            agent_name,
+            agent_session_id,
+        )
+        .await,
+    );
     Ok(AgentResult {
         session_id: agent_session_id.to_string(),
         findings: result.0.message,
@@ -717,15 +738,26 @@ async fn execute_resume(
         }
     };
 
-    let spawns = run_post_completion(
-        &resume.config,
-        &resume.script_host,
-        db,
-        config,
-        agent_name,
-        session_id,
-    )
-    .await;
+    // Collect spawn requests from tool handlers (accumulated on the build ctx)
+    let mut spawns = std::mem::take(
+        &mut *resume
+            .build_spawn_requests
+            .lock()
+            .expect("build_spawn_requests lock"),
+    );
+
+    // Also collect spawns from the post_completion hook
+    spawns.extend(
+        run_post_completion(
+            &resume.config,
+            &resume.script_host,
+            db,
+            config,
+            agent_name,
+            session_id,
+        )
+        .await,
+    );
     Ok(AgentResult {
         session_id: session_id.to_string(),
         findings: result.0.message,

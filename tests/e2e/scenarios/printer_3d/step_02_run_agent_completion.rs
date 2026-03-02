@@ -20,8 +20,9 @@ async fn printer_3d_step_02_run_agent_completion() {
         .clone()
         .expect("step_01 must provide agent_session_id");
 
-    // Resume agent synchronously. Spawns are returned but not processed
-    // — fork-reflection is handled by step_03.
+    // Resume agent synchronously. The agent now ends by calling the
+    // `report_findings` terminal tool, which spawns a reflection agent
+    // as a side effect (spawns are returned but not processed here).
     let result = tokio::time::timeout(
         Duration::from_secs(600),
         env.agent_runner.resume(
@@ -50,6 +51,25 @@ async fn printer_3d_step_02_run_agent_completion() {
         &["p2s"],
     );
 
+    // Extract the structured report data stored by the report_findings handler.
+    // The handler calls ctx:set("report_data", json) using the agent slug as key.
+    let report_data = ghost::db::agent_state::get_state(&env.db, "deep-research", "report_data")
+        .await
+        .expect("query agent_state")
+        .expect("report_findings handler must store report_data in agent state");
+
+    // Validate it's valid JSON with the expected fields
+    let parsed: serde_json::Value =
+        serde_json::from_str(&report_data).expect("report_data must be valid JSON");
+    assert!(
+        parsed.get("report").and_then(|v| v.as_str()).is_some(),
+        "report_data must contain a 'report' field"
+    );
+    assert!(
+        parsed.get("sources").and_then(|v| v.as_array()).is_some(),
+        "report_data must contain a 'sources' array"
+    );
+
     let mut state = harness::fresh_step_state(
         harness::SCENARIO_PRINTER_3D,
         harness::STEP_02,
@@ -62,6 +82,9 @@ async fn printer_3d_step_02_run_agent_completion() {
     state
         .assertion_markers
         .insert("agent_findings".to_string(), serde_json::json!(findings));
+    state
+        .assertion_markers
+        .insert("report_data".to_string(), serde_json::json!(report_data));
 
     harness::save_step_snapshot(&env, &state).await;
 }
