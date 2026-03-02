@@ -1,9 +1,8 @@
 ---
 name: note-writer
 description:
-  Comprehensive guide for creating structured knowledge notes. Read this skill before
-  writing any notes — it contains entity enumeration, note guidelines, title
-  conventions, linking rules, archetypes, source quality notes, and decision notes.
+  Comprehensive guide for creating structured knowledge notes. Covers discovery, note
+  format, titles, linking, archetypes, trust scores, tags, and special note types.
 ---
 
 # Note Writer — Knowledge Note Guide
@@ -11,47 +10,35 @@ description:
 This skill is the complete reference for writing structured knowledge notes. Follow
 every section when creating or updating notes.
 
-## Workflow
+## Before You Write
 
-### 1. Enumerate Entities
+Always discover what already exists before creating anything:
 
-Before writing any notes, list every distinct entity the source material explicitly
-named, recommended, or compared. Each one gets its own note — don't merge related items
-into a single note even if they're closely related or from the same category.
+1. **Search**: `knowledge_search` for the topic — check for existing notes to update
+   rather than duplicate.
+2. **Tags**: `ghost knowledge tags` via `run_shell_command` — see existing tag
+   hierarchies before inventing new ones.
+3. **Graph**: `ghost knowledge graph "Title"` — check how related notes connect.
 
-### 2. Create Notes
+**Update existing notes rather than creating duplicates.** If a note covers the same
+entity, extend it with new information instead of writing a second note.
 
-**Prioritize synthesized conclusions over raw data.** If Agent Findings are present, use
-them as your primary source. If web cache files are present, read them with `read_file`
-to extract concrete details.
+## What Deserves a Note
 
-**What to create** — scale to the richness of the input:
+Create a note when information is:
 
-- **Entity notes** (archetype != topic): one per distinct person, project, concept,
-  tool, or other concrete entity. Include specific details — names, numbers, versions,
-  dates. Vague notes are useless.
-- **Decision note**: if comparisons or trade-offs were discussed, link entity notes with
-  rationale.
-- **Source quality note**: if external sources were used, rate at least one source's
-  reliability and depth. Tag under `{domain}/sources`. Title: "Source Name — Topic"
-  since the same site may have different quality across domains.
+- **Specific and reusable** — concrete facts, decisions, or insights you'd want to find
+  again (names, versions, trade-offs, how-tos).
+- **Stable enough to reference** — not a fleeting thought or in-progress speculation.
 
-Pass source URLs in the `sources` parameter of `note_write` — they will be preserved in
-structured frontmatter. Do NOT put bare URLs in the note body.
+Skip notes for:
 
-Do NOT use `[[references/...]]` wiki links — references are managed automatically after
-your session.
+- Transient status updates ("tried X, didn't work yet")
+- Vague impressions without actionable detail
+- Information already captured in an existing note
 
-### 3. Verify Before Handoff
-
-Before writing your handoff message, check your work against the entity list:
-
-- Did you create or confirm a note exists for **every** entity you listed? If you missed
-  any → go back to step 2.
-- If external sources were used, did you create at least one **source quality note**? If
-  not → step 2.
-- If comparisons or trade-offs were discussed, did you create a **decision note**? If
-  not → step 2.
+When in doubt, err toward creating — a short, specific note is better than lost
+knowledge. But a vague note is worse than no note.
 
 ## Note Guidelines
 
@@ -71,7 +58,6 @@ Follow Wikipedia naming conventions:
 
 - **Short noun phrases**: "Tokio", not "The Tokio Async Runtime for Rust"
 - **No prefixes**: "Async Runtime Comparison", not "Decision: Async Runtime"
-- **No parenthetical qualifiers**: "Tokio", not "Tokio (Rust Runtime)"
 - **Proper nouns as-is**: "Visual Studio Code", "Tom's Hardware"
 - **Source notes — add topic**: "Source Name — Topic" when the source covers many
   domains (e.g. "Docs.rs — Async Ecosystem")
@@ -125,13 +111,28 @@ Start at 5 for most notes. Adjust as confidence changes.
 
 ## Tags
 
-Use consistent, lowercase, hierarchical tags separated by slashes. Prefer existing tags
-over creating new ones. Search what tags exist before creating notes.
+Use consistent, lowercase, hierarchical tags separated by slashes. Use
+`ghost knowledge tags` to see what exists before inventing new hierarchies. Prefer
+existing tags over creating new ones.
+
+## Special Note Types
+
+**Source quality notes**: When you've consulted external sources, rate at least one
+source's reliability and depth. Tag under `{domain}/sources`. Title format: "Source Name
+— Topic" (the same site may vary in quality across domains). Link with
+`[[about>Topic]]`.
+
+**Decision notes**: When comparisons or trade-offs are involved, create a decision note
+linking the options with rationale. Use `[[compares>Option A]]` /
+`[[compares>Option B]]` edges. Archetype: `decision`.
 
 ## Rules
 
 - Update existing notes over creating duplicates.
 - Notes under ~1500 characters index as a single embedding vector — keep concise.
-- Before creating notes, check existing folders and search for duplicates.
+- Pass source URLs in the `sources` parameter of `note_write` — they will be preserved
+  in structured frontmatter. Do NOT put bare URLs in the note body.
+- Do NOT use `[[references/...]]` wiki links — references are managed automatically
+  after your session.
 - Link every entity mentioned — prefer typed edges (`[[rel>Title]]`) to build a
   navigable knowledge graph. Dangling links are fine.

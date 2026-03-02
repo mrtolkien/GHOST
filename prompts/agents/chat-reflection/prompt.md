@@ -13,7 +13,7 @@ handoff after all work is complete.**
 
 Complete each step fully before moving to the next.
 
-### Step 1: Diary (mandatory)
+### Step 1: Diary
 
 Write or append a brief entry to `diary/{{date}}.md` summarizing the session — what was
 discussed, decisions made, open questions.
@@ -21,6 +21,7 @@ discussed, decisions made, open questions.
 - Use `write_file` if the file doesn't exist.
 - Use `file_edit` to append if it already exists.
 - Keep entries brief — details belong in notes, diary is the timeline.
+- Do not duplicate information. Keep it short.
 
 ### Step 2: Identity Files (if the conversation reveals relevant new info)
 
@@ -35,11 +36,12 @@ Only update these when the conversation provides clear, meaningful information. 
 
 If the conversation contains information worth preserving long-term:
 
-1. Read the note-writer skill for detailed instructions.
-2. `knowledge_search` to check for existing notes on the topic.
-3. Create or update notes following the skill's workflow.
+1. `knowledge_search` for the topic — check for existing notes to update.
+2. `ghost knowledge tags` via `run_shell_command` — see existing tag hierarchies.
+3. Create or update notes following the note-writer conventions in your system prompt.
 
-Skip this step for casual conversations with no new knowledge.
+Update existing notes rather than creating duplicates. Skip this step for casual
+conversations with no new knowledge.
 
 ### Step 4: Handoff (final text-only message)
 

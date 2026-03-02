@@ -15,7 +15,7 @@ return {
         "note_write",
     },
 
-    skills = { "note-writer" },
+    skills = { "note-writer", "knowledge-navigator" },
 
     build = function(ctx, args)
         -- Parse the structured report data from the research agent.
@@ -39,8 +39,20 @@ return {
             end
         end
 
-        local user_message = template.render(read_file("prompt.md"), {
+        -- Build system prompt: agent prompt + inlined skills.
+        local base_prompt = template.render(read_file("prompt.md"), {
             date = os.date("%Y-%m-%d"),
+        })
+        local note_skill = load_skill("note-writer")
+        local nav_skill = load_skill("knowledge-navigator")
+        local system_prompt = base_prompt
+            .. "\n\n---\n\n"
+            .. note_skill
+            .. "\n\n---\n\n"
+            .. nav_skill
+
+        -- Build user message: pure data template.
+        local user_message = template.render(read_file("user-message.md"), {
             report = report_data.report or "(no report)",
             sources = table.concat(source_lines, "\n\n"),
             secondary_info = report_data.secondary_info or "(none)",
@@ -48,11 +60,7 @@ return {
         })
 
         return {
-            system_prompt = "You are a knowledge extraction agent. Today is "
-                .. os.date("%Y-%m-%d")
-                .. ". Your job is to turn structured "
-                .. "research reports into well-organized knowledge notes. "
-                .. "Read the note-writer skill for formatting instructions.",
+            system_prompt = system_prompt,
             messages = {
                 { role = "user", content = user_message },
             },

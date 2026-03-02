@@ -110,6 +110,7 @@ pub fn load_agent_with_host(
 /// LuaLS type stubs for agent developers.
 const LUA_TYPE_STUBS: &str = include_str!("../../prompts/types/ghost.lua");
 
+/// TODO: Make this more palatable, this is hard to read and error-prone
 /// Embedded default agent files (agent.lua + prompt.md per agent).
 const DEFAULT_AGENTS: &[(&str, &[(&str, &str)])] = &[
     (
@@ -135,6 +136,10 @@ const DEFAULT_AGENTS: &[(&str, &[(&str, &str)])] = &[
             (
                 "prompt.md",
                 include_str!("../../prompts/agents/deep-research-reflection/prompt.md"),
+            ),
+            (
+                "user-message.md",
+                include_str!("../../prompts/agents/deep-research-reflection/user-message.md"),
             ),
         ],
     ),
