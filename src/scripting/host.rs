@@ -4,9 +4,7 @@ use mlua::prelude::*;
 use serde_json::Value;
 
 use super::bindings::{AgentContext, register_ctx};
-use super::types::{
-    AgentConfig, AgentTrigger, BuildMessage, BuildResult, LuaToolDef, NudgeResult, PreTurnState,
-};
+use super::types::{AgentConfig, BuildMessage, BuildResult, LuaToolDef, NudgeResult, PreTurnState};
 use crate::providers::types::ReasoningEffort;
 
 const NUDGES_LUA: &str = include_str!("../../prompts/stdlib/nudges.lua");
@@ -165,7 +163,7 @@ impl ScriptHost {
     }
 
     /// Call the `build(ctx, args)` hook. Returns the system prompt and initial messages.
-    pub fn call_build(
+    pub async fn call_build(
         &self,
         ctx: AgentContext,
         args: std::collections::HashMap<String, String>,
@@ -183,7 +181,7 @@ impl ScriptHost {
                 for (k, v) in &args {
                     args_table.set(k.as_str(), v.as_str())?;
                 }
-                let result: LuaTable = f.call((ctx_val, args_table))?;
+                let result: LuaTable = f.call_async((ctx_val, args_table)).await?;
 
                 let system_prompt: String = result.get("system_prompt")?;
 
@@ -211,7 +209,7 @@ impl ScriptHost {
     }
 
     /// Call the `post_completion(ctx)` hook. No return value.
-    pub fn call_post_completion(&self, ctx: AgentContext) -> LuaResult<()> {
+    pub async fn call_post_completion(&self, ctx: AgentContext) -> LuaResult<()> {
         register_ctx(&self.lua, ctx)?;
 
         let globals = self.lua.globals();
@@ -222,11 +220,33 @@ impl ScriptHost {
             LuaValue::Function(f) => {
                 let globals = self.lua.globals();
                 let ctx_val: LuaValue = globals.get("ctx")?;
-                f.call::<()>(ctx_val)?;
+                f.call_async::<()>(ctx_val).await?;
                 Ok(())
             }
             LuaValue::Nil => Ok(()),
             _ => Err(LuaError::external("post_completion must be a function")),
+        }
+    }
+
+    /// Call the `on_resume(ctx, prompt)` hook.
+    ///
+    /// The hook edits `ctx.system_prompt` and `ctx.messages` in place.
+    /// Caller must pre-populate those fields on `ctx` before calling.
+    pub async fn call_on_resume(&self, ctx: AgentContext, prompt: &str) -> LuaResult<()> {
+        register_ctx(&self.lua, ctx)?;
+
+        let globals = self.lua.globals();
+        let agent_table: LuaTable = globals.get("__ghost_agent")?;
+        let hook: LuaValue = agent_table.get("on_resume")?;
+
+        match hook {
+            LuaValue::Function(f) => {
+                let ctx_val: LuaValue = globals.get("ctx")?;
+                f.call_async::<()>((ctx_val, prompt)).await?;
+                Ok(())
+            }
+            LuaValue::Nil => Ok(()),
+            _ => Err(LuaError::external("on_resume must be a function")),
         }
     }
 
@@ -267,35 +287,6 @@ impl ScriptHost {
         });
 
         let max_iterations: usize = table.get::<Option<usize>>("max_iterations")?.unwrap_or(50);
-
-        let trigger_str: String = table
-            .get::<Option<String>>("trigger")?
-            .unwrap_or_else(|| "dispatch".to_string());
-        let schedule: Option<String> = table.get("schedule")?;
-        let idle_minutes: Option<u64> = table.get("idle_minutes")?;
-        let continue_trigger_session: bool = table
-            .get::<Option<bool>>("continue_trigger_session")?
-            .unwrap_or(false);
-
-        let trigger = match trigger_str.as_str() {
-            "dispatch" => AgentTrigger::Dispatch,
-            "schedule" => {
-                let cron = schedule.clone().ok_or_else(|| {
-                    LuaError::external("trigger='schedule' requires a 'schedule' field")
-                })?;
-                AgentTrigger::Schedule { cron }
-            }
-            "after_idle" => {
-                let mins = idle_minutes.ok_or_else(|| {
-                    LuaError::external("trigger='after_idle' requires an 'idle_minutes' field")
-                })?;
-                AgentTrigger::AfterIdle { minutes: mins }
-            }
-            "after_agent" => AgentTrigger::AfterAgent,
-            other => {
-                return Err(LuaError::external(format!("unknown trigger type: {other}")));
-            }
-        };
 
         // Tools list
         let tools: Vec<String> = match table.get::<LuaValue>("tools")? {
@@ -339,6 +330,7 @@ impl ScriptHost {
             table.get::<LuaValue>("should_trigger")?,
             LuaValue::Function(_)
         );
+        let has_on_resume = matches!(table.get::<LuaValue>("on_resume")?, LuaValue::Function(_));
 
         Ok(AgentConfig {
             name,
@@ -346,18 +338,15 @@ impl ScriptHost {
             model,
             reasoning_effort,
             max_iterations,
-            trigger,
-            schedule,
-            idle_minutes,
             tools,
             custom_tools,
             skills,
-            continue_trigger_session,
             has_build,
             has_pre_turn,
             has_on_end_turn,
             has_post_completion,
             has_should_trigger,
+            has_on_resume,
         })
     }
 
@@ -647,7 +636,6 @@ mod tests {
         assert_eq!(config.tools, vec!["web_search", "todo"]);
         assert_eq!(config.max_iterations, 50); // default
         assert!(config.model.is_none());
-        assert!(matches!(config.trigger, AgentTrigger::Dispatch));
         assert!(!config.has_pre_turn);
         assert!(!config.has_on_end_turn);
         assert!(!config.has_build);
@@ -665,7 +653,6 @@ mod tests {
                 model = "fast",
                 reasoning_effort = "high",
                 max_iterations = 30,
-                trigger = "dispatch",
                 tools = { "web_search", "web_fetch", "todo" },
                 build = function(ctx, args)
                     return {
@@ -693,58 +680,6 @@ mod tests {
         assert!(config.has_on_end_turn);
         assert!(config.has_post_completion);
         assert!(!config.has_should_trigger);
-    }
-
-    #[test]
-    fn load_schedule_trigger() {
-        let dir = test_workspace();
-        write_agent_lua(
-            dir.path(),
-            r#"
-            return {
-                name = "weekly-digest",
-                description = "Weekly digest",
-                trigger = "schedule",
-                schedule = "0 9 * * MON",
-                tools = {},
-            }
-            "#,
-        );
-
-        let agent_dir = dir.path().join("agents").join("test-agent");
-        let mut host = ScriptHost::new(&agent_dir, dir.path()).unwrap();
-        let config = host.load_config().unwrap();
-
-        assert!(matches!(
-            config.trigger,
-            AgentTrigger::Schedule { ref cron } if cron == "0 9 * * MON"
-        ));
-    }
-
-    #[test]
-    fn load_after_idle_trigger() {
-        let dir = test_workspace();
-        write_agent_lua(
-            dir.path(),
-            r#"
-            return {
-                name = "reflection",
-                description = "Chat reflection",
-                trigger = "after_idle",
-                idle_minutes = 30,
-                tools = {},
-            }
-            "#,
-        );
-
-        let agent_dir = dir.path().join("agents").join("test-agent");
-        let mut host = ScriptHost::new(&agent_dir, dir.path()).unwrap();
-        let config = host.load_config().unwrap();
-
-        assert!(matches!(
-            config.trigger,
-            AgentTrigger::AfterIdle { minutes: 30 }
-        ));
     }
 
     #[test]
@@ -1081,14 +1016,12 @@ mod tests {
     }
 
     fn test_ctx(db: crate::db::GhostDb, workspace: &Path) -> super::super::bindings::AgentContext {
-        super::super::bindings::AgentContext {
+        super::super::bindings::AgentContext::new(
             db,
-            workspace: workspace.to_path_buf(),
-            agent_slug: "test-agent".to_string(),
-            session_id: "test-session".to_string(),
-            trigger_session_id: None,
-            trigger_agent_name: None,
-        }
+            workspace.to_path_buf(),
+            "test-agent".to_string(),
+            "test-session".to_string(),
+        )
     }
 
     #[tokio::test]
@@ -1125,7 +1058,7 @@ mod tests {
                 description = "test",
                 tools = {},
                 should_trigger = function(ctx)
-                    return ctx.trigger_agent_name == "reflection"
+                    return ctx.agent_slug == "other-agent"
                 end,
             }
             "#,
@@ -1137,7 +1070,7 @@ mod tests {
 
         let db = test_db(dir.path()).await;
         let ctx = test_ctx(db, dir.path());
-        // trigger_agent_name is None, so ctx.trigger_agent_name is nil, not "reflection"
+        // agent_slug is "test-agent", not "other-agent"
         assert!(!host.call_should_trigger(ctx).unwrap());
     }
 
@@ -1171,7 +1104,7 @@ mod tests {
         let db = test_db(dir.path()).await;
         let ctx = test_ctx(db, dir.path());
         let args = std::collections::HashMap::from([("prompt".into(), "Research topic X".into())]);
-        let result = host.call_build(ctx, args).unwrap();
+        let result = host.call_build(ctx, args).await.unwrap();
         assert_eq!(result.system_prompt, "Prompt for test-agent");
         assert_eq!(result.messages.len(), 1);
         assert_eq!(result.messages[0].role, "user");
@@ -1199,7 +1132,7 @@ mod tests {
 
         let db = test_db(dir.path()).await;
         let ctx = test_ctx(db, dir.path());
-        let result = host.call_build(ctx, std::collections::HashMap::new());
+        let result = host.call_build(ctx, std::collections::HashMap::new()).await;
         assert!(result.is_err());
     }
 
@@ -1226,7 +1159,7 @@ mod tests {
 
         let db = test_db(dir.path()).await;
         let ctx = test_ctx(db, dir.path());
-        host.call_post_completion(ctx).unwrap();
+        host.call_post_completion(ctx).await.unwrap();
     }
 
     #[tokio::test]
@@ -1249,7 +1182,7 @@ mod tests {
 
         let db = test_db(dir.path()).await;
         let ctx = test_ctx(db, dir.path());
-        host.call_post_completion(ctx).unwrap();
+        host.call_post_completion(ctx).await.unwrap();
     }
 
     #[test]

@@ -13,9 +13,9 @@ use crate::config::Config;
 use crate::db;
 use crate::db::GhostDb;
 use crate::scripting::AgentContext;
-use crate::scripting::types::AgentTrigger;
 
-use super::loader::{discover_agents, load_agent, load_agent_with_host};
+use super::crontab::{CrontabTrigger, load_crontab};
+use super::loader::{load_agent, load_agent_with_host};
 use super::runner::AgentRunner;
 
 /// A scheduled Lua agent.
@@ -111,37 +111,45 @@ pub fn spawn_scheduler(
     })
 }
 
-/// Build all schedule entries from the workspace.
+/// Build all schedule entries from the crontab.
 fn build_entries(workspace: &Path) -> (Vec<TrackedEntry>, Vec<IdleAgent>) {
     let now = Utc::now();
     let mut scheduled = Vec::new();
     let mut idle_agents = Vec::new();
 
-    let agents = discover_agents(workspace);
-    for agent_info in &agents {
-        let config = match load_agent(workspace, &agent_info.name) {
-            Ok(c) => c,
+    let entries = match load_crontab(workspace) {
+        Ok(e) => e,
+        Err(e) => {
+            logfire::warn!("scheduler: failed to load crontab", error = e.clone());
+            return (scheduled, idle_agents);
+        }
+    };
+
+    for entry in entries {
+        // Load the agent config to check has_should_trigger
+        let has_should_trigger = match load_agent(workspace, &entry.run) {
+            Ok(config) => config.has_should_trigger,
             Err(e) => {
                 logfire::warn!(
-                    "scheduler: failed to load agent",
-                    agent = agent_info.name.clone(),
+                    "scheduler: crontab references unknown agent",
+                    agent = entry.run.clone(),
                     error = e.to_string(),
                 );
                 continue;
             }
         };
 
-        match &config.trigger {
-            AgentTrigger::Schedule { cron } => {
-                let cron_expr = format!("0 {cron}");
+        match entry.kind {
+            CrontabTrigger::Cron { ref expr } => {
+                let cron_expr = format!("0 {expr}");
                 match cron::Schedule::from_str(&cron_expr) {
                     Ok(schedule) => {
                         let next_run = schedule.after(&now).next();
                         scheduled.push(TrackedEntry {
                             entry: ScheduleEntry {
-                                name: config.name.clone(),
+                                name: entry.run.clone(),
                                 cron: schedule,
-                                has_should_trigger: config.has_should_trigger,
+                                has_should_trigger,
                             },
                             next_run,
                             last_run: None,
@@ -150,21 +158,20 @@ fn build_entries(workspace: &Path) -> (Vec<TrackedEntry>, Vec<IdleAgent>) {
                     Err(e) => {
                         logfire::warn!(
                             "scheduler: invalid cron for agent",
-                            agent = config.name.clone(),
-                            cron = cron.clone(),
+                            agent = entry.run.clone(),
+                            cron = expr.clone(),
                             error = e.to_string(),
                         );
                     }
                 }
             }
-            AgentTrigger::AfterIdle { minutes } => {
+            CrontabTrigger::Idle { minutes } => {
                 idle_agents.push(IdleAgent {
-                    name: config.name.clone(),
-                    idle_minutes: *minutes,
-                    has_should_trigger: config.has_should_trigger,
+                    name: entry.run.clone(),
+                    idle_minutes: minutes,
+                    has_should_trigger,
                 });
             }
-            _ => {} // Dispatch and AfterAgent handled elsewhere
         }
     }
 
@@ -194,14 +201,12 @@ async fn tick_scheduled(
         if entry.entry.has_should_trigger {
             match load_agent_with_host(workspace, name) {
                 Ok((_config, host)) => {
-                    let ctx = AgentContext {
-                        db: db.clone(),
-                        workspace: workspace.to_path_buf(),
-                        agent_slug: name.clone(),
-                        session_id: String::new(),
-                        trigger_session_id: None,
-                        trigger_agent_name: None,
-                    };
+                    let ctx = AgentContext::new(
+                        db.clone(),
+                        workspace.to_path_buf(),
+                        name.clone(),
+                        String::new(),
+                    );
                     match host.call_should_trigger(ctx) {
                         Ok(false) => {
                             logfire::debug!(
@@ -235,10 +240,11 @@ async fn tick_scheduled(
         logfire::info!("executing scheduled agent", agent_name = name.clone());
 
         match agent_runner
-            .run_to_completion(name, "Execute the scheduled agent.", None)
+            .run(name, "Execute the scheduled agent.", None)
             .await
         {
-            Ok((_findings, _meta)) => {
+            Ok(mut result) => {
+                agent_runner.spawn_children(&mut result);
                 logfire::info!("scheduled agent completed", agent_name = name.clone());
             }
             Err(e) => {
@@ -286,14 +292,12 @@ async fn tick_idle(
         if agent.has_should_trigger {
             match load_agent_with_host(workspace, &agent.name) {
                 Ok((_config, host)) => {
-                    let ctx = AgentContext {
-                        db: db.clone(),
-                        workspace: workspace.to_path_buf(),
-                        agent_slug: agent.name.clone(),
-                        session_id: String::new(),
-                        trigger_session_id: None,
-                        trigger_agent_name: None,
-                    };
+                    let ctx = AgentContext::new(
+                        db.clone(),
+                        workspace.to_path_buf(),
+                        agent.name.clone(),
+                        String::new(),
+                    );
                     match host.call_should_trigger(ctx) {
                         Ok(false) => {
                             logfire::debug!(
@@ -348,15 +352,16 @@ async fn tick_idle(
             );
 
             match agent_runner
-                .run_to_completion(
+                .run(
                     &agent.name,
                     "Execute after idle period.",
                     Some(&record.session_id),
                 )
                 .await
             {
-                Ok((_findings, _meta)) => {
-                    logfire::info!("idle agent completed", agent_name = agent.name.clone(),);
+                Ok(mut result) => {
+                    agent_runner.spawn_children(&mut result);
+                    logfire::info!("idle agent completed", agent_name = agent.name.clone());
                 }
                 Err(e) => {
                     logfire::error!(

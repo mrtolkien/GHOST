@@ -1,8 +1,24 @@
+use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 
 use mlua::prelude::*;
 
 use crate::db::GhostDb;
+
+/// A request to spawn a child agent, accumulated during post_completion.
+#[derive(Debug, Clone)]
+pub struct SpawnRequest {
+    pub agent: String,
+    pub args: HashMap<String, String>,
+}
+
+/// A message in the resume context (editable from Lua).
+#[derive(Debug, Clone)]
+pub struct LuaMessage {
+    pub role: String,
+    pub content: String,
+}
 
 /// Context object exposed to Lua hooks as `ctx` userdata.
 ///
@@ -14,7 +30,26 @@ pub struct AgentContext {
     pub agent_slug: String,
     pub session_id: String,
     pub trigger_session_id: Option<String>,
-    pub trigger_agent_name: Option<String>,
+    pub spawn_requests: Arc<Mutex<Vec<SpawnRequest>>>,
+    /// Editable system prompt for `on_resume` hook.
+    pub system_prompt: Arc<Mutex<Option<String>>>,
+    /// Editable message history for `on_resume` hook.
+    pub resume_messages: Arc<Mutex<Option<Vec<LuaMessage>>>>,
+}
+
+impl AgentContext {
+    pub fn new(db: GhostDb, workspace: PathBuf, agent_slug: String, session_id: String) -> Self {
+        Self {
+            db,
+            workspace,
+            agent_slug,
+            session_id,
+            trigger_session_id: None,
+            spawn_requests: Arc::new(Mutex::new(Vec::new())),
+            system_prompt: Arc::new(Mutex::new(None)),
+            resume_messages: Arc::new(Mutex::new(None)),
+        }
+    }
 }
 
 impl LuaUserData for AgentContext {
@@ -24,11 +59,49 @@ impl LuaUserData for AgentContext {
         fields.add_field_method_get("trigger_session_id", |_, this| {
             Ok(this.trigger_session_id.clone())
         });
-        fields.add_field_method_get("trigger_agent_name", |_, this| {
-            Ok(this.trigger_agent_name.clone())
-        });
         fields.add_field_method_get("workspace", |_, this| {
             Ok(this.workspace.display().to_string())
+        });
+
+        // ctx.system_prompt — get/set for on_resume hook
+        fields.add_field_method_get("system_prompt", |_, this| {
+            let guard = this.system_prompt.lock().expect("system_prompt lock");
+            Ok(guard.clone())
+        });
+        fields.add_field_method_set("system_prompt", |_, this, val: String| {
+            let mut guard = this.system_prompt.lock().expect("system_prompt lock");
+            *guard = Some(val);
+            Ok(())
+        });
+
+        // ctx.messages — get/set for on_resume hook
+        fields.add_field_method_get("messages", |lua, this| {
+            let guard = this.resume_messages.lock().expect("resume_messages lock");
+            match guard.as_ref() {
+                None => Ok(LuaValue::Nil),
+                Some(msgs) => {
+                    let table = lua.create_table()?;
+                    for (i, msg) in msgs.iter().enumerate() {
+                        let row = lua.create_table()?;
+                        row.set("role", msg.role.as_str())?;
+                        row.set("content", msg.content.as_str())?;
+                        table.raw_set(i + 1, row)?;
+                    }
+                    Ok(LuaValue::Table(table))
+                }
+            }
+        });
+        fields.add_field_method_set("messages", |_, this, val: LuaTable| {
+            let mut msgs = Vec::new();
+            for pair in val.sequence_values::<LuaTable>() {
+                let row = pair?;
+                let role: String = row.get("role")?;
+                let content: String = row.get("content")?;
+                msgs.push(LuaMessage { role, content });
+            }
+            let mut guard = this.resume_messages.lock().expect("resume_messages lock");
+            *guard = Some(msgs);
+            Ok(())
         });
     }
 
@@ -94,12 +167,12 @@ impl LuaUserData for AgentContext {
             let messages = crate::db::sessions::list_messages_by_session(&this.db, &sid)
                 .await
                 .map_err(|e| LuaError::external(e.to_string()))?;
-            Ok(crate::reflection::filter_transcript(&messages))
+            Ok(crate::chat::filter_transcript(&messages))
         });
 
         // ctx:load_diary_today() -> string|nil
         methods.add_method("load_diary_today", |_, this, ()| {
-            Ok(crate::reflection::load_diary_today(&this.workspace))
+            Ok(crate::knowledge::load_diary_today(&this.workspace))
         });
 
         // ctx:list_messages(session_id) -> [{role, content, created_at}]
@@ -125,23 +198,19 @@ impl LuaUserData for AgentContext {
                     .await
                     .map_err(|e| LuaError::external(e.to_string()))?;
 
-            let agent_findings = crate::reflection::extract_agent_findings(&messages);
+            let agent_findings = crate::chat::extract_agent_findings(&messages);
 
-            let classified = crate::reflection::classify_web_cache(
+            let classified = crate::web::classify_web_cache(
                 &this.workspace,
                 &this.session_id,
                 agent_findings.as_deref(),
                 1000,
             );
 
-            let curation = crate::reflection::curate_references(
-                &this.workspace,
-                &this.session_id,
-                &classified,
-            );
+            let curation =
+                crate::web::curate_references(&this.workspace, &this.session_id, &classified);
 
-            let edges =
-                crate::reflection::link_cited_edges(&this.db, &this.workspace, &classified).await;
+            let edges = crate::web::link_cited_edges(&this.db, &this.workspace, &classified).await;
 
             let result = lua.create_table()?;
             result.set("moved", curation.moved)?;
@@ -149,6 +218,26 @@ impl LuaUserData for AgentContext {
             result.set("edges", edges)?;
             Ok(result)
         });
+
+        // ctx:spawn_agent(name, args_table)
+        methods.add_method(
+            "spawn_agent",
+            |_, this, (name, args): (String, LuaTable)| {
+                let mut map = HashMap::new();
+                for pair in args.pairs::<String, String>() {
+                    let (k, v) = pair?;
+                    map.insert(k, v);
+                }
+                this.spawn_requests
+                    .lock()
+                    .expect("spawn_requests lock poisoned")
+                    .push(SpawnRequest {
+                        agent: name,
+                        args: map,
+                    });
+                Ok(())
+            },
+        );
     }
 }
 

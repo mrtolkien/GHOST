@@ -138,6 +138,17 @@ pub fn ensure_index_notes(
     Ok(created)
 }
 
+/// Read today's diary entry, if it exists and is non-empty.
+#[must_use]
+pub fn load_diary_today(workspace: &Path) -> Option<String> {
+    let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
+    let path = diary_path(workspace, &today);
+    match std::fs::read_to_string(&path) {
+        Ok(content) if !content.trim().is_empty() => Some(content),
+        _ => None,
+    }
+}
+
 pub fn read_diary(workspace: &Path, date: &str) -> Result<String, KnowledgeError> {
     let path = diary_path(workspace, date);
     std::fs::read_to_string(&path).map_err(|source| KnowledgeError::Io { path, source })

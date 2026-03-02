@@ -680,28 +680,54 @@ impl SessionChat {
         .await
     }
 
-    /// Continue a Lua-defined agent with full history.
-    #[tracing::instrument(name = "continue lua agent", skip_all, fields(
+    /// Resume a Lua-defined agent with pre-built history.
+    ///
+    /// `messages` is the full message list (from DB + any modifications by
+    /// `on_resume`). `db_message_count` indicates how many messages at the
+    /// front are already persisted — only messages beyond that index are
+    /// written to DB before entering the tool loop.
+    #[allow(clippy::too_many_arguments)]
+    #[tracing::instrument(name = "run lua agent with history", skip_all, fields(
         gen_ai.agent.name = %config.name,
         session_id = session_id,
     ))]
-    pub async fn continue_agent(
+    pub async fn run_agent_with_history(
         &self,
         session_id: &str,
-        prompt: &str,
         system_prompt: String,
+        messages: &[crate::scripting::LuaMessage],
+        db_message_count: usize,
         config: &crate::scripting::AgentConfig,
         script_host: &ScriptHost,
         event_tx: Option<&EventSender>,
     ) -> Result<(ChatResult, RunMetadata), ChatError> {
         let session_thing = parse_session_thing(session_id)?;
-        db::sessions::create_message(&self.db, &session_thing, "user", prompt).await?;
+
+        // Persist only NEW messages (those beyond db_message_count)
+        for msg in messages.iter().skip(db_message_count) {
+            db::sessions::create_message(&self.db, &session_thing, &msg.role, &msg.content).await?;
+        }
+
+        // Build provider history from the full message list
+        let mut history = Vec::new();
+        for msg in messages {
+            let role = match msg.role.as_str() {
+                "assistant" => Role::Assistant,
+                "system" => Role::System,
+                _ => Role::User,
+            };
+            history.push(ChatMessage {
+                role,
+                content: vec![ContentBlock::Text {
+                    text: msg.content.clone(),
+                }],
+            });
+        }
+        self.apply_masking_if_needed(&mut history);
 
         let model = self.default_model_name()?;
         let effort =
             resolve_reasoning_effort(None, config.reasoning_effort, self.model_reasoning_effort());
-        let (mut history, _stored_ids) = self.load_provider_history(&session_thing).await?;
-        self.apply_masking_if_needed(&mut history);
 
         let mut handler = LuaAgentHandler {
             session_chat: self,

@@ -96,7 +96,7 @@ impl AgentControl {
         let parent_session_id = parse_session_thing_opt(&ctx.session_id);
 
         let agent_id = runner
-            .start(agent_name, prompt, parent_session_id.as_deref())
+            .run_in_background(agent_name, prompt, parent_session_id.as_deref())
             .await
             .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
 
@@ -130,7 +130,7 @@ impl AgentControl {
         let parent_session_id = parse_session_thing_opt(&ctx.session_id);
 
         let agent_name = runner
-            .continue_agent(agent_id, prompt, parent_session_id.as_deref())
+            .resume_in_background(agent_id, prompt, parent_session_id.as_deref())
             .await
             .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
 

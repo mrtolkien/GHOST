@@ -14,7 +14,6 @@ pub mod knowledge;
 pub mod observability;
 pub mod prompt;
 pub mod providers;
-pub mod reflection;
 pub mod scripting;
 pub mod skills;
 pub mod tools;

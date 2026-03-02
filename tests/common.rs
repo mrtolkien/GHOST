@@ -373,18 +373,18 @@ impl LiveTestEnv {
         let messages = ghost::db::sessions::list_messages_by_session(&self.db, session_id)
             .await
             .expect("list messages");
-        let agent_findings = ghost::reflection::extract_agent_findings(&messages);
-        let transcript = ghost::reflection::filter_transcript(&messages);
+        let agent_findings = ghost::chat::extract_agent_findings(&messages);
+        let transcript = ghost::chat::filter_transcript(&messages);
 
-        let classified = ghost::reflection::classify_web_cache(
+        let classified = ghost::web::classify_web_cache(
             &self.config.workspace,
             session_id,
             agent_findings.as_deref(),
             1000,
         );
-        let web_cache_section = ghost::reflection::format_classified_cache(&classified);
+        let web_cache_section = ghost::web::format_classified_cache(&classified);
 
-        let user_message = ghost::reflection::build_reflection_user_message(
+        let user_message = build_reflection_user_message(
             previous_handoff.unwrap_or("No previous handoff."),
             "No diary entry for today.",
             &transcript,
@@ -392,15 +392,16 @@ impl LiveTestEnv {
             &web_cache_section,
         );
 
-        let (findings, metadata) = self
+        let result = self
             .agent_runner
-            .run_to_completion(agent_name, &user_message, Some(session_id))
+            .run(agent_name, &user_message, Some(session_id))
             .await
-            .expect("reflection run_to_completion");
+            .expect("reflection run");
+        let (findings, metadata) = (result.findings, result.metadata);
 
         // Post-processing: deterministic reference curation (matches production)
         let curation =
-            ghost::reflection::curate_references(&self.config.workspace, session_id, &classified);
+            ghost::web::curate_references(&self.config.workspace, session_id, &classified);
         self.log(format!(
             "curate_references: {} moved, {} deleted",
             curation.moved, curation.deleted,
@@ -408,16 +409,14 @@ impl LiveTestEnv {
 
         // Create cited edges (note → reference) in the knowledge graph
         let cited =
-            ghost::reflection::link_cited_edges(&self.db, &self.config.workspace, &classified)
-                .await;
+            ghost::web::link_cited_edges(&self.db, &self.config.workspace, &classified).await;
         self.log(format!("link_cited_edges: {cited} created"));
 
         (findings, metadata)
     }
 
-    /// Agent reflection: continue the same agent session with a knowledge
-    /// extraction prompt. The model keeps its full research context (warm
-    /// prompt cache, preserved reasoning chain) and switches to note writing.
+    /// Agent reflection: run the fork-reflection agent with the parent
+    /// session's ID so it loads messages via `ctx:list_messages(args.session_id)`.
     /// Returns the findings string and run metadata.
     pub async fn run_reflection_fork(
         &self,
@@ -427,31 +426,30 @@ impl LiveTestEnv {
         let messages = ghost::db::sessions::list_messages_by_session(&self.db, agent_session_id)
             .await
             .expect("list messages for fork reflection");
-        let agent_findings = ghost::reflection::extract_agent_findings(&messages);
+        let agent_findings = ghost::chat::extract_agent_findings(&messages);
 
-        let classified = ghost::reflection::classify_web_cache(
+        let classified = ghost::web::classify_web_cache(
             &self.config.workspace,
             agent_session_id,
             agent_findings.as_deref(),
             1000,
         );
 
-        // Build fork reflection prompt (reads note-writer skill, inlines it)
-        let prompt = ghost::reflection::build_fork_reflection_prompt(&self.config.workspace);
-
-        // Continue the SAME session
-        let (findings, metadata) = self
+        // Run fork-reflection as a fresh agent, passing parent session_id
+        let args = std::collections::HashMap::from([(
+            "session_id".to_string(),
+            agent_session_id.to_string(),
+        )]);
+        let result = self
             .agent_runner
-            .continue_to_completion(agent_session_id, &prompt, None)
+            .run_with_args("fork-reflection", args, Some(agent_session_id))
             .await
-            .expect("reflection fork continue_to_completion");
+            .expect("fork reflection run_with_args");
+        let (findings, metadata) = (result.findings, result.metadata);
 
         // Post-processing: deterministic reference curation (matches production)
-        let curation = ghost::reflection::curate_references(
-            &self.config.workspace,
-            agent_session_id,
-            &classified,
-        );
+        let curation =
+            ghost::web::curate_references(&self.config.workspace, agent_session_id, &classified);
         self.log(format!(
             "curate_references: {} moved, {} deleted",
             curation.moved, curation.deleted,
@@ -459,8 +457,7 @@ impl LiveTestEnv {
 
         // Create cited edges (note → reference) in the knowledge graph
         let cited =
-            ghost::reflection::link_cited_edges(&self.db, &self.config.workspace, &classified)
-                .await;
+            ghost::web::link_cited_edges(&self.db, &self.config.workspace, &classified).await;
         self.log(format!("link_cited_edges: {cited} created"));
 
         (findings, metadata)
@@ -1145,5 +1142,47 @@ pub fn respond_response(message: &str, _citations: Vec<serde_json::Value>) -> Ch
             text: message.to_string(),
         }],
         StopReason::EndTurn,
+    )
+}
+
+/// Build the user message for a chat-reflection agent from context variables.
+/// Test-only helper — the real agent builds this in its Lua `build()` function.
+#[allow(dead_code)]
+fn build_reflection_user_message(
+    previous_handoff: &str,
+    diary_today: &str,
+    transcript: &str,
+    agent_findings: Option<&str>,
+    web_cache_files: &str,
+) -> String {
+    let agent_section = match agent_findings {
+        Some(findings) => format!(
+            "## Agent Findings\n\
+             The research agent produced the following synthesized report. \
+             Use this as your primary source of information — it summarizes \
+             what was learned from the web cache files below.\n\
+             \n\
+             {findings}\n\
+             \n"
+        ),
+        None => String::new(),
+    };
+
+    format!(
+        "## Previous Handoff Note\n\
+         {previous_handoff}\n\
+         \n\
+         ## Today's Diary\n\
+         {diary_today}\n\
+         \n\
+         {agent_section}\
+         ## Conversation Transcript (filtered)\n\
+         Tool results are stripped — use `read_file` to retrieve content \
+         saved during the conversation.\n\
+         \n\
+         {transcript}\n\
+         \n\
+         ## Web Cache Files\n\
+         {web_cache_files}"
     )
 }

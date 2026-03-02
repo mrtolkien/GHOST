@@ -6,19 +6,6 @@ use serde_json::Value;
 
 use crate::providers::types::ReasoningEffort;
 
-/// Trigger type for an agent — determines when it runs.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum AgentTrigger {
-    /// Run on explicit dispatch (CLI or agent_control tool).
-    Dispatch,
-    /// Run on a cron schedule.
-    Schedule { cron: String },
-    /// Run after interface sessions go idle for N minutes.
-    AfterIdle { minutes: u64 },
-    /// Run after another agent completes.
-    AfterAgent,
-}
-
 /// A custom tool defined in Lua.
 #[derive(Debug, Clone)]
 pub struct LuaToolDef {
@@ -39,19 +26,16 @@ pub struct AgentConfig {
     pub model: Option<String>,
     pub reasoning_effort: Option<ReasoningEffort>,
     pub max_iterations: usize,
-    pub trigger: AgentTrigger,
-    pub schedule: Option<String>,
-    pub idle_minutes: Option<u64>,
     pub tools: Vec<String>,
     pub custom_tools: Vec<LuaToolDef>,
     pub skills: Vec<String>,
-    pub continue_trigger_session: bool,
     // Hook presence flags (functions live in the Lua VM)
     pub has_build: bool,
     pub has_pre_turn: bool,
     pub has_on_end_turn: bool,
     pub has_post_completion: bool,
     pub has_should_trigger: bool,
+    pub has_on_resume: bool,
 }
 
 impl Default for AgentConfig {
@@ -62,18 +46,15 @@ impl Default for AgentConfig {
             model: None,
             reasoning_effort: None,
             max_iterations: 50,
-            trigger: AgentTrigger::Dispatch,
-            schedule: None,
-            idle_minutes: None,
             tools: Vec::new(),
             custom_tools: Vec::new(),
             skills: Vec::new(),
-            continue_trigger_session: false,
             has_build: false,
             has_pre_turn: false,
             has_on_end_turn: false,
             has_post_completion: false,
             has_should_trigger: false,
+            has_on_resume: false,
         }
     }
 }
