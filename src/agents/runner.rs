@@ -118,6 +118,7 @@ impl AgentRunner {
             args,
             &agent_session_id,
             &cancel_token,
+            parent_session_id,
         )
         .await;
 
@@ -188,6 +189,7 @@ impl AgentRunner {
                 config: self.config.clone(),
                 agent_name: agent_name.to_string(),
                 agent_session_id: agent_session_id.clone(),
+                parent_session_id: parent_session_id.map(|s| s.to_string()),
                 run_id: run_id.clone(),
                 cancel_token: cancel_token.clone(),
                 metadata_slot: Arc::clone(&metadata_slot),
@@ -250,6 +252,7 @@ impl AgentRunner {
                 config: self.config.clone(),
                 agent_name: agent_name.clone(),
                 agent_session_id: agent_session_id.clone(),
+                parent_session_id: parent_session_id.map(|s| s.to_string()),
                 run_id: run_id.clone(),
                 cancel_token: cancel_token.clone(),
                 metadata_slot: Arc::clone(&metadata_slot),
@@ -460,16 +463,18 @@ async fn setup_agent(
     agent_name: &str,
     args: HashMap<String, String>,
     agent_session_id: &str,
+    parent_session_id: Option<&str>,
 ) -> Result<AgentSetup, AgentError> {
     let (agent_config, script_host) = load_agent_with_host(&config.workspace, agent_name)?;
     let script_host = Arc::new(script_host);
 
-    let ctx = AgentContext::new(
+    let mut ctx = AgentContext::new(
         db.clone(),
         config.workspace.clone(),
         agent_name.to_string(),
         agent_session_id.to_string(),
     );
+    ctx.trigger_session_id = parent_session_id.map(String::from);
     // Keep a handle so spawn_requests from tool handlers aren't lost
     // when post_completion creates a fresh ctx.
     let build_spawn_requests = ctx.spawn_requests.clone();
@@ -528,7 +533,15 @@ async fn setup_resume(
     session_id: &str,
 ) -> Result<ResumeSetup, AgentError> {
     // Get config + system prompt from build()
-    let setup = setup_agent(db, config, agent_name, prompt_args(prompt), session_id).await?;
+    let setup = setup_agent(
+        db,
+        config,
+        agent_name,
+        prompt_args(prompt),
+        session_id,
+        None,
+    )
+    .await?;
 
     let db_messages = db::sessions::list_messages_by_session(db, session_id)
         .await
@@ -616,14 +629,16 @@ async fn run_post_completion(
     config: &Config,
     agent_name: &str,
     agent_session_id: &str,
+    parent_session_id: Option<&str>,
 ) -> Vec<SpawnRequest> {
     if agent_config.has_post_completion {
-        let ctx = AgentContext::new(
+        let mut ctx = AgentContext::new(
             db.clone(),
             config.workspace.clone(),
             agent_name.to_string(),
             agent_session_id.to_string(),
         );
+        ctx.trigger_session_id = parent_session_id.map(String::from);
         let spawn_requests = ctx.spawn_requests.clone();
         if let Err(e) = script_host.call_post_completion(ctx).await {
             logfire::warn!(
@@ -651,8 +666,17 @@ async fn execute_agent(
     args: HashMap<String, String>,
     agent_session_id: &str,
     cancel_token: &CancellationToken,
+    parent_session_id: Option<&str>,
 ) -> Result<AgentResult, AgentError> {
-    let setup = setup_agent(db, config, agent_name, args, agent_session_id).await?;
+    let setup = setup_agent(
+        db,
+        config,
+        agent_name,
+        args,
+        agent_session_id,
+        parent_session_id,
+    )
+    .await?;
 
     let result = tokio::select! {
         res = setup.session_chat.run_agent(
@@ -690,6 +714,7 @@ async fn execute_agent(
             config,
             agent_name,
             agent_session_id,
+            parent_session_id,
         )
         .await,
     );
@@ -746,7 +771,7 @@ async fn execute_resume(
             .expect("build_spawn_requests lock"),
     );
 
-    // Also collect spawns from the post_completion hook
+    // Also collect spawns from the post_completion hook (resume has no parent)
     spawns.extend(
         run_post_completion(
             &resume.config,
@@ -755,6 +780,7 @@ async fn execute_resume(
             config,
             agent_name,
             session_id,
+            None,
         )
         .await,
     );
@@ -776,6 +802,7 @@ struct BackgroundTask {
     config: Config,
     agent_name: String,
     agent_session_id: String,
+    parent_session_id: Option<String>,
     run_id: String,
     cancel_token: CancellationToken,
     metadata_slot: Arc<Mutex<Option<RunMetadata>>>,
@@ -791,6 +818,7 @@ fn spawn_background_run(task: BackgroundTask, args: HashMap<String, String>) -> 
             args,
             &task.agent_session_id,
             &task.cancel_token,
+            task.parent_session_id.as_deref(),
         )
         .await;
 
@@ -807,6 +835,7 @@ fn spawn_background_resume(task: BackgroundTask, prompt: String) -> JoinHandle<(
             &prompt,
             &task.agent_session_id,
             &task.cancel_token,
+            // Resume has no parent session context
         )
         .await;
 
@@ -916,6 +945,7 @@ fn spawn_children_inner(
                 req.args,
                 &agent_session_id,
                 &cancel_token,
+                Some(&parent_id),
             )
             .await;
 

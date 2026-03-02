@@ -357,62 +357,23 @@ impl LiveTestEnv {
 
     /// Run reflection on a session via the agent runner.
     ///
-    /// Returns the findings string (the agent's final message, saved as
-    /// the handoff note in production). Also runs deterministic reference
-    /// curation post-processing (matching production flow).
+    /// Run a reflection agent on a chat session.
     ///
-    /// `agent_name` — which reflection agent to use: `"reflection"` for
-    /// agent-session knowledge extraction, `"chat-reflection"` for
-    /// chat-session diary/identity focus.
+    /// The agent's Lua `build()` assembles its own user message from
+    /// `ctx` bindings (transcript, diary, etc.). Post-processing
+    /// (web cache curation) happens in the agent's `post_completion`.
     pub async fn run_reflection(
         &self,
         session_id: &str,
-        previous_handoff: Option<&str>,
         agent_name: &str,
     ) -> (String, ghost::chat::RunMetadata) {
-        let messages = ghost::db::sessions::list_messages_by_session(&self.db, session_id)
-            .await
-            .expect("list messages");
-        let agent_findings = ghost::chat::extract_agent_findings(&messages);
-        let transcript = ghost::chat::filter_transcript(&messages);
-
-        let classified = ghost::web::classify_web_cache(
-            &self.config.workspace,
-            session_id,
-            agent_findings.as_deref(),
-            1000,
-        );
-        let web_cache_section = ghost::web::format_classified_cache(&classified);
-
-        let user_message = build_reflection_user_message(
-            previous_handoff.unwrap_or("No previous handoff."),
-            "No diary entry for today.",
-            &transcript,
-            agent_findings.as_deref(),
-            &web_cache_section,
-        );
-
         let result = self
             .agent_runner
-            .run(agent_name, &user_message, Some(session_id))
+            .run(agent_name, "Begin reflection.", Some(session_id))
             .await
             .expect("reflection run");
-        let (findings, metadata) = (result.findings, result.metadata);
 
-        // Post-processing: deterministic reference curation (matches production)
-        let curation =
-            ghost::web::curate_references(&self.config.workspace, session_id, &classified);
-        self.log(format!(
-            "curate_references: {} moved, {} deleted",
-            curation.moved, curation.deleted,
-        ));
-
-        // Create cited edges (note → reference) in the knowledge graph
-        let cited =
-            ghost::web::link_cited_edges(&self.db, &self.config.workspace, &classified).await;
-        self.log(format!("link_cited_edges: {cited} created"));
-
-        (findings, metadata)
+        (result.findings, result.metadata)
     }
 
     /// Structured reflection: run the deep-research-reflection agent with
@@ -1145,47 +1106,5 @@ pub fn respond_response(message: &str, _citations: Vec<serde_json::Value>) -> Ch
             text: message.to_string(),
         }],
         StopReason::EndTurn,
-    )
-}
-
-/// Build the user message for a chat-reflection agent from context variables.
-/// Test-only helper — the real agent builds this in its Lua `build()` function.
-#[allow(dead_code)]
-fn build_reflection_user_message(
-    previous_handoff: &str,
-    diary_today: &str,
-    transcript: &str,
-    agent_findings: Option<&str>,
-    web_cache_files: &str,
-) -> String {
-    let agent_section = match agent_findings {
-        Some(findings) => format!(
-            "## Agent Findings\n\
-             The research agent produced the following synthesized report. \
-             Use this as your primary source of information — it summarizes \
-             what was learned from the web cache files below.\n\
-             \n\
-             {findings}\n\
-             \n"
-        ),
-        None => String::new(),
-    };
-
-    format!(
-        "## Previous Handoff Note\n\
-         {previous_handoff}\n\
-         \n\
-         ## Today's Diary\n\
-         {diary_today}\n\
-         \n\
-         {agent_section}\
-         ## Conversation Transcript (filtered)\n\
-         Tool results are stripped — use `read_file` to retrieve content \
-         saved during the conversation.\n\
-         \n\
-         {transcript}\n\
-         \n\
-         ## Web Cache Files\n\
-         {web_cache_files}"
     )
 }

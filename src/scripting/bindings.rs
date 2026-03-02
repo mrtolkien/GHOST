@@ -162,13 +162,16 @@ impl LuaUserData for AgentContext {
             Ok(table)
         });
 
-        // ctx:filter_transcript(session_id) -> string
-        methods.add_async_method("filter_transcript", |_, this, sid: String| async move {
-            let messages = crate::db::sessions::list_messages_by_session(&this.db, &sid)
-                .await
-                .map_err(|e| LuaError::external(e.to_string()))?;
-            Ok(crate::chat::filter_transcript(&messages))
-        });
+        // ctx:filter_transcript(session_id, since?) -> string
+        methods.add_async_method(
+            "filter_transcript",
+            |_, this, (sid, since): (String, Option<String>)| async move {
+                let messages = crate::db::sessions::list_messages_by_session(&this.db, &sid)
+                    .await
+                    .map_err(|e| LuaError::external(e.to_string()))?;
+                Ok(crate::chat::filter_transcript(&messages, since.as_deref()))
+            },
+        );
 
         // ctx:load_diary_today() -> string|nil
         methods.add_method("load_diary_today", |_, this, ()| {
@@ -191,33 +194,37 @@ impl LuaUserData for AgentContext {
             Ok(table)
         });
 
-        // ctx:curate_web_cache() -> {moved=N, deleted=N, edges=N}
-        methods.add_async_method("curate_web_cache", |lua, this, ()| async move {
-            let messages =
-                crate::db::sessions::list_messages_by_session(&this.db, &this.session_id)
+        // ctx:curate_web_cache(session_id?) -> {moved=N, deleted=N, edges=N}
+        methods.add_async_method(
+            "curate_web_cache",
+            |lua, this, sid: Option<String>| async move {
+                let session_id = sid.as_deref().unwrap_or(&this.session_id);
+                let messages = crate::db::sessions::list_messages_by_session(&this.db, session_id)
                     .await
                     .map_err(|e| LuaError::external(e.to_string()))?;
 
-            let agent_findings = crate::chat::extract_agent_findings(&messages);
+                let agent_findings = crate::chat::extract_agent_findings(&messages);
 
-            let classified = crate::web::classify_web_cache(
-                &this.workspace,
-                &this.session_id,
-                agent_findings.as_deref(),
-                1000,
-            );
+                let classified = crate::web::classify_web_cache(
+                    &this.workspace,
+                    session_id,
+                    agent_findings.as_deref(),
+                    1000,
+                );
 
-            let curation =
-                crate::web::curate_references(&this.workspace, &this.session_id, &classified);
+                let curation =
+                    crate::web::curate_references(&this.workspace, session_id, &classified);
 
-            let edges = crate::web::link_cited_edges(&this.db, &this.workspace, &classified).await;
+                let edges =
+                    crate::web::link_cited_edges(&this.db, &this.workspace, &classified).await;
 
-            let result = lua.create_table()?;
-            result.set("moved", curation.moved)?;
-            result.set("deleted", curation.deleted)?;
-            result.set("edges", edges)?;
-            Ok(result)
-        });
+                let result = lua.create_table()?;
+                result.set("moved", curation.moved)?;
+                result.set("deleted", curation.deleted)?;
+                result.set("edges", edges)?;
+                Ok(result)
+            },
+        );
 
         // ctx:spawn_agent(name, args_table)
         methods.add_method(

@@ -2,10 +2,18 @@ use crate::db::sessions::MessageRecord;
 
 /// Filter a transcript for agents: preserve user/assistant text,
 /// preserve tool call names+inputs, strip tool results.
-pub fn filter_transcript(messages: &[MessageRecord]) -> String {
+///
+/// If `since` is provided (RFC 3339 timestamp), messages with
+/// `created_at <= since` are excluded.
+pub fn filter_transcript(messages: &[MessageRecord], since: Option<&str>) -> String {
     let mut lines = Vec::new();
 
     for msg in messages {
+        if let Some(cutoff) = since
+            && msg.created_at.as_str() <= cutoff
+        {
+            continue;
+        }
         match msg.role.as_str() {
             "user" => {
                 // Tool-result messages have tool_results set — skip them
@@ -17,6 +25,19 @@ pub fn filter_transcript(messages: &[MessageRecord]) -> String {
                 }
             }
             "assistant" => {
+                // Include reasoning summaries from raw_output
+                if let Some(raw_items) = msg.raw_output_parsed() {
+                    for item in &raw_items {
+                        if item.get("original_type").and_then(|v| v.as_str()) == Some("reasoning")
+                            && let Some(value) = item.get("value")
+                        {
+                            let summary = crate::providers::extract_reasoning_summary(value);
+                            if !summary.is_empty() {
+                                lines.push(format!("[reasoning] {summary}"));
+                            }
+                        }
+                    }
+                }
                 if !msg.content.trim().is_empty() {
                     lines.push(format!("[assistant] {}", msg.content));
                 }
@@ -93,7 +114,7 @@ mod tests {
             make_message("assistant", "Hi there!", None, None),
         ];
 
-        let result = filter_transcript(&messages);
+        let result = filter_transcript(&messages, None);
         assert!(result.contains("[user] Hello"));
         assert!(result.contains("[assistant] Hi there!"));
     }
@@ -106,7 +127,7 @@ mod tests {
         });
         let messages = vec![make_message("assistant", "", Some(vec![tool_call]), None)];
 
-        let result = filter_transcript(&messages);
+        let result = filter_transcript(&messages, None);
         assert!(result.contains("[tool_call] read_file("));
         assert!(result.contains("/tmp/test.txt"));
     }
@@ -122,7 +143,7 @@ mod tests {
             make_message("user", "", None, Some(vec![tool_result])),
         ];
 
-        let result = filter_transcript(&messages);
+        let result = filter_transcript(&messages, None);
         assert!(result.contains("[user] Do something"));
         assert!(!result.contains("file contents here"));
     }
@@ -136,7 +157,7 @@ mod tests {
         });
         let messages = vec![make_message("assistant", "", Some(vec![tool_call]), None)];
 
-        let result = filter_transcript(&messages);
+        let result = filter_transcript(&messages, None);
         assert!(result.contains("..."));
     }
 

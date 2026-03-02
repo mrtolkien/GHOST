@@ -41,7 +41,7 @@ async fn printer_3d_step_04_finalize_chat_and_reflect() {
 
     let (_chat_reflection, _chat_reflection_meta) = tokio::time::timeout(
         Duration::from_secs(180),
-        env.run_reflection(&chat_session, None, "chat-reflection"),
+        env.run_reflection(&chat_session, "chat-reflection"),
     )
     .await
     .expect("TIMEOUT: chat reflection did not complete in step_04");

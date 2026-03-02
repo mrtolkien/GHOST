@@ -8,6 +8,7 @@ pub mod openai_oauth;
 pub mod openrouter;
 pub mod types;
 
+pub(crate) use codex_responses::extract_reasoning_summary;
 pub use kimi_code::KimiCodeProvider;
 pub use openai_oauth::OpenAiOAuthProvider;
 pub use openrouter::OpenRouterProvider;

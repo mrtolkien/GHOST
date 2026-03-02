@@ -17,7 +17,37 @@ return {
 
     skills = { "note-writer", "knowledge-navigator" },
 
+    --- Guard: skip if nothing new since last reflection.
+    should_trigger = function(ctx)
+        local sessions = ctx:list_interface_sessions()
+        if #sessions == 0 then
+            return false
+        end
+
+        local since = ctx:get("last_reflected_at")
+        if not since then
+            return true
+        end -- never reflected, always run
+
+        for _, s in ipairs(sessions) do
+            if ctx:count_messages_since(s.session_id, since) > 0 then
+                return true
+            end
+        end
+        return false
+    end,
+
     build = function(ctx, args)
+        local session_id = ctx.trigger_session_id
+        assert(
+            session_id and session_id ~= "",
+            "chat-reflection requires a trigger session"
+        )
+
+        local since = ctx:get("last_reflected_at")
+        local transcript = ctx:filter_transcript(session_id, since)
+        local diary = ctx:load_diary_today() or "No diary entry yet."
+
         -- Build system prompt: agent prompt + inlined skills.
         local base_prompt = template.render(read_file("prompt.md"), {
             date = os.date("%Y-%m-%d"),
@@ -30,11 +60,25 @@ return {
             .. "\n\n---\n\n"
             .. nav_skill
 
+        -- Build user message from template.
+        local user_message = template.render(read_file("user-message.md"), {
+            diary = diary,
+            transcript = transcript,
+        })
+
         return {
             system_prompt = system_prompt,
             messages = {
-                { role = "user", content = args.prompt or "Begin reflection." },
+                { role = "user", content = user_message },
             },
         }
+    end,
+
+    --- Post-completion: record timestamp and curate web cache.
+    post_completion = function(ctx)
+        ctx:set("last_reflected_at", os.date("!%Y-%m-%dT%H:%M:%SZ"))
+        if ctx.trigger_session_id then
+            ctx:curate_web_cache(ctx.trigger_session_id)
+        end
     end,
 }
