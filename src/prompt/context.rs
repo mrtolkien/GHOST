@@ -83,39 +83,6 @@ pub fn build_ghost_skills(workspace: &Path) -> String {
     )
 }
 
-/// Scan the `agents/` directory for agent definitions and list available
-/// agents with descriptions in XML format. Returns empty string if no
-/// agents found.
-#[tracing::instrument(skip_all, level = "debug", fields(workspace = %workspace.display()))]
-pub fn build_ghost_agents(workspace: &Path) -> String {
-    let agents = crate::agents::discover_agents(workspace);
-
-    if agents.is_empty() {
-        return String::new();
-    }
-
-    let entries: Vec<String> = agents
-        .iter()
-        .map(|a| {
-            let location = format!("agents/{}/agent.lua", a.name);
-            format!(
-                "  <agent>\n    <name>{}</name>\n    \
-                 <description>{}</description>\n    \
-                 <location>{location}</location>\n  </agent>",
-                a.name, a.description,
-            )
-        })
-        .collect();
-
-    format!(
-        "## Available Agents\n\n\
-         Use `agent_control` to spawn background agents. Read the agent file with \
-         `read_file` before spawning to understand when and how to use it.\n\n\
-         <available_agents>\n{}\n</available_agents>",
-        entries.join("\n"),
-    )
-}
-
 /// Placeholder for diary content. Will be wired to the database in a future spec.
 #[tracing::instrument(skip_all, level = "debug")]
 pub fn build_ghost_diary() -> String {
@@ -220,43 +187,4 @@ mod tests {
         assert!(result.contains("MUST follow"));
     }
 
-    #[test]
-    fn agents_uses_xml_format_with_location() {
-        let dir = TempDir::new().unwrap();
-        let agents = dir.path().join("agents");
-
-        let alpha = agents.join("alpha");
-        fs::create_dir_all(&alpha).unwrap();
-        fs::write(
-            alpha.join("agent.lua"),
-            r#"return { name = "alpha", description = "A agent", tools = {} }"#,
-        )
-        .unwrap();
-
-        let zeta = agents.join("zeta");
-        fs::create_dir_all(&zeta).unwrap();
-        fs::write(
-            zeta.join("agent.lua"),
-            r#"return { name = "zeta", description = "Z agent", tools = {} }"#,
-        )
-        .unwrap();
-
-        let result = build_ghost_agents(dir.path());
-        assert!(result.contains("<available_agents>"));
-        assert!(result.contains("<name>alpha</name>"));
-        assert!(result.contains("<description>A agent</description>"));
-        assert!(result.contains("<location>agents/alpha/agent.lua</location>"));
-        assert!(result.contains("<name>zeta</name>"));
-        assert!(result.contains("agent_control"));
-
-        let alpha_pos = result.find("alpha").unwrap();
-        let zeta_pos = result.find("zeta").unwrap();
-        assert!(alpha_pos < zeta_pos);
-    }
-
-    #[test]
-    fn agents_empty_returns_empty_string() {
-        let dir = TempDir::new().unwrap();
-        assert!(build_ghost_agents(dir.path()).is_empty());
-    }
 }

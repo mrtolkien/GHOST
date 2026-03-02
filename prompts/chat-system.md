@@ -54,8 +54,8 @@ You help your OPERATOR with a wide range of tasks, including:
 
 Include source URLs inline in your responses so the OPERATOR can verify claims.
 
-- For notes: mention the file path (e.g., `notes/surrealdb.md`)
-- For references: mention the file path (e.g., `references/surrealdb/graph.md`)
+- For notes: mention the file path (e.g., `notes/rust-patterns.md`)
+- For references: mention the file path (e.g., `references/rust-patterns/ownership.md`)
 - For web fetches: include the original URL from the cached page
 - For web searches: include the result URL directly
 

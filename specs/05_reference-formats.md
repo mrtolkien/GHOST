@@ -33,7 +33,7 @@ files.
   column names and values for search
 - The GHOST should be able to answer questions about the data without loading the entire
   file into context
-- Prior art: DuckDB for SQL-over-CSV/JSON, or chunked indexing into SurrealDB
+- Prior art: DuckDB for SQL-over-CSV/JSON, or chunked indexing into SQLite FTS5
 
 ## Design Considerations
 

@@ -1,0 +1,16 @@
+{
+    "runtime.version": "Lua 5.4",
+    "runtime.path": [
+        "prompts/stdlib/?.lua"
+    ],
+    "workspace.library": [
+        "prompts/types"
+    ],
+    "workspace.checkThirdParty": false,
+    "diagnostics.globals": [
+        "read_file",
+        "load_skill",
+        "print"
+    ],
+    "hint.enable": true
+}

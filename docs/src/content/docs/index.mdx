@@ -59,13 +59,13 @@ import { CardGrid, Card } from "@astrojs/starlight/components";
       <td colspan="3" style="text-align: center;">Provider Layer (OpenRouter, Kimi, Codex)</td>
     </tr>
     <tr>
-      <td colspan="2">SurrealDB (embedded)</td>
+      <td colspan="2">SQLite + sqlite-vec</td>
       <td>Workspace Files</td>
     </tr>
   </tbody>
 </table>
 
 - **Single binary** — no external services required (except Ollama for embeddings)
-- **Embedded SurrealDB** — graph-based knowledge storage with typed edges
+- **Embedded SQLite** — knowledge storage with FTS5, sqlite-vec embeddings, and typed edges
 - **Discord transport** — primary interface for the PoC (more planned)
 - **Multiple LLM providers** — OpenRouter, Kimi Code, OpenAI OAuth (Codex)

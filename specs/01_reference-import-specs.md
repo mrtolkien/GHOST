@@ -320,8 +320,8 @@ Lists all topics grouped by library, with counts and import metadata:
 dioxus
   dioxus/docs   47 refs  imported 2026-02-25  (git: abc123)
   dioxus/source 120 refs  imported 2026-02-24  (git: def456)
-surrealdb
-  surrealdb/docs  32 refs  imported 2026-02-20  (crawl)
+sqlx
+  sqlx/docs  32 refs  imported 2026-02-20  (crawl)
 ```
 
 Implementation: `list_topics(db)` returns distinct topics with counts. Group by first
@@ -449,7 +449,7 @@ This is intentionally deferred until the reference import pipeline is implemente
 This test uses `test_database()` (no network, no real provider) and pre-populates the DB
 with fake references + fake 1024-dim embeddings.
 
-- Pre-populate references under two topics (`dioxus/docs`, `surrealdb/api`)
+- Pre-populate references under two topics (`dioxus/docs`, `sqlx/api`)
 - Create a topic note
 - Assert: `search_references` with topic filter returns scoped results
 - Assert: `search_notes` finds topic note via BM25

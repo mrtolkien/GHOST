@@ -320,8 +320,8 @@ mod tests {
             "example-com-page"
         );
         assert_eq!(
-            slug_from_url("http://docs.rs/surrealdb"),
-            "docs-rs-surrealdb"
+            slug_from_url("http://docs.rs/tokio"),
+            "docs-rs-tokio"
         );
     }
 

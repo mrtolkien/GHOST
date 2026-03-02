@@ -58,7 +58,7 @@ Projects in GHOST would combine ideas from all three:
 - **Text-first** (pi-mono): projects and tasks live as files in
   `$WORKSPACE/projects/<name>/`, readable and editable by both the GHOST and OPERATOR
 - **Graph-connected** (unique to GHOST): project tasks link to knowledge notes via wiki
-  links (`[[depends_on>SurrealDB migration]]`), making the knowledge graph aware of
+  links (`[[depends_on>SQLite migration]]`), making the knowledge graph aware of
   active work
 - **CLI-managed**: `ghost project list`, `ghost project create`, `ghost project status`
   — the GHOST uses these via `run_shell_command`, no dedicated tool needed

@@ -93,7 +93,7 @@ async fn metadata_formatting_matches_expected_shape() {
 async fn positions_pair_with_engines() {
     let provider = SearxngSearchProvider::new(&searxng_url(), 5).expect("build provider");
     let results = provider
-        .search("surrealdb database")
+        .search("sqlite database")
         .await
         .expect("search should succeed");
 

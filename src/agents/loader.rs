@@ -107,6 +107,9 @@ pub fn load_agent_with_host(
     Ok((config, host))
 }
 
+/// LuaLS type stubs for agent developers.
+const LUA_TYPE_STUBS: &str = include_str!("../../prompts/types/ghost.lua");
+
 /// Embedded default agent files (agent.lua + prompt.md per agent).
 const DEFAULT_AGENTS: &[(&str, &[(&str, &str)])] = &[
     (
@@ -164,6 +167,11 @@ pub fn install_default_agents(workspace: &Path) -> Result<(), std::io::Error> {
             std::fs::write(agent_dir.join(filename), content)?;
         }
     }
+
+    // Install LuaLS type stubs for agent developers
+    let types_dir = agents_dir.join(".types");
+    std::fs::create_dir_all(&types_dir)?;
+    std::fs::write(types_dir.join("ghost.lua"), LUA_TYPE_STUBS)?;
 
     super::crontab::install_default_crontab(workspace)?;
 

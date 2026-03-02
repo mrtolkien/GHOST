@@ -8,7 +8,7 @@ async-trait = "0.1"
 base64 = "0.22"
 chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4", features = ["derive"] }
-cron = "0.12"
+cron = "0.15"
 dom_smoothie = "0.15"
 futures = "0.3"
 dotenvy = "0.15"
@@ -16,15 +16,17 @@ gethostname = "1"
 hex = "0.4"
 htmd = "0.5"
 logfire = "0.9"
-mlua = { version = "0.10", features = ["lua54", "async", "serialize", "send"] }
+mlua = { version = "0.11", features = ["lua54", "async", "serde", "send"] }
 notify = { version = "8", default-features = false, features = ["macos_fsevent"] }
-rand = "0.9"
+rand = "0.10"
 regex = "1"
-reqwest = { version = "0.12", default-features = false, features = [
+reqwest = { version = "0.13", default-features = false, features = [
   "json",
-  "rustls-tls",
+  "rustls",
+  "query",
+  "form",
 ] }
-resvg = "0.46"
+resvg = "0.47"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_yaml = "0.9"
@@ -42,7 +44,7 @@ libsqlite3-sys = { version = "0.30", features = ["bundled"] }
 thiserror = "2"
 tokio = { version = "1", features = ["full"] }
 tokio-util = "0.7.18"
-toml = "0.9"
+toml = "1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 url = "2"
@@ -55,6 +57,6 @@ e2e-tests = ["live-tests"]
 chrono = "0.4"
 sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite"] }
 tempfile = "3"
-toml = "0.9"
+toml = "1"
 tar = "0.4"
 zstd = "0.13"

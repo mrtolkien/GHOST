@@ -12,12 +12,12 @@
 - [x] Review reflection building: fork-reflection uses
       ctx:list_messages(args.session_id)
 - [x] Recursive calling security
-- [ ] Remove agent descriptions, they don't serve any purpose
-- [ ] Upgrade deps
-- [ ] Cleanup surrealdb references
-- [ ] Review CLAUDE skills (symlinks to agent skills for some?)
+- [x] Remove build_ghost_agents (agents discovered through skills, not system prompt)
+- [x] Upgrade deps (cron 0.15, mlua 0.11, rand 0.10, resvg 0.47, reqwest 0.13, toml 1.0)
+- [x] Cleanup surrealdb references
+- [x] Review CLAUDE skills (symlinks to agent skills for some?)
+- [x] Add lua formatter + tooling (StyLua + LuaLS type stubs)
 - [ ] Add compaction to agents (pre-emptive or post-error + special compaction prompt)
-- [ ] Add lua formatter + tooling
 - [ ] Experimentations
   - [ ] Try deep research `respond` tool: report, sources, negative_information
   - [ ] Re-make agent reflection a fresh session instead of a fork

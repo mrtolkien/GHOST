@@ -694,7 +694,7 @@ mod tests {
             "|------|------------|---------|".to_string(),
             "| **Reference** | `42a525e0` 3d-printers | Enclosed 3D printers for *home use* |"
                 .to_string(),
-            "| **Web fetch** | https://docs.surrealdb.com/ | Top three **SurrealDB** features |"
+            "| **Web fetch** | https://docs.rs/sqlx/ | Top three **sqlx** features |"
                 .to_string(),
             "| **Note** | ping test | OPERATOR sent a *ping* test. |".to_string(),
         ];

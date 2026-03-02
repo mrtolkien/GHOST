@@ -8,7 +8,7 @@ and multi-interface communication.
 ## Features
 
 - **Persistent knowledge** — notes, references, and diary with graph edges and semantic
-  search (SurrealDB + Ollama embeddings)
+  search (SQLite + sqlite-vec + Ollama embeddings)
 - **Background agents** — autonomous workers for research, reflection, and proactive
   check-ins
 - **Cron jobs** — scheduled tasks defined as markdown files
@@ -51,7 +51,7 @@ ghost daemon
 ├── Job scheduler        (cron + heartbeat + reflection)
 ├── Chat orchestration   (tool loop, compaction, sessions)
 ├── Provider layer       (OpenRouter, Kimi, OpenAI OAuth)
-├── SurrealDB            (embedded, graph knowledge)
+├── SQLite + sqlite-vec  (embedded, knowledge + embeddings)
 └── Workspace files      (identity, skills, agents, jobs)
 ```
 

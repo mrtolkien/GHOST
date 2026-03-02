@@ -39,7 +39,7 @@ Clone a repository and import relevant files:
 ```json
 {
   "source": "git",
-  "url": "https://github.com/surrealdb/surrealdb",
+  "url": "https://github.com/launchbadge/sqlx",
   "paths": ["doc/", "README.md"],
   "extensions": [".md", ".rs"]
 }
@@ -61,7 +61,7 @@ issues, ...)
 ```json
 {
   "source": "crawl",
-  "url": "https://docs.surrealdb.com",
+  "url": "https://docs.rs/sqlx",
   "max_depth": 3,
   "max_pages": 50
 }
