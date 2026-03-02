@@ -82,12 +82,5 @@ ghost agent run <name> [prompt] # Run an agent manually
 ghost agent logs [name]        # View agent run logs
 ```
 
-The GHOST can also manage agents during conversations through the
-`agent_control` tool:
-
-```text
-start    — Spawn a new agent with name and prompt
-continue — Send follow-up instructions to a running agent
-status   — Check agent progress
-stop     — Terminate an agent
-```
+During conversation, GHOST can also spawn and manage agents with the
+[`agent_control`](/agents/agent-control/) tool.

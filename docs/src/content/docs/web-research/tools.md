@@ -3,9 +3,9 @@ title: Web Tools
 description: Tools for web research — search and page fetching.
 ---
 
-Tools for web research. See [Web Research](/features/web/) for usage details.
+Tools for web research. See [Web Research](/web-research/overview/) for usage details.
 
-## web_search
+## `web_search`
 
 Search the web via the Brave Search API.
 
@@ -18,7 +18,7 @@ Search the web via the Brave Search API.
 Requires `BRAVE_API_KEY` environment variable.
 :::
 
-## web_fetch
+## `web_fetch`
 
 Fetch and extract readable content from a URL.
 

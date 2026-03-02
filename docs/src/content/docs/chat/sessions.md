@@ -1,7 +1,7 @@
 ---
-title: Chat & Sessions
+title: Sessions & Messages
 description:
-  How GHOST chat sessions work, including message flow and automatic compaction.
+  How GHOST chat sessions work — message flow, tool loops, and session management.
 ---
 
 ## Sessions
@@ -33,8 +33,8 @@ When the conversation approaches the model's context window limit, GHOST automat
 compacts the history using a two-phase approach (tool result masking, then LLM
 summarization). This is transparent — the GHOST continues the conversation naturally.
 
-See [Compaction](/features/compaction/) for details on how it works, configuration
-options, and agent-specific overrides.
+See [Compaction](/chat/compaction/) for details on how it works, configuration options,
+and agent-specific overrides.
 
 ## Session Management
 

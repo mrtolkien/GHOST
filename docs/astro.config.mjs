@@ -40,52 +40,55 @@ export default defineConfig({
           ],
         },
         {
-          label: "Features",
+          label: "Chat",
           items: [
-            { label: "Chat & Sessions", slug: "features/chat" },
-            { label: "Compaction", slug: "features/compaction" },
-            {
-              label: "Knowledge",
-              collapsed: false,
-              items: [
-                {
-                  label: "Knowledge Base",
-                  slug: "features/knowledge",
-                },
-                {
-                  label: "Reflection",
-                  slug: "features/reflection",
-                },
-                {
-                  label: "Knowledge Tools",
-                  slug: "features/tools-knowledge",
-                },
-              ],
-            },
-            { label: "Skills", slug: "features/skills" },
-            { label: "Web Research", slug: "features/web" },
-            {
-              label: "Tools",
-              collapsed: true,
-              items: [
-                { label: "Core Tools", slug: "features/tools-core" },
-                { label: "Web Tools", slug: "features/tools-web" },
-              ],
-            },
+            { label: "Sessions & Messages", slug: "chat/sessions" },
+            { label: "Compaction", slug: "chat/compaction" },
           ],
         },
         {
-          label: "Lua Agents",
+          label: "Knowledge",
+          items: [
+            { label: "Knowledge Base", slug: "knowledge/knowledge" },
+            { label: "Reflection", slug: "knowledge/reflection" },
+            { label: "Knowledge Tools", slug: "knowledge/tools" },
+          ],
+        },
+        {
+          label: "Skills & Tools",
+          items: [
+            { label: "Overview", slug: "skills-and-tools/overview" },
+            { label: "Default Skills", slug: "skills-and-tools/default-skills" },
+            { label: "Creating Skills", slug: "skills-and-tools/creating-skills" },
+            { label: "Core Tools", slug: "skills-and-tools/core-tools" },
+          ],
+        },
+        {
+          label: "Web Research",
+          items: [
+            { label: "Overview", slug: "web-research/overview" },
+            { label: "Web Tools", slug: "web-research/tools" },
+          ],
+        },
+        {
+          label: "Agents",
           items: [
             { label: "Introduction", slug: "agents/introduction" },
             { label: "Syntax Reference", slug: "agents/syntax" },
             { label: "Context", slug: "agents/context" },
+            { label: "Agent Control", slug: "agents/agent-control" },
             { label: "Cron Jobs", slug: "agents/cron" },
           ],
         },
         {
           label: "Reference",
-          items: [{ label: "CLI", slug: "reference/cli" }],
+          items: [
+            { label: "CLI", slug: "reference/cli" },
+            {
+              label: "External Dependencies",
+              slug: "reference/dependencies",
+            },
+          ],
         },
         { label: "Roadmap", slug: "roadmap" },
       ],

@@ -1,13 +1,12 @@
 ---
 title: Core Tools
 description:
-  GHOST's core tool capabilities — shell, file I/O, todo tracking, and agent control.
+  GHOST's core tool capabilities — shell, file I/O, and todo tracking.
 ---
 
-GHOST follows a "skills over tools" philosophy — prefer workflow files and existing
-tools over adding new tool APIs. These core tools cover most needs.
+Shell access, file operations, and task tracking.
 
-## run_shell_command
+## `run_shell_command`
 
 Execute shell commands on the host system.
 
@@ -16,7 +15,7 @@ Execute shell commands on the host system.
 | `command`    | string  | yes      | Shell command to execute |
 | `timeout_ms` | integer | no       | Timeout in milliseconds  |
 
-## read_file
+## `read_file`
 
 Read file contents with optional pagination.
 
@@ -28,7 +27,7 @@ Read file contents with optional pagination.
 
 Returns contents with line numbers for precise editing.
 
-## write_file
+## `write_file`
 
 Create or overwrite a file.
 
@@ -37,7 +36,7 @@ Create or overwrite a file.
 | `path`    | string | yes      | File path     |
 | `content` | string | yes      | File contents |
 
-## file_edit
+## `file_edit`
 
 Make targeted string replacements in a file.
 
@@ -47,7 +46,7 @@ Make targeted string replacements in a file.
 | `old_string` | string | yes      | Text to find     |
 | `new_string` | string | yes      | Replacement text |
 
-## todo
+## `todo`
 
 Session-scoped working memory for tracking multi-step tasks.
 
@@ -57,15 +56,3 @@ Session-scoped working memory for tracking multi-step tasks.
 | `update`       | Update a single item's status |
 | `batch_update` | Update multiple items at once |
 
-## agent_control
-
-Spawn and manage autonomous agents.
-
-| Action     | Description                            |
-| ---------- | -------------------------------------- |
-| `start`    | Spawn a new agent with name and prompt |
-| `continue` | Send follow-up instructions            |
-| `status`   | Check agent progress                   |
-| `stop`     | Terminate an agent                     |
-
-See [Lua Agents](/agents/introduction/) for details.

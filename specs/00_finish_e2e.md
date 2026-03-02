@@ -18,8 +18,8 @@
 - [x] Review CLAUDE skills (symlinks to agent skills for some?)
 - [x] Add lua formatter + tooling (StyLua + LuaLS type stubs)
 - [x] Add compaction to agents (pre-emptive or post-error + special compaction prompt)
-- [ ] Message types? User, assistant, system?
-- [ ] Review docs: flatter? "Features" is vague. Tools don't use the monospace font in
+- [x] Message types? User, assistant, system?
+- [x] Review docs: flatter? "Features" is vague. Tools don't use the monospace font in
       the section titles.
 - [ ] Experimentations
   - [ ] Try deep research `respond` tool: report, sources, negative_information

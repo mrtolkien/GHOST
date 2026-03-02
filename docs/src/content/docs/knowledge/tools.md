@@ -4,9 +4,9 @@ description:
   Tools for interacting with GHOST's knowledge base — search and note creation.
 ---
 
-Tools for interacting with GHOST's [knowledge base](/features/knowledge/).
+Tools for interacting with GHOST's [knowledge base](/knowledge/knowledge/).
 
-## knowledge_search
+## `knowledge_search`
 
 Hybrid search combining BM25 full-text and semantic embeddings.
 
@@ -16,7 +16,7 @@ Hybrid search combining BM25 full-text and semantic embeddings.
 | `categories` | array   | no       | Filter by type: `notes`, `references`, `diary`. Default: `["notes", "diary"]` |
 | `limit`      | integer | no       | Max results. Default: 10                                                      |
 
-## note_write
+## `note_write`
 
 Create or update structured knowledge notes. Available only in reflection contexts.
 
