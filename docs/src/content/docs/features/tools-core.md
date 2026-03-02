@@ -68,4 +68,4 @@ Spawn and manage autonomous agents.
 | `status`   | Check agent progress                   |
 | `stop`     | Terminate an agent                     |
 
-See [Agents](/features/agents/) for details.
+See [Lua Agents](/agents/introduction/) for details.

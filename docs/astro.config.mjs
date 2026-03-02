@@ -62,7 +62,6 @@ export default defineConfig({
               ],
             },
             { label: "Skills", slug: "features/skills" },
-            { label: "Agents", slug: "features/agents" },
             { label: "Web Research", slug: "features/web" },
             {
               label: "Tools",
@@ -72,6 +71,15 @@ export default defineConfig({
                 { label: "Web Tools", slug: "features/tools-web" },
               ],
             },
+          ],
+        },
+        {
+          label: "Lua Agents",
+          items: [
+            { label: "Introduction", slug: "agents/introduction" },
+            { label: "Syntax Reference", slug: "agents/syntax" },
+            { label: "Context", slug: "agents/context" },
+            { label: "Cron Jobs", slug: "agents/cron" },
           ],
         },
         {
