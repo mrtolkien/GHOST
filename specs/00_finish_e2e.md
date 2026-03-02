@@ -28,5 +28,5 @@
   - [x] Re-make agent reflection a fresh session instead of a fork
   - [x] Remove write note tool from deep research
   - [x] Review standard reflection agent
+  - [x] Review compaction token count
   - [ ] Re-add an agent continuation test
-  - [ ] Review compaction token count

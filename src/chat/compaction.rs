@@ -16,22 +16,18 @@ use crate::providers::{
     ChatMessage, ChatRequest, ChatResponse, ContentBlock, Provider, Role, ToolDefinition,
 };
 
-// TODO: Per-language token estimation rules. The current heuristic
-// (ceil(chars / 3.5)) works well for English but overestimates for
-// logographic scripts and underestimates for some agglutinative languages.
-
 // ---------------------------------------------------------------------------
 // Token estimation
 // ---------------------------------------------------------------------------
 
-/// Estimate token count from text using a `ceil(chars / 3.5)` heuristic.
+/// Estimate token count from text using a `ceil(bytes / 4)` heuristic.
 ///
-/// This intentionally overestimates (safe direction) without needing a
-/// tokenizer dependency. Multi-byte UTF-8 characters inflate the byte count,
-/// which acts as extra safety margin for non-Latin scripts.
+/// Industry-standard ratio (used by Claude Code, Codex CLI). Multi-byte
+/// UTF-8 characters inflate the byte count, providing extra safety margin
+/// for non-Latin scripts.
 #[must_use]
 pub fn estimate_tokens(text: &str) -> usize {
-    (text.len() as f64 / 3.5).ceil() as usize
+    text.len().div_ceil(4)
 }
 
 /// Estimate tokens for a single [`ContentBlock`].
@@ -757,23 +753,24 @@ mod tests {
 
     #[test]
     fn estimate_tokens_basic() {
-        assert_eq!(estimate_tokens("hello!!"), 2); // 7 / 3.5 = 2
+        assert_eq!(estimate_tokens("hello!!"), 2); // ceil(7 / 4) = 2
         assert_eq!(estimate_tokens(""), 0);
-        assert_eq!(estimate_tokens(&"a".repeat(35)), 10);
+        assert_eq!(estimate_tokens(&"a".repeat(32)), 8); // 32 / 4 = 8
+        assert_eq!(estimate_tokens(&"a".repeat(33)), 9); // ceil(33 / 4) = 9
     }
 
     #[test]
     fn estimate_tokens_unicode() {
         let jp = "こんにちは"; // 15 bytes in UTF-8
         let tokens = estimate_tokens(jp);
-        assert!(tokens >= 4); // 15 / 3.5 ≈ 4.3
+        assert_eq!(tokens, 4); // ceil(15 / 4) = 4 (overestimates for CJK — safe)
     }
 
     #[test]
     fn estimate_history_includes_overhead() {
         let history = vec![user_text("Hello")];
         let tokens = estimate_history_tokens(&history);
-        // "Hello" = 5 chars → ceil(5/3.5) = 2, plus 4 overhead = 6
+        // "Hello" = 5 bytes → ceil(5/4) = 2, plus 4 overhead = 6
         assert_eq!(tokens, 6);
     }
 
@@ -797,26 +794,25 @@ mod tests {
 
     #[test]
     fn compute_budget_triggers_compaction() {
-        let big = user_text(&"x".repeat(700_000)); // ~200K tokens
+        let big = user_text(&"x".repeat(800_000)); // ~200K tokens at /4
         let budget = compute_budget(200_000, "System", &[], &[big], 0.90);
         assert!(budget.needs_compaction);
     }
 
     #[test]
     fn compute_budget_threshold_boundary() {
-        // Build a history that uses exactly ~90_000 tokens against a 100K window.
-        // At 0.90 threshold (90K limit) it should trigger; at 0.89 it should not.
-        // estimate_tokens("x".repeat(n)) = ceil(n / 3.5), plus 4 per-message overhead.
-        // We want total ≈ 90_000. With one message: total = ceil(chars / 3.5) + 4.
-        // Solve: ceil(chars / 3.5) = 89_996 → chars = 89_996 * 3.5 = 314_986.
-        let chars = 314_986;
-        let msg = user_text(&"x".repeat(chars));
+        // Build a history that uses exactly 90_000 tokens against a 100K window.
+        // estimate_tokens("x".repeat(n)) = ceil(n / 4), plus 4 per-message overhead.
+        // We want total = 90_000. With one message: total = ceil(bytes / 4) + 4.
+        // Solve: ceil(bytes / 4) = 89_996 → bytes = 89_996 * 4 = 359_984.
+        let bytes = 359_984;
+        let msg = user_text(&"x".repeat(bytes));
         let total = estimate_history_tokens(std::slice::from_ref(&msg));
         assert_eq!(total, 90_000, "sanity: estimated tokens should be 90_000");
 
-        // At 0.90 threshold → limit is 90_000 → triggers (90_000 > 90_000 is false,
-        // but we need strictly over). Add 1 more token worth of chars.
-        let msg_over = user_text(&"x".repeat(chars + 4)); // +4 chars ≈ +1 token
+        // At 0.90 threshold → limit is 90_000. 90_000 > 90_000 is false,
+        // so add 4 more bytes (+1 token) to go strictly over.
+        let msg_over = user_text(&"x".repeat(bytes + 4));
         let budget_at_90 = compute_budget(100_000, "", &[], std::slice::from_ref(&msg_over), 0.90);
         assert!(
             budget_at_90.needs_compaction,
