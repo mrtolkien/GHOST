@@ -12,6 +12,8 @@ pub enum KnowledgeCommand {
         query: String,
         #[arg(long)]
         kind: Option<String>,
+        #[arg(long)]
+        topic: Option<String>,
         #[arg(long, default_value_t = 10)]
         limit: usize,
     },
@@ -54,8 +56,21 @@ pub async fn execute(command: KnowledgeCommand) -> Result<(), GhostError> {
     let db = crate::db::connect(&config.workspace, config.embeddings.dimension).await?;
 
     match command {
-        KnowledgeCommand::Search { query, kind, limit } => {
-            cmd_search(&db, &config.embeddings, &query, kind.as_deref(), limit).await
+        KnowledgeCommand::Search {
+            query,
+            kind,
+            topic,
+            limit,
+        } => {
+            cmd_search(
+                &db,
+                &config.embeddings,
+                &query,
+                kind.as_deref(),
+                topic.as_deref(),
+                limit,
+            )
+            .await
         }
         KnowledgeCommand::Get { path, title } => {
             cmd_get(&db, &config.workspace, path.as_deref(), title.as_deref()).await
@@ -84,26 +99,48 @@ async fn cmd_search(
     embeddings_config: &crate::config::EmbeddingsConfig,
     query: &str,
     kind: Option<&str>,
+    topic: Option<&str>,
     limit: usize,
 ) -> Result<(), GhostError> {
+    // Resolve topic name to topic IDs for scoped search
+    let resolved_topic_ids = if let Some(topic_name) = topic {
+        db::knowledge::find_topics_by_prefix(db, topic_name)
+            .await?
+            .into_iter()
+            .map(|t| t.id)
+            .collect::<Vec<_>>()
+    } else {
+        vec![]
+    };
+
     let mut bm25_hits = Vec::new();
 
     if kind.is_none() || kind == Some("note") {
         bm25_hits.extend(db::knowledge::search_notes(db, query, limit).await?);
     }
     if kind.is_none() || kind == Some("reference") {
-        bm25_hits.extend(db::knowledge::search_references(db, query, limit).await?);
+        if resolved_topic_ids.is_empty() {
+            bm25_hits.extend(db::knowledge::search_references(db, query, limit, None).await?);
+        } else {
+            for tid in &resolved_topic_ids {
+                bm25_hits
+                    .extend(db::knowledge::search_references(db, query, limit, Some(tid)).await?);
+            }
+        }
     }
     if kind.is_none() || kind == Some("diary") {
         bm25_hits.extend(db::knowledge::search_diary(db, query, limit).await?);
     }
+
+    let vector_topic_id = resolved_topic_ids.first().map(String::as_str);
 
     // Try hybrid search: embed query and merge with BM25
     let client = EmbeddingClient::new(embeddings_config);
     let hits = if client.is_available().await {
         match client.embed_batch(&[query.to_string()]).await {
             Ok(vectors) if !vectors.is_empty() => {
-                let embedding_hits = db::embeddings::vector_search(db, &vectors[0], limit).await?;
+                let embedding_hits =
+                    db::embeddings::vector_search(db, &vectors[0], limit, vector_topic_id).await?;
                 db::knowledge::hybrid_merge(&bm25_hits, &embedding_hits, limit)
             }
             Ok(_) => {
@@ -341,14 +378,14 @@ async fn cmd_references(db: &GhostDb, topic: Option<&str>, limit: usize) -> Resu
         return Ok(());
     }
 
-    let mut current_topic: Option<&str> = None;
+    let mut current_topic_id: Option<&str> = None;
     for r in &refs {
-        if current_topic != Some(&r.topic) {
-            if current_topic.is_some() {
+        if current_topic_id != Some(&r.topic_id) {
+            if current_topic_id.is_some() {
                 println!();
             }
-            println!("## {}", r.topic);
-            current_topic = Some(&r.topic);
+            println!("## {}", r.topic_id);
+            current_topic_id = Some(&r.topic_id);
         }
         let url = r.source_url.as_deref().unwrap_or("-");
         println!("  {}  ({})", r.path, url);
@@ -453,7 +490,7 @@ async fn cmd_reindex(
             .unwrap_or(path)
             .to_string_lossy()
             .to_string();
-        let topic = path
+        let topic_name = path
             .parent()
             .and_then(|p| p.file_name())
             .and_then(|f| f.to_str())
@@ -463,8 +500,9 @@ async fn cmd_reindex(
             .await?
             .is_none()
         {
+            let topic_id = db::knowledge::find_or_create_topic(db, topic_name).await?;
             let content = std::fs::read_to_string(path).map_err(std::io::Error::other)?;
-            db::knowledge::create_reference(db, topic, &rel_path, &content, None).await?;
+            db::knowledge::create_reference(db, &topic_id, &rel_path, &content, None).await?;
             ref_synced += 1;
         }
     }

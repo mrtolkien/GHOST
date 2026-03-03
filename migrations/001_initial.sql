@@ -74,15 +74,49 @@ CREATE TABLE note (
     updated_at TEXT NOT NULL
 );
 
+-- Knowledge: topics (collections for references)
+CREATE TABLE topic (
+    id TEXT PRIMARY KEY NOT NULL,
+    name TEXT NOT NULL UNIQUE,
+    note_id TEXT REFERENCES note(id) ON DELETE SET NULL,
+    source_url TEXT,
+    version_ref TEXT,
+    fetched_at TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE VIRTUAL TABLE topic_fts USING fts5(
+    name,
+    content=topic,
+    content_rowid=rowid,
+    tokenize='porter unicode61'
+);
+
+CREATE TRIGGER topic_fts_ai AFTER INSERT ON topic BEGIN
+    INSERT INTO topic_fts(rowid, name)
+    VALUES (new.rowid, new.name);
+END;
+CREATE TRIGGER topic_fts_ad AFTER DELETE ON topic BEGIN
+    INSERT INTO topic_fts(topic_fts, rowid, name)
+    VALUES ('delete', old.rowid, old.name);
+END;
+CREATE TRIGGER topic_fts_au AFTER UPDATE ON topic BEGIN
+    INSERT INTO topic_fts(topic_fts, rowid, name)
+    VALUES ('delete', old.rowid, old.name);
+    INSERT INTO topic_fts(rowid, name)
+    VALUES (new.rowid, new.name);
+END;
+
 -- Knowledge: references
 CREATE TABLE reference (
     id TEXT PRIMARY KEY NOT NULL,
-    topic TEXT NOT NULL,
+    topic_id TEXT NOT NULL REFERENCES topic(id),
     path TEXT NOT NULL,
     content TEXT NOT NULL,
     source_url TEXT,
     created_at TEXT NOT NULL,
-    UNIQUE(topic, path)
+    UNIQUE(topic_id, path)
 );
 
 -- Knowledge: diary
@@ -118,6 +152,7 @@ CREATE TABLE embedding (
     chunk_index INTEGER NOT NULL,
     chunk_text TEXT NOT NULL,
     content_hash TEXT NOT NULL,
+    topic_id TEXT,
     created_at TEXT NOT NULL,
     UNIQUE(source_id, chunk_index)
 );
@@ -148,25 +183,25 @@ CREATE TRIGGER note_fts_au AFTER UPDATE ON note BEGIN
 END;
 
 CREATE VIRTUAL TABLE reference_fts USING fts5(
-    content,
+    topic_name, content,
     content=reference,
     content_rowid=rowid,
     tokenize='porter unicode61'
 );
 
 CREATE TRIGGER reference_fts_ai AFTER INSERT ON reference BEGIN
-    INSERT INTO reference_fts(rowid, content)
-    VALUES (new.rowid, new.content);
+    INSERT INTO reference_fts(rowid, topic_name, content)
+    VALUES (new.rowid, (SELECT t.name FROM topic t WHERE t.id = new.topic_id), new.content);
 END;
 CREATE TRIGGER reference_fts_ad AFTER DELETE ON reference BEGIN
-    INSERT INTO reference_fts(reference_fts, rowid, content)
-    VALUES ('delete', old.rowid, old.content);
+    INSERT INTO reference_fts(reference_fts, rowid, topic_name, content)
+    VALUES ('delete', old.rowid, (SELECT t.name FROM topic t WHERE t.id = old.topic_id), old.content);
 END;
 CREATE TRIGGER reference_fts_au AFTER UPDATE ON reference BEGIN
-    INSERT INTO reference_fts(reference_fts, rowid, content)
-    VALUES ('delete', old.rowid, old.content);
-    INSERT INTO reference_fts(rowid, content)
-    VALUES (new.rowid, new.content);
+    INSERT INTO reference_fts(reference_fts, rowid, topic_name, content)
+    VALUES ('delete', old.rowid, (SELECT t.name FROM topic t WHERE t.id = old.topic_id), old.content);
+    INSERT INTO reference_fts(rowid, topic_name, content)
+    VALUES (new.rowid, (SELECT t.name FROM topic t WHERE t.id = new.topic_id), new.content);
 END;
 
 CREATE VIRTUAL TABLE diary_fts USING fts5(

@@ -8,6 +8,7 @@ pub struct EmbeddingHit {
     pub source_id: String,
     pub source_table: String,
     pub chunk_text: String,
+    pub topic_id: Option<String>,
     pub score: f64,
 }
 
@@ -20,6 +21,7 @@ pub async fn upsert_embedding(
     chunk_text: &str,
     content_hash: &str,
     vector: &[f32],
+    topic_id: Option<&str>,
 ) -> Result<(), DatabaseError> {
     let mut tx = db.begin().await.map_err(|source| DatabaseError::Query {
         table: "embedding",
@@ -72,8 +74,8 @@ pub async fn upsert_embedding(
     let id = new_id();
     sqlx::query(
         "INSERT INTO embedding \
-         (id, source_table, source_id, chunk_index, chunk_text, content_hash, created_at) \
-         VALUES (?, ?, ?, ?, ?, ?, ?)",
+         (id, source_table, source_id, chunk_index, chunk_text, content_hash, topic_id, created_at) \
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
     )
     .bind(&id)
     .bind(source_table)
@@ -81,6 +83,7 @@ pub async fn upsert_embedding(
     .bind(chunk_index as i64)
     .bind(chunk_text)
     .bind(content_hash)
+    .bind(topic_id)
     .bind(now())
     .execute(&mut *tx)
     .await
@@ -230,25 +233,30 @@ pub async fn vector_search(
     db: &SqlitePool,
     query_vector: &[f32],
     limit: usize,
+    topic_id: Option<&str>,
 ) -> Result<Vec<EmbeddingHit>, DatabaseError> {
     #[derive(sqlx::FromRow)]
     struct VecSearchRow {
         source_id: String,
         source_table: String,
         chunk_text: String,
+        topic_id: Option<String>,
         distance: f64,
     }
 
     let vec_json = serde_json::to_string(query_vector).unwrap_or_default();
 
+    // Over-fetch when filtering by topic to compensate for post-filtering
+    let fetch_limit = if topic_id.is_some() { limit * 3 } else { limit };
+
     let rows = sqlx::query_as::<_, VecSearchRow>(
-        "SELECT e.source_id, e.source_table, e.chunk_text, v.distance \
+        "SELECT e.source_id, e.source_table, e.chunk_text, e.topic_id, v.distance \
          FROM vec_embedding v \
          JOIN embedding e ON e.rowid = v.rowid \
          WHERE v.embedding MATCH ? AND k = ?",
     )
     .bind(&vec_json)
-    .bind(limit as i64)
+    .bind(fetch_limit as i64)
     .fetch_all(db)
     .await
     .map_err(|source| DatabaseError::Query {
@@ -257,15 +265,23 @@ pub async fn vector_search(
         source,
     })?;
 
-    Ok(rows
+    let mut hits: Vec<EmbeddingHit> = rows
         .into_iter()
+        .filter(|r| match topic_id {
+            Some(tid) => r.topic_id.as_deref() == Some(tid),
+            None => true,
+        })
         .map(|r| EmbeddingHit {
             source_id: r.source_id,
             source_table: r.source_table,
             chunk_text: r.chunk_text,
+            topic_id: r.topic_id,
             score: 1.0 / (1.0 + r.distance),
         })
-        .collect())
+        .collect();
+
+    hits.truncate(limit);
+    Ok(hits)
 }
 
 #[tracing::instrument(skip_all)]

@@ -32,9 +32,18 @@ async fn upsert_and_count_embeddings() {
             .expect("create note");
 
     let vector = vec![0.1_f32; 1024];
-    db::embeddings::upsert_embedding(&db, "note", &note_id, 0, "chunk text", "abc123", &vector)
-        .await
-        .expect("upsert embedding");
+    db::embeddings::upsert_embedding(
+        &db,
+        "note",
+        &note_id,
+        0,
+        "chunk text",
+        "abc123",
+        &vector,
+        None,
+    )
+    .await
+    .expect("upsert embedding");
 
     let count = db::embeddings::count_embeddings(&db).await.expect("count");
     assert_eq!(count, 1);
@@ -51,12 +60,16 @@ async fn upsert_overwrites_on_duplicate_source_and_chunk() {
     let vector_a = vec![0.1_f32; 1024];
     let vector_b = vec![0.9_f32; 1024];
 
-    db::embeddings::upsert_embedding(&db, "note", &note_id, 0, "old text", "hash_a", &vector_a)
-        .await
-        .expect("first upsert");
-    db::embeddings::upsert_embedding(&db, "note", &note_id, 0, "new text", "hash_b", &vector_b)
-        .await
-        .expect("second upsert");
+    db::embeddings::upsert_embedding(
+        &db, "note", &note_id, 0, "old text", "hash_a", &vector_a, None,
+    )
+    .await
+    .expect("first upsert");
+    db::embeddings::upsert_embedding(
+        &db, "note", &note_id, 0, "new text", "hash_b", &vector_b, None,
+    )
+    .await
+    .expect("second upsert");
 
     let count = db::embeddings::count_embeddings(&db).await.expect("count");
     assert_eq!(count, 1, "duplicate upsert should not create a second row");
@@ -92,9 +105,18 @@ async fn get_content_hash_returns_stored_hash() {
             .expect("create note");
 
     let vector = vec![0.5_f32; 1024];
-    db::embeddings::upsert_embedding(&db, "note", &note_id, 0, "text", "my_hash_42", &vector)
-        .await
-        .expect("upsert");
+    db::embeddings::upsert_embedding(
+        &db,
+        "note",
+        &note_id,
+        0,
+        "text",
+        "my_hash_42",
+        &vector,
+        None,
+    )
+    .await
+    .expect("upsert");
 
     let hash = db::embeddings::get_content_hash(&db, &note_id)
         .await
@@ -121,6 +143,7 @@ async fn delete_embeddings_for_source_removes_all_chunks() {
             &format!("chunk {i}"),
             "hash",
             &vector,
+            None,
         )
         .await
         .expect("upsert");
@@ -147,10 +170,10 @@ async fn delete_all_embeddings_clears_table() {
         .expect("create b");
 
     let vector = vec![0.1_f32; 1024];
-    db::embeddings::upsert_embedding(&db, "note", &note_a, 0, "a", "h1", &vector)
+    db::embeddings::upsert_embedding(&db, "note", &note_a, 0, "a", "h1", &vector, None)
         .await
         .unwrap();
-    db::embeddings::upsert_embedding(&db, "note", &note_b, 0, "b", "h2", &vector)
+    db::embeddings::upsert_embedding(&db, "note", &note_b, 0, "b", "h2", &vector, None)
         .await
         .unwrap();
 
@@ -174,12 +197,21 @@ async fn vector_search_returns_results() {
 
     // Insert a known vector
     let vector = vec![1.0_f32; 1024];
-    db::embeddings::upsert_embedding(&db, "note", &note_id, 0, "searchable chunk", "h", &vector)
-        .await
-        .expect("upsert");
+    db::embeddings::upsert_embedding(
+        &db,
+        "note",
+        &note_id,
+        0,
+        "searchable chunk",
+        "h",
+        &vector,
+        None,
+    )
+    .await
+    .expect("upsert");
 
     // Search with an identical vector — should get a perfect match
-    let hits = db::embeddings::vector_search(&db, &vector, 5)
+    let hits = db::embeddings::vector_search(&db, &vector, 5, None)
         .await
         .expect("vector search");
 
@@ -211,15 +243,15 @@ async fn vector_search_ranks_similar_higher() {
     let mut far_vec = vec![0.0_f32; 1024];
     far_vec[0] = 1.0;
 
-    db::embeddings::upsert_embedding(&db, "note", &close_id, 0, "close", "h1", &close_vec)
+    db::embeddings::upsert_embedding(&db, "note", &close_id, 0, "close", "h1", &close_vec, None)
         .await
         .unwrap();
-    db::embeddings::upsert_embedding(&db, "note", &far_id, 0, "far", "h2", &far_vec)
+    db::embeddings::upsert_embedding(&db, "note", &far_id, 0, "far", "h2", &far_vec, None)
         .await
         .unwrap();
 
     let query_vec = vec![1.0_f32; 1024];
-    let hits = db::embeddings::vector_search(&db, &query_vec, 5)
+    let hits = db::embeddings::vector_search(&db, &query_vec, 5, None)
         .await
         .expect("search");
 
@@ -249,12 +281,12 @@ async fn vector_search_respects_limit() {
         )
         .await
         .unwrap();
-        db::embeddings::upsert_embedding(&db, "note", &id, 0, &format!("c{i}"), "h", &vector)
+        db::embeddings::upsert_embedding(&db, "note", &id, 0, &format!("c{i}"), "h", &vector, None)
             .await
             .unwrap();
     }
 
-    let hits = db::embeddings::vector_search(&db, &vector, 2)
+    let hits = db::embeddings::vector_search(&db, &vector, 2, None)
         .await
         .expect("search");
     assert_eq!(hits.len(), 2, "should respect limit=2");
@@ -285,6 +317,7 @@ fn hybrid_merge_combines_bm25_and_embedding_scores() {
         source_table: "note".to_string(),
         chunk_text: "chunk".to_string(),
         score: 0.8,
+        topic_id: None,
     }];
 
     let merged = db::knowledge::hybrid_merge(&bm25_hits, &embedding_hits, 10);
@@ -302,6 +335,7 @@ fn hybrid_merge_includes_embedding_only_hits() {
         source_table: "note".to_string(),
         chunk_text: "only in embeddings".to_string(),
         score: 0.9,
+        topic_id: None,
     }];
 
     let merged = db::knowledge::hybrid_merge(&bm25_hits, &embedding_hits, 10);
@@ -368,6 +402,7 @@ async fn vector_insert_memory_stays_bounded() {
                 &format!("{large_chunk_text} note {i} chunk {chunk}"),
                 &format!("hash_{i}_{chunk}"),
                 &vector,
+                None,
             )
             .await
             .expect("upsert embedding");
@@ -393,6 +428,7 @@ async fn vector_insert_memory_stays_bounded() {
                 &format!("{large_chunk_text} note {i} chunk {chunk} v2"),
                 &format!("hash_{i}_{chunk}_v2"),
                 &vector,
+                None,
             )
             .await
             .expect("re-upsert embedding");
@@ -480,6 +516,7 @@ async fn vector_insert_concurrent_stays_bounded() {
                         &format!("{chunk_text} note {idx} chunk {chunk}"),
                         &format!("hash_{idx}_{chunk}"),
                         &vector,
+                        None,
                     )
                     .await
                     .expect("upsert");
@@ -498,7 +535,7 @@ async fn vector_insert_concurrent_stays_bounded() {
 
     // Phase 2: concurrent delete + re-insert (re-embed cycle)
     let all_notes: Vec<db::embeddings::EmbeddingHit> =
-        db::embeddings::vector_search(&db, &vec![1.0_f32; 1024], 1000)
+        db::embeddings::vector_search(&db, &vec![1.0_f32; 1024], 1000, None)
             .await
             .unwrap_or_default();
 
@@ -536,6 +573,7 @@ async fn vector_insert_concurrent_stays_bounded() {
                 &format!("{large_chunk_text} note {i} chunk {chunk} v2"),
                 &format!("hash_{i}_{chunk}_v2"),
                 &vector,
+                None,
             )
             .await
             .expect("re-upsert");
@@ -594,6 +632,7 @@ async fn vector_insert_large_scale_memory() {
                 &format!("{large_chunk_text} note {i} chunk {chunk}"),
                 &format!("hash_{i}_{chunk}"),
                 &vector,
+                None,
             )
             .await
             .expect("upsert");

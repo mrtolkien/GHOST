@@ -14,6 +14,7 @@ pub mod knowledge;
 pub mod observability;
 pub mod prompt;
 pub mod providers;
+pub mod reference_import;
 pub mod scripting;
 pub mod skills;
 pub mod tools;

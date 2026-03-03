@@ -52,6 +52,21 @@ CLI commands:
 - `ghost knowledge stats` — counts of notes, references, diary entries, edges, tags, and
   embeddings
 
+## Reference Topics
+
+References are organized by topic. Use the `topic` parameter for scoped search:
+
+- `knowledge_search(query="hooks", topic="dioxus")` — search all dioxus sub-topics
+- `knowledge_search(query="pool", topic="sqlx/api")` — search a specific sub-topic
+- `knowledge_search(query="framework", categories=["topics"])` — search topics by name
+
+CLI:
+
+- `ghost knowledge search "query" --topic dioxus` — topic-scoped search
+- `ghost reference topics` — list all topics with reference counts
+- `ghost reference import --source git --url <url> --topic <name>` — import new
+  references
+
 ## Workflow Tips
 
 1. **Before creating notes**, always search first to avoid duplicates.

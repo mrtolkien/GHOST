@@ -93,7 +93,8 @@ fn split_with_overlap(text: &str, target: usize, overlap: usize) -> Vec<String> 
             .map(|pos| overlap_start + pos)
             .unwrap_or(abs_split);
 
-        start = next_start;
+        // Guard: always advance past previous start to prevent infinite loops
+        start = next_start.max(start + 1);
     }
 
     parts
@@ -181,6 +182,19 @@ mod tests {
         let chunks = chunk_text(&text, &[]);
         for (i, chunk) in chunks.iter().enumerate() {
             assert_eq!(chunk.index, i);
+        }
+    }
+
+    #[test]
+    fn no_infinite_loop_on_real_markdown() {
+        // Regression: next_steps.md caused an infinite loop in the chunker
+        let text = include_str!("../../tests/fixtures/next_steps.md");
+        assert!(text.len() > SHORT_THRESHOLD);
+        let chunks = chunk_text(text, &["dioxus".into()]);
+        assert!(!chunks.is_empty(), "should produce chunks");
+        for (i, chunk) in chunks.iter().enumerate() {
+            assert_eq!(chunk.index, i);
+            assert!(!chunk.text.is_empty());
         }
     }
 

@@ -3,6 +3,7 @@ mod graph;
 mod records;
 mod search;
 mod stats;
+mod topics;
 
 pub use crud::{
     append_diary, create_diary, create_note, create_note_full, create_reference, delete_diary,
@@ -15,8 +16,15 @@ pub use graph::{
     create_cited_edge, create_edge, delete_outgoing_edges, incoming_cited, incoming_edges,
     orphan_notes, outgoing_edges, related_note_ids,
 };
-pub use records::{DiaryRecord, EdgeRecord, NoteRecord, RecentItem, ReferenceRecord, SearchHit};
-pub use search::{hybrid_merge, search_diary, search_notes, search_references};
+pub use records::{
+    DiaryRecord, EdgeRecord, NoteRecord, RecentItem, ReferenceRecord, SearchHit, TopicRecord,
+};
+pub use search::{hybrid_merge, search_diary, search_notes, search_references, search_topics};
 pub use stats::{
     count_diary, count_edges, count_notes, count_references, count_stubs, list_tags_with_counts,
+};
+pub use topics::{
+    TopicInfo, count_references_by_topic, create_topic, delete_references_by_topic, delete_topic,
+    find_or_create_topic, find_topic_by_name, find_topics_by_prefix, get_topic, list_topics,
+    update_topic,
 };

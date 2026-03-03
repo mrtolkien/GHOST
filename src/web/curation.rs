@@ -242,7 +242,7 @@ pub async fn link_cited_edges(
         let Some(rel_path) = rel_path else {
             continue;
         };
-        let topic = rel_path
+        let topic_name = rel_path
             .strip_prefix("references/")
             .and_then(|r| r.split('/').next())
             .unwrap_or(&domain)
@@ -256,12 +256,24 @@ pub async fn link_cited_edges(
                     _ => {
                         // File was moved to disk by curate_references but no
                         // DB record exists yet — create one now.
+                        let topic_id =
+                            match db::knowledge::find_or_create_topic(db, &topic_name).await {
+                                Ok(id) => id,
+                                Err(e) => {
+                                    logfire::warn!(
+                                        "link_cited_edges: failed to create topic",
+                                        topic = topic_name.clone(),
+                                        error = e.to_string(),
+                                    );
+                                    continue;
+                                }
+                            };
                         let ref_file = workspace.join(&rel_path);
                         let content = std::fs::read_to_string(&ref_file).unwrap_or_default();
                         let preview: String = content.chars().take(2000).collect();
                         match db::knowledge::create_reference(
                             db,
-                            &topic,
+                            &topic_id,
                             &rel_path,
                             &preview,
                             Some(&file.url),

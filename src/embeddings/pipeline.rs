@@ -36,6 +36,7 @@ pub async fn embed_source(
     source_id: &str,
     content: &str,
     tags: &[String],
+    topic_id: Option<&str>,
 ) -> Result<usize, PipelineError> {
     let hash = content_hash(content);
 
@@ -45,7 +46,17 @@ pub async fn embed_source(
         return Ok(0);
     }
 
-    embed_source_inner(client, db, source_table, source_id, content, tags, &hash).await
+    embed_source_inner(
+        client,
+        db,
+        source_table,
+        source_id,
+        content,
+        tags,
+        &hash,
+        topic_id,
+    )
+    .await
 }
 
 /// Embed a single source, ignoring any stored hash (for --force reindex).
@@ -61,9 +72,20 @@ pub async fn embed_source_forced(
     source_id: &str,
     content: &str,
     tags: &[String],
+    topic_id: Option<&str>,
 ) -> Result<usize, PipelineError> {
     let hash = content_hash(content);
-    embed_source_inner(client, db, source_table, source_id, content, tags, &hash).await
+    embed_source_inner(
+        client,
+        db,
+        source_table,
+        source_id,
+        content,
+        tags,
+        &hash,
+        topic_id,
+    )
+    .await
 }
 
 async fn embed_source_inner(
@@ -74,6 +96,7 @@ async fn embed_source_inner(
     content: &str,
     tags: &[String],
     hash: &str,
+    topic_id: Option<&str>,
 ) -> Result<usize, PipelineError> {
     let chunks = chunk_text(content, tags);
     if chunks.is_empty() {
@@ -94,6 +117,7 @@ async fn embed_source_inner(
             &chunk.text,
             hash,
             vector,
+            topic_id,
         )
         .await?;
     }
@@ -124,6 +148,7 @@ pub struct EmbedRequest {
     pub source_id: String,
     pub content: String,
     pub tags: Vec<String>,
+    pub topic_id: Option<String>,
 }
 
 /// Embed multiple knowledge sources in a single batched Ollama call.
@@ -152,6 +177,7 @@ pub async fn embed_sources(
         id: String,
         hash: String,
         chunks: Vec<Chunk>,
+        topic_id: Option<String>,
     }
 
     let mut prepared: Vec<PreparedSource> = Vec::new();
@@ -175,6 +201,7 @@ pub async fn embed_sources(
             id: req.source_id.clone(),
             hash,
             chunks,
+            topic_id: req.topic_id.clone(),
         });
     }
 
@@ -221,6 +248,7 @@ pub async fn embed_sources(
                 &chunk.text,
                 &src.hash,
                 vector,
+                src.topic_id.as_deref(),
             )
             .await?;
         }
@@ -255,7 +283,7 @@ pub async fn reconcile_embeddings(
         let batch_len = notes.len();
         for note in &notes {
             let tags = note.tags_parsed();
-            let count = embed_source(client, db, "note", &note.id, &note.body, &tags).await?;
+            let count = embed_source(client, db, "note", &note.id, &note.body, &tags, None).await?;
             if count > 0 {
                 embedded += count;
             } else {
@@ -283,6 +311,7 @@ pub async fn reconcile_embeddings(
                 &reference.id,
                 &reference.content,
                 &[],
+                Some(&reference.topic_id),
             )
             .await?;
             if count > 0 {
@@ -305,7 +334,8 @@ pub async fn reconcile_embeddings(
         let entries = db::knowledge::list_diary_page(db, offset, RECONCILE_PAGE_SIZE).await?;
         let batch_len = entries.len();
         for entry in &entries {
-            let count = embed_source(client, db, "diary", &entry.id, &entry.body, &[]).await?;
+            let count =
+                embed_source(client, db, "diary", &entry.id, &entry.body, &[], None).await?;
             if count > 0 {
                 embedded += count;
             } else {

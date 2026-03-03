@@ -19,6 +19,10 @@ const DEFAULT_SKILLS: &[(&str, &str)] = &[
         include_str!("../prompts/skills/deep-research.md"),
     ),
     (
+        "reference-import",
+        include_str!("../prompts/skills/reference-import.md"),
+    ),
+    (
         "skill-creator",
         include_str!("../prompts/skills/skill-creator.md"),
     ),
@@ -308,7 +312,7 @@ name: no-desc
             assert!(content.contains("---"));
         }
 
-        assert_eq!(DEFAULT_SKILLS.len(), 5);
+        assert_eq!(DEFAULT_SKILLS.len(), 6);
     }
 
     #[test]

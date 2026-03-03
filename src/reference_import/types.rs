@@ -1,0 +1,42 @@
+use thiserror::Error;
+
+pub struct ImportConfig {
+    pub source: ImportSource,
+    pub topic: String, // hierarchical name, e.g. "dioxus/docs"
+}
+
+pub enum ImportSource {
+    Git {
+        url: String,
+        paths: Vec<String>,
+        extensions: Vec<String>,
+    },
+    Page {
+        url: String,
+    },
+}
+
+pub struct ImportResult {
+    pub topic_id: String,
+    pub references_created: usize,
+    pub references_skipped: usize,
+    pub embeddings_generated: usize,
+}
+
+#[derive(Debug, Error)]
+pub enum ImportError {
+    #[error("git operation failed: {0}")]
+    Git(String),
+
+    #[error("fetch failed: {0}")]
+    Fetch(String),
+
+    #[error("database error: {0}")]
+    Database(#[from] crate::db::DatabaseError),
+
+    #[error("embedding error: {0}")]
+    Embedding(#[from] crate::embeddings::pipeline::PipelineError),
+
+    #[error("I/O error: {0}")]
+    Io(#[from] std::io::Error),
+}

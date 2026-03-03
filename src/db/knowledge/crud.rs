@@ -136,10 +136,10 @@ pub async fn append_diary(db: &SqlitePool, date: &str, line: &str) -> Result<(),
     Ok(())
 }
 
-#[tracing::instrument(skip_all, level = "debug", fields(topic = %topic, path = %path))]
+#[tracing::instrument(skip_all, level = "debug", fields(topic_id = %topic_id, path = %path))]
 pub async fn create_reference(
     db: &SqlitePool,
-    topic: &str,
+    topic_id: &str,
     path: &str,
     content: &str,
     source_url: Option<&str>,
@@ -147,11 +147,11 @@ pub async fn create_reference(
     let id = new_id();
 
     sqlx::query(
-        "INSERT INTO reference (id, topic, path, content, source_url, created_at) \
+        "INSERT INTO reference (id, topic_id, path, content, source_url, created_at) \
          VALUES (?, ?, ?, ?, ?, ?)",
     )
     .bind(&id)
-    .bind(topic)
+    .bind(topic_id)
     .bind(path)
     .bind(content)
     .bind(source_url)
@@ -256,8 +256,10 @@ pub async fn list_recent(db: &SqlitePool, limit: usize) -> Result<Vec<RecentItem
     })?;
 
     let refs: Vec<RecentItem> = sqlx::query_as(
-        "SELECT id, topic AS title, 'reference' AS kind, created_at AS updated_at \
-         FROM reference ORDER BY updated_at DESC LIMIT ?",
+        "SELECT r.id, COALESCE(t.name, r.topic_id) AS title, 'reference' AS kind, \
+         r.created_at AS updated_at FROM reference r \
+         LEFT JOIN topic t ON t.id = r.topic_id \
+         ORDER BY updated_at DESC LIMIT ?",
     )
     .bind(limit_i64)
     .fetch_all(db)
@@ -360,11 +362,11 @@ pub async fn update_reference_path(
     db: &SqlitePool,
     ref_id: &str,
     new_path: &str,
-    new_topic: &str,
+    new_topic_id: &str,
 ) -> Result<(), DatabaseError> {
-    sqlx::query("UPDATE reference SET path = ?, topic = ? WHERE id = ?")
+    sqlx::query("UPDATE reference SET path = ?, topic_id = ? WHERE id = ?")
         .bind(new_path)
-        .bind(new_topic)
+        .bind(new_topic_id)
         .bind(ref_id)
         .execute(db)
         .await
@@ -412,26 +414,26 @@ pub async fn find_reference_by_url(
 
 // --- Reference browsing ---
 
-#[tracing::instrument(skip_all, level = "debug", fields(topic = ?topic))]
+#[tracing::instrument(skip_all, level = "debug", fields(topic_id = ?topic_id))]
 pub async fn list_references_by_topic(
     db: &SqlitePool,
-    topic: Option<&str>,
+    topic_id: Option<&str>,
     limit: usize,
 ) -> Result<Vec<ReferenceRecord>, DatabaseError> {
-    match topic {
-        Some(t) => {
+    match topic_id {
+        Some(tid) => {
             sqlx::query_as::<_, ReferenceRecord>(
-                "SELECT * FROM reference WHERE topic = ? \
+                "SELECT * FROM reference WHERE topic_id = ? \
              ORDER BY created_at DESC LIMIT ?",
             )
-            .bind(t)
+            .bind(tid)
             .bind(limit as i64)
             .fetch_all(db)
             .await
         }
         None => {
             sqlx::query_as::<_, ReferenceRecord>(
-                "SELECT * FROM reference ORDER BY topic, created_at DESC LIMIT ?",
+                "SELECT * FROM reference ORDER BY topic_id, created_at DESC LIMIT ?",
             )
             .bind(limit as i64)
             .fetch_all(db)

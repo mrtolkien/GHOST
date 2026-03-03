@@ -27,11 +27,23 @@ impl NoteRecord {
 #[derive(Debug, Clone, Deserialize, Serialize, sqlx::FromRow)]
 pub struct ReferenceRecord {
     pub id: String,
-    pub topic: String,
+    pub topic_id: String,
     pub path: String,
     pub content: String,
     pub source_url: Option<String>,
     pub created_at: String,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, sqlx::FromRow)]
+pub struct TopicRecord {
+    pub id: String,
+    pub name: String,
+    pub note_id: Option<String>,
+    pub source_url: Option<String>,
+    pub version_ref: Option<String>,
+    pub fetched_at: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, sqlx::FromRow)]

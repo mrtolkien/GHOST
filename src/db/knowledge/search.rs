@@ -73,29 +73,50 @@ pub async fn search_references(
     db: &SqlitePool,
     query: &str,
     limit: usize,
+    topic_id: Option<&str>,
 ) -> Result<Vec<SearchHit>, DatabaseError> {
     #[derive(sqlx::FromRow)]
     struct RefSearchRow {
         id: String,
-        topic: String,
+        topic_name: String,
         content: String,
         score: f64,
     }
 
     let fts_query = sanitize_fts_query(query);
 
-    let rows = sqlx::query_as::<_, RefSearchRow>(
-        "SELECT r.id, r.topic, r.content, -bm25(reference_fts) AS score \
-         FROM reference_fts \
-         JOIN reference r ON r.rowid = reference_fts.rowid \
-         WHERE reference_fts MATCH ? \
-         ORDER BY score DESC \
-         LIMIT ?",
-    )
-    .bind(&fts_query)
-    .bind(limit as i64)
-    .fetch_all(db)
-    .await
+    let rows = if let Some(tid) = topic_id {
+        sqlx::query_as::<_, RefSearchRow>(
+            "SELECT r.id, COALESCE(t.name, r.topic_id) AS topic_name, r.content, \
+             -bm25(reference_fts, 2.0, 1.0) AS score \
+             FROM reference_fts \
+             JOIN reference r ON r.rowid = reference_fts.rowid \
+             LEFT JOIN topic t ON t.id = r.topic_id \
+             WHERE reference_fts MATCH ? AND r.topic_id = ? \
+             ORDER BY score DESC \
+             LIMIT ?",
+        )
+        .bind(&fts_query)
+        .bind(tid)
+        .bind(limit as i64)
+        .fetch_all(db)
+        .await
+    } else {
+        sqlx::query_as::<_, RefSearchRow>(
+            "SELECT r.id, COALESCE(t.name, r.topic_id) AS topic_name, r.content, \
+             -bm25(reference_fts, 2.0, 1.0) AS score \
+             FROM reference_fts \
+             JOIN reference r ON r.rowid = reference_fts.rowid \
+             LEFT JOIN topic t ON t.id = r.topic_id \
+             WHERE reference_fts MATCH ? \
+             ORDER BY score DESC \
+             LIMIT ?",
+        )
+        .bind(&fts_query)
+        .bind(limit as i64)
+        .fetch_all(db)
+        .await
+    }
     .map_err(|source| DatabaseError::Query {
         table: "reference",
         operation: "search",
@@ -108,7 +129,7 @@ pub async fn search_references(
             let snippet = truncate_snippet(&r.content, 150);
             SearchHit {
                 id: r.id,
-                title: r.topic,
+                title: r.topic_name,
                 snippet,
                 score: r.score,
                 kind: "reference".to_string(),
@@ -162,6 +183,52 @@ pub async fn search_diary(
                 score: r.score,
                 kind: "diary".to_string(),
             }
+        })
+        .collect())
+}
+
+/// Full-text search topics by name using BM25 scoring.
+#[tracing::instrument(skip_all, level = "debug", fields(query = %query))]
+pub async fn search_topics(
+    db: &SqlitePool,
+    query: &str,
+    limit: usize,
+) -> Result<Vec<SearchHit>, DatabaseError> {
+    #[derive(sqlx::FromRow)]
+    struct TopicSearchRow {
+        id: String,
+        name: String,
+        score: f64,
+    }
+
+    let fts_query = sanitize_fts_query(query);
+
+    let rows = sqlx::query_as::<_, TopicSearchRow>(
+        "SELECT t.id, t.name, -bm25(topic_fts) AS score \
+         FROM topic_fts \
+         JOIN topic t ON t.rowid = topic_fts.rowid \
+         WHERE topic_fts MATCH ? \
+         ORDER BY score DESC \
+         LIMIT ?",
+    )
+    .bind(&fts_query)
+    .bind(limit as i64)
+    .fetch_all(db)
+    .await
+    .map_err(|source| DatabaseError::Query {
+        table: "topic",
+        operation: "search",
+        source,
+    })?;
+
+    Ok(rows
+        .into_iter()
+        .map(|r| SearchHit {
+            id: r.id,
+            title: r.name,
+            snippet: String::new(),
+            score: r.score,
+            kind: "topic".to_string(),
         })
         .collect())
 }

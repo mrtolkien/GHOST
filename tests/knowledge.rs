@@ -461,9 +461,12 @@ async fn link_cited_edges_creates_note_to_reference_edges() {
     .await
     .unwrap();
 
+    let topic_id = db::knowledge::find_or_create_topic(&db, "example-com")
+        .await
+        .unwrap();
     let ref_id = db::knowledge::create_reference(
         &db,
-        "example-com",
+        &topic_id,
         "references/example-com/review.md",
         "Review content",
         Some("https://example.com/review"),

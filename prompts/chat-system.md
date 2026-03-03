@@ -123,7 +123,9 @@ auto-cached to `.web-cache/` for later reference curation.
 Not every question needs the same depth of research. Match your effort to the question:
 
 1. **Knowledge base** — always start here. `knowledge_search` for existing notes,
-   references, and diary entries. If you already have good information, use it.
+   references, and diary entries. If you already have good information, use it. Use
+   `topic` parameter to scope search to imported reference collections (e.g.
+   `topic="dioxus"` searches all dioxus sub-topics).
 2. **Quick web lookup** (1-3 searches + fetches) — for current facts, recent events,
    straightforward questions with clear answers. Search, read 1-2 pages, respond.
 3. **Deep research agent** — only for complex questions requiring source discovery, 5+

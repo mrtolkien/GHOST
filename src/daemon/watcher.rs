@@ -286,6 +286,7 @@ async fn process_note_change(
         source_id: note_id,
         content: parsed.body,
         tags: parsed.front.tags,
+        topic_id: None,
     }))
 }
 
@@ -318,7 +319,7 @@ async fn process_reference_change(
         Err(_) => return Ok(None),
     };
 
-    let topic = path
+    let topic_name = path
         .parent()
         .and_then(|p| p.file_name())
         .and_then(|f| f.to_str())
@@ -330,23 +331,29 @@ async fn process_reference_change(
         path = rel_path.clone(),
     );
 
-    let ref_id = match crate::db::knowledge::find_reference_by_path(db, &rel_path).await {
-        Ok(Some(r)) => r.id,
-        _ => {
-            match crate::db::knowledge::create_reference(db, &topic, &rel_path, &content, None)
-                .await
-            {
-                Ok(id) => id,
-                Err(_) => return Ok(None),
+    let (ref_id, resolved_topic_id) =
+        match crate::db::knowledge::find_reference_by_path(db, &rel_path).await {
+            Ok(Some(r)) => (r.id.clone(), r.topic_id.clone()),
+            _ => {
+                let tid = match crate::db::knowledge::find_or_create_topic(db, &topic_name).await {
+                    Ok(id) => id,
+                    Err(_) => return Ok(None),
+                };
+                match crate::db::knowledge::create_reference(db, &tid, &rel_path, &content, None)
+                    .await
+                {
+                    Ok(id) => (id, tid),
+                    Err(_) => return Ok(None),
+                }
             }
-        }
-    };
+        };
 
     Ok(Some(EmbedRequest {
         source_table: "reference".into(),
         source_id: ref_id,
         content,
         tags: vec![],
+        topic_id: Some(resolved_topic_id),
     }))
 }
 
@@ -393,5 +400,6 @@ async fn process_diary_change(
         source_id: diary_id,
         content: body,
         tags: vec![],
+        topic_id: None,
     }))
 }

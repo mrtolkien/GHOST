@@ -3,7 +3,7 @@ use serde_json::{Value, json};
 
 use crate::db;
 use crate::db::knowledge::{
-    SearchHit, hybrid_merge, search_diary, search_notes, search_references,
+    SearchHit, find_topics_by_prefix, hybrid_merge, search_diary, search_notes, search_references,
 };
 use crate::embeddings::EmbeddingClient;
 use crate::providers::ToolDefinition;
@@ -44,9 +44,13 @@ impl Tool for KnowledgeSearch {
                         "type": "array",
                         "items": {
                             "type": "string",
-                            "enum": ["notes", "references", "diary"]
+                            "enum": ["notes", "references", "diary", "topics"]
                         },
-                        "description": "Categories to search. Defaults to [\"notes\", \"diary\"]. Include \"references\" explicitly to search reference material."
+                        "description": "Categories to search. Defaults to [\"notes\", \"diary\"]. Include \"references\" explicitly to search reference material. Use \"topics\" to search topic collections."
+                    },
+                    "topic": {
+                        "type": "string",
+                        "description": "Scope search to a topic name (e.g. \"dioxus\" or \"dioxus/docs\"). Prefix matching: \"dioxus\" matches all sub-topics. Only affects references and vector search."
                     },
                     "limit": {
                         "type": "integer",
@@ -69,6 +73,8 @@ impl Tool for KnowledgeSearch {
             .map(|n| n as usize)
             .unwrap_or(DEFAULT_LIMIT);
 
+        let topic = params.get("topic").and_then(Value::as_str);
+
         let categories: Vec<String> = params
             .get("categories")
             .and_then(Value::as_array)
@@ -80,11 +86,23 @@ impl Tool for KnowledgeSearch {
             })
             .unwrap_or_default();
 
-        // Default to notes + diary when no categories specified
-        let use_defaults = categories.is_empty();
+        // When topic is set, auto-include references
+        let use_defaults = categories.is_empty() && topic.is_none();
         let search_notes_flag = use_defaults || categories.iter().any(|c| c == "notes");
-        let search_refs_flag = !use_defaults && categories.iter().any(|c| c == "references");
+        let search_refs_flag =
+            topic.is_some() || (!use_defaults && categories.iter().any(|c| c == "references"));
         let search_diary_flag = use_defaults || categories.iter().any(|c| c == "diary");
+        let search_topics_flag = categories.iter().any(|c| c == "topics");
+
+        // Resolve topic name to topic IDs for scoped search
+        let resolved_topic_ids = if let Some(topic_name) = topic {
+            let topics = find_topics_by_prefix(&ctx.db, topic_name)
+                .await
+                .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
+            topics.into_iter().map(|t| t.id).collect::<Vec<_>>()
+        } else {
+            vec![]
+        };
 
         // Collect BM25 hits
         let mut bm25_hits = Vec::new();
@@ -98,11 +116,23 @@ impl Tool for KnowledgeSearch {
         }
 
         if search_refs_flag {
-            bm25_hits.extend(
-                search_references(&ctx.db, query, limit)
-                    .await
-                    .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?,
-            );
+            if resolved_topic_ids.is_empty() && topic.is_none() {
+                // No topic filter — search all references
+                bm25_hits.extend(
+                    search_references(&ctx.db, query, limit, None)
+                        .await
+                        .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?,
+                );
+            } else {
+                // Search references scoped to each matching topic
+                for tid in &resolved_topic_ids {
+                    bm25_hits.extend(
+                        search_references(&ctx.db, query, limit, Some(tid))
+                            .await
+                            .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?,
+                    );
+                }
+            }
         }
 
         if search_diary_flag {
@@ -113,6 +143,17 @@ impl Tool for KnowledgeSearch {
             );
         }
 
+        if search_topics_flag {
+            bm25_hits.extend(
+                db::knowledge::search_topics(&ctx.db, query, limit)
+                    .await
+                    .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?,
+            );
+        }
+
+        // Use first resolved topic_id for vector search filtering
+        let vector_topic_id = resolved_topic_ids.first().map(String::as_str);
+
         // Try hybrid search: embed query and merge with BM25
         let hits = try_hybrid_search(
             &ctx.config.embeddings,
@@ -121,6 +162,7 @@ impl Tool for KnowledgeSearch {
             query,
             limit,
             &categories,
+            vector_topic_id,
         )
         .await;
 
@@ -138,6 +180,7 @@ async fn try_hybrid_search(
     query: &str,
     limit: usize,
     categories: &[String],
+    topic_id: Option<&str>,
 ) -> Vec<SearchHit> {
     let client = EmbeddingClient::new(embeddings_config);
 
@@ -147,16 +190,17 @@ async fn try_hybrid_search(
 
     match client.embed_batch(&[query.to_string()]).await {
         Ok(vectors) if !vectors.is_empty() => {
-            let embedding_hits = match db::embeddings::vector_search(db, &vectors[0], limit).await {
-                Ok(hits) => hits,
-                Err(e) => {
-                    logfire::warn!(
-                        "vector search failed, falling back to BM25",
-                        error = e.to_string()
-                    );
-                    return fallback_bm25(bm25_hits, limit);
-                }
-            };
+            let embedding_hits =
+                match db::embeddings::vector_search(db, &vectors[0], limit, topic_id).await {
+                    Ok(hits) => hits,
+                    Err(e) => {
+                        logfire::warn!(
+                            "vector search failed, falling back to BM25",
+                            error = e.to_string()
+                        );
+                        return fallback_bm25(bm25_hits, limit);
+                    }
+                };
 
             // Filter embedding hits to match requested categories
             let filtered_hits = filter_embedding_hits(embedding_hits, categories);
