@@ -14,6 +14,11 @@ pub enum ImportSource {
     Page {
         url: String,
     },
+    Crawl {
+        url: String,
+        max_depth: usize,
+        max_pages: usize,
+    },
 }
 
 pub struct ImportResult {

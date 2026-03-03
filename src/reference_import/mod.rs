@@ -1,8 +1,10 @@
+mod crawl;
 mod git;
 mod page;
 mod topic;
 mod types;
 
+pub use crawl::import_crawl;
 pub use git::import_git;
 pub use page::import_page;
 pub use topic::ensure_topic_hierarchy;

@@ -233,7 +233,7 @@ pub async fn vector_search(
     db: &SqlitePool,
     query_vector: &[f32],
     limit: usize,
-    topic_id: Option<&str>,
+    topic_ids: &[String],
 ) -> Result<Vec<EmbeddingHit>, DatabaseError> {
     #[derive(sqlx::FromRow)]
     struct VecSearchRow {
@@ -247,7 +247,11 @@ pub async fn vector_search(
     let vec_json = serde_json::to_string(query_vector).unwrap_or_default();
 
     // Over-fetch when filtering by topic to compensate for post-filtering
-    let fetch_limit = if topic_id.is_some() { limit * 3 } else { limit };
+    let fetch_limit = if topic_ids.is_empty() {
+        limit
+    } else {
+        limit * 3
+    };
 
     let rows = sqlx::query_as::<_, VecSearchRow>(
         "SELECT e.source_id, e.source_table, e.chunk_text, e.topic_id, v.distance \
@@ -267,9 +271,11 @@ pub async fn vector_search(
 
     let mut hits: Vec<EmbeddingHit> = rows
         .into_iter()
-        .filter(|r| match topic_id {
-            Some(tid) => r.topic_id.as_deref() == Some(tid),
-            None => true,
+        .filter(|r| {
+            topic_ids.is_empty()
+                || topic_ids
+                    .iter()
+                    .any(|tid| r.topic_id.as_deref() == Some(tid.as_str()))
         })
         .map(|r| EmbeddingHit {
             source_id: r.source_id,

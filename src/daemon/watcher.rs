@@ -304,6 +304,7 @@ async fn process_note_change(
         content: parsed.body,
         tags: parsed.front.tags,
         topic_id,
+        path: None,
     }))
 }
 
@@ -374,12 +375,20 @@ async fn process_reference_change(
             }
         };
 
+    // Use file path for code chunking on reference files
+    let embed_path = path
+        .strip_prefix(workspace)
+        .unwrap_or(path)
+        .to_string_lossy()
+        .to_string();
+
     Ok(Some(EmbedRequest {
         source_table: "reference".into(),
         source_id: ref_id,
         content,
         tags: vec![],
         topic_id: Some(resolved_topic_id),
+        path: Some(embed_path),
     }))
 }
 
@@ -427,5 +436,6 @@ async fn process_diary_change(
         content: body,
         tags: vec![],
         topic_id: None,
+        path: None,
     }))
 }

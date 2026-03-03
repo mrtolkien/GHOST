@@ -214,7 +214,7 @@ async fn vector_search_returns_results() {
     .expect("upsert");
 
     // Search with an identical vector — should get a perfect match
-    let hits = db::embeddings::vector_search(&db, &vector, 5, None)
+    let hits = db::embeddings::vector_search(&db, &vector, 5, &[])
         .await
         .expect("vector search");
 
@@ -255,7 +255,7 @@ async fn vector_search_ranks_similar_higher() {
         .unwrap();
 
     let query_vec = vec![1.0_f32; 1024];
-    let hits = db::embeddings::vector_search(&db, &query_vec, 5, None)
+    let hits = db::embeddings::vector_search(&db, &query_vec, 5, &[])
         .await
         .expect("search");
 
@@ -291,7 +291,7 @@ async fn vector_search_respects_limit() {
             .unwrap();
     }
 
-    let hits = db::embeddings::vector_search(&db, &vector, 2, None)
+    let hits = db::embeddings::vector_search(&db, &vector, 2, &[])
         .await
         .expect("search");
     assert_eq!(hits.len(), 2, "should respect limit=2");
@@ -542,7 +542,7 @@ async fn vector_insert_concurrent_stays_bounded() {
 
     // Phase 2: concurrent delete + re-insert (re-embed cycle)
     let all_notes: Vec<db::embeddings::EmbeddingHit> =
-        db::embeddings::vector_search(&db, &vec![1.0_f32; 1024], 1000, None)
+        db::embeddings::vector_search(&db, &vec![1.0_f32; 1024], 1000, &[])
             .await
             .unwrap_or_default();
 

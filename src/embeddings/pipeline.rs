@@ -5,6 +5,7 @@ use crate::db::GhostDb;
 
 use super::chunker::{Chunk, chunk_text};
 use super::client::EmbeddingClient;
+use super::code_chunker::chunk_code;
 use super::error::EmbeddingError;
 
 #[derive(Debug, thiserror::Error)]
@@ -98,7 +99,7 @@ async fn embed_source_inner(
     hash: &str,
     topic_id: Option<&str>,
 ) -> Result<usize, PipelineError> {
-    let chunks = chunk_text(content, tags);
+    let chunks = chunk_content(content, tags, None);
     if chunks.is_empty() {
         return Ok(0);
     }
@@ -125,6 +126,17 @@ async fn embed_source_inner(
     Ok(chunks.len())
 }
 
+/// Try code chunking first (if a file path is provided and the language is
+/// recognized), then fall back to plain text chunking.
+fn chunk_content(content: &str, tags: &[String], path: Option<&str>) -> Vec<Chunk> {
+    if let Some(p) = path
+        && let Some(chunks) = chunk_code(content, p, tags)
+    {
+        return chunks;
+    }
+    chunk_text(content, tags)
+}
+
 /// Embed chunk texts in batches according to client batch_size.
 async fn embed_chunks(
     client: &EmbeddingClient,
@@ -149,6 +161,9 @@ pub struct EmbedRequest {
     pub content: String,
     pub tags: Vec<String>,
     pub topic_id: Option<String>,
+    /// File path for code chunking (e.g. "src/main.rs"). When set, the
+    /// pipeline tries tree-sitter AST chunking before falling back to text.
+    pub path: Option<String>,
 }
 
 /// Embed multiple knowledge sources in a single batched Ollama call.
@@ -191,7 +206,7 @@ pub async fn embed_sources(
             skipped += 1;
             continue;
         }
-        let chunks = chunk_text(&req.content, &req.tags);
+        let chunks = chunk_content(&req.content, &req.tags, req.path.as_deref());
         if chunks.is_empty() {
             skipped += 1;
             continue;

@@ -122,9 +122,10 @@ async fn import_and_query_git_references() {
     let query_vec = &query_vectors[0];
 
     // Vector search scoped to topic
-    let vec_hits = db::embeddings::vector_search(&db, query_vec, 10, Some(&topic.id))
-        .await
-        .expect("vector search scoped");
+    let vec_hits =
+        db::embeddings::vector_search(&db, query_vec, 10, std::slice::from_ref(&topic.id))
+            .await
+            .expect("vector search scoped");
     assert!(
         !vec_hits.is_empty(),
         "vector search scoped to dioxus/docs should return hits"
@@ -135,16 +136,17 @@ async fn import_and_query_git_references() {
     );
 
     // Vector search scoped to wrong topic should return nothing
-    let vec_decoy = db::embeddings::vector_search(&db, query_vec, 10, Some(&decoy_id))
-        .await
-        .expect("vector search decoy");
+    let vec_decoy =
+        db::embeddings::vector_search(&db, query_vec, 10, std::slice::from_ref(&decoy_id))
+            .await
+            .expect("vector search decoy");
     assert!(
         vec_decoy.is_empty(),
         "vector search on empty topic should return nothing"
     );
 
     // Unscoped vector search should find dioxus refs
-    let vec_unscoped = db::embeddings::vector_search(&db, query_vec, 10, None)
+    let vec_unscoped = db::embeddings::vector_search(&db, query_vec, 10, &[])
         .await
         .expect("vector search unscoped");
     assert!(
@@ -200,9 +202,10 @@ async fn import_and_query_git_references() {
     assert_eq!(count_after, 0, "all references should be deleted");
 
     // Embeddings should also be gone (cascaded)
-    let vec_after_delete = db::embeddings::vector_search(&db, query_vec, 10, Some(&topic.id))
-        .await
-        .expect("vector search after delete");
+    let vec_after_delete =
+        db::embeddings::vector_search(&db, query_vec, 10, std::slice::from_ref(&topic.id))
+            .await
+            .expect("vector search after delete");
     assert!(
         vec_after_delete.is_empty(),
         "embeddings should be deleted with references"

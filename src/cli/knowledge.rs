@@ -132,15 +132,14 @@ async fn cmd_search(
         bm25_hits.extend(db::knowledge::search_diary(db, query, limit).await?);
     }
 
-    let vector_topic_id = resolved_topic_ids.first().map(String::as_str);
-
     // Try hybrid search: embed query and merge with BM25
     let client = EmbeddingClient::new(embeddings_config);
     let hits = if client.is_available().await {
         match client.embed_batch(&[query.to_string()]).await {
             Ok(vectors) if !vectors.is_empty() => {
                 let embedding_hits =
-                    db::embeddings::vector_search(db, &vectors[0], limit, vector_topic_id).await?;
+                    db::embeddings::vector_search(db, &vectors[0], limit, &resolved_topic_ids)
+                        .await?;
                 db::knowledge::hybrid_merge(&bm25_hits, &embedding_hits, limit)
             }
             Ok(_) => {

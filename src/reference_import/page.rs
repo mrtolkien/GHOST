@@ -71,6 +71,7 @@ pub async fn import_page(
         content: extracted.text,
         tags: vec![config.topic.clone()],
         topic_id: Some(topic_id.clone()),
+        path: None,
     }];
     let embeddings_generated = embed_sources(&client, db, embed_requests).await?;
 

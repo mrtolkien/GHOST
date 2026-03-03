@@ -151,9 +151,6 @@ impl Tool for KnowledgeSearch {
             );
         }
 
-        // Use first resolved topic_id for vector search filtering
-        let vector_topic_id = resolved_topic_ids.first().map(String::as_str);
-
         // Try hybrid search: embed query and merge with BM25
         let hits = try_hybrid_search(
             &ctx.config.embeddings,
@@ -162,7 +159,7 @@ impl Tool for KnowledgeSearch {
             query,
             limit,
             &categories,
-            vector_topic_id,
+            &resolved_topic_ids,
         )
         .await;
 
@@ -180,7 +177,7 @@ async fn try_hybrid_search(
     query: &str,
     limit: usize,
     categories: &[String],
-    topic_id: Option<&str>,
+    topic_ids: &[String],
 ) -> Vec<SearchHit> {
     let client = EmbeddingClient::new(embeddings_config);
 
@@ -191,7 +188,7 @@ async fn try_hybrid_search(
     match client.embed_batch(&[query.to_string()]).await {
         Ok(vectors) if !vectors.is_empty() => {
             let embedding_hits =
-                match db::embeddings::vector_search(db, &vectors[0], limit, topic_id).await {
+                match db::embeddings::vector_search(db, &vectors[0], limit, topic_ids).await {
                     Ok(hits) => hits,
                     Err(e) => {
                         logfire::warn!(

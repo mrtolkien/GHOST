@@ -15,6 +15,7 @@ pub use curation::{
     format_classified_cache, link_cited_edges,
 };
 pub use fetch::fetch;
+pub(crate) use fetch::fetch_raw;
 pub use search::BraveSearchProvider;
 pub use searxng::SearxngSearchProvider;
 pub use types::{ExtractedContent, FetchOptions, SearchResult, WebError};

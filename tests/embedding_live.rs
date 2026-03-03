@@ -119,6 +119,7 @@ async fn embed_source_pipeline_stores_and_searches() {
         content: "Dioxus uses components as the basic building blocks of UI.".into(),
         tags: vec!["dioxus".into()],
         topic_id: None,
+        path: None,
     }];
     let chunks = embed_sources(&client, &db, requests)
         .await
@@ -134,7 +135,7 @@ async fn embed_source_pipeline_stores_and_searches() {
         .embed_batch(&["dioxus component".to_string()])
         .await
         .expect("embed query");
-    let hits = db::embeddings::vector_search(&db, &query_vec[0], 5, None)
+    let hits = db::embeddings::vector_search(&db, &query_vec[0], 5, &[])
         .await
         .expect("vector search");
 

@@ -23,6 +23,10 @@
       the section titles.
 - [x] Review compaction: should we trigger failures sometimes?
 - [x] Compaction reasoning level!
+- [x] Review version management in references (version_ref)
+- [x] Review topic note: it's wrongly explained in sql = it's not linked to
+      references...
+- [ ] Review skills for import
 - [ ] Experimentations
   - [x] Try deep research `respond` tool: report, sources, negative_information
   - [x] Re-make agent reflection a fresh session instead of a fork
@@ -30,6 +34,3 @@
   - [x] Review standard reflection agent
   - [x] Review compaction token count
   - [ ] Re-add an agent continuation test
-- [ ] Review version management in references (version_ref)
-- [ ] Review topic note: it's wrongly explained in sql = it's not linked to
-      references...

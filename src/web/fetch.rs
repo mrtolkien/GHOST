@@ -27,6 +27,31 @@ pub(super) fn client() -> &'static reqwest::Client {
     })
 }
 
+/// Fetch the raw HTML body of a URL. Returns `(html_body, final_url)`.
+///
+/// Used by the BFS crawler to get raw HTML for link extraction before
+/// converting to markdown. Follows redirects; `final_url` reflects the
+/// actual destination.
+pub(crate) async fn fetch_raw(url: &str) -> Result<(String, String), WebError> {
+    let parsed = Url::parse(url).map_err(|_| WebError::InvalidUrl {
+        url: url.to_string(),
+    })?;
+
+    let response = client().get(parsed).send().await?;
+    let final_url = response.url().to_string();
+
+    if !response.status().is_success() {
+        return Err(WebError::HttpStatus {
+            status: response.status().as_u16(),
+            url: url.to_string(),
+        });
+    }
+
+    let bytes = response.bytes().await?;
+    let body = String::from_utf8_lossy(&bytes).to_string();
+    Ok((body, final_url))
+}
+
 /// Fetch a URL and extract readable content as markdown.
 ///
 /// For HTML pages, converts to markdown (via htmd) with optional readability

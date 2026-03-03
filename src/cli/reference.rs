@@ -6,9 +6,9 @@ use crate::reference_import::{ImportConfig, ImportSource};
 
 #[derive(Debug, Subcommand)]
 pub enum ReferenceCommand {
-    /// Import references from a git repo or web page
+    /// Import references from a git repo, web page, or crawl
     Import {
-        /// Source type: "git" or "page"
+        /// Source type: "git", "page", or "crawl"
         #[arg(long)]
         source: String,
 
@@ -27,6 +27,14 @@ pub enum ReferenceCommand {
         /// File extensions to include (git only, e.g. ".md,.rs")
         #[arg(long, value_delimiter = ',')]
         extensions: Vec<String>,
+
+        /// Max link depth for crawl (default: 3)
+        #[arg(long, default_value_t = 3)]
+        max_depth: usize,
+
+        /// Max pages to crawl (default: 50)
+        #[arg(long, default_value_t = 50)]
+        max_pages: usize,
     },
 
     /// List all topics with reference counts
@@ -53,12 +61,28 @@ pub async fn execute(command: ReferenceCommand) -> Result<(), GhostError> {
             topic,
             paths,
             extensions,
-        } => cmd_import(&db, &config, &source, &url, &topic, &paths, &extensions).await,
+            max_depth,
+            max_pages,
+        } => {
+            cmd_import(
+                &db,
+                &config,
+                &source,
+                &url,
+                &topic,
+                &paths,
+                &extensions,
+                max_depth,
+                max_pages,
+            )
+            .await
+        }
         ReferenceCommand::Topics => cmd_topics(&db).await,
         ReferenceCommand::Delete { topic } => cmd_delete(&db, &topic).await,
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn cmd_import(
     db: &db::GhostDb,
     config: &crate::config::Config,
@@ -67,6 +91,8 @@ async fn cmd_import(
     topic: &str,
     paths: &[String],
     extensions: &[String],
+    max_depth: usize,
+    max_pages: usize,
 ) -> Result<(), GhostError> {
     let import_config = ImportConfig {
         source: match source {
@@ -78,10 +104,15 @@ async fn cmd_import(
             "page" => ImportSource::Page {
                 url: url.to_string(),
             },
+            "crawl" => ImportSource::Crawl {
+                url: url.to_string(),
+                max_depth,
+                max_pages,
+            },
             other => {
                 return Err(GhostError::Io(std::io::Error::new(
                     std::io::ErrorKind::InvalidInput,
-                    format!("unknown source type: {other} (expected 'git' or 'page')"),
+                    format!("unknown source type: {other} (expected 'git', 'page', or 'crawl')"),
                 )));
             }
         },
@@ -102,12 +133,24 @@ async fn cmd_import(
             crate::reference_import::import_page(db, workspace, &config.embeddings, &import_config)
                 .await?
         }
+        ImportSource::Crawl { .. } => {
+            crate::reference_import::import_crawl(db, workspace, &config.embeddings, &import_config)
+                .await?
+        }
     };
 
     println!(
         "Done. Created: {}, Skipped: {}, Embeddings: {}",
         result.references_created, result.references_skipped, result.embeddings_generated
     );
+
+    if result.references_created > 0 {
+        println!(
+            "\n  Topic index note created at notes/{topic}/index.md\n  \
+             \u{26a0} Edit it with a description of what this library does \u{2014} semantic search\n    \
+             relies on this to discover the topic."
+        );
+    }
 
     Ok(())
 }

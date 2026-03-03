@@ -126,6 +126,7 @@ pub async fn import_git(
             content,
             tags: vec![config.topic.clone()],
             topic_id: Some(topic_id.clone()),
+            path: Some(rel_path.to_string()),
         });
 
         created += 1;

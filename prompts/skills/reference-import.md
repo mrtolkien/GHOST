@@ -18,6 +18,9 @@ ghost reference import --source git --url <url> --topic <name> \
 
 ghost reference import --source page --url <url> --topic <name>
 
+ghost reference import --source crawl --url <url> --topic <name> \
+    [--max-depth 3] [--max-pages 50]
+
 ghost reference topics
 
 ghost reference delete --topic <name>
@@ -91,6 +94,28 @@ ghost reference import --source page \
 
 Fetches page, converts to markdown, stores as reference.
 
+## Crawl Import
+
+```
+ghost reference import --source crawl \
+    --url https://docs.example.com/ \
+    --topic example/docs \
+    --max-depth 2 \
+    --max-pages 20
+```
+
+BFS-crawls a website starting from the seed URL, following same-host links:
+
+- `--max-depth`: how many link hops from the seed (default: 3)
+- `--max-pages`: total page limit (default: 50)
+- Only follows links to the same host as the seed URL
+- Sequential fetches with small delay between requests
+- Idempotent: re-crawling skips already-imported URLs
+- Creates embeddings for semantic search
+
+Use crawl for documentation sites that don't have a git source, or when you want to
+capture a site as-is (rendered HTML → markdown).
+
 ## Post-Import: Enrich the Topic Note
 
 After import, the CLI creates a placeholder index note at `notes/<topic>/index.md` with
@@ -109,10 +134,10 @@ tags:
 trust: 5
 ---
 
-Dioxus is a Rust framework for building cross-platform UIs (web, desktop, mobile).
-It uses a React-like component model with RSX syntax, reactive signals for state
-management, and a virtual DOM. Key concepts: components, props, hooks, signals,
-event handlers, routing.
+Dioxus is a Rust framework for building cross-platform UIs (web, desktop, mobile). It
+uses a React-like component model with RSX syntax, reactive signals for state
+management, and a virtual DOM. Key concepts: components, props, hooks, signals, event
+handlers, routing.
 
 ## Collections
 
