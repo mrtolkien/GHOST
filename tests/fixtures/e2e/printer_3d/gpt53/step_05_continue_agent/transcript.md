@@ -2680,3 +2680,1849 @@ If you want an enclosed home printer around **$1,000 in 2026**, buy:
 | **Bambu X1 Carbon** | **~$1,119 street (observed)** | Enclosed premium | 256 class | …[8881b total]
 ```
 
+### 60. user
+
+**Content**
+
+```text
+The user wants a printer with strong multicolor capability, with low waste. Update your research and recommendations accordingly.
+```
+
+### 61. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `knowledge_search`
+```json
+{
+  "categories": [
+    "notes",
+    "diary",
+    "references",
+    "topics"
+  ],
+  "limit": 5,
+  "query": "enclosed multicolor 3D printer low waste AMS waste reduction 2026",
+  "topic": "3d printing"
+}
+```
+
+### 62. user
+
+**Tool Results**
+
+- error=false
+```text
+No results found.
+```
+
+### 63. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `web_search`
+```json
+{
+  "max_results": 8,
+  "query": "2026 best multicolor 3D printers enclosed AMS low waste"
+}
+```
+- `web_search`
+```json
+{
+  "max_results": 8,
+  "query": "3D printer multi-color waste comparison AMS purge tower IDEX toolchanger"
+}
+```
+- `web_search`
+```json
+{
+  "max_results": 8,
+  "query": "reddit best source for multicolor 3D printing reviews Bambu AMS Prusa MMU waste"
+}
+```
+
+### 64. user
+
+**Tool Results**
+
+- error=false
+```text
+1. Best 3D Printers 2026: Our Top Picks in 24 Categories - All3DP
+   https://all3dp.com/1/best-3d-printer-reviews-top-3d-printers-home-3-d-printer-3d/
+   The Bambu Lab P1S is a high-speed CoreXY 3D printer with a 256 × 256 × 256 mm build volume. It features an enclosed design, multi-color printing via AMS, and ...
+   Sources: google #1, startpage #1 · score: 4.0
+
+2. The Best 3D Printers We've Tested for 2026 | PCMag
+   https://www.pcmag.com/picks/the-best-3d-printers
+   Jan 14, 2026 ... The Bambu Lab A1 pioneered reasonably priced multicolor 3D printing, and it is still an excellent tool for budget-conscious hobbyists. Jump To ...
+   Sources: google #2, startpage #2 · score: 2.0
+
+3. The Best 3D Printers for Home, Workshop or Business in 2026
+   https://www.tomshardware.com/best-picks/best-3d-printers
+   2026/02/12 — The Bambu Lab P2S retails for $599 for the standalone model, and $799 for the P2S Combo with AMS 2 Pro for multicolor printing. Read more below.
+   Sources: google #3, startpage #4 · score: 1.2
+
+4. Best 3D Printers in 2026: Honest Picks, Real Use Cases - Vagon
+   https://vagon.io/blog/best-3d-printers-in-2026
+   4 日前 — Best for Multi-Color Printing: Bambu AMS System. I'm separating this because multi-color printing is its own decision now. Bambu's AMS is ...
+   Sources: google #4, startpage #3 · score: 1.2 · 2026-02-27T13:34:48.981908
+
+5. Best 3D Printer for Beginners in 2026? (Price, Precision, Quality) : r/3dprinter
+   https://www.reddit.com/r/3dprinter/comments/1r01xah/best_3d_printer_for_beginners_in_2026_price/
+   Feb 9, 2026 ... If we really need to stay under $500 then for beginners Bambu is the safe and solid option (but you'll have an AMS slowing you down). My Bambu ...
+   Sources: google #5, startpage #5 · score: 0.8
+
+6. I reviewed more than 50 of the best 3D printers of 2026 - TechRadar
+   https://www.techradar.com/best/best-3d-printers
+   Feb 20, 2026 ... The Elegoo Centauri Carbon 2 Combo might not be the only multi-color …[2793b total]
+```
+- error=false
+```text
+1. Best Multicolor 3D Printers of 2025: Print the Rainbow
+   https://www.tomshardware.com/3d-printing/best-multicolor-3d-printers
+   Nov 29, 2025 ... The Bambu Lab P1S AMS combo is a powerful multicolor printing machine. It has four filament slots available and supports up to 16 colors. It ...
+   Sources: startpage #1 · score: 1.0
+
+2. How to 3D Print Multiple Colors: The 4 Main Methods Explained
+   https://blog.snapmaker.com/blog/how-to-3d-print-multiple-colors/
+   Jan 16, 2025 ... Labor-intensive (manual) or high filament waste from purging (AMS). Labor-intensive and very limited. 1 (at a time). Fixed Dual Nozzle, Two ...
+   Sources: startpage #2 · score: 0.5
+
+3. Best Multi/Dual Extruder & Multicolor 3D Printers of 2025 - All3DP
+   https://all3dp.com/1/best-dual-extruder-3d-printer/
+   Our buyer's guide to the best multi/dual-extrusion 3D printers in 5 categories, incl. IDEX, single-nozzle, toolchanger, and dependent dual nozzle printers.
+   Sources: startpage #3 · score: 0.3
+
+4. Multi-Material 3D Printer vs Multi-Colour 3D Printer Simplified
+   https://www.smith3d.com/multi-material-vs-multi-color/
+   May 16, 2025 ... Significant filament waste (purge towers/blocks); Slightly increased print time; Requires adequate space on the build plate. Prusa XL , Premium ...
+   Sources: startpage #4 · score: 0.2
+
+5. How it works: Multi color 3D Printing - SUNLU
+   https://store.sunlu.com/blogs/3d-printing-guide/how-it-works-multi-color-3d-printing
+   Nov 12, 2023 ... The first release of the Popular BambuLabs 3D Printer directly came with multi-material / multi-color options called AMS (Automatic Multi ...
+   Sources: startpage #5 · score: 0.2
+
+6. Cheapest, least wasteful, and simplest option for multicolor printing ...
+   https://www.reddit.com/r/VORONDesign/comments/1bissv1/cheapest_least_wasteful_and_simplest_option_for/
+   Mar 19, 2024 ... Curious what your opinions are on the best options for multicolor printing while not needing to print off huge purge blocks.
+…[2777b total]
+```
+- error=false
+```text
+1. Multi color printing seems a tad wasteful : r/3Dprinting - Reddit
+   https://www.reddit.com/r/3Dprinting/comments/1miz77i/multi_color_printing_seems_a_tad_wasteful/
+   Aug 6, 2025 ... truthfully any AMS style MMU is good for a few things. batch multicolor printing, large models using more than 1KG of the same color, and ...
+   Sources: google #1, startpage #1 · score: 4.0
+
+2. Prusa MMU vs Bambu AMS: Which is better? - Facebook
+   https://www.facebook.com/groups/1910026672591728/posts/3469690619958651/
+   Nov 19, 2023 ... Bambu's are for those who don't want to push 3D printing. They are perfect for those who are not tech savvy and just want to click and print. I ...
+   Sources: google #2, startpage #8 · score: 1.2
+
+3. What is the best 3d printer with good print quality multi color and personal ...
+   https://www.reddit.com/r/3dprinter/comments/1qge6af/what_is_the_best_3d_printer_with_good_print/
+   Depends on how multi-color you're going for. If you don't mind purging a good one to go with is the Bambu P1S with AMS2 combo. If you don't like ...
+   Sources: google #2 · score: 0.5
+
+4. Bambu lab x1 or prusa core 1 comparison? - Facebook
+   https://www.facebook.com/groups/3dprintingforbeginnersandpros/posts/955410223055837/
+   Feb 17, 2025 ... It all depends on your knowledge of 3D printing. Prusa you obviously need to set settings for the printer, while for Bambu you have their closed ...
+   Sources: startpage #3 · score: 0.3
+
+5. Best 3d print multicolor print least waste and such all the bells and ...
+   https://www.reddit.com/r/3Dprinting/comments/1qeourz/best_3d_print_multicolor_print_least_waste_and/
+   The upcoming INDX tool changer is very belly and whistly, and I've understood that tool changer printers have practically zero waste for…
+   Sources: google #3 · score: 0.3
+
+6. Development Diary - Update on MMU3 for the MK4
+   https://blog.prusa3d.com/development-diary-update-on-mmu3-for-the-mk4_85043/
+   Oct 27, 2025 ... The Original Prusa MMU3 is our …[2852b total]
+```
+
+### 65. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `web_search`
+```json
+{
+  "max_results": 10,
+  "query": "reddit trusted 3d printer review sites toms hardware cnc kitchen aurora tech multicolor"
+}
+```
+
+### 66. user
+
+**Tool Results**
+
+- error=false
+```text
+1. Tom's Hardware implying the obvious use case here. : r/3Dprinting
+   https://www.reddit.com/r/3Dprinting/comments/1omm70m/toms_hardware_implying_the_obvious_use_case_here/
+   Nov 2, 2025 ... In the beginning, I wanted the 3D printer to be the hobby. But very quickly I just wanted it to be a tool to support other hobbies. It also ...
+   Sources: google #3, startpage #1 · score: 2.7
+
+2. What is the best 3d printer with good print quality multi color and personal ...
+   https://www.reddit.com/r/3dprinter/comments/1qge6af/what_is_the_best_3d_printer_with_good_print/
+   But a little bigger multicolor print could go up to 20h and waste a lot of filament. There are better options now. Snapmaker U1, H2C, H2D, INDEX ...
+   Sources: google #1 · score: 1.0
+
+3. Okay, what is ACTUALLY the best 3D printer (rant/discussion)??
+   https://www.reddit.com/r/FDMminiatures/comments/1qydcj2/okay_what_is_actually_the_best_3d_printer/
+   Bambu Lab A1 ($300) - Brings the famous Bambu Lab speed and ease-of-use to a very affordable price. The best entry into multi-color printing.
+   Sources: google #2 · score: 0.5
+
+4. English Wikipedia - MRE.NO
+   https://mre.no/httpdocs/js/zxcvbn/data/english_wikipedia.txt
+   ... review 187014 decision 186919 forest 186715 van 186616 rate 186576 singles 186466 referred 186222 larger 185375 friends 185168 takes 184974 relationship ...
+   Sources: startpage #2 · score: 0.5
+
+5. VINTAGE DATSUN OLD LOGO PLATE TOPPER Not PORCELAIN ...
+   https://www.ebay.com/itm/156703162018
+   PLATE TOPPER. ◦ FINISH - PORCELAIN. aged, weathered. ◦ TYPE - STEEL. ◦ SIZE = 12 Cm x 10 Cm. Retro, antique. antique aesthetics. nostalgic.
+   Sources: startpage #3 · score: 0.3
+
+6. Are tom's hardware 3d printer reviews trustworthy? : r/3Dprinting
+   https://www.reddit.com/r/3Dprinting/comments/1i61zcx/are_toms_hardware_3d_printer_reviews_trustworthy/
+   Reviews on tom's hardware have photos of benchy, even printed with same filament, that's pretty much what I want, but my c…[3426b total]
+```
+
+### 67. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `web_search`
+```json
+{
+  "max_results": 8,
+  "query": "Bambu AMS 2 Pro waste reduction features 2025 2026"
+}
+```
+- `web_search`
+```json
+{
+  "max_results": 8,
+  "query": "Prusa MMU3 waste reduction wipe tower infill 2025"
+}
+```
+- `web_search`
+```json
+{
+  "max_results": 8,
+  "query": "Snapmaker U1 H2D multicolor 3d printer toolchanger 2026"
+}
+```
+
+### 68. user
+
+**Tool Results**
+
+- error=false
+```text
+1. Why the AMS 2 Pro is a Game-Changer for the Bambu Lab X1C and P1S?
+   https://www.digitmakers.ca/blogs/news/why-the-ams-2-pro-is-a-game-changer-for-the-bambu-lab-x1c-and-p1s
+   Sep 5, 2025 ... While the AMS 2 Pro itself offers the same core features ... Either way, the AMS 2 Pro will save you time, reduce waste, and make your multi- ...
+   Sources: google #1, startpage #2 · score: 3.0
+
+2. 2/15 H2D | Bambu Lab
+   https://bambulab.com/en/support/buying-guide?page=2&id=904389439320043520
+   Mar 25, 2025 ... If this feature is added in the future, we will provide information through a firmware update. 3. What is the maximum number of AMS 2 Pro and ...
+   Sources: google #5, startpage #1 · score: 2.4
+
+3. New Wiki Pages and Updates | Bambu Lab Wiki
+   https://wiki.bambulab.com/en/new-and-updates
+   14/7/2025. ¶ New Page. How to Remove Broken Filament in AMS 2 Pro and H2D Filament Tubes. ¶ Updated Page. Issue ...
+   Sources: google #2, startpage #4 · score: 1.5
+
+4. Bambu Lab H2D and AMS 2 Pro - Price and Release Date
+   https://printatonic.com/en/blogs/printablog/bambu-lab-h2d
+   This technology would allow for more efficient material changes, also reducing the waste common during purge cycles. ... 2025. According to Dr. Tao, the ...
+   Sources: google #8, startpage #3 · score: 0.9
+
+5. Replacing my Prusa 3D Printer with a new Bambu Lab H2S
+   https://www.smbaker.com/replacing-my-prusa-3d-printer-with-a-new-bambu-lab-h2s
+   Oct 26, 2025 ... The AMS 2 Pro features a built-in filament dryer. The AMS is normally sealed, but it will pop open a vent to exhaust the air during a drying ...
+   Sources: google #7, startpage #6 · score: 0.6
+
+6. Bambu Lab's New H2D 3D Printer: Technical Specifications and Pricing
+   https://3dprintingindustry.com/news/bambu-labs-new-h2d-3d-printer-technical-specifications-and-pricing-237763/
+   Mar 25, 2025 ... Bambu Lab has also announced two new AMS systems for the H2D. AMS 2 Pro combines filament drying functionality with electromagne…[2651b total]
+```
+- error=false
+```text
+1. Development Diary - Update on MMU3 for the MK4
+   https://blog.prusa3d.com/development-diary-update-on-mmu3-for-the-mk4_85043/
+   Oct 27, 2025 — The efficient wipe tower on the MMU3 is the next best thing, allowing our single-nozzle 3D printers to print with up to 5 filaments. Current ...
+   Sources: google #1, startpage #1 · score: 4.0
+
+2. MMU3 - Can I have one "perfect" and one "poop" print? : r/prusa3d
+   https://www.reddit.com/r/prusa3d/comments/1i42v3w/mmu3_can_i_have_one_perfect_and_one_poop_print/
+   Hi, I'm still considering to get a MMU3 unit for my MK4S. One of the things I don't like is the waste that it produces. So is it possible that while I print ...
+   Sources: google #3, startpage #2 · score: 1.7
+
+3. MMU3/MK4 Wipe tower issues(too much purged) - Page 2 - Prusa Forum
+   https://forum.prusa3d.com/forum/original-prusa-i3-mmu3-hardware-firmware-and-software-help/mmu3-mk4-wipe-tower-issuestoo-much-purged/paged/2/
+   I set down purge extra flow from 250% to 150% and disabled purigng in infill. This makes a mess of much more waste but I was able to atleast finish a print.
+   Sources: google #2, startpage #5 · score: 1.4
+
+4. What causes lines and wipe tower issues in 3d printing? - Facebook
+   https://www.facebook.com/groups/3dprintingforbeginnersandpros/posts/1115586813704843/
+   Sep 8, 2025 ... No photo description available. 0 reactions ·. 7 comments. 󱎖. Reducing purge volume on Prusa i3 mmu3? Barry Spikes ▻ Prusa i3 mk3 & mk4 users ...
+   Sources: google #5, startpage #4 · score: 0.9
+
+5. Original Prusa MMU3 Enclosed (for CORE One) - Printed Solid
+   https://www.printedsolid.com/products/original-prusa-mmu3-enclosed-for-core-one-full-kit
+   Nov 19, 2025 ... PrusaSlicer optimizes material usage with the smart wipe tower, wipe-to-infill, and wipe-to-object, reducing filament waste and ensuring ...
+   Sources: google #8, startpage #6 · score: 0.6
+
+6. Original Prusa MMU3 (for MK4S/MK3.9S) - Full kit - Printed Solid
+   https://www.printedsol…[2954b total]
+```
+- error=false
+```text
+1. Snapmaker U1 – 1 month later: things nobody tells you at the beginning
+   https://www.reddit.com/r/3Dprinting/comments/1puukhf/snapmaker_u1_1_month_later_things_nobody_tells/
+   Dec 24, 2025 ... ... Snapmaker U1 Production 3D Printer Review - Tool changer! https ... Here's my first impressions on this 4 toolhead multicolor printer.
+   Sources: google #2, startpage #3 · score: 1.7
+
+2. Snapmaker U1 | Multi-Color 3D Printer with SnapSwap™
+   https://www.snapmaker.com/en/snapmaker-u1
+   Snapmaker has developed a tool changer that not only works well, but is a ready-to-go solution with little to no setup time. · The Snapmaker U1 is the machine we ...
+   Sources: google #1 · score: 1.0
+
+3. Snapmaker U1 review: An affordable tool changer for all
+   https://www.tomshardware.com/3d-printing/snapmaker-u1-review
+   Aug 19, 2025 ... Cons · Best Multicolor 3D Printers of 2025: Print the Rainbow · The Best 3D Printers for Home, Workshop or Business in 2026 · Best Budget 3D ...
+   Sources: google #3, startpage #6 · score: 1.0
+
+4. Multi-Color 3D Printer with SnapSwap - Snapmaker U1
+   https://www.snapmaker.com/en-EU/snapmaker-u1
+   It was a pleasant experience printing multiple materials with the Snapmaker U1 machine... the tool changer and printing features really provide effortless multi ...
+   Sources: startpage #1 · score: 1.0
+
+5. 5秒でフィラメント切り替え、Snapmakerが多色3Dプリンター「U1 ...
+   https://fabscene.com/new/news/snapmaker-u1-tool-changer-3d-printer-kickstarter/
+   Aug 21, 2025 ... Snapmaker U1カラー3Dプリンターがツール交換方式でフィラメント廃棄量を80%削減。4ヘッドシステムで高速マルチカラー造形を実現するKickstarter ...
+   Sources: google #4, startpage #10 · score: 0.7
+
+6. Snapmaker Sparks a Tool Changer Frenzy - ⋆ stlDenise3D
+   https://stldenise3d.com/snapmaker-sparks-a-tool-changer-frenzy/
+   Oct 29, 2025 ... Post navigation. Snapmaker U1 Review: An Affordable Tool Chan…[2773b total]
+```
+
+### 69. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `todo`
+```json
+{
+  "action": "plan",
+  "description": "",
+  "index": 0,
+  "items": [
+    {
+      "description": "Fetch Tom's Hardware specialist roundup: Best multicolor 3D printers (for cross-model low-waste framing and 2025/2026 pricing)",
+      "title": "Specialist review: Tom's Hardware multicolor roundup"
+    },
+    {
+      "description": "Fetch Tom's Hardware Snapmaker U1 review (specialist hands-on)",
+      "title": "Specialist review: Snapmaker U1"
+    },
+    {
+      "description": "Fetch a community discussion on multicolor waste tradeoffs (Reddit r/3Dprinting)",
+      "title": "Community evidence: AMS waste discussion"
+    },
+    {
+      "description": "Fetch official Snapmaker U1 page for MSRP/spec/claimed waste reduction",
+      "title": "Official specs/pricing: Snapmaker U1"
+    },
+    {
+      "description": "Fetch Bambu support/buying guide pages for H2C/H2D/AMS 2 Pro and any low-waste mechanism claims",
+      "title": "Official docs: Bambu multicolor mechanisms"
+    },
+    {
+      "description": "Fetch Prusa MMU3/Core One multicolor page for waste-reduction features (wipe-to-infill/object)",
+      "title": "Official docs: Prusa MMU3 waste features"
+    },
+    {
+      "description": "Fetch at least one independent source covering purge/waste reduction methods quantitatively",
+      "title": "Independent method analysis: purge reduction"
+    }
+  ],
+  "note": "",
+  "status": "pending",
+  "title": "",
+  "updates": []
+}
+```
+
+### 70. user
+
+**Tool Results**
+
+- error=false
+```text
+TODO [0/7]
+1. ○ Specialist review: Tom's Hardware multicolor roundup — Fetch Tom's Hardware specialist roundup: Best multicolor 3D printers (for cross-model low-waste framing and 2025/2026 pricing)
+2. ○ Specialist review: Snapmaker U1 — Fetch Tom's Hardware Snapmaker U1 review (specialist hands-on)
+3. ○ Community evidence: AMS waste discussion — Fetch a community discussion on multicolor waste tradeoffs (Reddit r/3Dprinting)
+4. ○ Official specs/pricing: Snapmaker U1 — Fetch official Snapmaker U1 page for MSRP/spec/claimed waste reduction
+5. ○ Official docs: Bambu multicolor mechanisms — Fetch Bambu support/buying guide pages for H2C/H2D/AMS 2 Pro and any low-waste mechanism claims
+6. ○ Official docs: Prusa MMU3 waste features — Fetch Prusa MMU3/Core One multicolor page for waste-reduction features (wipe-to-infill/object)
+7. ○ Independent method analysis: purge reduction — Fetch at least one independent source covering purge/waste reduction methods quantitatively
+
+```
+
+### 71. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `web_fetch`
+```json
+{
+  "url": "https://www.tomshardware.com/3d-printing/best-multicolor-3d-printers"
+}
+```
+
+### 72. user
+
+**Tool Results**
+
+- error=false
+```text
+Best Multicolor 3D Printers of 2025: Print the Rainbow | Tom's Hardware
+
+[Skip to main content](#main)
+
+Jump to:
+
+*   [Quick List](#section-quick-list)
+*   [Best Enclosed](#section-best-enclosed-multicolor-3d-printer)
+*   [Best Budget](#section-best-budget-multicolor-3d-printer)
+*   [Best for Beginners](#section-best-multicolor-3d-printer-for-beginners)
+*   [Best Low Waste](#section-best-low-waste-multicolor-3d-printer)
+*   [Best Multi Material](#section-best-multi-material-3d-printer)
+*   [Best Multitasker](#section-best-multitasker-multicolor-3d-printer)
+*   [Best Budget](#section-best-budget-multicolor-3d-printer)
+*   [Best Tool Changer](#section-best-tool-changer-multicolor-3d-printer)
+*   [Best Large Format](#section-best-large-format-multicolor-3d-printer)
+*   [Multi Material or Multicolor: What's the difference?](#section-the-difference-between-multi-material-or-multicolor-3d-printing)
+
+Don't miss these
+
+ 
+
+[![Best Graphics Cards](https://cdn.mos.cms.futurecdn.net/u4cgMqDxkeRdvWncNHXoM6.png) 
+
+GPUs Best Graphics Cards for Gaming in 2026](https://www.tomshardware.com/reviews/best-gpus,4380.html "Best Graphics Cards for Gaming in 2026") 
+
+[![Best SSDs: Reviewed and Benchmarked](https://cdn.mos.cms.futurecdn.net/KEgqpKtN3p9PnWzfDLPcn.jpg) 
+
+SSDs Best SSDs 2026: From blazing-fast M.2 NVMe down to budget SATA](https://www.tomshardware.com/reviews/best-ssds,3891.html "Best SSDs 2026: From blazing-fast M.2 NVMe down to budget SATA") 
+
+[![Gaming Monitors](https://cdn.mos.cms.futurecdn.net/FUYAofwatKBmPuUzXDNM83.jpg) 
+
+Gaming Monitors Best Gaming Monitors 2026: Budget, Curved, G-Sync and More](https://www.tomshardware.com/reviews/best-gaming-monitors,4533.html "Best Gaming Monitors 2026: Budget, Curved, G-Sync and More") 
+
+[![Best Webcams](https://cdn.mos.cms.futurecdn.net/omf8jfNwdhHKJHrGnR7ufP.jpg) 
+
+Webcams Best Webcams 2026: 1080p, 2K, and 4K](https://www.tomshardware.com/best-picks/best-webcams "Best Webcams 2026: 1080p, 2K, and 4K") 
+
+[![Asus ROG Zephyrus Duo 15…[82734b total]
+```
+
+### 73. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `todo`
+```json
+{
+  "action": "update",
+  "description": "",
+  "index": 1,
+  "items": [],
+  "note": "Fetched full roundup. Key extracted data: P1S combo $899 list with significant purge waste; A1 example 166g part vs 115g flushed after tuning; MMU3 classified best low-waste with 54s swaps; Snapmaker U1 listed best toolchanger with 12s swaps and low waste; H2D dual-nozzle reduces purge when one nozzle keeps primary color.",
+  "status": "done",
+  "title": "",
+  "updates": []
+}
+```
+
+### 74. user
+
+**Tool Results**
+
+- error=false
+```text
+TODO [1/7]
+1. ✓ Specialist review: Tom's Hardware multicolor roundup — Fetch Tom's Hardware specialist roundup: Best multicolor 3D printers (for cross-model low-waste framing and 2025/2026 pricing) [Fetched full roundup. Key extracted data: P1S combo $899 list with significant purge waste; A1 example 166g part vs 115g flushed after tuning; MMU3 classified best low-waste with 54s swaps; Snapmaker U1 listed best toolchanger with 12s swaps and low waste; H2D dual-nozzle reduces purge when one nozzle keeps primary color.]
+2. ○ Specialist review: Snapmaker U1 — Fetch Tom's Hardware Snapmaker U1 review (specialist hands-on)
+3. ○ Community evidence: AMS waste discussion — Fetch a community discussion on multicolor waste tradeoffs (Reddit r/3Dprinting)
+4. ○ Official specs/pricing: Snapmaker U1 — Fetch official Snapmaker U1 page for MSRP/spec/claimed waste reduction
+5. ○ Official docs: Bambu multicolor mechanisms — Fetch Bambu support/buying guide pages for H2C/H2D/AMS 2 Pro and any low-waste mechanism claims
+6. ○ Official docs: Prusa MMU3 waste features — Fetch Prusa MMU3/Core One multicolor page for waste-reduction features (wipe-to-infill/object)
+7. ○ Independent method analysis: purge reduction — Fetch at least one independent source covering purge/waste reduction methods quantitatively
+
+```
+
+### 75. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `web_fetch`
+```json
+{
+  "url": "https://www.tomshardware.com/3d-printing/snapmaker-u1-review"
+}
+```
+
+### 76. user
+
+**Tool Results**
+
+- error=false
+```text
+Snapmaker U1 review: An affordable tool changer for all | Tom's Hardware
+
+[Skip to main content](#main)
+
+Don't miss these
+
+ 
+
+[![Samsung Galaxy Book6 Ultra](https://cdn.mos.cms.futurecdn.net/bTkK4xWjiTCJQhjqKhPaAa.jpg) 
+
+Ultrabooks and Ultraportables Samsung Galaxy Book6 Ultra review: Premium creator pick](https://www.tomshardware.com/laptops/ultrabooks-ultraportables/samsung-galaxy-book6-ultra-review "Samsung Galaxy Book6 Ultra review: Premium creator pick") 
+
+[![Corsair Makr Pro 75](https://cdn.mos.cms.futurecdn.net/yLK4MiNbD3sstw3toMxXe8.jpg) 
+
+Gaming Keyboards Corsair Makr Pro 75 Review: Not DIY-priced (or DIY)](https://www.tomshardware.com/peripherals/gaming-keyboards/corsair-makr-pro-75-review "Corsair Makr Pro 75 Review: Not DIY-priced (or DIY)") 
+
+[![Elegoo Centauri Carbon 2](https://cdn.mos.cms.futurecdn.net/6SnLuojxPXQwzEoecP4DqE.jpg) 
+
+3D Printing Elegoo Centauri Carbon 2 review: A four-color variant](https://www.tomshardware.com/3d-printing/elegoo-centauri-carbon-2-review "Elegoo Centauri Carbon 2 review: A four-color variant") 
+
+[![Best Resin 3D Printers](https://cdn.mos.cms.futurecdn.net/3BJn7fTqACesU4zeFFJhoj.png) 
+
+3D Printing Best Resin 3D Printers 2026](https://www.tomshardware.com/best-picks/best-resin-3d-printers "Best Resin 3D Printers 2026") 
+
+[![Cooler Master Cosmos Alpha](https://cdn.mos.cms.futurecdn.net/TYtxNTrh4jkyPMyWtKw6ui.png) 
+
+PC Cases Hands-on with Cooler Master’s Cosmos Alpha full-tower chassis – sliding, configurable interior makes for lots of possibilities](https://www.tomshardware.com/pc-components/pc-cases/hands-on-with-cooler-masters-cosmos-alpha-full-tower-chassis "Hands-on with Cooler Master’s Cosmos Alpha full-tower chassis – sliding, configurable interior makes for lots of possibilities") 
+
+[![Thermalright Wonder Vision 360 UB ARGB Black](https://cdn.mos.cms.futurecdn.net/ZbmrpzBdwTfz7bexG3EyUG.jpg) 
+
+Liquid Cooling Thermalright Wonder Vision 360 UB ARGB Black review: Detachable 6.7-inch screen makes for unique poss…[44038b total]
+```
+
+### 77. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `todo`
+```json
+{
+  "action": "update",
+  "description": "",
+  "index": 2,
+  "items": [],
+  "note": "Fetched hands-on review. Key points: U1 toolchanger swaps ~10-12s, very low prime waste (e.g., 0.76g and 4.4g examples), compared against Bambu P1P showing 2h faster and 25g less material on same spider batch; MSRP $999 with observed $849 street promo; enclosure lid optional extra.",
+  "status": "done",
+  "title": "",
+  "updates": []
+}
+```
+
+### 78. user
+
+**Tool Results**
+
+- error=false
+```text
+TODO [2/7]
+1. ✓ Specialist review: Tom's Hardware multicolor roundup — Fetch Tom's Hardware specialist roundup: Best multicolor 3D printers (for cross-model low-waste framing and 2025/2026 pricing) [Fetched full roundup. Key extracted data: P1S combo $899 list with significant purge waste; A1 example 166g part vs 115g flushed after tuning; MMU3 classified best low-waste with 54s swaps; Snapmaker U1 listed best toolchanger with 12s swaps and low waste; H2D dual-nozzle reduces purge when one nozzle keeps primary color.]
+2. ✓ Specialist review: Snapmaker U1 — Fetch Tom's Hardware Snapmaker U1 review (specialist hands-on) [Fetched hands-on review. Key points: U1 toolchanger swaps ~10-12s, very low prime waste (e.g., 0.76g and 4.4g examples), compared against Bambu P1P showing 2h faster and 25g less material on same spider batch; MSRP $999 with observed $849 street promo; enclosure lid optional extra.]
+3. ○ Community evidence: AMS waste discussion — Fetch a community discussion on multicolor waste tradeoffs (Reddit r/3Dprinting)
+4. ○ Official specs/pricing: Snapmaker U1 — Fetch official Snapmaker U1 page for MSRP/spec/claimed waste reduction
+5. ○ Official docs: Bambu multicolor mechanisms — Fetch Bambu support/buying guide pages for H2C/H2D/AMS 2 Pro and any low-waste mechanism claims
+6. ○ Official docs: Prusa MMU3 waste features — Fetch Prusa MMU3/Core One multicolor page for waste-reduction features (wipe-to-infill/object)
+7. ○ Independent method analysis: purge reduction — Fetch at least one independent source covering purge/waste reduction methods quantitatively
+
+```
+
+### 79. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `web_fetch`
+```json
+{
+  "url": "https://www.reddit.com/r/3Dprinting/comments/1miz77i/multi_color_printing_seems_a_tad_wasteful/"
+}
+```
+
+### 80. user
+
+**Tool Results**
+
+- error=false
+```text
+Reddit - The heart of the internet
+
+[Skip to main content](#main-content)
+
+
+
+
+
+[![r/3Dprinting icon](https://styles.redditmedia.com/t5_2rk5q/styles/communityIcon_s8h0mrftpnn31.png?width=96&height=96&frame=1&auto=webp&crop=96%3A96%2Csmart&s=eacfaf0a5264f724e9df1e2c541306e02251c422) 
+
+ Go to 3Dprinting](/r/3Dprinting/)
+
+ [r/3Dprinting](/r/3Dprinting/) •
+
+[Bishopdan11](/user/Bishopdan11/) 
+
+ 
+
+ 
+
+# Multi color printing seems a tad wasteful
+
+![](https://preview.redd.it/multi-color-printing-seems-a-tad-wasteful-v0-9yvn5yxy1dhf1.jpeg?width=640&crop=smart&auto=webp&s=90b738eb865c7b8c955d49df6d373adc125af982) ![r/3Dprinting - Multi color printing seems a tad wasteful](https://preview.redd.it/multi-color-printing-seems-a-tad-wasteful-v0-9yvn5yxy1dhf1.jpeg?width=640&crop=smart&auto=webp&s=90b738eb865c7b8c955d49df6d373adc125af982)
+
+ ![r/3Dprinting - Multi color printing seems a tad wasteful](https://i.redd.it/9yvn5yxy1dhf1.jpeg) 
+
+I wanted to try a poorly constructed 4 color print to test how well my new Bambu P1S and AMS handled the 4 hours of constant filament changes. 
+
+I knew there would be waste but god damn! 
+
+ Read more 
+
+ Share 
+
+New to Reddit?
+
+Create your account and connect with a world of communities. 
+
+ 
+
+ 
+
+ Continue with Email 
+
+ 
+
+ 
+
+ Continue With Phone Number 
+
+ 
+
+By continuing, you agree to our [User Agreement](https://www.redditinc.com/policies/user-agreement) and acknowledge that you understand the [Privacy Policy](https://www.redditinc.com/policies/privacy-policy). 
+
+ 
+
+Public 
+
+Anyone can view, post, and comment to this community
+
+ 
+
+0 0 
+
+ [Reddit Rules](https://www.redditinc.com/policies/content-policy) [Privacy Policy](https://www.reddit.com/policies/privacy-policy) [User Agreement](https://www.redditinc.com/policies/user-agreement) [Accessibility](https://support.reddithelp.com/hc/sections/38303584022676-Accessibility) [Reddit, Inc. © 2026. All rights reserved.](https://redditinc.com) 
+
+ Expand Navigation Collapse Navigation 
+
+ 
+
+ ![](https://id.r…[2020b total]
+```
+
+### 81. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `web_fetch`
+```json
+{
+  "url": "https://old.reddit.com/r/3Dprinting/comments/1miz77i/multi_color_printing_seems_a_tad_wasteful/"
+}
+```
+
+### 82. user
+
+**Tool Results**
+
+- error=false
+```text
+# Multi color printing seems a tad wasteful
+
+\[–\][ProfPyukumuku](https://old.reddit.com/user/ProfPyukumuku) 7 points8 points9 points 6 months ago (1 child)
+
+<3 Thanks!
+
+This is my next paint project after I sand the imperfections. I'm gonna try to make him look like the 9th Doctor since he already kinda looks like Eccleston. I'm gonna print a small rose and stick the stem in his leg so that the rose is in his center.
+
+[\<image>](https://preview.redd.it/v2brcjnnmghf1.jpeg?width=3000&format=pjpg&auto=webp&s=786158a03b4ac472f99ec35860c84b5bdfe09394)
+
+*   [permalink](https://old.reddit.com/r/3Dprinting/comments/1miz77i/multi_color_printing_seems_a_tad_wasteful/n7aqnk2/)
+*   embed
+*   save
+*   [parent](#n7apklj)
+*   report
+*   reply
+
+\[–\][Impressive\_Word5229](https://old.reddit.com/user/Impressive_Word5229) 2 points3 points4 points 6 months ago (0 children)
+
+We do this as well.
+
+We also bought a cheap blender to make it easier to pour into the mold.
+
+We did have an issue with the end result sticking to the molds, but I ordered some mold release spray to try. I'm hoping it works because PAM does nothing except make a greasy mess.
+
+Also, use hand-picked poop or even just cut new filament for the bottom layer to male a cleaner output. Use the poop as filler to bulk it up after getting that clean first layer.
+
+*   [permalink](https://old.reddit.com/r/3Dprinting/comments/1miz77i/multi_color_printing_seems_a_tad_wasteful/n7hudkd/)
+*   embed
+*   save
+*   [parent](#n79fgid)
+*   report
+*   reply
+
+\[–\][bluegrassbarman](https://old.reddit.com/user/bluegrassbarman) 15 points16 points17 points 6 months ago (14 children)
+
+I'm mediocre at video games at best
+
+Don't have much time for them anymore
+
+I used to try and keep up my skills at 2K because I love basketball and was fairly decent, but it's just become a giant money/time sink that I just can't be a part of anymore.
+
+My kids wreck me at most other games when we play.
+
+*   [permalink](https://old.reddit.com/r/3Dprinting…[17766b total]
+```
+
+### 83. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `todo`
+```json
+{
+  "action": "update",
+  "description": "",
+  "index": 3,
+  "items": [],
+  "note": "Fetched old.reddit discussion with substantive comments. Consensus: AMS-style single-nozzle systems are wasteful on high-switch models; waste can be reduced by batching multiple copies, purge-to-infill/objects, and model splitting/assembly. Multiple comments state true toolchangers (Prusa XL, Snapmaker U1/INDX) are lowest-waste path.",
+  "status": "done",
+  "title": "",
+  "updates": []
+}
+```
+
+### 84. user
+
+**Tool Results**
+
+- error=false
+```text
+TODO [3/7]
+1. ✓ Specialist review: Tom's Hardware multicolor roundup — Fetch Tom's Hardware specialist roundup: Best multicolor 3D printers (for cross-model low-waste framing and 2025/2026 pricing) [Fetched full roundup. Key extracted data: P1S combo $899 list with significant purge waste; A1 example 166g part vs 115g flushed after tuning; MMU3 classified best low-waste with 54s swaps; Snapmaker U1 listed best toolchanger with 12s swaps and low waste; H2D dual-nozzle reduces purge when one nozzle keeps primary color.]
+2. ✓ Specialist review: Snapmaker U1 — Fetch Tom's Hardware Snapmaker U1 review (specialist hands-on) [Fetched hands-on review. Key points: U1 toolchanger swaps ~10-12s, very low prime waste (e.g., 0.76g and 4.4g examples), compared against Bambu P1P showing 2h faster and 25g less material on same spider batch; MSRP $999 with observed $849 street promo; enclosure lid optional extra.]
+3. ✓ Community evidence: AMS waste discussion — Fetch a community discussion on multicolor waste tradeoffs (Reddit r/3Dprinting) [Fetched old.reddit discussion with substantive comments. Consensus: AMS-style single-nozzle systems are wasteful on high-switch models; waste can be reduced by batching multiple copies, purge-to-infill/objects, and model splitting/assembly. Multiple comments state true toolchangers (Prusa XL, Snapmaker U1/INDX) are lowest-waste path.]
+4. ○ Official specs/pricing: Snapmaker U1 — Fetch official Snapmaker U1 page for MSRP/spec/claimed waste reduction
+5. ○ Official docs: Bambu multicolor mechanisms — Fetch Bambu support/buying guide pages for H2C/H2D/AMS 2 Pro and any low-waste mechanism claims
+6. ○ Official docs: Prusa MMU3 waste features — Fetch Prusa MMU3/Core One multicolor page for waste-reduction features (wipe-to-infill/object)
+7. ○ Independent method analysis: purge reduction — Fetch at least one independent source covering purge/waste reduction methods quantitatively
+
+```
+
+### 85. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `web_fetch`
+```json
+{
+  "url": "https://www.snapmaker.com/en/snapmaker-u1"
+}
+```
+
+### 86. user
+
+**Tool Results**
+
+- error=false
+```text
+Snapmaker U1 | Multi-Color 3D Printer with SnapSwap™
+
+[](/) 
+
+Products
+
+Software
+
+[Filaments](/filaments)
+
+[Support](https://support.snapmaker.com/hc/en-us)
+
+[Explore](/community)
+
+[![](https://ditfjx9w4x3vl.cloudfront.net/assets/header/product_u1.webp)
+
+Snapmaker U1
+
+New
+
+Snapmaker U1 Color 3D Printer: 5X More Speed. 5X Less Waste.](/snapmaker-u1)
+
+[![](https://ditfjx9w4x3vl.cloudfront.net/assets/header/products/A400_S-1.jpg)
+
+Snapmaker Artisan
+
+The Ultimate 3-in-1 3D Printer](/snapmaker-artisan)
+
+[![](https://ditfjx9w4x3vl.cloudfront.net/assets/header/products/pc/2.0-S.jpg)
+
+Snapmaker 2.0
+
+World's Best Selling 3-in-1 3D Printer](/snapmaker-2)
+
+[![](https://ditfjx9w4x3vl.cloudfront.net/assets/header/products/J1_s-1.jpg)
+
+Snapmaker J1/J1s
+
+Fast Change, Less Waste](/j1s-idex-3d-printer)
+
+* * *
+
+  
+
+Snapmaker U1
+
+[![](https://ditfjx9w4x3vl.cloudfront.net/assets/header/product_u1.webp)
+
+Snapmaker U1 3D Printer](/snapmaker-u1)
+
+[![](https://ditfjx9w4x3vl.cloudfront.net/assets/header/snapmaker_orca.png)](/snapmaker-orca)[Snapmaker Orca](/snapmaker-orca) 
+
+[![](https://ditfjx9w4x3vl.cloudfront.net/assets/software/Snapmaker%20APP.webp)](/snapmaker-app)[Snapmaker App](/snapmaker-app) 
+
+[![](https://ditfjx9w4x3vl.cloudfront.net/assets/header/snapmaker_luban.png)](/snapmaker-luban)[Snapmaker Luban](/snapmaker-luban) 
+
+[![Third-party Software](<https://ditfjx9w4x3vl.cloudfront.net/assets/header/Third-party Software.png>)](https://wiki.snapmaker.com/en/third_party_software)[Third-party Software](https://wiki.snapmaker.com/en/third_party_software)
+
+Product Support
+
+Know more about Snapmaker printers, modules, and addons.
+
+[Snapmaker U1](https://support.snapmaker.com/hc/en-us/categories/36087874981527)
+
+[Snapmaker Artisan](https://support.snapmaker.com/hc/en-us/categories/12963984075031)
+
+[Snapmaker 2.0 AT/F/A Series](https://support.snapmaker.com/hc/en-us/categories/12964041494935)
+
+[Snapmaker J1/J1s](https://support.snapmaker.com/hc/en-us/categories/12963989552151)
+
+[Snapm…[25895b total]
+```
+
+### 87. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `web_fetch`
+```json
+{
+  "url": "https://us.snapmaker.com/products/snapmaker-u1-3d-printer"
+}
+```
+
+### 88. user
+
+**Tool Results**
+
+- error=false
+```text
+Snapmaker U1 Color 3D Printer Pre-Order - Snapmaker US
+
+![](data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz48c3ZnIHdpZHRoPSI5OTk5OXB4IiBoZWlnaHQ9Ijk5OTk5cHgiIHZpZXdCb3g9IjAgMCA5OTk5OSA5OTk5OSIgdmVyc2lvbj0iMS4xIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHhtbG5zOnhsaW5rPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5L3hsaW5rIj48ZyBzdHJva2U9Im5vbmUiIGZpbGw9Im5vbmUiIGZpbGwtb3BhY2l0eT0iMCI+PHJlY3QgeD0iMCIgeT0iMCIgd2lkdGg9Ijk5OTk5IiBoZWlnaHQ9Ijk5OTk5Ij48L3JlY3Q+IDwvZz4gPC9zdmc+)
+
+[Skip to content](#main-content)
+
+Click here to be redirected to the more applicable version of our website for your country/region. 
+
+Hong Kong
+
+Go
+
+Are you sure? You won't be able to place an order on this website.
+
+Yes, I'm just taking a look
+
+No, go to the right website
+
+[snapmaker.com](https://www.snapmaker.com/en-US/)
+
+💰**30-Day Price Guarantee:** Get a refund if the price drops within 30 days.
+
+🚛 **Free shipping** over $89 in 48 states (excl. machines & modules).
+
+🛠️**1-Year Warranty Protection**: Covers all machines and modules.
+
+Select Your Country / Region according to your shipping address 
+
+Products may have different prices and availability based on country/region. 
+
+ 
+
+ 
+
+![Stay Updated!](//us.snapmaker.com/cdn/shop/files/logo.png?v=1761210142&width=48) 
+
+### Stay Updated!
+
+Subscribe to get updates on our new products and exclusive promotions.
+
+Later Allow 
+
+*   [![Snapmaker US](//us.snapmaker.com/cdn/shop/files/U1_c9534a17-eea4-4937-b1d6-13b45ccc7ca0.webp?v=1763646848&width=1214) ![](data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%201500%201500'%3E%3C/svg%3E)](//us.snapmaker.com/cdn/shop/files/U1_c9534a17-eea4-4937-b1d6-13b45ccc7ca0.webp?v=1763646848&width=1500)
+
+*   [![](data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%201500%201500'%3E%3C/svg%3E)](//us.snapmaker.com/cdn/shop/files/20251013-121943.webp?v=1763646848&width=1500)
+
+*   [![](data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2…[48574b total]
+```
+
+### 89. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `todo`
+```json
+{
+  "action": "update",
+  "description": "",
+  "index": 4,
+  "items": [],
+  "note": "Fetched official U1 pages (marketing + US store). Extracted MSRP $999 and promo $849; top cover add-on $149 promo/$249 list; shipping fee $50 in contiguous US; claimed up to 80% waste reduction and 5s swaps via 4 toolheads; firmware is Klipper with modified components scheduled open-source by Mar 2026; supported materials include ABS/ASA with optional top cover.",
+  "status": "done",
+  "title": "",
+  "updates": []
+}
+```
+
+### 90. user
+
+**Tool Results**
+
+- error=false
+```text
+TODO [4/7]
+1. ✓ Specialist review: Tom's Hardware multicolor roundup — Fetch Tom's Hardware specialist roundup: Best multicolor 3D printers (for cross-model low-waste framing and 2025/2026 pricing) [Fetched full roundup. Key extracted data: P1S combo $899 list with significant purge waste; A1 example 166g part vs 115g flushed after tuning; MMU3 classified best low-waste with 54s swaps; Snapmaker U1 listed best toolchanger with 12s swaps and low waste; H2D dual-nozzle reduces purge when one nozzle keeps primary color.]
+2. ✓ Specialist review: Snapmaker U1 — Fetch Tom's Hardware Snapmaker U1 review (specialist hands-on) [Fetched hands-on review. Key points: U1 toolchanger swaps ~10-12s, very low prime waste (e.g., 0.76g and 4.4g examples), compared against Bambu P1P showing 2h faster and 25g less material on same spider batch; MSRP $999 with observed $849 street promo; enclosure lid optional extra.]
+3. ✓ Community evidence: AMS waste discussion — Fetch a community discussion on multicolor waste tradeoffs (Reddit r/3Dprinting) [Fetched old.reddit discussion with substantive comments. Consensus: AMS-style single-nozzle systems are wasteful on high-switch models; waste can be reduced by batching multiple copies, purge-to-infill/objects, and model splitting/assembly. Multiple comments state true toolchangers (Prusa XL, Snapmaker U1/INDX) are lowest-waste path.]
+4. ✓ Official specs/pricing: Snapmaker U1 — Fetch official Snapmaker U1 page for MSRP/spec/claimed waste reduction [Fetched official U1 pages (marketing + US store). Extracted MSRP $999 and promo $849; top cover add-on $149 promo/$249 list; shipping fee $50 in contiguous US; claimed up to 80% waste reduction and 5s swaps via 4 toolheads; firmware is Klipper with modified components scheduled open-source by Mar 2026; supported materials include ABS/ASA with optional top cover.]
+5. ○ Official docs: Bambu multicolor mechanisms — Fetch Bambu support/buying guide pages for H2C/H2D/AMS 2 Pro and any l…[2321b total]
+```
+
+### 91. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `web_fetch`
+```json
+{
+  "url": "https://bambulab.com/en/support/buying-guide?page=2&id=904389439320043520"
+}
+```
+- `web_fetch`
+```json
+{
+  "url": "https://us.store.bambulab.com/products/h2d"
+}
+```
+- `web_fetch`
+```json
+{
+  "url": "https://bambulab.com/ja-jp/support/buying-guide"
+}
+```
+
+### 92. user
+
+**Tool Results**
+
+- error=false
+```text
+2/15 H2D | Bambu Lab
+
+[![](/assets/logo.svg)](/en)
+
+*   ![](https://cdn1.bambulab.com/nav/flame.svg)Products
+
+*   Filament
+[*   Accessories](https://store.bambulab.com/collections/accessories?from=home_web_top_navigation)
+
+*   Software
+
+*   MakerWorld
+
+*   Explore
+
+*   Support
+
+[Store](https://store.bambulab.com/?from=home_web_top_store)
+
+H2CH2DH2SP2SX1CP1SP1PA1A1 miniAMS 2 ProAMS HTAMSAMS liteH2D ProX1E
+
+## H2C
+
+## Launch Date
+
+November 18, 2025
+
+## Structure
+
+Bambu Lab H2C is based on the Core-XY architecture, which contains two stepper motors and multiple idler pulleys on the XY plane.
+
+## Product Features
+
+**Vortek Hotend Change System**
+
+*   **Multi-Material Printing with Minimal Purge Waste**
+
+The H2C uses the Vortek intelligent hotend-swapping system to replace the entire hotend during filament changes, avoiding the heavy purging required by traditional single-nozzle multi-material printing and delivering faster, cleaner prints with minimal waste.
+
+*   **Fully Automatic Filament Change**
+
+The Vortek system works seamlessly with our highly reliable AMS, automating the entire filament change process without the need to manually load filaments into the toolhead.
+
+*   **Always Delivering the Most Efficient Combination**
+
+The Vortek system stores filament information in the hotend’s memory to ensure the correct match, and for prints using more than seven filaments, it calculates the optimal combination to minimize purge waste.
+
+ 
+
+**Superior Print Quality, All Times**
+
+The H2C delivers stable high-flow extrusion with its PMSM servo extruder and 20 kHz servo monitoring, achieving smooth surfaces and sharp edges. Optional Vision Encoder ensures ultra-fine motion accuracy under 50 µm, automatically compensating for mechanical drift for consistent precision.
+
+ 
+
+**Engineering Materials Ready**
+
+With all seven nozzles reaching 350 °C and a 65 °C active heated chamber, the H2C handles high-performance, high-temperature filaments with minimal warping and e…[107496b total]
+```
+- error=false
+```text
+Bambu Lab H2D | Bambu Lab ストア
+
+[コンテンツへ](#main)
+
+*   [](https://www.facebook.com/groups/bambulabofficialusers)
+*   [](https://www.reddit.com/r/BambuLab)
+*   [](https://twitter.com/BambulabJapan)
+*   [](https://www.instagram.com/bambulab_official)
+*   [](https://www.youtube.com/channel/UCDF3Sd2LNAsa-nKD17Jq3mw)
+
+カート 
+
+カートが空です
+
+ 
+
+[![Bambu Lab H2D](//jp.store.bambulab.com/cdn/shop/files/H2DC-compressed_0e2637a6-cb5c-4888-9b2c-2410433cb029_160x.jpg?v=1770953187)](//jp.store.bambulab.com/cdn/shop/files/H2DC-compressed_0e2637a6-cb5c-4888-9b2c-2410433cb029_1024x.jpg?v=1770953187)[![Bambu Lab H2D](//jp.store.bambulab.com/cdn/shop/files/H2DL-10w-compressed_160x.jpg?v=1770953187)](//jp.store.bambulab.com/cdn/shop/files/H2DL-10w-compressed_1024x.jpg?v=1770953187)[![Bambu Lab H2D](//jp.store.bambulab.com/cdn/shop/files/H2D-compressed_930bcf04-0b07-4c4c-88c4-c5adf53204f5_160x.jpg?v=1770953187)](//jp.store.bambulab.com/cdn/shop/files/H2D-compressed_930bcf04-0b07-4c4c-88c4-c5adf53204f5_1024x.jpg?v=1770953187)[![Bambu Lab H2D](//jp.store.bambulab.com/cdn/shop/files/H2DMain_800_09_DC_DL_160x.jpg?v=1770953187)](//jp.store.bambulab.com/cdn/shop/files/H2DMain_800_09_DC_DL_1024x.jpg?v=1770953187)[![Bambu Lab H2D](//jp.store.bambulab.com/cdn/shop/files/H2DMain_800_01_DC_160x.jpg?v=1770953187)](//jp.store.bambulab.com/cdn/shop/files/H2DMain_800_01_DC_1024x.jpg?v=1770953187)[![Bambu Lab H2D](//jp.store.bambulab.com/cdn/shop/files/H2DMain_800_03_front_160x.jpg?v=1770953187)](//jp.store.bambulab.com/cdn/shop/files/H2DMain_800_03_front_1024x.jpg?v=1770953187)[![Bambu Lab H2D](//jp.store.bambulab.com/cdn/shop/files/H2DMain_800_05_160x.jpg?v=1770953187)](//jp.store.bambulab.com/cdn/shop/files/H2DMain_800_05_1024x.jpg?v=1770953187)[![Bambu Lab H2D](//jp.store.bambulab.com/cdn/shop/files/H2DMain_800_06_DCfront_160x.jpg?v=1770953187)](//jp.store.bambulab.com/cdn/shop/files/H2DMain_800_06_DCfront_1024x.jpg?v=1770953187)[![Bambu Lab H2D](//jp.store.bambulab.com/…[37216b total]
+```
+- error=false
+```text
+1/15 H2C | Bambu Lab JP
+
+[![](/assets/logo.svg)](/ja-jp)
+
+*   プロダクト
+
+*   フィラメント
+[*   アクセサリー](https://jp.store.bambulab.com/collections/accessories?from=home_web_top_navigation)
+
+*   ソフトウェア
+
+*   MakerWorld
+
+*   Explore
+
+*   サポート
+
+[Store](http://jp.store.bambulab.com/?skr=yes)
+
+H2CH2DH2SP2SX1CP1SP1PA1A1 miniAMS 2 ProAMS HTAMSAMS liteH2D ProX1E
+
+## H2C
+
+## Launch Date
+
+November 18, 2025
+
+## Structure
+
+Bambu Lab H2C is based on the Core-XY architecture, which contains two stepper motors and multiple idler pulleys on the XY plane.
+
+## Product Features
+
+**Vortek Hotend Change System**
+
+*   **Multi-Material Printing with Minimal Purge Waste**
+
+The H2C uses the Vortek intelligent hotend-swapping system to replace the entire hotend during filament changes, avoiding the heavy purging required by traditional single-nozzle multi-material printing and delivering faster, cleaner prints with minimal waste.
+
+*   **Fully Automatic Filament Change**
+
+The Vortek system works seamlessly with our highly reliable AMS, automating the entire filament change process without the need to manually load filaments into the toolhead.
+
+*   **Always Delivering the Most Efficient Combination**
+
+The Vortek system stores filament information in the hotend’s memory to ensure the correct match, and for prints using more than seven filaments, it calculates the optimal combination to minimize purge waste.
+
+ 
+
+**Superior Print Quality, All Times**
+
+The H2C delivers stable high-flow extrusion with its PMSM servo extruder and 20 kHz servo monitoring, achieving smooth surfaces and sharp edges. Optional Vision Encoder ensures ultra-fine motion accuracy under 50 µm, automatically compensating for mechanical drift for consistent precision.
+
+ 
+
+**Engineering Materials Ready**
+
+With all seven nozzles reaching 350 °C and a 65 °C active heated chamber, the H2C handles high-performance, high-temperature filaments with minimal warping and excellent l…[107595b total]
+```
+
+### 93. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `todo`
+```json
+{
+  "action": "update",
+  "description": "",
+  "index": 5,
+  "items": [],
+  "note": "Fetched Bambu official buying-guide/docs pages for H2C/H2D series. Key extracted: Vortek hotend-swapping claims minimal purge waste; algorithm optimizes combinations for >7 filaments; future 2026 filament track switch module mentioned; region availability table and shipping policy links; H2C/H2D max 25-color architecture with multiple AMS units. Could not get clean US H2D price from these docs due locale redirects, so pricing remains from independent/retailer sources.",
+  "status": "done",
+  "title": "",
+  "updates": []
+}
+```
+
+### 94. user
+
+**Tool Results**
+
+- error=false
+```text
+TODO [5/7]
+1. ✓ Specialist review: Tom's Hardware multicolor roundup — Fetch Tom's Hardware specialist roundup: Best multicolor 3D printers (for cross-model low-waste framing and 2025/2026 pricing) [Fetched full roundup. Key extracted data: P1S combo $899 list with significant purge waste; A1 example 166g part vs 115g flushed after tuning; MMU3 classified best low-waste with 54s swaps; Snapmaker U1 listed best toolchanger with 12s swaps and low waste; H2D dual-nozzle reduces purge when one nozzle keeps primary color.]
+2. ✓ Specialist review: Snapmaker U1 — Fetch Tom's Hardware Snapmaker U1 review (specialist hands-on) [Fetched hands-on review. Key points: U1 toolchanger swaps ~10-12s, very low prime waste (e.g., 0.76g and 4.4g examples), compared against Bambu P1P showing 2h faster and 25g less material on same spider batch; MSRP $999 with observed $849 street promo; enclosure lid optional extra.]
+3. ✓ Community evidence: AMS waste discussion — Fetch a community discussion on multicolor waste tradeoffs (Reddit r/3Dprinting) [Fetched old.reddit discussion with substantive comments. Consensus: AMS-style single-nozzle systems are wasteful on high-switch models; waste can be reduced by batching multiple copies, purge-to-infill/objects, and model splitting/assembly. Multiple comments state true toolchangers (Prusa XL, Snapmaker U1/INDX) are lowest-waste path.]
+4. ✓ Official specs/pricing: Snapmaker U1 — Fetch official Snapmaker U1 page for MSRP/spec/claimed waste reduction [Fetched official U1 pages (marketing + US store). Extracted MSRP $999 and promo $849; top cover add-on $149 promo/$249 list; shipping fee $50 in contiguous US; claimed up to 80% waste reduction and 5s swaps via 4 toolheads; firmware is Klipper with modified components scheduled open-source by Mar 2026; supported materials include ABS/ASA with optional top cover.]
+5. ✓ Official docs: Bambu multicolor mechanisms — Fetch Bambu support/buying guide pages for H2C/H2D/AMS 2 Pro and any l…[2796b total]
+```
+
+### 95. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `web_fetch`
+```json
+{
+  "url": "https://www.prusa3d.com/product/original-prusa-mmu3-upgrade-kit-for-mk4s-mk3-9s-7/"
+}
+```
+- `web_fetch`
+```json
+{
+  "url": "https://blog.prusa3d.com/development-diary-update-on-mmu3-for-the-mk4_85043/"
+}
+```
+- `web_fetch`
+```json
+{
+  "url": "https://www.prusa3d.com/product/prusa-core-one/"
+}
+```
+
+### 96. user
+
+**Tool Results**
+
+- error=false
+```text
+Original Prusa MMU3 (for MK4S/MK3.9S) - Full kit | Original Prusa 3D printers directly from Josef Prusa
+
+Love your Prusa printer? [Share your experience today](https://www.prusa3d.com/p/prusa-reward-program) and get rewarded Earn **$30 Prusa e-shop vouchers**—and your friends get a **free Prusament spool**.
+
+Shipping to
+
+![Japan flag](/cdn-cgi/image/width=45,format=auto,quality=85/content/images/country/1900.png)Japan
+
+MK4S kit shipping from $73 (FedEx)
+
+¥ JPY
+
+*   € EUR
+*   ¥ JPY
+*   $ USD
+
+English
+
+*   English
+*   Čeština
+*   Deutsch
+*   Español
+*   Français
+*   Italiano
+*   Polski
+*   日本語
+
+[Login](https://account.prusa3d.com/login/?next=%2Fo%2Fauthorize%2F%3Fclient_id%3DM8LpfPFdUlFWcOpLmEdEm7IXmDQfNqhkMqRUYOnv%26response_type%3Dcode%26scope%3Dbasic_info%26redirect_uri%3Dhttps%3A%2F%2Fwww.prusa3d.com%2Flogin%2F%26cancel_uri%3Dhttps%3A%2F%2Fwww.prusa3d.com%2Fproduct%2Foriginal-prusa-mmu3-upgrade-kit-for-mk4s-mk3-9s-7%2F)
+
+[](/cart/)
+
+*   [](/)
+*   [Upgrades](/category/upgrades/)
+*   [Original Prusa MMU3](/category/original-prusa-mmu3/)
+*   [MKx MMU3](/category/mkx-mmu3/)
+
+# Original Prusa MMU3 (for MK4S/MK3.9S) - Full kit
+
+![](/cdn-cgi/image/width=1024,format=auto,quality=85/content/images/product/b39ede19-58bf-4c39-a00d-8041b2d6da5c.png)
+
+![](/cdn-cgi/image/width=1024,format=auto,quality=85/content/images/product/1662d76a-0131-4def-ad92-55367204d678.jpg)
+
+![](/cdn-cgi/image/width=1024,format=auto,quality=85/content/images/product/9534d818-643d-4735-b1b0-265aff9d9c3c.jpg)
+
+![](/cdn-cgi/image/width=1024,format=auto,quality=85/content/images/product/60c74048-598e-4cd3-81e3-bb0cd1cec570.jpg)
+
+![](/cdn-cgi/image/width=1024,format=auto,quality=85/content/images/product/19f45300-d7f7-4f5b-8f40-7f63a2a87668.jpg)
+
+![](/cdn-cgi/image/width=1024,format=auto,quality=85/content/images/product/0926d2be-eaf6-4929-bcad-5ed0c9b1787b.jpg)
+
+![](/cdn-cgi/image/width=1024,format=auto,quality=85/content/images/product/dd08c7da-161a-45e0-b38a-c322dcccbca4.jpg)
+
+![](/cdn-…[16108b total]
+```
+- error=false
+```text
+# Development Diary - Update on MMU3 for the MK4 - Original Prusa 3D Printers
+
+**Update 26th January 2024:**
+
+Both internal and external tests with PLA are overwhelmingly positive. We have spent the last couple of weeks fine-tuning PETG, and we are also getting good results. These are the two materials the MMU3 will officially support. If you need to print other polymers, it is likely possible, but we want to clearly state that only PLA and PETG are the materials we have extensively tested and officially support.
+
+*MMU3 beta testers*
+
+Apart from our internal testing department, we have a team of fantastic external beta testers, who have been testing every step of the development thus far. Many changes made to the MMU3 were based on their feedback. We are now giving them the green light to start posting their experience with the MMU3, so you might start seeing pictures and videos of it online.
+
+*MMU3 integration in Prusa Connect*
+
+As we continue testing the MMU3 for the MK4, the Prusa Connect team has added new functionality. The MK4 can newly report to Prusa Connect if the MMU3 unit is connected. Prusa Connect is now also able to read the currently active MMU3 slot and display the information in the status bar.
+
+*Technical updates and resolved issues*
+
+Layer shifts – In our testing, we had problems with random layer shifts. These were quite rare, but since the print cannot be saved if the problem occurs, they were very annoying to encounter. The prints were clean with nothing the nozzle could crash into. The culprit turned out to be a bug in the firmware, occurring only when the MMU unit is connected. We believe we have fixed the problem in our latest internal firmware build. We continue to investigate the issue, to make sure the problem is completely eliminated.
+
+Spool holders – The spool holders and filament buffer remain the only components where we are still doing significant changes. Our tests show that on the MK4, where the length of the unloaded filament …[18246b total]
+```
+- error=false
+```text
+Prusa CORE One+ | Original Prusa 3D printers directly from Josef Prusa
+
+Love your Prusa printer? [Share your experience today](https://www.prusa3d.com/p/prusa-reward-program) and get rewarded Earn **$30 Prusa e-shop vouchers**—and your friends get a **free Prusament spool**.
+
+Shipping to
+
+![Japan flag](/cdn-cgi/image/width=45,format=auto,quality=85/content/images/country/1900.png)Japan
+
+MK4S kit shipping from $73 (FedEx)
+
+¥ JPY
+
+*   € EUR
+*   ¥ JPY
+*   $ USD
+
+English
+
+*   English
+*   Čeština
+*   Deutsch
+*   Español
+*   Français
+*   Italiano
+*   Polski
+*   日本語
+
+[Login](https://account.prusa3d.com/login/?next=%2Fo%2Fauthorize%2F%3Fclient_id%3DM8LpfPFdUlFWcOpLmEdEm7IXmDQfNqhkMqRUYOnv%26response_type%3Dcode%26scope%3Dbasic_info%26redirect_uri%3Dhttps%3A%2F%2Fwww.prusa3d.com%2Flogin%2F%26cancel_uri%3Dhttps%3A%2F%2Fwww.prusa3d.com%2Fproduct%2Fprusa-core-one%2F)
+
+[](/cart/)
+
+*   [](/)
+*   [3D printers](/category/3d-printers/)
+*   [Prusa CORE One+](/category/prusa-core-one-l/)
+
+# Prusa CORE One+
+
+![](/cdn-cgi/image/width=1024,format=auto,quality=85/content/images/product/879a4b96-f838-47e1-9b4c-d24ccfba1867.jpg)
+
+![](/cdn-cgi/image/width=1024,format=auto,quality=85/content/images/product/f2638118-94a5-495d-b488-93ffb93ece17.jpg)
+
+![](/cdn-cgi/image/width=1024,format=auto,quality=85/content/images/product/d60788ec-77af-44f0-8e26-d5fc6158e573.jpg)
+
+![](/cdn-cgi/image/width=1024,format=auto,quality=85/content/images/product/2280062b-e410-413a-a939-c49c460aea6f.jpg)
+
+![](/cdn-cgi/image/width=1024,format=auto,quality=85/content/images/product/e894f2aa-91a7-4f79-95d7-bbbac0c40a54.png)
+
+![](/cdn-cgi/image/width=1024,format=auto,quality=85/content/images/product/8e5e39da-6193-4631-80e1-3b537692a9b8.jpg)
+
+![](/cdn-cgi/image/width=1024,format=auto,quality=85/content/images/product/82e844f0-531a-4e02-b0b9-66d1adf7bf1b.jpg)
+
+![](/cdn-cgi/image/width=1024,format=auto,quality=85/content/images/product/2463e16a-3a81-409d-93fe-70f435b4b53a.jpg)
+
+![](/cdn-cgi/image/width=102…[65052b total]
+```
+
+### 97. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `todo`
+```json
+{
+  "action": "update",
+  "description": "",
+  "index": 6,
+  "items": [],
+  "note": "Fetched Prusa official MMU3 and CORE One+ pages plus MMU dev diary. Extracted: MMU3 uses smart nozzle cleaning and compact wipe tower, supports wipe-to-infill and wipe-to-object in PrusaSlicer, and recommends standard nozzle for lower waste vs high-flow CHT. CORE One+ page explicitly states MMU3 compatibility and innovative retraction technique to reduce waste; also highlights future INDX near-zero-waste toolchanging path.",
+  "status": "done",
+  "title": "",
+  "updates": []
+}
+```
+
+### 98. user
+
+**Tool Results**
+
+- error=false
+```text
+TODO [6/7]
+1. ✓ Specialist review: Tom's Hardware multicolor roundup — Fetch Tom's Hardware specialist roundup: Best multicolor 3D printers (for cross-model low-waste framing and 2025/2026 pricing) [Fetched full roundup. Key extracted data: P1S combo $899 list with significant purge waste; A1 example 166g part vs 115g flushed after tuning; MMU3 classified best low-waste with 54s swaps; Snapmaker U1 listed best toolchanger with 12s swaps and low waste; H2D dual-nozzle reduces purge when one nozzle keeps primary color.]
+2. ✓ Specialist review: Snapmaker U1 — Fetch Tom's Hardware Snapmaker U1 review (specialist hands-on) [Fetched hands-on review. Key points: U1 toolchanger swaps ~10-12s, very low prime waste (e.g., 0.76g and 4.4g examples), compared against Bambu P1P showing 2h faster and 25g less material on same spider batch; MSRP $999 with observed $849 street promo; enclosure lid optional extra.]
+3. ✓ Community evidence: AMS waste discussion — Fetch a community discussion on multicolor waste tradeoffs (Reddit r/3Dprinting) [Fetched old.reddit discussion with substantive comments. Consensus: AMS-style single-nozzle systems are wasteful on high-switch models; waste can be reduced by batching multiple copies, purge-to-infill/objects, and model splitting/assembly. Multiple comments state true toolchangers (Prusa XL, Snapmaker U1/INDX) are lowest-waste path.]
+4. ✓ Official specs/pricing: Snapmaker U1 — Fetch official Snapmaker U1 page for MSRP/spec/claimed waste reduction [Fetched official U1 pages (marketing + US store). Extracted MSRP $999 and promo $849; top cover add-on $149 promo/$249 list; shipping fee $50 in contiguous US; claimed up to 80% waste reduction and 5s swaps via 4 toolheads; firmware is Klipper with modified components scheduled open-source by Mar 2026; supported materials include ABS/ASA with optional top cover.]
+5. ✓ Official docs: Bambu multicolor mechanisms — Fetch Bambu support/buying guide pages for H2C/H2D/AMS 2 Pro and any l…[3225b total]
+```
+
+### 99. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `web_search`
+```json
+{
+  "max_results": 10,
+  "query": "independent test multi color 3d printing purge waste grams comparison Bambu AMS Prusa MMU"
+}
+```
+
+### 100. user
+
+**Tool Results**
+
+- error=false
+```text
+1. AMS waste: Why can't it be reduced? : r/3Dprinting
+   https://www.reddit.com/r/3Dprinting/comments/1ou5siw/ams_waste_why_cant_it_be_reduced/
+   They measured filament waste and it turns out the Prusa MMU3 uses significantly less material than Bambu's AMS, even though it's a single-nozzle ...
+   Sources: google #1 · score: 1.0
+
+2. MMU Purge Volume Test by Matt Cooper - Printables.com
+   https://www.printables.com/model/924167-mmu-purge-volume-test
+   Large collection of MMU purge volume tests to quickly find the right amount of filament needed between color changes on a multi-material printer. For example, in the photos, you can see changing from bronze to white requires extra purging while green to white worked just fine with the standard purge amount.
+   Sources: duckduckgo #1 · score: 1.0
+
+3. Prusa MK4S & MMU3 vs Bambulab A1 & AMS Lite
+   https://forum.prusa3d.com/forum/english-forum-original-prusa-i3-mk4s-general-discussion-announcements-and-releases/prusa-mk4s-mmu3-vs-bambulab-a1-ams-lite/
+   2024/09/24 — When it comes to exploring multicolor I'm fast leaning towards picking up a Bambu A1 with the AMS Lite - it just seems way more polished then ...
+   Sources: google #2 · score: 0.5
+
+4. Bambu Multi Color Waste Test Cube (4 Color Layers) - Free 3D Print ...
+   https://makerworld.com/en/models/2341710-bambu-multi-color-waste-test-cube-4-color-layers
+   Download this free 3D print file designed by ExplosiveSoda. This is a simple multi color stress test cube designed to measure and compare purge/flush waste between different Bambu printers and profiles.I painted the model in Bambu Studio using 4 colors on every layer, then sliced it using the default Bambu 0.20mm profiles and printed it on multiple printers. The results showed huge differences ...
+   Sources: duckduckgo #2 · score: 0.5
+
+5. Two colours. I've tested a Bambu Lab 3D printer with multicolour printing. ...
+   https://www.facebook.com/groups/1910026672591728/posts/3982592675335107/
+   Two colours.…[4154b total]
+```
+
+### 101. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `web_fetch`
+```json
+{
+  "url": "https://all3dp.com/4/it-just-works-too-hands-on-with-the-prusa-mmu3/"
+}
+```
+
+### 102. user
+
+**Tool Results**
+
+- error=false
+```text
+Printing More with Less; Hands-on With the Prusa MMU3 | All3DP
+
+Uber-reliable multicolor printing with less waste is the thing with the Prusa MMU3, with the product's iffy legacy comfortably in the past.
+
+Advertisement
+```
+
+### 103. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `web_fetch`
+```json
+{
+  "url": "https://hackaday.com/2023/11/05/reducing-poop-on-multicolor-prints/"
+}
+```
+
+### 104. user
+
+**Tool Results**
+
+- error=false
+```text
+Reducing Poop On Multicolor Prints | Hackaday
+
+[Skip to content](#content)
+
+While multicolor printing eliminates painting steps and produces vibrant objects, there are two significant downsides; filament consumption and print time. A single-nozzle filament printer needs to switch from one color to another, and doing so involves switching to the other filament and then purging the transition filament that contains a mixture of both colors, before resuming the print with the clean new color.
+
+\[teachingtech\] tests out a [variety of methods for reducing print time and waste.](https://www.youtube.com/watch?v=p3ZIM3megIU) One surprising result was that purging into the infill didn’t result in significant savings, even when the infill was as high as 50%. Things that did have a positive effect included reducing the amount of purge per transition based on light to dark color changes, and printing multiple copies at once so that even though the total amount of waste was the same as a single part, the waste per part was reduced.
+
+All of the tests were with the same model, which had 229 color changes within a small part, so your mileage may vary, but it’s an interesting investigation into some of the deeper settings within the slicer. Reducing filament waste and print time is an admirable goal, and if you [make your own extruder](https://hackaday.com/2023/11/04/lessons-in-printer-poop-recycling/), you can turn all of that purge waste into various shades of greenish brownish filament.
+
+*   [*![](https://hackaday.com/wp-content/themes/hackaday-2/img/share_face.png)*](https://www.facebook.com/sharer/sharer.php?u=https%3A%2F%2Fhackaday.com%2F2023%2F11%2F05%2Freducing-poop-on-multicolor-prints%2F)
+*   [*![](https://hackaday.com/wp-content/themes/hackaday-2/img/share_twitter.png)*](https://twitter.com/intent/tweet?text=Reducing%20Poop%20On%20Multicolor%20Prints%20via%20@hackaday&url=https://hackaday.com/2023/11/05/reducing-poop-on-multicolor-prints/)
+*   [*![](https://hackaday.…[29160b total]
+```
+
+### 105. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `web_fetch`
+```json
+{
+  "url": "https://www.youtube.com/watch?v=p3ZIM3megIU"
+}
+```
+
+### 106. user
+
+**Tool Results**
+
+- error=false
+```text
+Reducing waste from Bambu Lab AMS (lite) prints - YouTube
+
+[](/ "YouTube")[](/ "YouTube")
+
+[概要](https://www.youtube.com/about/)[プレスルーム](https://www.youtube.com/about/press/)[著作権](https://www.youtube.com/about/copyright/)[お問い合わせ](/t/contact_us/)[クリエイター向け](https://www.youtube.com/creators/)[広告掲載](https://www.youtube.com/ads/)[開発者向け](https://developers.google.com/youtube)[利用規約](/t/terms)[プライバシー](/t/privacy)[ポリシーとセキュリティ](https://www.youtube.com/about/policies/)[YouTube の仕組み](https://www.youtube.com/howyoutubeworks?utm_campaign=ytgen&utm_source=ythp&utm_medium=LeftNav&utm_content=txt&u=https%3A%2F%2Fwww.youtube.com%2Fhowyoutubeworks%3Futm_source%3Dythp%26utm_medium%3DLeftNav%26utm_campaign%3Dytgen)[新機能を試してみる](/new)
+
+© 2026 Google LLC
+```
+
+### 107. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `todo`
+```json
+{
+  "action": "update",
+  "description": "",
+  "index": 7,
+  "items": [],
+  "note": "Completed with independent quantitative evidence: Tom’s Hardware measured specific waste/print-time deltas (e.g., A1 test: 166g model + 115g flushed after tuning; Snapmaker U1 comparisons showing grams wasted and ~25g less waste than P1P on same batch). Additional independent commentary via Hackaday (covering TeachingTech test model with 229 color changes) supports methods that reduce waste (batching and calibrated purge volumes) while noting purge-to-infill has limited gains on small models.",
+  "status": "done",
+  "title": "",
+  "updates": []
+}
+```
+
+### 108. user
+
+**Tool Results**
+
+- error=false
+```text
+TODO [7/7]
+1. ✓ Specialist review: Tom's Hardware multicolor roundup — Fetch Tom's Hardware specialist roundup: Best multicolor 3D printers (for cross-model low-waste framing and 2025/2026 pricing) [Fetched full roundup. Key extracted data: P1S combo $899 list with significant purge waste; A1 example 166g part vs 115g flushed after tuning; MMU3 classified best low-waste with 54s swaps; Snapmaker U1 listed best toolchanger with 12s swaps and low waste; H2D dual-nozzle reduces purge when one nozzle keeps primary color.]
+2. ✓ Specialist review: Snapmaker U1 — Fetch Tom's Hardware Snapmaker U1 review (specialist hands-on) [Fetched hands-on review. Key points: U1 toolchanger swaps ~10-12s, very low prime waste (e.g., 0.76g and 4.4g examples), compared against Bambu P1P showing 2h faster and 25g less material on same spider batch; MSRP $999 with observed $849 street promo; enclosure lid optional extra.]
+3. ✓ Community evidence: AMS waste discussion — Fetch a community discussion on multicolor waste tradeoffs (Reddit r/3Dprinting) [Fetched old.reddit discussion with substantive comments. Consensus: AMS-style single-nozzle systems are wasteful on high-switch models; waste can be reduced by batching multiple copies, purge-to-infill/objects, and model splitting/assembly. Multiple comments state true toolchangers (Prusa XL, Snapmaker U1/INDX) are lowest-waste path.]
+4. ✓ Official specs/pricing: Snapmaker U1 — Fetch official Snapmaker U1 page for MSRP/spec/claimed waste reduction [Fetched official U1 pages (marketing + US store). Extracted MSRP $999 and promo $849; top cover add-on $149 promo/$249 list; shipping fee $50 in contiguous US; claimed up to 80% waste reduction and 5s swaps via 4 toolheads; firmware is Klipper with modified components scheduled open-source by Mar 2026; supported materials include ABS/ASA with optional top cover.]
+5. ✓ Official docs: Bambu multicolor mechanisms — Fetch Bambu support/buying guide pages for H2C/H2D/AMS 2 Pro and any l…[3727b total]
+```
+
+### 109. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `web_fetch`
+```json
+{
+  "url": "https://www.tomshardware.com/best-picks/best-3d-printers"
+}
+```
+
+### 110. user
+
+**Tool Results**
+
+- error=false
+```text
+The Best 3D Printers for Home, Workshop or Business in 2026 | Tom's Hardware
+
+[Skip to main content](#main)
+
+Jump to:
+
+*   [Quick List](#section-quick-list)
+*   [Best Overall](#section-best-3d-printer-overall)
+*   [Fast & Affordable](#section-fastest-budget-3d-printer)
+*   [Best Premium](#section-best-premium-3d-printer)
+*   [Best For Beginners](#section-best-3d-printer-for-beginners)
+*   [Best Budget](#section-best-budget-3d-printer)
+*   [Best Professional](#section-best-professional-3d-printer)
+*   [Best Multicolor](#section-best-multicolor-3d-printer)
+*   [Best For Cosplay](#section-best-3d-printer-for-props-and-cosplay)
+*   [Best Ultra High Resolution](#section-best-ultra-high-resolution-3d-printer)
+*   [Best Large Resin](#section-best-large-resin-3d-printer)
+*   [Best Laser Cutter Attachment](#section-best-laser-cutter-attachment)
+*   [How We Test](#section-how-we-test-3d-printers)
+*   [Shopping Tips](#section-finding-the-best-3d-printer-for-you)
+
+Don't miss these
+
+ 
+
+[![3D printer with four extrusion heads](https://cdn.mos.cms.futurecdn.net/DpXoSXqH8JFmxqEeLhhMHU.jpg) 
+
+3D Printing MIT-developed 3D printer can output a fully functional electric motor in a single process](https://www.tomshardware.com/3d-printing/mit-developed-3d-printer-can-output-a-fully-functional-electric-motor-in-a-single-process-team-only-needed-to-magnetize-the-linear-motor-after-printing-motors-cost-just-50-cents-each "MIT-developed 3D printer can output a fully functional electric motor in a single process") 
+
+[![Best Graphics Cards](https://cdn.mos.cms.futurecdn.net/u4cgMqDxkeRdvWncNHXoM6.png) 
+
+GPUs Best Graphics Cards for Gaming in 2026](https://www.tomshardware.com/reviews/best-gpus,4380.html "Best Graphics Cards for Gaming in 2026") 
+
+[![Best SSDs: Reviewed and Benchmarked](https://cdn.mos.cms.futurecdn.net/KEgqpKtN3p9PnWzfDLPcn.jpg) 
+
+SSDs Best SSDs 2026: From blazing-fast M.2 NVMe down to budget SATA](https://www.tomshardware.com/reviews/best-ssds,3891.html "Best SSDs 2026: From …[111959b total]
+```
+
+### 111. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `web_fetch`
+```json
+{
+  "url": "https://www.tomshardware.com/3d-printing/bambu-lab-h2c-review"
+}
+```
+
+### 112. user
+
+**Tool Results**
+
+- error=false
+```text
+Bambu Lab H2C review: It saves plastic…but it's not quite a Tool Changer | Tom's Hardware
+
+[Skip to main content](#main)
+
+Don't miss these
+
+ 
+
+[![3D printer with four extrusion heads](https://cdn.mos.cms.futurecdn.net/DpXoSXqH8JFmxqEeLhhMHU.jpg) 
+
+3D Printing MIT-developed 3D printer can output a fully functional electric motor in a single process](https://www.tomshardware.com/3d-printing/mit-developed-3d-printer-can-output-a-fully-functional-electric-motor-in-a-single-process-team-only-needed-to-magnetize-the-linear-motor-after-printing-motors-cost-just-50-cents-each "MIT-developed 3D printer can output a fully functional electric motor in a single process") 
+
+[![Corsair Makr Pro 75](https://cdn.mos.cms.futurecdn.net/yLK4MiNbD3sstw3toMxXe8.jpg) 
+
+Gaming Keyboards Corsair Makr Pro 75 Review: Not DIY-priced (or DIY)](https://www.tomshardware.com/peripherals/gaming-keyboards/corsair-makr-pro-75-review "Corsair Makr Pro 75 Review: Not DIY-priced (or DIY)") 
+
+[![Elegoo Centauri Carbon 2](https://cdn.mos.cms.futurecdn.net/6SnLuojxPXQwzEoecP4DqE.jpg) 
+
+3D Printing Elegoo Centauri Carbon 2 review: A four-color variant](https://www.tomshardware.com/3d-printing/elegoo-centauri-carbon-2-review "Elegoo Centauri Carbon 2 review: A four-color variant") 
+
+[![Best Resin 3D Printers](https://cdn.mos.cms.futurecdn.net/3BJn7fTqACesU4zeFFJhoj.png) 
+
+3D Printing Best Resin 3D Printers 2026](https://www.tomshardware.com/best-picks/best-resin-3d-printers "Best Resin 3D Printers 2026") 
+
+[![Cooler Master Cosmos Alpha](https://cdn.mos.cms.futurecdn.net/TYtxNTrh4jkyPMyWtKw6ui.png) 
+
+PC Cases Hands-on with Cooler Master’s Cosmos Alpha full-tower chassis – sliding, configurable interior makes for lots of possibilities](https://www.tomshardware.com/pc-components/pc-cases/hands-on-with-cooler-masters-cosmos-alpha-full-tower-chassis "Hands-on with Cooler Master’s Cosmos Alpha full-tower chassis – sliding, configurable interior makes for lots of possibilities") 
+
+[![MSI GeForce RTX 5090…[57060b total]
+```
+
+### 113. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `report_findings`
+```json
+{
+  "negative_info": "- I did **not** recommend Bambu H2C/H2D as primary picks despite excellent low-waste mechanisms, because pricing is far outside the target ($1,899–$2,399+), so they violate the ~$700–$1,300 brief for most buyers. Sources: https://www.tomshardware.com/best-picks/best-3d-printers and https://www.tomshardware.com/3d-printing/bambu-lab-h2c-review\n- I did **not** recommend Prusa XL as a core shortlist item: it is a true low-waste toolchanger, but price is materially above budget (Tom’s positions U1 as roughly half-price alternative and notes XL’s higher cost). Source: https://www.tomshardware.com/3d-printing/best-multicolor-3d-printers\n- I excluded cheap multi-color bedslingers (e.g., SparkX/Kobra-class) from the top enclosed shortlist because user explicitly asked for enclosed home printers and low-waste multicolor focus. These options can be value buys but are less aligned with enclosure + low-waste priority.\n- Common misconception corrected: “purge-to-infill solves waste.” Independent discussion and analysis suggest it helps but often only modestly on small/high-switch models; batching copies and toolchanger architectures matter more. Sources: https://old.reddit.com/r/3Dprinting/comments/1miz77i/multi_color_printing_seems_a_tad_wasteful/ and https://hackaday.com/2023/11/05/reducing-poop-on-multicolor-prints/\n- Another misconception corrected: “all enclosed AMS printers have similar waste.” Independent tests show large variance by architecture (single-nozzle AMS vs dual-nozzle vs toolchanger). Sources: https://www.tomshardware.com/3d-printing/snapmaker-u1-review and https://www.tomshardware.com/3d-printing/bambu-lab-h2c-review",
+  "report": "## Summary\nGiven the updated goal (**strong multicolor + low waste**), the best enclosed-home shortlist around $1,000 is:\n\n1. **Snapmaker U1 (+ Top Cover)** — best low-waste multicolor value near budget.\n2. **Prusa CORE One+ (kit) + MMU3** — best reliability/support with lower waste than typical AMS systems.\n3. **Bambu Lab P2S Combo** — easiest enclosed multicolor workflow, but highest waste among the top three.\n\n## Key Findings\n- **Best low-waste near $1k:** Snapmaker U1 uses a true toolchanger approach (dedicated filament paths/toolheads), with tested very low prime waste (example: 90 swaps with ~4.4 g waste) and ~$999 MSRP / ~$849 street promo. Sources: https://www.tomshardware.com/3d-printing/snapmaker-u1-review, https://us.snapmaker.com/products/snapmaker-u1-3d-printer\n- **Enclosure caveat on U1:** enclosure top cover is optional and priced separately (~$149 promo / $249 list), so full enclosed setup pushes total cost upward. Source: https://us.snapmaker.com/products/snapmaker-u1-3d-printer\n- **Best mature ecosystem + lower waste tuning path:** Prusa CORE One+ is enclosed and MMU3-compatible; CORE One+ starts at $925 (kit) / $1,202.78 assembled, MMU3 full kit $299. Prusa documents wipe-to-infill/object and other waste-reduction methods. Sources: https://www.prusa3d.com/product/prusa-core-one/, https://www.prusa3d.com/product/original-prusa-mmu3-upgrade-kit-for-mk4s-mk3-9s-7/\n- **Best plug-and-play convenience:** Bambu P2S Combo is aggressively priced (~$799 combo, $599 standalone) and highly user-friendly, but independent testing still flags AMS-style filament waste as a core downside. Source: https://www.tomshardware.com/best-picks/best-3d-printers\n- **Architecture matters more than slicer tricks:** community + independent analysis agrees batching models and toolchanger systems reduce waste more than slicer-only tweaks. Sources: https://old.reddit.com/r/3Dprinting/comments/1miz77i/multi_color_printing_seems_a_tad_wasteful/, https://hackaday.com/2023/11/05/reducing-poop-on-multicolor-prints/\n\n## Detailed Comparison\n| Option | Price (street / MSRP) | Enclosure status | Multicolor system | Waste profile | Buyer fit |\n|---|---:|---|---|---|---|\n| **Snapmaker U1 + Top Cover** | Printer ~$849 / $999; Top cover ~$149 / $249 | Semi-enclosed by default; enclosed with add-on top cover | **4-tool toolchanger** | **Low** (toolchanger; tested low prime waste) | Best if low waste is top priority near $1k |\n| **Prusa CORE One+ kit + MMU3** | ~$1,224 total (925 + 299) | Fully enclosed | MMU3 multi-material + PrusaSlicer wipe features | Medium-low (still purge tower, but strong optimization options) | Best if you value reliability/support + lower waste tuning |\n| **Bambu P2S Combo** | ~$799 combo / $599 standalone | Fully enclosed | AMS 2 Pro (single-nozzle feed system) | Medium-high (convenient but more purge waste) | Best for easiest daily use if waste is secondary |\n| **(Reference) Bambu H2C** | ~$2,399 | Fully enclosed | Vortek hotend-swapping + dual-nozzle | Low waste, but over budget | Only if budget can stretch far beyond target |\n\n## Ranked Recommendations (updated for low waste)\n1. **Snapmaker U1 (+Top Cover)**: Buy this if multicolor waste is the deciding factor and you accept newer-platform risk.\n2. **Prusa CORE One+ kit + MMU3**: Buy this if you want a more established support ecosystem and can assemble a kit.\n3. **Bambu P2S Combo**: Buy this if you want the smoothest UX and can tolerate more filament waste.\n\n## Home-use setup advice (for low-waste multicolor)\n- Budget for hidden costs: purge waste, spare nozzles/hotends, and enclosure add-ons (notably U1 top cover).\n- Use batching + purge-to-infill/object + color-order optimization to reduce waste on non-toolchanger systems.\n- For ABS/ASA home use, prioritize truly enclosed operation and keep ventilation strategy in place.\n\n## Uncertainties\n- 2026 prices are highly promotion-driven (Kickstarter/preorder/seasonal discounts); treat all street prices as snapshots.\n- Snapmaker U1 is newer than P2S/Prusa ecosystems, so long-term reliability/service data is still maturing.\n- Regional availability differs (especially launch waves and shipping policies).",
+  "secondary_info": "### Pricing snapshots used\n- Snapmaker U1: MSRP $999, promo street ~$849, top cover add-on promo ~$149/list $249, +shipping notes in US store listing. Source: https://us.snapmaker.com/products/snapmaker-u1-3d-printer\n- Prusa CORE One+: $925 kit / $1,202.78 assembled. Source: https://www.prusa3d.com/product/prusa-core-one/\n- Prusa MMU3 full kit: $299. Source: https://www.prusa3d.com/product/original-prusa-mmu3-upgrade-kit-for-mk4s-mk3-9s-7/\n- Bambu P2S: $599 standalone / $799 combo in Tom’s roundup snapshot. Source: https://www.tomshardware.com/best-picks/best-3d-printers\n\n### Waste/performance evidence used\n- U1 test details (toolchanger swaps ~10–12s; low waste examples including ~4.4 g for 90 swaps; speed/material comparisons vs Bambu machine) from hands-on review. Source: https://www.tomshardware.com/3d-printing/snapmaker-u1-review\n- Tom’s multicolor roundup gives architecture-level guidance and concrete waste examples (e.g., AMS-tuned print where flushed material still substantial; MMU3/Toolchanger positioning). Source: https://www.tomshardware.com/3d-printing/best-multicolor-3d-printers\n- H2C review used only as technical reference for low-waste modern architecture and out-of-budget boundary; includes quantitative print-time/waste comparison examples and explicit pricing. Source: https://www.tomshardware.com/3d-printing/bambu-lab-h2c-review\n\n### Ecosystem/support notes\n- Prusa MMU3 waste features documented directly by Prusa (smart cleaning, wipe options) and MMU3 development notes. Sources: https://www.prusa3d.com/product/original-prusa-mmu3-upgrade-kit-for-mk4s-mk3-9s-7/, https://blog.prusa3d.com/development-diary-update-on-mmu3-for-the-mk4_85043/\n- Bambu H2C/H2D mechanism claims (Vortek, high-color architecture and regional buying-guide notes) used for directionality only, not budget recommendation. Source: https://bambulab.com/en/support/buying-guide?page=2&id=904389439320043520\n\n### Source quality notes\n- Tom’s Hardware pages are high-value due to repeatable bench/testing format and specific quantitative examples.\n- Manufacturer pages are authoritative for MSRP/specs but optimistic on claims; used mainly for price/spec confirmation.\n- Reddit/Hackaday used only to corroborate user-practice patterns (batching, purge strategy), not primary performance ranking.",
+  "sources": [
+    {
+      "contribution": "Primary multicolor architecture comparison; identifies low-waste vs high-waste system behavior; includes practical waste numbers and category judgments (MMU3/toolchanger/AMS).",
+      "quality": "High (specialist review outlet with hands-on testing methodology and named reviewer).",
+      "title": "Best Multicolor 3D Printers of 2025: Print the Rainbow",
+      "url": "https://www.tomshardware.com/3d-printing/best-multicolor-3d-printers"
+    },
+    {
+      "contribution": "Hands-on quantitative evidence for U1 swap speed and low waste; direct comparison against Bambu workflow and pricing context.",
+      "quality": "High (hands-on review with detailed observations and measurements).",
+      "title": "Snapmaker U1 review: An affordable tool changer for all",
+      "url": "https://www.tomshardware.com/3d-printing/snapmaker-u1-review"
+    },
+    {
+      "contribution": "Official U1 MSRP/street promo, enclosure top-cover add-on pricing, shipping details, and vendor claims.",
+      "quality": "Primary manufacturer/store source (good for price/specs, not independent testing).",
+      "title": "Snapmaker U1 Color 3D Printer Pre-Order - Snapmaker US",
+      "url": "https://us.snapmaker.com/products/snapmaker-u1-3d-printer"
+    },
+    {
+      "contribution": "Confirms CORE One+ pricing and enclosure positioning; MMU3 compatibility direction.",
+      "quality": "Primary manufacturer source.",
+      "title": "Prusa CORE One+ product page",
+      "url": "https://www.prusa3d.com/product/prusa-core-one/"
+    },
+    {
+      "contribution": "MMU3 pricing and Prusa’s waste-reduction slicer/tooling features (wipe-to-infill/object, nozzle cleaning approach).",
+      "quality": "Primary manufacturer source.",
+      "title": "Original Prusa MMU3 full kit",
+      "url": "https://www.prusa3d.com/product/original-prusa-mmu3-upgrade-kit-for-mk4s-mk3-9s-7/"
+    },
+    {
+      "contribution": "Development details supporting MMU3 reliability/behavior tuning and practical caveats.",
+      "quality": "Primary manufacturer engineering/dev log.",
+      "title": "Development Diary - Update on MMU3 for the MK4",
+      "url": "https://blog.prusa3d.com/development-diary-update-on-mmu3-for-the-mk4_85043/"
+    },
+    {
+      "contribution": "P2S current positioning and price snapshot; explicit caveat that AMS systems still waste filament.",
+      "quality": "High (independent roundup with testing methodology and deal snapshots).",
+      "title": "The Best 3D Printers for Home, Workshop or Business in 2026",
+      "url": "https://www.tomshardware.com/best-picks/best-3d-printers"
+    },
+    {
+      "contribution": "Community real-world consensus on multicolor waste tradeoffs and practical waste-reduction tactics.",
+      "quality": "Medium-low (anecdotal community evidence; useful for ownership patterns).",
+      "title": "Reddit thread: Multi color printing seems a tad wasteful",
+      "url": "https://old.reddit.com/r/3Dprinting/comments/1miz77i/multi_color_printing_seems_a_tad_wasteful/"
+    },
+    {
+      "contribution": "Independent commentary on practical waste reduction strategies (batching, purge tuning limits).",
+      "quality": "Medium (tech news/blog synthesis; not a full controlled lab test).",
+      "title": "Reducing Poop On Multicolor Prints",
+      "url": "https://hackaday.com/2023/11/05/reducing-poop-on-multicolor-prints/"
+    },
+    {
+      "contribution": "Out-of-budget reference for modern low-waste architecture and clear price boundary ($2,399).",
+      "quality": "High (hands-on independent review).",
+      "title": "Bambu Lab H2C review: It saves plastic…but it's not quite a Tool Changer",
+      "url": "https://www.tomshardware.com/3d-printing/bambu-lab-h2c-review"
+    },
+    {
+      "contribution": "Official Bambu guidance on H2C/H2D multicolor architecture and region/support context.",
+      "quality": "Primary manufacturer documentation.",
+      "title": "Bambu Lab Buying Guide (H2C/H2D pages)",
+      "url": "https://bambulab.com/en/support/buying-guide?page=2&id=904389439320043520"
+    }
+  ]
+}
+```
+
+### 114. user
+
+**Tool Results**
+
+- error=false
+```text
+## Summary
+Given the updated goal (**strong multicolor + low waste**), the best enclosed-home shortlist around $1,000 is:
+
+1. **Snapmaker U1 (+ Top Cover)** — best low-waste multicolor value near budget.
+2. **Prusa CORE One+ (kit) + MMU3** — best reliability/support with lower waste than typical AMS systems.
+3. **Bambu Lab P2S Combo** — easiest enclosed multicolor workflow, but highest waste among the top three.
+
+## Key Findings
+- **Best low-waste near $1k:** Snapmaker U1 uses a true toolchanger approach (dedicated filament paths/toolheads), with tested very low prime waste (example: 90 swaps with ~4.4 g waste) and ~$999 MSRP / ~$849 street promo. Sources: https://www.tomshardware.com/3d-printing/snapmaker-u1-review, https://us.snapmaker.com/products/snapmaker-u1-3d-printer
+- **Enclosure caveat on U1:** enclosure top cover is optional and priced separately (~$149 promo / $249 list), so full enclosed setup pushes total cost upward. Source: https://us.snapmaker.com/products/snapmaker-u1-3d-printer
+- **Best mature ecosystem + lower waste tuning path:** Prusa CORE One+ is enclosed and MMU3-compatible; CORE One+ starts at $925 (kit) / $1,202.78 assembled, MMU3 full kit $299. Prusa documents wipe-to-infill/object and other waste-reduction methods. Sources: https://www.prusa3d.com/product/prusa-core-one/, https://www.prusa3d.com/product/original-prusa-mmu3-upgrade-kit-for-mk4s-mk3-9s-7/
+- **Best plug-and-play convenience:** Bambu P2S Combo is aggressively priced (~$799 combo, $599 standalone) and highly user-friendly, but independent testing still flags AMS-style filament waste as a core downside. Source: https://www.tomshardware.com/best-picks/best-3d-printers
+- **Architecture matters more than slicer tricks:** community + independent analysis agrees batching models and toolchanger systems reduce waste more than slicer-only tweaks. Sources: https://old.reddit.com/r/3Dprinting/comments/1miz77i/multi_color_printing_seems_a_tad_wasteful/, https://hackaday.com/2023/11/0…[7396b total]
+```
+
+### 115. assistant
+
+**Content**
+
+```text
+## Summary
+Given the updated goal (**strong multicolor + low waste**), the best enclosed-home shortlist around $1,000 is:
+
+1. **Snapmaker U1 (+ Top Cover)** — best low-waste multicolor value near budget.
+2. **Prusa CORE One+ (kit) + MMU3** — best reliability/support with lower waste than typical AMS systems.
+3. **Bambu Lab P2S Combo** — easiest enclosed multicolor workflow, but highest waste among the top three.
+
+## Key Findings
+- **Best low-waste near $1k:** Snapmaker U1 uses a true toolchanger approach (dedicated filament paths/toolheads), with tested very low prime waste (example: 90 swaps with ~4.4 g waste) and ~$999 MSRP / ~$849 street promo. Sources: https://www.tomshardware.com/3d-printing/snapmaker-u1-review, https://us.snapmaker.com/products/snapmaker-u1-3d-printer
+- **Enclosure caveat on U1:** enclosure top cover is optional and priced separately (~$149 promo / $249 list), so full enclosed setup pushes total cost upward. Source: https://us.snapmaker.com/products/snapmaker-u1-3d-printer
+- **Best mature ecosystem + lower waste tuning path:** Prusa CORE One+ is enclosed and MMU3-compatible; CORE One+ starts at $925 (kit) / $1,202.78 assembled, MMU3 full kit $299. Prusa documents wipe-to-infill/object and other waste-reduction methods. Sources: https://www.prusa3d.com/product/prusa-core-one/, https://www.prusa3d.com/product/original-prusa-mmu3-upgrade-kit-for-mk4s-mk3-9s-7/
+- **Best plug-and-play convenience:** Bambu P2S Combo is aggressively priced (~$799 combo, $599 standalone) and highly user-friendly, but independent testing still flags AMS-style filament waste as a core downside. Source: https://www.tomshardware.com/best-picks/best-3d-printers
+- **Architecture matters more than slicer tricks:** community + independent analysis agrees batching models and toolchanger systems reduce waste more than slicer-only tweaks. Sources: https://old.reddit.com/r/3Dprinting/comments/1miz77i/multi_color_printing_seems_a_tad_wasteful/, https://hackaday.com/2023/11/05/reducing-poop-on-multicolor-prints/
+
+## Detailed Comparison
+| Option | Price (street / MSRP) | Enclosure status | Multicolor system | Waste profile | Buyer fit |
+|---|---:|---|---|---|---|
+| **Snapmaker U1 + Top Cover** | Printer ~$849 / $999; Top cover ~$149 / $249 | Semi-enclosed by default; enclosed with add-on top cover | **4-tool toolchanger** | **Low** (toolchanger; tested low prime waste) | Best if low waste is top priority near $1k |
+| **Prusa CORE One+ kit + MMU3** | ~$1,224 total (925 + 299) | Fully enclosed | MMU3 multi-material + PrusaSlicer wipe features | Medium-low (still purge tower, but strong optimization options) | Best if you value reliability/support + lower waste tuning |
+| **Bambu P2S Combo** | ~$799 combo / $599 standalone | Fully enclosed | AMS 2 Pro (single-nozzle feed system) | Medium-high (convenient but more purge waste) | Best for easiest daily use if waste is secondary |
+| **(Reference) Bambu H2C** | ~$2,399 | Fully enclosed | Vortek hotend-swapping + d…[7396b total]
+```
+

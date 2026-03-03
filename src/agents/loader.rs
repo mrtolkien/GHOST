@@ -154,6 +154,10 @@ const DEFAULT_AGENTS: &[(&str, &[(&str, &str)])] = &[
                 "prompt.md",
                 include_str!("../../prompts/agents/chat-reflection/prompt.md"),
             ),
+            (
+                "user-message.md",
+                include_str!("../../prompts/agents/chat-reflection/user-message.md"),
+            ),
         ],
     ),
 ];

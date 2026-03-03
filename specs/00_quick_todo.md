@@ -33,5 +33,14 @@
   - [x] Remove write note tool from deep research
 - [x] Review standard reflection agent
 - [x] Review compaction token count
-- [ ] Re-add an agent continuation test
+- [x] Re-add an agent continuation test
 - [ ] Test import e2e
+- [ ] Provider logs during agent runs have disappeared
+- [ ] Issues with topic notes and duplicate notes in general: span a0dfcdedce4c6c47 or
+      3cbaaa6f6f81cbba or 40192929e911c2ca.
+  - [ ] The model is note sure how to topic notes + they are poorly written (too much
+        content)
+  - [ ] It tries to create "project" notes... Which makes no sense: we should drop
+        archetypes for the moment
+- [ ] Web searches are still too biased: they usually include words that come from a
+      pre-conceived idea of what the right answer is

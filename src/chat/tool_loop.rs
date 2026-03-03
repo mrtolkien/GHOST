@@ -19,7 +19,7 @@ use super::types::{
 /// Per-request timeout for provider API calls. Providers can hang indefinitely
 /// (observed in live tests). This wraps each `Provider::chat()` call.
 /// On timeout, the request is retried once before propagating the error.
-const PROVIDER_REQUEST_TIMEOUT: Duration = Duration::from_secs(60);
+const PROVIDER_REQUEST_TIMEOUT: Duration = Duration::from_secs(180);
 
 /// Handler for tool loop events.
 ///
