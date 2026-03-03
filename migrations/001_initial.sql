@@ -60,6 +60,14 @@ CREATE TABLE usage_log (
     created_at TEXT NOT NULL
 );
 
+-- Knowledge: topics (pure namespace)
+CREATE TABLE topic (
+    id TEXT PRIMARY KEY NOT NULL,
+    name TEXT NOT NULL UNIQUE,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
 -- Knowledge: notes
 CREATE TABLE note (
     id TEXT PRIMARY KEY NOT NULL,
@@ -69,21 +77,23 @@ CREATE TABLE note (
     tags TEXT NOT NULL DEFAULT '[]',    -- JSON array of strings
     sources TEXT NOT NULL DEFAULT '[]', -- JSON array of strings
     trust INTEGER NOT NULL DEFAULT 5,
+    topic_id TEXT REFERENCES topic(id) ON DELETE SET NULL,
     path TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
 
--- Knowledge: topics (collections for references)
-CREATE TABLE topic (
+-- Knowledge: import batches (one per topic, upserted on re-import)
+CREATE TABLE import_batch (
     id TEXT PRIMARY KEY NOT NULL,
-    name TEXT NOT NULL UNIQUE,
-    note_id TEXT REFERENCES note(id) ON DELETE SET NULL,
-    source_url TEXT,
+    topic_id TEXT NOT NULL REFERENCES topic(id) ON DELETE CASCADE,
+    source_type TEXT NOT NULL CHECK (source_type IN ('git', 'page', 'crawl')),
+    source_url TEXT NOT NULL,
     version_ref TEXT,
-    fetched_at TEXT,
+    ref_count INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
+    updated_at TEXT NOT NULL,
+    UNIQUE(topic_id)
 );
 
 CREATE VIRTUAL TABLE topic_fts USING fts5(
@@ -115,6 +125,7 @@ CREATE TABLE reference (
     path TEXT NOT NULL,
     content TEXT NOT NULL,
     source_url TEXT,
+    import_batch_id TEXT REFERENCES import_batch(id) ON DELETE SET NULL,
     created_at TEXT NOT NULL,
     UNIQUE(topic_id, path)
 );

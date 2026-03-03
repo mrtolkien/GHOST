@@ -7,7 +7,7 @@ use crate::embeddings::EmbeddingClient;
 use crate::embeddings::pipeline::{EmbedRequest, embed_sources};
 use crate::web;
 
-use super::topic_note::{ensure_topic_hierarchy, ensure_topic_note};
+use super::topic::ensure_topic_hierarchy;
 use super::types::{ImportConfig, ImportError, ImportResult, ImportSource};
 
 /// Import a single web page as a reference under a topic.
@@ -32,13 +32,20 @@ pub async fn import_page(
         .await?
         .is_some()
     {
+        // Upsert batch even if skipping (topic may not have one yet)
+        let batch_id =
+            db::knowledge::upsert_import_batch(db, &topic_id, "page", url, None, 1).await?;
         return Ok(ImportResult {
             topic_id,
+            batch_id,
             references_created: 0,
             references_skipped: 1,
             embeddings_generated: 0,
         });
     }
+
+    // Upsert import batch
+    let batch_id = db::knowledge::upsert_import_batch(db, &topic_id, "page", url, None, 0).await?;
 
     // Fetch page content
     let extracted = web::fetch(url, &web::FetchOptions::default(), None)
@@ -46,9 +53,15 @@ pub async fn import_page(
         .map_err(|e| ImportError::Fetch(e.to_string()))?;
 
     // Store as reference
-    let ref_id =
-        db::knowledge::create_reference(db, &topic_id, &ref_path, &extracted.text, Some(url))
-            .await?;
+    let ref_id = db::knowledge::create_reference(
+        db,
+        &topic_id,
+        &ref_path,
+        &extracted.text,
+        Some(url),
+        Some(&batch_id),
+    )
+    .await?;
 
     // Embed
     let client = EmbeddingClient::new(embeddings_config);
@@ -61,25 +74,18 @@ pub async fn import_page(
     }];
     let embeddings_generated = embed_sources(&client, db, embed_requests).await?;
 
-    // Update topic metadata
-    let now = db::now();
-    db::knowledge::update_topic(db, &topic_id, None, Some(url.as_str()), None, Some(&now)).await?;
-
-    // Create/update topic note
+    // Update import batch with final ref count
     let total_refs = db::knowledge::count_references_by_topic(db, &topic_id).await? as usize;
-    ensure_topic_note(
-        db,
-        workspace,
-        &topic_id,
-        &config.topic,
-        Some(url),
-        None,
-        total_refs,
-    )
-    .await?;
+    let batch_id =
+        db::knowledge::upsert_import_batch(db, &topic_id, "page", url, None, total_refs as i64)
+            .await?;
+
+    // Write _import.toml and ensure index notes
+    super::topic::write_import_toml(workspace, &config.topic, "page", url, None, total_refs)?;
 
     Ok(ImportResult {
         topic_id,
+        batch_id,
         references_created: 1,
         references_skipped: 0,
         embeddings_generated,

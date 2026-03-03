@@ -283,7 +283,16 @@ pub async fn reconcile_embeddings(
         let batch_len = notes.len();
         for note in &notes {
             let tags = note.tags_parsed();
-            let count = embed_source(client, db, "note", &note.id, &note.body, &tags, None).await?;
+            let count = embed_source(
+                client,
+                db,
+                "note",
+                &note.id,
+                &note.body,
+                &tags,
+                note.topic_id.as_deref(),
+            )
+            .await?;
             if count > 0 {
                 embedded += count;
             } else {

@@ -229,6 +229,7 @@ impl NoteWrite {
             tags,
             sources,
             trust,
+            None,
             Some(&rel_path),
         )
         .await
@@ -315,6 +316,7 @@ impl NoteWrite {
             tags,
             sources,
             trust,
+            None,
             Some(&rel_path),
         )
         .await

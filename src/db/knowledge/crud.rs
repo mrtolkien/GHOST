@@ -13,7 +13,7 @@ pub async fn create_note(
     title: &str,
     body: &str,
 ) -> Result<String, DatabaseError> {
-    create_note_full(db, title, body, None, &[], &[], 5, None).await
+    create_note_full(db, title, body, None, &[], &[], 5, None, None).await
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -26,6 +26,7 @@ pub async fn create_note_full(
     tags: &[String],
     sources: &[String],
     trust: i64,
+    topic_id: Option<&str>,
     path: Option<&str>,
 ) -> Result<String, DatabaseError> {
     let id = new_id();
@@ -35,8 +36,8 @@ pub async fn create_note_full(
 
     sqlx::query(
         "INSERT INTO note \
-         (id, title, body, archetype, tags, sources, trust, path, created_at, updated_at) \
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+         (id, title, body, archetype, tags, sources, trust, topic_id, path, created_at, updated_at) \
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
     )
     .bind(&id)
     .bind(title)
@@ -45,6 +46,7 @@ pub async fn create_note_full(
     .bind(&tags_json)
     .bind(&sources_json)
     .bind(trust)
+    .bind(topic_id)
     .bind(path)
     .bind(&ts)
     .bind(&ts)
@@ -69,6 +71,7 @@ pub async fn update_note(
     tags: &[String],
     sources: &[String],
     trust: i64,
+    topic_id: Option<&str>,
     path: Option<&str>,
 ) -> Result<(), DatabaseError> {
     let tags_json = serde_json::to_string(tags).unwrap_or_default();
@@ -76,13 +79,14 @@ pub async fn update_note(
 
     sqlx::query(
         "UPDATE note SET body = ?, archetype = ?, tags = ?, sources = ?, \
-         trust = ?, path = ?, updated_at = ? WHERE id = ?",
+         trust = ?, topic_id = COALESCE(?, topic_id), path = ?, updated_at = ? WHERE id = ?",
     )
     .bind(body)
     .bind(archetype)
     .bind(&tags_json)
     .bind(&sources_json)
     .bind(trust)
+    .bind(topic_id)
     .bind(path)
     .bind(now())
     .bind(note_id)
@@ -143,18 +147,20 @@ pub async fn create_reference(
     path: &str,
     content: &str,
     source_url: Option<&str>,
+    import_batch_id: Option<&str>,
 ) -> Result<String, DatabaseError> {
     let id = new_id();
 
     sqlx::query(
-        "INSERT INTO reference (id, topic_id, path, content, source_url, created_at) \
-         VALUES (?, ?, ?, ?, ?, ?)",
+        "INSERT INTO reference (id, topic_id, path, content, source_url, import_batch_id, created_at) \
+         VALUES (?, ?, ?, ?, ?, ?, ?)",
     )
     .bind(&id)
     .bind(topic_id)
     .bind(path)
     .bind(content)
     .bind(source_url)
+    .bind(import_batch_id)
     .bind(now())
     .execute(db)
     .await

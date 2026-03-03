@@ -12,39 +12,23 @@ pub struct TopicInfo {
     pub ref_count: i64,
 }
 
-#[allow(clippy::too_many_arguments)]
 #[tracing::instrument(skip_all, level = "debug", fields(name = %name))]
-pub async fn create_topic(
-    db: &SqlitePool,
-    name: &str,
-    note_id: Option<&str>,
-    source_url: Option<&str>,
-    version_ref: Option<&str>,
-    fetched_at: Option<&str>,
-) -> Result<String, DatabaseError> {
+pub async fn create_topic(db: &SqlitePool, name: &str) -> Result<String, DatabaseError> {
     let id = new_id();
     let ts = now();
 
-    sqlx::query(
-        "INSERT INTO topic \
-         (id, name, note_id, source_url, version_ref, fetched_at, created_at, updated_at) \
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-    )
-    .bind(&id)
-    .bind(name)
-    .bind(note_id)
-    .bind(source_url)
-    .bind(version_ref)
-    .bind(fetched_at)
-    .bind(&ts)
-    .bind(&ts)
-    .execute(db)
-    .await
-    .map_err(|source| DatabaseError::Query {
-        table: "topic",
-        operation: "create",
-        source,
-    })?;
+    sqlx::query("INSERT INTO topic (id, name, created_at, updated_at) VALUES (?, ?, ?, ?)")
+        .bind(&id)
+        .bind(name)
+        .bind(&ts)
+        .bind(&ts)
+        .execute(db)
+        .await
+        .map_err(|source| DatabaseError::Query {
+            table: "topic",
+            operation: "create",
+            source,
+        })?;
 
     Ok(id)
 }
@@ -89,7 +73,7 @@ pub async fn find_or_create_topic(db: &SqlitePool, name: &str) -> Result<String,
     if let Some(existing) = find_topic_by_name(db, name).await? {
         return Ok(existing.id);
     }
-    create_topic(db, name, None, None, None, None).await
+    create_topic(db, name).await
 }
 
 /// Find all topics matching a prefix: exact name match OR name starts with
@@ -111,41 +95,6 @@ pub async fn find_topics_by_prefix(
         operation: "find_by_prefix",
         source,
     })
-}
-
-#[allow(clippy::too_many_arguments)]
-#[tracing::instrument(skip_all, level = "debug", fields(topic_id = %topic_id))]
-pub async fn update_topic(
-    db: &SqlitePool,
-    topic_id: &str,
-    note_id: Option<&str>,
-    source_url: Option<&str>,
-    version_ref: Option<&str>,
-    fetched_at: Option<&str>,
-) -> Result<(), DatabaseError> {
-    sqlx::query(
-        "UPDATE topic SET \
-         note_id = COALESCE(?, note_id), \
-         source_url = COALESCE(?, source_url), \
-         version_ref = COALESCE(?, version_ref), \
-         fetched_at = COALESCE(?, fetched_at), \
-         updated_at = ? \
-         WHERE id = ?",
-    )
-    .bind(note_id)
-    .bind(source_url)
-    .bind(version_ref)
-    .bind(fetched_at)
-    .bind(now())
-    .bind(topic_id)
-    .execute(db)
-    .await
-    .map_err(|source| DatabaseError::Query {
-        table: "topic",
-        operation: "update",
-        source,
-    })?;
-    Ok(())
 }
 
 /// Delete a topic and cascade: delete all its references, their embeddings,

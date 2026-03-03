@@ -1,5 +1,6 @@
 mod crud;
 mod graph;
+mod import_batch;
 mod records;
 mod search;
 mod stats;
@@ -16,8 +17,12 @@ pub use graph::{
     create_cited_edge, create_edge, delete_outgoing_edges, incoming_cited, incoming_edges,
     orphan_notes, outgoing_edges, related_note_ids,
 };
+pub use import_batch::{
+    delete_import_batch, get_import_batch_by_topic, list_import_batches, upsert_import_batch,
+};
 pub use records::{
-    DiaryRecord, EdgeRecord, NoteRecord, RecentItem, ReferenceRecord, SearchHit, TopicRecord,
+    DiaryRecord, EdgeRecord, ImportBatchRecord, NoteRecord, RecentItem, ReferenceRecord, SearchHit,
+    TopicRecord,
 };
 pub use search::{hybrid_merge, search_diary, search_notes, search_references, search_topics};
 pub use stats::{
@@ -26,5 +31,4 @@ pub use stats::{
 pub use topics::{
     TopicInfo, count_references_by_topic, create_topic, delete_references_by_topic, delete_topic,
     find_or_create_topic, find_topic_by_name, find_topics_by_prefix, get_topic, list_topics,
-    update_topic,
 };

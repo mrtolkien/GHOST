@@ -18,6 +18,7 @@ pub enum ImportSource {
 
 pub struct ImportResult {
     pub topic_id: String,
+    pub batch_id: String,
     pub references_created: usize,
     pub references_skipped: usize,
     pub embeddings_generated: usize,

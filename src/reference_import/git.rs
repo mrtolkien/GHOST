@@ -7,7 +7,7 @@ use crate::db::GhostDb;
 use crate::embeddings::EmbeddingClient;
 use crate::embeddings::pipeline::{EmbedRequest, embed_sources};
 
-use super::topic_note::{ensure_topic_hierarchy, ensure_topic_note};
+use super::topic::ensure_topic_hierarchy;
 use super::types::{ImportConfig, ImportError, ImportResult, ImportSource};
 
 /// Import references from a git repository using sparse checkout.
@@ -69,23 +69,22 @@ pub async fn import_git(
     // Ensure topic hierarchy in DB
     let topic_id = ensure_topic_hierarchy(db, &config.topic).await?;
 
-    // Update topic metadata
-    let now = db::now();
-    db::knowledge::update_topic(
-        db,
-        &topic_id,
-        None,
-        Some(url.as_str()),
-        Some(version_ref),
-        Some(&now),
-    )
-    .await?;
-
     // Walk files and collect references
     let files = walk_files(&repo_dir, paths, extensions);
     let mut created = 0usize;
     let mut skipped = 0usize;
     let mut embed_requests = Vec::new();
+
+    // Upsert import batch (we'll update ref_count after creating references)
+    let batch_id = db::knowledge::upsert_import_batch(
+        db,
+        &topic_id,
+        "git",
+        url,
+        Some(version_ref),
+        0, // placeholder, updated below
+    )
+    .await?;
 
     for file_path in &files {
         let rel_path = file_path
@@ -111,8 +110,15 @@ pub async fn import_git(
             }
         };
 
-        let ref_id =
-            db::knowledge::create_reference(db, &topic_id, &ref_path, &content, Some(url)).await?;
+        let ref_id = db::knowledge::create_reference(
+            db,
+            &topic_id,
+            &ref_path,
+            &content,
+            Some(url),
+            Some(&batch_id),
+        )
+        .await?;
 
         embed_requests.push(EmbedRequest {
             source_table: "reference".into(),
@@ -129,21 +135,31 @@ pub async fn import_git(
     let client = EmbeddingClient::new(embeddings_config);
     let embeddings_generated = embed_sources(&client, db, embed_requests).await?;
 
-    // Create/update the topic note
+    // Update import batch with final ref count
     let total_refs = db::knowledge::count_references_by_topic(db, &topic_id).await? as usize;
-    ensure_topic_note(
+    let batch_id = db::knowledge::upsert_import_batch(
         db,
-        workspace,
         &topic_id,
-        &config.topic,
-        Some(url),
+        "git",
+        url,
         Some(version_ref),
-        total_refs,
+        total_refs as i64,
     )
     .await?;
 
+    // Write _import.toml and ensure index notes
+    super::topic::write_import_toml(
+        workspace,
+        &config.topic,
+        "git",
+        url,
+        Some(version_ref),
+        total_refs,
+    )?;
+
     Ok(ImportResult {
         topic_id,
+        batch_id,
         references_created: created,
         references_skipped: skipped,
         embeddings_generated,

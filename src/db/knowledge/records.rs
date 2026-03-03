@@ -9,6 +9,7 @@ pub struct NoteRecord {
     pub tags: String,    // JSON array of strings
     pub sources: String, // JSON array of strings
     pub trust: i64,
+    pub topic_id: Option<String>,
     pub path: Option<String>,
     pub created_at: String,
     pub updated_at: String,
@@ -31,6 +32,7 @@ pub struct ReferenceRecord {
     pub path: String,
     pub content: String,
     pub source_url: Option<String>,
+    pub import_batch_id: Option<String>,
     pub created_at: String,
 }
 
@@ -38,10 +40,18 @@ pub struct ReferenceRecord {
 pub struct TopicRecord {
     pub id: String,
     pub name: String,
-    pub note_id: Option<String>,
-    pub source_url: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, sqlx::FromRow)]
+pub struct ImportBatchRecord {
+    pub id: String,
+    pub topic_id: String,
+    pub source_type: String,
+    pub source_url: String,
     pub version_ref: Option<String>,
-    pub fetched_at: Option<String>,
+    pub ref_count: i64,
     pub created_at: String,
     pub updated_at: String,
 }

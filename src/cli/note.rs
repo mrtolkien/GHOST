@@ -141,6 +141,7 @@ async fn create_note(
         tags,
         sources,
         trust,
+        None,
         Some(&rel_path),
     )
     .await
@@ -226,6 +227,7 @@ async fn update_note(
         tags,
         sources,
         trust,
+        None,
         Some(&rel_path),
     )
     .await

@@ -57,11 +57,15 @@ Fetches page, converts to markdown, stores as reference.
 
 ## Topic Hierarchy
 
-Topics are hierarchical: `dioxus`, `dioxus/docs`, `dioxus/source`.
+Topics are pure namespaces: `dioxus`, `dioxus/docs`, `dioxus/source`.
 
 - `dioxus` is a broad topic (parent)
 - `dioxus/docs` is a narrower sub-topic
 - Searching with `topic="dioxus"` finds results across all sub-topics
+- Import metadata (source URL, version, ref count) is stored separately in
+  `import_batch` records, not on the topic itself
+- Each import writes `_import.toml` alongside the references (e.g.
+  `references/dioxus/docs/_import.toml`) with source type, URL, and version
 
 ## Post-Import Search
 

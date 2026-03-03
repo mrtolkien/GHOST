@@ -436,6 +436,7 @@ async fn cmd_reindex(
                     &parsed.front.tags,
                     &parsed.front.sources,
                     parsed.front.trust,
+                    None,
                     rel_path.as_deref(),
                 )
                 .await?;
@@ -463,6 +464,7 @@ async fn cmd_reindex(
                     &parsed.front.tags,
                     &parsed.front.sources,
                     parsed.front.trust,
+                    None,
                     rel_path.as_deref(),
                 )
                 .await?;
@@ -502,7 +504,7 @@ async fn cmd_reindex(
         {
             let topic_id = db::knowledge::find_or_create_topic(db, topic_name).await?;
             let content = std::fs::read_to_string(path).map_err(std::io::Error::other)?;
-            db::knowledge::create_reference(db, &topic_id, &rel_path, &content, None).await?;
+            db::knowledge::create_reference(db, &topic_id, &rel_path, &content, None, None).await?;
             ref_synced += 1;
         }
     }

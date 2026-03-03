@@ -44,15 +44,20 @@ async fn import_and_query_git_references() {
         "should generate embeddings, got 0"
     );
 
-    // --- Phase 2: Verify topic metadata ---
+    // --- Phase 2: Verify topic + import batch metadata ---
 
     let topic = db::knowledge::find_topic_by_name(&db, "dioxus/docs")
         .await
         .expect("find topic")
         .expect("topic exists");
-    assert!(topic.version_ref.is_some(), "should have commit hash");
-    assert!(topic.fetched_at.is_some(), "should have fetched_at");
-    assert!(topic.source_url.is_some(), "should have source_url");
+
+    let batch = db::knowledge::get_import_batch_by_topic(&db, &topic.id)
+        .await
+        .expect("get batch")
+        .expect("batch exists");
+    assert!(batch.version_ref.is_some(), "should have commit hash");
+    assert_eq!(batch.source_type, "git");
+    assert!(!batch.source_url.is_empty(), "should have source_url");
 
     // Parent topic "dioxus" should also exist
     let parent = db::knowledge::find_topic_by_name(&db, "dioxus")

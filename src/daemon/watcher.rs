@@ -227,6 +227,21 @@ async fn process_note_change(
         .to_string();
     logfire::info!("watcher: processing note change", filename = filename,);
 
+    // Resolve topic_id from subfolder path (e.g. "notes/dioxus/foo.md" → topic "dioxus")
+    let topic_id = {
+        let without_notes = rel_path.strip_prefix("notes/").unwrap_or(&rel_path);
+        match without_notes.rsplit_once('/') {
+            Some((folder, _)) if !folder.is_empty() => {
+                crate::db::knowledge::find_topic_by_name(db, folder)
+                    .await
+                    .ok()
+                    .flatten()
+                    .map(|t| t.id)
+            }
+            _ => None,
+        }
+    };
+
     // Look up the note in DB by title
     let note_id = match crate::db::knowledge::find_note_by_title(db, &parsed.front.title).await {
         Ok(Some(n)) => {
@@ -240,6 +255,7 @@ async fn process_note_change(
                 &parsed.front.tags,
                 &parsed.front.sources,
                 parsed.front.trust,
+                topic_id.as_deref(),
                 Some(&rel_path),
             )
             .await;
@@ -262,6 +278,7 @@ async fn process_note_change(
                 &parsed.front.tags,
                 &parsed.front.sources,
                 parsed.front.trust,
+                topic_id.as_deref(),
                 Some(&rel_path),
             )
             .await
@@ -286,7 +303,7 @@ async fn process_note_change(
         source_id: note_id,
         content: parsed.body,
         tags: parsed.front.tags,
-        topic_id: None,
+        topic_id,
     }))
 }
 
@@ -314,17 +331,24 @@ async fn process_reference_change(
         return Ok(None);
     }
 
+    // Ignore _import.toml files
+    if path.file_name().and_then(|f| f.to_str()) == Some("_import.toml") {
+        return Ok(None);
+    }
+
     let content = match std::fs::read_to_string(path) {
         Ok(c) => c,
         Err(_) => return Ok(None),
     };
 
-    let topic_name = path
-        .parent()
-        .and_then(|p| p.file_name())
-        .and_then(|f| f.to_str())
-        .unwrap_or("unknown")
-        .to_string();
+    // Extract full topic path between "references/" and the filename
+    let topic_name = {
+        let without_prefix = rel_path.strip_prefix("references/").unwrap_or(&rel_path);
+        match without_prefix.rsplit_once('/') {
+            Some((parent, _)) => parent.to_string(),
+            None => "unknown".to_string(),
+        }
+    };
 
     logfire::info!(
         "watcher: processing reference change",
@@ -339,8 +363,10 @@ async fn process_reference_change(
                     Ok(id) => id,
                     Err(_) => return Ok(None),
                 };
-                match crate::db::knowledge::create_reference(db, &tid, &rel_path, &content, None)
-                    .await
+                match crate::db::knowledge::create_reference(
+                    db, &tid, &rel_path, &content, None, None,
+                )
+                .await
                 {
                     Ok(id) => (id, tid),
                     Err(_) => return Ok(None),

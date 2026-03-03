@@ -41,14 +41,22 @@ async fn search_references_scoped_by_topic() {
         .expect("topic2");
 
     // Create references under each
-    db::knowledge::create_reference(&db, &t1, "dioxus/docs/hooks.md", "Hooks are reactive", None)
-        .await
-        .expect("ref1");
+    db::knowledge::create_reference(
+        &db,
+        &t1,
+        "dioxus/docs/hooks.md",
+        "Hooks are reactive",
+        None,
+        None,
+    )
+    .await
+    .expect("ref1");
     db::knowledge::create_reference(
         &db,
         &t2,
         "sqlx/api/pool.md",
         "Connection pool management",
+        None,
         None,
     )
     .await
@@ -109,10 +117,10 @@ async fn list_topics_returns_ref_counts() {
         .await
         .expect("topic");
 
-    db::knowledge::create_reference(&db, &tid, "test-topic/a.md", "content a", None)
+    db::knowledge::create_reference(&db, &tid, "test-topic/a.md", "content a", None, None)
         .await
         .expect("ref a");
-    db::knowledge::create_reference(&db, &tid, "test-topic/b.md", "content b", None)
+    db::knowledge::create_reference(&db, &tid, "test-topic/b.md", "content b", None, None)
         .await
         .expect("ref b");
 
@@ -134,7 +142,7 @@ async fn delete_references_by_topic_cascades() {
         .await
         .expect("topic");
 
-    db::knowledge::create_reference(&db, &tid, "ephemeral/x.md", "x content", None)
+    db::knowledge::create_reference(&db, &tid, "ephemeral/x.md", "x content", None, None)
         .await
         .expect("ref");
 

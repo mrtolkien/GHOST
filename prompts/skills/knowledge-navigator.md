@@ -54,6 +54,10 @@ CLI commands:
 
 ## Reference Topics
 
+Topics are pure namespaces that group both notes and references. Notes can have an
+explicit `topic_id` linking them to a topic namespace. Import metadata (source URL,
+version) is stored in separate `import_batch` records, not on the topic itself.
+
 References are organized by topic. Use the `topic` parameter for scoped search:
 
 - `knowledge_search(query="hooks", topic="dioxus")` — search all dioxus sub-topics

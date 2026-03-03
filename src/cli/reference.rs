@@ -122,10 +122,29 @@ async fn cmd_topics(db: &db::GhostDb) -> Result<(), GhostError> {
         return Ok(());
     }
 
-    println!("{:<40} {:>6}", "Topic", "Refs");
-    println!("{}", "-".repeat(48));
+    println!(
+        "{:<40} {:>6}  {:<8} {}",
+        "Topic", "Refs", "Source", "Version"
+    );
+    println!("{}", "-".repeat(80));
     for t in &topics {
-        println!("{:<40} {:>6}", t.name, t.ref_count);
+        let batch = db::knowledge::get_import_batch_by_topic(db, &t.id)
+            .await
+            .map_err(|e| GhostError::Database(Box::new(e)))?;
+        let (source_type, version) = match &batch {
+            Some(b) => (
+                b.source_type.as_str(),
+                b.version_ref
+                    .as_deref()
+                    .map(|v| &v[..v.len().min(8)])
+                    .unwrap_or("-"),
+            ),
+            None => ("-", "-"),
+        };
+        println!(
+            "{:<40} {:>6}  {:<8} {}",
+            t.name, t.ref_count, source_type, version
+        );
     }
     println!("\n{} topics total.", topics.len());
 
