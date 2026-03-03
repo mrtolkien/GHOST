@@ -21,15 +21,15 @@ fmt: fmt-rust fmt-ox fmt-lua
 
 # Run cargo check
 check:
-    rtk cargo check --all-features --all-targets
+    cargo check --all-features --all-targets
 
 # Run cargo clippy
 clippy:
-    rtk cargo clippy --all-features --all-targets
+    cargo clippy --all-features --all-targets
 
 # Run tests (excluding live tests)
 test:
-    rtk cargo test
+    cargo test
 
 # Run step-based e2e fixture refresh (manual, sequential)
 e2e-refresh models="primary":
@@ -37,7 +37,7 @@ e2e-refresh models="primary":
 
 # Compile step-based e2e tests without executing them
 e2e-check:
-    rtk cargo test --features e2e-tests --test e2e_steps --no-run
+    cargo test --features e2e-tests --test e2e_steps --no-run
 
 # Run all checks (format, clippy, test)
 ci: fmt check clippy test
@@ -49,7 +49,7 @@ clean:
 
 # Build in release mode
 build-release:
-    rtk cargo build --release --all-features
+    cargo build --release --all-features
 
 # Run the gateway
 run-gateway:
