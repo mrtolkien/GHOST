@@ -1,0 +1,30 @@
+{
+  "chat_tool_calls": [
+    "read_file",
+    "todo",
+    "todo",
+    "knowledge_search",
+    "todo",
+    "run_shell_command",
+    "run_shell_command",
+    "web_search",
+    "run_shell_command",
+    "run_shell_command",
+    "run_shell_command",
+    "todo",
+    "run_shell_command",
+    "todo",
+    "read_file",
+    "knowledge_search",
+    "run_shell_command",
+    "run_shell_command",
+    "run_shell_command",
+    "run_shell_command",
+    "web_fetch",
+    "web_fetch",
+    "web_fetch",
+    "web_fetch",
+    "web_fetch",
+    "web_fetch"
+  ]
+}

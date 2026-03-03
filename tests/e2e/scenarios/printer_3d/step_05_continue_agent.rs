@@ -63,9 +63,10 @@ async fn printer_3d_step_05_continue_agent() {
     state.agent_id = prev.agent_id;
     state.agent_session_id = Some(agent_session);
     state.final_response_preview = Some(truncate_preview(&findings));
-    state
-        .assertion_markers
-        .insert("continued_findings".to_string(), serde_json::json!(findings));
+    state.assertion_markers.insert(
+        "continued_findings".to_string(),
+        serde_json::json!(findings),
+    );
 
     harness::save_step_snapshot(&env, &state).await;
 }

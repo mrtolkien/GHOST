@@ -15,9 +15,7 @@ pub const STEP_04: &str = "step_04_finalize_chat_and_reflect";
 pub const STEP_05: &str = "step_05_continue_agent";
 
 pub const SCENARIO_REFERENCE_IMPORT: &str = "reference_import";
-pub const STEP_RI_01: &str = "step_01_import_and_discover";
-pub const STEP_RI_02: &str = "step_02_topic_scoped_search";
-pub const STEP_RI_03: &str = "step_03_crawl_and_search";
+pub const STEP_RI_01: &str = "step_01_autonomous_import";
 
 const STATE_FILE: &str = "state.json";
 const ARCHIVE_FILE: &str = "workspace.tar.zst";

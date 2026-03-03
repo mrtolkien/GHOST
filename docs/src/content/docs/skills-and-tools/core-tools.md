@@ -10,10 +10,17 @@ Shell access, file operations, and task tracking.
 
 Execute shell commands on the host system.
 
-| Parameter    | Type    | Required | Description              |
-| ------------ | ------- | -------- | ------------------------ |
-| `command`    | string  | yes      | Shell command to execute |
-| `timeout_ms` | integer | no       | Timeout in milliseconds  |
+| Parameter    | Type    | Required | Description                                                            |
+| ------------ | ------- | -------- | ---------------------------------------------------------------------- |
+| `command`    | string  | yes      | Shell command to execute                                               |
+| `timeout_ms` | integer | no       | Timeout in milliseconds (default 30000). Ignored when `background=true` |
+| `directory`  | string  | no       | Working directory (relative to workspace)                              |
+| `background` | boolean | no       | Run with no timeout; result delivered as a system message              |
+
+When `background` is true, the tool returns immediately and the command runs
+detached. On completion, the output is posted as a `[shell-command completed]`
+system message into the session. GHOST sees this message on the next
+conversation turn.
 
 ## `read_file`
 

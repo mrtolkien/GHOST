@@ -67,9 +67,12 @@ that need structured parameter validation (see spec 13 for their definitions).
 **`run_shell_command`** — Execute a shell command.
 
 - Parameters: `command: string`, `timeout_ms: number (optional, default 30000)`,
-  `directory: string (optional, default .)`
-- Returns: stdout + stderr, exit code
+  `directory: string (optional, default .)`,
+  `background: boolean (optional, default false)`
+- Returns: stdout + stderr, exit code (foreground); immediate ack (background)
 - Commands run in the workspace directory by default
+- When `background: true`: runs with no timeout, posts `[shell-command completed]`
+  system message to the session on completion. The model sees this on the next turn.
 - This is the primary way the GHOST accesses knowledge search, web search, file search,
   and all other CLI features (see spec 10b)
 
@@ -207,7 +210,7 @@ async fn execute(&self, params: Value, ctx: &ToolContext) -> Result<String, Tool
 - Tool execution errors are returned as tool results (not crashes)
 - Chat and reflection tool sets are constructible
 - `write_file` auto-creates parent directories
-- Shell commands have configurable timeouts
+- Shell commands have configurable timeouts (foreground) and background mode
 - `todo` tool manages session-scoped TODO lists with plan/add/update/batch_update/clear
 - TODO state is injected after user message (not in system prompt) to preserve caching
 - All tool executions produce tracing spans with name and duration

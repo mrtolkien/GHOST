@@ -10,6 +10,22 @@ description:
 
 Import git repos and web pages as topic-scoped references into the knowledge base.
 
+## Decision Flow
+
+Follow this order — stop as soon as you have an answer:
+
+1. **Search first**: `knowledge_search(query="<topic>", categories=["references"])`. If
+   results exist, use them to answer. Done.
+2. **Git import** (preferred): find the docs repo via `gh`, import with
+   `background: true`, tell the OPERATOR it's importing.
+3. **Crawl import** (fallback): only if no git source exists (e.g. docs-only site).
+4. **After import completes**: the result arrives as a `[shell-command completed]`
+   system message on the OPERATOR's next turn (there is no auto-trigger — the message
+   sits in the DB until the OPERATOR sends a follow-up). Search the imported refs, edit
+   the topic note, and answer. Note: reference records appear in the DB almost
+   immediately; only the embeddings trail behind. You can search whatever's embedded so
+   far.
+
 ## CLI Commands
 
 ```
@@ -26,154 +42,78 @@ ghost topics list
 ghost reference delete --topic <name>
 ```
 
-## When to Suggest Import
+## Git Import (Preferred)
 
-- OPERATOR asks about a library and `knowledge_search` returns no results for it
-- OPERATOR wants to study external docs, APIs, or codebases
-- OPERATOR asks you to "learn" or "import" a library's documentation
-- You find yourself relying on potentially outdated training data for a fast-moving
-  library (Dioxus, Leptos, Tauri, etc.)
+### Finding the docs repo
 
-## Finding the Right Source
-
-Documentation often lives in a separate repo under the same GitHub organization (e.g.
-`DioxusLabs/docsite`, not `DioxusLabs/dioxus`). Search before assuming:
+Documentation often lives in a separate repo (e.g. `DioxusLabs/docsite`, not
+`DioxusLabs/dioxus`). One search is enough:
 
 ```bash
-# Search for docs repos in an organization
-gh search repos "docs OR docsite OR website" --owner=DioxusLabs --json name,description
-
-# If unclear, check the main repo's README for a docs link
-gh api repos/DioxusLabs/dioxus/readme --jq '.content' | base64 -d | head -40
-
-# Or list all repos in the org
-gh api orgs/DioxusLabs/repos --jq '.[].name'
+gh search repos "docs OR docsite OR website" --owner=<Org> --json name,description
 ```
 
-## Choosing Paths and Extensions (Git)
+### Choosing paths + extensions
 
-Once you have the right repo, figure out which subdirectories contain the docs. Use the
-GitHub CLI to browse before importing:
+Browse the repo to pick the narrowest `--paths`:
 
 ```bash
-# List top-level directories
-gh api repos/DioxusLabs/docsite/contents/ --jq '.[].name'
-
-# Browse a subdirectory
-gh api repos/DioxusLabs/docsite/contents/docs-src --jq '.[].name'
+gh api repos/<owner>/<repo>/contents/ --jq '.[].name'
 ```
 
-Pick the narrowest `--paths` that cover the documentation you need. For docs repos, use
-`--extensions .md`; for code examples, add `.rs`, `.py`, etc. Omit `--paths` only for
-small repos.
+For docs repos use `--extensions .md`; for code examples add `.rs`, `.py`, etc. Omit
+`--paths` only for small repos.
 
-## Git Import Details
+### Running the import (background)
 
-Uses sparse checkout for large repos — only clones specified paths:
+Git imports embed every file, which is slow on CPU. **Always use background mode**:
 
-```
-ghost reference import --source git \
-    --url https://github.com/DioxusLabs/docsite \
-    --topic dioxus/docs \
-    --paths docs-src/0.7/src/tutorial/ \
-    --extensions .md
+```json
+{
+  "command": "ghost reference import --source git --url https://github.com/DioxusLabs/docsite --topic dioxus/docs --paths docs-src/0.7/src --extensions .md",
+  "background": true
+}
 ```
 
-- `--paths`: comma-separated subdirectories (omit for whole repo)
-- `--extensions`: file types to include (omit for all text files)
-- Idempotent: re-running skips already-imported files
-- Creates embeddings for semantic search
+Tell the OPERATOR: _"I'm importing the Dioxus docs in the background — I'll search them
+once the import finishes."_
 
-## Page Import
+When the OPERATOR follows up, you'll see the `[shell-command completed]` system message
+(if the import finished). Search the imported references and answer the OPERATOR's
+question. If the import is still running, search whatever's been embedded so far and
+supplement with web search if needed.
 
+## Crawl Import (Fallback)
+
+Use only when no git source exists:
+
+```json
+{
+  "command": "ghost reference import --source crawl --url https://docs.example.com/ --topic example/docs --max-depth 2 --max-pages 30",
+  "background": true
+}
 ```
-ghost reference import --source page \
-    --url https://docs.rs/sqlx/latest/sqlx/ \
-    --topic sqlx/api
-```
-
-Fetches page, converts to markdown, stores as reference.
-
-## Crawl Import
-
-```
-ghost reference import --source crawl \
-    --url https://docs.example.com/ \
-    --topic example/docs \
-    --max-depth 2 \
-    --max-pages 20
-```
-
-BFS-crawls a website starting from the seed URL, following same-host links:
-
-- `--max-depth`: how many link hops from the seed (default: 3)
-- `--max-pages`: total page limit (default: 50)
-- Only follows links to the same host as the seed URL
-- Sequential fetches with small delay between requests
-- Idempotent: re-crawling skips already-imported URLs
-- Creates embeddings for semantic search
-
-Use crawl for documentation sites that don't have a git source, or when you want to
-capture a site as-is (rendered HTML → markdown).
 
 ## Post-Import: Enrich the Topic Note
 
-After import, the CLI creates a placeholder index note at `notes/<topic>/index.md` with
-a generic body ("Knowledge hub for ..."). You MUST edit this note with a meaningful
-description of the library — what it does, what it's used for, key concepts. This is
-what makes the topic discoverable via semantic search later.
-
-Example: after importing dioxus docs, edit `notes/dioxus/index.md`:
-
-```markdown
----
-title: Dioxus
-archetype: topic
-tags:
-  - dioxus
-trust: 5
----
-
-Dioxus is a Rust framework for building cross-platform UIs (web, desktop, mobile). It
-uses a React-like component model with RSX syntax, reactive signals for state
-management, and a virtual DOM. Key concepts: components, props, hooks, signals, event
-handlers, routing.
-
-## Collections
-
-- `dioxus/docs`: tutorial and guide pages from the official docsite
-```
+After import, a placeholder note exists at `notes/<topic>/index.md`. Edit it with a
+meaningful description — what the library does, key concepts. This makes the topic
+discoverable via semantic search.
 
 ## Topic Hierarchy
 
-Topics are pure namespaces: `dioxus`, `dioxus/docs`, `dioxus/source`.
+Topics are namespaces: `dioxus`, `dioxus/docs`, `dioxus/source`.
 
-- `dioxus` is a broad topic (parent)
-- `dioxus/docs` is a narrower sub-topic
 - Searching with `topic="dioxus"` finds results across all sub-topics
-- Import metadata (source URL, version, ref count) is stored separately in
-  `import_batch` records, not on the topic itself
-- Each import writes `_import.toml` alongside the references (e.g.
-  `references/dioxus/docs/_import.toml`) with source type, URL, and version
+- Each import writes `_import.toml` alongside the references
 
 ## Post-Import Search
 
-After importing, search scoped to a topic:
-
 ```
-knowledge_search(query="hooks", topic="dioxus")
-knowledge_search(query="connection pool", topic="sqlx", categories=["references"])
-```
-
-Or via CLI:
-
-```
-ghost knowledge search "hooks" --topic dioxus
+knowledge_search(query="hooks", topic="dioxus", categories=["references"])
 ```
 
 ## Cleanup
-
-Delete a topic and all its references + embeddings:
 
 ```
 ghost reference delete --topic dioxus/docs

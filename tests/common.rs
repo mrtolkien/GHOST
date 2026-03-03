@@ -516,6 +516,47 @@ impl LiveTestEnv {
     }
 
     // -----------------------------------------------------------------
+    // Polling helpers
+    // -----------------------------------------------------------------
+
+    /// Poll the database for a system message containing `pattern`.
+    ///
+    /// Checks every 5 seconds. Returns the full message content on match,
+    /// or `None` if `timeout_secs` elapses without a match.
+    pub async fn wait_for_system_message(
+        &self,
+        session_id: &str,
+        pattern: &str,
+        timeout_secs: u64,
+    ) -> Option<String> {
+        use std::time::{Duration, Instant};
+
+        let deadline = Instant::now() + Duration::from_secs(timeout_secs);
+        let poll_interval = Duration::from_secs(5);
+
+        loop {
+            let messages = ghost::db::sessions::list_messages_by_session(&self.db, session_id)
+                .await
+                .unwrap_or_default();
+
+            for msg in &messages {
+                if msg.role == "system" && msg.content.contains(pattern) {
+                    return Some(msg.content.clone());
+                }
+            }
+
+            if Instant::now() >= deadline {
+                self.log(format!(
+                    "TIMEOUT: no system message matching '{pattern}' after {timeout_secs}s"
+                ));
+                return None;
+            }
+
+            tokio::time::sleep(poll_interval).await;
+        }
+    }
+
+    // -----------------------------------------------------------------
     // Assertion helpers
     // -----------------------------------------------------------------
 
