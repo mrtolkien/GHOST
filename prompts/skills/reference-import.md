@@ -1,8 +1,9 @@
 ---
 name: reference-import
 description:
-  Import external documentation and code as references scoped by topic. Use when the
-  OPERATOR asks to learn about a library, framework, or external resource.
+  Import and query external documentation, code, and API references. Use when the
+  OPERATOR asks about a library, framework, SDK, or tool — especially if
+  knowledge_search returns no results for it.
 ---
 
 # Reference Import Skill
@@ -24,9 +25,44 @@ ghost reference delete --topic <name>
 
 ## When to Suggest Import
 
-- OPERATOR asks about a library not in the knowledge base
+- OPERATOR asks about a library and `knowledge_search` returns no results for it
 - OPERATOR wants to study external docs, APIs, or codebases
-- A `knowledge_search` returns no results for a known library
+- OPERATOR asks you to "learn" or "import" a library's documentation
+- You find yourself relying on potentially outdated training data for a fast-moving
+  library (Dioxus, Leptos, Tauri, etc.)
+
+## Finding the Right Source
+
+Documentation often lives in a separate repo under the same GitHub organization (e.g.
+`DioxusLabs/docsite`, not `DioxusLabs/dioxus`). Search before assuming:
+
+```bash
+# Search for docs repos in an organization
+gh search repos "docs OR docsite OR website" --owner=DioxusLabs --json name,description
+
+# If unclear, check the main repo's README for a docs link
+gh api repos/DioxusLabs/dioxus/readme --jq '.content' | base64 -d | head -40
+
+# Or list all repos in the org
+gh api orgs/DioxusLabs/repos --jq '.[].name'
+```
+
+## Choosing Paths and Extensions (Git)
+
+Once you have the right repo, figure out which subdirectories contain the docs. Use the
+GitHub CLI to browse before importing:
+
+```bash
+# List top-level directories
+gh api repos/DioxusLabs/docsite/contents/ --jq '.[].name'
+
+# Browse a subdirectory
+gh api repos/DioxusLabs/docsite/contents/docs-src --jq '.[].name'
+```
+
+Pick the narrowest `--paths` that cover the documentation you need. For docs repos, use
+`--extensions .md`; for code examples, add `.rs`, `.py`, etc. Omit `--paths` only for
+small repos.
 
 ## Git Import Details
 
@@ -54,6 +90,34 @@ ghost reference import --source page \
 ```
 
 Fetches page, converts to markdown, stores as reference.
+
+## Post-Import: Enrich the Topic Note
+
+After import, the CLI creates a placeholder index note at `notes/<topic>/index.md` with
+a generic body ("Knowledge hub for ..."). You MUST edit this note with a meaningful
+description of the library — what it does, what it's used for, key concepts. This is
+what makes the topic discoverable via semantic search later.
+
+Example: after importing dioxus docs, edit `notes/dioxus/index.md`:
+
+```markdown
+---
+title: Dioxus
+archetype: topic
+tags:
+  - dioxus
+trust: 5
+---
+
+Dioxus is a Rust framework for building cross-platform UIs (web, desktop, mobile).
+It uses a React-like component model with RSX syntax, reactive signals for state
+management, and a virtual DOM. Key concepts: components, props, hooks, signals,
+event handlers, routing.
+
+## Collections
+
+- `dioxus/docs`: tutorial and guide pages from the official docsite
+```
 
 ## Topic Hierarchy
 
