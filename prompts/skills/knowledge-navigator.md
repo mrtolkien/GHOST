@@ -67,7 +67,8 @@ References are organized by topic. Use the `topic` parameter for scoped search:
 CLI:
 
 - `ghost knowledge search "query" --topic dioxus` — topic-scoped search
-- `ghost reference topics` — list all topics with reference counts
+- `ghost topics list` — list all topics with note and reference counts
+- `ghost topics search "query"` — search topics by name
 - `ghost reference import --source git --url <url> --topic <name>` — import new
   references
 

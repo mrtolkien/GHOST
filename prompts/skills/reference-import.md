@@ -21,7 +21,7 @@ ghost reference import --source page --url <url> --topic <name>
 ghost reference import --source crawl --url <url> --topic <name> \
     [--max-depth 3] [--max-pages 50]
 
-ghost reference topics
+ghost topics list
 
 ghost reference delete --topic <name>
 ```

@@ -217,7 +217,15 @@ impl NoteWrite {
             let created = knowledge::ensure_index_notes(&ctx.workspace, sub)
                 .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
             if !created.is_empty() {
-                index_info = format!("\nIndex notes created: {}", created.len());
+                let paths: Vec<String> = created.iter().map(|p| p.display().to_string()).collect();
+                index_info = format!(
+                    "\n\nWARNING: {} skeleton index note(s) were auto-created:\n  {}\n\
+                     These contain only a placeholder description. You MUST update them \
+                     with a meaningful description of the topic — semantic search relies \
+                     on this to discover the topic.",
+                    created.len(),
+                    paths.join("\n  "),
+                );
             }
         }
 
@@ -334,8 +342,21 @@ impl NoteWrite {
             .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
 
         // Ensure index notes exist for each level of the subfolder
+        let mut index_info = String::new();
         if let Some(sub) = subfolder {
-            let _ = knowledge::ensure_index_notes(&ctx.workspace, sub);
+            let created = knowledge::ensure_index_notes(&ctx.workspace, sub)
+                .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
+            if !created.is_empty() {
+                let paths: Vec<String> = created.iter().map(|p| p.display().to_string()).collect();
+                index_info = format!(
+                    "\n\nWARNING: {} skeleton index note(s) were auto-created:\n  {}\n\
+                     These contain only a placeholder description. You MUST update them \
+                     with a meaningful description of the topic — semantic search relies \
+                     on this to discover the topic.",
+                    created.len(),
+                    paths.join("\n  "),
+                );
+            }
         }
 
         let wiki_links = extract_wiki_links(&sanitized_body);
@@ -345,7 +366,7 @@ impl NoteWrite {
 
         let mut msg = format!(
             "Updated note '{}' at {}\n\
-             Edges: {} created, {} deleted, {} stubs created",
+             Edges: {} created, {} deleted, {} stubs created{index_info}",
             title,
             path.display(),
             result.created,

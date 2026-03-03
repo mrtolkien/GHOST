@@ -12,6 +12,7 @@ pub const STEP_01: &str = "step_01_spawn_agent";
 pub const STEP_02: &str = "step_02_run_agent_completion";
 pub const STEP_03: &str = "step_03_reflect_agent";
 pub const STEP_04: &str = "step_04_finalize_chat_and_reflect";
+pub const STEP_05: &str = "step_05_continue_agent";
 
 pub const SCENARIO_REFERENCE_IMPORT: &str = "reference_import";
 pub const STEP_RI_01: &str = "step_01_import_and_discover";

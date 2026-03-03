@@ -26,11 +26,12 @@
 - [x] Review version management in references (version_ref)
 - [x] Review topic note: it's wrongly explained in sql = it's not linked to
       references...
-- [ ] Review skills for import
-- [ ] Experimentations
+- [x] Review skills for import
+- [x] Experimentations
   - [x] Try deep research `respond` tool: report, sources, negative_information
   - [x] Re-make agent reflection a fresh session instead of a fork
   - [x] Remove write note tool from deep research
-  - [x] Review standard reflection agent
-  - [x] Review compaction token count
-  - [ ] Re-add an agent continuation test
+- [x] Review standard reflection agent
+- [x] Review compaction token count
+- [ ] Re-add an agent continuation test
+- [ ] Test import e2e

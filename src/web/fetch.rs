@@ -157,7 +157,13 @@ fn markdown_to_content(markdown: String, title: Option<String>) -> ExtractedCont
     }
 }
 
-fn extract_content(html: &str, page_url: &str, options: &FetchOptions) -> ExtractedContent {
+/// Convert raw HTML to readable markdown content. Used by the BFS crawler
+/// to avoid double-fetching pages.
+pub(crate) fn extract_content(
+    html: &str,
+    page_url: &str,
+    options: &FetchOptions,
+) -> ExtractedContent {
     if options.raw {
         let text = html.replace('\0', "");
         let (text, truncated) = truncate(text, MAX_EXTRACT_CHARS);

@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
-use std::process::Command;
+
+use tokio::process::Command;
 
 use crate::config::EmbeddingsConfig;
 use crate::db;
@@ -45,6 +46,7 @@ pub async fn import_git(
         ])
         .arg(&repo_dir)
         .output()
+        .await
         .map_err(|e| ImportError::Git(format!("failed to spawn git: {e}")))?;
 
     if !status.status.success() {
@@ -54,16 +56,16 @@ pub async fn import_git(
 
     // Phase 2: sparse checkout if paths specified
     if !paths.is_empty() {
-        run_git(&repo_dir, &["sparse-checkout", "init", "--cone"])?;
+        run_git(&repo_dir, &["sparse-checkout", "init", "--cone"]).await?;
         let mut args = vec!["sparse-checkout", "set"];
         let path_strs: Vec<&str> = paths.iter().map(String::as_str).collect();
         args.extend(path_strs);
-        run_git(&repo_dir, &args)?;
+        run_git(&repo_dir, &args).await?;
     }
-    run_git(&repo_dir, &["checkout"])?;
+    run_git(&repo_dir, &["checkout"]).await?;
 
     // Get commit hash for version_ref
-    let version_ref = run_git_output(&repo_dir, &["rev-parse", "HEAD"])?;
+    let version_ref = run_git_output(&repo_dir, &["rev-parse", "HEAD"]).await?;
     let version_ref = version_ref.trim();
 
     // Ensure topic hierarchy in DB
@@ -71,6 +73,8 @@ pub async fn import_git(
 
     // Walk files and collect references
     let files = walk_files(&repo_dir, paths, extensions);
+    let total_files = files.len();
+    println!("Found {total_files} files to process");
     let mut created = 0usize;
     let mut skipped = 0usize;
     let mut embed_requests = Vec::new();
@@ -101,6 +105,9 @@ pub async fn import_git(
             skipped += 1;
             continue;
         }
+
+        let processed = created + skipped + 1;
+        println!("  [{processed}/{total_files}] {rel_path}");
 
         let content = match std::fs::read_to_string(file_path) {
             Ok(c) => c,
@@ -133,6 +140,7 @@ pub async fn import_git(
     }
 
     // Batch embed
+    println!("Embedding {created} references...");
     let client = EmbeddingClient::new(embeddings_config);
     let embeddings_generated = embed_sources(&client, db, embed_requests).await?;
 
@@ -221,11 +229,12 @@ fn matches_extensions(path: &Path, extensions: &[String]) -> bool {
     }
 }
 
-fn run_git(repo_dir: &Path, args: &[&str]) -> Result<(), ImportError> {
+async fn run_git(repo_dir: &Path, args: &[&str]) -> Result<(), ImportError> {
     let output = Command::new("git")
         .args(args)
         .current_dir(repo_dir)
         .output()
+        .await
         .map_err(|e| ImportError::Git(format!("failed to spawn git: {e}")))?;
 
     if !output.status.success() {
@@ -238,11 +247,12 @@ fn run_git(repo_dir: &Path, args: &[&str]) -> Result<(), ImportError> {
     Ok(())
 }
 
-fn run_git_output(repo_dir: &Path, args: &[&str]) -> Result<String, ImportError> {
+async fn run_git_output(repo_dir: &Path, args: &[&str]) -> Result<String, ImportError> {
     let output = Command::new("git")
         .args(args)
         .current_dir(repo_dir)
         .output()
+        .await
         .map_err(|e| ImportError::Git(format!("failed to spawn git: {e}")))?;
 
     if !output.status.success() {

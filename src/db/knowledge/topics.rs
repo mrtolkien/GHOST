@@ -10,6 +10,7 @@ pub struct TopicInfo {
     pub id: String,
     pub name: String,
     pub ref_count: i64,
+    pub note_count: i64,
 }
 
 #[tracing::instrument(skip_all, level = "debug", fields(name = %name))]
@@ -115,11 +116,18 @@ pub async fn delete_topic(db: &SqlitePool, topic_id: &str) -> Result<(), Databas
     Ok(())
 }
 
-/// List all topics with their reference counts.
+/// List all topics with their reference and note counts.
+///
+/// Note count uses path prefix matching: a note with path `notes/foo/bar/baz.md`
+/// is counted under topic `foo/bar` (direct) but NOT under `foo` (parent).
 #[tracing::instrument(skip_all, level = "debug")]
 pub async fn list_topics(db: &SqlitePool) -> Result<Vec<TopicInfo>, DatabaseError> {
     sqlx::query_as::<_, TopicInfo>(
-        "SELECT t.id, t.name, COUNT(r.id) AS ref_count \
+        "SELECT t.id, t.name, \
+         COUNT(DISTINCT r.id) AS ref_count, \
+         (SELECT COUNT(*) FROM note n \
+          WHERE n.path LIKE 'notes/' || t.name || '/%' \
+          AND n.path NOT LIKE 'notes/' || t.name || '/%/%') AS note_count \
          FROM topic t \
          LEFT JOIN reference r ON r.topic_id = t.id \
          GROUP BY t.id \

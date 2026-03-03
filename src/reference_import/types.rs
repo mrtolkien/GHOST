@@ -1,10 +1,12 @@
 use thiserror::Error;
 
+#[derive(Debug)]
 pub struct ImportConfig {
     pub source: ImportSource,
     pub topic: String, // hierarchical name, e.g. "dioxus/docs"
 }
 
+#[derive(Debug)]
 pub enum ImportSource {
     Git {
         url: String,
@@ -21,6 +23,7 @@ pub enum ImportSource {
     },
 }
 
+#[derive(Debug)]
 pub struct ImportResult {
     pub topic_id: String,
     pub batch_id: String,

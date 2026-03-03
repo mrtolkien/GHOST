@@ -151,6 +151,22 @@ impl Tool for KnowledgeSearch {
             );
         }
 
+        // Build effective categories from computed flags so the vector filter
+        // respects topic-triggered auto-include of references.
+        let mut effective_categories = Vec::new();
+        if search_notes_flag {
+            effective_categories.push("notes".to_string());
+        }
+        if search_refs_flag {
+            effective_categories.push("references".to_string());
+        }
+        if search_diary_flag {
+            effective_categories.push("diary".to_string());
+        }
+        if search_topics_flag {
+            effective_categories.push("topics".to_string());
+        }
+
         // Try hybrid search: embed query and merge with BM25
         let hits = try_hybrid_search(
             &ctx.config.embeddings,
@@ -158,7 +174,7 @@ impl Tool for KnowledgeSearch {
             bm25_hits,
             query,
             limit,
-            &categories,
+            &effective_categories,
             &resolved_topic_ids,
         )
         .await;
@@ -199,7 +215,6 @@ async fn try_hybrid_search(
                     }
                 };
 
-            // Filter embedding hits to match requested categories
             let filtered_hits = filter_embedding_hits(embedding_hits, categories);
 
             hybrid_merge(&bm25_hits, &filtered_hits, limit)

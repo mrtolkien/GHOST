@@ -2,3 +2,4 @@ mod step_01_spawn_agent;
 mod step_02_run_agent_completion;
 mod step_03_reflect_agent;
 mod step_04_finalize_chat_and_reflect;
+mod step_05_continue_agent;

@@ -37,9 +37,6 @@ pub enum ReferenceCommand {
         max_pages: usize,
     },
 
-    /// List all topics with reference counts
-    Topics,
-
     /// Delete a topic and all its references
     Delete {
         /// Topic name to delete
@@ -77,8 +74,9 @@ pub async fn execute(command: ReferenceCommand) -> Result<(), GhostError> {
             )
             .await
         }
-        ReferenceCommand::Topics => cmd_topics(&db).await,
-        ReferenceCommand::Delete { topic } => cmd_delete(&db, &topic).await,
+        ReferenceCommand::Delete { topic } => {
+            cmd_delete(&db, std::path::Path::new(&config.workspace), &topic).await
+        }
     }
 }
 
@@ -146,55 +144,21 @@ async fn cmd_import(
 
     if result.references_created > 0 {
         println!(
-            "\n  Topic index note created at notes/{topic}/index.md\n  \
-             \u{26a0} Edit it with a description of what this library does \u{2014} semantic search\n    \
-             relies on this to discover the topic."
+            "\n  WARNING: A skeleton index note exists at notes/{topic}/index.md\n  \
+             It may only contain a placeholder description.\n  \
+             Edit it with a real description of what this library/topic is about —\n  \
+             semantic search relies on this to discover the topic."
         );
     }
 
     Ok(())
 }
 
-async fn cmd_topics(db: &db::GhostDb) -> Result<(), GhostError> {
-    let topics = db::knowledge::list_topics(db)
-        .await
-        .map_err(|e| GhostError::Database(Box::new(e)))?;
-
-    if topics.is_empty() {
-        println!("No topics found.");
-        return Ok(());
-    }
-
-    println!(
-        "{:<40} {:>6}  {:<8} {}",
-        "Topic", "Refs", "Source", "Version"
-    );
-    println!("{}", "-".repeat(80));
-    for t in &topics {
-        let batch = db::knowledge::get_import_batch_by_topic(db, &t.id)
-            .await
-            .map_err(|e| GhostError::Database(Box::new(e)))?;
-        let (source_type, version) = match &batch {
-            Some(b) => (
-                b.source_type.as_str(),
-                b.version_ref
-                    .as_deref()
-                    .map(|v| &v[..v.len().min(8)])
-                    .unwrap_or("-"),
-            ),
-            None => ("-", "-"),
-        };
-        println!(
-            "{:<40} {:>6}  {:<8} {}",
-            t.name, t.ref_count, source_type, version
-        );
-    }
-    println!("\n{} topics total.", topics.len());
-
-    Ok(())
-}
-
-async fn cmd_delete(db: &db::GhostDb, topic_name: &str) -> Result<(), GhostError> {
+async fn cmd_delete(
+    db: &db::GhostDb,
+    workspace: &std::path::Path,
+    topic_name: &str,
+) -> Result<(), GhostError> {
     let topic = db::knowledge::find_topic_by_name(db, topic_name)
         .await
         .map_err(|e| GhostError::Database(Box::new(e)))?;
@@ -213,13 +177,31 @@ async fn cmd_delete(db: &db::GhostDb, topic_name: &str) -> Result<(), GhostError
 
     println!("Deleting topic '{topic_name}' ({ref_count} references)...");
 
+    // Delete DB records: references + embeddings (cascaded), import batch, topic
     db::knowledge::delete_references_by_topic(db, &topic.id)
+        .await
+        .map_err(|e| GhostError::Database(Box::new(e)))?;
+
+    db::knowledge::delete_import_batch(db, &topic.id)
         .await
         .map_err(|e| GhostError::Database(Box::new(e)))?;
 
     db::knowledge::delete_topic(db, &topic.id)
         .await
         .map_err(|e| GhostError::Database(Box::new(e)))?;
+
+    // Clean up workspace files
+    let ref_dir = workspace.join("references").join(topic_name);
+    if ref_dir.exists() {
+        std::fs::remove_dir_all(&ref_dir).ok();
+        println!("  Removed {}", ref_dir.display());
+    }
+
+    let note_dir = workspace.join("notes").join(topic_name);
+    if note_dir.exists() {
+        std::fs::remove_dir_all(&note_dir).ok();
+        println!("  Removed {}", note_dir.display());
+    }
 
     println!("Done.");
 

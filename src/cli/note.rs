@@ -129,7 +129,15 @@ async fn create_note(
         let created = knowledge::ensure_index_notes(workspace, sub)
             .map_err(|e| std::io::Error::other(e.to_string()))?;
         if !created.is_empty() {
-            index_info = format!("\nIndex notes created: {}", created.len());
+            let paths: Vec<String> = created
+                .iter()
+                .map(|p| p.display().to_string())
+                .collect();
+            index_info = format!(
+                "\n  Skeleton index notes created:\n    {}\n  \
+                 Edit them with a meaningful topic description for semantic search.",
+                paths.join("\n    "),
+            );
         }
     }
 
@@ -245,7 +253,15 @@ async fn update_note(
 
     // Ensure index notes exist for each level of the subfolder
     if let Some(sub) = subfolder {
-        let _ = knowledge::ensure_index_notes(workspace, sub);
+        if let Ok(created) = knowledge::ensure_index_notes(workspace, sub) {
+            for p in &created {
+                println!(
+                    "  Skeleton index note created: {}\n  \
+                     Edit it with a meaningful topic description for semantic search.",
+                    p.display()
+                );
+            }
+        }
     }
 
     let wiki_links = extract_wiki_links(&sanitized_body);

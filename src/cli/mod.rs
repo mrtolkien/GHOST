@@ -6,4 +6,5 @@ pub mod init;
 pub mod knowledge;
 pub mod reference;
 pub mod session;
+pub mod topics;
 pub mod web;

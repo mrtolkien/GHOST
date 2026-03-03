@@ -70,6 +70,9 @@ pub async fn import_crawl(
             continue;
         }
 
+        let page_num = created + skipped + 1;
+        println!("  [{page_num}/{max_pages}] {}", url.as_str());
+
         // Fetch raw HTML for link extraction
         let (html, final_url) = match web::fetch_raw(url.as_str()).await {
             Ok(r) => r,
@@ -104,18 +107,8 @@ pub async fn import_crawl(
             }
         }
 
-        // Convert HTML to markdown via the standard fetch pipeline
-        let extracted = match web::fetch(url.as_str(), &web::FetchOptions::default(), None).await {
-            Ok(e) => e,
-            Err(e) => {
-                logfire::warn!(
-                    "crawl: markdown extraction failed",
-                    url = url.as_str().to_string(),
-                    error = e.to_string(),
-                );
-                continue;
-            }
-        };
+        // Convert the already-fetched HTML to markdown locally (no second fetch)
+        let extracted = web::extract_content(&html, url.as_str(), &web::FetchOptions::default());
 
         // Store as reference
         let ref_id = db::knowledge::create_reference(
@@ -144,6 +137,7 @@ pub async fn import_crawl(
     }
 
     // Batch embed
+    println!("Embedding {created} references...");
     let client = EmbeddingClient::new(embeddings_config);
     let embeddings_generated = embed_sources(&client, db, embed_requests).await?;
 
