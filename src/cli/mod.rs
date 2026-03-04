@@ -4,6 +4,7 @@ pub mod config;
 pub mod daemon;
 pub mod init;
 pub mod knowledge;
+pub mod project;
 pub mod reference;
 pub mod session;
 pub mod topics;
