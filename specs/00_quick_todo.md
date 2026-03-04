@@ -35,16 +35,26 @@
 - [x] Review compaction token count
 - [x] Re-add an agent continuation test
 - [x] Test import e2e
-- [ ] Provider logs have disappeared from logfire (I just see "run tools" spans: span
+- [x] Provider logs have disappeared from logfire (I just see "run tools" spans: span
       fcce30c7019c5d2a)
-- [ ] I don't see a span for references import in logfire, at least in the e2e test
-- [ ] Issues with topic notes and duplicate notes in general: span a0dfcdedce4c6c47 or
+  - Fixed: renamed openai_oauth span from "request - openai oauth" to "request
+    completion" (matching convention). Added tracing::Instrument to agent runner spawns.
+- [x] I don't see a span for references import in logfire, at least in the e2e test
+  - Fixed: added #[tracing::instrument] to cmd_import, import_git, import_page,
+    import_crawl.
+- [x] Issues with topic notes and duplicate notes in general: span a0dfcdedce4c6c47 or
       3cbaaa6f6f81cbba or 40192929e911c2ca.
-  - [ ] The model is note sure how to topic notes + they are poorly written (too much
+  - [x] The model is note sure how to topic notes + they are poorly written (too much
         content)
-  - [ ] It tries to create "project" notes... Which makes no sense: we should drop
-        archetypes for the moment
-  - [ ] Needs to be validate through runs of the step 03 and 04 of the 3d printer e2e
-        tests
-- [ ] Web searches are still too biased: they usually include words that come from a
+  - [x] It tries to create "project" notes... Which makes no sense: we should drop
+        archetypes for the moment, they are misleading and will be added back, properly,
+        at a later date
+    - Fixed: removed archetypes entirely (Archetype enum, DB column, tool param, CLI
+      arg, all prompt references). Backlog spec at specs/backlog/archetypes.md.
+  - [x] Needs all those changes to be validated through runs of the step 03 and 04 of
+        the 3d printer e2e tests
+- [x] Web searches are still too biased: they usually include words that come from a
       pre-conceived idea of what the right answer is
+  - Fixed: rewrote deep research prompt to avoid training-data brand injection in search
+    queries. Added explicit rules about using category terms only.
+- [ ] Try completely removing the todo tool: I'm not sure it's pulling its weight
