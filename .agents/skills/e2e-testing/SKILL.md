@@ -30,16 +30,25 @@ harness, use the `testing` skill only.
 Entrypoint and modules:
 
 - `tests/e2e_steps.rs`
+- `tests/e2e/mod.rs`
 - `tests/e2e/harness.rs`
+- `tests/e2e/scenarios/mod.rs`
+- `tests/e2e/scenarios/<scenario>/mod.rs`
 - `tests/e2e/scenarios/<scenario>/step_XX_*.rs`
 
-Scenario currently implemented:
+Scenarios currently implemented:
 
 - `printer_3d`
   - `step_01_spawn_agent`
   - `step_02_run_agent_completion`
   - `step_03_reflect_agent`
   - `step_04_finalize_chat_and_reflect`
+  - `step_05_continue_agent`
+- `project_create`
+  - `step_01_propose_project`
+  - `step_02_confirm_and_create`
+- `reference_import`
+  - `step_01_autonomous_import`
 
 ## Non-Negotiable Rules
 

@@ -97,17 +97,26 @@ creates a fresh temp workspace and database.
 
 #### Chat Helpers
 
-| Method                  | Purpose                                             |
-| ----------------------- | --------------------------------------------------- |
-| `env.chat()`            | `SessionChat` with real provider + chat tools       |
-| `env.reflection_chat()` | `SessionChat` with real provider + reflection tools |
+| Method       | Purpose                                       |
+| ------------ | --------------------------------------------- |
+| `env.chat()` | `SessionChat` with real provider + chat tools |
 
 #### Job Runners
 
-| Method                                              | Purpose                                                           |
-| --------------------------------------------------- | ----------------------------------------------------------------- |
-| `env.run_heartbeat(&session_id)`                    | Load prompt, run heartbeat via `chat_job`, return `JobTranscript` |
-| `env.run_reflection(&session_id, previous_handoff)` | Load + interpolate reflection prompt, run with reflection tools   |
+| Method                                    | Purpose                                                         |
+| ----------------------------------------- | --------------------------------------------------------------- |
+| `env.run_reflection(&session_id, &agent)` | Load + run reflection agent, returns `(String, RunMetadata)` |
+
+#### Completion / Background Helpers
+
+| Method                                                               | Purpose                                                    |
+| -------------------------------------------------------------------- | ---------------------------------------------------------- |
+| `env.chat_with_completion_watcher()`                                 | `SessionChat` with completion watcher enabled              |
+| `env.wait_for_continuation_response(&session_id, since_count, secs)` | Wait for background task continuation response             |
+| `env.wait_for_agents(&session_id, timeout_secs)`                     | Wait for agent tasks to complete                           |
+| `env.wait_for_system_message(&session_id, pattern, timeout_secs)`    | Wait for system message matching pattern                   |
+| `env.stop_all_agents()`                                              | Stop all running agents, returns count                     |
+| `env.stop_and_reset_agent(&agent_id)`                                | Stop and reset a specific agent                            |
 
 #### Agent Helpers
 
@@ -117,24 +126,40 @@ creates a fresh temp workspace and database.
 
 #### Assertion Helpers
 
-| Method                                         | Purpose                                           |
-| ---------------------------------------------- | ------------------------------------------------- |
-| `env.workspace_file_exists("relative/path")`   | Check file exists in temp workspace               |
-| `env.read_workspace_file("relative/path")`     | Read file content from temp workspace             |
-| `env.list_notes()`                             | List all files under `knowledge/notes/`           |
-| `env.list_references()`                        | List all files under `knowledge/references/`      |
-| `env.find_file_containing("subdir", "needle")` | Recursive content search under a workspace subdir |
+| Method                                                            | Purpose                                           |
+| ----------------------------------------------------------------- | ------------------------------------------------- |
+| `env.workspace_file_exists("relative/path")`                      | Check file exists in temp workspace               |
+| `env.read_workspace_file("relative/path")`                        | Read file content from temp workspace             |
+| `env.list_notes()`                                                | List all files under `knowledge/notes/`           |
+| `env.list_references()`                                           | List all files under `knowledge/references/`      |
+| `env.find_file_containing("subdir", "needle")`                    | Recursive content search under a workspace subdir |
+| `env.collect_tool_calls(&session_id)`                             | Collect all tool calls from session               |
+| `env.collect_web_fetch_metrics(&session_id)`                      | Gather web fetch statistics                       |
+| `env.assert_research_quality(findings, metrics, domains, keywords)` | Assert research quality markers                   |
+| `env.assert_notes_contain_any(&[needles], description)`           | Assert workspace notes contain any of specified strings |
+| `env.assert_diary_exists()`                                       | Returns diary content if it exists                |
+| `env.workspace_path()`                                            | Returns workspace directory path                  |
 
 #### Diagnostic Logging
 
-| Method                                  | Purpose                                                  |
-| --------------------------------------- | -------------------------------------------------------- |
-| `env.log_session("label", &session_id)` | Dump all messages from a session into the diagnostic log |
-| `env.log("custom message")`             | Add a note to the diagnostic log                         |
+| Method                                                   | Purpose                                                       |
+| -------------------------------------------------------- | ------------------------------------------------------------- |
+| `env.log_session_json("label", &session_id)`             | Dump all messages from a session into the diagnostic log      |
+| `env.log_session_json_since("label", &session_id)`       | Logs messages added since last `log_session_json` for session |
+| `env.collect_session_json(&session_id)`                   | Get all session messages as JSON                              |
+| `env.log("custom message")`                              | Add a note to the diagnostic log                              |
 
 On drop, the diagnostic log is written to
 `e2e-output/<timestamp>_<test_name>/diagnostic.log` and printed to stderr with
 `--nocapture`.
+
+#### Transcript / Snapshot Helpers
+
+| Method                                                     | Purpose                                          |
+| ---------------------------------------------------------- | ------------------------------------------------ |
+| `env.session_from_transcript(&[json_values])`              | Create session from transcript JSON array        |
+| `env.write_workspace_archive(path)`                        | Write workspace to tar.zst                       |
+| `env.install_web_cache_fixture(&session_id, &fixture_dir)` | Install web cache fixture for a session          |
 
 ### Writing a New Live Test
 
@@ -147,9 +172,10 @@ async fn my_live_test() {
         ("assistant", "Hi!"),
     ]).await;
 
-    let result = env.run_heartbeat(&session).await;
-    env.log_session("heartbeat", &session).await;
+    let chat = env.chat();
+    let (result, _metadata) = chat.chat(&session, "What is 2+2?", None).await.unwrap();
+    env.log_session_json("chat", &session).await;
 
-    assert!(!result.result.message.trim().is_empty());
+    assert!(!result.message.trim().is_empty());
 }
 ```

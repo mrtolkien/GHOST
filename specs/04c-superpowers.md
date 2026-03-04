@@ -1,3 +1,11 @@
+https://github.com/obra/superpowers
+
+https://github.com/nyldn/claude-octopus
+
+https://github.com/gsd-build/get-shit-done
+
+---
+
 Claude Code has plugins with skills:
 
 - "Superpowers"

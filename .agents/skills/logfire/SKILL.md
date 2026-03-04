@@ -53,19 +53,43 @@ These columns have efficient indexes — always filter on them:
 
 ## Ghost Span Names (What to Query)
 
-| `span_name`           | What it represents            | Key attributes                          |
-| --------------------- | ----------------------------- | --------------------------------------- |
-| `llm`                 | LLM provider call             | `gen_ai.*` fields (model, tokens, etc.) |
-| `agent`               | Full agent run                | `gen_ai.agent.name`, `gen_ai.agent.id`  |
-| `message`             | Discord message received      | `author`, `channel_id`, `content_len`   |
-| `tool: {tool_name}`   | Single tool execution         | Tool-specific fields                    |
-| `tool executed`       | Tool execution log event      | `output_len`                            |
-| `execute`             | Tool execute fn call          | `tool` name                             |
-| `reflection`          | Reflection job run            | `session_id`, `agent_name`              |
-| `embed`               | Embedding pipeline            | `source_id`, `source_table`             |
-| `watcher: {kind}`     | File watcher event            | `path`                                  |
-| `Chat error`          | Error handling a chat message | `error`, `session_id`                   |
-| `check_idle_sessions` | Idle session checker          | —                                       |
+| `span_name`                    | What it represents              | Key attributes                          |
+| ------------------------------ | ------------------------------- | --------------------------------------- |
+| `boot ghost`                   | Daemon startup                  | —                                       |
+| `create provider`              | Provider initialization         | `provider`, `endpoint`                  |
+| `create session_chat`          | Session chat setup              | —                                       |
+| `orchestrate response`         | Chat turn orchestration         | `session_id`                            |
+| `request completion`           | LLM provider call               | `gen_ai.*` fields (model, tokens, etc.) |
+| `execute agent`                | Full agent run                  | `gen_ai.agent.name`, `gen_ai.agent.id`  |
+| `run lua agent`                | Lua agent session               | `gen_ai.agent.name`                     |
+| `run lua agent with history`   | Agent with message history      | `gen_ai.agent.name`                     |
+| `start agent`                  | Agent spawn                     | `gen_ai.agent.name`                     |
+| `resume agent bg`              | Background agent resume         | `agent_id`                              |
+| `execute resume`               | Resume execution                | —                                       |
+| `receive discord message`      | Incoming Discord message        | `author`, `channel_id`, `content_len`   |
+| `send message`                 | Outgoing message                | —                                       |
+| `run tool`                     | Single tool execution           | `gen_ai.tool.name` + tool-specific      |
+| `run tools`                    | Tool execution batch            | —                                       |
+| `embed source`                 | Single embedding                | `source_id`, `source_table`             |
+| `embed batch`                  | Batch embedding                 | —                                       |
+| `embed sources`                | Embedding pipeline              | —                                       |
+| `reconcile embeddings`         | Embedding reconciliation        | —                                       |
+| `process file_change`          | File watcher event (single)     | `kind`, `path`                          |
+| `process file_changes`         | File watcher events (batch)     | —                                       |
+| `reboot session`               | Session reboot                  | `old_session_id`                        |
+| `start scheduler`              | Scheduler startup               | —                                       |
+| `start watcher`                | Watcher startup                 | —                                       |
+| `import page`                  | Reference import (page)         | `topic`                                 |
+| `import git`                   | Reference import (git)          | `topic`                                 |
+| `import crawl`                 | Reference import (crawl)        | `topic`                                 |
+| `import references`            | Reference import (pipeline)     | `topic`                                 |
+| `fetch url crawl4ai`           | URL fetch via Crawl4AI          | `url`                                   |
+| `fetch url reqwest`            | URL fetch via reqwest           | `url`                                   |
+| `search web`                   | Web search                      | `query`                                 |
+
+> **Note:** `Chat error` is a log event (not a span) — query it with
+> `WHERE kind = 'log' AND message LIKE '%Chat error%'`. Other error log events follow
+> a similar pattern.
 
 ## Accessing JSON Attributes
 
@@ -102,7 +126,7 @@ SELECT attributes->>'gen_ai.request.model' as model,
        SUM((attributes->'gen_ai.usage.output_tokens')::int) as output_tok,
        AVG(duration) as avg_duration_s
 FROM records
-WHERE span_name = 'llm'
+WHERE span_name = 'request completion'
   AND attributes->>'gen_ai.usage.input_tokens' IS NOT NULL
 GROUP BY model
 ```
@@ -124,7 +148,7 @@ SELECT attributes->>'gen_ai.agent.name' as agent,
        attributes->>'gen_ai.agent.id' as session,
        duration
 FROM records
-WHERE span_name = 'agent'
+WHERE span_name = 'execute agent'
 ORDER BY start_timestamp DESC
 LIMIT 10
 ```
@@ -132,12 +156,12 @@ LIMIT 10
 ### Tool execution frequency
 
 ```sql
-SELECT attributes->>'tool' as tool_name,
+SELECT attributes->>'gen_ai.tool.name' as tool_name,
        COUNT(*) as cnt,
        AVG(duration) as avg_s
 FROM records
-WHERE span_name = 'execute'
-  AND attributes->>'tool' IS NOT NULL
+WHERE span_name = 'run tool'
+  AND attributes->>'gen_ai.tool.name' IS NOT NULL
 GROUP BY tool_name
 ORDER BY cnt DESC
 ```

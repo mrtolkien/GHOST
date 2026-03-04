@@ -13,14 +13,22 @@ User-facing docs live in `docs/` (Astro Starlight).
 
 ## Which File to Update
 
-| Change type         | Doc file                                                 |
-| ------------------- | -------------------------------------------------------- |
-| CLI changes         | `docs/src/content/docs/reference/cli.md`                 |
-| Config changes      | `docs/src/content/docs/getting-started/configuration.md` |
-| Tool changes        | `docs/src/content/docs/features/tools-*.md`              |
-| New features        | relevant page under `docs/src/content/docs/features/`    |
-| Workspace/bootstrap | `docs/src/content/docs/getting-started/workspace.mdx`    |
-| Provider changes    | `docs/src/content/docs/ghost/providers.md`               |
+| Change type            | Doc file                                                                                          |
+| ---------------------- | ------------------------------------------------------------------------------------------------- |
+| CLI changes            | `docs/src/content/docs/reference/cli.md`                                                          |
+| Config changes         | `docs/src/content/docs/getting-started/configuration.md`                                          |
+| Core tools             | `docs/src/content/docs/skills-and-tools/core-tools.md`                                            |
+| Knowledge tools        | `docs/src/content/docs/knowledge/tools.md`                                                        |
+| Web research tools     | `docs/src/content/docs/web-research/tools.md`                                                     |
+| Workspace/bootstrap    | `docs/src/content/docs/getting-started/workspace.mdx`                                             |
+| Provider changes       | `docs/src/content/docs/ghost/providers.md`                                                        |
+| Agent changes          | `docs/src/content/docs/agents/` (introduction.md, syntax.md, context.md, cron.md, agent-control.md) |
+| Chat/session changes   | `docs/src/content/docs/chat/` (sessions.md, compaction.md)                                        |
+| Knowledge features     | `docs/src/content/docs/knowledge/` (knowledge.mdx, reflection.md, tools.md)                       |
+| Skills & tools overview | `docs/src/content/docs/skills-and-tools/` (overview.md, creating-skills.md, default-skills.md, core-tools.md) |
+| Web research features  | `docs/src/content/docs/web-research/` (overview.md, tools.md)                                     |
+| Identity/interfaces    | `docs/src/content/docs/ghost/` (identity.md, interfaces.mdx, providers.md)                        |
+| Dependencies           | `docs/src/content/docs/reference/dependencies.md`                                                 |
 
 ## Build Verification
 

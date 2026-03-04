@@ -32,37 +32,49 @@ describes the action; the object describes what is acted upon. This keeps span n
 
 ### Current span names
 
-| Span Name              | Attributes (run-dependent)                    |
-| ---------------------- | --------------------------------------------- |
-| `boot ghost`           | —                                             |
-| `receive message`      | `author`, `channel_id`, `content_len`         |
-| `process message`      | `session_id`                                  |
-| `run agent`            | `gen_ai.agent.name`, `gen_ai.agent.id`        |
-| `continue agent`       | `gen_ai.agent.name`, `gen_ai.agent.id`        |
-| `start agent`          | `gen_ai.agent.name`                           |
-| `execute job`          | `job_name`, `model`                           |
-| `run heartbeat`        | `session_id`, `interface`                     |
-| `run reflection`       | `session_id`, `agent_name`                    |
-| `request completion`   | `gen_ai.system`, `gen_ai.request.model`, etc. |
-| `execute tool`         | `gen_ai.tool.name`, `params_preview`          |
-| `embed source`         | `source_table`, `source_id`                   |
-| `embed batch`          | `model`, `batch_size`                         |
-| `reconcile embeddings` | `embedded`, `skipped`                         |
-| `search web`           | `query`                                       |
-| `fetch url`            | `url`                                         |
-| `process file_change`  | `kind`, `path`                                |
-| `send message`         | `channel_id`, `content_len`                   |
-| `reboot session`       | `old_session_id`                              |
+| Span Name                      | Attributes (run-dependent)                    |
+| ------------------------------ | --------------------------------------------- |
+| `boot ghost`                   | —                                             |
+| `create provider`              | `provider`, `endpoint`                        |
+| `create session_chat`          | —                                             |
+| `embed batch`                  | `model`, `batch_size`                         |
+| `embed source`                 | `source_table`, `source_id`                   |
+| `embed sources`                | —                                             |
+| `execute agent`                | `gen_ai.agent.name`, `gen_ai.agent.id`        |
+| `execute resume`               | —                                             |
+| `fetch url crawl4ai`           | `url`                                         |
+| `fetch url reqwest`            | `url`                                         |
+| `import crawl`                 | `topic`                                       |
+| `import git`                   | `topic`                                       |
+| `import page`                  | `topic`                                       |
+| `import references`            | `source`, `topic`, `url`                      |
+| `orchestrate response`         | `session_id`                                  |
+| `process file_changes`         | `count`                                       |
+| `process file_change`          | `kind`, `path`                                |
+| `reboot session`               | `old_session_id`                              |
+| `receive discord message`      | —                                             |
+| `reconcile embeddings`         | —                                             |
+| `request completion`           | `gen_ai.system`, `gen_ai.request.model`, etc. |
+| `resume agent bg`              | `agent_id`                                    |
+| `run lua agent`                | —                                             |
+| `run lua agent with history`   | —                                             |
+| `run tool`                     | `gen_ai.tool.name`, `params_preview`          |
+| `run tools`                    | —                                             |
+| `search web`                   | `query`                                       |
+| `send message`                 | `channel_id`, `content_len`                   |
+| `start agent`                  | `gen_ai.agent.name`                           |
+| `start scheduler`              | —                                             |
+| `start watcher`                | —                                             |
 
 ### Bad vs Good
 
-| Bad (high cardinality)      | Good                  |
-| --------------------------- | --------------------- |
-| `tool: note_write`          | `execute tool`        |
-| `watcher: note`             | `process file_change` |
-| `agent: research-agent`     | `run agent`           |
-| `openai_compatible.request` | `request completion`  |
-| `ghost.startup`             | `boot ghost`          |
+| Bad (high cardinality)      | Good                     |
+| --------------------------- | ------------------------ |
+| `tool: note_write`          | `run tool`               |
+| `watcher: note`             | `process file_change`    |
+| `agent: research-agent`     | `execute agent`          |
+| `openai_compatible.request` | `request completion`     |
+| `ghost.startup`             | `boot ghost`             |
 
 ## OTel GenAI Semantic Conventions (Mandatory for Provider Calls)
 
@@ -81,9 +93,9 @@ All LLM provider calls must record these fields on the `request completion` span
 
 ## Span Hierarchy — Keep It Shallow (2-3 Levels Max)
 
-- `receive message` -> `request completion` / `execute tool`
-- `run agent` -> `request completion` / `execute tool`
-- `run reflection` -> `run agent` -> `request completion` / `execute tool`
+- `receive discord message` -> `orchestrate response` -> `request completion` / `run tool`
+- `execute agent` / `run lua agent` -> `request completion` / `run tool`
+- `boot ghost` -> `start scheduler` / `start watcher` / `create provider`
 - Never wrap a single delegation call in a span
 
 ## Implementation Rules
