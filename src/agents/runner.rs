@@ -4,6 +4,7 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
+use tracing::Instrument;
 
 use crate::chat::{RunMetadata, SessionChat};
 use crate::config::{CompactionConfig, Config};
@@ -810,37 +811,45 @@ struct BackgroundTask {
 }
 
 fn spawn_background_run(task: BackgroundTask, args: HashMap<String, String>) -> JoinHandle<()> {
-    tokio::spawn(async move {
-        let result = execute_agent(
-            &task.db,
-            &task.config,
-            &task.agent_name,
-            args,
-            &task.agent_session_id,
-            &task.cancel_token,
-            task.parent_session_id.as_deref(),
-        )
-        .await;
+    let span = tracing::Span::current();
+    tokio::spawn(
+        async move {
+            let result = execute_agent(
+                &task.db,
+                &task.config,
+                &task.agent_name,
+                args,
+                &task.agent_session_id,
+                &task.cancel_token,
+                task.parent_session_id.as_deref(),
+            )
+            .await;
 
-        finish_background(task, result).await;
-    })
+            finish_background(task, result).await;
+        }
+        .instrument(span),
+    )
 }
 
 fn spawn_background_resume(task: BackgroundTask, prompt: String) -> JoinHandle<()> {
-    tokio::spawn(async move {
-        let result = execute_resume(
-            &task.db,
-            &task.config,
-            &task.agent_name,
-            &prompt,
-            &task.agent_session_id,
-            &task.cancel_token,
-            // Resume has no parent session context
-        )
-        .await;
+    let span = tracing::Span::current();
+    tokio::spawn(
+        async move {
+            let result = execute_resume(
+                &task.db,
+                &task.config,
+                &task.agent_name,
+                &prompt,
+                &task.agent_session_id,
+                &task.cancel_token,
+                // Resume has no parent session context
+            )
+            .await;
 
-        finish_background(task, result).await;
-    })
+            finish_background(task, result).await;
+        }
+        .instrument(span),
+    )
 }
 
 async fn finish_background(task: BackgroundTask, result: Result<AgentResult, AgentError>) {
@@ -896,85 +905,90 @@ fn spawn_children_inner(
         let db = db.clone();
         let config = config.clone();
         let parent_id = parent_session_id.to_string();
+        let span = tracing::Span::current();
 
-        tokio::spawn(async move {
-            let agent_session_id = match db::sessions::create_agent_session(&db).await {
-                Ok(id) => id,
-                Err(e) => {
-                    logfire::error!(
-                        "failed to create session for spawned agent",
-                        agent = req.agent.clone(),
-                        error = e.to_string(),
-                    );
-                    return;
+        tokio::spawn(
+            async move {
+                let agent_session_id = match db::sessions::create_agent_session(&db).await {
+                    Ok(id) => id,
+                    Err(e) => {
+                        logfire::error!(
+                            "failed to create session for spawned agent",
+                            agent = req.agent.clone(),
+                            error = e.to_string(),
+                        );
+                        return;
+                    }
+                };
+
+                let run_id = match db::agent_runs::create_agent_run(
+                    &db,
+                    &req.agent,
+                    Some(&parent_id),
+                    &agent_session_id,
+                )
+                .await
+                {
+                    Ok(id) => id,
+                    Err(e) => {
+                        logfire::error!(
+                            "failed to create run for spawned agent",
+                            agent = req.agent.clone(),
+                            error = e.to_string(),
+                        );
+                        return;
+                    }
+                };
+
+                let cancel_token = CancellationToken::new();
+
+                logfire::info!(
+                    "spawning child agent",
+                    agent = req.agent.clone(),
+                    parent_session_id = parent_id.clone(),
+                    depth = child_depth,
+                );
+
+                let result = execute_agent(
+                    &db,
+                    &config,
+                    &req.agent,
+                    req.args,
+                    &agent_session_id,
+                    &cancel_token,
+                    Some(&parent_id),
+                )
+                .await;
+
+                let (status, transcript) = match result {
+                    Ok(agent_result) => {
+                        spawn_children_inner(
+                            agent_result.spawns,
+                            &db,
+                            &config,
+                            &agent_session_id,
+                            child_depth,
+                        );
+                        ("ok", agent_result.findings)
+                    }
+                    Err(e) => {
+                        logfire::error!(
+                            "spawned agent failed",
+                            agent = req.agent.clone(),
+                            error = e.to_string(),
+                        );
+                        let partial = last_assistant_message(&db, &agent_session_id).await;
+                        ("failed", partial)
+                    }
+                };
+
+                if let Err(e) = db::agent_runs::finish_run(&db, &run_id, status, &transcript).await
+                {
+                    logfire::error!("failed to finish spawned agent run", error = e.to_string());
                 }
-            };
-
-            let run_id = match db::agent_runs::create_agent_run(
-                &db,
-                &req.agent,
-                Some(&parent_id),
-                &agent_session_id,
-            )
-            .await
-            {
-                Ok(id) => id,
-                Err(e) => {
-                    logfire::error!(
-                        "failed to create run for spawned agent",
-                        agent = req.agent.clone(),
-                        error = e.to_string(),
-                    );
-                    return;
-                }
-            };
-
-            let cancel_token = CancellationToken::new();
-
-            logfire::info!(
-                "spawning child agent",
-                agent = req.agent.clone(),
-                parent_session_id = parent_id.clone(),
-                depth = child_depth,
-            );
-
-            let result = execute_agent(
-                &db,
-                &config,
-                &req.agent,
-                req.args,
-                &agent_session_id,
-                &cancel_token,
-                Some(&parent_id),
-            )
-            .await;
-
-            let (status, transcript) = match result {
-                Ok(agent_result) => {
-                    spawn_children_inner(
-                        agent_result.spawns,
-                        &db,
-                        &config,
-                        &agent_session_id,
-                        child_depth,
-                    );
-                    ("ok", agent_result.findings)
-                }
-                Err(e) => {
-                    logfire::error!(
-                        "spawned agent failed",
-                        agent = req.agent.clone(),
-                        error = e.to_string(),
-                    );
-                    let partial = last_assistant_message(&db, &agent_session_id).await;
-                    ("failed", partial)
-                }
-            };
-
-            if let Err(e) = db::agent_runs::finish_run(&db, &run_id, status, &transcript).await {
-                logfire::error!("failed to finish spawned agent run", error = e.to_string());
             }
-        });
+            .instrument(span),
+        );
     }
 }
 
