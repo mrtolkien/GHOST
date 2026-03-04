@@ -15,10 +15,13 @@ answer: "What are the open threads across days and sessions?"
 
 A persistent file-based TODO system for the pi coding agent:
 
+https://github.com/mitsuhiko/agent-stuff/blob/main/pi-extensions/todos.ts
+
 - Each TODO is a markdown file in `.pi/todos/<id>.md` with YAML frontmatter (status,
   tags, timestamps)
 - Individual CRUD operations: `create_todo`, `update_todo`, `list_todos`, `read_todo`,
-  `delete_todo`, plus `append_todo` for adding notes
+  `delete_todo`, plus `append_todo` for adding notes, but a single tool exposed to the
+  agent
 - Multi-session: `claim`/`release` mechanism prevents two agent sessions from working on
   the same TODO simultaneously
 - Tags for categorization and filtering
@@ -69,14 +72,14 @@ Projects in GHOST would combine ideas from all three:
 
 The two systems serve different purposes and coexist:
 
-| Aspect      | `todo` tool                     | Projects                        |
-| ----------- | ------------------------------- | ------------------------------- |
-| Scope       | Single session/job              | Cross-session, multi-day        |
-| Lifetime    | Dies with the session           | Persists until completed        |
-| Granularity | "Search for 3D printer reviews" | "Research and buy a 3D printer" |
-| Storage     | DB column (`session.todo_list`) | Files in `$WORKSPACE/projects/` |
-| Access      | Dedicated tool (5 actions)      | CLI commands via bash           |
-| Created by  | GHOST mid-task                  | GHOST or OPERATOR               |
+| Aspect      | `todo` tool                     | Projects                                                              |
+| ----------- | ------------------------------- | --------------------------------------------------------------------- |
+| Scope       | Single session/job              | Cross-session, multi-day                                              |
+| Lifetime    | Dies with the session           | Persists until completed                                              |
+| Granularity | "Search for 3D printer reviews" | "I want to buy a 3d printer in the future and am considering options" |
+| Storage     | DB column (`session.todo_list`) | Files in `$WORKSPACE/projects/`                                       |
+| Access      | Dedicated tool (5 actions)      | CLI commands via bash                                                 |
+| Created by  | GHOST mid-task                  | GHOST or OPERATOR                                                     |
 
 A project might spawn multiple sessions, each with their own `todo` list for the
 immediate work.
