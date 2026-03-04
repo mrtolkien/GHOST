@@ -77,7 +77,7 @@ impl OpenAiOAuthProvider {
     }
 
     #[tracing::instrument(
-        name = "request - openai oauth",
+        name = "request completion",
         skip_all,
         fields(
             gen_ai.system = "openai_oauth",
