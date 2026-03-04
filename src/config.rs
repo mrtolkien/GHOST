@@ -105,7 +105,12 @@ pub struct ModelSettings {
 #[serde(deny_unknown_fields)]
 pub struct DiscordSettings {
     pub enabled: Option<bool>,
-    pub allowed_user_id: Option<String>,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_string_or_vec",
+        skip_serializing_if = "Vec::is_empty"
+    )]
+    pub allowed_user_id: Vec<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -195,7 +200,7 @@ pub struct ModelConfig {
 #[derive(Debug, Clone, Serialize)]
 pub struct DiscordConfig {
     pub enabled: bool,
-    pub allowed_user_id: String,
+    pub allowed_user_ids: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -327,10 +332,10 @@ impl Config {
                     .as_ref()
                     .and_then(|d| d.enabled)
                     .unwrap_or(true),
-                allowed_user_id: settings
+                allowed_user_ids: settings
                     .discord
                     .as_ref()
-                    .and_then(|d| d.allowed_user_id.clone())
+                    .map(|d| d.allowed_user_id.clone())
                     .unwrap_or_default(),
             },
             embeddings: EmbeddingsConfig {
@@ -507,6 +512,24 @@ pub(crate) fn load_toml_value(path: &Path) -> Result<toml::Value, ConfigError> {
     })
 }
 
+/// Accept `"single_value"` or `["a", "b"]` and always produce a `Vec<String>`.
+fn deserialize_string_or_vec<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum StringOrVec {
+        Single(String),
+        Multiple(Vec<String>),
+    }
+
+    match StringOrVec::deserialize(deserializer)? {
+        StringOrVec::Single(s) => Ok(vec![s]),
+        StringOrVec::Multiple(v) => Ok(v),
+    }
+}
+
 fn expand_tilde(input: &str) -> Result<PathBuf, ConfigError> {
     if input == "~" {
         return env::var("HOME")
@@ -549,7 +572,7 @@ pub fn test_config(workspace: &std::path::Path) -> Config {
         },
         discord: DiscordConfig {
             enabled: false,
-            allowed_user_id: String::new(),
+            allowed_user_ids: Vec::new(),
         },
         embeddings: EmbeddingsConfig {
             url: "http://localhost:11434".to_string(),

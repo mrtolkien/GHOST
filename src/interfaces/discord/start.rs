@@ -88,7 +88,7 @@ pub async fn start_discord(
         return Ok(None);
     }
 
-    if config.discord.allowed_user_id.is_empty() {
+    if config.discord.allowed_user_ids.is_empty() {
         return Err(DiscordError::MissingAllowedUser);
     }
 
@@ -113,7 +113,7 @@ pub async fn start_discord(
         session_chat,
         db,
         config.clone(),
-        config.discord.allowed_user_id.clone(),
+        config.discord.allowed_user_ids.clone(),
     );
 
     let mut client = Client::builder(&token, intents)

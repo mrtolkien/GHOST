@@ -64,7 +64,7 @@ pub(super) struct Handler {
     session_chat: Arc<SessionChat>,
     db: GhostDb,
     config: Config,
-    allowed_user_id: String,
+    allowed_user_ids: Vec<String>,
     bot_user_id: OnceLock<String>,
     started_at: std::time::SystemTime,
 }
@@ -74,13 +74,13 @@ impl Handler {
         session_chat: Arc<SessionChat>,
         db: GhostDb,
         config: Config,
-        allowed_user_id: String,
+        allowed_user_ids: Vec<String>,
     ) -> Self {
         Self {
             session_chat,
             db,
             config,
-            allowed_user_id,
+            allowed_user_ids,
             bot_user_id: OnceLock::new(),
             started_at: std::time::SystemTime::now(),
         }
@@ -353,7 +353,8 @@ impl EventHandler for Handler {
         if msg.author.bot {
             return;
         }
-        if msg.author.id.to_string() != self.allowed_user_id {
+        let author_id = msg.author.id.to_string();
+        if !self.allowed_user_ids.iter().any(|id| id == &author_id) {
             return;
         }
         if *msg.timestamp < self.started_at {

@@ -92,52 +92,9 @@ impl PromptRenderer {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::test_config;
     use std::fs;
     use tempfile::TempDir;
-
-    fn test_config(workspace: &std::path::Path) -> Config {
-        use crate::config::{
-            CompactionConfig, DebugConfig, DiscordConfig, EmbeddingsConfig, ModelsConfig,
-            SearchProviderConfig, TimingConfig, WebConfig,
-        };
-        use std::collections::BTreeMap;
-
-        Config {
-            workspace: workspace.to_path_buf(),
-            models: ModelsConfig {
-                default: "main".to_string(),
-                aliases: BTreeMap::new(),
-            },
-            discord: DiscordConfig {
-                enabled: false,
-                allowed_user_id: String::new(),
-            },
-            embeddings: EmbeddingsConfig {
-                url: "http://localhost:11434".to_string(),
-                model: "test".to_string(),
-                batch_size: 10,
-                dimension: 1024,
-            },
-            timing: TimingConfig {
-                reflection_idle_minutes: 120,
-                scheduler_tick_seconds: 10,
-            },
-            compaction: CompactionConfig {
-                threshold: 0.7,
-                keep_window: 10,
-                mask_preview_chars: 200,
-                instructions: None,
-            },
-            web: WebConfig {
-                search_max_results: 5,
-                crawl4ai_url: None,
-                search_provider: SearchProviderConfig::Brave,
-            },
-            debug: DebugConfig {
-                save_requests: false,
-            },
-        }
-    }
 
     #[test]
     fn full_render_injects_identity_and_runtime_context() {
