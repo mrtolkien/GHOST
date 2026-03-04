@@ -114,6 +114,45 @@ pub fn build_ghost_diary() -> String {
     String::new()
 }
 
+/// Scan `projects/` for active projects and build a summary section for the
+/// system prompt. Returns empty string if no active projects exist.
+#[tracing::instrument(skip_all, level = "debug", fields(workspace = %workspace.display()))]
+pub fn build_active_projects(workspace: &Path) -> String {
+    let projects = match crate::projects::list_projects(workspace) {
+        Ok(p) => p,
+        Err(_) => return String::new(),
+    };
+
+    let active: Vec<_> = projects
+        .iter()
+        .filter(|(_, p)| p.front.status == crate::projects::ProjectStatus::Active)
+        .collect();
+
+    if active.is_empty() {
+        return String::new();
+    }
+
+    let mut lines = Vec::new();
+    lines.push("## Active Projects\n".to_string());
+
+    for (slug, project) in &active {
+        let (done, total) = crate::projects::task_summary(workspace, slug).unwrap_or((0, 0));
+        lines.push(format!(
+            "- **{}** (`{}`): {}/{} tasks done",
+            project.front.title, slug, done, total
+        ));
+    }
+
+    lines.push(String::new());
+    lines.push(
+        "Use `ghost project` commands to manage projects. \
+         Read the `project-manager` skill for workflow guidance."
+            .to_string(),
+    );
+
+    lines.join("\n")
+}
+
 fn read_optional_file(path: &Path) -> String {
     std::fs::read_to_string(path).unwrap_or_default()
 }
@@ -216,6 +255,35 @@ mod tests {
         let dir = TempDir::new().unwrap();
         let info = build_system_info(dir.path());
         assert!(!info.contains("Shell tools"));
+    }
+
+    #[test]
+    fn active_projects_empty_when_no_projects() {
+        let dir = TempDir::new().unwrap();
+        let result = build_active_projects(dir.path());
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn active_projects_shows_active_only() {
+        let dir = TempDir::new().unwrap();
+        fs::create_dir_all(dir.path().join("projects")).unwrap();
+
+        // Create an active project with a task
+        crate::projects::init_project(dir.path(), "Active One", &[]).unwrap();
+        crate::projects::create_task(dir.path(), "active_one", "Task A", &[], "").unwrap();
+
+        // Create a paused project
+        let (slug, _) = crate::projects::init_project(dir.path(), "Paused One", &[]).unwrap();
+        let mut p = crate::projects::read_project(dir.path(), &slug).unwrap();
+        p.front.status = crate::projects::ProjectStatus::Paused;
+        crate::projects::write_project(dir.path(), &slug, &p.front, &p.body).unwrap();
+
+        let result = build_active_projects(dir.path());
+        assert!(result.contains("Active One"));
+        assert!(result.contains("0/1 tasks done"));
+        assert!(!result.contains("Paused One"));
+        assert!(result.contains("ghost project"));
     }
 
     #[test]

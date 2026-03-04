@@ -211,4 +211,6 @@ When working on code tasks:
 
 {{ ghost_diary }}
 
+{{ active_projects }}
+
 {{ ghost_skills }}
