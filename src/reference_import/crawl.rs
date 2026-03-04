@@ -15,6 +15,7 @@ use super::topic::ensure_topic_hierarchy;
 use super::types::{ImportConfig, ImportError, ImportResult, ImportSource};
 
 /// Import references by BFS-crawling a website, following same-host links.
+#[tracing::instrument(name = "import crawl", skip_all, fields(topic = %config.topic))]
 pub async fn import_crawl(
     db: &GhostDb,
     workspace: &Path,

@@ -16,6 +16,7 @@ use super::types::{ImportConfig, ImportError, ImportResult, ImportSource};
 /// Two-phase clone for large repos:
 /// 1. `git clone --no-checkout --depth 1 --filter=blob:none`
 /// 2. sparse-checkout + selective checkout
+#[tracing::instrument(name = "import git", skip_all, fields(topic = %config.topic))]
 pub async fn import_git(
     db: &GhostDb,
     workspace: &Path,

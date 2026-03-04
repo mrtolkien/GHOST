@@ -81,6 +81,7 @@ pub async fn execute(command: ReferenceCommand) -> Result<(), GhostError> {
 }
 
 #[allow(clippy::too_many_arguments)]
+#[tracing::instrument(name = "import references", skip_all, fields(source, topic, url))]
 async fn cmd_import(
     db: &db::GhostDb,
     config: &crate::config::Config,

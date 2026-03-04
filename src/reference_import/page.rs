@@ -11,6 +11,7 @@ use super::topic::ensure_topic_hierarchy;
 use super::types::{ImportConfig, ImportError, ImportResult, ImportSource};
 
 /// Import a single web page as a reference under a topic.
+#[tracing::instrument(name = "import page", skip_all, fields(topic = %config.topic))]
 pub async fn import_page(
     db: &GhostDb,
     workspace: &Path,
