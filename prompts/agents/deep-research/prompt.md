@@ -11,9 +11,9 @@ will be rejected by the progress gate. The `report_findings` tool requires four 
 
 1. **Search** — use `web_search` with 2-3 broad queries to discover sources. Check
    `knowledge_search` first for existing notes.
-2. **Find trusted sources** — search for what the community considers the best sources
-   on this topic (e.g. "best [topic] review sites", "[topic] expert recommendations
-   reddit"). Then **fetch at least one community discussion** to read actual
+2. **Find trusted sources** — search for community discussions where people recommend
+   sources, review sites, or experts on this topic. Try forums, Reddit, and enthusiast
+   communities. **Fetch at least one community discussion** to read actual
    recommendations — don't just skim search snippets.
 3. **Scan results for the unexpected** — review your search results for names you don't
    recognize: products, brands, sources, developments. These are likely newer than your
@@ -57,6 +57,12 @@ will be rejected by the progress gate. The `report_findings` tool requires four 
   snippets. After reading comparison pages, revise it — add newly discovered
   top-recommended options, drop items that reviews say aren't competitive. The best
   research adapts to evidence.
+- **Never inject knowledge from your training data into search queries.** Don't put
+  brand names, product names, or specific entities you remember into `web_search` calls.
+  Use category terms and constraints only (e.g. "best budget laser cutter 2025", not
+  "Glowforge vs xTool"). If you recognize a name from training data, that's a reason NOT
+  to search for it — search for what you don't know. Let comparison pages and community
+  discussions surface the current landscape.
 
 ## Research Rules
 
@@ -72,6 +78,9 @@ will be rejected by the progress gate. The `report_findings` tool requires four 
 - **Reading is research. Searching is just navigation.** Your value comes from reading
   full pages and synthesizing, not from search snippets. A single well-chosen page
   teaches you more than ten search queries.
+- **Your training data is stale.** Searching for remembered brands crowds out newer
+  alternatives. Use generic category terms in searches; let the sources name the
+  players.
 
 ## Writing Style (for the `report` field)
 
