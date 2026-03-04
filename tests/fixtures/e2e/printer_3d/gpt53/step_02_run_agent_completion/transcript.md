@@ -200,12 +200,12 @@ Continue and finish this research task.
 {
   "categories": [
     "notes",
-    "references",
     "diary",
+    "references",
     "topics"
   ],
   "limit": 10,
-  "query": "enclosed consumer 3D printer 2026 review Bambu Lab P1S Qidi Plus4 Creality K2 Anycubic Kobra S1",
+  "query": "enclosed consumer 3D printers home use 2026 around $1000 pricing reliability reviews",
   "topic": ""
 }
 ```
@@ -231,21 +231,21 @@ No results found.
 ```json
 {
   "max_results": 8,
-  "query": "best enclosed 3D printers 2026 home use review"
+  "query": "best enclosed 3D printer under $1500 2026 review"
 }
 ```
 - `web_search`
 ```json
 {
   "max_results": 8,
-  "query": "2025 2026 enclosed corexy 3d printer reviews P1S Qidi Plus4 Creality K2 Plus"
+  "query": "home enclosed 3D printer reliability review 2025 2026"
 }
 ```
 - `web_search`
 ```json
 {
   "max_results": 8,
-  "query": "reddit best enclosed 3d printer under 1000 2025"
+  "query": "Reddit enclosed 3D printer recommendation home use 2025 2026"
 }
 ```
 
@@ -257,68 +257,89 @@ No results found.
 ```text
 1. The Best 3D Printers We've Tested for 2026 | PCMag
    https://www.pcmag.com/picks/the-best-3d-printers
-   As for the materials you'll use to print with, most affordable 3D printers use the abovementioned FFF technique, in which plastic filament—available in spools—is melted and extruded, then solidifies to form the object. The two most common types of filament are acrylonitrile butadiene styrene (ABS) and polylactic acid (PLA). Each has slightly different properties. For example, ABS melts at a higher temperature than PLA and is more flexible, but emits fumes when melted that many users find unpleasant, and it requires a heated print bed. PLA prints look smooth, but they tend to be on the brittle side. Other materials used in FFF printing include, but are not limited to, high-impact polystyrene (HIPS); composite filaments made of wood, bronze, and copper; UV-luminescent filaments; nylon; Tritan copolyester; polyvinyl alcohol (PVA); polyethylene terephthalate (PETT); polycarbonate; conductive PLA and ABS; plasticized copolyamide thermoplastic elastomer (PCTPE); and PC-ABS. Each material has a different melting point, so use of some exotic filaments is limited to printers designed for them or ones with software that lets you control the extruder temperature. So your printer needs to support a given kind of filament to use it. Filament comes in two diameters—1.85mm and 3mm—with most models using the smaller of the two. Filament is sold in spools, generally 1 kilogram (2.2 pounds), and costs $20 to $50 per kilogram for ABS and PLA. Although many 3D printers will accept generic spools, some companies' printers use proprietary spools or cartridges. These may contain an RFID chip that allows a printer to identify the filament type and properties but restricts the material to the manufacturer's compatible printers. Make sure the filament is the right diameter for your printer, and that the spool is the right size. In many cases, you can buy or make (even 3D print…[5440b total]
+   The Qidi Q2 is a reasonably priced workhorse positioned between serious hobbyist rigs and prosumer 3D printers. The Q2 is a fully enclosed, heated-chamber unit that can print with a wide variety of materials, including engineering-grade filaments.
+   Sources: google #1, startpage #1, brave #2 · score: 7.5 · 2026-01-14T00:00:00
+
+2. The 3 Best 3D Printers of 2026 | Reviews by Wirecutter - NYTimes.com
+   https://www.nytimes.com/wirecutter/reviews/best-home-3d-printer/
+   Nov 25, 2025 ... The big sibling to our top pick, this printer adds an enclosed print space, a tougher nozzle, and other features for printing engineering-grade ...
+   Sources: google #3, startpage #5 · score: 1.1
+
+3. 10 Best 3D Printers of 2026 | Complete Buyer's Guide (Budget to ...
+   https://www.youtube.com/watch?v=xQ8CclimvDg
+   Jan 5, 2026 ... Looking for the best 3D printer in 2026? I've reviewed my top 10 3D printers across all budgets - from affordable beginner machines under ...
+   Sources: startpage #6 · score: 0.2
+
+4. How to Choose the Best Cheap 3D Printer for Home Use in 2026
+   https://www.thepaintedhinge.com/how-to-choose-the-best-cheap-3d-printer-for-home-use-in-2026/
+   2026/02/13 — Best Home 3D Printer Under $500: Bambu Lab P1S · 250 mm x 250 mm x 250 mm build volume. · The fully enclosed design of the printer. · Built-in air ...
+   Sources: google #7 · score: 0.1
+
+5. 5 Best Budget FDM 3D Printers Under $500 in 2026 - FindArticles
+   https://www.findarticles.com/5-best-budget-fdm-3d-printers-under-500-in-2026/
+   2026/01/30 — Priced at $219, the Bambu Lab A1 mini is a good and cheap 3D printer. This compact printer focuses on simplicity and ease of use. It has a build ...
+   Sources: google #9 · score: 0.1
+
+6. Purchase Advice Megathread - January 2026 : r/3Dprinting - Reddit
+   https://www.reddit.com/r/3Dprinting/comments/1q0w7x6/purchase_advice_megathread_janua…[2826b total]
 ```
 - error=false
 ```text
-1. Best 3D Printers 2026: Our Top Picks in 24 Categories - All3DP
-   https://all3dp.com/1/best-3d-printer-reviews-top-3d-printers-home-3-d-printer-3d/
-   The Creality K2 Pro is a versatile 3D printer capable of multicolor printing. It has AI-assisted print monitoring, fully automatic calibration, and a relatively ...
+1. The Best 3D Printers We've Tested for 2026 | PCMag
+   https://www.pcmag.com/picks/the-best-3d-printers
+   Jan 14, 2026 — Best 3D Printer Overall. Bambu Lab P2S · Excellent print quality and reliability · Crisp 1080p camera for monitoring and timelapses ; Best Budget ...
    Sources: google #1, startpage #1 · score: 4.0
 
-2. P1S - still a solid choice in 2025? : r/BambuLab - Reddit
-   https://www.reddit.com/r/BambuLab/comments/1lhyg12/p1s_still_a_solid_choice_in_2025/
-   Hey all! I'm looking to buy my first printer. After much lurking, the upcoming 3rd anniversary sale has me locked in and ready to pull the trigger on a ...
-   Sources: google #3, startpage #3 · score: 1.3
+2. The 3 Best 3D Printers of 2026 | Reviews by Wirecutter - NYTimes.com
+   https://www.nytimes.com/wirecutter/reviews/best-home-3d-printer/
+   Nov 25, 2025 ... It produces prints about as quickly and reliably as our top pick, the A1 Mini, but adds features for people who want the reliability of a heated ...
+   Sources: google #2, startpage #3 · score: 1.7
 
-3. Best Enclosed 3d Printer: Expert Analyzed and Rigorously Tested
-   https://geekyelectronics.com/best-enclosed-3d-printer/
-   What Are the Best Enclosed 3d Printer Models for Beginners in 2025? Based on my ease-of-use testing and out-of-the-box performance, I found the QIDI Q1 Pro and the FLASHFORGE AD5M Pro to be the best options for beginners.
-   Sources: duckduckgo #1 · score: 1.0
+3. The Best 3D Printers for Home, Workshop or Business in 2026
+   https://www.tomshardware.com/best-picks/best-3d-printers
+   Feb 12, 2026 ... One of the most popular 3D printers on the market right now – the Bambu Lab X1C – launched as a Kickstarter project in 2022. This is why I ...
+   Sources: google #3, startpage #2 · score: 1.7
 
-4. QIDI Q2 2025 Upgrade Review: Enclosed CoreXY Powerhouse for High-Temp Printing - 3D PUT
-   https://3dput.com/qidi-q2-2025-upgrade-review-enclosed-corexy-powerhouse-for-high-temp-printing/
-   Bottom line: The Q2 wins on hotend temperature and safety certifications. It’s the only printer in this bracket that can reliably print PPS-CF and PC-CF without aftermarket hotend upgrades.
-   Sources: brave #1 · score: 1.0
+4. Best 3D Printers 2026: Our Top Picks in 24 Categories | All3DP
+   https://all3dp.com/1/best-3d-printer-reviews-top-3d-printers-home-3-d-printer-3d/
+   It offers reliable performance, quiet operation, and smart features, making it ideal for efficient, vibrant, and enclosed desktop printing. Bambu Lab P1S Combo.
+   Sources: google #4, startpage #4 · score: 1.0
 
-5. Core-XY 3D Printers
-   https://top3dshop.com/3d-printers/core-xy-kinematic-type/
-   Creality K2 Plus Combo 3D Printer $1,649.00 In Stock Build volume 350 x 350 x 350 mm Layer Height 0.05–0.3 mm Technology FDM View add-ons & extras Add to Cart ...
-   Sources: google #6, startpage #5 · score: 0.7
+5. I reviewed more than 50 of the best 3D printers of 2026 - TechRadar
+   https://www.techradar.com/best/best-3d-printers
+   Feb 20, 2026 ... The Original Prusa Core One stands out for businesses for its professional-grade reliability, ease of integration into larger systems, and of ...
+   Sources: google #6, startpage #6 · score: 0.7
 
-6. Bambu Lab P1S vs Creality K1C vs Qidi Tech Plus 4: Is an Enclosed Printer Worth It for ASA/NYLON/PC? - 3D Printed Decor
-   https://3dprinteddecor.com/b…[3005b total]
+6. Best 3D Printer for Beginners in 2026? (Price, Precision, Quality) : r/3dprinter
+   https://www.reddit.com/r/3dprinter/comments/1r01xah/best_3d_printer_for_beginners_in_2026_price/
+   Bambu Lab A1 - $299 - it just works. It's very beginner friendly, reliable …[2856b total]
 ```
 - error=false
 ```text
-1. 3D printer recommendations for 2025? : r/gridfinity
-   https://www.reddit.com/r/gridfinity/comments/1i23bm9/3d_printer_recommendations_for_2025/
-   the Prusa mk4s is probably your safest bet under 1.5k. it's solid out of the box, works fine with macos (via Prusaslicer) and the support/ ...
-   Sources: google #1 · score: 1.0
+1. r/3dprinter on Reddit: 5 Best 3D Printer Options for your 2026 Creative Projects
+   https://www.reddit.com/r/3dprinter/comments/1re0fkg/5_best_3d_printer_options_for_your_2026_creative/
+   QIDI Q2 3D Printer (2025 Upgrade) – Professional enclosed FDM printer ... What is the best 3d printer with good print quality multi color and ...
+   Sources: google #9, startpage #1, brave #1 · score: 6.3 · 2026-02-25T05:01:17.032362
 
-2. Purchase Advice Megathread - December 2025 : r/3Dprinting - Reddit
-   https://www.reddit.com/r/3Dprinting/comments/1pb3zgi/purchase_advice_megathread_december_2025/
-   Dec 1, 2025 ... Best 3D printers under $1000 for 2025. Best 3D printer ... What enclosed filament printer +- 1k aud for total beginner. Interested in ...
-   Sources: startpage #1 · score: 1.0
+2. r/3Dprinting on Reddit: Purchase Advice Megathread - February 2026
+   https://www.reddit.com/r/3Dprinting/comments/1qsp6aq/purchase_advice_megathread_february_2026/
+   Jan 31, 2026 ... Anything that can run w10 + or 5y old linux will be able to slice and send print jobs to printer. But for 3d modeling something with 6cores and ...
+   Sources: google #1, startpage #4, brave #4 · score: 4.5
 
-3. Decent 3D printer for $400 in 2025? : r/3dprinter
-   https://www.reddit.com/r/3dprinter/comments/1n11hx0/decent_3d_printer_for_400_in_2025/
-   Hey there! I’m 13 and last year I got a Toybox 3D printer, but it's been kind of disappointing, so now I'm ready to upgrade. I've got $450 to spend, ...
-   Sources: google #2 · score: 0.5
+3. r/3dprinter on Reddit: Best 3D Printer for Beginners in 2026? (Price, Precision, Quality)
+   https://www.reddit.com/r/3dprinter/comments/1r01xah/best_3d_printer_for_beginners_in_2026_price/
+   Feb 9, 2026 ... FF AD5X - $339 - very fast, modern enough (auto leveling, dd extruder, quick swap noddles), supports up to 4 colors. Not as polished as Bambu ...
+   Sources: google #3, startpage #2, brave #2 · score: 4.0
 
-4. Best 3d Printer Under 1000 Reddit - Oreate AI Blog
-   http://oreateai.com/blog/best-3d-printer-under-1000-reddit/a82f0cdd4df53d58c0c8282c0f854f36
-   Jan 7, 2026 ... Explore top-rated 3D printers under $1000 according to Reddit users' experiences featuring Bambu Lab X1C, Prusa MK4 & Creality K1C.
-   Sources: startpage #2 · score: 0.5
+4. r/3Dprinting on Reddit: Purchase Advice Megathread - January 2026
+   https://www.reddit.com/r/3Dprinting/comments/1q0w7x6/purchase_advice_megathread_january_2026/
+   Jan 1, 2026 ... ... use a 3d printer to make tail molds. I got a ... But im looking for a good recommendation on a 3d printer where the bed goes up and down ..
+   Sources: google #7, startpage #7, brave #6 · score: 1.4
 
-5. Best budget 3d printer 2025? trying to get into the hobby without breaking ...
-   https://www.reddit.com/r/3dprinter/comments/1jqz25s/best_budget_3d_printer_2025_trying_to_get_into/
-   Otherwise, I'd go with A1 mini (or big for big stuff). Compact beast, fast, extremely reliable, very easy to use, and the quality is unmatched.
-   Sources: google #3 · score: 0.3
-
-6. Best 3D Printers of 2025! What Should YOU Buy? - YouTube
-   https://www.youtube.com/watch?v=LqIX_HtcIT8
-   Nov 27, 2025 ... ... $1000+ ▽▽▽▽ Bambu Lab H2S - https://tidd.ly/49vJQIZ Bambu ... Reddit | https://www.reddit.com/user/njtricker609 Disco…[2753b total]
+5. Best 3D Printer to Buy in 2026? (Price, Quality, Build Volume) : r/3dprinter
+   https://www.reddit.com/r/3dprinter/comments/1rjxlsa/best_3d_printer_to_buy_in_2026_price_quality/
+   10 hours ago ... Prusa or Bambu. Bambu has the best overall deal— price features and reliability. Avoid creality, you just want a tool not a project.
+   Sources: google #3, st…[3206b total]
 ```
 
 ### 7. assistant
@@ -332,8 +353,8 @@ No results found.
 - `web_search`
 ```json
 {
-  "max_results": 10,
-  "query": "reddit trusted 3d printer review sites Tom's Hardware CNC Kitchen Ellis Printables"
+  "max_results": 8,
+  "query": "Reddit trusted 3D printer review sites recommendations"
 }
 ```
 
@@ -343,35 +364,35 @@ No results found.
 
 - error=false
 ```text
-1. Three-Dimensional Hierarchical Cellulose Structures Based on ...
-   https://pubs.acs.org/doi/10.1021/cbe.4c00143
-   by S Liu · 2024 · Cited by 10 — In this Perspective, we critically examine the potential of various advanced biofabrication technologies in fabricating hierarchical 3D cellulose structures.
+1. Review sites have little overlap. Which are least biased, most trustworthy?
+   https://www.reddit.com/r/3Dprinting/comments/dguxnj/review_sites_have_little_overlap_which_are_least/
+   Oct 12, 2019 ... Wirecutter seems to be a good source (https://thewirecutter.com/reviews/best-home-3d-printer/). Tom's 15+ years ago was great, though their ...
    Sources: google #1, startpage #1 · score: 4.0
 
-2. Datasets Benchmarks 2024 - NeurIPS
-   https://neurips.cc/virtual/2024/events/datasets-benchmarks-2024
-   In this work, we introduce BlindWays, the first multimodal motion benchmark for pedestrians who are blind. We collect 3D motion data using wearable sensors with ...
-   Sources: google #2, startpage #3 · score: 1.7
+2. Best 3D printer? : r/3dprinter - Reddit
+   https://www.reddit.com/r/3dprinter/comments/17f3zee/best_3d_printer/
+   Oct 24, 2023 ... Creality ender, sovol, elegoo are great options. Do you want to print, print fast and consistently? Don't really care to learn how they work.
+   Sources: google #3, startpage #7 · score: 1.0
 
-3. FreeCAD Project Explorer - No Direction Home
-   https://devbisme.github.io/freecad_project_explorer/
-   A 3MF exporter that allows you to set properties that are available to other software that imports this file. Its primary use is to allow you to set values on ...
-   Sources: google #7, startpage #2 · score: 1.3
+3. Most reliable 3D printer? : r/3Dprinting - Reddit
+   https://www.reddit.com/r/3Dprinting/comments/1dvtpn1/most_reliable_3d_printer/
+   Jul 5, 2024 ... tl;dr: Bambu and Prusa seem pretty much equal in the reliability department. Not sure who're worse, Bambu or Prusa crowd.
+   Sources: google #7, startpage #4 · score: 0.8
 
-4. Slightly Used Trommel Marketplace Find for R/C Plant and Construction
-   https://www.facebook.com/groups/Rcplant/posts/7513339855389333/
-   A marketplace find. Met seller in town. Slightly used only a few hrs. I tried 3d printing a couple of trommels, they just didn't perform very well. This ...
-   Sources: google #3 · score: 0.3
+4. Purchase Advice Megathread - January 2024 : r/3Dprinting - Reddit
+   https://www.reddit.com/r/3Dprinting/comments/18vpg8p/purchase_advice_megathread_january_2024/
+   Jan 1, 2024 ... The Bambu lab A1 is definitely a much better/less troublesome printer. If you can exchange it, do it.
+   Sources: google #6, startpage #9 · score: 0.6
 
-5. 県民の森A - 日本オリエンテーリング協会 パーマネントコース ガイド
-   http://www.orienteering.or.jp/pc/list/saitama/719.php
-   The center currently produces sales of $700 per square foot. After the 130,000 square foot expansion, the center will total approximately 570,000 square feet.
-   Sources: google #4 · score: 0.2
+5. Best 3d Printer? : r/3dprinter - Reddit
+   https://www.reddit.com/r/3dprinter/comments/1q8bgrv/best_3d_printer/
+   Jan 9, 2026 ... I would recommend a Bambu P1S with AMS2 combo. The upgraded parts in the AMS2 along with the ability to use it as a dryer is a no brainer ...
+   Sources: startpage #2 · score: 0.5
 
-6. 24th ANNUAL SPRING UNDERGRADUATE RESEARCH ...
-   https://cur.aa.ufl.edu/wp-content/uploads/2024/06/Final_Book_4thApril.pdf
-   Apr 4, 2023 ... plans for 3D printing include successfully replicating a silk fibroin bioink that utilizes a combination of photocrosslinking and thermal ...
-   Sources: …[3522b total]
+6. Need recommendations for 3D printing service
+   https://www.reddit.com/r/ErgoMechKeyboards/comments/t8gri5/need_recommendations_for_3d_printing_service/
+   Just want to ask around and see if anyone's got good recommendations of places that offers 3dp services that ships to Canada.
+   So…[2787b total]
 ```
 
 ### 9. assistant
@@ -385,8 +406,8 @@ No results found.
 - `web_search`
 ```json
 {
-  "max_results": 10,
-  "query": "best 3d printer review site reddit"
+  "max_results": 8,
+  "query": "3D printing forum trustworthy review sites Tom's Hardware All3DP"
 }
 ```
 
@@ -396,37 +417,35 @@ No results found.
 
 - error=false
 ```text
-1. Best 3d Printer for me? : r/3dprinter - Reddit
-   https://www.reddit.com/r/3dprinter/comments/1fuqq6x/best_3d_printer_for_me/
-   Oct 3, 2024 ... Creality , Sovol, Anycubic and other chinese brands - If you want to tinker with your machine, and your goal is basically just to gradually pimp ...
-   Sources: google #1, startpage #5 · score: 2.4
+1. 3D Printing Supports: How to Choose the Right Kind | Tom's Hardware
+   https://www.tomshardware.com/how-to/choose-3d-printing-supports
+   Oct 23, 2023 ... 1. Tree Supports · 2. Breakaway Supports · 3. Auto-Generated Supports · 4. Manual Supports · 5. Dissolvable Support Structures.
+   Sources: google #3, startpage #1 · score: 2.7
 
-2. What's the best 3D printer to get started : r/3dprinter - Reddit
-   https://www.reddit.com/r/3dprinter/comments/1em04rk/whats_the_best_3d_printer_to_get_started/
-   Aug 7, 2024 ... I would recommend any printer from Bambu Labs. Though I would not recommend the A1 mini unless you're good with small size. They'll work out of ...
-   Sources: google #3, startpage #2 · score: 1.7
+2. 5 Key Design Rules for 3D Printing | Tom's Hardware
+   https://www.tomshardware.com/3d-printing/5-key-design-rules-for-3d-printing
+   May 25, 2024 — You need to consider important details like the geometry of the design and ensure that the part is watertight and that there are no non-manifold edges.
+   Sources: google #2, startpage #4 · score: 1.5
 
-3. Best 3d Printer? : r/3dprinter - Reddit
-   https://www.reddit.com/r/3dprinter/comments/1q8bgrv/best_3d_printer/
-   Jan 9, 2026 ... Maybe the Bambu H2S, Prusa CoreOne-L or Qidi Max 4. ... Of these two I trust the Bambu and Prusa the most. The H2S can be upgraded to a H2C, but ...
-   Sources: startpage #1 · score: 1.0
+3. 6 Best Models for Testing Your 3D Printer | Tom's Hardware
+   https://www.tomshardware.com/how-to/best-3d-models-for-test-prints
+   Jul 22, 2023 ... The print will also help you understand how holes and walls of your designs will be 3D printed, and you can change the speed, temperature, and ...
+   Sources: google #4, startpage #2 · score: 1.5
 
-4. I ordered my first 3D Printer. What's the best site for buying quality designs?
-   https://www.reddit.com/r/3Dprinting/comments/19b4yjj/i_ordered_my_first_3d_printer_whats_the_best_site/
-   You won't have to buy. There are many good models on Printables, Thingiverse and Makerworld. Avoid c#lts, as the auto moderator said.
-   Sources: google #2 · score: 0.5
+4. All3DP: All About 3D Printing & Additive Manufacturing
+   https://all3dp.com/
+   The leading magazine for 3D printing, with compelling content on additive manufacturing, 3D scanning, CAD, laser cutting & engraving, CNC, SBCs, and more.
+   Sources: google #1 · score: 1.0
 
-5. What is the best 3D printer? And what app do you use on your PC to ...
-   https://www.reddit.com/r/3dprinter/comments/1o8x9fp/what_is_the_best_3d_printer_and_what_app_do_you/
-   Oct 17, 2025 ... Since we are talking euros, prusa 3d printers could be a good bet - they have the best support in the consumer 3d printing market. P1S is good; ...
-   Sources: startpage #3 · score: 0.3
+5. 3D Printer Plans: 10 Great 3D Printer Blueprints to DIY - All3DP
+   https://all3dp.com/2/3d-printer-plans-3d-printer-blueprints/
+   Oct 6, 2020 ... The philosophy of open-source designs has greatly influenced the 3D printing landscape. The availability of free plans for building a 3D printer ...
+   Sources: google #6, startpage #3 · score: 1.0
 
-6. Most reliable 3D printer? : r/3Dprinting
-   https://www.reddit.com/r/3Dprinting/comments/1dvtpn1/most_reliable_3d_printer/
-   Is it still Prusa?
-   Sources: google #4 · score: 0.2
-
-7. Okay…[3355b total]
+6. About us | Original Prusa 3D printers directly from Josef Prusa
+   https://www.prusa3d.com/page/about-us_77/
+   All3DP Best Printer Kit; 3DP Awards 2019; PC Editor's Choice; Jiga: Best 2021 3D Printer; Windows Central; Toms Hardware; TechRadar. How We Make Our 3D Printers.
+   Sources: google #8, startpage #5 · score: …[2687b total]
 ```
 
 ### 11. assistant
@@ -440,8 +459,8 @@ No results found.
 - `web_search`
 ```json
 {
-  "max_results": 10,
-  "query": "site:reddit.com 3d printer reviews trustworthy source"
+  "max_results": 8,
+  "query": "Reddit best YouTube reviewers for 3D printers unbiased"
 }
 ```
 
@@ -451,32 +470,33 @@ No results found.
 
 - error=false
 ```text
-1. Review sites have little overlap. Which are least biased, most trustworthy?
-   https://www.reddit.com/r/3Dprinting/comments/dguxnj/review_sites_have_little_overlap_which_are_least/
-   Oct 12, 2019 ... Wirecutter seems to be a good source (https://thewirecutter.com/reviews/best-home-3d-printer/). Tom's 15+ years ago was great, though their ...
-   Sources: google #1, startpage #1 · score: 4.0
+1. Which YouTubers Can Be Trusted To Give Impartial Reviews? : r/3Dprinting
+   https://www.reddit.com/r/3Dprinting/comments/1rfg867/which_youtubers_can_be_trusted_to_give_impartial/
+   I'm in the market for my first printer. I'm considering a Qidi Q2, Bambu P1S or P2S, and maybe a Sovol SV08 or Elegoo CC. A lot of YouTubers seem ...
+   Sources: google #1, startpage #1 · score: 4.0 · 2026-02-27T05:01:37.510611
 
-2. Are tom's hardware 3d printer reviews trustworthy? : r/3Dprinting
-   https://www.reddit.com/r/3Dprinting/comments/1i61zcx/are_toms_hardware_3d_printer_reviews_trustworthy/
-   Reviews on tom's hardware have photos of benchy, even printed with same filament, that's pretty much what I want, but my concern is - are they not biased?
+2. Who is your favourite 3D printing youtuber? Honestly, some are losing ...
+   https://www.reddit.com/r/3Dprinting/comments/1f1lbq2/who_is_your_favourite_3d_printing_youtuber/
+   Aug 26, 2024 ... FLATLANDER TECH This guy has less than 3,000 subs and his videos are aesthetically great. He makes and designs products which are mostly 3D ...
    Sources: google #2, startpage #2 · score: 2.0
 
-3. What 3d printer do you consider most reliable? : r/3dprinter - Reddit
-   https://www.reddit.com/r/3dprinter/comments/1pw5b17/what_3d_printer_do_you_consider_most_reliable/
-   Dec 26, 2025 ... 100% if reliability is your priority, I'd put Prusa at the top, followed by Voron/RatRig, and then Bambu Lab. Bambu printers can be harder to ...
-   Sources: google #3, startpage #8 · score: 0.9
+3. Which Reviewers can be trusted : r/resinprinting - Reddit
+   https://www.reddit.com/r/resinprinting/comments/1jhe8ac/which_reviewers_can_be_trusted/
+   Mar 22, 2025 ... ... 3D print and there's still a lot of miss-information out there. So there's a good chunk who are blaming printers for things that are ...
+   Sources: google #3, startpage #3 · score: 1.3
 
-4. Most reliable 3D printer? : r/3Dprinting - Reddit
-   https://www.reddit.com/r/3Dprinting/comments/1dvtpn1/most_reliable_3d_printer/
-   Jul 5, 2024 ... For consumer printers, Prusa has my vote as far as their track record goes and also for their open source approach. I say this owning a ...
-   Sources: google #4, startpage #5 · score: 0.9
+4. Biased creators? : r/QidiTech3D - Reddit
+   https://www.reddit.com/r/QidiTech3D/comments/1p8x7so/biased_creators/
+   Nov 28, 2025 ... 24 votes, 66 comments. One of the largest and most succesful creators on Youtube recently made a video about best printers of 2025, ...
+   Sources: google #4, startpage #4 · score: 1.0
 
-5. What sites are the most compatible and reliable for finding files? : r/3Dprinting
-   https://www.reddit.com/r/3Dprinting/comments/1kjk07o/what_sites_are_the_most_compatible_and_reliable/
-   May 10, 2025 ... Never download gcode unless you know it's a relaible source. Gcode can be used to damage your printer, whether it's accidental or intentional.
-   Sources: google #6, startpage #6 · score: 0.7
+5. 3D Printer Reviewers: Being honest in this industry will put you out of a job.
+   https://www.reddit.com/r/3Dprinting/comments/1rg3gqy/3d_printer_reviewers_being_honest_in_this/
+   1.1K votes, 349 comments. This is the emails between the YouTuber YGK3D and Anycubic, it seems like they won't send 3D printers to reviewers ...
+   Sources: google #5, startpage #5 · score: 0.8 · 2026-02-27T05:01:37.510764
 
-6. Is All3DP a reliable source for general information/tips? : r/3Dprinti…[3840b total]
+6. Where can I find the most unbiased comparison of the p1p, k1 and x ...
+   https://www.r…[3031b total]
 ```
 
 ### 13. assistant
@@ -487,25 +507,16 @@ No results found.
 
 **Tool Calls**
 
-- `web_search`
+- `web_fetch`
 ```json
 {
-  "max_results": 10,
-  "query": "Tom's Hardware best 3D printers enclosed 2025 2026"
+  "url": "https://www.reddit.com/r/3Dprinting/comments/1rfg867/which_youtubers_can_be_trusted_to_give_impartial/"
 }
 ```
-- `web_search`
+- `web_fetch`
 ```json
 {
-  "max_results": 10,
-  "query": "3DPrintBeginner best enclosed 3D printer 2025"
-}
-```
-- `web_search`
-```json
-{
-  "max_results": 10,
-  "query": "All3DP enclosed 3D printer review P1S QIDI Plus4 K1C 2025"
+  "url": "https://www.reddit.com/r/3Dprinting/comments/dguxnj/review_sites_have_little_overlap_which_are_least/"
 }
 ```
 
@@ -515,96 +526,115 @@ No results found.
 
 - error=false
 ```text
-1. The Best 3D Printers for Home, Workshop or Business in 2026
-   https://www.tomshardware.com/best-picks/best-3d-printers
-   Feb 12, 2026 — 1. Best 3D Printer Overall - Bambu Lab P2S · 2. Fastest Budget 3D Printer - Elegoo Centauri Carbon · 3. Best Premium 3D Printer - Prusa Core One
-   Sources: google #1, startpage #1 · score: 4.0
+Reddit - The heart of the internet
 
-2. Best 3D Printers for Beginners 2026: Perfect printers for kids, teens, and ...
-   https://www.tomshardware.com/3d-printing/best-3d-printers-for-kids-and-teens
-   Jan 19, 2026 — Quick List · 1. Creality SparkX i7 · 2. Bambu Lab A1 Mini · 3. Creality Ender 3 V3 SE · 4. ToyBox · 5. AOSEED X-Maker · 6. Kidoodle MiniBox A1 · 7.
-   Sources: google #2, startpage #2 · score: 2.0
+[Skip to main content](#main-content)
 
-3. Best 3D printers for 2025: our top picks for beginners and experts
-   https://www.tomsguide.com/us/best-3d-printers,review-2236.html
-   May 28, 2025 ... The Prusa Mini+ is great for beginners as it's simple to assemble and set up. It also comes with excellent software and has a very high print quality.
-   Sources: google #3, startpage #4 · score: 1.2
 
-4. 3D Printing for consumers at CES 2026 — Creality, Snapmaker, AtomForm ...
-   https://www.tomshardware.com/3d-printing/3d-printing-for-consumers-at-ces-2026-creality-snapmaker-atomform-and-protopasta-show-their-latest-systems
-   Jan 13, 2026 — Creality emerged as the show's clear winner, earning Tom's Hardware's Best 3D Printer of CES 2026 award for its new Creality SPARKX i7. The ...
-   Sources: google #4, startpage #3 · score: 1.2
 
-5. Best Budget 3D Printers 2025: High-Quality Output on the Cheap
-   https://www.tomshardware.com/best-picks/best-budget-3d-printers
-   Nov 29, 2025 ... Best Budget 3D Printers 2025 ... The Sovol SV06 Ace is the best budget 3D printer available. It's an affordable FDM 3D printer that's fast, easy ...
-   Sources: google #5, startpage #8 · score: 0.7
 
-6. Tom's Hardware implying the obvious use case here. : r/3Dprinting
-   https://www.reddit.com/r/3Dprinting/commen…[3709b total]
+
+[![r/3Dprinting icon](https://styles.redditmedia.com/t5_2rk5q/styles/communityIcon_s8h0mrftpnn31.png?width=96&height=96&frame=1&auto=webp&crop=96%3A96%2Csmart&s=eacfaf0a5264f724e9df1e2c541306e02251c422) 
+
+ Go to 3Dprinting](/r/3Dprinting/)
+
+ [r/3Dprinting](/r/3Dprinting/) •
+
+[jefflovesyou](/user/jefflovesyou/) 
+
+ 
+
+ 
+
+# Which YouTubers Can Be Trusted To Give Impartial Reviews?
+
+I'm in the market for my first printer. I'm considering a Qidi Q2, Bambu P1S or P2S, and maybe a Sovol SV08 or Elegoo CC. 
+
+A lot of YouTubers seem to be sponsored or have some kind of stake in the printers they review. Who are the most trustworthy reviewers? 
+
+ Read more 
+
+ Share 
+
+New to Reddit?
+
+Create your account and connect with a world of communities. 
+
+ 
+
+ 
+
+ Continue with Email 
+
+ 
+
+ 
+
+ Continue With Phone Number 
+
+ 
+
+By continuing, you agree to our [User Agreement](https://www.redditinc.com/policies/user-agreement) and acknowledge that you understand the [Privacy Policy](https://www.redditinc.com/policies/privacy-policy). 
+
+ 
+
+Public 
+
+Anyone can view, post, and comment to this community
+
+ 
+
+0 0 
+
+ [Reddit Rules](https://www.redditinc.com/policies/content-policy) [Privacy Policy](https://www.reddit.com/policies/privacy-policy) [User Agreement](https://www.redditinc.com/policies/user-agreement) [Accessibility](https://support.reddithelp.com/hc/sections/38303584022676-Accessibility) [Reddit, Inc. © 2026. All rights reserved.](https://redditinc.com) 
+
+ Expand Navigation Collapse Navigation 
+
+ 
+
+ ![](https://id.rlcdn.com/472486.gif)
 ```
 - error=false
 ```text
-1. About 3DPrintBeginner | 3D Print Beginner
-   https://3dprintbeginner.com/about/
-   3D Print Beginner is a blog for 3D printing lovers, committed to producing quality content that helps beginners and advanced users alike.
-   Sources: google #1, startpage #1 · score: 4.0
+Reddit - The heart of the internet
 
-2. 2025's Best 3D Printers for Beginners: Reliable, Affordable Models ...
-   https://filamentprints.com/top-5-best-3d-printers-for-beginners-in-2025/
-   2025's Best 3D Printers for Beginners: Reliable, Affordable Models Compared · 1. Creality Ender 3 V3 Pro · 2. Anycubic Kobra Neo 2 · 3. Prusa Mini+ (2025 Edition).
-   Sources: google #4, startpage #8 · score: 0.8
+[Skip to main content](#main-content)
 
-3. Out of the Box 3D Printer Tips for Beginners | Tom's Hardware
-   https://www.tomshardware.com/how-to/3d-printer-tips-for-beginners
-   Dec 26, 2021 ... Enclosed printers such as the Flashforge Adventurer 3 Lite and Voxel Aries use their own, proprietary hot ends that cost significantly more and ...
-   Sources: google #6, startpage #10 · score: 0.5
 
-4. 3D Print Beginner Looking for Printer Opinion : r/ElegooMars
-   https://www.reddit.com/r/ElegooMars/comments/1kfl5i2/3d_print_beginner_looking_for_printer_opinion/
-   The Mars 3 Pro was my first printer and it's a great printer. Used it for a couple of years sold it and bought a Saturn. It's smaller size is ...
-   Sources: google #2 · score: 0.5
 
-5. Best Enclosed 3D Printer 2025 - YouTube - YouTube
-   https://www.youtube.com/watch?v=qCl8yIY2mSM
-   Nov 25, 2024 ... Best Enclosed 3D Printer 2025 | Top 5 Enclosed 3D Printer Reviews “(paid link)”, “#ad” FLASHFORGE 3D Printer Creality K1C 3D Printer ...
-   Sources: startpage #2 · score: 0.5
 
-6. Alternative 3D printer for beginners with multicolor printing?
-   https://www.facebook.com/groups/3dprintingforbeginnersandpros/posts/1153907773206080/
-   Ok after a bunch of research I decided to get a FlashForge AD5X because reviews said it was good for beginners and I wanted multicolor printing. Well ...
-   Sources: google #3 · sco…[3194b total]
-```
-- error=false
-```text
-1. Best 3D Printers 2026: Our Top Picks in 24 Categories - All3DP
-   https://all3dp.com/1/best-3d-printer-reviews-top-3d-printers-home-3-d-printer-3d/
-   The Bambu Lab P1S is a comprehensively decent 3D printer for its $399 price tag. But alone, it is not a multicolor or multi-material 3D printer. Combine it with ...
-   Sources: google #1, startpage #1 · score: 4.0
 
-2. All3DP Recognizes QIDI Tech Plus4 Top Pick in Latest 3D Printer Review
-   https://qidi3d.com/blogs/news/qidi-tech-plus4-all3dp-review
-   Mar 27, 2025 ... The QIDI Tech Plus4 has been selected as the best mid-size 3D printer in All3DP's "The Best 3D Printers of 2025" guide.
-   Sources: google #2, startpage #2 · score: 2.0
+[![r/3Dprinting icon](https://styles.redditmedia.com/t5_2rk5q/styles/communityIcon_s8h0mrftpnn31.png?width=96&height=96&frame=1&auto=webp&crop=96%3A96%2Csmart&s=eacfaf0a5264f724e9df1e2c541306e02251c422) 
 
-3. Which 3D printer is better for a beginner, Bambu X1C or Qidi Plus 4?
-   https://www.facebook.com/groups/512839706277310/posts/1592915118269758/
-   Oct 9, 2024 ... It is capable of printing lots of different materials and has a heated chamber that helps with a lot of the higher temp filaments. It has been ...
-   Sources: google #3, startpage #3 · score: 1.3
+ Go to 3Dprinting](/r/3Dprinting/)
 
-4. Purchase Advice Megathread - September 2025 : r/3Dprinting - Reddit
-   https://www.reddit.com/r/3Dprinting/comments/1n5gvaf/purchase_advice_megathread_september_2025/
-   Sep 1, 2025 ... Key features you want at this tier: heated/enclosed chamber, hardened nozzles for abrasive filaments, automated bed leveling, and strong slicer/ ...
-   Sources: google #4, startpage #7 · score: 0.8
+ [r/3Dprinting](/r/3Dprinting/) •
 
-5. Elegoo Centauri Carbon - Bambu Lab Community Forum
-   https://forum.bambulab.com/t/elegoo-centauri-carbon/146692
-   Feb 18, 2025 ... Did u noticed that some of the reviewers had serious issues with the electrical saftey of the printer? They run into electric shocks while the ...
-   Sources: google #6, startpage #5 · score: 0.7
+\[deleted\]
 
-6. As a print farm owner, we are considering switching to another ...
-   https://www.reddit.com/r/BambuLab/comments/1i42ksz/as_a_print_farm_owner_we_are_considering/
-   Jan 18, 2025 ... The k1c and the adventure…[3516b total]
+ 
+
+ 
+
+ 
+
+# Review sites have little overlap. Which are least biased, most trustworthy?
+
+Why does it seem to be so hard to find a reliable 3D printer review? I realize there are many variables (e.g. cost, prebuilt vs kit, etc.). However, it seems remarkably challenging to find reliable reviews and makes one worry about bias. So much of the review information available is of questionable validity, such as the Amazon comments (Fakespot helps there - [https://www.fakespot.com/](https://www.fakespot.com/)). 
+
+Wirecutter seems to be a good source ([https://thewirecutter.com/reviews/best-home-3d-printer/](https://thewirecutter.com/reviews/best-home-3d-printer/)). 
+
+Tom's 15+ years ago was great, though their style has changed ([https://www.tomsguide.com/us/best-3d-printers,review-2236.html](https://www.tomsguide.com/us/best-3d-printers,review-2236.html)). Interesting ([https://www.futureplc.com/brands/](https://www.futureplc.com/brands/) -- no idea so many brands under one roof). 
+
+All3DP looks good ([https://all3dp.com/1/best-3d-printer-reviews-top-3d-printers-home-3-d-printer-3d/](https://all3dp.com/1/best-3d-printer-reviews-top-3d-printers-home-3-d-printer-3d/)). 
+
+With Tencent supporting reddit, does that bring into question the favorable reviews of companies like Creality and Tiertime? 
+
+And now LulzBot takes a big hit ([https://www.reporterherald.com/2019/10/11/lovelands-aleph-objects-undergoes-significant-reduction-of-staff](https://www.reporterherald.com/2019/10/11/lovelands-aleph-objects-undergoes-significant-reduction-of-staff)), so Wirecutter and All3DP supporting them isn't enough. 
+
+ Read more 
+
+ …[3246b total]
 ```
 
 ### 15. assistant
@@ -615,22 +645,11 @@ No results found.
 
 **Tool Calls**
 
-- `web_fetch`
+- `web_search`
 ```json
 {
-  "url": "https://www.reddit.com/r/3Dprinting/comments/1i61zcx/are_toms_hardware_3d_printer_reviews_trustworthy/"
-}
-```
-- `web_fetch`
-```json
-{
-  "url": "https://www.reddit.com/r/3Dprinting/comments/t21keh/is_all3dp_a_reliable_source_for_general/"
-}
-```
-- `web_fetch`
-```json
-{
-  "url": "https://www.reddit.com/r/3Dprinting/comments/1pb3zgi/purchase_advice_megathread_december_2025/"
+  "max_results": 10,
+  "query": "enclosed corexy 3D printer 2026 under $1500"
 }
 ```
 
@@ -640,559 +659,40 @@ No results found.
 
 - error=false
 ```text
-Reddit - The heart of the internet
-
-[Skip to main content](#main-content)
-
-
-
-
-
-[![r/3Dprinting icon](https://styles.redditmedia.com/t5_2rk5q/styles/communityIcon_s8h0mrftpnn31.png?width=96&height=96&frame=1&auto=webp&crop=96%3A96%2Csmart&s=eacfaf0a5264f724e9df1e2c541306e02251c422) 
-
- Go to 3Dprinting](/r/3Dprinting/)
-
- [r/3Dprinting](/r/3Dprinting/) •
-
-[Rudokhvist](/user/Rudokhvist/) 
-
- 
-
- 
-
-# Are tom's hardware 3d printer reviews trustworthy?
-
-I'm a total newbie trying to choose my first 3D printer, and I encountered a lack of good comparison site that will help in that. And I don't mean comparing specifications - I can do this myself, thank you, I want to see actual test prints from different printers with default configuration. And reviews on tom's hardware have photos of benchy, even printed with same filament, that's pretty much what I want, but my concern is - are they not biased? I've seen them posting bullshit before and never was huge fan of this site, so I want opinion of more experienced 3d-printer users - can I trust their reviews (if not bottom lines, then at least photos?). 
-
- Read more 
-
- Share 
-
-New to Reddit?
-
-Create your account and connect with a world of communities. 
-
- 
-
- 
-
- Continue with Email 
-
- 
-
- 
-
- Continue With Phone Number 
-
- 
-
-By continuing, you agree to our [User Agreement](https://www.redditinc.com/policies/user-agreement) and acknowledge that you understand the [Privacy Policy](https://www.redditinc.com/policies/privacy-policy). 
-
- 
-
-Public 
-
-Anyone can view, post, and comment to this community
-
- 
-
-0 0 
-
-## Top Posts
-
-* * *
-
-*   [Reddit
-
-    reReddit: Top posts of January 20, 2025
-
-    * * *](https://www.reddit.com/posts/2025/january-20-1/global/)
-
-*   [Reddit
-
-    reReddit: Top posts of January 2025
-
-    * * *](https://www.reddit.com/posts/2025/january/global/)
-
-*   [Reddit
-
-    reReddit: Top posts of 2025
-
-    * * *](https://www.reddit.com/posts/2025/global/)
-
- [Reddit Rules](https://www.redditinc.com/policies/content-policy) [Pri…[2369b total]
-```
-- error=false
-```text
-Reddit - The heart of the internet
-
-[Skip to main content](#main-content)
-
-
-
-
-
-[![r/3Dprinting icon](https://styles.redditmedia.com/t5_2rk5q/styles/communityIcon_s8h0mrftpnn31.png?width=96&height=96&frame=1&auto=webp&crop=96%3A96%2Csmart&s=eacfaf0a5264f724e9df1e2c541306e02251c422) 
-
- Go to 3Dprinting](/r/3Dprinting/)
-
- [r/3Dprinting](/r/3Dprinting/) •
-
-[CantThinkATM](/user/CantThinkATM/) 
-
- 
-
- 
-
-# Is All3DP a reliable source for general information/tips?
-
-I have noticed almost every time I go to Google a question I have about 3D printing, All3DP seems to have an article addressing the topic. I have read a couple and they seem okay, but I was hoping to hear what some of you more experienced gals/guys think about their content. I'm not really concerned about their product reviews. Just their basic "knowledge" articles and tips/tricks type stuff. I want to make sure they aren't a "5 minute craft" type of resource. Thanks all. 
-
- Read more 
-
- Share 
-
-New to Reddit?
-
-Create your account and connect with a world of communities. 
-
- 
-
- 
-
- Continue with Email 
-
- 
-
- 
-
- Continue With Phone Number 
-
- 
-
-By continuing, you agree to our [User Agreement](https://www.redditinc.com/policies/user-agreement) and acknowledge that you understand the [Privacy Policy](https://www.redditinc.com/policies/privacy-policy). 
-
- 
-
-Public 
-
-Anyone can view, post, and comment to this community
-
- 
-
-0 0 
-
-## Top Posts
-
-* * *
-
-*   [Reddit
-
-    reReddit: Top posts of February 26, 2022
-
-    * * *](https://www.reddit.com/posts/2022/february-26-1/global/)
-
-*   [Reddit
-
-    reReddit: Top posts of February 2022
-
-    * * *](https://www.reddit.com/posts/2022/february/global/)
-
-*   [Reddit
-
-    reReddit: Top posts of 2022
-
-    * * *](https://www.reddit.com/posts/2022/global/)
-
- [Reddit Rules](https://www.redditinc.com/policies/content-policy) [Privacy Policy](https://www.reddit.com/policies/privacy-policy) [User Agreement](https://www.redditinc.com/policies/user-agreement) [Accessibility](https://support.red…[2205b total]
-```
-- error=false
-```text
-Reddit - The heart of the internet
-
-[Skip to main content](#main-content)
-
-
-
-
-
-[![r/3Dprinting icon](https://styles.redditmedia.com/t5_2rk5q/styles/communityIcon_s8h0mrftpnn31.png?width=96&height=96&frame=1&auto=webp&crop=96%3A96%2Csmart&s=eacfaf0a5264f724e9df1e2c541306e02251c422) 
-
- Go to 3Dprinting](/r/3Dprinting/)
-
- [r/3Dprinting](/r/3Dprinting/) •
-
-[AutoModerator](/user/AutoModerator/) 
-
- 
-
- 
-
-# Purchase Advice Megathread - December 2025
-
-Welcome back to another purchase megathread! 
-
-This thread is meant to conglomerate purchase advice for both newcomers and people looking for additional machines. Keeping this discussion to one thread means less searching should anyone have questions that may already have been answered here, as well as more visibility to inquiries in general, as comments made here will be visible for the entire month stuck to the top of the sub, and then added to the Purchase Advice Collection (Reddit Collections are still broken on mobile view, enable "view in desktop mode"). 
-
-**Please be sure to skim through this thread** for posts with similar requirements to your own first, as recommendations relevant to your situation may have already been posted, and may even include answers to follow up questions you might have wished to ask. 
-
-If you are new to 3D printing, and are unsure of what to ask, try to include the following in your posts as a minimum: 
-
-*   Your budget, set at a numeric amount. Saying "cheap," or "money is not a problem" is not an answer people can do much with. 3D printers can cost $100, they can cost $10,000,000, and anywhere in between. A rough idea of what you're looking for is essential to figuring out anything else.
-
-*   Your country of residence.
-
-*   If you are willing to build the printer from a kit, and what your level of experience is with electronic maintenance and construction if so.
-
-*   What you wish to do with the printer.
-
-*   Any extenuating circumstances that would restrict you from using machines that wou…[4834b total]
+1. Top 5 Best 3D Printers Under $500
+   https://www.flashforge.com/blogs/news/best-3d-printers-under-500
+   Dec 29, 2025 — Best Enclosed CoreXY 3D Printer: Flashforge Adventurer 5M Pro. This is the gold standard for under-$500 printing in 2026. The Flashforge ...
+   Sources: google #1 · score: 1.0
+
+2. Buy Best Valued CoreXY 3D Printers Online at amazing prices
+   https://www.3dprintersbay.com/corexy-3d-printers
+   A CoreXY printer will have a square, cartesian design, which is different from a Prusa in that the print bed moves only on the vertical Z axis.
+   Sources: startpage #1 · score: 1.0
+
+3. Top 10 Budget FDM 3D printers in 2026 - Polyfab3D
+   https://www.polyfab3d.com/ressources/best-affordable-fdm-3d-printer-2026/
+   – Stable enclosed CoreXY structure. The Anycubic Kobra S1 Combo is a fast enclosed CoreXY machine offering up to 600 mm/s, ideal for complex multicolor prints ...
+   Sources: google #5, startpage #5 · score: 0.8
+
+4. Best 3D Printers 2026: Our Top Picks in 24 Categories
+   https://all3dp.com/1/best-3d-printer-reviews-top-3d-printers-home-3-d-printer-3d/
+   The Bambu Lab P1S Combo is a high-speed CoreXY 3D printer with an enclosure, air filter, and AMS for multi-color printing. It offers reliable performance, quiet ...
+   Sources: google #2 · score: 0.5
+
+5. Top CoreXY 3D Printers for Professional and Home Use in 2026
+   https://www.sovol3d.com/blogs/news/best-corexy-3d-printers-2026-professional-home-comparison
+   Feb 5, 2026 ... You want the best corexy 3d printers for 2026. Top picks like the Bambu Lab P2S, Prusa Core One+, and Tronxy X5SA-500-2E stand out for both ...
+   Sources: startpage #2 · score: 0.5
+
+6. The Best 3D Printers We've Tested for 2026 | PCMag
+   https://www.pcmag.com/picks/the-best-3d-printers
+   Jan 14, 2026 ... With a sub-$1,000 price, exceptional quality, and innovative resin management features, the Anycubic Photon Mono M7 Max is a natural fit for ...
+   Sources: google #9, startpage #8 · score: 0.5
+
+7. The Best …[3283b total]
 ```
 
 ### 17. assistant
-
-**Thinking / Raw Output**
-
-- `reasoning`: 
-
-**Tool Calls**
-
-- `web_fetch`
-```json
-{
-  "url": "https://old.reddit.com/r/3Dprinting/comments/1pb3zgi/purchase_advice_megathread_december_2025/"
-}
-```
-
-### 18. user
-
-**Tool Results**
-
-- error=false
-```text
-# Purchase Advice Megathread - December 2025
-
-Welcome back to another purchase megathread!
-
-This thread is meant to conglomerate purchase advice for both newcomers and people looking for additional machines. Keeping this discussion to one thread means less searching should anyone have questions that may already have been answered here, as well as more visibility to inquiries in general, as comments made here will be visible for the entire month stuck to the top of the sub, and then added to the Purchase Advice Collection (Reddit Collections are still broken on mobile view, enable "view in desktop mode").
-
-**Please be sure to skim through this thread** for posts with similar requirements to your own first, as recommendations relevant to your situation may have already been posted, and may even include answers to follow up questions you might have wished to ask. 
-
-If you are new to 3D printing, and are unsure of what to ask, try to include the following in your posts as a minimum:
-
-*   Your budget, set at a numeric amount. Saying "cheap," or "money is not a problem" is not an answer people can do much with. 3D printers can cost $100, they can cost $10,000,000, and anywhere in between. A rough idea of what you're looking for is essential to figuring out anything else.
-*   Your country of residence.
-*   If you are willing to build the printer from a kit, and what your level of experience is with electronic maintenance and construction if so.
-*   What you wish to do with the printer.
-*   Any extenuating circumstances that would restrict you from using machines that would otherwise fit your needs (limited space for the printer, enclosure requirement, must be purchased through educational intermediary, etc).
-
-While this is by no means an exhaustive list of what can be included in your posts, these questions should help paint enough of a picture to get started. Don't be afraid to ask more questions, and never worry about asking too many. The people posting in this thread ar…[3541b total]
-```
-
-### 19. assistant
-
-**Thinking / Raw Output**
-
-- `reasoning`: 
-
-**Tool Calls**
-
-- `web_fetch`
-```json
-{
-  "url": "https://www.reddit.com/user/richie225/comments/1bh9jud/generic_hobbyist_fdm_printer_recommendations/"
-}
-```
-
-### 20. user
-
-**Tool Results**
-
-- error=false
-```text
-Reddit - The heart of the internet
-
-[Skip to main content](#main-content)
-
-
-
-
-
-[![u/richie225 avatar](https://styles.redditmedia.com/t5_1ds9bc/styles/profileIcon_i3xoonr3hu381.jpg?width=48&height=48&frame=1&auto=webp&crop=48%3A48%2Csmart&s=f958462b2bb2523dbe3cdd3fb247339397be303e) 
-
- Go to richie225 page](/user/richie225/)
-
- [u/richie225](/user/richie225/) •
-
-[richie225](/user/richie225/) 
-
- 
-
- 
-
-# Generic Hobbyist FDM Printer Recommendations
-
-The new hub for FDM/FFF printer recommendations, aimed at beginner/intermediates looking to buy a new machine. 
-
-[The old list is found here.](https://www.reddit.com/user/richie225/comments/rnillw/generic_fdm_printer_recommendations_2022/) 
-
-[List of Honorable Mentions](https://www.reddit.com/user/richie225/comments/1bsyw0l/generic_fdm_printer_recommendations_honorable/?utm_source=share&utm_medium=web2x&context=3) 
-
-# Last major update: November 20, 2025
-
-# Last minor update: November 23, 2025
-
-**This post goes as follows:** 
-
-*   The intention of this post is to substitute "What printer should I buy?" questions, and potentially answer them before you even need to ask. This list should hopefully provide enough information for you to make a decision based on basic needs.
-
-*   **Prices are in United States Dollars.** They may vary depending on your region and availability. The list accounts for the regular retail price of the printer at the time of writing and does not include limited-time discounts.
-
-*   This list is dynamic and can change over time, printers may be added or removed.
-
-*   The post only covers general retail, hobbyist FDM printers. Printer kits that may require self-sourcing (Voron, RatRig) etc are not included, neither are high-end professional ones like Ultimaker. This list also concerns printers as they are out of the box, without drastic modifications.
-
-*   The initial versions of these posts were inspired by the [spreadsheet](https://docs.google.com/spreadsheets/d/1QjCOsMmEbKsQXktG-MrRGlfk_lk5pMwYuc7GaMYg…[29041b total]
-```
-
-### 21. assistant
-
-**Thinking / Raw Output**
-
-- `reasoning`: 
-
-**Tool Calls**
-
-- `web_fetch`
-```json
-{
-  "url": "https://old.reddit.com/r/3Dprinting/comments/1i61zcx/are_toms_hardware_3d_printer_reviews_trustworthy/"
-}
-```
-
-### 22. user
-
-**Tool Results**
-
-- error=false
-```text
-Are tom's hardware 3d printer reviews trustworthy? : 3Dprinting
-
-[jump to content](#content)
-
-my subreddits
-
-[edit subscriptions](https://old.reddit.com/subreddits/)
-
-*   [popular](https://old.reddit.com/r/popular/)
-*   -[all](https://old.reddit.com/r/all/)
-*   -[users](https://old.reddit.com/users/)
-
- | 
-
-*   [AskReddit](https://old.reddit.com/r/AskReddit/)
-*   -[pics](https://old.reddit.com/r/pics/)
-*   -[funny](https://old.reddit.com/r/funny/)
-*   -[movies](https://old.reddit.com/r/movies/)
-*   -[worldnews](https://old.reddit.com/r/worldnews/)
-*   -[news](https://old.reddit.com/r/news/)
-*   -[todayilearned](https://old.reddit.com/r/todayilearned/)
-*   -[nottheonion](https://old.reddit.com/r/nottheonion/)
-*   -[explainlikeimfive](https://old.reddit.com/r/explainlikeimfive/)
-*   -[mildlyinteresting](https://old.reddit.com/r/mildlyinteresting/)
-*   -[DIY](https://old.reddit.com/r/DIY/)
-*   -[videos](https://old.reddit.com/r/videos/)
-*   -[OldSchoolCool](https://old.reddit.com/r/OldSchoolCool/)
-*   -[TwoXChromosomes](https://old.reddit.com/r/TwoXChromosomes/)
-*   -[tifu](https://old.reddit.com/r/tifu/)
-*   -[Music](https://old.reddit.com/r/Music/)
-*   -[books](https://old.reddit.com/r/books/)
-*   -[LifeProTips](https://old.reddit.com/r/LifeProTips/)
-*   -[dataisbeautiful](https://old.reddit.com/r/dataisbeautiful/)
-*   -[aww](https://old.reddit.com/r/aww/)
-*   -[science](https://old.reddit.com/r/science/)
-*   -[space](https://old.reddit.com/r/space/)
-*   -[Showerthoughts](https://old.reddit.com/r/Showerthoughts/)
-*   -[askscience](https://old.reddit.com/r/askscience/)
-*   -[Jokes](https://old.reddit.com/r/Jokes/)
-*   -[Art](https://old.reddit.com/r/Art/)
-*   -[IAmA](https://old.reddit.com/r/IAmA/)
-*   -[Futurology](https://old.reddit.com/r/Futurology/)
-*   -[sports](https://old.reddit.com/r/sports/)
-*   -[UpliftingNews](https://old.reddit.com/r/UpliftingNews/)
-*   -[food](https://old.reddit.com/r/food/)
-*   -[nosleep](https://old.reddit.com/r/nosleep/)
-*   -[creepy]…[13945b total]
-```
-
-### 23. assistant
-
-**Thinking / Raw Output**
-
-- `reasoning`: 
-
-**Tool Calls**
-
-- `web_fetch`
-```json
-{
-  "url": "https://old.reddit.com/r/3Dprinting/comments/1dvtpn1/most_reliable_3d_printer/"
-}
-```
-- `web_fetch`
-```json
-{
-  "url": "https://old.reddit.com/r/3dprinter/comments/1pw5b17/what_3d_printer_do_you_consider_most_reliable/"
-}
-```
-
-### 24. user
-
-**Tool Results**
-
-- error=false
-```text
-# Most reliable 3D printer?
-
-tl;dr: Bambu and Prusa seem pretty much equal in the reliability department. 
-
-Not sure who're worse, Bambu or Prusa crowd..
-
-Before bambu, I'd have said Prusa, hands down, but having worked with three generations of Prusa and now with the Bambu X1C, I'd say they're pretty much on par.
-
-The X1C's ability to calibrate extrusion and catch first layer issues gives it some points over the MK4, while complexity (for example a chamber that one needs to remember opening when printing PLA, or more directly a filament cutter that can dull over time esp. with CF/GF stuff) removes a some points re. reliability.
-
-Manufacturing QC wise I think they're both fine.  
- We got 2x MK4 and 2x X1C for testing, X1C has worked flawlessly from the get-go, while one of the MK4's refused to pass X-axis self-test until it got a firmware update, and has been wonky at times since.
-
-Meanwhile, people have gotten flawless MK4's and wonky Bambu's.  
- I'd wager that the majority receives perfectly fine printers and the brands are pretty much equal in that department.
-
-Repairability depends; Parts for X1C are generally (significantly) cheaper, and some of them are easier to change compared to the MK4.  
- Some parts on the MK4 are easier to change than on the X1C, plus the MK4 has fewer parts that can break.
-```
-- error=false
-```text
-What 3d printer do you consider most reliable? : 3dprinter
-
-[jump to content](#content)
-
-my subreddits
-
-[edit subscriptions](https://old.reddit.com/subreddits/)
-
-*   [popular](https://old.reddit.com/r/popular/)
-*   -[all](https://old.reddit.com/r/all/)
-*   -[users](https://old.reddit.com/users/)
-
- | 
-
-*   [AskReddit](https://old.reddit.com/r/AskReddit/)
-*   -[pics](https://old.reddit.com/r/pics/)
-*   -[funny](https://old.reddit.com/r/funny/)
-*   -[movies](https://old.reddit.com/r/movies/)
-*   -[worldnews](https://old.reddit.com/r/worldnews/)
-*   -[news](https://old.reddit.com/r/news/)
-*   -[todayilearned](https://old.reddit.com/r/todayilearned/)
-*   -[nottheonion](https://old.reddit.com/r/nottheonion/)
-*   -[explainlikeimfive](https://old.reddit.com/r/explainlikeimfive/)
-*   -[mildlyinteresting](https://old.reddit.com/r/mildlyinteresting/)
-*   -[DIY](https://old.reddit.com/r/DIY/)
-*   -[videos](https://old.reddit.com/r/videos/)
-*   -[OldSchoolCool](https://old.reddit.com/r/OldSchoolCool/)
-*   -[TwoXChromosomes](https://old.reddit.com/r/TwoXChromosomes/)
-*   -[tifu](https://old.reddit.com/r/tifu/)
-*   -[Music](https://old.reddit.com/r/Music/)
-*   -[books](https://old.reddit.com/r/books/)
-*   -[LifeProTips](https://old.reddit.com/r/LifeProTips/)
-*   -[dataisbeautiful](https://old.reddit.com/r/dataisbeautiful/)
-*   -[aww](https://old.reddit.com/r/aww/)
-*   -[science](https://old.reddit.com/r/science/)
-*   -[space](https://old.reddit.com/r/space/)
-*   -[Showerthoughts](https://old.reddit.com/r/Showerthoughts/)
-*   -[askscience](https://old.reddit.com/r/askscience/)
-*   -[Jokes](https://old.reddit.com/r/Jokes/)
-*   -[Art](https://old.reddit.com/r/Art/)
-*   -[IAmA](https://old.reddit.com/r/IAmA/)
-*   -[Futurology](https://old.reddit.com/r/Futurology/)
-*   -[sports](https://old.reddit.com/r/sports/)
-*   -[UpliftingNews](https://old.reddit.com/r/UpliftingNews/)
-*   -[food](https://old.reddit.com/r/food/)
-*   -[nosleep](https://old.reddit.com/r/nosleep/)
-*   -[creepy](http…[39062b total]
-```
-
-### 25. assistant
-
-**Thinking / Raw Output**
-
-- `reasoning`: 
-
-**Tool Calls**
-
-- `web_fetch`
-```json
-{
-  "url": "https://old.reddit.com/r/3Dprinting/comments/t21keh/is_all3dp_a_reliable_source_for_general/"
-}
-```
-
-### 26. user
-
-**Tool Results**
-
-- error=false
-```text
-Is All3DP a reliable source for general information/tips? : 3Dprinting
-
-[jump to content](#content)
-
-my subreddits
-
-[edit subscriptions](https://old.reddit.com/subreddits/)
-
-*   [popular](https://old.reddit.com/r/popular/)
-*   -[all](https://old.reddit.com/r/all/)
-*   -[users](https://old.reddit.com/users/)
-
- | 
-
-*   [AskReddit](https://old.reddit.com/r/AskReddit/)
-*   -[pics](https://old.reddit.com/r/pics/)
-*   -[funny](https://old.reddit.com/r/funny/)
-*   -[movies](https://old.reddit.com/r/movies/)
-*   -[worldnews](https://old.reddit.com/r/worldnews/)
-*   -[news](https://old.reddit.com/r/news/)
-*   -[todayilearned](https://old.reddit.com/r/todayilearned/)
-*   -[nottheonion](https://old.reddit.com/r/nottheonion/)
-*   -[explainlikeimfive](https://old.reddit.com/r/explainlikeimfive/)
-*   -[mildlyinteresting](https://old.reddit.com/r/mildlyinteresting/)
-*   -[DIY](https://old.reddit.com/r/DIY/)
-*   -[videos](https://old.reddit.com/r/videos/)
-*   -[OldSchoolCool](https://old.reddit.com/r/OldSchoolCool/)
-*   -[TwoXChromosomes](https://old.reddit.com/r/TwoXChromosomes/)
-*   -[tifu](https://old.reddit.com/r/tifu/)
-*   -[Music](https://old.reddit.com/r/Music/)
-*   -[books](https://old.reddit.com/r/books/)
-*   -[LifeProTips](https://old.reddit.com/r/LifeProTips/)
-*   -[dataisbeautiful](https://old.reddit.com/r/dataisbeautiful/)
-*   -[aww](https://old.reddit.com/r/aww/)
-*   -[science](https://old.reddit.com/r/science/)
-*   -[space](https://old.reddit.com/r/space/)
-*   -[Showerthoughts](https://old.reddit.com/r/Showerthoughts/)
-*   -[askscience](https://old.reddit.com/r/askscience/)
-*   -[Jokes](https://old.reddit.com/r/Jokes/)
-*   -[Art](https://old.reddit.com/r/Art/)
-*   -[IAmA](https://old.reddit.com/r/IAmA/)
-*   -[Futurology](https://old.reddit.com/r/Futurology/)
-*   -[sports](https://old.reddit.com/r/sports/)
-*   -[UpliftingNews](https://old.reddit.com/r/UpliftingNews/)
-*   -[food](https://old.reddit.com/r/food/)
-*   -[nosleep](https://old.reddit.com/r/nosleep/)
-*   -[…[20824b total]
-```
-
-### 27. assistant
 
 **Thinking / Raw Output**
 
@@ -1208,64 +708,40 @@ my subreddits
   "index": 0,
   "items": [
     {
-      "description": "Fetch and read All3DP 2026 best 3D printers roundup (community-mentioned source) for enclosed model landscape and pricing context.",
-      "title": "All3DP roundup (specialist/community)"
+      "description": "Read Tom's Hardware 2026 best 3D printers roundup (community-recommended style source) and extract enclosed models near $700–$1,300 plus caveats.",
+      "title": "Fetch specialist roundup: Tom's Hardware"
     },
     {
-      "description": "Fetch and read Tom's Hardware Best 3D Printers 2026 roundup (specialist testing methodology + current picks).",
-      "title": "Tom's Hardware roundup (specialist)"
+      "description": "Read All3DP 2026 best 3D printers roundup and note enclosed-home picks + pricing signals.",
+      "title": "Fetch specialist roundup: All3DP"
     },
     {
-      "description": "Fetch and read TechRadar best hobby 3D printer 2025/2026 roundup for additional independent hands-on perspective.",
-      "title": "TechRadar roundup (specialist)"
+      "description": "Read Wirecutter best home 3D printer guide (community-recommended source) for reliability and user-fit guidance.",
+      "title": "Fetch specialist roundup: Wirecutter"
     },
     {
-      "description": "Fetch and read PCMag Best 3D Printers 2026 for independently tested picks and value framing.",
-      "title": "PCMag roundup (specialist)"
+      "description": "Read PCMag 2026 best 3D printers tests for hands-on reliability/noise/material notes.",
+      "title": "Fetch specialist roundup: PCMag"
     },
     {
-      "description": "Fetch and read 3DPrintBeginner/other dedicated 3D review comparison pages for enclosed CoreXY recommendations.",
-      "title": "Dedicated 3D review site roundup"
+      "description": "Read at least one current community discussion on trustworthy reviewers/sources and practical reliability feedback.",
+      "title": "Fetch community discussion"
     },
     {
-      "description": "Fetch official Bambu Lab P1S and X1C product pages (MSRP/specs/material support).",
-      "title": "Official pricing/specs: Bambu"
+      "description": "Gather MSRP from manufacturer stores for shortlisted enclosed models in range.",
+      "title": "Fetch manufacturer pricing pages"
     },
     {
-      "description": "Fetch official Prusa CORE One product page and support docs (price, kit vs assembled, enclosure/materials).",
-      "title": "Official pricing/specs: Prusa"
+      "description": "Gather current street pricing from major US retailers for shortlisted models.",
+      "title": "Fetch retailer pricing pages"
     },
     {
-      "description": "Fetch official QIDI Plus4 product page and support details.",
-      "title": "Official pricing/specs: QIDI"
+      "description": "Fetch independent model-specific reviews (major contenders) for long-term issues and maintenance burden.",
+      "title": "Fetch model-specific independent reviews"
     },
     {
-      "description": "Fetch official Creality K1C product page and support/warranty details.",
-      "title": "Official pricing/specs: Creality"
-    },
-    {
-      "description": "Fetch official Anycubic Kobra S1 (or S1 Combo) product page.",
-      "title": "Official pricing/specs: Anycubic"
-    },
-    {
-      "description": "Fetch official Flashforge Adventurer 5M Pro product page.",
-      "title": "Official pricing/specs: Flashforge"
-    },
-    {
-      "description": "Fetch major retailer pages (Amazon/Micro Center/Best Buy/MatterHackers where available) for street prices for shortlisted models.",
-      "title": "Street-price cross-check (retailers)"
-    },
-    {
-      "description": "Fetch independent model reviews (Tom's/TechRadar/other trusted) for reliability, maintenance issues, and software ecosystem notes.",
-      "title": "Independent per-model reviews"
-    },
-    {
-      "description": "Fetch community reliability/maintenance discussions for shortlisted models (Reddit/forums) to identify common failure modes and support experience.",
-      "title": "Community long-term reliability evidence"
-    },
-    {
-      "description": "Synthesize ranked shortlist, pricing table, buyer personas, and home safety/noise setup guidance with source mapping.",
-      "title": "Synthesis and final report"
+      "description": "Synthesize ranked shortlist, comparison table, and buyer-fit personas with uncertainty flags.",
+      "title": "Draft final recommendations"
     }
   ],
   "note": "",
@@ -1275,136 +751,26 @@ my subreddits
 }
 ```
 
-### 28. user
+### 18. user
 
 **Tool Results**
 
 - error=false
 ```text
-TODO [0/15]
-1. ○ All3DP roundup (specialist/community) — Fetch and read All3DP 2026 best 3D printers roundup (community-mentioned source) for enclosed model landscape and pricing context.
-2. ○ Tom's Hardware roundup (specialist) — Fetch and read Tom's Hardware Best 3D Printers 2026 roundup (specialist testing methodology + current picks).
-3. ○ TechRadar roundup (specialist) — Fetch and read TechRadar best hobby 3D printer 2025/2026 roundup for additional independent hands-on perspective.
-4. ○ PCMag roundup (specialist) — Fetch and read PCMag Best 3D Printers 2026 for independently tested picks and value framing.
-5. ○ Dedicated 3D review site roundup — Fetch and read 3DPrintBeginner/other dedicated 3D review comparison pages for enclosed CoreXY recommendations.
-6. ○ Official pricing/specs: Bambu — Fetch official Bambu Lab P1S and X1C product pages (MSRP/specs/material support).
-7. ○ Official pricing/specs: Prusa — Fetch official Prusa CORE One product page and support docs (price, kit vs assembled, enclosure/materials).
-8. ○ Official pricing/specs: QIDI — Fetch official QIDI Plus4 product page and support details.
-9. ○ Official pricing/specs: Creality — Fetch official Creality K1C product page and support/warranty details.
-10. ○ Official pricing/specs: Anycubic — Fetch official Anycubic Kobra S1 (or S1 Combo) product page.
-11. ○ Official pricing/specs: Flashforge — Fetch official Flashforge Adventurer 5M Pro product page.
-12. ○ Street-price cross-check (retailers) — Fetch major retailer pages (Amazon/Micro Center/Best Buy/MatterHackers where available) for street prices for shortlisted models.
-13. ○ Independent per-model reviews — Fetch independent model reviews (Tom's/TechRadar/other trusted) for reliability, maintenance issues, and software ecosystem notes.
-14. ○ Community long-term reliability evidence — Fetch community reliability/maintenance discussions for shortlisted models (Reddit/forums) to identify com…[2199b total]
-```
-
-### 29. assistant
-
-**Thinking / Raw Output**
-
-- `reasoning`: 
-
-**Tool Calls**
-
-- `web_fetch`
-```json
-{
-  "url": "https://all3dp.com/1/best-3d-printer-reviews-top-3d-printers-home-3-d-printer-3d/"
-}
-```
-
-### 30. user
-
-**Tool Results**
-
-- error=false
-```text
-Best 3D Printers 2026: Our Top Picks in 24 Categories | All3DP
-
-Our updated buyer's guide to the best 3D printers in 24 categories, incl. home, pro, budget, & beginner's picks, backed by testing & reviews.
-
-Advertisement
-```
-
-### 31. assistant
-
-**Thinking / Raw Output**
-
-- `reasoning`: 
-
-**Tool Calls**
-
-- `web_search`
-```json
-{
-  "max_results": 5,
-  "query": "site:all3dp.com enclosed 3D printer best"
-}
-```
-
-### 32. user
-
-**Tool Results**
-
-- error=false
-```text
-1. Best Enclosed 3D Printers of 2025: Our Picks in 3 Categories - All3DP
-   https://all3dp.com/1/best-enclosed-3d-printers/
-   May 8, 2025 ... The Prusa Core One is a CoreXY 3D printer with a 250×210×270mm build volume. It features an enclosed, passively-heated but actively managed chamber, and a high ...
-   Sources: google #1, startpage #1 · score: 4.0
-
-2. Best 3D Printers 2026: Our Top Picks in 24 Categories - All3DP
-   https://all3dp.com/1/best-3d-printer-reviews-top-3d-printers-home-3-d-printer-3d/
-   The Elegoo Centauri Carbon is a fully enclosed high-speed CoreXY 3D printer with a 256 x 256 x 256 mm build volume. It features auto-bed leveling, a dual- ...
-   Sources: google #2, startpage #2 · score: 2.0
-
-3. Best Large 3D Printers 2026: Our Top Picks in 3 Categories - All3DP
-   https://all3dp.com/1/best-large-3d-printer-large-format-scale-3d-printers/
-   Feb 19, 2026 ... How to Pick a Large 3D Printer · What's Changed? · Top Pick: Original Prusa XL · Budget Pick: Comgrow T500 · Upgrade Pick: Elegoo OrangeStorm Giga.
-   Sources: google #4, startpage #3 · score: 1.2
-
-4. 3D Printers - All3DP
-   https://all3dp.com/hardware-services/3d-printers/
-   A large 3D printer can be your best friend for outsized and ambitious 3D printing projects. ... Best Enclosed 3D Printers of 2025: Our Picks in 3 Categories.
-   Sources: google #3, startpage #5 · score: 1.1
-
-5. Beginners Should Buy One Of These 3D Printers - All3DP
-   https://all3dp.com/4/money-no-money-or-method-beginners-should-buy-one-of-these-3d-printers/
-   Jul 17, 2025 ... The Elegoo Centauri Carbon is a fully enclosed high-speed CoreXY 3D printer with a 256 x 256 x 256 mm build volume. It features auto-bed ...
-   Sources: google #7, startpage #4 · score: 0.8
-
+TODO [0/9]
+1. ○ Fetch specialist roundup: Tom's Hardware — Read Tom's Hardware 2026 best 3D printers roundup (community-recommended style source) and extract enclosed models near $700–$1,300 plus caveats.
+2. ○ Fetch specialist roundup: All3DP — Read All3DP 2026 best 3D printers roundup and note enclosed-home picks + pricing signals.
+3. ○ Fetch specialist roundup: Wirecutter — Read Wirecutter best home 3D printer guide (community-recommended source) for reliability and user-fit guidance.
+4. ○ Fetch specialist roundup: PCMag — Read PCMag 2026 best 3D printers tests for hands-on reliability/noise/material notes.
+5. ○ Fetch community discussion — Read at least one current community discussion on trustworthy reviewers/sources and practical reliability feedback.
+6. ○ Fetch manufacturer pricing pages — Gather MSRP from manufacturer stores for shortlisted enclosed models in range.
+7. ○ Fetch retailer pricing pages — Gather current street pricing from major US retailers for shortlisted models.
+8. ○ Fetch model-specific independent reviews — Fetch independent model-specific reviews (major contenders) for long-term issues and maintenance burden.
+9. ○ Draft final recommendations — Synthesize ranked shortlist, comparison table, and buyer-fit personas with uncertainty flags.
 
 ```
 
-### 33. assistant
-
-**Thinking / Raw Output**
-
-- `reasoning`: 
-
-**Tool Calls**
-
-- `web_fetch`
-```json
-{
-  "url": "https://all3dp.com/1/best-enclosed-3d-printers/"
-}
-```
-
-### 34. user
-
-**Tool Results**
-
-- error=false
-```text
-Best Enclosed 3D Printers of 2025: Our Picks in 3 Categories | All3DP
-
-Toasty chambers and assured high-temp filament performance; that's the deal with enclosed 3D printers, right? Let's find out. 
-
-Advertisement
-```
-
-### 35. assistant
+### 19. assistant
 
 **Thinking / Raw Output**
 
@@ -1419,7 +785,7 @@ Advertisement
 }
 ```
 
-### 36. user
+### 20. user
 
 **Tool Results**
 
@@ -1463,7 +829,7 @@ GPUs Best Graphics Cards for Gaming in 2026](https://www.tomshardware.com/review
 SSDs Best SSDs 2026: From blazing-fast M.2 NVMe down to budget SATA](https://www.tomshardware.com/reviews/best-ssds,3891.html "Best SSDs 2026: From …[111959b total]
 ```
 
-### 37. assistant
+### 21. assistant
 
 **Thinking / Raw Output**
 
@@ -1474,51 +840,37 @@ SSDs Best SSDs 2026: From blazing-fast M.2 NVMe down to budget SATA](https://www
 - `todo`
 ```json
 {
-  "action": "batch_update",
+  "action": "update",
   "description": "",
-  "index": 0,
+  "index": 1,
   "items": [],
-  "note": "",
-  "status": "pending",
+  "note": "Fetched and extracted 2026 roundup details, prices, build volumes, reasons-to-buy/avoid, and testing methodology.",
+  "status": "done",
   "title": "",
-  "updates": [
-    {
-      "index": 1,
-      "note": "Fetched All3DP roundups, but extractor returned only headline/dek and no body content; usable only for high-level trend confirmation, not detailed claims.",
-      "status": "done"
-    },
-    {
-      "index": 2,
-      "note": "Fetched full Tom’s Hardware 2026 roundup including methodology, model positioning, and pricing ranges.",
-      "status": "done"
-    }
-  ]
+  "updates": []
 }
 ```
 
-### 38. user
+### 22. user
 
 **Tool Results**
 
 - error=false
 ```text
-TODO [2/15]
-1. ✓ All3DP roundup (specialist/community) — Fetch and read All3DP 2026 best 3D printers roundup (community-mentioned source) for enclosed model landscape and pricing context. [Fetched All3DP roundups, but extractor returned only headline/dek and no body content; usable only for high-level trend confirmation, not detailed claims.]
-2. ✓ Tom's Hardware roundup (specialist) — Fetch and read Tom's Hardware Best 3D Printers 2026 roundup (specialist testing methodology + current picks). [Fetched full Tom’s Hardware 2026 roundup including methodology, model positioning, and pricing ranges.]
-3. ○ TechRadar roundup (specialist) — Fetch and read TechRadar best hobby 3D printer 2025/2026 roundup for additional independent hands-on perspective.
-4. ○ PCMag roundup (specialist) — Fetch and read PCMag Best 3D Printers 2026 for independently tested picks and value framing.
-5. ○ Dedicated 3D review site roundup — Fetch and read 3DPrintBeginner/other dedicated 3D review comparison pages for enclosed CoreXY recommendations.
-6. ○ Official pricing/specs: Bambu — Fetch official Bambu Lab P1S and X1C product pages (MSRP/specs/material support).
-7. ○ Official pricing/specs: Prusa — Fetch official Prusa CORE One product page and support docs (price, kit vs assembled, enclosure/materials).
-8. ○ Official pricing/specs: QIDI — Fetch official QIDI Plus4 product page and support details.
-9. ○ Official pricing/specs: Creality — Fetch official Creality K1C product page and support/warranty details.
-10. ○ Official pricing/specs: Anycubic — Fetch official Anycubic Kobra S1 (or S1 Combo) product page.
-11. ○ Official pricing/specs: Flashforge — Fetch official Flashforge Adventurer 5M Pro product page.
-12. ○ Street-price cross-check (retailers) — Fetch major retailer pages (Amazon/Micro Center/Best Buy/MatterHackers where available) for street prices for shortlisted models.
-13. ○ Independent per-model reviews — Fetch independent model re…[2463b total]
+TODO [1/9]
+1. ✓ Fetch specialist roundup: Tom's Hardware — Read Tom's Hardware 2026 best 3D printers roundup (community-recommended style source) and extract enclosed models near $700–$1,300 plus caveats. [Fetched and extracted 2026 roundup details, prices, build volumes, reasons-to-buy/avoid, and testing methodology.]
+2. ○ Fetch specialist roundup: All3DP — Read All3DP 2026 best 3D printers roundup and note enclosed-home picks + pricing signals.
+3. ○ Fetch specialist roundup: Wirecutter — Read Wirecutter best home 3D printer guide (community-recommended source) for reliability and user-fit guidance.
+4. ○ Fetch specialist roundup: PCMag — Read PCMag 2026 best 3D printers tests for hands-on reliability/noise/material notes.
+5. ○ Fetch community discussion — Read at least one current community discussion on trustworthy reviewers/sources and practical reliability feedback.
+6. ○ Fetch manufacturer pricing pages — Gather MSRP from manufacturer stores for shortlisted enclosed models in range.
+7. ○ Fetch retailer pricing pages — Gather current street pricing from major US retailers for shortlisted models.
+8. ○ Fetch model-specific independent reviews — Fetch independent model-specific reviews (major contenders) for long-term issues and maintenance burden.
+9. ○ Draft final recommendations — Synthesize ranked shortlist, comparison table, and buyer-fit personas with uncertainty flags.
+
 ```
 
-### 39. assistant
+### 23. assistant
 
 **Thinking / Raw Output**
 
@@ -1529,59 +881,203 @@ TODO [2/15]
 - `web_fetch`
 ```json
 {
-  "url": "https://www.techradar.com/pro/best-hobby-3d-printer-of-2025-i-tested-out-all-the-top-models"
+  "url": "https://all3dp.com/1/best-3d-printer-reviews-top-3d-printers-home-3-d-printer-3d/"
 }
 ```
 
-### 40. user
+### 24. user
 
 **Tool Results**
 
 - error=false
 ```text
-Best hobby 3D printer of 2025: I tested out all the top models | TechRadar
+Best 3D Printers 2026: Our Top Picks in 24 Categories | All3DP
 
-[Skip to main content](#main)
+Our updated buyer's guide to the best 3D printers in 24 categories, incl. home, pro, budget, & beginner's picks, backed by testing & reviews.
 
-Jump to:
-
-*   [Quick list](#section-the-quick-list)
-*   [Best overall](#section-best-hobby-3d-printer-overall)
-*   [Best for cosplay](#section-best-hobby-3d-printer-for-cosplay)
-*   [Best for enthusiasts](#section-best-hobby-3d-printer-for-enthusiasts)
-*   [Best for precision](#section-best-hobby-3d-printer-for-precision)
-*   [Best 3-in-1](#section-best-3-in-1-hobby-3d-printer)
-*   [Best for materials](#section-best-hobby-3d-printer-for-materials)
-*   [Best for home DIY](#section-best-hobby-3d-printer-for-home-diy)
-*   [Best for fine-detail](#section-best-hobby-3d-printer-for-fine-detail)
-*   [Best for crafting](#section-best-hobby-3d-printer-for-crafting)
-*   [Best for large models](#section-best-hobby-3d-printer-for-large-models)
-*   [FAQs](#section-best-hobby-3d-printers-faqs)
-*   [How to choose](#section-how-to-choose-the-best-hobby-3d-printer-for-you)
-*   [How we test](#section-how-we-test-the-best-hobby-3d-printers)
-
-Don't miss these
-
- 
-
-[![Geekom A9 Max](https://cdn.mos.cms.futurecdn.net/WPrS8XMsqaEc79JBQ4ypFD.jpg) 
-
-Pro Best mini PC of 2026](https://www.techradar.com/best/mini-pcs "Best mini PC of 2026") 
-
-[![The Epson EcoTank ET-4950 series ink tank printer undergoing testing in a home office during our review process](https://cdn.mos.cms.futurecdn.net/XKHxDR9ZxL2JmF4WAPS9uT.jpg) 
-
-Pro Best home printer of 2025](https://www.techradar.com/news/best-home-printer "Best home printer of 2025") 
-
-[![The Epson EcoTank ET-4950 series ink tank printer undergoing testing in a home office during our review process](https://cdn.mos.cms.futurecdn.net/yogfHcwmXne6hnh3aYTPWT.jpg) 
-
-Pro Best ink tank printer of 2026](https://www.techradar.com/best/ink-tank-printer "Best ink tank printer of 2026") 
-
-[![The white Kobo Libra Colour as the best ereader on a blue background](https://cdn.mos.cms.futurecdn.net/wGEHdfLHJpS53MfJze8pe8.jpg) 
-
-eReaders The best ereader for 2026]…[78803b total]
+Advertisement
 ```
 
-### 41. assistant
+### 25. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `web_search`
+```json
+{
+  "max_results": 5,
+  "query": "All3DP enclosed 3D printer review 2026 P1S"
+}
+```
+
+### 26. user
+
+**Tool Results**
+
+- error=false
+```text
+1. Bambu Lab P1S Review: Hot Box - All3DP
+   https://all3dp.com/1/bambu-lab-p1s-review-3d-printer-specs/
+   Sep 22, 2023 ... The release of the P1S was canny timing, considering Creality's recent K1 CoreXY 3D printer that's a clear bid to get in on the Bambu Lab hype.
+   Sources: google #1, startpage #1 · score: 4.0
+
+2. Best 3D Printers 2026: Our Top Picks in 24 Categories | All3DP
+   https://all3dp.com/1/best-3d-printer-reviews-top-3d-printers-home-3-d-printer-3d/
+   The Bambu Lab P1S is a comprehensively decent 3D printer for its $399 price tag. But alone, it is not a multicolor or multi-material 3D printer. Combine it with ...
+   Sources: google #2, startpage #2 · score: 2.0
+
+3. Bambu Lab P1P vs P1S: The Differences - All3DP
+   https://all3dp.com/2/bambu-lab-p1p-vs-p1s-differences/
+   Aug 26, 2024 ... Among their strong lineup of 3D printers, the P1P is a budget-friendly option that's designed for speed and customization. It's a great choice ...
+   Sources: google #3, startpage #3 · score: 1.3
+
+4. Best Budget 3D Printers Expert Review and Recommendations
+   https://3dprintingspace.com/t/best-budget-3d-printers-expert-review-and-recommendations/10264
+   2025/10/31 — I own a pair of Bambu . I have no issues they make really good prints easily. The P1S is a good machine and has full filtration the P2S its ...
+   Sources: google #4, startpage #4 · score: 1.0
+
+5. Bambu Lab | Unleash Your Creativity with Bambu Lab 3D Printers ...
+   https://bambulab.com/en-us
+   The H2S takes the scale of single-nozzle 3D printing up a notch, and unlike many other large-scale 3D printers, it offers a brilliant enclosed environment. This ...
+   Sources: google #6, startpage #9 · score: 0.6
+
+
+```
+
+### 27. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `web_fetch`
+```json
+{
+  "url": "https://all3dp.com/1/bambu-lab-p1s-review-3d-printer-specs/"
+}
+```
+
+### 28. user
+
+**Tool Results**
+
+- error=false
+```text
+Bambu Lab P1S Review: Hot Box | All3DP
+
+Bambu Lab’s latest offering in its P1 series bridges the gap between the affordable P1P and higher-end X1 series with a full enclosure and auxiliary part-cooling fan.
+
+Advertisement
+```
+
+### 29. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `web_fetch`
+```json
+{
+  "url": "https://www.nytimes.com/wirecutter/reviews/best-home-3d-printer/"
+}
+```
+
+### 30. user
+
+**Tool Results**
+
+- error=false
+```text
+The 3 Best 3D Printers of 2026 | Reviews by Wirecutter
+
+Advertisement
+
+[SKIP ADVERTISEMENT](#after-dfp-ad-top)
+
+We independently review everything we recommend. When you buy through our links, we may earn a commission. [Learn more›](/wirecutter/about/)
+
+*   [Why you should trust us](#why-you-should-trust-us)
+*   [Who this is for](#who-this-is-for)
+*   [What you should know about 3D printers](#what-you-should-know-about-3d-printers)
+*   [Sustainability and 3D printers](#sustainability-and-3d-printers)
+*   [How we picked and tested](#how-we-picked-and-tested)
+*   [Top pick: Bambu Lab A1 Mini](#top-pick-bambu-lab-a1-mini)
+*   [Upgrade pick: Bambu Lab X1-Carbon](#upgrade-pick-bambu-lab-x1-carbon)
+*   [Best for long-term upgrades: Prusa MK4S](#best-for-long-term-upgrades-prusa-mk4s)
+*   [Other 3D printers worth considering](#other-3d-printers-worth-considering)
+*   [Care and maintenance](#care-and-maintenance)
+*   [What about the Ender-3 and other Creality printers?](#what-about-the-ender-3-and-other-creality-printers)
+*   [What to look forward to](#what-to-look-forward-to)
+*   [The competition](#the-competition)
+
+FYI
+
+Our upgrade pick, the [Bambu Lab X1-Carbon](https://www.nytimes.com/wirecutter/out/link/54811/230561/4/169531/?merchant=Best%20Buy), appears to be discontinued. We’re reaching out to the company for confirmation and will update the guide accordingly.
+
+November 2025
+
+A 3D printer unlocks a world of creation, giving anyone with a few hundred bucks the power to manufacture custom components with sub-millimeter precision. And you don’t have to be an engineer to get started.
+
+We recommend the [Bambu Lab A1 Mini](https://www.nytimes.com/wirecutter/out/link/58624/224609/4/173278/?merchant=Amazon) because it’s easy to set up and makes high-quality prints without needing any manual calibration. Plus, this model fits more easily on a desk than previous picks.
+
+### Everything we recommend
+
+#### Top pick
+
+[![](https://d34mvw1if3ud0g.cloudfront.net/58624/Bambu-…[68240b total]
+```
+
+### 31. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `todo`
+```json
+{
+  "action": "update",
+  "description": "",
+  "index": 3,
+  "items": [],
+  "note": "Fetched full Wirecutter 2026 guide with methodology, maintenance, ecosystem caveats, and model-specific reliability notes (X1C/Core One/K1C/Centauri).",
+  "status": "done",
+  "title": "",
+  "updates": []
+}
+```
+
+### 32. user
+
+**Tool Results**
+
+- error=false
+```text
+TODO [2/9]
+1. ✓ Fetch specialist roundup: Tom's Hardware — Read Tom's Hardware 2026 best 3D printers roundup (community-recommended style source) and extract enclosed models near $700–$1,300 plus caveats. [Fetched and extracted 2026 roundup details, prices, build volumes, reasons-to-buy/avoid, and testing methodology.]
+2. ○ Fetch specialist roundup: All3DP — Read All3DP 2026 best 3D printers roundup and note enclosed-home picks + pricing signals.
+3. ✓ Fetch specialist roundup: Wirecutter — Read Wirecutter best home 3D printer guide (community-recommended source) for reliability and user-fit guidance. [Fetched full Wirecutter 2026 guide with methodology, maintenance, ecosystem caveats, and model-specific reliability notes (X1C/Core One/K1C/Centauri).]
+4. ○ Fetch specialist roundup: PCMag — Read PCMag 2026 best 3D printers tests for hands-on reliability/noise/material notes.
+5. ○ Fetch community discussion — Read at least one current community discussion on trustworthy reviewers/sources and practical reliability feedback.
+6. ○ Fetch manufacturer pricing pages — Gather MSRP from manufacturer stores for shortlisted enclosed models in range.
+7. ○ Fetch retailer pricing pages — Gather current street pricing from major US retailers for shortlisted models.
+8. ○ Fetch model-specific independent reviews — Fetch independent model-specific reviews (major contenders) for long-term issues and maintenance burden.
+9. ○ Draft final recommendations — Synthesize ranked shortlist, comparison table, and buyer-fit personas with uncertainty flags.
+
+```
+
+### 33. assistant
 
 **Thinking / Raw Output**
 
@@ -1596,7 +1092,7 @@ eReaders The best ereader for 2026]…[78803b total]
 }
 ```
 
-### 42. user
+### 34. user
 
 **Tool Results**
 
@@ -1622,7 +1118,243 @@ Best 3D Printer Overall
 
 ### [Bambu Lab P2S](https://cc.pcmag.com/v1/otc/01r1WRIAJykbQgN4oGQ8FSi?merchant=04fqoyuFZHNWnt1mDzWK4Vk&url=https%3A%2F%2Fus.store.bambulab.com%2Fproducts%2Fp2s&template=roundup-page&module=Product_Overview_List&element=product-card&item=product_name_offer&position=1&element_label=Bambu+Lab+P2S&u=https%3A%2F%2Fwww.pcmag.com%2Fpicks%2Fthe-best-3d-printers&object_type=review&object_uuid=06w6TJKqefubTkUdvNafuG9&product_uuid=01UmQKgJROjOpZYyYFDfvAJ "(Opens in a new tab)")
 
- $549.00 at Ba…[91250b total]
+ $549.00 at Ba…[91180b total]
+```
+
+### 35. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `todo`
+```json
+{
+  "action": "update",
+  "description": "",
+  "index": 4,
+  "items": [],
+  "note": "Fetched full PCMag 2026 roundup with tested picks, pros/cons, pricing snapshots, and enclosed model specs including Qidi Q2 and P2S.",
+  "status": "done",
+  "title": "",
+  "updates": []
+}
+```
+
+### 36. user
+
+**Tool Results**
+
+- error=false
+```text
+TODO [3/9]
+1. ✓ Fetch specialist roundup: Tom's Hardware — Read Tom's Hardware 2026 best 3D printers roundup (community-recommended style source) and extract enclosed models near $700–$1,300 plus caveats. [Fetched and extracted 2026 roundup details, prices, build volumes, reasons-to-buy/avoid, and testing methodology.]
+2. ○ Fetch specialist roundup: All3DP — Read All3DP 2026 best 3D printers roundup and note enclosed-home picks + pricing signals.
+3. ✓ Fetch specialist roundup: Wirecutter — Read Wirecutter best home 3D printer guide (community-recommended source) for reliability and user-fit guidance. [Fetched full Wirecutter 2026 guide with methodology, maintenance, ecosystem caveats, and model-specific reliability notes (X1C/Core One/K1C/Centauri).]
+4. ✓ Fetch specialist roundup: PCMag — Read PCMag 2026 best 3D printers tests for hands-on reliability/noise/material notes. [Fetched full PCMag 2026 roundup with tested picks, pros/cons, pricing snapshots, and enclosed model specs including Qidi Q2 and P2S.]
+5. ○ Fetch community discussion — Read at least one current community discussion on trustworthy reviewers/sources and practical reliability feedback.
+6. ○ Fetch manufacturer pricing pages — Gather MSRP from manufacturer stores for shortlisted enclosed models in range.
+7. ○ Fetch retailer pricing pages — Gather current street pricing from major US retailers for shortlisted models.
+8. ○ Fetch model-specific independent reviews — Fetch independent model-specific reviews (major contenders) for long-term issues and maintenance burden.
+9. ○ Draft final recommendations — Synthesize ranked shortlist, comparison table, and buyer-fit personas with uncertainty flags.
+
+```
+
+### 37. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `web_fetch`
+```json
+{
+  "url": "https://old.reddit.com/r/3Dprinting/comments/1rfg867/which_youtubers_can_be_trusted_to_give_impartial/"
+}
+```
+
+### 38. user
+
+**Tool Results**
+
+- error=false
+```text
+Which YouTubers Can Be Trusted To Give Impartial Reviews? : 3Dprinting
+
+[jump to content](#content)
+
+my subreddits
+
+[edit subscriptions](https://old.reddit.com/subreddits/)
+
+*   [popular](https://old.reddit.com/r/popular/)
+*   -[all](https://old.reddit.com/r/all/)
+*   -[users](https://old.reddit.com/users/)
+
+ | 
+
+*   [AskReddit](https://old.reddit.com/r/AskReddit/)
+*   -[pics](https://old.reddit.com/r/pics/)
+*   -[funny](https://old.reddit.com/r/funny/)
+*   -[movies](https://old.reddit.com/r/movies/)
+*   -[worldnews](https://old.reddit.com/r/worldnews/)
+*   -[news](https://old.reddit.com/r/news/)
+*   -[todayilearned](https://old.reddit.com/r/todayilearned/)
+*   -[nottheonion](https://old.reddit.com/r/nottheonion/)
+*   -[explainlikeimfive](https://old.reddit.com/r/explainlikeimfive/)
+*   -[mildlyinteresting](https://old.reddit.com/r/mildlyinteresting/)
+*   -[DIY](https://old.reddit.com/r/DIY/)
+*   -[videos](https://old.reddit.com/r/videos/)
+*   -[OldSchoolCool](https://old.reddit.com/r/OldSchoolCool/)
+*   -[TwoXChromosomes](https://old.reddit.com/r/TwoXChromosomes/)
+*   -[tifu](https://old.reddit.com/r/tifu/)
+*   -[Music](https://old.reddit.com/r/Music/)
+*   -[books](https://old.reddit.com/r/books/)
+*   -[LifeProTips](https://old.reddit.com/r/LifeProTips/)
+*   -[dataisbeautiful](https://old.reddit.com/r/dataisbeautiful/)
+*   -[aww](https://old.reddit.com/r/aww/)
+*   -[science](https://old.reddit.com/r/science/)
+*   -[space](https://old.reddit.com/r/space/)
+*   -[Showerthoughts](https://old.reddit.com/r/Showerthoughts/)
+*   -[askscience](https://old.reddit.com/r/askscience/)
+*   -[Jokes](https://old.reddit.com/r/Jokes/)
+*   -[Art](https://old.reddit.com/r/Art/)
+*   -[IAmA](https://old.reddit.com/r/IAmA/)
+*   -[Futurology](https://old.reddit.com/r/Futurology/)
+*   -[sports](https://old.reddit.com/r/sports/)
+*   -[UpliftingNews](https://old.reddit.com/r/UpliftingNews/)
+*   -[food](https://old.reddit.com/r/food/)
+*   -[nosleep](https://old.reddit.com/r/nosleep/)
+*   -[…[30960b total]
+```
+
+### 39. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `web_search`
+```json
+{
+  "max_results": 8,
+  "query": "old.reddit enclosed 3D printer around $1000 home use"
+}
+```
+
+### 40. user
+
+**Tool Results**
+
+- error=false
+```text
+1. Best 3D Printer for Beginners in 2026? (Price, Precision, Quality) : r/3dprinter
+   https://www.reddit.com/r/3dprinter/comments/1r01xah/best_3d_printer_for_beginners_in_2026_price/
+   Feb 9, 2026 ... Bambu Lab A1 - $299 - it just works. It's very beginner friendly, reliable and great value for the money. People on this sub absolutely love it ...
+   Sources: google #1, startpage #4 · score: 2.5
+
+2. An enclosed, dual color 3d printer with auto-leveling for under $1000?
+   https://www.reddit.com/r/3Dprinting/comments/pzv6ww/an_enclosed_dual_color_3d_printer_with/
+   Is there a product matching that description? Bonus if the hardware and firmware are open-source.
+   Sources: google #1 · score: 1.0
+
+3. Recommendations for enclosed 3d printers? - Facebook
+   https://www.facebook.com/groups/482533505156388/posts/25335772166072511/
+   Dec 11, 2025 ... Do you need to print anything exotic? If not you could look for a used K1 or K1C. They're pretty cheap on ebay.|The Centauri Carbon is the ...
+   Sources: startpage #2 · score: 0.5
+
+4. 3D-printer for ABS around $1000 : r/3dprinter
+   https://www.reddit.com/r/3dprinter/comments/p12tn0/3dprinter_for_abs_around_1000/
+   Hi. I'm looking into buying a printer that can print ABS for interior car parts and things that need to work outdoors.
+   Sources: google #2 · score: 0.5
+
+5. Ask HN: What's a good 3D Printer for sub $1000? | Hacker News
+   https://news.ycombinator.com/item?id=45251624
+   If you just want something cheap that's arguably incredible value with an active community, Creality Ender 3 V3 KE.
+   Sources: startpage #3 · score: 0.3
+
+6. Looking for user experiences with prebuilt low cost enclosed 3D printer ...
+   https://www.reddit.com/r/AdditiveManufacturing/comments/eklvwj/looking_for_user_experiences_with_prebuilt_low/
+   I'm looking for a prebuilt low cost (under $10k), enclosed 3D printer for engineering materials like PC, Nylon, ABS, PEEK, etc.
+   Sources: google #3 · score: 0.3
+
+7. The Only 3 Budget 3D Pri…[2671b total]
+```
+
+### 41. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `web_fetch`
+```json
+{
+  "url": "https://old.reddit.com/r/3Dprinting/comments/1rhofom/purchase_advice_megathread_march_2026/"
+}
+```
+
+### 42. user
+
+**Tool Results**
+
+- error=false
+```text
+Purchase Advice Megathread - March 2026 : 3Dprinting
+
+[jump to content](#content)
+
+my subreddits
+
+[edit subscriptions](https://old.reddit.com/subreddits/)
+
+*   [popular](https://old.reddit.com/r/popular/)
+*   -[all](https://old.reddit.com/r/all/)
+*   -[users](https://old.reddit.com/users/)
+
+ | 
+
+*   [AskReddit](https://old.reddit.com/r/AskReddit/)
+*   -[pics](https://old.reddit.com/r/pics/)
+*   -[funny](https://old.reddit.com/r/funny/)
+*   -[movies](https://old.reddit.com/r/movies/)
+*   -[worldnews](https://old.reddit.com/r/worldnews/)
+*   -[news](https://old.reddit.com/r/news/)
+*   -[todayilearned](https://old.reddit.com/r/todayilearned/)
+*   -[nottheonion](https://old.reddit.com/r/nottheonion/)
+*   -[explainlikeimfive](https://old.reddit.com/r/explainlikeimfive/)
+*   -[mildlyinteresting](https://old.reddit.com/r/mildlyinteresting/)
+*   -[DIY](https://old.reddit.com/r/DIY/)
+*   -[videos](https://old.reddit.com/r/videos/)
+*   -[OldSchoolCool](https://old.reddit.com/r/OldSchoolCool/)
+*   -[TwoXChromosomes](https://old.reddit.com/r/TwoXChromosomes/)
+*   -[tifu](https://old.reddit.com/r/tifu/)
+*   -[Music](https://old.reddit.com/r/Music/)
+*   -[books](https://old.reddit.com/r/books/)
+*   -[LifeProTips](https://old.reddit.com/r/LifeProTips/)
+*   -[dataisbeautiful](https://old.reddit.com/r/dataisbeautiful/)
+*   -[aww](https://old.reddit.com/r/aww/)
+*   -[science](https://old.reddit.com/r/science/)
+*   -[space](https://old.reddit.com/r/space/)
+*   -[Showerthoughts](https://old.reddit.com/r/Showerthoughts/)
+*   -[askscience](https://old.reddit.com/r/askscience/)
+*   -[Jokes](https://old.reddit.com/r/Jokes/)
+*   -[Art](https://old.reddit.com/r/Art/)
+*   -[IAmA](https://old.reddit.com/r/IAmA/)
+*   -[Futurology](https://old.reddit.com/r/Futurology/)
+*   -[sports](https://old.reddit.com/r/sports/)
+*   -[UpliftingNews](https://old.reddit.com/r/UpliftingNews/)
+*   -[food](https://old.reddit.com/r/food/)
+*   -[nosleep](https://old.reddit.com/r/nosleep/)
+*   -[creepy](https://ol…[85076b total]
 ```
 
 ### 43. assistant
@@ -1636,25 +1368,14 @@ Best 3D Printer Overall
 - `todo`
 ```json
 {
-  "action": "batch_update",
+  "action": "update",
   "description": "",
-  "index": 0,
+  "index": 5,
   "items": [],
-  "note": "",
-  "status": "pending",
+  "note": "Fetched current Reddit community discussions (trusted reviewers thread + March 2026 purchase megathread) with concrete recommendations and reliability/support caveats.",
+  "status": "done",
   "title": "",
-  "updates": [
-    {
-      "index": 3,
-      "note": "Fetched TechRadar hobby roundup with picks including K1C, Anycubic S1, X1C, QIDI Plus4 and methodology text.",
-      "status": "done"
-    },
-    {
-      "index": 4,
-      "note": "Fetched PCMag 2026 roundup with tested picks, pros/cons, specs, and pricing references.",
-      "status": "done"
-    }
-  ]
+  "updates": []
 }
 ```
 
@@ -1664,19 +1385,17 @@ Best 3D Printer Overall
 
 - error=false
 ```text
-TODO [4/15]
-1. ✓ All3DP roundup (specialist/community) — Fetch and read All3DP 2026 best 3D printers roundup (community-mentioned source) for enclosed model landscape and pricing context. [Fetched All3DP roundups, but extractor returned only headline/dek and no body content; usable only for high-level trend confirmation, not detailed claims.]
-2. ✓ Tom's Hardware roundup (specialist) — Fetch and read Tom's Hardware Best 3D Printers 2026 roundup (specialist testing methodology + current picks). [Fetched full Tom’s Hardware 2026 roundup including methodology, model positioning, and pricing ranges.]
-3. ✓ TechRadar roundup (specialist) — Fetch and read TechRadar best hobby 3D printer 2025/2026 roundup for additional independent hands-on perspective. [Fetched TechRadar hobby roundup with picks including K1C, Anycubic S1, X1C, QIDI Plus4 and methodology text.]
-4. ✓ PCMag roundup (specialist) — Fetch and read PCMag Best 3D Printers 2026 for independently tested picks and value framing. [Fetched PCMag 2026 roundup with tested picks, pros/cons, specs, and pricing references.]
-5. ○ Dedicated 3D review site roundup — Fetch and read 3DPrintBeginner/other dedicated 3D review comparison pages for enclosed CoreXY recommendations.
-6. ○ Official pricing/specs: Bambu — Fetch official Bambu Lab P1S and X1C product pages (MSRP/specs/material support).
-7. ○ Official pricing/specs: Prusa — Fetch official Prusa CORE One product page and support docs (price, kit vs assembled, enclosure/materials).
-8. ○ Official pricing/specs: QIDI — Fetch official QIDI Plus4 product page and support details.
-9. ○ Official pricing/specs: Creality — Fetch official Creality K1C product page and support/warranty details.
-10. ○ Official pricing/specs: Anycubic — Fetch official Anycubic Kobra S1 (or S1 Combo) product page.
-11. ○ Official pricing/specs: Flashforge — Fetch official Flashforge Adventurer 5M Pro product page.
-12. ○ Street-price cross-check (retailers) …[2664b total]
+TODO [4/9]
+1. ✓ Fetch specialist roundup: Tom's Hardware — Read Tom's Hardware 2026 best 3D printers roundup (community-recommended style source) and extract enclosed models near $700–$1,300 plus caveats. [Fetched and extracted 2026 roundup details, prices, build volumes, reasons-to-buy/avoid, and testing methodology.]
+2. ○ Fetch specialist roundup: All3DP — Read All3DP 2026 best 3D printers roundup and note enclosed-home picks + pricing signals.
+3. ✓ Fetch specialist roundup: Wirecutter — Read Wirecutter best home 3D printer guide (community-recommended source) for reliability and user-fit guidance. [Fetched full Wirecutter 2026 guide with methodology, maintenance, ecosystem caveats, and model-specific reliability notes (X1C/Core One/K1C/Centauri).]
+4. ✓ Fetch specialist roundup: PCMag — Read PCMag 2026 best 3D printers tests for hands-on reliability/noise/material notes. [Fetched full PCMag 2026 roundup with tested picks, pros/cons, pricing snapshots, and enclosed model specs including Qidi Q2 and P2S.]
+5. ✓ Fetch community discussion — Read at least one current community discussion on trustworthy reviewers/sources and practical reliability feedback. [Fetched current Reddit community discussions (trusted reviewers thread + March 2026 purchase megathread) with concrete recommendations and reliability/support caveats.]
+6. ○ Fetch manufacturer pricing pages — Gather MSRP from manufacturer stores for shortlisted enclosed models in range.
+7. ○ Fetch retailer pricing pages — Gather current street pricing from major US retailers for shortlisted models.
+8. ○ Fetch model-specific independent reviews — Fetch independent model-specific reviews (major contenders) for long-term issues and maintenance burden.
+9. ○ Draft final recommendations — Synthesize ranked shortlist, comparison table, and buyer-fit personas with uncertainty flags.
+
 ```
 
 ### 45. assistant
@@ -1687,228 +1406,12 @@ TODO [4/15]
 
 **Tool Calls**
 
-- `web_search`
-```json
-{
-  "max_results": 6,
-  "query": "3DPrintBeginner best 3D printer 2025 enclosed corexy"
-}
-```
-- `web_search`
-```json
-{
-  "max_results": 6,
-  "query": "3dprintbeginner QIDI Plus4 review"
-}
-```
-- `web_search`
-```json
-{
-  "max_results": 6,
-  "query": "3dprintbeginner Anycubic Kobra S1 review"
-}
-```
-
-### 46. user
-
-**Tool Results**
-
-- error=false
-```text
-1. About 3DPrintBeginner | 3D Print Beginner
-   https://3dprintbeginner.com/about/
-   Creality Ender 3 Max Review: Bigger equals Better? Creality Ender 6 Review: Semi-Enclosed Core XY 3D Printer · Resin 3D Printing for Beginners: From Zero to ...
-   Sources: google #1, startpage #1 · score: 4.0
-
-2. Best hobby 3D printer of 2025: I tested out all the top models
-   https://www.techradar.com/pro/best-hobby-3d-printer-of-2025-i-tested-out-all-the-top-models
-   Mar 31, 2025 ... The Creality K1C stands out as the best hobby 3D printer for most people, and I found this fully enclosed machine delivered a great balance of speed, ...
-   Sources: google #5, startpage #3 · score: 1.1
-
-3. Anycubic Unveils The Kobra S1 Combo: The Future Of High- ...
-   https://3dprintbeginner.com/anycubic-unveils-the-kobra-s1-combo/
-   Jan 2, 2025 ... Fully Enclosed CoreXY Construction (with a Print Size of 250*250*250mm); Vibrant 8-Color Printing; Compatible with all Major Filaments; Drying & ...
-   Sources: google #6, startpage #6 · score: 0.7
-
-4. CoreXY 3D Printers - MatterHackers
-   https://www.matterhackers.com/store/c/corexy-3d-printers
-   CoreXY 3D Printers use the X and Y motors together to create smooth motion of the hotend throught the build area. Browse the MatterHackers CoreXY offering ...
-   Sources: google #7, startpage #8 · score: 0.5
-
-5. Enclosed CoreXY Printer Recommendations : r/3dprinter
-   https://www.reddit.com/r/3dprinter/comments/1lflvoj/enclosed_corexy_printer_recommendations/
-   Either Q1 Pro or P1S. P1S is more fool-proof, Q1 Pro has an active heating chamber -> you can print way more materials (and overall prints are stronger and ...
-   Sources: google #2 · score: 0.5
-
-6. Recommendations for enclosed core-xy 3d printers? - Facebook
-   https://www.facebook.com/groups/3dprintingforbeginnersandpros/posts/1112503934013131/
-   Sep 4, 2025 ... My budget is $700 and not a penny more. (preferably more around $500) My current top picks are the Anycubic Kobra S1 Combo an…[2063b total]
-```
-- error=false
-```text
-1. People who have a Qidi Plus 4, would you recommend it to ... - Reddit
-   https://www.reddit.com/r/QidiTech3D/comments/1i98j80/people_who_have_a_qidi_plus_4_would_you_recommend/
-   Jan 24, 2025 ... I have all 3 of the mentioned machines. The plus 4 is a great printer and it puts out prints on par with Bambu printers in terms of quality.
-   Sources: google #1, startpage #1 · score: 4.0
-
-2. Qidi Plus 4 3D Printer Review: Hotter Than The Competition? Is it Safe?
-   https://3dprint.com/313877/qidi-plus-4-3d-printer-review-hotter-than-the-competition-is-it-safe/
-   Nov 7, 2024 ... This printer is exceptionally accurate and square. I'm very pleased to see that many modern printers are prioritizing build quality, which ...
-   Sources: google #2, startpage #2 · score: 2.0
-
-3. Qidi Plus 4 Review: This 3D Printer Can Make Nearly Anything
-   https://www.pcmag.com/reviews/qidi-plus-4
-   Aug 9, 2025 ... The Qidi Plus 4 is a top-notch, top-value filament 3D printer for hobbyists. It stands out for its spacious build volume and an extruder ...
-   Sources: google #4, startpage #3 · score: 1.2
-
-4. QIDI Plus4 Review: Bigger is Better - Tom's Hardware
-   https://www.tomshardware.com/3d-printing/qidi-plus4-review
-   Apr 18, 2025 ... QIDI Plus4 is a massive machine inside and out, with a heated chamber perfect for large prints in tricky technical filaments like ABS, PC and Nylon.
-   Sources: google #5, startpage #7 · score: 0.7
-
-5. [Review]NEW QIDI PLUS4 - Maybe the PERFECT 3D Printer!
-   https://qidi3d.com/blogs/news/qidi-plus4-3d-printer-review
-   Nov 2, 2024 ... Discover why the QIDI PLUS 4 may be the best 3D printer for beginners to pros. Advanced features, huge build volume, and high temp hotend ...
-   Sources: google #7, startpage #5 · score: 0.7
-
-6. After a lot of indecision between a Bambu and Plus 4, I ... - Facebook
-   https://www.facebook.com/groups/512839706277310/posts/1583004499260820/
-   Sep 26, 2024 ... https: //3dprintbeginner.com/qidi-q1-pro- review/. 3dprint…[2141b total]
-```
-- error=false
-```text
-1. Anycubic Unveils The Kobra S1 Combo: The Future Of High- ...
-   https://3dprintbeginner.com/anycubic-unveils-the-kobra-s1-combo/
-   2025/01/02 — Combining advanced technology, unmatched precision, and user-friendly features, the Kobra S1 Combo is set to redefine the standards for desktop 3D printing.
-   Sources: google #1, startpage #1 · score: 4.0
-
-2. Anycubic Kobra S1 3D Printer Combo Review - Maker Hacks
-   https://www.makerhacks.com/anycubic-kobra-s1-combo-review/
-   Anycubic Kobra S1 and the Anycubic Color Engine (ACE) are an amazing value combination. A lot of people are hoping this is the Bambu Labs killer we have been ...
-   Sources: google #2, startpage #2 · score: 2.0
-
-3. Anycubic S1 3D Printer Review for Beginners - Facebook
-   https://www.facebook.com/groups/3dprintingforbeginnersandpros/posts/1008289697767889/
-   Apr 28, 2025 ... Let's just say I am impressed with the Anycubic Kobra S1 combo. This file said 17 hrs to print and it did it in just under 12 1/2 hrs. This is ...
-   Sources: google #4, startpage #3 · score: 1.2
-
-4. Anycubic Kobra S1 Review: Good printer, bad slicer | Tom's Hardware
-   https://www.tomshardware.com/3d-printing/anycubic-kobra-s1-review
-   May 13, 2025 ... The Kobra S1 works very well as a single-color printer, and the heated spool holder has been extremely useful for running engineering materials.
-   Sources: google #5, startpage #5 · score: 0.8
-
-5. Is anycubic kobra s1 combo a good starter printer? - Facebook
-   https://www.facebook.com/groups/3dprintingforbeginnersandpros/posts/1257588722837984/
-   Feb 23, 2026 ... Really happy with my Cobra S1 Combo. Just few days behind so far, but really quick printing compared to my old Ender 3. Print quality is top ...
-   Sources: google #7, startpage #8 · score: 0.5
-
-6. Is the Kobra S1 a good beginner printer? : r/AnycubicKobraS1
-   https://www.reddit.com/r/AnycubicKobraS1/comments/1lu2n55/is_the_kobra_s1_a_good_beginner_printer/
-   Hi guys, I have had the "pleasure" of tryi…[2153b total]
-```
-
-### 47. assistant
-
-**Thinking / Raw Output**
-
-- `reasoning`: 
-
-**Tool Calls**
-
-- `web_search`
-```json
-{
-  "max_results": 8,
-  "query": "3D printing dedicated review site enclosed corexy comparison 2025 QIDI Plus4 K1C P1S"
-}
-```
-
-### 48. user
-
-**Tool Results**
-
-- error=false
-```text
-1. Best 3D Printers 2026: Our Top Picks in 24 Categories - All3DP
-   https://all3dp.com/1/best-3d-printer-reviews-top-3d-printers-home-3-d-printer-3d/
-   The Creality K2 Pro is a versatile 3D printer capable of multicolor printing. It has AI-assisted print monitoring, fully automatic calibration, and a relatively ...
-   Sources: google #1, startpage #1 · score: 4.0
-
-2. Best hobby 3D printer of 2025: I tested out all the top models
-   https://www.techradar.com/pro/best-hobby-3d-printer-of-2025-i-tested-out-all-the-top-models
-   2025/03/31 — The Creality K1C stands out as the best hobby 3D printer for most people, and I found this fully enclosed machine delivered a great balance of speed, ...
-   Sources: google #2, startpage #2 · score: 2.0
-
-3. I Can't Tell if this Printer is All Hype! : r/3dprinter - Reddit
-   https://www.reddit.com/r/3dprinter/comments/1rcnslt/i_cant_tell_if_this_printer_is_all_hype/
-   Feb 23, 2026 ... Then I see people recommend Qidi. They're actually excellent value for money, are more capable than Bambu printers that cost hundreds of dollars ...
-   Sources: google #4, startpage #3 · score: 1.2
-
-4. Recommendations for 3D printers for ABS and carbon fiber?
-   https://www.facebook.com/groups/575732029944050/posts/1967253877458518/
-   Aug 26, 2025 ... At that price, I would highly suggest the Qidi Plus 4 and a Qidi Box. It has an active chamber heater which will really help with ABS and ASA as ...
-   Sources: google #3, startpage #7 · score: 1.0
-
-5. Ask HN: What's a good 3D Printer for sub $1000? | Hacker News
-   https://news.ycombinator.com/item?id=45251624
-   I am surprised nobody mentioned the Qidi printers. They are the perfect balance between tinkerability and reliability (but see below - QA varies), and have open ...
-   Sources: google #8, startpage #8 · score: 0.5
-
-6. K1 max vs Qidi Plus 4 for 3D printing?
-   https://www.facebook.com/groups/3dprintingforbeginnersandpros/posts/1247601967169993/
-   K1 max vs qidi plus 4 Anyone else ge…[2812b total]
-```
-
-### 49. assistant
-
-**Thinking / Raw Output**
-
-- `reasoning`: 
-
-**Tool Calls**
-
 - `web_fetch`
 ```json
 {
-  "url": "https://3dprint.com/313877/qidi-plus-4-3d-printer-review-hotter-than-the-competition-is-it-safe/"
+  "url": "https://us.store.bambulab.com/products/p2s"
 }
 ```
-
-### 50. user
-
-**Tool Results**
-
-- error=false
-```text
-Qidi Plus 4 3D Printer Review: Hotter Than The Competition? Is it Safe? - 3DPrint.com | Additive Manufacturing Business
-
-[![RAPID](https://3dprint.com/wp-content/uploads/2026/02/RAPID_BOSTON.jpg)](https://3dprint.com/?lapID=BcpclZ&l=aHR0cHM6Ly93d3cucmFwaWQzZGV2ZW50LmNvbS9tYXJrZXRpbmcvZGlzY292ZXItdGhlLWFkdmFudGFnZXMtb2YtYWRkaXRpdmUtM2RwcmludC8/dXRtX3NvdXJjZT0zZHByaW50JnV0bV9tZWRpdW09YmFubmVyJnV0bV9jYW1wYWlnbj1ycDI2ZXA=)
-
-# Qidi Plus 4 3D Printer Review: Hotter Than The Competition? Is it Safe?
-
-November 7, 2024 [by Orville Wright](https://3dprint.com/author/orville-wright-iv/) [3D Printers](https://3dprint.com/category/3d-printers/)[3D Printing](https://3dprint.com/category/3d-printing/)[Reviews](https://3dprint.com/category/reviews/) 
-
-[![RAPID](https://3dprint.com/wp-content/uploads/2023/02/unnamed-file-1.jpg)](https://3dprint.com/?lapID=cNgcQB&l=aHR0cHM6Ly93d3cuaW10cy5jb20vaW5kZXguY2ZtP3V0bV9zb3VyY2U9M2RwcmludCZ1dG1fbWVkaXVtPWN3ZGlnaXRhbCZ1dG1fY2FtcGFpZ249aW10czIwMjZtZWRpYQ==)
-
-**Share this Article**
-
-[](#) [](#) [](#) [](#) [](<mailto:?subject=Qidi Plus 4 3D Printer Review: Hotter Than The Competition? Is it Safe?&body=Qidi Plus 4 3D Printer Review: Hotter Than The Competition? Is it Safe? - https%3A%2F%2F3dprint.com%2F313877%2Fqidi-plus-4-3d-printer-review-hotter-than-the-competition-is-it-safe%2F>) 
-
-***Disclosure:** The Plus 4 was provided to me by Qidi free of charge for the purpose of this review. I have not received any other compensation. All opinions expressed are my own, and Qidi has had no influence on the content of this video.*
-
-***Disclaimer*:** *Use at your own risk! All my test prints were supervised and I was aware of the dangers of using this printer. Adequate precautions were taken to reduce risk when using the Plus 4. More on that at the end of the review, thank you.*
-
-The [Plus 4](https://qidi3d.com/products/plus4-3d-printer), the latest high-temperature, high-performance 3D printer from Qidi, promises impressive capabilities. This review aims…[30526b total]
-```
-
-### 51. assistant
-
-**Thinking / Raw Output**
-
-- `reasoning`: 
-
-**Tool Calls**
-
 - `web_fetch`
 ```json
 {
@@ -1930,7 +1433,7 @@ The [Plus 4](https://qidi3d.com/products/plus4-3d-printer), the latest high-temp
 - `web_fetch`
 ```json
 {
-  "url": "https://qidi3d.com/products/plus4-3d-printer"
+  "url": "https://us.qidi3d.com/products/qidi-q2"
 }
 ```
 - `web_fetch`
@@ -1942,20 +1445,36 @@ The [Plus 4](https://qidi3d.com/products/plus4-3d-printer), the latest high-temp
 - `web_fetch`
 ```json
 {
-  "url": "https://store.anycubic.com/products/kobra-s1-combo"
-}
-```
-- `web_fetch`
-```json
-{
-  "url": "https://www.flashforge.com/product-detail/flashforge-adventurer-5m-pro-3d-printer"
+  "url": "https://us.snapmaker.com/products/snapmaker-u1-3d-printer"
 }
 ```
 
-### 52. user
+### 46. user
 
 **Tool Results**
 
+- error=false
+```text
+Bambu Lab P2S | Bambu Lab ストア
+
+[コンテンツへ](#main)
+
+*   [](https://www.facebook.com/groups/bambulabofficialusers)
+*   [](https://www.reddit.com/r/BambuLab)
+*   [](https://twitter.com/BambulabJapan)
+*   [](https://www.instagram.com/bambulab_official)
+*   [](https://www.youtube.com/channel/UCDF3Sd2LNAsa-nKD17Jq3mw)
+
+カート 
+
+カートが空です
+
+[Facebook](https://www.facebook.com/sharer.php?u=https://jp.store.bambulab.com/products/p2s) [Pinterest](https://pinterest.com/pin/create/button/?url=https://jp.store.bambulab.com/products/p2s&media=https://jp.store.bambulab.com/cdn/shop/files/P2SC_1024x.jpg?v=1770953047&description=%E9%83%A8%E5%93%81%20%E4%BB%95%E6%A7%98%20%E3%83%97%E3%83%AA%E3%83%B3%E3%83%88%E6%96%B9%E5%BC%8F%20%E7%86%B1%E6%BA%B6%E8%A7%A3%E7%A9%8D%E5%B1%A4%E6%B3%95%20%E6%9C%AC%E4%BD%93%20%E6%9C%80%E5%A4%A7%E9%80%A0%E5%BD%A2%E4%BD%93%E7%A9%8D%20\(%E5%B9%85%20%C3%97%20%E5%A5%A5%E8%A1%8C%E3%81%8D%20%C3%97%20%E9%AB%98%E3%81%95\)%20256*256*256%20mm%C2%B3%20%E3%82%B7%E3%83%A3%E3%83%BC%E3%82%B7%20%E3%83%97%E3%83%A9%E3%82%B9%E3%83%81%E3%83%83%E3%82%AF%E3%81%A8%E3%82%B9%E3%83%81%E3%83%BC%E3%83%AB...) [Twitter](<https://twitter.com/share?text=Bambu Lab P2S&url=https://jp.store.bambulab.com/products/p2s>) 
+
+ 
+
+[![Bambu Lab P2S](//jp.store.bambulab.com/cdn/shop/files/P2SC_160x.jpg?v=1770953047)](//jp.store.bambulab.com/cdn/shop/files/P2SC_1024x.jpg?v=1770953047)[![Bambu Lab P2S](//jp.store.bambulab.com/cdn/shop/files/P2S_3788af39-7ec9-45f2-bb2b-678d1335ac3f_160x.jpg?v=1770953047)](//jp.store.bambulab.com/cdn/shop/files/P2S_3788af39-7ec9-45f2-bb2b-678d1335ac3f_1024x.jpg?v=1770953047)[![Bambu Lab P2S](//jp.store.bambulab.com/cdn/shop/files/b132375525426369d3a875da2cbbdf45_160x.jpg?v=1770953047)](//jp.store.bambulab.com/cdn/shop/files/b132375525426369d3a875da2cbbdf45_1024x.jpg?v=1770953047)[![Bambu Lab P2S](//jp.store.bambulab.com/cdn/shop/files/1-tuya_160x.jpg?v=1770953047)](//jp.store.bambulab.com/cdn/shop/files/1-tuya_1024x.jpg?v=1770953047)[![Bambu L…[38539b total]
+```
 - error=false
 ```text
 P1S 3D プリンター | Bambu Lab ストア
@@ -2097,7 +1616,7 @@ English
 
 # Prusa CORE One+
 
-![](/cdn-cgi/image/width=1024,format=auto,quality=85/content/images/product/879a4b96-f838-47e1-9b4c-d24ccfba1867.jpg)
+![](/cdn-cgi/image/width=1024,format=auto,quality=85/content/images/product/b4e824b7-d10f-4204-bd89-25e18892eb68.jpg)
 
 ![](/cdn-cgi/image/width=1024,format=auto,quality=85/content/images/product/f2638118-94a5-495d-b488-93ffb93ece17.jpg)
 
@@ -2117,7 +1636,7 @@ English
 ```
 - error=false
 ```text
-QIDI Plus4: Heated Chamber 3D Printer with Auto Calibration – Qidi Tech Online Store 
+QIDI Q2 3D Printer – QIDI US Store 
 
 [Skip to content](#MainContent)
 
@@ -2126,6 +1645,8 @@ QIDI Plus4: Heated Chamber 3D Printer with Auto Calibration – Qidi Tech Online
 *   [🔥Sale](/)
 
 
+
+    *   [🍎Autumn Clearance Sale](/collections/autumn-clearance-sale)
 
     *   [🏆3D Printing Contest](/pages/contest-vote)
 
@@ -2145,8 +1666,8 @@ QIDI Plus4: Heated Chamber 3D Printer with Auto Calibration – Qidi Tech Online
     *   [QIDI Tech X Series](/collections/3d-printers)
 
         *   [X-Plus3](/products/qidi-x-plus-3)
-        *   [X-Smart3](/products/qidi-x-smart-3)
-        *   [X-CF Pro](/products/qidi-x-cf-pro-especially-designed-for-printing-carbon-fiber-and-nylon)
+        *   [X-Smart3](/)
+        *   [X-CF Pro](/)
 
     *   [QIDI Tech I Series](/collections/3d-printers)
 
@@ -2158,13 +1679,15 @@ QIDI Plus4: Heated Chamber 3D Printer with Auto Calibration – Qidi Tech Online
 
     *   [Industrial Grade Composites](/collections/industrial-grade-composites)
 
-        *   [UltraPA-CF25(PPA-CF Core)](/products/ultrapa-cf25-filament)
+        *   [UltraPA-CF25(PPA-CF25)](/products/ultrapa-cf25-filament)
         *   [PPS-CF](/products/pps-cf-filament)
         *   [PAHT-GF](/products/paht-gf-filament)
         *   [PET-GF](/products/pet-gf-filament)
         *   [🔥PET-CF](/products/pet-cf-filament)
+        *   [PET-CF 0.5kg](/products/qidi-tech-pet-cf-0-5kg-filament)
         *   [PAHT-CF(PPA-CF)](/products/qidi-paht-cf-carbon-fiber-filament)
         *   [PA12-CF](/products/qidi-carbon-fiber-filament-pa12-cf)
+        *   [PA12-CF 0.5kg](/products/pa12-cf-0-5kg-filament)
         *   [Ultra PA Nylon](/products/qidi-nylon-filament-ultrapa)
         *   [PC/ABS-FR](/products/qidi-tech-pc-abs-fr-filament)
 
@@ -2174,8 +1697,7 @@ QIDI Plus4: Heated Chamber 3D Printer with Auto Calibration – Qidi Tech Online
         *   [🚀PETG Basic](/products/petg-basic)
         *   [🚀PLA Matte Basic](/products/pla-matte-basic)
         *   [🚀PETG Translucent](/products/petg-translucent)
-        *   [PLA Rapido](/products/qidi-tech-pla-filament)
-        *   [ABS Rapido](/products/qidi-tech-abs-f…[23128b total]
+        *   [PLA Rapido](/products/qidi-tech-pla-filament)…[32520b total]
 ```
 - error=false
 ```text
@@ -2217,93 +1739,362 @@ K1C Carbon Fiber 3D Printer - Creality Store
 ```
 - error=false
 ```text
-Anycubic Kobra S1 Combo: Budget Multicolor 3D Printing | Anycubic 
+Snapmaker U1 Color 3D Printer Pre-Order - Snapmaker US
 
-[Skip to content](#MainContent)
+![](data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz48c3ZnIHdpZHRoPSI5OTk5OXB4IiBoZWlnaHQ9Ijk5OTk5cHgiIHZpZXdCb3g9IjAgMCA5OTk5OSA5OTk5OSIgdmVyc2lvbj0iMS4xIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHhtbG5zOnhsaW5rPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5L3hsaW5rIj48ZyBzdHJva2U9Im5vbmUiIGZpbGw9Im5vbmUiIGZpbGwtb3BhY2l0eT0iMCI+PHJlY3QgeD0iMCIgeT0iMCIgd2lkdGg9Ijk5OTk5IiBoZWlnaHQ9Ijk5OTk5Ij48L3JlY3Q+IDwvZz4gPC9zdmc+)
 
-🎉 Anycubic Fantastic Weeks Sale: UP TO $400 OFF - [Shop Now >](https://store.anycubic.com/pages/fantastic-week-big-sale "https://store.anycubic.com/pages/fantastic-week-big-sale") 
+[Skip to content](#main-content)
 
- ![ANYCUBIC-STORE](data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==) United States (English / $ USD) 
+Click here to be redirected to the more applicable version of our website for your country/region. 
 
-1.  [Home](/)
-2.  
-3.  Anycubic Kobra S1 Combo
+Hong Kong
 
-[Skip to product information](#ProductInfo-template--18098407178402__main)
+Go
 
-*   [![](//store.anycubic.com/cdn/shop/files/kobra-s1-combo-colors-1-reddot.jpg?v=1764312056&width=1946)](//store.anycubic.com/cdn/shop/files/kobra-s1-combo-colors-1-reddot.jpg?v=1764312056&width=1500)
+Are you sure? You won't be able to place an order on this website.
 
-*   [![](//store.anycubic.com/cdn/shop/files/1080x1080-1_aeeb2c2e-8c81-4272-88be-542752e1e07a.jpg?v=1772181313&width=1946)](//store.anycubic.com/cdn/shop/files/1080x1080-1_aeeb2c2e-8c81-4272-88be-542752e1e07a.jpg?v=1772181313&width=1500)
+Yes, I'm just taking a look
 
-*   [![](//store.anycubic.com/cdn/shop/files/1080x1080-2_d0b54616-f5c0-4c72-b677-252a3d25837b.jpg?v=1772181313&width=1946)](//store.anycubic.com/cdn/shop/files/1080x1080-2_d0b54616-f5c0-4c72-b677-252a3d25837b.jpg?v=1772181313&width=1500)
+No, go to the right website
 
-*   [![](//store.anycubic.com/cdn/shop/files/1080x1080-3_b0a79fd1-e05b-4805-af36-b3b13e45c2ae.jpg?v=1772181313&width=1946)](//store.anycubic.com/cdn/shop/files/1080x1080-3_b0a79fd1-e05b-4805-af36-b3b13e45c2ae.jpg?v=1772181313&width=1500)
+[snapmaker.com](https://www.snapmaker.com/en-US/)
 
-*   [![](//store.anycubic.com/cdn/shop/files/1080x1080-4_9e0415d9-f8c7-428e-8cde-43ddfbd1ebaf.jpg?v=1772181313&width=1946)](//store.anycubic.com/cdn/shop/files/1080x1080-4_9e0415d9-f8c7-428e-8cde-43ddfbd1ebaf.jpg?v=1772181313&width=1500)
+💰**30-Day Price Guarantee:** Get a refund if the price drops within 30 days.
 
-*   [![](//store.anycubic.com/cdn/shop/files/1080x1080-5_7e98099e-a49c-4208-845c-1a382c1d1e4c.jpg?v=1772181313&width=1946)](//store.anycubic.com/cdn/shop/files/1080x1080-5_7e98099e-a49c-4208-845c-1a382c1d1e4c.jpg?v=1772181313&width=1500)
+🚛 **Free shipping** over $89 in 48 states (excl. machines & modules).
 
-*   [![](//store.anycubic.com/cdn/shop/files/1080x1080-6_7d3fda…[49466b total]
+🛠️**1-Year Warranty Protection**: Covers all machines and modules.
+
+Select Your Country / Region according to your shipping address 
+
+Products may have different prices and availability based on country/region. 
+
+ 
+
+ 
+
+![Stay Updated!](//us.snapmaker.com/cdn/shop/files/logo.png?v=1761210142&width=48) 
+
+### Stay Updated!
+
+Subscribe to get updates on our new products and exclusive promotions.
+
+Later Allow 
+
+*   [![Snapmaker US](//us.snapmaker.com/cdn/shop/files/U1_c9534a17-eea4-4937-b1d6-13b45ccc7ca0.webp?v=1763646848&width=1214) ![](data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%201500%201500'%3E%3C/svg%3E)](//us.snapmaker.com/cdn/shop/files/U1_c9534a17-eea4-4937-b1d6-13b45ccc7ca0.webp?v=1763646848&width=1500)
+
+*   [![](data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%201500%201500'%3E%3C/svg%3E)](//us.snapmaker.com/cdn/shop/files/20251013-121943.webp?v=1763646848&width=1500)
+
+*   [![](data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2…[48549b total]
+```
+
+### 47. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `web_fetch`
+```json
+{
+  "url": "https://www.tomshardware.com/3d-printing/prusa-core-one-review"
+}
+```
+- `web_fetch`
+```json
+{
+  "url": "https://www.tomshardware.com/reviews/bambu-lab-p1s"
+}
+```
+- `web_fetch`
+```json
+{
+  "url": "https://www.pcmag.com/reviews/qidi-q2"
+}
+```
+- `web_fetch`
+```json
+{
+  "url": "https://www.pcmag.com/reviews/bambu-lab-p2s"
+}
+```
+- `web_fetch`
+```json
+{
+  "url": "https://www.tomshardware.com/3d-printing/creality-k1c-review"
+}
+```
+
+### 48. user
+
+**Tool Results**
+
+- error=false
+```text
+Prusa CORE One Review: Better in a Box (Updated) | Tom's Hardware
+
+[Skip to main content](#main)
+
+Don't miss these
+
+ 
+
+[![Klevv Cras V RGB DDR5-9600 C46](https://cdn.mos.cms.futurecdn.net/HaABEZdLS9EfkDxan7xYzh.jpg) 
+
+RAM Klevv Cras V RGB DDR5-9600 C46 2x24GB review: Binned for pure speed, not your wallet](https://www.tomshardware.com/pc-components/ram/klevv-cras-v-rgb-ddr5-9600-c46-2x48gb-review "Klevv Cras V RGB DDR5-9600 C46 2x24GB review: Binned for pure speed, not your wallet") 
+
+[![Samsung Galaxy Book6 Ultra](https://cdn.mos.cms.futurecdn.net/bTkK4xWjiTCJQhjqKhPaAa.jpg) 
+
+Ultrabooks and Ultraportables Samsung Galaxy Book6 Ultra review: Premium creator pick](https://www.tomshardware.com/laptops/ultrabooks-ultraportables/samsung-galaxy-book6-ultra-review "Samsung Galaxy Book6 Ultra review: Premium creator pick") 
+
+[![Corsair Makr Pro 75](https://cdn.mos.cms.futurecdn.net/yLK4MiNbD3sstw3toMxXe8.jpg) 
+
+Gaming Keyboards Corsair Makr Pro 75 Review: Not DIY-priced (or DIY)](https://www.tomshardware.com/peripherals/gaming-keyboards/corsair-makr-pro-75-review "Corsair Makr Pro 75 Review: Not DIY-priced (or DIY)") 
+
+[![Elegoo Centauri Carbon 2](https://cdn.mos.cms.futurecdn.net/6SnLuojxPXQwzEoecP4DqE.jpg) 
+
+3D Printing Elegoo Centauri Carbon 2 review: A four-color variant](https://www.tomshardware.com/3d-printing/elegoo-centauri-carbon-2-review "Elegoo Centauri Carbon 2 review: A four-color variant") 
+
+[![Nvidia DGX Spark](https://cdn.mos.cms.futurecdn.net/dSAk9RQSC9eyGYPAaBcL9k.png) 
+
+Mini PCs Nvidia DGX Spark review: the GB10 Superchip powers a fast and fun AI toolbox that beats out AMD’s Ryzen AI Max+ 395](https://www.tomshardware.com/pc-components/gpus/nvidia-dgx-spark-review "Nvidia DGX Spark review: the GB10 Superchip powers a fast and fun AI toolbox that beats out AMD’s Ryzen AI Max+ 395") 
+
+[![Best 3D Printers for Beginners](https://cdn.mos.cms.futurecdn.net/9CpvhrfcpmzE2YxXF76VFj.png) 
+
+3D Printing Best 3D Printers for Beginners 2026: Perfect printers for k…[52893b total]
 ```
 - error=false
 ```text
-Flashforge Adventurer 5M Pro | Enclosed 3D Printer for Faster Prints
+Bambu Lab P1S Review: A New Standard for 3D Printing | Tom's Hardware
 
-[![](https://img.shopcider.com/desktop/bundle/static/image/go-top-icon@3x.0a9657e5f472a280426d49a34dedaf93.png)](# "Back to the top")
+[Skip to main content](#main)
 
-[Skip to content](#main)
-
-**Spring Sale —** New Season. Better Printing.
+Don't miss these
 
  
 
+[![Samsung Galaxy Book6 Ultra](https://cdn.mos.cms.futurecdn.net/bTkK4xWjiTCJQhjqKhPaAa.jpg) 
 
+Ultrabooks and Ultraportables Samsung Galaxy Book6 Ultra review: Premium creator pick](https://www.tomshardware.com/laptops/ultrabooks-ultraportables/samsung-galaxy-book6-ultra-review "Samsung Galaxy Book6 Ultra review: Premium creator pick") 
 
-**Save Extra Discount on All Printers**
+[![Corsair Makr Pro 75](https://cdn.mos.cms.futurecdn.net/yLK4MiNbD3sstw3toMxXe8.jpg) 
 
-[Learn More](https://www.flashforge.com/collections/3d-printers "https://www.flashforge.com/collections/3d-printers")
+Gaming Keyboards Corsair Makr Pro 75 Review: Not DIY-priced (or DIY)](https://www.tomshardware.com/peripherals/gaming-keyboards/corsair-makr-pro-75-review "Corsair Makr Pro 75 Review: Not DIY-priced (or DIY)") 
+
+[![Elegoo Centauri Carbon 2](https://cdn.mos.cms.futurecdn.net/6SnLuojxPXQwzEoecP4DqE.jpg) 
+
+3D Printing Elegoo Centauri Carbon 2 review: A four-color variant](https://www.tomshardware.com/3d-printing/elegoo-centauri-carbon-2-review "Elegoo Centauri Carbon 2 review: A four-color variant") 
+
+[![Cooler Master Cosmos Alpha](https://cdn.mos.cms.futurecdn.net/TYtxNTrh4jkyPMyWtKw6ui.png) 
+
+PC Cases Hands-on with Cooler Master’s Cosmos Alpha full-tower chassis – sliding, configurable interior makes for lots of possibilities](https://www.tomshardware.com/pc-components/pc-cases/hands-on-with-cooler-masters-cosmos-alpha-full-tower-chassis "Hands-on with Cooler Master’s Cosmos Alpha full-tower chassis – sliding, configurable interior makes for lots of possibilities") 
+
+[![MSI GeForce RTX 5090 Lightning Z](https://cdn.mos.cms.futurecdn.net/SkZKFQc4Y94jjM7ykuLMhW.jpg) 
+
+GPUs MSI GeForce RTX 5090 Lightning Z review: RTX 5090 Ti, anyone?](https://www.tomshardware.com/pc-components/gpus/msi-geforce-rtx-5090-lightning-z-review "MSI GeForce RTX 5090 Lightning Z review: RTX 5090 Ti, anyone?") 
+
+[![Nvidia DGX Spark](https://cdn.mos.cms.futurecdn.net/dSAk9RQSC9eyGYPAaBcL9k.png) 
+
+Mini PCs Nvidia DGX Spark review: the GB10 Superchi…[51113b total]
+```
+- error=false
+```text
+Qidi Q2 Review: This Under-$500 3D Printer Brings the Heat | PCMag
+
+[Skip to Main Content](#main "Skip to Main Content")
+
+PCMag editors select and review products [independently](https://www.pcmag.com/about/pcmagcom-mission-statement). If you buy through affiliate links, we may earn commissions, which help support our [testing](https://www.pcmag.com/about/how-we-test-everything-we-review). 
+
+ ![The Qidi Q2](https://i.pcmag.com/imagery/reviews/018BUj8QDAN1PKP44qC6lGO-7-hero-image-gallery.fit_scale.size_400x225.v1765214627.jpg) 
+
+ (Credit: Michael Lydick) 
+
+ ![The Qidi Q2](<data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 760 427'%3E%3Crect fill='%23f7f7f7' /%3E%3C/svg%3E>) 
+
+ (Credit: Michael Lydick) 
+
+ ![The Qidi Q2](<data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 760 427'%3E%3Crect fill='%23f7f7f7' /%3E%3C/svg%3E>) 
+
+ (Credit: Michael Lydick) 
+
+ ![The print plate on the Qidi Q2](<data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 760 427'%3E%3Crect fill='%23f7f7f7' /%3E%3C/svg%3E>) 
+
+ (Credit: Michael Lydick) 
+
+ ![The Qidi Q2 printing a test print](<data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 760 427'%3E%3Crect fill='%23f7f7f7' /%3E%3C/svg%3E>) 
+
+ (Credit: Michael Lydick) 
+
+ ![The Qidi Q2 printing a test print](<data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 760 427'%3E%3Crect fill='%23f7f7f7' /%3E%3C/svg%3E>) 
+
+ (Credit: Michael Lydick) 
+
+4.0
+
+Excellent
 
  
 
+### The Bottom Line
 
+Equipped with active chamber heating, the closed-frame Qidi Q2 is an excellent, reasonably priced 3D printer for hobbyists.
 
-**Enjoy 20% OFF All Filaments & Accessories**
+MSRP $499.00
 
-[Learn More](/collections/filament "Filament")
+$549.00 Save $50.00 
+
+[$499 at Amazon](https://cc.pcmag.com/v1/otc/01r1WRIAJykbQgN4oGQ8FSi?merchant=05kie42h3YvHwjr4G1w80Qq&url=https%3A%2F%2Fwww.amazon.com%2FQIDI-Q2-Enclosed-Filtration-270x270x256mm%2Fdp%2FB0FDWK8JD6&template=review-page&module=score-card-persistent&element=buy-button&item=offer&position=1&element_label=%2…[40838b total]
+```
+- error=false
+```text
+Bambu Lab P2S Review: As Close to Perfection as 3D Printers Get | PCMag
+
+[Skip to Main Content](#main "Skip to Main Content")
+
+ ![The Bambu Lab P2S](https://i.pcmag.com/imagery/reviews/06w6TJKqefubTkUdvNafuG9-10-hero-image-gallery.fit_scale.size_400x225.v1760110270.jpg) 
+
+ (Credit: Joseph Maldonado) 
+
+ ![The Bambu Lab P2S Combo](<data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 760 427'%3E%3Crect fill='%23f7f7f7' /%3E%3C/svg%3E>) 
+
+ (Credit: Joseph Maldonado) 
+
+ ![The Bambu Lab P2S Combo AMS 2 Pro](<data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 760 427'%3E%3Crect fill='%23f7f7f7' /%3E%3C/svg%3E>) 
+
+ (Credit: Joseph Maldonado) 
+
+ ![The Bambu Lab P2S](<data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 760 427'%3E%3Crect fill='%23f7f7f7' /%3E%3C/svg%3E>) 
+
+ (Credit: Joseph Maldonado) 
+
+ ![The control display on the Bambu Lab P2S Combo](<data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 760 427'%3E%3Crect fill='%23f7f7f7' /%3E%3C/svg%3E>) 
+
+ (Credit: Joseph Maldonado) 
+
+ ![The build plate on the Bambu Lab P2S Combo](<data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 760 427'%3E%3Crect fill='%23f7f7f7' /%3E%3C/svg%3E>) 
+
+ (Credit: Joseph Maldonado) 
+
+ ![The extruder on the Bambu Lab P2S Combo](<data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 760 427'%3E%3Crect fill='%23f7f7f7' /%3E%3C/svg%3E>) 
+
+ (Credit: Joseph Maldonado) 
+
+Editors' Choice 
+
+5.0
+
+Exemplary
 
  
 
+### The Bottom Line
+
+Bambu Lab’s P2S desktop 3D printer produces some of the cleanest prints we have ever seen from a consumer model. Fast extrusion, quiet operation, impressive cooling capabilities, and intelligent calibration cement its excellence.
+
+Starts at $549.00
+
+$549.00 
+
+[$549 at Bambu Lab](https://cc.pcmag.com/v1/otc/01r1WRIAJykbQgN4oGQ8FSi?merchant=04fqoyuFZHNWnt1mDzWK4Vk&url=https%3A%2F%2Fus.store.bambulab.com%2Fproducts%2Fp2s&template=review-page&modu…[40438b total]
+```
+- error=false
+```text
+Creality K1C Review: C for Carbon | Tom's Hardware
+
+[Skip to main content](#main)
+
+Don't miss these
+
  
 
-*   [3D Printer](/collections/3d-printers)
+[![Corsair Makr Pro 75](https://cdn.mos.cms.futurecdn.net/yLK4MiNbD3sstw3toMxXe8.jpg) 
 
-    *   3D Printer
-    *   [Best Seller](/collections/adventurer-series)
-    *   [Guider Series](/collections/guider-series)
-    *   [Maker's Choice](/collections/makers-choice)
-    *   [Refurbished 3D Printer](/collections/refurbished-3d-printers)
-    *   [Shop All](/collections/3d-printers)
+Gaming Keyboards Corsair Makr Pro 75 Review: Not DIY-priced (or DIY)](https://www.tomshardware.com/peripherals/gaming-keyboards/corsair-makr-pro-75-review "Corsair Makr Pro 75 Review: Not DIY-priced (or DIY)") 
 
-         [](#) [Compare](/pages/compare-3d-printers)
+[![Klevv Cras V RGB DDR5-9600 C46](https://cdn.mos.cms.futurecdn.net/HaABEZdLS9EfkDxan7xYzh.jpg) 
 
-         [Track your Order](https://flashforge.com/apps/17TRACK)
+RAM Klevv Cras V RGB DDR5-9600 C46 2x24GB review: Binned for pure speed, not your wallet](https://www.tomshardware.com/pc-components/ram/klevv-cras-v-rgb-ddr5-9600-c46-2x48gb-review "Klevv Cras V RGB DDR5-9600 C46 2x24GB review: Binned for pure speed, not your wallet") 
 
-    ![](//www.flashforge.com/cdn/shopifycloud/storefront/assets/no-image-2048-a2addb12.gif)
+[![Elegoo Centauri Carbon 2](https://cdn.mos.cms.futurecdn.net/6SnLuojxPXQwzEoecP4DqE.jpg) 
 
-    ![](//www.flashforge.com/cdn/shopifycloud/storefront/assets/no-image-2048-a2addb12.gif)
+3D Printing Elegoo Centauri Carbon 2 review: A four-color variant](https://www.tomshardware.com/3d-printing/elegoo-centauri-carbon-2-review "Elegoo Centauri Carbon 2 review: A four-color variant") 
 
-    ![](//www.flashforge.com/cdn/shopifycloud/storefront/assets/no-image-2048-a2addb12.gif)
+[![Cooler Master Cosmos Alpha](https://cdn.mos.cms.futurecdn.net/TYtxNTrh4jkyPMyWtKw6ui.png) 
 
-    *   [![](//www.flashforge.com/cdn/shop/files/AD5X_9.29.webp?v=1760597361) AD5X](/products/flashforge-ad5x-3d-printer)
-    *   [![](//www.flashforge.com/cdn/shop/files/AD5M_9.29.webp?v=1760434473) Adventurer 5M](/products/adventurer-5m-3d-printer)
-    *   [![](//www.flashforge.com/cdn/shop/files/Flashforge_adventurer_5M_Pro.png?v=1751304863) Adventurer 5M Pro](/products/adventurer-5m-pro-3d-printer)
+PC Cases Hands-on with Cooler Master’s Cosmos Alpha full-tower chassis – sliding, configurable interior makes for lots of possibilities](https://www.tomshardware.com/pc-components/pc-cases/hands-on-with-cooler-masters-cosmos-alpha-full-tower-chassis "Hands-on with Cooler Master’s Cosmos Alpha full-tower chassis – sliding, configurable interior makes for lots of possibilities") 
 
-    *   [![](//www.flashforge.com/cdn/shop/files/01-1000x1000_b6f7ac7d-0cfd-4dd2-ab11-65d3d50a1b8c.png?v=1758535372) Guider 3 Ultra](/products/flashforge-guider-3-ultra-3d-printer)
+[![MSI GeForce RTX 5090 Lightning Z](https://cdn.mos.cms.futurecdn.net/SkZKFQc4Y94jjM7ykuLMhW.jpg) 
 
-    *   [![](//www.flashforge.com/cdn/shop/files/AD5M_9.29.webp?v=1760434473) Adventurer 5M](/products/adventurer-5m-3d-p…[34986b total]
+GPUs MSI GeForce RTX 5090 Lightning Z review: RTX 5090 Ti, anyone?](https://www.tomshardware.com/pc-components/gpus/msi-geforce-rtx-5090-lightning-z-review "MSI GeForce RTX 5090 Lightning Z review: RTX 5090 Ti, anyone?") 
+
+[![Creality Falcon A1 Pro](https://cdn.mos.cms.futurecdn.net/4SiJsqEb9nK9ccuFMPCUvD.jpg) 
+
+Maker and STEM Best Laser Cutters…[39552b total]
 ```
 
-### 53. assistant
+### 49. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `web_fetch`
+```json
+{
+  "url": "https://www.nytimes.com/wirecutter/reviews/best-home-3d-printer/"
+}
+```
+
+### 50. user
+
+**Tool Results**
+
+- error=false
+```text
+The 3 Best 3D Printers of 2026 | Reviews by Wirecutter
+
+Advertisement
+
+[SKIP ADVERTISEMENT](#after-dfp-ad-top)
+
+We independently review everything we recommend. When you buy through our links, we may earn a commission. [Learn more›](/wirecutter/about/)
+
+*   [Why you should trust us](#why-you-should-trust-us)
+*   [Who this is for](#who-this-is-for)
+*   [What you should know about 3D printers](#what-you-should-know-about-3d-printers)
+*   [Sustainability and 3D printers](#sustainability-and-3d-printers)
+*   [How we picked and tested](#how-we-picked-and-tested)
+*   [Top pick: Bambu Lab A1 Mini](#top-pick-bambu-lab-a1-mini)
+*   [Upgrade pick: Bambu Lab X1-Carbon](#upgrade-pick-bambu-lab-x1-carbon)
+*   [Best for long-term upgrades: Prusa MK4S](#best-for-long-term-upgrades-prusa-mk4s)
+*   [Other 3D printers worth considering](#other-3d-printers-worth-considering)
+*   [Care and maintenance](#care-and-maintenance)
+*   [What about the Ender-3 and other Creality printers?](#what-about-the-ender-3-and-other-creality-printers)
+*   [What to look forward to](#what-to-look-forward-to)
+*   [The competition](#the-competition)
+
+FYI
+
+Our upgrade pick, the [Bambu Lab X1-Carbon](https://www.nytimes.com/wirecutter/out/link/54811/230561/4/169531/?merchant=Best%20Buy), appears to be discontinued. We’re reaching out to the company for confirmation and will update the guide accordingly.
+
+November 2025
+
+A 3D printer unlocks a world of creation, giving anyone with a few hundred bucks the power to manufacture custom components with sub-millimeter precision. And you don’t have to be an engineer to get started.
+
+We recommend the [Bambu Lab A1 Mini](https://www.nytimes.com/wirecutter/out/link/58624/224609/4/173278/?merchant=Amazon) because it’s easy to set up and makes high-quality prints without needing any manual calibration. Plus, this model fits more easily on a desk than previous picks.
+
+### Everything we recommend
+
+#### Top pick
+
+[![](https://d34mvw1if3ud0g.cloudfront.net/58624/Bambu-…[68240b total]
+```
+
+### 51. assistant
 
 **Thinking / Raw Output**
 
@@ -2323,39 +2114,136 @@ Flashforge Adventurer 5M Pro | Enclosed 3D Printer for Faster Prints
   "title": "",
   "updates": [
     {
-      "index": 5,
-      "note": "Fetched dedicated 3D-focused review (3DPrint.com) covering QIDI Plus4 with deep reliability/safety observations and measurement data.",
-      "status": "done"
+      "index": 2,
+      "note": "All3DP pages were partially accessible only (anti-bot/truncated). Kept as low-confidence supplemental context and did not rely on it for major claims.",
+      "status": "skipped"
     },
     {
       "index": 6,
-      "note": "Fetched official Bambu store pages (P1S full page with specs/pricing; catalog listing includes X-series pricing references though direct X1C detail page was region-redirect limited).",
+      "note": "Fetched manufacturer pages for Bambu P2S/P1S, Prusa Core One+, QIDI Q2, Creality K1C, Snapmaker U1; extracted MSRP/config and add-on costs.",
       "status": "done"
     },
     {
       "index": 7,
-      "note": "Fetched official Prusa CORE One+ product page with assembled/kit pricing, chamber temp, materials, and ecosystem/support details.",
+      "note": "Collected street-price references from Tom's Hardware and PCMag commerce links (Amazon/Best Buy/Walmart references) plus manufacturer store direct pricing.",
       "status": "done"
     },
     {
       "index": 8,
-      "note": "Fetched official QIDI Plus4 product page with sale/MSRP pricing and key specs.",
+      "note": "Fetched model-specific independent reviews for Prusa Core One, Bambu P1S, Bambu P2S, QIDI Q2, Creality K1C; extracted maintenance/reliability caveats.",
       "status": "done"
     },
     {
       "index": 9,
-      "note": "Fetched official Creality K1C product page with key features and policy/warranty notes.",
+      "note": "Synthesis complete: ranked shortlist, personas, home setup/safety guidance, and uncertainty flags prepared.",
       "status": "done"
+    }
+  ]
+}
+```
+
+### 52. user
+
+**Tool Results**
+
+- error=false
+```text
+TODO [9/9]
+1. ✓ Fetch specialist roundup: Tom's Hardware — Read Tom's Hardware 2026 best 3D printers roundup (community-recommended style source) and extract enclosed models near $700–$1,300 plus caveats. [Fetched and extracted 2026 roundup details, prices, build volumes, reasons-to-buy/avoid, and testing methodology.]
+2. – Fetch specialist roundup: All3DP — Read All3DP 2026 best 3D printers roundup and note enclosed-home picks + pricing signals. [All3DP pages were partially accessible only (anti-bot/truncated). Kept as low-confidence supplemental context and did not rely on it for major claims.]
+3. ✓ Fetch specialist roundup: Wirecutter — Read Wirecutter best home 3D printer guide (community-recommended source) for reliability and user-fit guidance. [Fetched full Wirecutter 2026 guide with methodology, maintenance, ecosystem caveats, and model-specific reliability notes (X1C/Core One/K1C/Centauri).]
+4. ✓ Fetch specialist roundup: PCMag — Read PCMag 2026 best 3D printers tests for hands-on reliability/noise/material notes. [Fetched full PCMag 2026 roundup with tested picks, pros/cons, pricing snapshots, and enclosed model specs including Qidi Q2 and P2S.]
+5. ✓ Fetch community discussion — Read at least one current community discussion on trustworthy reviewers/sources and practical reliability feedback. [Fetched current Reddit community discussions (trusted reviewers thread + March 2026 purchase megathread) with concrete recommendations and reliability/support caveats.]
+6. ✓ Fetch manufacturer pricing pages — Gather MSRP from manufacturer stores for shortlisted enclosed models in range. [Fetched manufacturer pages for Bambu P2S/P1S, Prusa Core One+, QIDI Q2, Creality K1C, Snapmaker U1; extracted MSRP/config and add-on costs.]
+7. ✓ Fetch retailer pricing pages — Gather current street pricing from major US retailers for shortlisted models. [Collected street-price references from Tom's Hardware and PCMag commerce links (Amazon/Best Buy/Walm…[2610b total]
+```
+
+### 53. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `report_findings`
+```json
+{
+  "negative_info": "- I did not use All3DP as a core evidence source because fetched pages were truncated by anti-bot behavior in this environment; I treated it as low-confidence context only.\n- I did not make Snapmaker U1 a core recommendation despite attractive pricing ($849 promo / $999 MSRP) because it is still pre-order/unavailable on the US store page, with staggered accessory ETAs and less independent long-term reliability data.\n- I treated Bambu X1-Carbon as conditional only: Wirecutter’s Nov 2025 update explicitly says it appears discontinued, so recommending it as a primary 2026 buy is risky without confirmed stock.\n- Conflicting evidence resolved: Tom’s Hardware rates Creality K1C favorably, but Wirecutter documents poor out-of-box behavior on K1C in its competition section. I interpreted this as likely QC/consistency variance and downgraded K1C for novice buyers.\n- I excluded open-frame favorites (A1 Mini, MK4S) from main shortlist because the user asked specifically for enclosed models.\n- I avoided citing manufacturer performance claims as standalone proof where independent reviews contradicted or qualified them (e.g., QIDI’s marketing vs PCMag’s real-world z-banding/nozzle-jam observations).",
+  "report": "## Summary\nIf you want an **enclosed home printer around $1,000 in 2026**, buy one of these:\n\n1. **Prusa CORE One+ (best long-term ownership)** — best for reliability/support-minded buyers who can spend near the top of budget.\n2. **Bambu Lab P2S Combo (best plug-and-play value)** — easiest modern enclosed system with excellent print consistency and home-friendly operation.\n3. **Bambu Lab P1S / P1S Combo (best discounted value)** — still a strong enclosed CoreXY if you find current street deals.\n4. **QIDI Q2 (best budget engineering-capable enclosed pick)** — great under-$700 value, but needs more tuning tolerance.\n5. **Creality K1C (value/tinkerer pick)** — fast and cheap when discounted, but QC and setup consistency are less predictable.\n\n## Key Findings\n- **Prusa CORE One+ pricing and fit:** Prusa lists assembled at about **$1,202.78** and kit at **$925**; enclosed CoreXY, active chamber control up to 55°C, and strong long-term parts/upgradability messaging. Good for ABS/ASA/PC-focused home users who prioritize serviceability. (https://www.prusa3d.com/product/prusa-core-one/, https://www.tomshardware.com/3d-printing/prusa-core-one-review)\n- **P2S is the current ease-of-use leader in this class:** PCMag gave it Editors’ Choice, citing strong reliability/quality, quieter operation, adaptive airflow, and good enclosed behavior. Base **$549**, Combo tested at **$799**. (https://www.pcmag.com/reviews/bambu-lab-p2s)\n- **P1S still wins on deal value:** Tom’s reports **$699 MSRP** direct, with observed street pricing down to **$549.99 Best Buy** and lower Amazon deal swings; still fast and enclosed, but noisier and with proprietary-part tradeoffs. (https://www.tomshardware.com/reviews/bambu-lab-p1s)\n- **QIDI Q2 is unusually capable at $499:** Heated chamber (65°C), enclosed frame, and filtration at **$499** (Combo **$649**), but PCMag found slicer/firmware refinement needs and some z-banding/nozzle-jam experience. (https://us.qidi3d.com/products/qidi-q2, https://www.pcmag.com/reviews/qidi-q2)\n- **K1C can be good, but consistency is mixed:** Tom’s liked its speed/value and listed ~$559 class pricing, but Wirecutter’s competition notes out-of-box under-extrusion issues on K1C. Better for hands-on users than “just print” buyers. (https://www.tomshardware.com/3d-printing/creality-k1c-review, https://www.nytimes.com/wirecutter/reviews/best-home-3d-printer/)\n- **X1-Carbon caution:** Wirecutter says it appears discontinued (Nov 2025 update). Buy only if verified in-stock with warranty support. (https://www.nytimes.com/wirecutter/reviews/best-home-3d-printer/)\n\n## Detailed Comparison\n| Model | MSRP (observed) | Street price seen | Enclosure/chamber | Build volume | Speed class | Materials (at least PLA/PETG/ABS/ASA?) | Notable caveats |\n|---|---:|---:|---|---|---|---|---|\n| **Prusa CORE One+** | ~$1,202.78 assembled / $925 kit | Amazon listings often higher | Fully enclosed, active chamber control | ~250×220×270 mm | High (CoreXY) | Yes (plus PC/PA pathways) | Camera/filtration are add-ons; pricier upfront |\n| **Bambu P2S Combo** | $799 Combo ($549 base) | Typically near MSRP so far | Fully enclosed; adaptive airflow + carbon filter | 256³ mm | Up to 600 mm/s class | Yes | Proprietary ecosystem/parts; no Ethernet |\n| **Bambu P1S / Combo** | $699 base MSRP | Major discount variance ($449–$909 class depending bundle/deal) | Fully enclosed | 256³ mm | 500 mm/s class | Yes | Noisier; AMS adds waste; proprietary service parts |\n| **QIDI Q2 / Combo** | $499 / $649 | Near MSRP currently | Fully enclosed; active 65°C chamber + 3-in-1 filtration | 270×270×256 mm | 600 mm/s class | Yes | More tuning burden; software maturity weaker than Bambu |\n| **Creality K1C** | ~$559 class (sale ~$531 seen in review period) | Can dip lower in promos | Fully enclosed | 220×220×250 mm | High-speed CoreXY | Yes | Mixed out-of-box consistency across sources |\n\n## Buyer-fit guidance\n- **Easiest plug-and-play home use:** **Bambu P2S Combo**.\n- **Best around-$1,000 “buy once, keep long time”:** **Prusa CORE One+**.\n- **Best value if discounted:** **Bambu P1S Combo**.\n- **Best engineering-material value under $700:** **QIDI Q2**.\n- **Tinkerer bargain:** **K1C**.\n\n## Home setup advice (noise, filtration, safety)\n- Even with enclosures, run in a **well-ventilated room**; Wirecutter/CDC-linked guidance still treats emissions seriously for home use. (https://www.nytimes.com/wirecutter/reviews/best-home-3d-printer/)\n- For frequent ABS/ASA, prioritize printers with **active chamber control** and meaningful filtration options (Prusa optional advanced filtration; QIDI integrated 3-in-1; Bambu carbon filtration path). (Prusa/QIDI/Bambu pages + reviews above)\n- Put printers on a rigid surface and expect fan/motion noise variation: Tom’s calls Core One very quiet; P1S is notably noisier. (https://www.tomshardware.com/3d-printing/prusa-core-one-review, https://www.tomshardware.com/reviews/bambu-lab-p1s)\n- Budget hidden costs: multi-material modules, spare nozzles/hotends, filters, dryer/storage, and shipping/tax.\n\n## Uncertainties\n- Pricing is highly promotional and region-specific (especially Bambu and Creality).\n- X1-Carbon availability is uncertain (possible discontinuation).\n- Some quality differences across sources likely reflect unit variance, firmware revisions, and reviewer methodology/timeframe.\n\n## Source map (by section)\n- **Executive picks/comparison:** PCMag, Tom’s Hardware, Wirecutter, manufacturer stores.\n- **Pricing:** Prusa store, QIDI store, Snapmaker store (watchlist), Tom’s/PCMag commerce price snapshots.\n- **Reliability/maintenance caveats:** Tom’s model reviews, PCMag model reviews, Wirecutter competition notes.\n- **Community trust signals:** Reddit reviewer-trust and purchase-advice threads.",
+  "secondary_info": "### Expanded pricing and bundle notes (US-centric, March 2026 snapshots from fetched pages)\n- **Prusa CORE One+**: Assembled shown at ~$1,202.78; kit at ~$925 on Prusa product page. Prusa’s own comparison table on-page also references 1199/949 tiers.\n- **Bambu P2S**: PCMag lists starting price $549; combo tested at $799. Bambu store regional pages show regional currency variants and bundle splits.\n- **Bambu P1S**: Tom’s snapshot references $699 direct MSRP-equivalent, with street examples from $449 (Amazon snapshot) and $549.99 (Best Buy snapshot). Combo pricing varied widely in linked deal cards.\n- **QIDI Q2**: QIDI US store lists $499 base and $649 combo; PCMag repeats $499 from Amazon and QIDI.\n- **Creality K1C**: Tom’s review body lists retail $559 and sale context around ~$531 at review time; major deal variability expected.\n- **Snapmaker U1 (watchlist)**: US page shows $849 promo vs $999, but flagged unavailable/pre-order with staged deliveries; optional top cover and hotend bundles add substantial TCO.\n\n### Reliability/maintenance notes distilled\n- **P2S** (PCMag): excellent consistency, but proprietary ecosystem remains a modding limitation.\n- **P1S** (Tom’s): strong output/speed; drawbacks include noise, proprietary part flow, and AMS purge waste.\n- **Core One** (Tom’s + Prusa): quiet, strong first-layer behavior, easy serviceability ethos; add-ons (camera/filtration/MMU) increase real cost.\n- **Q2** (PCMag): very strong value/features, but reviewer observed one nozzle jam/no spare nozzle in box and recurring z-banding in some PLA tests.\n- **K1C** (Tom’s + Wirecutter): attractive speed/value profile, but conflicting reports on out-of-box consistency suggest higher variance risk.\n\n### Source quality evaluation\n- **Highest confidence:** PCMag detailed bench/testing narrative; Tom’s Hardware hands-on long-form tests; Wirecutter long-horizon methodology and maintenance emphasis.\n- **Medium confidence:** Manufacturer pages for hard specs/MSRP/add-ons (good for official config, weak for performance claims).\n- **Context only:** Community Reddit threads for reviewer trust and service anecdotes (useful signal, not controlled testing).",
+  "sources": [
+    {
+      "contribution": "Independent hands-on review for Bambu P2S: pricing, strengths/weaknesses, reliability, noise, software/workflow, maintenance, and benchmark behavior.",
+      "quality": "High-quality editorial lab-style review with detailed methodology and concrete observations.",
+      "title": "Bambu Lab P2S Review: As Close to Perfection as 3D Printers Get",
+      "url": "https://www.pcmag.com/reviews/bambu-lab-p2s"
     },
     {
-      "index": 10,
-      "note": "Fetched official Anycubic Kobra S1 Combo page with pricing, specs, materials, noise, and included features.",
-      "status": "done"
+      "contribution": "Independent hands-on review for QIDI Q2: pricing, feature validation, quality caveats (z-banding), slicer maturity, and jam incident details.",
+      "quality": "High-quality editorial review with extensive print tests and explicit pros/cons.",
+      "title": "Qidi Q2 Review: This Under-$500 3D Printer Brings the Heat",
+      "url": "https://www.pcmag.com/reviews/qidi-q2"
     },
     {
-      "index": 11,
-      "note": "Fetched official Flashforge Adventurer 5M Pro page with pricing, filtration/noise/spec claims, and warranty details.",
-      "status": "done"
+      "contribution": "Independent long-form review for P1S: street-price snapshots, pros/cons, noise, proprietary-parts/AMS waste caveats, and material behavior.",
+      "quality": "High-quality enthusiast review with practical testing and transparent caveats.",
+      "title": "Bambu Lab P1S Review: A New Standard for 3D Printing",
+      "url": "https://www.tomshardware.com/reviews/bambu-lab-p1s"
+    },
+    {
+      "contribution": "Independent long-form review for Prusa Core One: value proposition, real-world use notes, quietness, add-on caveats, and pricing references.",
+      "quality": "High-quality enthusiast review with detailed testing narrative.",
+      "title": "Prusa CORE One Review: Better in a Box (Updated)",
+      "url": "https://www.tomshardware.com/3d-printing/prusa-core-one-review"
+    },
+    {
+      "contribution": "Independent review for Creality K1C with pricing context and practical caveats (filament path, glue requirement).",
+      "quality": "High-quality enthusiast review; useful but paired with other sources due model variance concerns.",
+      "title": "Creality K1C Review: C for Carbon",
+      "url": "https://www.tomshardware.com/3d-printing/creality-k1c-review"
+    },
+    {
+      "contribution": "Broad 2026 guide with explicit X1-Carbon discontinuation warning, maintenance/safety guidance, and competition context including K1C observations.",
+      "quality": "High-quality community-trusted buyer guide with transparent testing criteria.",
+      "title": "The 3 Best 3D Printers of 2026",
+      "url": "https://www.nytimes.com/wirecutter/reviews/best-home-3d-printer/"
+    },
+    {
+      "contribution": "Official MSRP/configuration/spec source for Prusa CORE One+ and optional ecosystem components (camera/filtration/MMU paths).",
+      "quality": "Manufacturer primary source (authoritative for specs/pricing, not independent performance).",
+      "title": "Prusa CORE One+ Product Page",
+      "url": "https://www.prusa3d.com/product/prusa-core-one/"
+    },
+    {
+      "contribution": "Official MSRP/configuration/spec source for QIDI Q2 and Q2 Combo, including chamber/filter claims and connectivity/material matrix.",
+      "quality": "Manufacturer primary source.",
+      "title": "QIDI Q2 3D Printer – QIDI US Store",
+      "url": "https://us.qidi3d.com/products/qidi-q2"
+    },
+    {
+      "contribution": "Official sales page for Snapmaker U1 used as emerging-model availability and hidden-cost watchlist input.",
+      "quality": "Manufacturer primary source; limited independent reliability validation.",
+      "title": "Snapmaker U1 3D Printer Pre-Order",
+      "url": "https://us.snapmaker.com/products/snapmaker-u1-3d-printer"
+    },
+    {
+      "contribution": "Official Bambu P2S store listing used to corroborate model positioning and regional-store pricing structure.",
+      "quality": "Manufacturer primary source.",
+      "title": "Bambu Lab P2S Store Listing",
+      "url": "https://us.store.bambulab.com/products/p2s"
+    },
+    {
+      "contribution": "Community discussion used to identify trust concerns around review sources and reviewer bias considerations.",
+      "quality": "Community anecdotal source; useful for sentiment/trust signals, not benchmark evidence.",
+      "title": "Which YouTubers Can Be Trusted To Give Impartial Reviews? (r/3Dprinting)",
+      "url": "https://old.reddit.com/r/3Dprinting/comments/1rfg867/which_youtubers_can_be_trusted_to_give_impartial/"
+    },
+    {
+      "contribution": "Community purchase-advice thread used for practical support/reliability sentiment and buyer pain points.",
+      "quality": "Community anecdotal source.",
+      "title": "Purchase Advice Megathread - March 2026 (r/3Dprinting)",
+      "url": "https://old.reddit.com/r/3Dprinting/comments/1rhofom/purchase_advice_megathread_march_2026/"
     }
   ]
 }
@@ -2367,217 +2255,47 @@ Flashforge Adventurer 5M Pro | Enclosed 3D Printer for Faster Prints
 
 - error=false
 ```text
-TODO [11/15]
-1. ✓ All3DP roundup (specialist/community) — Fetch and read All3DP 2026 best 3D printers roundup (community-mentioned source) for enclosed model landscape and pricing context. [Fetched All3DP roundups, but extractor returned only headline/dek and no body content; usable only for high-level trend confirmation, not detailed claims.]
-2. ✓ Tom's Hardware roundup (specialist) — Fetch and read Tom's Hardware Best 3D Printers 2026 roundup (specialist testing methodology + current picks). [Fetched full Tom’s Hardware 2026 roundup including methodology, model positioning, and pricing ranges.]
-3. ✓ TechRadar roundup (specialist) — Fetch and read TechRadar best hobby 3D printer 2025/2026 roundup for additional independent hands-on perspective. [Fetched TechRadar hobby roundup with picks including K1C, Anycubic S1, X1C, QIDI Plus4 and methodology text.]
-4. ✓ PCMag roundup (specialist) — Fetch and read PCMag Best 3D Printers 2026 for independently tested picks and value framing. [Fetched PCMag 2026 roundup with tested picks, pros/cons, specs, and pricing references.]
-5. ✓ Dedicated 3D review site roundup — Fetch and read 3DPrintBeginner/other dedicated 3D review comparison pages for enclosed CoreXY recommendations. [Fetched dedicated 3D-focused review (3DPrint.com) covering QIDI Plus4 with deep reliability/safety observations and measurement data.]
-6. ✓ Official pricing/specs: Bambu — Fetch official Bambu Lab P1S and X1C product pages (MSRP/specs/material support). [Fetched official Bambu store pages (P1S full page with specs/pricing; catalog listing includes X-series pricing references though direct X1C detail page was region-redirect limited).]
-7. ✓ Official pricing/specs: Prusa — Fetch official Prusa CORE One product page and support docs (price, kit vs assembled, enclosure/materials). [Fetched official Prusa CORE One+ product page with assembled/kit pricing, chamber temp, materials, and ecosystem/support details.]
-8. ✓ Official pr…[3518b total]
+## Summary
+If you want an **enclosed home printer around $1,000 in 2026**, buy one of these:
+
+1. **Prusa CORE One+ (best long-term ownership)** — best for reliability/support-minded buyers who can spend near the top of budget.
+2. **Bambu Lab P2S Combo (best plug-and-play value)** — easiest modern enclosed system with excellent print consistency and home-friendly operation.
+3. **Bambu Lab P1S / P1S Combo (best discounted value)** — still a strong enclosed CoreXY if you find current street deals.
+4. **QIDI Q2 (best budget engineering-capable enclosed pick)** — great under-$700 value, but needs more tuning tolerance.
+5. **Creality K1C (value/tinkerer pick)** — fast and cheap when discounted, but QC and setup consistency are less predictable.
+
+## Key Findings
+- **Prusa CORE One+ pricing and fit:** Prusa lists assembled at about **$1,202.78** and kit at **$925**; enclosed CoreXY, active chamber control up to 55°C, and strong long-term parts/upgradability messaging. Good for ABS/ASA/PC-focused home users who prioritize serviceability. (https://www.prusa3d.com/product/prusa-core-one/, https://www.tomshardware.com/3d-printing/prusa-core-one-review)
+- **P2S is the current ease-of-use leader in this class:** PCMag gave it Editors’ Choice, citing strong reliability/quality, quieter operation, adaptive airflow, and good enclosed behavior. Base **$549**, Combo tested at **$799**. (https://www.pcmag.com/reviews/bambu-lab-p2s)
+- **P1S still wins on deal value:** Tom’s reports **$699 MSRP** direct, with observed street pricing down to **$549.99 Best Buy** and lower Amazon deal swings; still fast and enclosed, but noisier and with proprietary-part tradeoffs. (https://www.tomshardware.com/reviews/bambu-lab-p1s)
+- **QIDI Q2 is unusually capable at $499:** Heated chamber (65°C), enclosed frame, and filtration at **$499** (Combo **$649**), but PCMag found slicer/firmware refinement needs and some z-banding/nozzle-jam experience. (https://us.qidi3d.com/products/qidi-q2, h…[9560b total]
 ```
 
 ### 55. assistant
-
-**Thinking / Raw Output**
-
-- `reasoning`: 
-
-**Tool Calls**
-
-- `todo`
-```json
-{
-  "action": "batch_update",
-  "description": "",
-  "index": 0,
-  "items": [],
-  "note": "",
-  "status": "pending",
-  "title": "",
-  "updates": [
-    {
-      "index": 12,
-      "note": "Used street-price data embedded in independent roundup pages (Tom’s Hardware/PCMag/TechRadar) plus official stores for cross-checking due iteration constraints.",
-      "status": "done"
-    },
-    {
-      "index": 13,
-      "note": "Used independent per-model review content available within fetched Tom’s Hardware, TechRadar, PCMag, and 3DPrint.com pages.",
-      "status": "done"
-    },
-    {
-      "index": 14,
-      "note": "Used previously fetched community evidence (Reddit reliability thread + recommendation megathread links and commentary).",
-      "status": "done"
-    },
-    {
-      "index": 15,
-      "note": "Prepared synthesis from gathered sources; proceeding to final report.",
-      "status": "done"
-    }
-  ]
-}
-```
-
-### 56. user
-
-**Tool Results**
-
-- error=false
-```text
-TODO [15/15]
-1. ✓ All3DP roundup (specialist/community) — Fetch and read All3DP 2026 best 3D printers roundup (community-mentioned source) for enclosed model landscape and pricing context. [Fetched All3DP roundups, but extractor returned only headline/dek and no body content; usable only for high-level trend confirmation, not detailed claims.]
-2. ✓ Tom's Hardware roundup (specialist) — Fetch and read Tom's Hardware Best 3D Printers 2026 roundup (specialist testing methodology + current picks). [Fetched full Tom’s Hardware 2026 roundup including methodology, model positioning, and pricing ranges.]
-3. ✓ TechRadar roundup (specialist) — Fetch and read TechRadar best hobby 3D printer 2025/2026 roundup for additional independent hands-on perspective. [Fetched TechRadar hobby roundup with picks including K1C, Anycubic S1, X1C, QIDI Plus4 and methodology text.]
-4. ✓ PCMag roundup (specialist) — Fetch and read PCMag Best 3D Printers 2026 for independently tested picks and value framing. [Fetched PCMag 2026 roundup with tested picks, pros/cons, specs, and pricing references.]
-5. ✓ Dedicated 3D review site roundup — Fetch and read 3DPrintBeginner/other dedicated 3D review comparison pages for enclosed CoreXY recommendations. [Fetched dedicated 3D-focused review (3DPrint.com) covering QIDI Plus4 with deep reliability/safety observations and measurement data.]
-6. ✓ Official pricing/specs: Bambu — Fetch official Bambu Lab P1S and X1C product pages (MSRP/specs/material support). [Fetched official Bambu store pages (P1S full page with specs/pricing; catalog listing includes X-series pricing references though direct X1C detail page was region-redirect limited).]
-7. ✓ Official pricing/specs: Prusa — Fetch official Prusa CORE One product page and support docs (price, kit vs assembled, enclosure/materials). [Fetched official Prusa CORE One+ product page with assembled/kit pricing, chamber temp, materials, and ecosystem/support details.]
-8. ✓ Official pr…[4006b total]
-```
-
-### 57. assistant
-
-**Thinking / Raw Output**
-
-- `reasoning`: 
-
-**Tool Calls**
-
-- `report_findings`
-```json
-{
-  "negative_info": "- I did not center the final shortlist on very low-cost enclosed options (e.g., Flashforge AD5M Pro, Anycubic Kobra S1 Combo, Creality K1C) even though they are strong values, because your target budget is around $1,000 and you asked for reliability/maintenance/safety priority. I kept them as value alternatives.\n- I did not rely on generic SEO “best enclosed printer” listicles from low-trust domains; many had weak methodology or recycled specs.\n- All3DP roundup pages were discoverable but extraction returned only headline/dek (no full body), so I treated them as low-detail signals only and did not base major claims on them.\n- Bambu regional storefronts redirected by locale, and direct X1 Carbon product detail was not consistently extractable in this session; I used independent price references (TechRadar) and flagged uncertainty.\n- I excluded very high-end/pro models (e.g., H2D, Ultimaker, Formlabs) from recommendations because they exceed the ~$700–$1,300 home-use scope.\n- I excluded open-frame printers (e.g., Neptune class) even when highly rated because your requirement is enclosed home use.\n- Conflicting reliability narratives (Prusa-vs-Bambu) from community threads were resolved by weighting hands-on editorial testing and then using community data as caveat/context, not as primary proof.\n- QIDI Plus4 safety discussion: I included the known heater/fire concern from a dedicated review and also included that the reviewer reports QIDI shipped a fix (SSR), rather than presenting either extreme alone.",
-  "report": "## Summary\nIf you want an enclosed home printer around **$1,000 in 2026**, buy:\n1. **Prusa CORE One+ (best long-term / support-first)**\n2. **Bambu Lab P2S Combo (best plug-and-play value)**\n3. **QIDI Plus4 (best for engineering materials at this budget)**\n\n## Key Findings\n- **Best “buy once, keep for years” pick:** Prusa CORE One+ with active chamber management, strong software/support ecosystem, and clear kit vs assembled pricing (**$925 kit / $1,202.78 assembled**) (https://www.prusa3d.com/product/prusa-core-one/).\n- **Best ease-of-use value:** Bambu P2S is currently a strong mainstream enclosed CoreXY with listed US pricing around **$549 standalone / $799 combo** and broad material support (PLA/PETG/ABS/ASA/TPU) in independent testing roundups (https://www.tomshardware.com/best-picks/best-3d-printers, https://www.pcmag.com/picks/the-best-3d-printers).\n- **Best high-temp value under $1k:** QIDI Plus4 is currently listed around **$699 sale / $799 regular**, with 65°C active chamber heating and large build volume (305×305×280) (https://qidi3d.com/products/plus4-3d-printer).\n- **Known caveat:** A dedicated review reported Plus4 heater/fire concerns, then an SSR hardware fix from QIDI; treat Plus4 as strong but verify current hardware revision before purchase (https://3dprint.com/313877/qidi-plus-4-3d-printer-review-hotter-than-the-competition-is-it-safe/).\n- **Budget alternatives:** Anycubic Kobra S1 Combo (**$429 sale / $749 regular**) and Flashforge Adventurer 5M Pro (**$449 sale / $599 regular**) are compelling if you prioritize cost over ecosystem maturity (https://store.anycubic.com/products/kobra-s1-combo, https://www.flashforge.com/product-detail/flashforge-adventurer-5m-pro-3d-printer).\n\n## Detailed Comparison\n| Option | Est. current price (US) | Enclosure / chamber | Build volume | Materials (at least PLA/PETG/ABS/ASA) | Notable caveats |\n|---|---:|---|---|---|---|\n| **Prusa CORE One+** | **$925 kit / $1,202.78 assembled** | Fully enclosed, active chamber control (up to 55°C) | 250×220×270 mm | PLA/PETG + ASA/PC/Nylon-class supported in enclosure workflows | Premium price; camera/advanced filtration are add-ons (https://www.prusa3d.com/product/prusa-core-one/) |\n| **Bambu P2S Combo** | **$799 combo / $549 standalone** | Enclosed CoreXY | 256×256×256 mm | PLA/PETG/ABS/ASA/TPU cited in independent roundup specs | Proprietary ecosystem; AMS-style color printing increases purge waste (https://www.tomshardware.com/best-picks/best-3d-printers, https://www.pcmag.com/picks/the-best-3d-printers) |\n| **QIDI Plus4** | **$699 sale / $799 MSRP-ish list** | Enclosed + active 65°C chamber | 305×305×280 mm | Broad list incl. ABS/ASA/PC/PA on official page | Verify post-fix hardware revision and safety updates (https://qidi3d.com/products/plus4-3d-printer, https://3dprint.com/313877/qidi-plus-4-3d-printer-review-hotter-than-the-competition-is-it-safe/) |\n| **Bambu X1 Carbon** | **~$1,119 street (observed)** | Enclosed premium | 256 class | Strong multi-material ecosystem reputation | Price/source varies by region; proprietary parts concern remains (https://www.techradar.com/pro/best-hobby-3d-printer-of-2025-i-tested-out-all-the-top-models) |\n| **Flashforge AD5M Pro** | **$449 sale / $599 regular** | Enclosed CoreXY + dual-layer filtration | 220×220×220 mm | PLA/PETG/ABS/ASA (+ nozzle-dependent TPU/CF combos) | Not a true $1k-class machine; no multi-color path (https://www.flashforge.com/product-detail/flashforge-adventurer-5m-pro-3d-printer) |\n\n## Buyer-fit guidance\n- **You want least tinkering + strongest support/docs:** **Prusa CORE One+**.\n- **You want appliance-like speed/value under budget:** **Bambu P2S Combo**.\n- **You print engineering plastics often and want big volume <$1k:** **QIDI Plus4**.\n- **You want a quieter, safer enclosed budget option for home/office:** **Flashforge AD5M Pro** or **Anycubic S1 Combo**.\n\n## Home setup advice (noise, filtration, safety)\n- Enclosure helps, but **ABS/ASA fumes still matter**; place printer in ventilated area / near exhaust path (https://www.pcmag.com/picks/the-best-3d-printers).\n- Prefer models with documented filtration and low-noise modes if used in shared spaces (Flashforge 44–50 dB claims; Anycubic ~44 dB quiet mode) (https://www.flashforge.com/product-detail/flashforge-adventurer-5m-pro-3d-printer, https://store.anycubic.com/products/kobra-s1-combo).\n- Budget for consumables/hidden TCO: nozzles, plates, filters, and purge waste for multi-color workflows.\n\n## Uncertainties\n- Street pricing is highly promo-driven in 2026; several values above are sale snapshots and can swing weekly.\n- Model transitions are active (e.g., P1S→P2S in editorial rankings), so availability may differ by region/storefront.\n- Community reliability opinions split (Prusa vs Bambu); treat anecdotes as secondary to test-lab data and your support expectations.\n\n### Source list mapped to sections\n- **Roundup/testing + methodology:** Tom’s Hardware, PCMag, TechRadar.\n- **Official specs/pricing:** Prusa, QIDI, Creality, Anycubic, Flashforge, Bambu store pages.\n- **Reliability/safety caveats:** 3DPrint.com Plus4 review; Reddit community threads for long-term user sentiment.",
-  "secondary_info": "### Price and spec data points used\n- **Prusa CORE One+**: $1,202.78 assembled; $925 kit. Chamber up to 55°C; enclosed CoreXY; print volume 250×220×270 mm; 24/7 support messaging and strong ecosystem claims. Source: https://www.prusa3d.com/product/prusa-core-one/\n- **Bambu P2S**: $549 standalone / $799 combo cited in Tom’s and PCMag roundup cards; material support list in PCMag includes PLA/PETG/ABS/ASA/TPU. Sources: https://www.tomshardware.com/best-picks/best-3d-printers, https://www.pcmag.com/picks/the-best-3d-printers\n- **QIDI Plus4**: $699 sale vs $799 regular shown on product page; 305×305×280 build volume; 65°C active chamber heating. Source: https://qidi3d.com/products/plus4-3d-printer\n- **Anycubic Kobra S1 Combo**: $429 sale vs $749 regular; CoreXY enclosed; up to 600 mm/s; 320°C hotend; 44 dB quiet mode; supports PLA/PETG/TPU/ABS/ASA and more (with constraints). Source: https://store.anycubic.com/products/kobra-s1-combo\n- **Flashforge Adventurer 5M Pro**: $449 sale vs $599 regular; enclosed CoreXY; up to 600 mm/s; 220 cube build volume; air filtration notes (HEPA + carbon) and 1-year warranty mention. Source: https://www.flashforge.com/product-detail/flashforge-adventurer-5m-pro-3d-printer\n- **Creality K1C**: product page confirms model positioning and support/warranty policy framing (up to 12 months) but did not expose clean MSRP in extracted text. Source: https://store.creality.com/products/k1c-3d-printer\n- **Bambu P1S**: official store page captured regional pricing and broad feature/spec references (enclosure, camera, AMS multicolor path). Source: https://us.store.bambulab.com/products/p1s (redirected locale extraction)\n\n### Reliability/maintenance notes used\n- **QIDI Plus4 dedicated review**: measured dimensional accuracy values, 300+ hr reliability claim, and specific safety concern history plus “SSR update sent by QIDI.” Source: https://3dprint.com/313877/qidi-plus-4-3d-printer-review-hotter-than-the-competition-is-it-safe/\n- **PCMag tested summaries**: pros/cons around software refinement, proprietary ecosystems, and practical use-case fit. Source: https://www.pcmag.com/picks/the-best-3d-printers\n- **TechRadar long-form hobby picks**: practical positioning of K1C, Plus4, X1 Carbon; caveats around slicer maturity and print-speed quality tradeoffs. Source: https://www.techradar.com/pro/best-hobby-3d-printer-of-2025-i-tested-out-all-the-top-models\n- **Community signal**: user-reported reliability split (Prusa maintainability/openness vs Bambu appliance-like uptime), useful for persona guidance but not treated as primary evidence. Sources: https://old.reddit.com/r/3dprinter/comments/1pw5b17/what_3d_printer_do_you_consider_most_reliable/ and https://www.reddit.com/user/richie225/comments/1bh9jud/generic_hobbyist_fdm_printer_recommendations/\n\n### Source quality notes\n- Highest confidence: official manufacturer pages + PCMag/Tom’s hands-on testing sections.\n- Medium confidence: TechRadar (hands-on but more roundup/editorial framing).\n- Context/caveat only: community threads and 3DPrint.com (useful for issue discovery and real-world symptoms, but vendor bias or anecdotal variance possible).\n\n### Regional/temporal caveats\n- Multiple storefronts auto-localized by region/currency during fetch (notably Bambu), so some official prices were non-USD in extracted view.\n- Retail “street prices” in this category are highly event-driven (seasonal sales, bundles, early-bird pricing, combo discounts).",
-  "sources": [
-    {
-      "contribution": "Hands-on-tested 2026 roundup with methodology, category winners, and explicit pricing references for P2S and CORE One positioning.",
-      "quality": "High; major tech publication with explicit testing methodology and reviewer notes.",
-      "title": "The Best 3D Printers for Home, Workshop or Business in 2026",
-      "url": "https://www.tomshardware.com/best-picks/best-3d-printers"
-    },
-    {
-      "contribution": "Independent tested roundup with pros/cons, material support tables, and deal snapshots useful for street-price triangulation.",
-      "quality": "High; long-running lab-style review outlet with product testing history.",
-      "title": "The Best 3D Printers We've Tested for 2026",
-      "url": "https://www.pcmag.com/picks/the-best-3d-printers"
-    },
-    {
-      "contribution": "Supplementary independent roundup with practical hobby-user framing for K1C, Plus4, X1 Carbon and testing approach notes.",
-      "quality": "Medium; reputable outlet, but more roundup/editorial style and some affiliate/deal feed artifacts.",
-      "title": "Best hobby 3D printer of 2025: I tested out all the top models",
-      "url": "https://www.techradar.com/pro/best-hobby-3d-printer-of-2025-i-tested-out-all-the-top-models"
-    },
-    {
-      "contribution": "Official Prusa CORE One+ specs, pricing (kit vs assembled), chamber control, ecosystem/support claims.",
-      "quality": "Primary manufacturer source.",
-      "title": "Prusa CORE One+ product page",
-      "url": "https://www.prusa3d.com/product/prusa-core-one/"
-    },
-    {
-      "contribution": "Official QIDI Plus4 pricing and key feature specs including active heated chamber and build volume.",
-      "quality": "Primary manufacturer source.",
-      "title": "QIDI Plus4 3D Printer product page",
-      "url": "https://qidi3d.com/products/plus4-3d-printer"
-    },
-    {
-      "contribution": "Official Anycubic Kobra S1 Combo pricing, materials support, noise claims, and technical specification panel.",
-      "quality": "Primary manufacturer source.",
-      "title": "Anycubic Kobra S1 Combo product page",
-      "url": "https://store.anycubic.com/products/kobra-s1-combo"
-    },
-    {
-      "contribution": "Official Flashforge Adventurer 5M Pro pricing, filtration/noise specs, build volume, and warranty policy notes.",
-      "quality": "Primary manufacturer source.",
-      "title": "Flashforge Adventurer 5M Pro product page",
-      "url": "https://www.flashforge.com/product-detail/flashforge-adventurer-5m-pro-3d-printer"
-    },
-    {
-      "contribution": "Official Creality K1C product positioning and store policy/warranty framing.",
-      "quality": "Primary manufacturer source; extracted page had limited clean spec/price text.",
-      "title": "Creality K1C 3D Printer product page",
-      "url": "https://store.creality.com/products/k1c-3d-printer"
-    },
-    {
-      "contribution": "Dedicated 3D-printing publication review with safety/reliability investigation details for QIDI Plus4, including update on mitigation.",
-      "quality": "Medium; specialist publication, hands-on and detailed, but single-reviewer perspective and disclosed review unit.",
-      "title": "Qidi Plus 4 3D Printer Review: Hotter Than The Competition? Is it Safe?",
-      "url": "https://3dprint.com/313877/qidi-plus-4-3d-printer-review-hotter-than-the-competition-is-it-safe/"
-    },
-    {
-      "contribution": "Community-maintained recommendations and brand caveats (repairability/proprietary ecosystem context).",
-      "quality": "Medium-low; community opinion source, useful for sentiment and caveats not lab-grade testing.",
-      "title": "Generic Hobbyist FDM Printer Recommendations (Reddit user post)",
-      "url": "https://www.reddit.com/user/richie225/comments/1bh9jud/generic_hobbyist_fdm_printer_recommendations/"
-    },
-    {
-      "contribution": "Community long-term reliability discussion highlighting Bambu vs Prusa maintenance/uptime tradeoffs.",
-      "quality": "Medium-low; anecdotal but useful for real-world ownership caveats.",
-      "title": "What 3d printer do you consider most reliable? (Reddit thread)",
-      "url": "https://old.reddit.com/r/3dprinter/comments/1pw5b17/what_3d_printer_do_you_consider_most_reliable/"
-    },
-    {
-      "contribution": "Official Bambu P1S page for enclosure/feature references and regional pricing snapshot; helped confirm market positioning.",
-      "quality": "Primary manufacturer source; locale redirect limited USD normalization in fetch.",
-      "title": "Bambu Lab P1S product page",
-      "url": "https://us.store.bambulab.com/products/p1s"
-    }
-  ]
-}
-```
-
-### 58. user
-
-**Tool Results**
-
-- error=false
-```text
-## Summary
-If you want an enclosed home printer around **$1,000 in 2026**, buy:
-1. **Prusa CORE One+ (best long-term / support-first)**
-2. **Bambu Lab P2S Combo (best plug-and-play value)**
-3. **QIDI Plus4 (best for engineering materials at this budget)**
-
-## Key Findings
-- **Best “buy once, keep for years” pick:** Prusa CORE One+ with active chamber management, strong software/support ecosystem, and clear kit vs assembled pricing (**$925 kit / $1,202.78 assembled**) (https://www.prusa3d.com/product/prusa-core-one/).
-- **Best ease-of-use value:** Bambu P2S is currently a strong mainstream enclosed CoreXY with listed US pricing around **$549 standalone / $799 combo** and broad material support (PLA/PETG/ABS/ASA/TPU) in independent testing roundups (https://www.tomshardware.com/best-picks/best-3d-printers, https://www.pcmag.com/picks/the-best-3d-printers).
-- **Best high-temp value under $1k:** QIDI Plus4 is currently listed around **$699 sale / $799 regular**, with 65°C active chamber heating and large build volume (305×305×280) (https://qidi3d.com/products/plus4-3d-printer).
-- **Known caveat:** A dedicated review reported Plus4 heater/fire concerns, then an SSR hardware fix from QIDI; treat Plus4 as strong but verify current hardware revision before purchase (https://3dprint.com/313877/qidi-plus-4-3d-printer-review-hotter-than-the-competition-is-it-safe/).
-- **Budget alternatives:** Anycubic Kobra S1 Combo (**$429 sale / $749 regular**) and Flashforge Adventurer 5M Pro (**$449 sale / $599 regular**) are compelling if you prioritize cost over ecosystem maturity (https://store.anycubic.com/products/kobra-s1-combo, https://www.flashforge.com/product-detail/flashforge-adventurer-5m-pro-3d-printer).
-
-## Detailed Comparison
-| Option | Est. current price (US) | Enclosure / chamber | Build volume | Materials (at least PLA/PETG/ABS/ASA) | Notable caveats |
-|---|---:|---|---|---|---|
-| **Prusa CORE One+** | **$925 kit / $1,202.78 assembled** | Fully enclosed, active cha…[8881b total]
-```
-
-### 59. assistant
 
 **Content**
 
 ```text
 ## Summary
-If you want an enclosed home printer around **$1,000 in 2026**, buy:
-1. **Prusa CORE One+ (best long-term / support-first)**
-2. **Bambu Lab P2S Combo (best plug-and-play value)**
-3. **QIDI Plus4 (best for engineering materials at this budget)**
+If you want an **enclosed home printer around $1,000 in 2026**, buy one of these:
+
+1. **Prusa CORE One+ (best long-term ownership)** — best for reliability/support-minded buyers who can spend near the top of budget.
+2. **Bambu Lab P2S Combo (best plug-and-play value)** — easiest modern enclosed system with excellent print consistency and home-friendly operation.
+3. **Bambu Lab P1S / P1S Combo (best discounted value)** — still a strong enclosed CoreXY if you find current street deals.
+4. **QIDI Q2 (best budget engineering-capable enclosed pick)** — great under-$700 value, but needs more tuning tolerance.
+5. **Creality K1C (value/tinkerer pick)** — fast and cheap when discounted, but QC and setup consistency are less predictable.
 
 ## Key Findings
-- **Best “buy once, keep for years” pick:** Prusa CORE One+ with active chamber management, strong software/support ecosystem, and clear kit vs assembled pricing (**$925 kit / $1,202.78 assembled**) (https://www.prusa3d.com/product/prusa-core-one/).
-- **Best ease-of-use value:** Bambu P2S is currently a strong mainstream enclosed CoreXY with listed US pricing around **$549 standalone / $799 combo** and broad material support (PLA/PETG/ABS/ASA/TPU) in independent testing roundups (https://www.tomshardware.com/best-picks/best-3d-printers, https://www.pcmag.com/picks/the-best-3d-printers).
-- **Best high-temp value under $1k:** QIDI Plus4 is currently listed around **$699 sale / $799 regular**, with 65°C active chamber heating and large build volume (305×305×280) (https://qidi3d.com/products/plus4-3d-printer).
-- **Known caveat:** A dedicated review reported Plus4 heater/fire concerns, then an SSR hardware fix from QIDI; treat Plus4 as strong but verify current hardware revision before purchase (https://3dprint.com/313877/qidi-plus-4-3d-printer-review-hotter-than-the-competition-is-it-safe/).
-- **Budget alternatives:** Anycubic Kobra S1 Combo (**$429 sale / $749 regular**) and Flashforge Adventurer 5M Pro (**$449 sale / $599 regular**) are compelling if you prioritize cost over ecosystem maturity (https://store.anycubic.com/products/kobra-s1-combo, https://www.flashforge.com/product-detail/flashforge-adventurer-5m-pro-3d-printer).
+- **Prusa CORE One+ pricing and fit:** Prusa lists assembled at about **$1,202.78** and kit at **$925**; enclosed CoreXY, active chamber control up to 55°C, and strong long-term parts/upgradability messaging. Good for ABS/ASA/PC-focused home users who prioritize serviceability. (https://www.prusa3d.com/product/prusa-core-one/, https://www.tomshardware.com/3d-printing/prusa-core-one-review)
+- **P2S is the current ease-of-use leader in this class:** PCMag gave it Editors’ Choice, citing strong reliability/quality, quieter operation, adaptive airflow, and good enclosed behavior. Base **$549**, Combo tested at **$799**. (https://www.pcmag.com/reviews/bambu-lab-p2s)
+- **P1S still wins on deal value:** Tom’s reports **$699 MSRP** direct, with observed street pricing down to **$549.99 Best Buy** and lower Amazon deal swings; still fast and enclosed, but noisier and with proprietary-part tradeoffs. (https://www.tomshardware.com/reviews/bambu-lab-p1s)
+- **QIDI Q2 is unusually capable at $499:** Heated chamber (65°C), enclosed frame, and filtration at **$499** (Combo **$649**), but PCMag found slicer/firmware refinement needs and some z-banding/nozzle-jam experience. (https://us.qidi3d.com/products/qidi-q2, https://www.pcmag.com/reviews/qidi-q2)
+- **K1C can be good, but consistency is mixed:** Tom’s liked its speed/value and listed ~$559 class pricing, but Wirecutter’s competition notes out-of-box under-extrusion issues on K1C. Better for hands-on users than “just print” buyers. (https://www.tomshardware.com/3d-printing/creality-k1c-review, https://www.nytimes.com/wirecutter/reviews/best-home-3d-printer/)
+- **X1-Carbon caution:** Wirecutter says it appears discontinued (Nov 2025 update). Buy only if verified in-stock with warranty support. (https://www.nytimes.com/wirecutter/reviews/best-home-3d-printer/)
 
 ## Detailed Comparison
-| Option | Est. current price (US) | Enclosure / chamber | Build volume | Materials (at least PLA/PETG/ABS/ASA) | Notable caveats |
-|---|---:|---|---|---|---|
-| **Prusa CORE One+** | **$925 kit / $1,202.78 assembled** | Fully enclosed, active chamber control (up to 55°C) | 250×220×270 mm | PLA/PETG + ASA/PC/Nylon-class supported in enclosure workflows | Premium price; camera/advanced filtration are add-ons (https://www.prusa3d.com/product/prusa-core-one/) |
-| **Bambu P2S Combo** | **$799 combo / $549 standalone** | Enclosed CoreXY | 256×256×256 mm | PLA/PETG/ABS/ASA/TPU cited in independent roundup specs | Proprietary ecosystem; AMS-style color printing increases purge waste (https://www.tomshardware.com/best-picks/best-3d-printers, https://www.pcmag.com/picks/the-best-3d-printers) |
-| **QIDI Plus4** | **$699 sale / $799 MSRP-ish list** | Enclosed + active 65°C chamber | 305×305×280 mm | Broad list incl. ABS/ASA/PC/PA on official page | Verify post-fix hardware revision and safety updates (https://qidi3d.com/products/plus4-3d-printer, https://3dprint.com/313877/qidi-plus-4-3d-printer-review-hotter-than-the-competition-is-it-safe/) |
-| **Bambu X1 Carbon** | **~$1,119 street (observed)** | Enclosed premium | 256 class | …[8881b total]
+| Model | MSRP (observed) | Street price seen | Enclosure/chamber | Build volume | Speed class | Materials (at least PLA/PETG/ABS/ASA?) | Notable caveats |
+|---|---:|---:|---|---|---|---|---|
+| **Prusa CORE One+** | ~$1,202.78 assembled / $925 kit | Amazon listings often higher | Fully enclosed, active chamber control | ~250×220×270 mm | High (CoreXY) | Y…[9560b total]
 ```
 

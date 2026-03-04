@@ -21,11 +21,119 @@ I want to learn about Dioxus — what is it, and how do hooks work?
 - `read_file`
 ```json
 {
-  "path": "skills/reference-import/skill.md"
+  "path": "skills/knowledge-navigator/skill.md"
 }
 ```
 
 ### 3. user
+
+**Tool Results**
+
+- error=false
+```text
+File: skills/knowledge-navigator/skill.md (81 lines)
+  1 | ---
+  2 | name: knowledge-navigator
+  3 | description:
+  4 |   Navigate and query the knowledge base effectively. Use when you need to search
+  5 |   existing knowledge, browse references by topic, explore the knowledge graph, or check
+  6 |   for orphan notes.
+  7 | ---
+  8 | 
+  9 | # Knowledge Navigator Skill
+ 10 | 
+ 11 | This skill teaches you how to use the knowledge system's query capabilities.
+ 12 | 
+ 13 | ## Searching
+ 14 | 
+ 15 | Use `knowledge_search` for hybrid BM25 + semantic search. It defaults to notes and diary
+ 16 | — pass `categories: ["notes", "references", "diary"]` to include references.
+ 17 | 
+ 18 | For CLI access: `ghost knowledge search "query" [--kind note|reference|diary]`
+ 19 | 
+ 20 | ## Browsing References
+ 21 | 
+ 22 | References are organized by topic (subdirectory name under `references/`).
+ 23 | 
+ 24 | CLI commands:
+ 25 | 
+ 26 | - `ghost knowledge references` — list all references, grouped by topic
+ 27 | - `ghost knowledge references --topic rust` — list references for a specific topic
+ 28 | - `ghost knowledge references --limit 50` — increase result limit
+ 29 | 
+ 30 | ## Graph Traversal
+ 31 | 
+ 32 | The knowledge graph connects notes via typed edges (`[[wiki links]]`) and citations.
+ 33 | 
+ 34 | CLI commands:
+ 35 | 
+ 36 | - `ghost knowledge graph "Note Title"` — show incoming and outgoing edges
+ 37 | - `ghost knowledge graph "Note Title" --direction out` — outgoing edges only
+ 38 | - `ghost knowledge graph "Note Title" --direction in` — incoming edges only
+ 39 | - `ghost knowledge graph --orphans` — find notes with no connections
+ 40 | - `ghost knowledge graph --stats` — edge and stub counts
+ 41 | 
+ 42 | ## Tags
+ 43 | 
+ 44 | - `ghost knowledge tags` — list all tags with counts
+ 45 | 
+ 46 | ## Recent Activity
+ 47 | 
+ 48 | - `ghost knowledge recent [--limit 20]` — recently updated knowledge items
+ 49 | 
+ 50 | ## Stats
+ 51 | 
+ 52 | - `ghost knowledge stats` …[3571b total]
+```
+
+### 4. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `knowledge_search`
+```json
+{
+  "categories": [
+    "notes",
+    "references",
+    "diary",
+    "topics"
+  ],
+  "limit": 5,
+  "query": "Dioxus hooks what is Dioxus use_hook use_state signals",
+  "topic": "dioxus"
+}
+```
+
+### 5. user
+
+**Tool Results**
+
+- error=false
+```text
+No results found.
+```
+
+### 6. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `read_file`
+```json
+{
+  "path": "skills/reference-import/skill.md"
+}
+```
+
+### 7. user
 
 **Tool Results**
 
@@ -82,68 +190,6 @@ File: skills/reference-import/skill.md (126 lines)
  48 | Documentation often lives in a separate repo (e.g. `Di…[4962b total]
 ```
 
-### 4. assistant
-
-**Thinking / Raw Output**
-
-- `reasoning`: 
-
-**Tool Calls**
-
-- `knowledge_search`
-```json
-{
-  "categories": [
-    "references",
-    "notes",
-    "diary"
-  ],
-  "limit": 5,
-  "query": "Dioxus hooks Rust UI framework",
-  "topic": "dioxus"
-}
-```
-
-### 5. user
-
-**Tool Results**
-
-- error=false
-```text
-No results found.
-```
-
-### 6. assistant
-
-**Thinking / Raw Output**
-
-- `reasoning`: 
-
-**Tool Calls**
-
-- `run_shell_command`
-```json
-{
-  "background": false,
-  "command": "gh search repos \"dioxus docs OR docsite OR website\" --owner DioxusLabs --json name,description,url",
-  "directory": ".",
-  "timeout_ms": 30000
-}
-```
-
-### 7. user
-
-**Tool Results**
-
-- error=false
-```text
-Exit code: 0
-
---- stdout ---
-[]
-
-```
-
 ### 8. assistant
 
 **Thinking / Raw Output**
@@ -156,8 +202,8 @@ Exit code: 0
 ```json
 {
   "background": false,
-  "command": "gh search repos \"dioxus docsite\" --json owner,name,description,url --limit 10",
-  "directory": ".",
+  "command": "gh search repos \"docs OR docsite OR website\" --owner=DioxusLabs --json name,description,url",
+  "directory": "/tmp/.tmpZiB3Uq",
   "timeout_ms": 30000
 }
 ```
@@ -171,7 +217,7 @@ Exit code: 0
 Exit code: 0
 
 --- stdout ---
-[{"description":"","name":"dioxus-docsite","owner":{"id":"U_kgDOBaYJqw","is_bot":false,"login":"scapula07","type":"User","url":"https://github.com/scapula07"},"url":"https://github.com/scapula07/dioxus-docsite"}]
+[]
 
 ```
 
@@ -187,8 +233,8 @@ Exit code: 0
 ```json
 {
   "background": false,
-  "command": "gh search repos \"dioxus\" --owner dioxuslabs --json name,description,url --limit 20",
-  "directory": ".",
+  "command": "gh repo list DioxusLabs --limit 100 --json name,description,url",
+  "directory": "/tmp/.tmpZiB3Uq",
   "timeout_ms": 30000
 }
 ```
@@ -202,7 +248,7 @@ Exit code: 0
 Exit code: 0
 
 --- stdout ---
-[{"description":"Fullstack app framework for web, desktop, and mobile.","name":"dioxus","url":"https://github.com/DioxusLabs/dioxus"},{"description":"Accessible, unstyled, foundational components for Dioxus.","name":"components","url":"https://github.com/DioxusLabs/components"},{"description":"Featured Dioxus projects on how to build clean user interfaces in Rust","name":"example-projects","url":"https://github.com/DioxusLabs/example-projects"},{"description":"An awesome list of Dioxus-related content and resources","name":"awesome-dioxus","url":"https://github.com/DioxusLabs/awesome-dioxus"},{"description":"a template for starting a dioxus project to be used with dioxus-cli","name":"dioxus-template","url":"https://github.com/DioxusLabs/dioxus-template"},{"description":"A library to provide abstractions to access common utilities when developing Dioxus applications.","name":"sdk","url":"https://github.com/DioxusLabs/sdk"},{"description":"Convert markdown to dioxus vnodes","name":"markdown","url":"https://github.com/DioxusLabs/markdown"},{"description":"Deploy your dioxus-web app","name":"deploy-action","url":"https://github.com/DioxusLabs/deploy-action"},{"description":"Build reactive terminal user interfaces using Rust and Dioxus.","name":"rink","url":"https://github.com/DioxusLabs/rink"},{"description":"An html macro for dioxus applications.","name":"dioxus-html-macro","url":"https://github.com/DioxusLabs/dioxus-html-macro"},{"description":"","name":"dioxus-ai","url":"https://github.com/DioxusLabs/dioxus-ai"},{"description":"[moved]: Integrate a search index into your dioxus projects","name":"dioxus-search","url":"https://github.com/DioxusLabs/dioxus-search"},{"description":"[moved] A playground akin to the Rust playground but for Dioxus.","name":"playground","url":"https://github.com/DioxusLabs/playground"},{"description":"Plugin library for Dioxus CLI","name":"cli-plugin-library","url":"https://github.com/DioxusLabs/cli-plugin-librar…[2150b total]
+[{"description":"Accessible, unstyled, foundational components for Dioxus.","name":"components","url":"https://github.com/DioxusLabs/components"},{"description":"What if wasm-bindgen with no wasm?","name":"wasm-bindgen-wry","url":"https://github.com/DioxusLabs/wasm-bindgen-wry"},{"description":"Dioxuslabs.com documentation site","name":"docsite","url":"https://github.com/DioxusLabs/docsite"},{"description":"A radically modular HTML/CSS rendering engine","name":"blitz","url":"https://github.com/DioxusLabs/blitz"},{"description":"Fullstack app framework for web, desktop, and mobile.","name":"dioxus","url":"https://github.com/DioxusLabs/dioxus"},{"description":"","name":"blitz-website","url":"https://github.com/DioxusLabs/blitz-website"},{"description":"A high performance rust-powered UI layout library","name":"taffy","url":"https://github.com/DioxusLabs/taffy"},{"description":"Rust 2D drawing abstraction","name":"anyrender","url":"https://github.com/DioxusLabs/anyrender"},{"description":"a template for starting a dioxus project to be used with dioxus-cli","name":"dioxus-template","url":"https://github.com/DioxusLabs/dioxus-template"},{"description":"The simplest Rust RPC library","name":"rsrpc","url":"https://github.com/DioxusLabs/rsrpc"},{"description":"A library to provide abstractions to access common utilities when developing Dioxus applications.","name":"sdk","url":"https://github.com/DioxusLabs/sdk"},{"description":"An asset system for the Rust ecosystem","name":"asset","url":"https://github.com/DioxusLabs/asset"},{"description":"","name":"screenshots","url":"https://github.com/DioxusLabs/screenshots"},{"description":"An awesome list of Dioxus-related content and resources","name":"awesome-dioxus","url":"https://github.com/DioxusLabs/awesome-dioxus"},{"description":"🔎 Impossibly fast web search, made for static sites.","name":"stork","url":"https://github.com/DioxusLabs/stork"},{"description":"","name":"stylo","url":"https://githu…[4751b total]
 ```
 
 ### 12. assistant
@@ -217,176 +263,13 @@ Exit code: 0
 ```json
 {
   "background": false,
-  "command": "gh api repos/DioxusLabs/dioxus/contents/ --jq '.[].name'",
-  "directory": ".",
+  "command": "gh api repos/DioxusLabs/docsite/contents/ --jq '.[].name'",
+  "directory": "/tmp/.tmpZiB3Uq",
   "timeout_ms": 30000
 }
 ```
 
 ### 13. user
-
-**Tool Results**
-
-- error=false
-```text
-Exit code: 0
-
---- stdout ---
-.devcontainer
-.github
-.gitignore
-.vscode
-.zed
-AGENTS.md
-Cargo.lock
-Cargo.toml
-LICENSE-APACHE
-LICENSE-MIT
-README.md
-_typos.toml
-codecov.yml
-examples
-flake.lock
-flake.nix
-lychee.toml
-notes
-packages
-
-```
-
-### 14. assistant
-
-**Thinking / Raw Output**
-
-- `reasoning`: 
-
-**Tool Calls**
-
-- `run_shell_command`
-```json
-{
-  "background": false,
-  "command": "gh api repos/DioxusLabs/dioxus/contents/packages --jq '.[].name'",
-  "directory": ".",
-  "timeout_ms": 30000
-}
-```
-
-### 15. user
-
-**Tool Results**
-
-- error=false
-```text
-Exit code: 0
-
---- stdout ---
-asset-resolver
-autofmt
-check
-cli-config
-cli-harnesses
-cli-opt
-cli-telemetry
-cli
-component-manifest
-config-macro
-config-macros
-const-serialize-macro
-const-serialize
-core-macro
-core-types
-core
-depinfo
-desktop
-devtools-types
-devtools
-dioxus
-document
-dx-wire-format
-extension
-fullstack-core
-fullstack-macro
-fullstack-server
-fullstack
-generational-box
-history
-hooks
-html-internal-macro
-html
-interpreter
-lazy-js-bundle
-liveview
-logger
-manganis
-native-dom
-native
-playwright-tests
-router-macro
-router
-rsx-hotreload
-rsx-rosetta
-rsx
-signals
-ssr
-stores-macro
-stores
-subsecond
-wasm-split
-web
-
-```
-
-### 16. assistant
-
-**Thinking / Raw Output**
-
-- `reasoning`: 
-
-**Tool Calls**
-
-- `run_shell_command`
-```json
-{
-  "background": false,
-  "command": "gh api repos/DioxusLabs/docsite --jq '.html_url'",
-  "directory": ".",
-  "timeout_ms": 30000
-}
-```
-
-### 17. user
-
-**Tool Results**
-
-- error=false
-```text
-Exit code: 0
-
---- stdout ---
-https://github.com/DioxusLabs/docsite
-
-```
-
-### 18. assistant
-
-**Thinking / Raw Output**
-
-- `reasoning`: 
-
-**Tool Calls**
-
-- `run_shell_command`
-```json
-{
-  "background": false,
-  "command": "gh api repos/DioxusLabs/docsite/contents/ --jq '.[].name'",
-  "directory": ".",
-  "timeout_ms": 30000
-}
-```
-
-### 19. user
 
 **Tool Results**
 
@@ -412,7 +295,7 @@ packages
 
 ```
 
-### 20. assistant
+### 14. assistant
 
 **Thinking / Raw Output**
 
@@ -425,12 +308,12 @@ packages
 {
   "background": false,
   "command": "gh api repos/DioxusLabs/docsite/contents/docs-src --jq '.[].name'",
-  "directory": ".",
+  "directory": "/tmp/.tmpZiB3Uq",
   "timeout_ms": 30000
 }
 ```
 
-### 21. user
+### 15. user
 
 **Tool Results**
 
@@ -448,7 +331,39 @@ blog
 
 ```
 
-### 22. assistant
+### 16. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `run_shell_command`
+```json
+{
+  "background": false,
+  "command": "gh api repos/DioxusLabs/docsite/contents/docs-src/0.7 --jq '.[].name'",
+  "directory": "/tmp/.tmpZiB3Uq",
+  "timeout_ms": 30000
+}
+```
+
+### 17. user
+
+**Tool Results**
+
+- error=false
+```text
+Exit code: 0
+
+--- stdout ---
+book.toml
+src
+
+```
+
+### 18. assistant
 
 **Thinking / Raw Output**
 
@@ -461,12 +376,12 @@ blog
 {
   "background": true,
   "command": "ghost reference import --source git --url https://github.com/DioxusLabs/docsite --topic dioxus/docs --paths docs-src/0.7/src --extensions .md",
-  "directory": ".",
+  "directory": "/tmp/.tmpZiB3Uq",
   "timeout_ms": 30000
 }
 ```
 
-### 23. user
+### 19. user
 
 **Tool Results**
 
@@ -475,26 +390,23 @@ blog
 Command started in background. You'll see the result as a system message when it completes.
 ```
 
-### 24. assistant
+### 20. assistant
 
 **Content**
 
 ```text
-I’m importing the official Dioxus docs into my local reference index in the background now (`DioxusLabs/docsite`, topic `dioxus/docs`).
+Great question. I don’t currently have Dioxus references in the knowledge base, so I’ve started importing the official Dioxus docs in the background from:
 
-Once it finishes, I’ll pull from those docs and give you a clean explanation of:
+- https://github.com/DioxusLabs/docsite
 
-1. **What Dioxus is**
-2. **How hooks work** (with practical examples)
-
-I’ll continue automatically as soon as the import completes.
+I’ll answer your question using those imported docs as soon as the import finishes.
 ```
 
 **Thinking / Raw Output**
 
 - `reasoning`: 
 
-### 25. system
+### 21. system
 
 **Content**
 
@@ -563,7 +475,7 @@ Found 179 files to process
   [53/…[10608b total]
 ```
 
-### 26. user
+### 22. user
 
 **Content**
 
@@ -571,7 +483,7 @@ Found 179 files to process
 [system] Background command completed.
 ```
 
-### 27. assistant
+### 23. assistant
 
 **Thinking / Raw Output**
 
@@ -583,11 +495,12 @@ Found 179 files to process
 ```json
 {
   "categories": [
-    "references"
+    "references",
+    "notes"
   ],
-  "limit": 5,
+  "limit": 8,
   "query": "what is dioxus fullstack app framework web desktop mobile",
-  "topic": "dioxus/docs"
+  "topic": "dioxus"
 }
 ```
 - `knowledge_search`
@@ -597,12 +510,23 @@ Found 179 files to process
     "references"
   ],
   "limit": 8,
-  "query": "hooks rules top level same order component custom hooks dioxus 0.7",
-  "topic": "dioxus/docs"
+  "query": "hooks rules called in same order component render dioxus",
+  "topic": "dioxus"
+}
+```
+- `knowledge_search`
+```json
+{
+  "categories": [
+    "references"
+  ],
+  "limit": 8,
+  "query": "signals use_signal use_memo use_effect dioxus",
+  "topic": "dioxus"
 }
 ```
 
-### 28. user
+### 24. user
 
 **Tool Results**
 
@@ -610,20 +534,51 @@ Found 179 files to process
 ```text
 ## References
 
-- **** (score: 1.06, path: references/dioxus/docs/docs-src/0.7/src/introduction/roadmap.md)
-  Dioxus.
-
-- **** (score: 1.06, path: references/dioxus/docs/docs-src/0.7/src/guides/tools/index.md)
+- **** (score: 1.58, path: references/dioxus/docs/docs-src/0.7/src/guides/tools/index.md)
   sh
 
-- **** (score: 0.53, path: references/dioxus/docs/docs-src/0.7/src/guides/tools/translate.md)
+- **** (score: 1.57, path: references/dioxus/docs/docs-src/0.7/src/guides/tools/translate.md)
   Dioxus homepage:
+
+- **** (score: 1.06, path: references/dioxus/docs/docs-src/0.7/src/introduction/roadmap.md)
+  Dioxus.
 
 - **dioxus/docs** (score: 0.40, path: references/dioxus/docs/docs-src/0.7/src/essentials/ui/index.md)
   # Building User Interfaces
 
+- **dioxus/docs** (score: 0.38, path: references/dioxus/docs/docs-src/0.7/src/essentials/overview.md)
+  # Core Concepts
+
 - **dioxus/docs** (score: 0.38, path: references/dioxus/docs/docs-src/0.7/src/essentials/index.md)
   # Core Concepts
+
+- **dioxus/docs** (score: 0.34, path: references/dioxus/docs/docs-src/0.7/src/getting_started/welcome.md)
+  # Introduction
+
+- **dioxus/docs** (score: 0.34, path: references/dioxus/docs/docs-src/0.7/src/index.md)
+  # Introduction
+
+---
+8 results total.
+```
+- error=false
+```text
+## References
+
+- **** (score: 2.89, path: references/dioxus/docs/docs-src/0.7/src/migration/to_06.md)
+  s/dioxus/pull/2258> for more details.
+
+- **** (score: 0.49, path: references/dioxus/docs/docs-src/0.7/src/essentials/fullstack/loading.md)
+  [tags: dioxus/docs]
+
+- **** (score: 0.48, path: references/dioxus/docs/docs-src/0.7/src/essentials/advanced/index.md)
+  [tags: dioxus/docs]
+
+- **dioxus/docs** (score: 0.40, path: references/dioxus/docs/docs-src/0.7/src/essentials/basics/hooks.md)
+  # Hooks
+
+- **dioxus/docs** (score: 0.19, path: references/dioxus/docs/docs-src/0.7/src/essentials/basics/signals.md)
+  # Reactive Signals
 
 ---
 5 results total.
@@ -632,26 +587,35 @@ Found 179 files to process
 ```text
 ## References
 
-- **** (score: 1.92, path: references/dioxus/docs/docs-src/0.7/src/introduction/roadmap.md)
+- **** (score: 1.50, path: references/dioxus/docs/docs-src/0.7/src/guides/tools/translate.md)
+  from the Dioxus homepage:
+
+- **** (score: 1.01, path: references/dioxus/docs/docs-src/0.7/src/introduction/roadmap.md)
   into Dioxus.
 
-- **** (score: 0.50, path: references/dioxus/docs/docs-src/0.7/src/essentials/advanced/index.md)
+- **dioxus/docs** (score: 0.90, path: references/dioxus/docs/docs-src/0.7/src/essentials/basics/effects.md)
+  # Effects and Memos
+
+- **** (score: 0.51, path: references/dioxus/docs/docs-src/0.7/src/essentials/fullstack/loading.md)
   [tags: dioxus/docs]
 
-- **** (score: 0.49, path: references/dioxus/docs/docs-src/0.7/src/essentials/fullstack/loading.md)
-  [tags: dioxus/docs]
+- **** (score: 0.50, path: references/dioxus/docs/docs-src/0.7/src/beyond/project_structure.md)
+  State Management
 
-- **** (score: 0.48, path: references/dioxus/docs/docs-src/0.7/src/essentials/advanced/custom_hooks.md)
-  [tags: dioxus/docs]
+- **dioxus/docs** (score: 0.40, path: references/dioxus/docs/docs-src/0.7/src/migration/to_05/hooks.md)
+  # Hooks
 
-- **** (score: 0.48, path: references/dioxus/docs/docs-src/0.7/src/essentials/basics/hooks.md)
-  [tags: dioxus/docs]
+- **dioxus/docs** (score: 0.39, path: references/dioxus/docs/docs-src/0.7/src/essentials/basics/hoisting.md)
+  # Hoisting State
+
+- **dioxus/docs** (score: 0.32, path: references/dioxus/docs/docs-src/0.7/src/essentials/basics/signals.md)
+  # Reactive Signals
 
 ---
-5 results total.
+8 results total.
 ```
 
-### 29. assistant
+### 25. assistant
 
 **Thinking / Raw Output**
 
@@ -677,8 +641,14 @@ Found 179 files to process
   "path": "references/dioxus/docs/docs-src/0.7/src/essentials/basics/signals.md"
 }
 ```
+- `read_file`
+```json
+{
+  "path": "references/dioxus/docs/docs-src/0.7/src/essentials/basics/effects.md"
+}
+```
 
-### 30. user
+### 26. user
 
 **Tool Results**
 
@@ -800,38 +770,6 @@ File: references/dioxus/docs/docs-src/0.7/src/essentials/basics/signals.md (459 
  43 | 
  44 | A simple component that uses `.read…[22823b total]
 ```
-
-### 31. assistant
-
-**Thinking / Raw Output**
-
-- `reasoning`: 
-
-**Tool Calls**
-
-- `read_file`
-```json
-{
-  "path": "references/dioxus/docs/docs-src/0.7/src/essentials/basics/effects.md"
-}
-```
-- `read_file`
-```json
-{
-  "path": "references/dioxus/docs/docs-src/0.7/src/essentials/basics/resources.md"
-}
-```
-- `read_file`
-```json
-{
-  "path": "references/dioxus/docs/docs-src/0.7/src/essentials/advanced/custom_hooks.md"
-}
-```
-
-### 32. user
-
-**Tool Results**
-
 - error=false
 ```text
 File: references/dioxus/docs/docs-src/0.7/src/essentials/basics/effects.md (188 lines)
@@ -857,181 +795,208 @@ File: references/dioxus/docs/docs-src/0.7/src/essentials/basics/effects.md (188 
  20 | 
  21 | The value returned from the closure will o…[9444b total]
 ```
-- error=false
-```text
-File: references/dioxus/docs/docs-src/0.7/src/essentials/basics/resources.md (188 lines)
-  1 | # Data Fetching
-  2 | 
-  3 | One of the most common asynchronous operations in applications is making network requests. This guide will cover how to fetch data in Dioxus, how to avoid waterfalls, and using libraries to manage caching and invalidating requests.
-  4 | 
-  5 | The hooks and techniques we cover here are built on top of the Future and Signal primitives.
-  6 | 
-  7 | ## Library Dependencies
-  8 | 
-  9 | While Dioxus does not provide a built-in HTTP client, you can use the popular [reqwest](https://docs.rs/reqwest/latest/reqwest/) library to make asynchronous network requests. We will be using the reqwest library throughout the examples in this page. Before we start, make sure to add the `reqwest` and `serde` libraries to your `Cargo.toml`:
- 10 | 
- 11 | ```sh
- 12 | cargo add reqwest --features json
- 13 | cargo add serde --features derive
- 14 | ```
- 15 | 
- 16 | Your Cargo.toml should have the reqwest and serde libraries:
- 17 | ```toml
- 18 | [dependencies]
- 19 | # ... dioxus and other dependencies
- 20 | reqwest = { version = "*", features = ["json"] }
- 21 | serde = { version = "1", features = ["derive"] }
- 22 | ```
- 23 | 
- 24 | We are planning on eventually integrating a library like [dioxus-query](https://crates.io/crates/dioxus-query) directly into Dioxus for better integration with the app router.
- 25 | 
- 26 | ## Requests from Event Handlers
- 27 | 
- 28 | The simplest way to request data is simply by attaching an async closure to an EventHandler.
- 29 | 
- 30 | ```rust
- 31 | #[derive(serde::Deserialize)]
- 32 | struct DogApi {
- 33 |     message: String,
- 34 | }
- 35 | 
- 36 | let mut img_src = use_signal(|| "image.png".to_string());
- 37 | 
- 38 | let fetch_new = move |_| async move {
- 39 |     let response = reqwest::get("https://dog.ceo/api/breeds/image/random")
- 40 |         .await
- 41 |         .unwrap()
- 42 |         .json::<DogApi>()
- 43 |         .await
- 44 |     …[9156b total]
-```
-- error=false
-```text
-File: references/dioxus/docs/docs-src/0.7/src/essentials/advanced/custom_hooks.md (102 lines)
-  1 | # Custom Hooks
-  2 | 
-  3 | Hooks are a great way to encapsulate business logic. If none of the existing hooks work for your problem, you can write your own.
-  4 | 
-  5 | When writing your hook, you can make a function that starts with `use_` and takes any arguments you need. You can then use the `use_hook` method to create a hook that will be called the first time the component is rendered.
-  6 | 
-  7 | ## Composing Hooks
-  8 | 
-  9 | To avoid repetition, you can encapsulate business logic based on existing hooks to create a new hook.
- 10 | 
- 11 | For example, if many components need to access an `AppSettings` struct, you can create a "shortcut" hook:
- 12 | 
- 13 | ```rust
- 14 | {{#include ../docs-router/src/doc_examples/hooks_composed.rs:wrap_context}}
- 15 | ```
- 16 | 
- 17 | Or if you want to wrap a hook that persists reloads with the storage API, you can build on top of the use_signal hook to work with mutable state:
- 18 | 
- 19 | ```rust
- 20 | {{#include ../docs-router/src/doc_examples/hooks_composed.rs:use_storage}}
- 21 | ```
- 22 | 
- 23 | ## Custom Hook Logic
- 24 | 
- 25 | You can use [`use_hook`](https://docs.rs/dioxus/latest/dioxus/prelude/fn.use_hook.html) to build your own hooks. In fact, this is what all the standard hooks are built on!
- 26 | 
- 27 | `use_hook` accepts a single closure for initializing the hook. It will be only run the first time the component is rendered. The return value of that closure will be used as the value of the hook – Dioxus will take it, and store it for as long as the component is alive. On every render (not just the first one!), you will get a reference to this value.
- 28 | 
- 29 | > Note: You can use the `use_on_destroy` hook to clean up any resources the hook uses when the component is destroyed.
- 30 | 
- 31 | Inside the initialization closure, you will typically make calls to other dioxus runtime methods. For example:
- 32 | 
- 33 …[5038b total]
+
+### 27. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `web_search`
+```json
+{
+  "max_results": 3,
+  "query": "Dioxus official docs hooks signals 0.7"
+}
 ```
 
-### 33. assistant
+### 28. user
+
+**Tool Results**
+
+- error=false
+```text
+1. dioxus-signals 0.7.3 - Docs.rs
+   https://docs.rs/crate/dioxus-signals/latest
+   Dioxus Signals is an ergonomic Copy runtime for data with local subscriptions. Copy Data All signals implement Copy, even if the inner value does not implement ...
+   Sources: google #1, startpage #2 · score: 3.0
+
+2. Reactive Signals - Dioxus
+   https://dioxuslabs.com/learn/0.7/essentials/basics/signals/
+   Signals are modified directly by event handlers in response to user input or asynchronously in futures. You can create a signal with the use_signal hook:.
+   Sources: google #3, startpage #1 · score: 2.7
+
+3. Dioxus | Fullstack crossplatform app framework for Rust
+   https://dioxuslabs.com/learn/0.7/
+   Dioxus is a framework for building cross-platform apps with the Rust programming language. With one codebase, you can build apps that run on web, desktop, and ...
+   Sources: google #2, startpage #5 · score: 1.4
+
+
+```
+
+### 29. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `web_fetch`
+```json
+{
+  "url": "https://dioxuslabs.com/learn/0.7/essentials/basics/hooks/"
+}
+```
+
+### 30. user
+
+**Tool Results**
+
+- error=false
+```text
+Dioxus | Fullstack crossplatform app framework for Rust
+
+*   [## Tutorial](/learn/0.6/guide/)
+
+*   [## Web](/learn/0.6/guides/web/)
+
+*   [## Desktop](/learn/0.6/guides/desktop/)
+
+*   [## Mobile](/learn/0.6/guides/mobile/)
+
+*   [## Fullstack](/learn/0.6/guides/fullstack/)
+
+*   [## Typesafe Routing](/learn/0.6/router/reference/)
+
+Using Stable Version
+
+0.7.0
+
+[Version 0.70.7.0](/learn/0.7/)
+
+[Version 0.60.6.3](/learn/0.6/)
+
+[Version 0.50.5.7](/learn/0.5/)
+
+[Version 0.40.4.3](/learn/0.4/)
+
+[Version 0.30.3.2](/learn/0.3/)
+
+[Dioxus 0.7.0](/learn/0.7/)[Welcome](/learn/0.7/)[Overview](/learn/0.7/essentials/)[The Basics of State](/learn/0.7/essentials/basics/)[Storing State in Hooks](/learn/0.7/essentials/basics/hooks)
+
+# [Hooks](/learn/0.7/essentials/basics/hooks#hooks)
+
+In Dioxus, state that is local to a component is stored in *hooks*.
+
+Dioxus hooks work similarly to React's hooks. If you haven't done much web development, hooks might seem particularly unusual. Hooks provide a way of storing state, and attaching effects composability in components. Even better - they're less verbose than declaring structs and implementing "render" traits!
+
+## [The use\_hook primitive](/learn/0.7/essentials/basics/hooks#the-use-hook-primitive)
+
+All hooks in Dioxus are built on the `use_hook` primitive. While you might never directly use this primitive, it's good to know where all state eventually resides. The `use_hook` primitive is a function that takes an initializer and returns a `.clone()` of the value.
+
+fn Simple() -> Element {
+    let count = use_hook(|| 123);
+    rsx! { "{count}" }
+}
+
+fn Simple() -> Element {
+    let count = use_hook(|| 123);
+    rsx! { "{count}" }
+}
+
+Whenever `use_hook` is called, one of two things happens:
+
+*   if this `use_hook` has never been called before, the initializer is ran and a new slot is created
+*   otherwise, `use_hook` returns a clone of the current value in the slot.
+
+Internally, the "hook index" is incremented by 1 on every call to `use_hook` and r…[12296b total]
+```
+
+### 31. assistant
 
 **Content**
 
 ```text
-Great choice—**Dioxus** is one of the most serious Rust UI frameworks right now.
+Great choice—**Dioxus** is one of the most interesting Rust UI frameworks right now.
 
 ## What is Dioxus?
 
-At a high level, Dioxus is a **Rust framework for building cross-platform apps** (web, desktop, mobile) from one codebase. You write Rust components and UI with `rsx!` (JSX-like syntax), and manage state with hooks/signals.  
-Source: `references/dioxus/docs/docs-src/0.7/src/getting_started/welcome.md`  
-GitHub source: https://github.com/DioxusLabs/docsite/blob/main/docs-src/0.7/src/getting_started/welcome.md
-
-A key point from their docs: Dioxus combines:
-- React-like component/hook mental model
-- HTML/CSS-style UI declaration
-- Native execution in Rust (no JS VM required for desktop/mobile runtime parts)  
-Source: same file above.
+**Dioxus is a Rust framework for building cross-platform apps** (web, desktop, mobile) from one codebase.  
+It uses Rust components + `rsx!` syntax (similar spirit to JSX) and a reactive state model built around **signals**.  
+Source: `references/dioxus/docs/docs-src/0.7/src/getting_started/welcome.md`, official docs page: https://dioxuslabs.com/learn/0.7/
 
 ---
 
-## How hooks work in Dioxus (mental model)
+## How hooks work in Dioxus
 
-If you’ve used React hooks, the core idea is similar: hooks store component-local state and logic.  
-But in Dioxus the primitive is explicitly described:
+At a high level: hooks are how component-local state and reactive behavior are stored.
 
-- All hooks are built on `use_hook(...)`
-- Dioxus internally keeps a per-component **hook list**
-- Hook calls are resolved by **call order** (index 0, 1, 2, … each render)  
-Source: `references/dioxus/docs/docs-src/0.7/src/essentials/basics/hooks.md`  
-GitHub: https://github.com/DioxusLabs/docsite/blob/main/docs-src/0.7/src/essentials/basics/hooks.md
+### 1) Core idea: `use_hook` slot system
+Dioxus hooks are built on a primitive called `use_hook`. Internally, each hook call maps to a slot in a hook list by **call order**.  
+So on rerender, Dioxus expects the same hooks in the same order.  
+Source: `references/dioxus/docs/docs-src/0.7/src/essentials/basics/hooks.md` and https://dioxuslabs.com/learn/0.7/essentials/basics/hooks/
 
-So the golden rule is strict:
+### 2) Rules of hooks (very important)
+Because of that slot-by-order mechanism:
 
-> Call hooks in the same order every render; only at top-level of components/hooks.
+- ✅ Call hooks at top level of a component (or another hook)
+- ❌ Don’t call hooks in conditionals
+- ❌ Don’t call hooks in loops
+- ❌ Don’t call hooks in closures
 
-That’s why “no hooks in conditionals/loops/closures.”  
-Source: same hooks file.
+Dioxus docs note early returns are technically possible, but discouraged between hook calls.  
+Source: `references/dioxus/docs/docs-src/0.7/src/essentials/basics/hooks.md`
 
----
+### 3) Main hooks you’ll use
+In Dioxus 0.7, state is centered on **signals**:
 
-## The hooks you’ll use most
+- `use_signal(|| initial)` → mutable reactive state
+- `use_memo(|| ...)` → derived/computed reactive value
+- `use_effect(|| ...)` → run side effects when tracked dependencies change
 
-1. **`use_signal`** – mutable reactive state  
-   Source: `.../essentials/basics/signals.md`  
-   https://github.com/DioxusLabs/docsite/blob/main/docs-src/0.7/src/essentials/basics/signals.md
-
-2. **`use_memo`** – derived/computed reactive value  
-   Source: `.../essentials/basics/effects.md`  
-   https://github.com/DioxusLabs/docsite/blob/main/docs-src/0.7/src/essentials/basics/effects.md
-
-3. **`use_effect`** – run side effects when tracked deps change  
-   Source: same effects file.
-
-4. **`use_resource`** – async derived state/data fetching with restart behavior when tracked inputs change  
-   Source: `.../essentials/basics/resources.md`  
-   https://github.com/DioxusLabs/docsite/blob/main/docs-src/0.7/src/essentials/basics/resources.md
+Sources:  
+- `references/dioxus/docs/docs-src/0.7/src/essentials/basics/signals.md`  
+- `references/dioxus/docs/docs-src/0.7/src/essentials/basics/effects.md`  
+- https://dioxuslabs.com/learn/0.7/essentials/basics/signals/  
+- https://dioxuslabs.com/learn/0.7/essentials/basics/hooks/
 
 ---
 
-## Minimal example
+## Minimal mental model
+
+- **Signal** = source of truth (mutable state)
+- **Render/effect/memo** subscribes when it reads a signal
+- Writing signal triggers updates of subscribers
+- Hooks are just the API to register these reactive pieces safely in a component lifecycle
+
+---
+
+## Tiny example
 
 ```rust
 use dioxus::prelude::*;
 
 #[component]
-fn App() -> Element {
+fn Counter() -> Element {
     let mut count = use_signal(|| 0);
 
     let doubled = use_memo(move || count() * 2);
 
     use_effect(move || {
-        // runs when tracked values in here change
         println!("count changed: {}", count());
     });
 
     rsx! {
-        button { onclick: move |_| count += 1, "Count: {count}" }
-        p { "Doubled: {doubled}" }
+        button { onclick: move |_| count += 1, "count: {count}" }
+        p { "doubled: {doubled}" }
     }
 }
 ```
 
----
-
-## One subtle Dioxus-specific thing to remember
-
-Dioxus signals use runtime-checked borrowing patterns (`read`/`write` guards), so avoid holding read/write guards across `await` points carelessly. The docs call this out explicitly.  
-Source: `.../esse…[3242b total]
+If you want, next I can give you a **“React hooks → Dioxus hooks” cheat sheet** so it clicks faster.
 ```
 
 **Thinking / Raw Output**

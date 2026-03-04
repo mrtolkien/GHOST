@@ -2,9 +2,7 @@
   "chat_tool_calls": [
     "read_file",
     "knowledge_search",
-    "run_shell_command",
-    "run_shell_command",
-    "run_shell_command",
+    "read_file",
     "run_shell_command",
     "run_shell_command",
     "run_shell_command",
@@ -13,11 +11,12 @@
     "run_shell_command",
     "knowledge_search",
     "knowledge_search",
+    "knowledge_search",
     "read_file",
     "read_file",
     "read_file",
     "read_file",
-    "read_file",
-    "read_file"
+    "web_search",
+    "web_fetch"
   ]
 }

@@ -183,57 +183,66 @@ If you want an enclosed home printer around **$1,000 in 2026**, buy:
 **Content**
 
 ```text
-Great — deep research is complete. Here’s the practical shortlist for an **enclosed home 3D printer around $1,000 (2026)**.
+Excellent — I’ve got the deep-research results.  
+If you’re buying an **enclosed home 3D printer around $1,000 in 2026**, here’s the practical shortlist:
 
-## Bottom-line recommendations
+## Top recommendations (ranked)
 
-1. **Best overall (long-term ownership): Prusa CORE One+**  
+1. **Prusa CORE One+** — best long-term “buy once” choice  
    - **Price:** **$925 kit / $1,202.78 assembled**  
-   - Why: strongest support/documentation ecosystem, strong reliability reputation, active chamber management.  
-   - Source: Prusa official pricing/specs: https://www.prusa3d.com/product/prusa-core-one/
+   - **Why:** strongest reputation for support, docs, serviceability, and stable software workflow for years of ownership.  
+   - Source: https://www.prusa3d.com/product/prusa-core-one/
 
-2. **Best plug-and-play value: Bambu P2S Combo**  
-   - **Price:** about **$799 combo / $549 standalone** (varies by promotions/region)  
-   - Why: very fast/easy “appliance-like” experience, strong mainstream recommendation in 2026 review roundups.  
+2. **Bambu P2S Combo** — best plug-and-play value/ease  
+   - **Price:** around **$799 combo / $549 standalone** (varies by region/promos)  
+   - **Why:** fast, easy setup, very good print quality per dollar; excellent if you want appliance-like use.  
    - Sources:  
-     - Tom’s Hardware roundup: https://www.tomshardware.com/best-picks/best-3d-printers  
-     - PCMag roundup: https://www.pcmag.com/picks/the-best-3d-printers
+     - https://www.tomshardware.com/best-picks/best-3d-printers  
+     - https://www.pcmag.com/picks/the-best-3d-printers
 
-3. **Best engineering-material value under $1k: QIDI Plus4**  
-   - **Price:** typically **$699 sale / $799 list**  
-   - Why: big build volume + actively heated chamber (65°C) at this price.  
-   - Caveat: verify latest hardware revision/safety fix status before buying.  
+3. **QIDI Plus4** — best engineering-material value under $1k  
+   - **Price:** commonly **$699 sale / $799 regular**  
+   - **Why:** active heated chamber and large build volume for ABS/ASA/nylon-class workflows at this budget.  
    - Sources:  
-     - Official product page: https://qidi3d.com/products/plus4-3d-printer  
-     - Safety/reliability review + fix context: https://3dprint.com/313877/qidi-plus-4-3d-printer-review-hotter-than-the-competition-is-it-safe/
+     - https://qidi3d.com/products/plus4-3d-printer  
+     - Safety caveat review: https://3dprint.com/313877/qidi-plus-4-3d-printer-review-hotter-than-the-competition-is-it-safe/
 
 ---
 
 ## Quick comparison
 
-| Model | Typical 2026 price (US) | Build volume | Home-use strengths | Caveats |
-|---|---:|---|---|---|
-| **Prusa CORE One+** | $925 kit / $1,202.78 assembled | 250×220×270 mm | Best support + long-term maintainability | Assembled config goes over $1k |
-| **Bambu P2S Combo** | ~$799 combo / $549 base | 256×256×256 mm | Easiest setup, strong speed/value | More proprietary ecosystem |
-| **QIDI Plus4** | ~$699–$799 | 305×305×280 mm | Great chamber + large size for price | Must confirm updated safe revision |
-| **Flashforge AD5M Pro** | ~$449–$599 | 220×220×220 mm | Budget enclosed, filtration/noise focus | Lower ceiling vs $1k-class machines |
-| **Anycubic Kobra S1 Combo** | ~$429–$749 | (see vendor specs) | Strong budget performance | Ecosystem/support maturity varies |
+| Model | Typical 2026 price | Build volume | Enclosure/chamber | Best for | Main caveat |
+|---|---:|---|---|---|---|
+| **Prusa CORE One+** | $925 kit / $1,202.78 assembled | 250×220×270 | Enclosed + active chamber mgmt | Reliability/support-first buyers | Assembled version goes above $1k |
+| **Bambu P2S Combo** | ~$799 combo | 256×256×256 | Enclosed CoreXY | Easy, fast, low-friction printing | More proprietary ecosystem |
+| **QIDI Plus4** | ~$699–$799 | 305×305×280 | Enclosed + 65°C active chamber | Bigger parts + engineering plastics | Verify latest hardware revision/safety fixes |
 
 Sources:  
-- Flashforge AD5M Pro: https://www.flashforge.com/product-detail/flashforge-adventurer-5m-pro-3d-printer  
-- Anycubic Kobra S1 Combo: https://store.anycubic.com/products/kobra-s1-combo  
-- Independent roundup context: https://www.tomshardware.com/best-picks/best-3d-printers , https://www.pcmag.com/picks/the-best-3d-printers
+- https://www.prusa3d.com/product/prusa-core-one/  
+- https://www.tomshardware.com/best-picks/best-3d-printers  
+- https://www.pcmag.com/picks/the-best-3d-printers  
+- https://qidi3d.com/products/plus4-3d-printer  
+- https://3dprint.com/313877/qidi-plus-4-3d-printer-review-hotter-than-the-competition-is-it-safe/
 
 ---
 
-## What I’d recommend for *you* (home use, ~$1000)
+## What I’d recommend for **you** (home use, ~$1,000)
 
-- If you want **lowest hassle + best long-term confidence**:  
-  **Prusa CORE One+ (kit if budget-sensitive, assembled if you want zero build effort).**
-- If you want **max convenience/value today** and stay under budget:  
-  **Bambu P2S Combo.**
-- If you’ll print **ABS/ASA/PC/PA regularly** and want bigger parts:  
-  **QIDI Plus4**, but only after…[3714b total]
+- If you want **least regret over 3–5 years**: **Prusa CORE One+ (kit)**  
+- If you want **best convenience and value right now**: **Bambu P2S Combo**  
+- If you’ll print a lot of **ABS/ASA/PC/PA** and want larger parts: **QIDI Plus4**
+
+---
+
+## Home-use advice (important)
+
+Even with enclosed printers, for ABS/ASA you should plan ventilation/filtration and placement away from constant living space. Independent guides also emphasize this for home environments: https://www.pcmag.com/picks/the-best-3d-printers
+
+Also budget for hidden costs: nozzles, build plates, filters, and (if multicolor) purge waste/material overhead.
+
+---
+
+If you want, I can do a…[3204b total]
 ```
 
 **Thinking / Raw Output**

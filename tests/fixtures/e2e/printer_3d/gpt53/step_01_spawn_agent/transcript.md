@@ -18,19 +18,6 @@ I want to buy a new enclosed 3D printer for home use around $1000 in 2026. Pleas
 
 **Tool Calls**
 
-- `knowledge_search`
-```json
-{
-  "categories": [
-    "notes",
-    "references",
-    "diary"
-  ],
-  "limit": 8,
-  "query": "enclosed 3D printer home use around $1000 recommendations Bambu Prusa QIDI Creality 2026 pricing",
-  "topic": ""
-}
-```
 - `read_file`
 ```json
 {
@@ -42,10 +29,6 @@ I want to buy a new enclosed 3D printer for home use around $1000 in 2026. Pleas
 
 **Tool Results**
 
-- error=false
-```text
-No results found.
-```
 - error=false
 ```text
 File: skills/deep-research/skill.md (72 lines)
@@ -100,13 +83,34 @@ File: skills/deep-research/skill.md (72 lines)
 
 **Tool Calls**
 
-- `agent_control`
+- `todo`
 ```json
 {
-  "action": "start",
-  "agent": "deep-research",
-  "agent_id": "",
-  "prompt": "Research and recommend enclosed consumer 3D printers suitable for home use with a target budget around USD $1,000 in 2026. Deliver concrete model recommendations with estimated current pricing (street price and MSRP where available), key pros/cons, and buyer-fit guidance.\n\nContext/constraints:\n- OPERATOR wants a new enclosed printer for home use.\n- Budget center is around $1,000, but include notable options roughly in the ~$700–$1,300 range if value justifies it.\n- Prioritize reliability, print quality, ease of use, safety/noise for home environment, material support (PLA/PETG/ABS/ASA at minimum), and maintenance burden.\n- Include availability by region if sources provide (US-focused pricing acceptable if global not available).\n\nScope to investigate:\n1) Current enclosed-core models in this price class from major and emerging brands.\n2) Realistic pricing in 2026 from manufacturer stores + major retailers; mention bundles/add-ons separately.\n3) Independent reviews, long-term reliability reports, and common failure/maintenance issues.\n4) Software ecosystem, firmware/support quality, warranty/replacement experience where documented.\n5) Hidden total-cost factors: required upgrades, consumables, proprietary parts, filtration/ventilation considerations.\n6) Best picks by persona (e.g., easiest plug-and-play, best value, best for engineering materials).\n\nMethod requirements:\n- Use recent sources (2025–2026 where possible).\n- Cross-check claims across multiple independent sources, not only manufacturer pages.\n- Provide a comparison table and a ranked shortlist with rationale.\n- Include explicit source URLs for every major claim and price.\n- Flag uncertainty where pricing or specs vary by region/time.\n\nOutput format:\n- Executive summary (top 3–5 picks)\n- Comparison table (price, enclosure type, build volume, speed class, materials, notable caveats)\n- Detailed recommendations with who should buy each\n- Buying advice for home setup (noise, filtration, safety)\n- Source list mapped to sections"
+  "action": "plan",
+  "description": "",
+  "index": 0,
+  "items": [
+    {
+      "description": "Search existing notes/references for enclosed 3D printer buying guidance and prior research",
+      "title": "Check knowledge base"
+    },
+    {
+      "description": "Launch deep-research agent with 2026 $1000 enclosed home-use criteria",
+      "title": "Spawn research agent"
+    },
+    {
+      "description": "Monitor agent completion and extract model recommendations, prices, and sources",
+      "title": "Collect findings"
+    },
+    {
+      "description": "Present concise recommendations with tradeoffs and source URLs",
+      "title": "Deliver recommendation report"
+    }
+  ],
+  "note": "",
+  "status": "pending",
+  "title": "",
+  "updates": []
 }
 ```
 
@@ -116,25 +120,166 @@ File: skills/deep-research/skill.md (72 lines)
 
 - error=false
 ```text
-Agent 'deep-research' started (agent_id: 01KJSNE3RBRZWFZ5T9CRQBPMEC). The agent runs in the background — inform the OPERATOR and end your turn. Do NOT poll or wait for the agent.
+TODO [0/4]
+1. ○ Check knowledge base — Search existing notes/references for enclosed 3D printer buying guidance and prior research
+2. ○ Spawn research agent — Launch deep-research agent with 2026 $1000 enclosed home-use criteria
+3. ○ Collect findings — Monitor agent completion and extract model recommendations, prices, and sources
+4. ○ Deliver recommendation report — Present concise recommendations with tradeoffs and source URLs
+
 ```
 
 ### 6. assistant
 
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `todo`
+```json
+{
+  "action": "update",
+  "description": "",
+  "index": 1,
+  "items": [],
+  "note": "Starting knowledge base search per deep-research workflow.",
+  "status": "in_progress",
+  "title": "",
+  "updates": []
+}
+```
+
+### 7. user
+
+**Tool Results**
+
+- error=false
+```text
+TODO [0/4]
+1. ◉ Check knowledge base — Search existing notes/references for enclosed 3D printer buying guidance and prior research [Starting knowledge base search per deep-research workflow.]
+2. ○ Spawn research agent — Launch deep-research agent with 2026 $1000 enclosed home-use criteria
+3. ○ Collect findings — Monitor agent completion and extract model recommendations, prices, and sources
+4. ○ Deliver recommendation report — Present concise recommendations with tradeoffs and source URLs
+
+```
+
+### 8. assistant
+
+**Tool Calls**
+
+- `knowledge_search`
+```json
+{
+  "categories": [
+    "notes",
+    "references",
+    "diary"
+  ],
+  "limit": 10,
+  "query": "enclosed 3D printer home use $1000 recommendation 2026 Bambu P1S Creality K1C Qidi Q1 Pro review pricing",
+  "topic": ""
+}
+```
+
+### 9. user
+
+**Tool Results**
+
+- error=false
+```text
+No results found.
+```
+
+### 10. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `todo`
+```json
+{
+  "action": "batch_update",
+  "description": "",
+  "index": 0,
+  "items": [],
+  "note": "",
+  "status": "pending",
+  "title": "",
+  "updates": [
+    {
+      "index": 1,
+      "note": "No relevant prior notes/references found.",
+      "status": "done"
+    },
+    {
+      "index": 2,
+      "note": "Starting deep-research agent with constraints.",
+      "status": "in_progress"
+    }
+  ]
+}
+```
+
+### 11. user
+
+**Tool Results**
+
+- error=false
+```text
+TODO [1/4]
+1. ✓ Check knowledge base — Search existing notes/references for enclosed 3D printer buying guidance and prior research [No relevant prior notes/references found.]
+2. ◉ Spawn research agent — Launch deep-research agent with 2026 $1000 enclosed home-use criteria [Starting deep-research agent with constraints.]
+3. ○ Collect findings — Monitor agent completion and extract model recommendations, prices, and sources
+4. ○ Deliver recommendation report — Present concise recommendations with tradeoffs and source URLs
+
+```
+
+### 12. assistant
+
+**Thinking / Raw Output**
+
+- `reasoning`: 
+
+**Tool Calls**
+
+- `agent_control`
+```json
+{
+  "action": "start",
+  "agent": "deep-research",
+  "agent_id": "",
+  "prompt": "Research and recommend currently available enclosed 3D printers for home use in 2026 with a target budget around USD $1,000 (roughly $700-$1,300 acceptable if justified). Deliver a buyer-oriented comparison with concrete model recommendations, estimated street pricing, key pros/cons, reliability and support considerations, and who each model is best for.\n\nScope:\n1) Identify strong enclosed CoreXY/modern FDM options suitable for home users (ease of use, safety, noise, setup).\n2) Gather current pricing from official stores and reputable retailers where possible; include promo/typical sale ranges if available.\n3) Evaluate practical factors: print quality consistency, speed realism (not just marketing max), material support (PLA/PETG/ABS/ASA/nylon), enclosure quality, filtration/ventilation, software ecosystem, camera/remote monitoring, maintenance burden, replacement parts access.\n4) Include at least 5 recommended models and 2 alternatives/caveats (e.g., models to avoid for this use case or that are only worth buying at certain prices).\n5) Provide a final ranked shortlist and a 'best for most people' pick.\n\nRequirements:\n- Use recent sources (prioritize 2025-2026 where possible).\n- Cite every major claim with source URLs.\n- Distinguish confirmed facts vs reviewer impressions.\n- Include a compact comparison table (model, typical price, enclosure/filtration, max build volume, notable strengths, notable weaknesses).\n- Assume operator did not specify country; prioritize US pricing but note regional variance and availability.\n\nReturn format:\n- Executive summary\n- Comparison table\n- Detailed recommendations\n- Buying advice for different user profiles\n- Source list with URLs"
+}
+```
+
+### 13. user
+
+**Tool Results**
+
+- error=false
+```text
+Agent 'deep-research' started (agent_id: 01KJVKJ67RW3BSDVJH4W6W5R18). The agent runs in the background — inform the OPERATOR and end your turn. Do NOT poll or wait for the agent.
+```
+
+### 14. assistant
+
 **Content**
 
 ```text
-Great request — I’ve started a dedicated deep-research job in the background to do this properly.
+Great — I’ve started a **deep research run** in the background for this.
 
-**Research agent started:** `01KJSNE3RBRZWFZ5T9CRQBPMEC`
+I’ll come back with:
+- concrete enclosed 3D printer model recommendations (2026)
+- current pricing (US-first, with variance notes)
+- tradeoffs/pros-cons
+- a ranked shortlist + “best for most people”
+- source URLs for all key claims
 
-It will gather and cross-check:
-- Enclosed 3D printers around **$1,000** (roughly **$700–$1,300** value band)
-- **2026 pricing** (MSRP + street price where possible)
-- Reliability, maintenance, ecosystem/support, and total cost of ownership
-- A ranked shortlist with concrete recommendations and **source URLs**
-
-I’ll share the full findings as soon as it finishes.
+I’ll share the full report as soon as the research agent finishes.
 ```
 
 **Thinking / Raw Output**
@@ -148,34 +293,27 @@ I’ll share the full findings as soon as it finishes.
 **Content**
 
 ```text
-Research and recommend enclosed consumer 3D printers suitable for home use with a target budget around USD $1,000 in 2026. Deliver concrete model recommendations with estimated current pricing (street price and MSRP where available), key pros/cons, and buyer-fit guidance.
+Research and recommend currently available enclosed 3D printers for home use in 2026 with a target budget around USD $1,000 (roughly $700-$1,300 acceptable if justified). Deliver a buyer-oriented comparison with concrete model recommendations, estimated street pricing, key pros/cons, reliability and support considerations, and who each model is best for.
 
-Context/constraints:
-- OPERATOR wants a new enclosed printer for home use.
-- Budget center is around $1,000, but include notable options roughly in the ~$700–$1,300 range if value justifies it.
-- Prioritize reliability, print quality, ease of use, safety/noise for home environment, material support (PLA/PETG/ABS/ASA at minimum), and maintenance burden.
-- Include availability by region if sources provide (US-focused pricing acceptable if global not available).
+Scope:
+1) Identify strong enclosed CoreXY/modern FDM options suitable for home users (ease of use, safety, noise, setup).
+2) Gather current pricing from official stores and reputable retailers where possible; include promo/typical sale ranges if available.
+3) Evaluate practical factors: print quality consistency, speed realism (not just marketing max), material support (PLA/PETG/ABS/ASA/nylon), enclosure quality, filtration/ventilation, software ecosystem, camera/remote monitoring, maintenance burden, replacement parts access.
+4) Include at least 5 recommended models and 2 alternatives/caveats (e.g., models to avoid for this use case or that are only worth buying at certain prices).
+5) Provide a final ranked shortlist and a 'best for most people' pick.
 
-Scope to investigate:
-1) Current enclosed-core models in this price class from major and emerging brands.
-2) Realistic pricing in 2026 from manufacturer stores + major retailers; mention bundles/add-ons separately.
-3) Independent reviews, long-term reliability reports, and common failure/maintenance issues.
-4) Software ecosystem, firmware/support quality, warranty/replacement experience where documented.
-5) Hidden total-cost factors: required upgrades, consumables, proprietary parts, filtration/ventilation considerations.
-6) Best picks by persona (e.g., easiest plug-and-play, best value, best for engineering materials).
+Requirements:
+- Use recent sources (prioritize 2025-2026 where possible).
+- Cite every major claim with source URLs.
+- Distinguish confirmed facts vs reviewer impressions.
+- Include a compact comparison table (model, typical price, enclosure/filtration, max build volume, notable strengths, notable weaknesses).
+- Assume operator did not specify country; prioritize US pricing but note regional variance and availability.
 
-Method requirements:
-- Use recent sources (2025–2026 where possible).
-- Cross-check claims across multiple independent sources, not only manufacturer pages.
-- Provide a comparison table and a ranked shortlist with rationale.
-- Include explicit source URLs for every major claim and price.
-- Flag uncertainty where pricing or specs vary by region/time.
-
-Output format:
-- Executive summary (top 3–5 picks)
-- Comparison table (price, enclosure type, build volume, speed class, materials, notable caveats)
-- Detailed recommendations with who should buy each
-- Buying advice for home setup (noise, filtration, safety)
-- Source list mapped to sections
+Return format:
+- Executive summary
+- Comparison table
+- Detailed recommendations
+- Buying advice for different user profiles
+- Source list with URLs
 ```
 

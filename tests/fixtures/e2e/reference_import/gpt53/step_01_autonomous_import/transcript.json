@@ -16,7 +16,71 @@
       "role": "assistant",
       "tool_calls": [
         {
-          "id": "call_ZFbps3F3dq1dwQ8gw8eOvdvQ",
+          "id": "call_LAMk877rKXYzBDTJav3aDN8w",
+          "input": {
+            "path": "skills/knowledge-navigator/skill.md"
+          },
+          "name": "read_file"
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "tool_results": [
+        {
+          "content": "File: skills/knowledge-navigator/skill.md (81 lines)\n  1 | ---\n  2 | name: knowledge-navigator\n  3 | description:\n  4 |   Navigate and query the knowledge base effectively. Use when you need to search\n  5 |   existing knowledge, browse references by topic, explore the knowledge graph, or check\n  6 |   for orphan notes.\n  7 | ---\n  8 | \n  9 | # Knowledge Navigator Skill\n 10 | \n 11 | This skill teaches you how to use the knowledge system's query capabilities.\n 12 | \n 13 | ## Searching\n 14 | \n 15 | Use `knowledge_search` for hybrid BM25 + semantic search. It defaults to notes and diary\n 16 | — pass `categories: [\"notes\", \"references\", \"diary\"]` to include references.\n 17 | \n 18 | For CLI access: `ghost knowledge search \"query\" [--kind note|reference|diary]`\n 19 | \n 20 | ## Browsing References\n 21 | \n 22 | References are organized by topic (subdirectory name under `references/`).\n 23 | \n 24 | CLI commands:\n 25 | \n 26 | - `ghost knowledge references` — list all references, grouped by topic\n 27 | - `ghost knowledge references --topic rust` — list references for a specific topic\n 28 | - `ghost knowledge references --limit 50` — increase result limit\n 29 | \n 30 | ## Graph Traversal\n 31 | \n 32 | The knowledge graph connects notes via typed edges (`[[wiki links]]`) and citations.\n 33 | \n 34 | CLI commands:\n 35 | \n 36 | - `ghost knowledge graph \"Note Title\"` — show incoming and outgoing edges\n 37 | - `ghost knowledge graph \"Note Title\" --direction out` — outgoing edges only\n 38 | - `ghost knowledge graph \"Note Title\" --direction in` — incoming edges only\n 39 | - `ghost knowledge graph --orphans` — find notes with no connections\n 40 | - `ghost knowledge graph --stats` — edge and stub counts\n 41 | \n 42 | ## Tags\n 43 | \n 44 | - `ghost knowledge tags` — list all tags with counts\n 45 | \n 46 | ## Recent Activity\n 47 | \n 48 | - `ghost knowledge recent [--limit 20]` — recently updated knowledge items\n 49 | \n 50 | ## Stats\n 51 | \n 52 | - `ghost knowledge stats` …[3571b total]",
+          "is_error": false,
+          "tool_use_id": "call_LAMk877rKXYzBDTJav3aDN8w"
+        }
+      ]
+    },
+    {
+      "raw_output": [
+        {
+          "original_type": "reasoning",
+          "summary": ""
+        }
+      ],
+      "role": "assistant",
+      "tool_calls": [
+        {
+          "id": "call_IXDZ8yctfFf7dlWrapz8p79S",
+          "input": {
+            "categories": [
+              "notes",
+              "references",
+              "diary",
+              "topics"
+            ],
+            "limit": 5,
+            "query": "Dioxus hooks what is Dioxus use_hook use_state signals",
+            "topic": "dioxus"
+          },
+          "name": "knowledge_search"
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "tool_results": [
+        {
+          "content": "No results found.",
+          "is_error": false,
+          "tool_use_id": "call_IXDZ8yctfFf7dlWrapz8p79S"
+        }
+      ]
+    },
+    {
+      "raw_output": [
+        {
+          "original_type": "reasoning",
+          "summary": ""
+        }
+      ],
+      "role": "assistant",
+      "tool_calls": [
+        {
+          "id": "call_Wtk1glwhcicaqmLdUMlZ81dS",
           "input": {
             "path": "skills/reference-import/skill.md"
           },
@@ -30,7 +94,7 @@
         {
           "content": "File: skills/reference-import/skill.md (126 lines)\n  1 | ---\n  2 | name: reference-import\n  3 | description:\n  4 |   Import and query external documentation, code, and API references. Use when the\n  5 |   OPERATOR asks about a library, framework, SDK, or tool — especially if\n  6 |   knowledge_search returns no results for it.\n  7 | ---\n  8 | \n  9 | # Reference Import Skill\n 10 | \n 11 | Import git repos and web pages as topic-scoped references into the knowledge base.\n 12 | \n 13 | ## Decision Flow\n 14 | \n 15 | Follow this order — stop as soon as you have an answer:\n 16 | \n 17 | 1. **Search first**: `knowledge_search(query=\"<topic>\", categories=[\"references\"])`. If\n 18 |    results exist, use them to answer. Done.\n 19 | 2. **Git import** (preferred): find the docs repo via `gh`, import with\n 20 |    `background: true`, tell the OPERATOR it's importing.\n 21 | 3. **Crawl import** (fallback): only if no git source exists (e.g. docs-only site).\n 22 | 4. **After starting the background import**: tell the OPERATOR and **end your turn**. A\n 23 |    follow-up turn is triggered automatically when the import completes — you'll see the\n 24 |    `[shell-command completed]` system message. Search the imported refs and answer.\n 25 |    Note: reference records appear in the DB almost immediately; only the embeddings\n 26 |    trail behind. You can search whatever's embedded so far.\n 27 | \n 28 | ## CLI Commands\n 29 | \n 30 | ```\n 31 | ghost reference import --source git --url <url> --topic <name> \\\n 32 |     [--paths dir1,dir2] [--extensions .md,.rs]\n 33 | \n 34 | ghost reference import --source page --url <url> --topic <name>\n 35 | \n 36 | ghost reference import --source crawl --url <url> --topic <name> \\\n 37 |     [--max-depth 3] [--max-pages 50]\n 38 | \n 39 | ghost topics list\n 40 | \n 41 | ghost reference delete --topic <name>\n 42 | ```\n 43 | \n 44 | ## Git Import (Preferred)\n 45 | \n 46 | ### Finding the docs repo\n 47 | \n 48 | Documentation often lives in a separate repo (e.g. `Di…[4962b total]",
           "is_error": false,
-          "tool_use_id": "call_ZFbps3F3dq1dwQ8gw8eOvdvQ"
+          "tool_use_id": "call_Wtk1glwhcicaqmLdUMlZ81dS"
         }
       ]
     },
@@ -44,46 +108,11 @@
       "role": "assistant",
       "tool_calls": [
         {
-          "id": "call_ZVjOKA7aOdiA4BKIomuZJ6LY",
-          "input": {
-            "categories": [
-              "references",
-              "notes",
-              "diary"
-            ],
-            "limit": 5,
-            "query": "Dioxus hooks Rust UI framework",
-            "topic": "dioxus"
-          },
-          "name": "knowledge_search"
-        }
-      ]
-    },
-    {
-      "role": "user",
-      "tool_results": [
-        {
-          "content": "No results found.",
-          "is_error": false,
-          "tool_use_id": "call_ZVjOKA7aOdiA4BKIomuZJ6LY"
-        }
-      ]
-    },
-    {
-      "raw_output": [
-        {
-          "original_type": "reasoning",
-          "summary": ""
-        }
-      ],
-      "role": "assistant",
-      "tool_calls": [
-        {
-          "id": "call_61FrHwo6bKXtVDRSTUPeidfD",
+          "id": "call_9JVsqgA3vbYw4uieNGDrsTyk",
           "input": {
             "background": false,
-            "command": "gh search repos \"dioxus docs OR docsite OR website\" --owner DioxusLabs --json name,description,url",
-            "directory": ".",
+            "command": "gh search repos \"docs OR docsite OR website\" --owner=DioxusLabs --json name,description,url",
+            "directory": "/tmp/.tmpZiB3Uq",
             "timeout_ms": 30000
           },
           "name": "run_shell_command"
@@ -96,7 +125,7 @@
         {
           "content": "Exit code: 0\n\n--- stdout ---\n[]\n",
           "is_error": false,
-          "tool_use_id": "call_61FrHwo6bKXtVDRSTUPeidfD"
+          "tool_use_id": "call_9JVsqgA3vbYw4uieNGDrsTyk"
         }
       ]
     },
@@ -110,11 +139,11 @@
       "role": "assistant",
       "tool_calls": [
         {
-          "id": "call_NmP65cLHuu1LRIWH1nqeFnO0",
+          "id": "call_NEmWwHhWKviWfEREU2adCw70",
           "input": {
             "background": false,
-            "command": "gh search repos \"dioxus docsite\" --json owner,name,description,url --limit 10",
-            "directory": ".",
+            "command": "gh repo list DioxusLabs --limit 100 --json name,description,url",
+            "directory": "/tmp/.tmpZiB3Uq",
             "timeout_ms": 30000
           },
           "name": "run_shell_command"
@@ -125,9 +154,9 @@
       "role": "user",
       "tool_results": [
         {
-          "content": "Exit code: 0\n\n--- stdout ---\n[{\"description\":\"\",\"name\":\"dioxus-docsite\",\"owner\":{\"id\":\"U_kgDOBaYJqw\",\"is_bot\":false,\"login\":\"scapula07\",\"type\":\"User\",\"url\":\"https://github.com/scapula07\"},\"url\":\"https://github.com/scapula07/dioxus-docsite\"}]\n",
+          "content": "Exit code: 0\n\n--- stdout ---\n[{\"description\":\"Accessible, unstyled, foundational components for Dioxus.\",\"name\":\"components\",\"url\":\"https://github.com/DioxusLabs/components\"},{\"description\":\"What if wasm-bindgen with no wasm?\",\"name\":\"wasm-bindgen-wry\",\"url\":\"https://github.com/DioxusLabs/wasm-bindgen-wry\"},{\"description\":\"Dioxuslabs.com documentation site\",\"name\":\"docsite\",\"url\":\"https://github.com/DioxusLabs/docsite\"},{\"description\":\"A radically modular HTML/CSS rendering engine\",\"name\":\"blitz\",\"url\":\"https://github.com/DioxusLabs/blitz\"},{\"description\":\"Fullstack app framework for web, desktop, and mobile.\",\"name\":\"dioxus\",\"url\":\"https://github.com/DioxusLabs/dioxus\"},{\"description\":\"\",\"name\":\"blitz-website\",\"url\":\"https://github.com/DioxusLabs/blitz-website\"},{\"description\":\"A high performance rust-powered UI layout library\",\"name\":\"taffy\",\"url\":\"https://github.com/DioxusLabs/taffy\"},{\"description\":\"Rust 2D drawing abstraction\",\"name\":\"anyrender\",\"url\":\"https://github.com/DioxusLabs/anyrender\"},{\"description\":\"a template for starting a dioxus project to be used with dioxus-cli\",\"name\":\"dioxus-template\",\"url\":\"https://github.com/DioxusLabs/dioxus-template\"},{\"description\":\"The simplest Rust RPC library\",\"name\":\"rsrpc\",\"url\":\"https://github.com/DioxusLabs/rsrpc\"},{\"description\":\"A library to provide abstractions to access common utilities when developing Dioxus applications.\",\"name\":\"sdk\",\"url\":\"https://github.com/DioxusLabs/sdk\"},{\"description\":\"An asset system for the Rust ecosystem\",\"name\":\"asset\",\"url\":\"https://github.com/DioxusLabs/asset\"},{\"description\":\"\",\"name\":\"screenshots\",\"url\":\"https://github.com/DioxusLabs/screenshots\"},{\"description\":\"An awesome list of Dioxus-related content and resources\",\"name\":\"awesome-dioxus\",\"url\":\"https://github.com/DioxusLabs/awesome-dioxus\"},{\"description\":\"🔎 Impossibly fast web search, made for static sites.\",\"name\":\"stork\",\"url\":\"https://github.com/DioxusLabs/stork\"},{\"description\":\"\",\"name\":\"stylo\",\"url\":\"https://githu…[4751b total]",
           "is_error": false,
-          "tool_use_id": "call_NmP65cLHuu1LRIWH1nqeFnO0"
+          "tool_use_id": "call_NEmWwHhWKviWfEREU2adCw70"
         }
       ]
     },
@@ -141,135 +170,11 @@
       "role": "assistant",
       "tool_calls": [
         {
-          "id": "call_FN2SdqOY4FEICEN4yuE0daoR",
-          "input": {
-            "background": false,
-            "command": "gh search repos \"dioxus\" --owner dioxuslabs --json name,description,url --limit 20",
-            "directory": ".",
-            "timeout_ms": 30000
-          },
-          "name": "run_shell_command"
-        }
-      ]
-    },
-    {
-      "role": "user",
-      "tool_results": [
-        {
-          "content": "Exit code: 0\n\n--- stdout ---\n[{\"description\":\"Fullstack app framework for web, desktop, and mobile.\",\"name\":\"dioxus\",\"url\":\"https://github.com/DioxusLabs/dioxus\"},{\"description\":\"Accessible, unstyled, foundational components for Dioxus.\",\"name\":\"components\",\"url\":\"https://github.com/DioxusLabs/components\"},{\"description\":\"Featured Dioxus projects on how to build clean user interfaces in Rust\",\"name\":\"example-projects\",\"url\":\"https://github.com/DioxusLabs/example-projects\"},{\"description\":\"An awesome list of Dioxus-related content and resources\",\"name\":\"awesome-dioxus\",\"url\":\"https://github.com/DioxusLabs/awesome-dioxus\"},{\"description\":\"a template for starting a dioxus project to be used with dioxus-cli\",\"name\":\"dioxus-template\",\"url\":\"https://github.com/DioxusLabs/dioxus-template\"},{\"description\":\"A library to provide abstractions to access common utilities when developing Dioxus applications.\",\"name\":\"sdk\",\"url\":\"https://github.com/DioxusLabs/sdk\"},{\"description\":\"Convert markdown to dioxus vnodes\",\"name\":\"markdown\",\"url\":\"https://github.com/DioxusLabs/markdown\"},{\"description\":\"Deploy your dioxus-web app\",\"name\":\"deploy-action\",\"url\":\"https://github.com/DioxusLabs/deploy-action\"},{\"description\":\"Build reactive terminal user interfaces using Rust and Dioxus.\",\"name\":\"rink\",\"url\":\"https://github.com/DioxusLabs/rink\"},{\"description\":\"An html macro for dioxus applications.\",\"name\":\"dioxus-html-macro\",\"url\":\"https://github.com/DioxusLabs/dioxus-html-macro\"},{\"description\":\"\",\"name\":\"dioxus-ai\",\"url\":\"https://github.com/DioxusLabs/dioxus-ai\"},{\"description\":\"[moved]: Integrate a search index into your dioxus projects\",\"name\":\"dioxus-search\",\"url\":\"https://github.com/DioxusLabs/dioxus-search\"},{\"description\":\"[moved] A playground akin to the Rust playground but for Dioxus.\",\"name\":\"playground\",\"url\":\"https://github.com/DioxusLabs/playground\"},{\"description\":\"Plugin library for Dioxus CLI\",\"name\":\"cli-plugin-library\",\"url\":\"https://github.com/DioxusLabs/cli-plugin-librar…[2150b total]",
-          "is_error": false,
-          "tool_use_id": "call_FN2SdqOY4FEICEN4yuE0daoR"
-        }
-      ]
-    },
-    {
-      "raw_output": [
-        {
-          "original_type": "reasoning",
-          "summary": ""
-        }
-      ],
-      "role": "assistant",
-      "tool_calls": [
-        {
-          "id": "call_YCvzCQ7Vr1Af9gQLyO5wgshS",
-          "input": {
-            "background": false,
-            "command": "gh api repos/DioxusLabs/dioxus/contents/ --jq '.[].name'",
-            "directory": ".",
-            "timeout_ms": 30000
-          },
-          "name": "run_shell_command"
-        }
-      ]
-    },
-    {
-      "role": "user",
-      "tool_results": [
-        {
-          "content": "Exit code: 0\n\n--- stdout ---\n.devcontainer\n.github\n.gitignore\n.vscode\n.zed\nAGENTS.md\nCargo.lock\nCargo.toml\nLICENSE-APACHE\nLICENSE-MIT\nREADME.md\n_typos.toml\ncodecov.yml\nexamples\nflake.lock\nflake.nix\nlychee.toml\nnotes\npackages\n",
-          "is_error": false,
-          "tool_use_id": "call_YCvzCQ7Vr1Af9gQLyO5wgshS"
-        }
-      ]
-    },
-    {
-      "raw_output": [
-        {
-          "original_type": "reasoning",
-          "summary": ""
-        }
-      ],
-      "role": "assistant",
-      "tool_calls": [
-        {
-          "id": "call_kJiFWvgUSMOqmsh6fm21XTTQ",
-          "input": {
-            "background": false,
-            "command": "gh api repos/DioxusLabs/dioxus/contents/packages --jq '.[].name'",
-            "directory": ".",
-            "timeout_ms": 30000
-          },
-          "name": "run_shell_command"
-        }
-      ]
-    },
-    {
-      "role": "user",
-      "tool_results": [
-        {
-          "content": "Exit code: 0\n\n--- stdout ---\nasset-resolver\nautofmt\ncheck\ncli-config\ncli-harnesses\ncli-opt\ncli-telemetry\ncli\ncomponent-manifest\nconfig-macro\nconfig-macros\nconst-serialize-macro\nconst-serialize\ncore-macro\ncore-types\ncore\ndepinfo\ndesktop\ndevtools-types\ndevtools\ndioxus\ndocument\ndx-wire-format\nextension\nfullstack-core\nfullstack-macro\nfullstack-server\nfullstack\ngenerational-box\nhistory\nhooks\nhtml-internal-macro\nhtml\ninterpreter\nlazy-js-bundle\nliveview\nlogger\nmanganis\nnative-dom\nnative\nplaywright-tests\nrouter-macro\nrouter\nrsx-hotreload\nrsx-rosetta\nrsx\nsignals\nssr\nstores-macro\nstores\nsubsecond\nwasm-split\nweb\n",
-          "is_error": false,
-          "tool_use_id": "call_kJiFWvgUSMOqmsh6fm21XTTQ"
-        }
-      ]
-    },
-    {
-      "raw_output": [
-        {
-          "original_type": "reasoning",
-          "summary": ""
-        }
-      ],
-      "role": "assistant",
-      "tool_calls": [
-        {
-          "id": "call_6ekEIL4zamc5r6juOMFdKT4n",
-          "input": {
-            "background": false,
-            "command": "gh api repos/DioxusLabs/docsite --jq '.html_url'",
-            "directory": ".",
-            "timeout_ms": 30000
-          },
-          "name": "run_shell_command"
-        }
-      ]
-    },
-    {
-      "role": "user",
-      "tool_results": [
-        {
-          "content": "Exit code: 0\n\n--- stdout ---\nhttps://github.com/DioxusLabs/docsite\n",
-          "is_error": false,
-          "tool_use_id": "call_6ekEIL4zamc5r6juOMFdKT4n"
-        }
-      ]
-    },
-    {
-      "raw_output": [
-        {
-          "original_type": "reasoning",
-          "summary": ""
-        }
-      ],
-      "role": "assistant",
-      "tool_calls": [
-        {
-          "id": "call_DBvcAnMl83SekkgLnyvVDN4z",
+          "id": "call_FDtNPRCy0MGpdtSKdp5O7OUO",
           "input": {
             "background": false,
             "command": "gh api repos/DioxusLabs/docsite/contents/ --jq '.[].name'",
-            "directory": ".",
+            "directory": "/tmp/.tmpZiB3Uq",
             "timeout_ms": 30000
           },
           "name": "run_shell_command"
@@ -282,7 +187,7 @@
         {
           "content": "Exit code: 0\n\n--- stdout ---\n.dockerignore\n.github\n.gitignore\n.gitmodules\n.vscode\nCargo.lock\nCargo.toml\nDockerfile\nREADME.md\n_typos.toml\ndocs-src\nfly.toml\nnotes.md\npackages\n",
           "is_error": false,
-          "tool_use_id": "call_DBvcAnMl83SekkgLnyvVDN4z"
+          "tool_use_id": "call_FDtNPRCy0MGpdtSKdp5O7OUO"
         }
       ]
     },
@@ -296,11 +201,11 @@
       "role": "assistant",
       "tool_calls": [
         {
-          "id": "call_4BoiPm4DlRq1msULzSVr1731",
+          "id": "call_6t3CJP7gfHhrFZ5Th5fxq6Ue",
           "input": {
             "background": false,
             "command": "gh api repos/DioxusLabs/docsite/contents/docs-src --jq '.[].name'",
-            "directory": ".",
+            "directory": "/tmp/.tmpZiB3Uq",
             "timeout_ms": 30000
           },
           "name": "run_shell_command"
@@ -313,7 +218,7 @@
         {
           "content": "Exit code: 0\n\n--- stdout ---\n0.3\n0.4\n0.5\n0.6\n0.7\nblog\n",
           "is_error": false,
-          "tool_use_id": "call_4BoiPm4DlRq1msULzSVr1731"
+          "tool_use_id": "call_6t3CJP7gfHhrFZ5Th5fxq6Ue"
         }
       ]
     },
@@ -327,11 +232,42 @@
       "role": "assistant",
       "tool_calls": [
         {
-          "id": "call_s4qVcy02YFVoMhkdD4pATRcp",
+          "id": "call_fwO19L7CbLqEtI2GjWtpVnWy",
+          "input": {
+            "background": false,
+            "command": "gh api repos/DioxusLabs/docsite/contents/docs-src/0.7 --jq '.[].name'",
+            "directory": "/tmp/.tmpZiB3Uq",
+            "timeout_ms": 30000
+          },
+          "name": "run_shell_command"
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "tool_results": [
+        {
+          "content": "Exit code: 0\n\n--- stdout ---\nbook.toml\nsrc\n",
+          "is_error": false,
+          "tool_use_id": "call_fwO19L7CbLqEtI2GjWtpVnWy"
+        }
+      ]
+    },
+    {
+      "raw_output": [
+        {
+          "original_type": "reasoning",
+          "summary": ""
+        }
+      ],
+      "role": "assistant",
+      "tool_calls": [
+        {
+          "id": "call_H5vT1szXVoYXNjI7sQHoOpHS",
           "input": {
             "background": true,
             "command": "ghost reference import --source git --url https://github.com/DioxusLabs/docsite --topic dioxus/docs --paths docs-src/0.7/src --extensions .md",
-            "directory": ".",
+            "directory": "/tmp/.tmpZiB3Uq",
             "timeout_ms": 30000
           },
           "name": "run_shell_command"
@@ -344,12 +280,12 @@
         {
           "content": "Command started in background. You'll see the result as a system message when it completes.",
           "is_error": false,
-          "tool_use_id": "call_s4qVcy02YFVoMhkdD4pATRcp"
+          "tool_use_id": "call_H5vT1szXVoYXNjI7sQHoOpHS"
         }
       ]
     },
     {
-      "content": "I’m importing the official Dioxus docs into my local reference index in the background now (`DioxusLabs/docsite`, topic `dioxus/docs`).\n\nOnce it finishes, I’ll pull from those docs and give you a clean explanation of:\n\n1. **What Dioxus is**\n2. **How hooks work** (with practical examples)\n\nI’ll continue automatically as soon as the import completes.",
+      "content": "Great question. I don’t currently have Dioxus references in the knowledge base, so I’ve started importing the official Dioxus docs in the background from:\n\n- https://github.com/DioxusLabs/docsite\n\nI’ll answer your question using those imported docs as soon as the import finishes.",
       "raw_output": [
         {
           "original_type": "reasoning",
@@ -377,26 +313,39 @@
       "role": "assistant",
       "tool_calls": [
         {
-          "id": "call_pCIjkuFYNx8KC8CskDQQjoIs",
+          "id": "call_kjsJp4AqvgUe1msO94koTlsO",
           "input": {
             "categories": [
-              "references"
+              "references",
+              "notes"
             ],
-            "limit": 5,
+            "limit": 8,
             "query": "what is dioxus fullstack app framework web desktop mobile",
-            "topic": "dioxus/docs"
+            "topic": "dioxus"
           },
           "name": "knowledge_search"
         },
         {
-          "id": "call_QWInzF2dECTXzjWnQ9Uhc8cl",
+          "id": "call_saNM6ndvCurya5L2Sbap0tRk",
           "input": {
             "categories": [
               "references"
             ],
             "limit": 8,
-            "query": "hooks rules top level same order component custom hooks dioxus 0.7",
-            "topic": "dioxus/docs"
+            "query": "hooks rules called in same order component render dioxus",
+            "topic": "dioxus"
+          },
+          "name": "knowledge_search"
+        },
+        {
+          "id": "call_jwDWsLHMKH532kI8BjQpHUN6",
+          "input": {
+            "categories": [
+              "references"
+            ],
+            "limit": 8,
+            "query": "signals use_signal use_memo use_effect dioxus",
+            "topic": "dioxus"
           },
           "name": "knowledge_search"
         }
@@ -406,14 +355,19 @@
       "role": "user",
       "tool_results": [
         {
-          "content": "## References\n\n- **** (score: 1.06, path: references/dioxus/docs/docs-src/0.7/src/introduction/roadmap.md)\n  Dioxus.\n\n- **** (score: 1.06, path: references/dioxus/docs/docs-src/0.7/src/guides/tools/index.md)\n  sh\n\n- **** (score: 0.53, path: references/dioxus/docs/docs-src/0.7/src/guides/tools/translate.md)\n  Dioxus homepage:\n\n- **dioxus/docs** (score: 0.40, path: references/dioxus/docs/docs-src/0.7/src/essentials/ui/index.md)\n  # Building User Interfaces\n\n- **dioxus/docs** (score: 0.38, path: references/dioxus/docs/docs-src/0.7/src/essentials/index.md)\n  # Core Concepts\n\n---\n5 results total.",
+          "content": "## References\n\n- **** (score: 1.58, path: references/dioxus/docs/docs-src/0.7/src/guides/tools/index.md)\n  sh\n\n- **** (score: 1.57, path: references/dioxus/docs/docs-src/0.7/src/guides/tools/translate.md)\n  Dioxus homepage:\n\n- **** (score: 1.06, path: references/dioxus/docs/docs-src/0.7/src/introduction/roadmap.md)\n  Dioxus.\n\n- **dioxus/docs** (score: 0.40, path: references/dioxus/docs/docs-src/0.7/src/essentials/ui/index.md)\n  # Building User Interfaces\n\n- **dioxus/docs** (score: 0.38, path: references/dioxus/docs/docs-src/0.7/src/essentials/overview.md)\n  # Core Concepts\n\n- **dioxus/docs** (score: 0.38, path: references/dioxus/docs/docs-src/0.7/src/essentials/index.md)\n  # Core Concepts\n\n- **dioxus/docs** (score: 0.34, path: references/dioxus/docs/docs-src/0.7/src/getting_started/welcome.md)\n  # Introduction\n\n- **dioxus/docs** (score: 0.34, path: references/dioxus/docs/docs-src/0.7/src/index.md)\n  # Introduction\n\n---\n8 results total.",
           "is_error": false,
-          "tool_use_id": "call_pCIjkuFYNx8KC8CskDQQjoIs"
+          "tool_use_id": "call_kjsJp4AqvgUe1msO94koTlsO"
         },
         {
-          "content": "## References\n\n- **** (score: 1.92, path: references/dioxus/docs/docs-src/0.7/src/introduction/roadmap.md)\n  into Dioxus.\n\n- **** (score: 0.50, path: references/dioxus/docs/docs-src/0.7/src/essentials/advanced/index.md)\n  [tags: dioxus/docs]\n\n- **** (score: 0.49, path: references/dioxus/docs/docs-src/0.7/src/essentials/fullstack/loading.md)\n  [tags: dioxus/docs]\n\n- **** (score: 0.48, path: references/dioxus/docs/docs-src/0.7/src/essentials/advanced/custom_hooks.md)\n  [tags: dioxus/docs]\n\n- **** (score: 0.48, path: references/dioxus/docs/docs-src/0.7/src/essentials/basics/hooks.md)\n  [tags: dioxus/docs]\n\n---\n5 results total.",
+          "content": "## References\n\n- **** (score: 2.89, path: references/dioxus/docs/docs-src/0.7/src/migration/to_06.md)\n  s/dioxus/pull/2258> for more details.\n\n- **** (score: 0.49, path: references/dioxus/docs/docs-src/0.7/src/essentials/fullstack/loading.md)\n  [tags: dioxus/docs]\n\n- **** (score: 0.48, path: references/dioxus/docs/docs-src/0.7/src/essentials/advanced/index.md)\n  [tags: dioxus/docs]\n\n- **dioxus/docs** (score: 0.40, path: references/dioxus/docs/docs-src/0.7/src/essentials/basics/hooks.md)\n  # Hooks\n\n- **dioxus/docs** (score: 0.19, path: references/dioxus/docs/docs-src/0.7/src/essentials/basics/signals.md)\n  # Reactive Signals\n\n---\n5 results total.",
           "is_error": false,
-          "tool_use_id": "call_QWInzF2dECTXzjWnQ9Uhc8cl"
+          "tool_use_id": "call_saNM6ndvCurya5L2Sbap0tRk"
+        },
+        {
+          "content": "## References\n\n- **** (score: 1.50, path: references/dioxus/docs/docs-src/0.7/src/guides/tools/translate.md)\n  from the Dioxus homepage:\n\n- **** (score: 1.01, path: references/dioxus/docs/docs-src/0.7/src/introduction/roadmap.md)\n  into Dioxus.\n\n- **dioxus/docs** (score: 0.90, path: references/dioxus/docs/docs-src/0.7/src/essentials/basics/effects.md)\n  # Effects and Memos\n\n- **** (score: 0.51, path: references/dioxus/docs/docs-src/0.7/src/essentials/fullstack/loading.md)\n  [tags: dioxus/docs]\n\n- **** (score: 0.50, path: references/dioxus/docs/docs-src/0.7/src/beyond/project_structure.md)\n  State Management\n\n- **dioxus/docs** (score: 0.40, path: references/dioxus/docs/docs-src/0.7/src/migration/to_05/hooks.md)\n  # Hooks\n\n- **dioxus/docs** (score: 0.39, path: references/dioxus/docs/docs-src/0.7/src/essentials/basics/hoisting.md)\n  # Hoisting State\n\n- **dioxus/docs** (score: 0.32, path: references/dioxus/docs/docs-src/0.7/src/essentials/basics/signals.md)\n  # Reactive Signals\n\n---\n8 results total.",
+          "is_error": false,
+          "tool_use_id": "call_jwDWsLHMKH532kI8BjQpHUN6"
         }
       ]
     },
@@ -427,23 +381,30 @@
       "role": "assistant",
       "tool_calls": [
         {
-          "id": "call_I5eRDzvtWnpHHhVbJes9cLZs",
+          "id": "call_J5Zm2vyp8wKUnOJawV4ftzko",
           "input": {
             "path": "references/dioxus/docs/docs-src/0.7/src/getting_started/welcome.md"
           },
           "name": "read_file"
         },
         {
-          "id": "call_nhlaNjCVu03A7ovcs8QvYEp6",
+          "id": "call_hLrJfsTMLfSa7ljKAoBtIEBA",
           "input": {
             "path": "references/dioxus/docs/docs-src/0.7/src/essentials/basics/hooks.md"
           },
           "name": "read_file"
         },
         {
-          "id": "call_Nhqxn2Bls6LPYb48qI5sgO8B",
+          "id": "call_7fLxFkqIisbW6LYa44Jl3O1m",
           "input": {
             "path": "references/dioxus/docs/docs-src/0.7/src/essentials/basics/signals.md"
+          },
+          "name": "read_file"
+        },
+        {
+          "id": "call_mTdOZAWOkJsHjKHHOGkFvbgG",
+          "input": {
+            "path": "references/dioxus/docs/docs-src/0.7/src/essentials/basics/effects.md"
           },
           "name": "read_file"
         }
@@ -455,17 +416,22 @@
         {
           "content": "File: references/dioxus/docs/docs-src/0.7/src/getting_started/welcome.md (97 lines)\n  1 | # Introduction\n  2 | \n  3 | Dioxus is a framework for building cross-platform apps with the Rust programming language. With one codebase, you can build apps that run on web, desktop, and mobile platforms.\n  4 | \n  5 | ```rust\n  6 | {{#include ../docs-router/src/doc_examples/readme.rs}}\n  7 | ```\n  8 | \n  9 | ```inject-dioxus\n 10 | DemoFrame {\n 11 |     readme::App {}\n 12 | }\n 13 | ```\n 14 | \n 15 | This guide is split into different sections:\n 16 | \n 17 | - [Tutorial](../tutorial/index.md) walks you through your first Dioxus app.\n 18 | - [Core Concepts](../essentials/index.md) provides detail on topics like managing state.\n 19 | - [Guides](../guides/index.md) provides references for things like assets, routing, testing, and more.\n 20 | \n 21 | First, try walking through the [Tutorial](../tutorial/index.md) to get familiar with Dioxus. Before embarking on a larger project, we strongly recommend reading the entire [Essential Concepts](../essentials/index.md) and glancing through the [Guides Overview](../guides/index.md). This guide assumes you already know some [Rust](https://www.rust-lang.org/)! If not, we recommend reading [*the book*](https://doc.rust-lang.org/book/ch01-00-getting-started.html) to learn Rust first.\n 22 | \n 23 | ## What is Dioxus?\n 24 | \n 25 | Dioxus is a developer-friendly framework that empowers developers to ship cross-platform apps with one codebase. You write your apps in Rust, style them with HTML/CSS, enhance them with native APIs, and distribute them as platform-native bundles.\n 26 | \n 27 | ![Multi-platform app architecture diagram](/assets/static/dioxus-architecture-diagram.png)\n 28 | \n 29 | In many ways, Dioxus is similar to Flutter: we integrate our own build tools, foster an ecosystem, and provide a GUI framework. In key areas, Dioxus takes a different approach:\n 30 | \n 31 | - Apps are declared with HTML and CSS instead of a custom styling solution\n 3…[6727b total]",
           "is_error": false,
-          "tool_use_id": "call_I5eRDzvtWnpHHhVbJes9cLZs"
+          "tool_use_id": "call_J5Zm2vyp8wKUnOJawV4ftzko"
         },
         {
           "content": "File: references/dioxus/docs/docs-src/0.7/src/essentials/basics/hooks.md (161 lines)\n  1 | # Hooks\n  2 | \n  3 | In Dioxus, state that is local to a component is stored in *hooks*.\n  4 | \n  5 | Dioxus hooks work similarly to React's hooks. If you haven't done much web development, hooks might seem particularly unusual. Hooks provide a way of storing state, and attaching effects composability in components. Even better - they're less verbose than declaring structs and implementing \"render\" traits!\n  6 | \n  7 | ## The `use_hook` primitive\n  8 | \n  9 | All hooks in Dioxus are built on the `use_hook` primitive. While you might never directly use this primitive, it's good to know where all state eventually resides. The `use_hook` primitive is a function that takes an initializer and returns a `.clone()` of the value.\n 10 | \n 11 | ```rust\n 12 | fn Simple() -> Element {\n 13 |     let count = use_hook(|| 123);\n 14 |     rsx! { \"{count}\" }\n 15 | }\n 16 | ```\n 17 | \n 18 | Whenever `use_hook` is called, one of two things happens:\n 19 | - if this `use_hook` has never been called before, the initializer is ran and a new slot is created\n 20 | - otherwise, `use_hook` returns a clone of the current value in the slot.\n 21 | \n 22 | Internally, the \"hook index\" is incremented by 1 on every call to `use_hook` and reset to 0 before the component re-renders.\n 23 | \n 24 | ![Hook List](/assets/07/hook-list.png)\n 25 | \n 26 | ## Rules of Hooks\n 27 | \n 28 | In Dioxus, we are transparent with the inner workings of the framework. Because hooks are implemented by walking an internal \"hook list,\" they have certain rules that would cause walking the list to fail and your app to panic. It's important to note that these rules are not arbitrary - they are the intended result of how hooks are implemented.\n 29 | \n 30 | Hooks use their call order to keep track of what state belongs to which hook. You must call hooks in the same order every time the component is run. To make sure the order is always the sa…[7224b total]",
           "is_error": false,
-          "tool_use_id": "call_nhlaNjCVu03A7ovcs8QvYEp6"
+          "tool_use_id": "call_hLrJfsTMLfSa7ljKAoBtIEBA"
         },
         {
           "content": "File: references/dioxus/docs/docs-src/0.7/src/essentials/basics/signals.md (459 lines)\n  1 | # Reactive Signals\n  2 | \n  3 | In Dioxus, your app's UI is defined as a function of its current state. As the state changes, the components and effects that depend on that state will automatically re-run. Reactivity automatically *tracks* state and *derives* new state, making it easy to build large applications that are efficient and simple to reason about.\n  4 | \n  5 | Dioxus provides a single source of mutable state: the **Signal**.\n  6 | \n  7 | ## State with Signals\n  8 | \n  9 | In Dioxus, mutable state is stored in Signals. Signals are *tracked* values that automatically update *reactive contexts* that watch them. They are the source of state from which all other state is derived from. Signals are modified directly by event handlers in response to user input or asynchronously in futures.\n 10 | \n 11 | You can create a signal with the `use_signal` hook:\n 12 | \n 13 | ```rust\n 14 | let mut signal = use_signal(|| 0);\n 15 | ```\n 16 | \n 17 | Once you have your signal, you can gain a reference to the signal's inner value by calling the `.read()`:\n 18 | \n 19 | ```rust\n 20 | let mut signal = use_signal(|| 0);\n 21 | \n 22 | // use `.read()` to access the inner value\n 23 | let inner = signal.read();\n 24 | ```\n 25 | \n 26 | For Signals whose inner can be cheaply cloneable, you can also use \"function\" syntax to get a direct `Clone` of the value.\n 27 | \n 28 | ```rust\n 29 | let name = use_signal(|| \"Bob\".to_string());\n 30 | \n 31 | // Call the signal like a function\n 32 | let inner = name();\n 33 | \n 34 | // Or use `.cloned()`\n 35 | let inner = name.cloned();\n 36 | ```\n 37 | \n 38 | Finally, you can set the value of the signal with the `.set()` method or get a mutable reference to the inner value with the `.write()` method:\n 39 | \n 40 | ```rust\n 41 | {{#include ../docs-router/src/doc_examples/untested_06/reactivity.rs:signal_write}}\n 42 | ```\n 43 | \n 44 | A simple component that uses `.read…[22823b total]",
           "is_error": false,
-          "tool_use_id": "call_Nhqxn2Bls6LPYb48qI5sgO8B"
+          "tool_use_id": "call_7fLxFkqIisbW6LYa44Jl3O1m"
+        },
+        {
+          "content": "File: references/dioxus/docs/docs-src/0.7/src/essentials/basics/effects.md (188 lines)\n  1 | # Effects and Memos\n  2 | \n  3 | Signals provide a foundation for mutable state in Dioxus apps. Calls to `.read()` subscribe reactive scopes and calls to `.write()` queue side-effects.\n  4 | \n  5 | However, sometimes we want to run *our own* side-effects when a Signal's value changes. Other times, we want to isolate reactive scopes such that changes to a signal do not automatically queue a component to be re-rendered. In these cases, we reach for Memos with `use_memo` and Effects with `use_effect`.\n  6 | \n  7 | ## Multiple Reactive Scopes\n  8 | \n  9 | To understand Effects and Memos, we need to first understand that a single Signal (or other reactive value) can be read in multiple reactive scopes simultaneously. For instance, a signal may be shared among several components via props. Each component that calls `.read()` on the signal value is automatically subscribed to any changes of the signal's value. When the signal value changes, it runs the re-render side-effect.\n 10 | \n 11 | Effects and Memos allow us to observe changes in reactive values without re-rendering components. We can isolate smaller units of reactivity with memos and then queue our own side-effects with effects.\n 12 | \n 13 | ![Multiple Readers](/assets/07/multiple-scopes.png)\n 14 | \n 15 | Memos implement the `Readable` trait (but not the Writable trait!) and thus implement the same ergonomic extensions as signals. Both Memos and Effects are `Copy` and have the same lifecycle and Drop semantics as signals.\n 16 | \n 17 | ## Derived State with Memo\n 18 | \n 19 | `use_memo` is a reactive primitive that lets you derive state from any tracked value. It takes a closure that computes the new state and returns a tracked value that contains the current state of the memo. When a dependency of the memo changes, the memo will rerun, and a new value will be calculated.\n 20 | \n 21 | The value returned from the closure will o…[9444b total]",
+          "is_error": false,
+          "tool_use_id": "call_mTdOZAWOkJsHjKHHOGkFvbgG"
         }
       ]
     },
@@ -479,25 +445,12 @@
       "role": "assistant",
       "tool_calls": [
         {
-          "id": "call_qJCkGgRcI0PEit87KkAjmBJQ",
+          "id": "call_PAJNxU9n3tlsbZ0UTbGaMSkK",
           "input": {
-            "path": "references/dioxus/docs/docs-src/0.7/src/essentials/basics/effects.md"
+            "max_results": 3,
+            "query": "Dioxus official docs hooks signals 0.7"
           },
-          "name": "read_file"
-        },
-        {
-          "id": "call_CQxJGLk2LarmF9b5O0ey383h",
-          "input": {
-            "path": "references/dioxus/docs/docs-src/0.7/src/essentials/basics/resources.md"
-          },
-          "name": "read_file"
-        },
-        {
-          "id": "call_nK2wJ5ADjFuqpsOzVIyfiy6C",
-          "input": {
-            "path": "references/dioxus/docs/docs-src/0.7/src/essentials/advanced/custom_hooks.md"
-          },
-          "name": "read_file"
+          "name": "web_search"
         }
       ]
     },
@@ -505,24 +458,42 @@
       "role": "user",
       "tool_results": [
         {
-          "content": "File: references/dioxus/docs/docs-src/0.7/src/essentials/basics/effects.md (188 lines)\n  1 | # Effects and Memos\n  2 | \n  3 | Signals provide a foundation for mutable state in Dioxus apps. Calls to `.read()` subscribe reactive scopes and calls to `.write()` queue side-effects.\n  4 | \n  5 | However, sometimes we want to run *our own* side-effects when a Signal's value changes. Other times, we want to isolate reactive scopes such that changes to a signal do not automatically queue a component to be re-rendered. In these cases, we reach for Memos with `use_memo` and Effects with `use_effect`.\n  6 | \n  7 | ## Multiple Reactive Scopes\n  8 | \n  9 | To understand Effects and Memos, we need to first understand that a single Signal (or other reactive value) can be read in multiple reactive scopes simultaneously. For instance, a signal may be shared among several components via props. Each component that calls `.read()` on the signal value is automatically subscribed to any changes of the signal's value. When the signal value changes, it runs the re-render side-effect.\n 10 | \n 11 | Effects and Memos allow us to observe changes in reactive values without re-rendering components. We can isolate smaller units of reactivity with memos and then queue our own side-effects with effects.\n 12 | \n 13 | ![Multiple Readers](/assets/07/multiple-scopes.png)\n 14 | \n 15 | Memos implement the `Readable` trait (but not the Writable trait!) and thus implement the same ergonomic extensions as signals. Both Memos and Effects are `Copy` and have the same lifecycle and Drop semantics as signals.\n 16 | \n 17 | ## Derived State with Memo\n 18 | \n 19 | `use_memo` is a reactive primitive that lets you derive state from any tracked value. It takes a closure that computes the new state and returns a tracked value that contains the current state of the memo. When a dependency of the memo changes, the memo will rerun, and a new value will be calculated.\n 20 | \n 21 | The value returned from the closure will o…[9444b total]",
+          "content": "1. dioxus-signals 0.7.3 - Docs.rs\n   https://docs.rs/crate/dioxus-signals/latest\n   Dioxus Signals is an ergonomic Copy runtime for data with local subscriptions. Copy Data All signals implement Copy, even if the inner value does not implement ...\n   Sources: google #1, startpage #2 · score: 3.0\n\n2. Reactive Signals - Dioxus\n   https://dioxuslabs.com/learn/0.7/essentials/basics/signals/\n   Signals are modified directly by event handlers in response to user input or asynchronously in futures. You can create a signal with the use_signal hook:.\n   Sources: google #3, startpage #1 · score: 2.7\n\n3. Dioxus | Fullstack crossplatform app framework for Rust\n   https://dioxuslabs.com/learn/0.7/\n   Dioxus is a framework for building cross-platform apps with the Rust programming language. With one codebase, you can build apps that run on web, desktop, and ...\n   Sources: google #2, startpage #5 · score: 1.4\n\n",
           "is_error": false,
-          "tool_use_id": "call_qJCkGgRcI0PEit87KkAjmBJQ"
-        },
-        {
-          "content": "File: references/dioxus/docs/docs-src/0.7/src/essentials/basics/resources.md (188 lines)\n  1 | # Data Fetching\n  2 | \n  3 | One of the most common asynchronous operations in applications is making network requests. This guide will cover how to fetch data in Dioxus, how to avoid waterfalls, and using libraries to manage caching and invalidating requests.\n  4 | \n  5 | The hooks and techniques we cover here are built on top of the Future and Signal primitives.\n  6 | \n  7 | ## Library Dependencies\n  8 | \n  9 | While Dioxus does not provide a built-in HTTP client, you can use the popular [reqwest](https://docs.rs/reqwest/latest/reqwest/) library to make asynchronous network requests. We will be using the reqwest library throughout the examples in this page. Before we start, make sure to add the `reqwest` and `serde` libraries to your `Cargo.toml`:\n 10 | \n 11 | ```sh\n 12 | cargo add reqwest --features json\n 13 | cargo add serde --features derive\n 14 | ```\n 15 | \n 16 | Your Cargo.toml should have the reqwest and serde libraries:\n 17 | ```toml\n 18 | [dependencies]\n 19 | # ... dioxus and other dependencies\n 20 | reqwest = { version = \"*\", features = [\"json\"] }\n 21 | serde = { version = \"1\", features = [\"derive\"] }\n 22 | ```\n 23 | \n 24 | We are planning on eventually integrating a library like [dioxus-query](https://crates.io/crates/dioxus-query) directly into Dioxus for better integration with the app router.\n 25 | \n 26 | ## Requests from Event Handlers\n 27 | \n 28 | The simplest way to request data is simply by attaching an async closure to an EventHandler.\n 29 | \n 30 | ```rust\n 31 | #[derive(serde::Deserialize)]\n 32 | struct DogApi {\n 33 |     message: String,\n 34 | }\n 35 | \n 36 | let mut img_src = use_signal(|| \"image.png\".to_string());\n 37 | \n 38 | let fetch_new = move |_| async move {\n 39 |     let response = reqwest::get(\"https://dog.ceo/api/breeds/image/random\")\n 40 |         .await\n 41 |         .unwrap()\n 42 |         .json::<DogApi>()\n 43 |         .await\n 44 |     …[9156b total]",
-          "is_error": false,
-          "tool_use_id": "call_CQxJGLk2LarmF9b5O0ey383h"
-        },
-        {
-          "content": "File: references/dioxus/docs/docs-src/0.7/src/essentials/advanced/custom_hooks.md (102 lines)\n  1 | # Custom Hooks\n  2 | \n  3 | Hooks are a great way to encapsulate business logic. If none of the existing hooks work for your problem, you can write your own.\n  4 | \n  5 | When writing your hook, you can make a function that starts with `use_` and takes any arguments you need. You can then use the `use_hook` method to create a hook that will be called the first time the component is rendered.\n  6 | \n  7 | ## Composing Hooks\n  8 | \n  9 | To avoid repetition, you can encapsulate business logic based on existing hooks to create a new hook.\n 10 | \n 11 | For example, if many components need to access an `AppSettings` struct, you can create a \"shortcut\" hook:\n 12 | \n 13 | ```rust\n 14 | {{#include ../docs-router/src/doc_examples/hooks_composed.rs:wrap_context}}\n 15 | ```\n 16 | \n 17 | Or if you want to wrap a hook that persists reloads with the storage API, you can build on top of the use_signal hook to work with mutable state:\n 18 | \n 19 | ```rust\n 20 | {{#include ../docs-router/src/doc_examples/hooks_composed.rs:use_storage}}\n 21 | ```\n 22 | \n 23 | ## Custom Hook Logic\n 24 | \n 25 | You can use [`use_hook`](https://docs.rs/dioxus/latest/dioxus/prelude/fn.use_hook.html) to build your own hooks. In fact, this is what all the standard hooks are built on!\n 26 | \n 27 | `use_hook` accepts a single closure for initializing the hook. It will be only run the first time the component is rendered. The return value of that closure will be used as the value of the hook – Dioxus will take it, and store it for as long as the component is alive. On every render (not just the first one!), you will get a reference to this value.\n 28 | \n 29 | > Note: You can use the `use_on_destroy` hook to clean up any resources the hook uses when the component is destroyed.\n 30 | \n 31 | Inside the initialization closure, you will typically make calls to other dioxus runtime methods. For example:\n 32 | \n 33 …[5038b total]",
-          "is_error": false,
-          "tool_use_id": "call_nK2wJ5ADjFuqpsOzVIyfiy6C"
+          "tool_use_id": "call_PAJNxU9n3tlsbZ0UTbGaMSkK"
         }
       ]
     },
     {
-      "content": "Great choice—**Dioxus** is one of the most serious Rust UI frameworks right now.\n\n## What is Dioxus?\n\nAt a high level, Dioxus is a **Rust framework for building cross-platform apps** (web, desktop, mobile) from one codebase. You write Rust components and UI with `rsx!` (JSX-like syntax), and manage state with hooks/signals.  \nSource: `references/dioxus/docs/docs-src/0.7/src/getting_started/welcome.md`  \nGitHub source: https://github.com/DioxusLabs/docsite/blob/main/docs-src/0.7/src/getting_started/welcome.md\n\nA key point from their docs: Dioxus combines:\n- React-like component/hook mental model\n- HTML/CSS-style UI declaration\n- Native execution in Rust (no JS VM required for desktop/mobile runtime parts)  \nSource: same file above.\n\n---\n\n## How hooks work in Dioxus (mental model)\n\nIf you’ve used React hooks, the core idea is similar: hooks store component-local state and logic.  \nBut in Dioxus the primitive is explicitly described:\n\n- All hooks are built on `use_hook(...)`\n- Dioxus internally keeps a per-component **hook list**\n- Hook calls are resolved by **call order** (index 0, 1, 2, … each render)  \nSource: `references/dioxus/docs/docs-src/0.7/src/essentials/basics/hooks.md`  \nGitHub: https://github.com/DioxusLabs/docsite/blob/main/docs-src/0.7/src/essentials/basics/hooks.md\n\nSo the golden rule is strict:\n\n> Call hooks in the same order every render; only at top-level of components/hooks.\n\nThat’s why “no hooks in conditionals/loops/closures.”  \nSource: same hooks file.\n\n---\n\n## The hooks you’ll use most\n\n1. **`use_signal`** – mutable reactive state  \n   Source: `.../essentials/basics/signals.md`  \n   https://github.com/DioxusLabs/docsite/blob/main/docs-src/0.7/src/essentials/basics/signals.md\n\n2. **`use_memo`** – derived/computed reactive value  \n   Source: `.../essentials/basics/effects.md`  \n   https://github.com/DioxusLabs/docsite/blob/main/docs-src/0.7/src/essentials/basics/effects.md\n\n3. **`use_effect`** – run side effects when tracked deps change  \n   Source: same effects file.\n\n4. **`use_resource`** – async derived state/data fetching with restart behavior when tracked inputs change  \n   Source: `.../essentials/basics/resources.md`  \n   https://github.com/DioxusLabs/docsite/blob/main/docs-src/0.7/src/essentials/basics/resources.md\n\n---\n\n## Minimal example\n\n```rust\nuse dioxus::prelude::*;\n\n#[component]\nfn App() -> Element {\n    let mut count = use_signal(|| 0);\n\n    let doubled = use_memo(move || count() * 2);\n\n    use_effect(move || {\n        // runs when tracked values in here change\n        println!(\"count changed: {}\", count());\n    });\n\n    rsx! {\n        button { onclick: move |_| count += 1, \"Count: {count}\" }\n        p { \"Doubled: {doubled}\" }\n    }\n}\n```\n\n---\n\n## One subtle Dioxus-specific thing to remember\n\nDioxus signals use runtime-checked borrowing patterns (`read`/`write` guards), so avoid holding read/write guards across `await` points carelessly. The docs call this out explicitly.  \nSource: `.../esse…[3242b total]",
+      "raw_output": [
+        {
+          "original_type": "reasoning",
+          "summary": ""
+        }
+      ],
+      "role": "assistant",
+      "tool_calls": [
+        {
+          "id": "call_nyqyBvcCr3zTWofZnaErF3Cb",
+          "input": {
+            "url": "https://dioxuslabs.com/learn/0.7/essentials/basics/hooks/"
+          },
+          "name": "web_fetch"
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "tool_results": [
+        {
+          "content": "Dioxus | Fullstack crossplatform app framework for Rust\n\n*   [## Tutorial](/learn/0.6/guide/)\n\n*   [## Web](/learn/0.6/guides/web/)\n\n*   [## Desktop](/learn/0.6/guides/desktop/)\n\n*   [## Mobile](/learn/0.6/guides/mobile/)\n\n*   [## Fullstack](/learn/0.6/guides/fullstack/)\n\n*   [## Typesafe Routing](/learn/0.6/router/reference/)\n\nUsing Stable Version\n\n0.7.0\n\n[Version 0.70.7.0](/learn/0.7/)\n\n[Version 0.60.6.3](/learn/0.6/)\n\n[Version 0.50.5.7](/learn/0.5/)\n\n[Version 0.40.4.3](/learn/0.4/)\n\n[Version 0.30.3.2](/learn/0.3/)\n\n[Dioxus 0.7.0](/learn/0.7/)[Welcome](/learn/0.7/)[Overview](/learn/0.7/essentials/)[The Basics of State](/learn/0.7/essentials/basics/)[Storing State in Hooks](/learn/0.7/essentials/basics/hooks)\n\n# [Hooks](/learn/0.7/essentials/basics/hooks#hooks)\n\nIn Dioxus, state that is local to a component is stored in *hooks*.\n\nDioxus hooks work similarly to React's hooks. If you haven't done much web development, hooks might seem particularly unusual. Hooks provide a way of storing state, and attaching effects composability in components. Even better - they're less verbose than declaring structs and implementing \"render\" traits!\n\n## [The use\\_hook primitive](/learn/0.7/essentials/basics/hooks#the-use-hook-primitive)\n\nAll hooks in Dioxus are built on the `use_hook` primitive. While you might never directly use this primitive, it's good to know where all state eventually resides. The `use_hook` primitive is a function that takes an initializer and returns a `.clone()` of the value.\n\nfn Simple() -> Element {\n    let count = use_hook(|| 123);\n    rsx! { \"{count}\" }\n}\n\nfn Simple() -> Element {\n    let count = use_hook(|| 123);\n    rsx! { \"{count}\" }\n}\n\nWhenever `use_hook` is called, one of two things happens:\n\n*   if this `use_hook` has never been called before, the initializer is ran and a new slot is created\n*   otherwise, `use_hook` returns a clone of the current value in the slot.\n\nInternally, the \"hook index\" is incremented by 1 on every call to `use_hook` and r…[12296b total]",
+          "is_error": false,
+          "tool_use_id": "call_nyqyBvcCr3zTWofZnaErF3Cb"
+        }
+      ]
+    },
+    {
+      "content": "Great choice—**Dioxus** is one of the most interesting Rust UI frameworks right now.\n\n## What is Dioxus?\n\n**Dioxus is a Rust framework for building cross-platform apps** (web, desktop, mobile) from one codebase.  \nIt uses Rust components + `rsx!` syntax (similar spirit to JSX) and a reactive state model built around **signals**.  \nSource: `references/dioxus/docs/docs-src/0.7/src/getting_started/welcome.md`, official docs page: https://dioxuslabs.com/learn/0.7/\n\n---\n\n## How hooks work in Dioxus\n\nAt a high level: hooks are how component-local state and reactive behavior are stored.\n\n### 1) Core idea: `use_hook` slot system\nDioxus hooks are built on a primitive called `use_hook`. Internally, each hook call maps to a slot in a hook list by **call order**.  \nSo on rerender, Dioxus expects the same hooks in the same order.  \nSource: `references/dioxus/docs/docs-src/0.7/src/essentials/basics/hooks.md` and https://dioxuslabs.com/learn/0.7/essentials/basics/hooks/\n\n### 2) Rules of hooks (very important)\nBecause of that slot-by-order mechanism:\n\n- ✅ Call hooks at top level of a component (or another hook)\n- ❌ Don’t call hooks in conditionals\n- ❌ Don’t call hooks in loops\n- ❌ Don’t call hooks in closures\n\nDioxus docs note early returns are technically possible, but discouraged between hook calls.  \nSource: `references/dioxus/docs/docs-src/0.7/src/essentials/basics/hooks.md`\n\n### 3) Main hooks you’ll use\nIn Dioxus 0.7, state is centered on **signals**:\n\n- `use_signal(|| initial)` → mutable reactive state\n- `use_memo(|| ...)` → derived/computed reactive value\n- `use_effect(|| ...)` → run side effects when tracked dependencies change\n\nSources:  \n- `references/dioxus/docs/docs-src/0.7/src/essentials/basics/signals.md`  \n- `references/dioxus/docs/docs-src/0.7/src/essentials/basics/effects.md`  \n- https://dioxuslabs.com/learn/0.7/essentials/basics/signals/  \n- https://dioxuslabs.com/learn/0.7/essentials/basics/hooks/\n\n---\n\n## Minimal mental model\n\n- **Signal** = source of truth (mutable state)\n- **Render/effect/memo** subscribes when it reads a signal\n- Writing signal triggers updates of subscribers\n- Hooks are just the API to register these reactive pieces safely in a component lifecycle\n\n---\n\n## Tiny example\n\n```rust\nuse dioxus::prelude::*;\n\n#[component]\nfn Counter() -> Element {\n    let mut count = use_signal(|| 0);\n\n    let doubled = use_memo(move || count() * 2);\n\n    use_effect(move || {\n        println!(\"count changed: {}\", count());\n    });\n\n    rsx! {\n        button { onclick: move |_| count += 1, \"count: {count}\" }\n        p { \"doubled: {doubled}\" }\n    }\n}\n```\n\nIf you want, next I can give you a **“React hooks → Dioxus hooks” cheat sheet** so it clicks faster.",
       "raw_output": [
         {
           "original_type": "reasoning",
@@ -533,5 +504,5 @@
       "tool_calls": []
     }
   ],
-  "chat_session_id": "01KJV9EMPSPXSX0T4ZWV890BTV"
+  "chat_session_id": "01KJVNGEZHAP68DQK7R124F2ZM"
 }
