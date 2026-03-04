@@ -1,0 +1,12 @@
+{
+  "chat_tool_calls": [
+    "todo",
+    "todo",
+    "read_file",
+    "read_file",
+    "todo",
+    "knowledge_search",
+    "todo",
+    "agent_control"
+  ]
+}

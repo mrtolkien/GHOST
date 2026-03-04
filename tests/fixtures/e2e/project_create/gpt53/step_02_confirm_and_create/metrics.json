@@ -1,0 +1,23 @@
+{
+  "chat_tool_calls": [
+    "todo",
+    "todo",
+    "read_file",
+    "read_file",
+    "todo",
+    "knowledge_search",
+    "todo",
+    "agent_control",
+    "todo",
+    "todo",
+    "read_file",
+    "todo",
+    "run_shell_command",
+    "todo",
+    "run_shell_command",
+    "run_shell_command",
+    "run_shell_command",
+    "run_shell_command",
+    "todo"
+  ]
+}

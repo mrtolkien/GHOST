@@ -17,6 +17,10 @@ pub const STEP_05: &str = "step_05_continue_agent";
 pub const SCENARIO_REFERENCE_IMPORT: &str = "reference_import";
 pub const STEP_RI_01: &str = "step_01_autonomous_import";
 
+pub const SCENARIO_PROJECT_CREATE: &str = "project_create";
+pub const STEP_PC_01: &str = "step_01_propose_project";
+pub const STEP_PC_02: &str = "step_02_confirm_and_create";
+
 const STATE_FILE: &str = "state.json";
 const ARCHIVE_FILE: &str = "workspace.tar.zst";
 const TRANSCRIPT_JSON_FILE: &str = "transcript.json";
