@@ -2,8 +2,10 @@
 name: project-manager
 description:
   Create, manage, and organize projects — persistent cross-session task containers for
-  long-horizon work. Covers CLI commands, file structure, workflow, and when to create
-  or archive projects.
+  long-horizon work. Also read when the OPERATOR describes an ambition or goal that will
+  span multiple sessions ("I want to build X", "I want to learn Y from scratch", "help
+  me create Z") — offer to create a project to track progress. Covers CLI commands, file
+  structure, workflow, and when to create or archive.
 ---
 
 # Project Manager — Project Workflow Guide
@@ -26,6 +28,11 @@ Create a project when the OPERATOR's request involves:
 - Vague ideas without commitment (discuss first, create later)
 
 **Always ask before creating.** Propose the project structure and get confirmation.
+
+**Important**: When you read this skill because the OPERATOR described a multi-session
+goal, include the project offer **in your current reply** — don't defer it to a later
+turn. A short sentence like "Would you like me to create a project to track this?" at
+the end of your response is enough.
 
 ## Project Structure
 

@@ -28,11 +28,22 @@ while doing the heavy reading.
 Call `knowledge_search` first. If you find existing notes or references that adequately
 answer the question, use them and respond directly. No agent needed.
 
+### Step 1.5: Consider reference import first
+
+If the research centers on a **specific tool, framework, or library** (e.g. Ergogen,
+Dioxus, KiCad), check whether its official docs can be imported via the
+`reference-import` skill. Imported docs persist in your knowledge base and are
+searchable across sessions — far more valuable than ephemeral agent context. Read the
+reference-import skill, start the import in the background, and _then_ optionally spawn
+the deep-research agent for the broader question (e.g. community guides, best practices)
+while the import runs.
+
 ### Step 2: Spawn the agent
 
-If knowledge didn't have a good answer, spawn the deep-research agent. You matched this
-skill's description because the question needs multi-source research — that research
-belongs in the agent's isolated context, not inline.
+If knowledge didn't have a good answer (and reference import doesn't apply or is already
+running), spawn the deep-research agent. You matched this skill's description because
+the question needs multi-source research — that research belongs in the agent's isolated
+context, not inline.
 
 **Your next tool call after the knowledge check must be `agent_control`.** Do not call
 `web_search` or `web_fetch` — every page you fetch inline is context you can never

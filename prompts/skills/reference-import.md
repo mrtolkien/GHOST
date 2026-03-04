@@ -3,7 +3,9 @@ name: reference-import
 description:
   Import and query external documentation, code, and API references. Use when the
   OPERATOR asks about a library, framework, SDK, or tool — especially if
-  knowledge_search returns no results for it.
+  knowledge_search returns no results for it. Also use when the OPERATOR wants to learn
+  or build something with a specific tool/framework — import the official docs first so
+  you have persistent, searchable reference material.
 ---
 
 # Reference Import Skill
@@ -19,9 +21,10 @@ Follow this order — stop as soon as you have an answer:
 2. **Git import** (preferred): find the docs repo via `gh`, import with
    `background: true`, tell the OPERATOR it's importing.
 3. **Crawl import** (fallback): only if no git source exists (e.g. docs-only site).
-4. **After starting the background import**: tell the OPERATOR and **end your turn**. A
-   follow-up turn is triggered automatically when the import completes — you'll see the
-   `[shell-command completed]` system message. Search the imported refs and answer.
+4. **After starting the background import**: tell the OPERATOR it's importing, include
+   any other pending offers or responses (e.g. project creation), then **end your turn**.
+   A follow-up turn is triggered automatically when the import completes — you'll see
+   the `[shell-command completed]` system message. Search the imported refs and answer.
    Note: reference records appear in the DB almost immediately; only the embeddings
    trail behind. You can search whatever's embedded so far.
 
@@ -75,9 +78,10 @@ Git imports embed every file, which is slow on CPU. **Always use background mode
 ```
 
 Tell the OPERATOR: _"I'm importing the Dioxus docs in the background — I'll search them
-once the import finishes."_ Then **end your turn** — the completion watcher will
-automatically trigger a follow-up turn when the import finishes. You'll see the
-`[shell-command completed]` system message and can search the imported references.
+once the import finishes."_ Finish any other pending responses (project offers, plans,
+etc.), then **end your turn** — the completion watcher will automatically trigger a
+follow-up turn when the import finishes. You'll see the `[shell-command completed]`
+system message and can search the imported references.
 
 ## Crawl Import (Fallback)
 
