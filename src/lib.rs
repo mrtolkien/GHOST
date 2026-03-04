@@ -13,6 +13,7 @@ pub mod error;
 pub mod interfaces;
 pub mod knowledge;
 pub mod observability;
+pub mod projects;
 pub mod prompt;
 pub mod providers;
 pub mod reference_import;

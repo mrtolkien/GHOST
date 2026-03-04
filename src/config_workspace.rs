@@ -21,6 +21,7 @@ pub fn bootstrap_workspace(config: &Config) -> Result<(), ConfigError> {
         "notes",
         "references",
         "diary",
+        "projects",
         "shell",
     ] {
         let path = config.workspace.join(dir);

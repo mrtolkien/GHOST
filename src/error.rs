@@ -35,6 +35,9 @@ pub enum GhostError {
 
     #[error(transparent)]
     Import(#[from] crate::reference_import::ImportError),
+
+    #[error(transparent)]
+    Project(#[from] crate::projects::ProjectError),
 }
 
 impl From<crate::db::DatabaseError> for GhostError {
