@@ -78,6 +78,7 @@ impl Tool for RunShellCommand {
             let session_id = ctx.session_id.clone();
             let command_owned = command.to_string();
             let work_dir_owned = work_dir.clone();
+            let completion_tx = ctx.completion_tx.clone();
 
             tokio::spawn(async move {
                 let child = tokio::process::Command::new("sh")
@@ -111,6 +112,13 @@ impl Tool for RunShellCommand {
                         session_id,
                         "failed to post background shell result"
                     );
+                }
+
+                if let Some(ref tx) = completion_tx {
+                    let _ = tx.send(crate::completion::CompletionEvent::ShellCommand {
+                        session_id,
+                        command: command_owned,
+                    });
                 }
             });
 
@@ -188,6 +196,7 @@ mod tests {
             config: crate::config::test_config(workspace.path()),
             session_id: "test".to_string(),
             agent_runner: None,
+            completion_tx: None,
         };
         (ctx, workspace)
     }

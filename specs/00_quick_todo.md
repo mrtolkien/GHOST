@@ -34,13 +34,17 @@
 - [x] Review standard reflection agent
 - [x] Review compaction token count
 - [x] Re-add an agent continuation test
-- [ ] Test import e2e
-- [ ] Provider logs during agent runs have disappeared
+- [x] Test import e2e
+- [ ] Provider logs have disappeared from logfire (I just see "run tools" spans: span
+      fcce30c7019c5d2a)
+- [ ] I don't see a span for references import in logfire, at least in the e2e test
 - [ ] Issues with topic notes and duplicate notes in general: span a0dfcdedce4c6c47 or
       3cbaaa6f6f81cbba or 40192929e911c2ca.
   - [ ] The model is note sure how to topic notes + they are poorly written (too much
         content)
   - [ ] It tries to create "project" notes... Which makes no sense: we should drop
         archetypes for the moment
+  - [ ] Needs to be validate through runs of the step 03 and 04 of the 3d printer e2e
+        tests
 - [ ] Web searches are still too biased: they usually include words that come from a
       pre-conceived idea of what the right answer is

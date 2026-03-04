@@ -351,6 +351,75 @@ impl LiveTestEnv {
             .with_agent_runner(Arc::clone(&self.agent_runner))
     }
 
+    /// SessionChat wired with a completion channel + spawned watcher,
+    /// mirroring the production daemon's wiring. Returns the chat handle
+    /// and the watcher's join handle.
+    pub fn chat_with_completion_watcher(
+        &self,
+    ) -> (Arc<ghost::chat::SessionChat>, tokio::task::JoinHandle<()>) {
+        let (completion_tx, completion_rx) = ghost::completion::channel();
+        let (shutdown_tx, shutdown_rx) = tokio::sync::watch::channel(false);
+        // Keep shutdown_tx alive by leaking — test cleanup doesn't need graceful shutdown.
+        std::mem::forget(shutdown_tx);
+
+        let session_chat = Arc::new(
+            ghost::chat::SessionChat::from_config(self.db.clone(), self.config.clone())
+                .expect("build session chat")
+                .with_agent_runner(Arc::clone(&self.agent_runner))
+                .with_completion_sender(completion_tx),
+        );
+
+        let watcher_handle = ghost::daemon::completion_watcher::spawn_completion_watcher(
+            completion_rx,
+            Arc::clone(&session_chat),
+            None, // no Discord in tests
+            self.db.clone(),
+            shutdown_rx,
+        );
+
+        (session_chat, watcher_handle)
+    }
+
+    /// Poll DB for a final assistant message (no tool_calls) beyond
+    /// `since_message_count`. Used to detect the continuation response
+    /// triggered by the completion watcher.
+    pub async fn wait_for_continuation_response(
+        &self,
+        session_id: &str,
+        since_message_count: usize,
+        timeout_secs: u64,
+    ) -> Option<String> {
+        use std::time::{Duration, Instant};
+
+        let deadline = Instant::now() + Duration::from_secs(timeout_secs);
+        let poll_interval = Duration::from_secs(5);
+
+        loop {
+            let messages = ghost::db::sessions::list_messages_by_session(&self.db, session_id)
+                .await
+                .unwrap_or_default();
+
+            // Look at messages beyond the cursor
+            for msg in messages.iter().skip(since_message_count) {
+                if msg.role == "assistant"
+                    && !msg.content.trim().is_empty()
+                    && msg.tool_calls_parsed().is_none_or(|tc| tc.is_empty())
+                {
+                    return Some(msg.content.clone());
+                }
+            }
+
+            if Instant::now() >= deadline {
+                self.log(format!(
+                    "TIMEOUT: no continuation response after {timeout_secs}s"
+                ));
+                return None;
+            }
+
+            tokio::time::sleep(poll_interval).await;
+        }
+    }
+
     // -----------------------------------------------------------------
     // Job runners
     // -----------------------------------------------------------------

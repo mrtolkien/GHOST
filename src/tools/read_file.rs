@@ -79,6 +79,7 @@ mod tests {
             config: crate::config::test_config(workspace),
             session_id: "test".to_string(),
             agent_runner: None,
+            completion_tx: None,
         }
     }
 

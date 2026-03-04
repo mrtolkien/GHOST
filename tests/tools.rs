@@ -16,6 +16,7 @@ fn tool_ctx(
         config: config.clone(),
         session_id: session_id.to_string(),
         agent_runner: None,
+        completion_tx: None,
     }
 }
 
@@ -291,6 +292,7 @@ async fn unknown_tool_returns_not_found() {
         config: ghost::config::test_config(std::path::Path::new("/tmp")),
         session_id: "test".to_string(),
         agent_runner: None,
+        completion_tx: None,
     };
 
     let result = manager.execute("nonexistent_tool", json!({}), &ctx).await;

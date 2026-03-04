@@ -11,8 +11,14 @@ use crate::error::GhostError;
 use crate::interfaces::discord::{self, DiscordSender};
 
 pub async fn run() -> Result<(), GhostError> {
-    let (shutdown_tx, watcher_handle, scheduler_handle, discord_result, agent_watcher_handle) =
-        boot().await?;
+    let (
+        shutdown_tx,
+        watcher_handle,
+        scheduler_handle,
+        discord_result,
+        agent_watcher_handle,
+        completion_watcher_handle,
+    ) = boot().await?;
 
     if let Some((_sender, handle)) = discord_result {
         info!("GHOST daemon running — press Ctrl+C to stop");
@@ -30,13 +36,14 @@ pub async fn run() -> Result<(), GhostError> {
         let _ = tokio::signal::ctrl_c().await;
     }
 
-    // Signal shutdown to watcher, scheduler, and agent watcher
+    // Signal shutdown to watcher, scheduler, agent watcher, and completion watcher
     let _ = shutdown_tx.send(true);
     let _ = watcher_handle.await;
     let _ = scheduler_handle.await;
     if let Some(aw_handle) = agent_watcher_handle {
         let _ = aw_handle.await;
     }
+    let _ = completion_watcher_handle.await;
 
     info!("GHOST daemon stopped");
     Ok(())
@@ -48,6 +55,7 @@ type BootResult = (
     JoinHandle<()>,
     Option<(DiscordSender, JoinHandle<()>)>,
     Option<JoinHandle<()>>,
+    JoinHandle<()>,
 );
 
 #[tracing::instrument(name = "boot ghost", skip_all)]
@@ -111,27 +119,41 @@ pub async fn boot() -> Result<BootResult, GhostError> {
         shutdown_rx.clone(),
     );
 
+    // Create completion event channel (background shell → watcher)
+    let (completion_tx, completion_rx) = crate::completion::channel();
+
     let session_chat = Arc::new(
         SessionChat::from_config(db.clone(), config.clone())?
-            .with_agent_runner(Arc::clone(&agent_runner)),
+            .with_agent_runner(Arc::clone(&agent_runner))
+            .with_completion_sender(completion_tx),
     );
 
     let discord_result = discord::start_discord(&config, session_chat.clone(), db.clone()).await?;
 
     // Spawn agent watcher (only if Discord is available)
-    let agent_watcher_handle = if let Some((ref sender, _)) = discord_result {
+    let (agent_watcher_handle, discord_sender_arc) = if let Some((ref sender, _)) = discord_result {
         let discord_sender = Arc::new(sender.clone());
 
-        Some(crate::agents::watcher::spawn_agent_watcher(
+        let handle = crate::agents::watcher::spawn_agent_watcher(
             Arc::clone(&agent_runner),
             Arc::clone(&session_chat),
             Arc::clone(&discord_sender),
             db.clone(),
             shutdown_rx.clone(),
-        ))
+        );
+        (Some(handle), Some(discord_sender))
     } else {
-        None
+        (None, None)
     };
+
+    // Spawn completion watcher unconditionally (not gated on Discord)
+    let completion_watcher_handle = super::completion_watcher::spawn_completion_watcher(
+        completion_rx,
+        Arc::clone(&session_chat),
+        discord_sender_arc,
+        db.clone(),
+        shutdown_rx.clone(),
+    );
 
     Ok((
         shutdown_tx,
@@ -139,5 +161,6 @@ pub async fn boot() -> Result<BootResult, GhostError> {
         scheduler_handle,
         discord_result,
         agent_watcher_handle,
+        completion_watcher_handle,
     ))
 }

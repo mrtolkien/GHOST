@@ -1,33 +1,20 @@
-## Status: Partially addressed
+## Status: Mostly addressed
 
-`run_shell_command` now supports `background: true` — the import runs detached and posts
-a `[shell-command completed]` system message on completion. The `reference-import` skill
-uses this for all git/crawl imports.
+`run_shell_command` supports `background: true` — the import runs detached and posts a
+`[shell-command completed]` system message on completion. The completion watcher
+(`src/daemon/completion_watcher.rs`) automatically triggers a follow-up chat turn and
+sends the result to Discord.
 
 ### What's done
 
 - Background shell mode (no timeout, result as system message)
-- Skill instructs model to tell the OPERATOR and wait
-- Model sees the completion on the next conversation turn
+- Completion watcher: consumes `CompletionEvent` channel, waits for session idle,
+  triggers continuation chat turn, sends result to Discord
+- Skill instructs model to end turn after starting import; watcher handles the rest
+- Same event-driven pattern as the agent watcher
 
 ### Remaining gaps
 
-- **No auto-trigger**: unlike agent completions (which have a watcher that triggers a
-  follow-up chat turn + Discord notification), background shell completions just sit in
-  the DB until the user sends another message. For the PoC this is fine — the model
-  tells the user it's importing and they ask a follow-up when ready.
-- **No Discord notification**: the agent watcher sends a compact summary to Discord when
-  an agent finishes. Background shell commands don't notify Discord at all.
 - **Resumability**: if the daemon restarts mid-import, the spawned task is lost. The
   embedding pipeline can resume (it skips already-embedded content), but the
-  `[shell-command completed]` message is never posted.
-
-### Future: shell command watcher
-
-To match the agent watcher pattern, we could:
-
-1. Track background shell tasks in a registry (like `AgentRunner`)
-2. Extend the daemon watcher to detect completions and trigger follow-up turns
-3. Send Discord notifications on completion
-
-This is not needed for the PoC but would improve the UX for long-running imports.
+  `[shell-command completed]` message is never posted and no event is fired.
