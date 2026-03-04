@@ -389,6 +389,12 @@ impl Config {
                     .and_then(|c| c.instructions.clone()),
             },
             web: {
+                let crawl4ai_url = settings
+                    .web
+                    .as_ref()
+                    .and_then(|w| w.crawl4ai_url.clone())
+                    .or_else(|| env::var("CRAWL4AI_URL").ok());
+
                 let search_provider = match settings.web.as_ref().and_then(|w| w.search.as_ref()) {
                     Some(s) => match s.provider {
                         SearchProviderKind::Brave => SearchProviderConfig::Brave,
@@ -396,7 +402,14 @@ impl Config {
                             url: s.url.clone().ok_or(ConfigError::MissingSearxngUrl)?,
                         },
                     },
-                    None => SearchProviderConfig::Brave,
+                    None => {
+                        // Fall back to SEARXNG_URL env var if set
+                        if let Ok(url) = env::var("SEARXNG_URL") {
+                            SearchProviderConfig::Searxng { url }
+                        } else {
+                            SearchProviderConfig::Brave
+                        }
+                    }
                 };
                 WebConfig {
                     search_max_results: settings
@@ -404,7 +417,7 @@ impl Config {
                         .as_ref()
                         .and_then(|w| w.search_max_results)
                         .unwrap_or(5),
-                    crawl4ai_url: settings.web.as_ref().and_then(|w| w.crawl4ai_url.clone()),
+                    crawl4ai_url,
                     search_provider,
                 }
             },

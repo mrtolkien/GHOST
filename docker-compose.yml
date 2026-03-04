@@ -1,0 +1,34 @@
+services:
+  ghost:
+    image: mrtolkien/ghost:latest
+    volumes:
+      - ${GHOST_WORKSPACE:-~/GHOST}:/workspace
+      - ${GHOST_CONFIG:-~/.config/ghost}:/config
+      - nix-store:/nix
+    env_file: .env
+    environment:
+      - CRAWL4AI_URL=http://crawl4ai:11235
+      - SEARXNG_URL=http://searxng:8080
+    networks:
+      - ghost-net
+    restart: unless-stopped
+
+  crawl4ai:
+    image: unclecode/crawl4ai:latest
+    networks:
+      - ghost-net
+    restart: unless-stopped
+
+  searxng:
+    image: searxng/searxng:latest
+    volumes:
+      - ./docker/searxng-settings.yml:/etc/searxng/settings.yml:ro
+    networks:
+      - ghost-net
+    restart: unless-stopped
+
+volumes:
+  nix-store:
+
+networks:
+  ghost-net:

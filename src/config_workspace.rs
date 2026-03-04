@@ -5,6 +5,8 @@ use crate::config::{Config, ConfigError};
 const DEFAULT_BOOT_TEMPLATE: &str =
     "# BOOT\n\nYou are a GHOST, a personal AI agent for your OPERATOR.\n";
 
+const DEFAULT_FLAKE: &str = include_str!("../docker/default-flake.nix");
+
 #[tracing::instrument(skip_all, fields(workspace = %config.workspace.display()))]
 pub fn bootstrap_workspace(config: &Config) -> Result<(), ConfigError> {
     std::fs::create_dir_all(&config.workspace).map_err(|source| ConfigError::WriteFile {
@@ -12,7 +14,15 @@ pub fn bootstrap_workspace(config: &Config) -> Result<(), ConfigError> {
         source,
     })?;
 
-    for dir in ["skills", "agents", ".cache", "notes", "references", "diary"] {
+    for dir in [
+        "skills",
+        "agents",
+        ".cache",
+        "notes",
+        "references",
+        "diary",
+        "shell",
+    ] {
         let path = config.workspace.join(dir);
         std::fs::create_dir_all(&path).map_err(|source| ConfigError::WriteFile { path, source })?;
     }
@@ -20,6 +30,7 @@ pub fn bootstrap_workspace(config: &Config) -> Result<(), ConfigError> {
     create_file_if_missing(&config.workspace.join("BOOT.md"), DEFAULT_BOOT_TEMPLATE)?;
     create_file_if_missing(&config.workspace.join("SOUL.md"), "")?;
     create_file_if_missing(&config.workspace.join("OPERATOR.md"), "")?;
+    create_file_if_missing(&config.workspace.join("shell/flake.nix"), DEFAULT_FLAKE)?;
 
     crate::skills::install_default_skills(&config.workspace).map_err(|source| {
         ConfigError::WriteFile {

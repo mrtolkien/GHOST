@@ -13,6 +13,28 @@ pub struct RunShellCommand;
 const DEFAULT_TIMEOUT_MS: u64 = 30_000;
 const MAX_OUTPUT_CHARS: usize = 50_000;
 
+/// Build a `Command` that runs `sh -c <cmd>` inside `nix develop` if the
+/// workspace has a `shell/flake.nix`, otherwise runs directly.
+fn shell_command(command: &str, workspace: &std::path::Path) -> tokio::process::Command {
+    let shell_dir = workspace.join("shell");
+    if shell_dir.join("flake.nix").exists() {
+        let mut cmd = tokio::process::Command::new("nix");
+        cmd.args([
+            "develop",
+            shell_dir.to_str().unwrap_or("."),
+            "--command",
+            "sh",
+            "-c",
+            command,
+        ]);
+        cmd
+    } else {
+        let mut cmd = tokio::process::Command::new("sh");
+        cmd.args(["-c", command]);
+        cmd
+    }
+}
+
 #[async_trait]
 impl Tool for RunShellCommand {
     fn name(&self) -> &str {
@@ -80,10 +102,10 @@ impl Tool for RunShellCommand {
             let work_dir_owned = work_dir.clone();
             let completion_tx = ctx.completion_tx.clone();
 
+            let workspace_owned = ctx.workspace.clone();
+
             tokio::spawn(async move {
-                let child = tokio::process::Command::new("sh")
-                    .arg("-c")
-                    .arg(&command_owned)
+                let child = shell_command(&command_owned, &workspace_owned)
                     .current_dir(&work_dir_owned)
                     .stdout(std::process::Stdio::piped())
                     .stderr(std::process::Stdio::piped())
@@ -135,9 +157,7 @@ impl Tool for RunShellCommand {
 
         let timeout = std::time::Duration::from_millis(timeout_ms);
 
-        let child = tokio::process::Command::new("sh")
-            .arg("-c")
-            .arg(command)
+        let child = shell_command(command, &ctx.workspace)
             .current_dir(&work_dir)
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())

@@ -1,0 +1,6 @@
+services:
+  ghost:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    image: ghost:local

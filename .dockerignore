@@ -1,0 +1,12 @@
+target/
+.git/
+docs/
+tests/
+specs/
+scripts/tmp/
+*.md
+!docker/*.md
+.env
+.env.*
+.claude/
+.github/

@@ -1,0 +1,44 @@
+# Stage 1: Build the Ghost binary
+FROM rust:latest AS builder
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends pkg-config cmake && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /build
+COPY . .
+
+RUN cargo build --release && strip target/release/ghost
+
+# Stage 2: Runtime with Nix
+FROM nixos/nix:latest
+
+# Enable flakes
+RUN echo "experimental-features = nix-command flakes" >> /etc/nix/nix.conf
+
+# Copy the Ghost binary
+COPY --from=builder /build/target/release/ghost /usr/local/bin/ghost
+
+# Patch the binary to use Nix's glibc (Debian-built ELF expects
+# /lib64/ld-linux-x86-64.so.2 which doesn't exist in NixOS)
+RUN nix shell nixpkgs#patchelf --command sh -c '\
+    GLIBC=$(nix eval --raw nixpkgs#glibc.out) && \
+    patchelf --set-interpreter "$GLIBC/lib/ld-linux-x86-64.so.2" \
+             --set-rpath "$GLIBC/lib" \
+             /usr/local/bin/ghost'
+
+# Copy default flake and entrypoint
+COPY docker/default-flake.nix /opt/ghost/default-flake.nix
+COPY docker/entrypoint.sh /opt/ghost/entrypoint.sh
+
+# Pre-warm the Nix store with the default flake packages
+RUN mkdir -p /tmp/shell && \
+    cp /opt/ghost/default-flake.nix /tmp/shell/flake.nix && \
+    cd /tmp/shell && \
+    nix develop --command true && \
+    rm -rf /tmp/shell
+
+ENV GHOST_CONFIG_DIR=/config
+ENV GHOST_WORKSPACE=/workspace
+
+ENTRYPOINT ["/opt/ghost/entrypoint.sh"]

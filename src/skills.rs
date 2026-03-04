@@ -26,6 +26,7 @@ const DEFAULT_SKILLS: &[(&str, &str)] = &[
         "skill-creator",
         include_str!("../prompts/skills/skill-creator.md"),
     ),
+    ("nix-shell", include_str!("../prompts/skills/nix-shell.md")),
 ];
 
 #[derive(Debug)]
@@ -312,7 +313,7 @@ name: no-desc
             assert!(content.contains("---"));
         }
 
-        assert_eq!(DEFAULT_SKILLS.len(), 6);
+        assert_eq!(DEFAULT_SKILLS.len(), 7);
     }
 
     #[test]

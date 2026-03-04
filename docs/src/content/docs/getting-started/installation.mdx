@@ -1,94 +1,88 @@
 ---
 title: Installation
-description: How to install and set up GHOST from source.
+description: How to install and run GHOST using Docker.
 ---
 
 import { Steps } from "@astrojs/starlight/components";
 
 ## Prerequisites
 
-- **Rust toolchain** — [rustup.rs](https://rustup.rs/)
-- **Ollama** — for local embeddings ([ollama.com](https://ollama.com))
-- **Crawl4AI** — for web page extraction
-  ([crawl4ai](https://github.com/unclecode/crawl4ai))
+- **Docker** with Docker Compose — [docs.docker.com](https://docs.docker.com/get-docker/)
 - **Discord bot token** — for the Discord interface (see
   [Interfaces](/ghost/interfaces/))
-
-:::note
-In the future, all dependencies beyond the binary itself will be managed
-through Nix. For now, you need to set them up manually. See
-[External Dependencies](/reference/dependencies/) for what each service does
-and why it's needed.
-:::
+- **API key** for at least one LLM provider (OpenRouter, Kimi, etc.)
 
 ## Setup
 
 <Steps>
 
-1. **Install from source**
+1. **Get the compose file**
 
    ```bash
    git clone https://github.com/mrtolkien/ghost.git
    cd ghost
-   cargo install --path .
    ```
 
-2. **Bootstrap workspace and config**
+   Or just download `docker-compose.yml` and `docker/searxng-settings.yml`.
 
-   ```bash
-   ghost init
-   ```
+2. **Configure secrets**
 
-   This creates:
-   - Config file at `~/.config/ghost/config.toml`
-   - Workspace directory at `~/GHOST/` with default identity files, skills, and agents
-
-3. **Configure secrets**
-
-   Create a `.env` file (or set environment variables).
-
-   :::danger[Security]
-   Never put API keys in `config.toml`.
-   :::
+   Create a `.env` file in the project root:
 
    ```bash title=".env"
-   # Required for at least one provider
+   # Required: at least one LLM provider
    OPENROUTER_API_KEY=sk-or-...
 
-   # Required for web search
-   BRAVE_API_KEY=BSA...
-
-   # Required for Discord
+   # Required: Discord bot
    DISCORD_TOKEN=...
+
+   # Optional: Brave web search (used if SearXNG is not running)
+   BRAVE_API_KEY=BSA...
    ```
 
-4. **Pull embedding model**
+3. **Start all services**
 
    ```bash
-   ollama pull qwen3-embedding:8b
+   docker compose up -d
    ```
 
-5. **Start Crawl4AI**
+   This starts GHOST, Crawl4AI (web extraction), and SearXNG (web search).
+   GHOST auto-detects the companion services via container networking.
 
-   GHOST uses a Crawl4AI container for web page extraction:
+4. **Configure (optional)**
 
-   ```bash
-   docker run -d -p 11235:11235 unclecode/crawl4ai
-   ```
-
-   Then set the URL in `config.toml`:
+   Most settings work out of the box with env vars. For advanced
+   configuration, create `~/.config/ghost/config.toml`:
 
    ```toml title="~/.config/ghost/config.toml"
-   [web]
-   crawl4ai_url = "http://localhost:11235"
+   [discord]
+   allowed_user_id = "your-discord-user-id"
+
+   [models.primary]
+   provider = "openrouter"
+   model = "anthropic/claude-sonnet-4"
+   context_window = 200000
    ```
-
-6. **First run**
-
-   ```bash
-   ghost daemon
-   ```
-
-   This starts the Discord bot and the job scheduler. Your GHOST is now live.
 
 </Steps>
+
+## Workspace
+
+GHOST stores its data in `~/GHOST/` by default (bind-mounted into the
+container at `/workspace`). This includes identity files, notes, skills,
+agents, and the Nix shell flake.
+
+## Shell Tools
+
+The Docker image uses Nix to manage CLI tools deterministically. The default
+set (git, ripgrep, fd, jq, curl, etc.) is pre-installed. GHOST can add tools
+at runtime by editing `shell/flake.nix` in the workspace — changes take
+effect on the next command, no restart needed.
+
+## Building locally
+
+For development, use the local build override:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.local.yml up --build
+```

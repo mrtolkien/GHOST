@@ -1,6 +1,7 @@
 use std::path::Path;
 
-/// Build system information: OS, hostname, current datetime, workspace path.
+/// Build system information: OS, hostname, current datetime, workspace path,
+/// and available shell tools (parsed from `shell/flake.nix`).
 #[tracing::instrument(skip_all, level = "debug", fields(workspace = %workspace.display()))]
 pub fn build_system_info(workspace: &Path) -> String {
     let os = std::env::consts::OS;
@@ -9,13 +10,36 @@ pub fn build_system_info(workspace: &Path) -> String {
     let hostname = hostname.to_string_lossy();
     let now = chrono::Local::now().format("%Y-%m-%d %H:%M %Z");
 
-    format!(
+    let mut info = format!(
         "OS: {os} ({arch})\n\
          Hostname: {hostname}\n\
          Date/Time: {now}\n\
          Workspace: {}",
         workspace.display()
-    )
+    );
+
+    if let Some(tools) = parse_flake_packages(&workspace.join("shell/flake.nix")) {
+        info.push_str(&format!(
+            "\nShell tools (via Nix — edit shell/flake.nix to add more): {tools}"
+        ));
+    }
+
+    info
+}
+
+/// Extract package names from a Nix flake's `packages = with pkgs; [ ... ];` block.
+fn parse_flake_packages(path: &Path) -> Option<String> {
+    let content = std::fs::read_to_string(path).ok()?;
+    let start = content.find("packages = with pkgs; [")?;
+    let after = &content[start..];
+    let end = after.find(']')?;
+    let block = &after["packages = with pkgs; [".len()..end];
+
+    let names: Vec<&str> = block.split_whitespace().collect();
+    if names.is_empty() {
+        return None;
+    }
+    Some(names.join(", "))
 }
 
 /// Build model and provider information.
@@ -169,6 +193,29 @@ mod tests {
         let nw_pos = result.find("note-writer").unwrap();
         let rs_pos = result.find("researcher").unwrap();
         assert!(nw_pos < rs_pos);
+    }
+
+    #[test]
+    fn system_info_includes_shell_tools_from_flake() {
+        let dir = TempDir::new().unwrap();
+        let shell_dir = dir.path().join("shell");
+        fs::create_dir_all(&shell_dir).unwrap();
+        fs::write(
+            shell_dir.join("flake.nix"),
+            "devShells.default = pkgs.mkShell {\n  packages = with pkgs; [\n    git\n    ripgrep\n    jq\n  ];\n};",
+        )
+        .unwrap();
+
+        let info = build_system_info(dir.path());
+        assert!(info.contains("git, ripgrep, jq"));
+        assert!(info.contains("shell/flake.nix"));
+    }
+
+    #[test]
+    fn system_info_omits_shell_tools_when_no_flake() {
+        let dir = TempDir::new().unwrap();
+        let info = build_system_info(dir.path());
+        assert!(!info.contains("Shell tools"));
     }
 
     #[test]
