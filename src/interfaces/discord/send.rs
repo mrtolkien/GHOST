@@ -8,8 +8,8 @@ use super::markdown;
 
 pub const DISCORD_MESSAGE_LIMIT: usize = 2000;
 const DISCORD_EMBED_DESC_LIMIT: usize = 4096;
-pub const GATEWAY_EMBED_COLOR: u32 = 0x12_83_D8;
-pub const WARNING_EMBED_COLOR: u32 = 0xE0_3B_24;
+pub const GATEWAY_EMBED_COLOR: u32 = 0xFF_5C_6E; // Neon Maroon
+pub const WARNING_EMBED_COLOR: u32 = 0xFF_88_33; // Neon Peach
 
 // ---------------------------------------------------------------------------
 // v2 assistant text (GHOST responses)

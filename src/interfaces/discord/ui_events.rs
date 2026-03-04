@@ -9,11 +9,11 @@ use crate::tools::TodoItem;
 
 use super::components_v2::{container, edit_v2_message, send_v2_message, text_display};
 
-/// Muted accent color for tool call messages.
-const TOOL_CALL_COLOR: u32 = 0x99_99_99;
+/// Catpuccin Mocha Overlay 0 — muted accent for tool call messages.
+const TOOL_CALL_COLOR: u32 = 0x6C_70_86;
 
-/// Blurple accent color for TODO progress messages.
-const TODO_COLOR: u32 = 0x58_65_F2;
+/// Neon Mauve — accent for TODO progress messages.
+const TODO_COLOR: u32 = 0xA9_4D_FF;
 
 /// Renders tool loop events as Discord messages.
 ///

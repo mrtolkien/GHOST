@@ -8,262 +8,120 @@
     "Monaspace Krypton", "JetBrains Mono", "IBM Plex Mono", "Fira Code",
     "SFMono-Regular", Menlo, Consolas, monospace;
 
-  --sl-color-black: hsl(228, 30%, 6%);
-  --sl-color-white: hsl(206, 100%, 97%);
+  /* Neon Catpuccin Mocha — base tones */
+  --sl-color-black: hsl(240, 23%, 9%);       /* Crust */
+  --sl-color-white: hsl(226, 64%, 88%);      /* Text */
 
-  --sl-color-gray-1: hsl(205, 95%, 93%);
-  --sl-color-gray-2: hsl(206, 84%, 83%);
-  --sl-color-gray-3: hsl(208, 50%, 62%);
-  --sl-color-gray-4: hsl(213, 39%, 43%);
-  --sl-color-gray-5: hsl(223, 45%, 19%);
-  --sl-color-gray-6: hsl(227, 54%, 12%);
+  --sl-color-gray-1: hsl(226, 64%, 88%);     /* Text */
+  --sl-color-gray-2: hsl(227, 35%, 80%);     /* Subtext 1 */
+  --sl-color-gray-3: hsl(228, 17%, 64%);     /* Overlay 2 */
+  --sl-color-gray-4: hsl(230, 13%, 55%);     /* Overlay 1 */
+  --sl-color-gray-5: hsl(237, 16%, 23%);     /* Surface 0 */
+  --sl-color-gray-6: hsl(240, 21%, 12%);     /* Mantle */
 
-  --sl-color-accent-low: hsl(191, 100%, 18%);
-  --sl-color-accent: hsl(186, 100%, 58%);
-  --sl-color-accent-high: hsl(186, 100%, 85%);
+  --sl-color-accent-low: hsl(350, 80%, 18%);    /* Maroon dark */
+  --sl-color-accent: hsl(350, 100%, 68%);        /* Neon Maroon */
+  --sl-color-accent-high: hsl(350, 90%, 85%);    /* Maroon light */
 
   --sl-color-text: var(--sl-color-gray-2);
   --sl-color-text-accent: var(--sl-color-accent);
-  --sl-color-text-invert: hsl(227, 40%, 8%);
-  --sl-color-bg: hsl(228, 32%, 7%);
-  --sl-color-bg-nav: hsl(227, 41%, 8%);
-  --sl-color-bg-sidebar: hsl(228, 46%, 10%);
-  --sl-color-bg-inline-code: hsl(228, 52%, 13%);
+  --sl-color-text-invert: hsl(240, 23%, 9%);   /* Crust */
+  --sl-color-bg: hsl(240, 23%, 9%);            /* Crust */
+  --sl-color-bg-nav: hsl(240, 21%, 12%);       /* Mantle */
+  --sl-color-bg-sidebar: hsl(240, 21%, 15%);   /* Base */
+  --sl-color-bg-inline-code: hsl(237, 16%, 23%); /* Surface 0 */
   --sl-color-bg-accent: var(--sl-color-accent);
-  --sl-color-hairline-light: hsl(195, 76%, 24%);
-  --sl-color-hairline: hsl(202, 67%, 19%);
-  --sl-color-hairline-shade: hsl(226, 57%, 7%);
+  --sl-color-hairline-light: hsl(234, 13%, 31%); /* Surface 1 */
+  --sl-color-hairline: hsl(233, 16%, 26%);       /* Surface 0-1 blend */
+  --sl-color-hairline-shade: hsl(240, 23%, 9%);  /* Crust */
 
-  --ghost-h1: hsl(190, 100%, 88%);
-  --ghost-h2: hsl(186, 100%, 64%);
-  --ghost-h3: hsl(316, 100%, 72%);
-  --ghost-h4: hsl(95, 100%, 66%);
-  --ghost-h5: hsl(206, 85%, 80%);
-  --ghost-h6: hsl(206, 70%, 74%);
+  /* Neon accent headings — Yellow → Peach → Maroon warm descent */
+  --ghost-h1: hsl(41, 100%, 70%);    /* Yellow neon */
+  --ghost-h2: hsl(23, 100%, 66%);    /* Peach neon */
+  --ghost-h3: hsl(350, 100%, 68%);   /* Maroon neon */
+  --ghost-h4: hsl(316, 100%, 72%);   /* Pink neon */
+  --ghost-h5: hsl(343, 100%, 64%);   /* Red neon */
+  --ghost-h6: hsl(0, 100%, 76%);     /* Flamingo neon */
 
+  /* Glow layers — Yellow / Peach / Teal (cool counterpoint) */
   --ghost-bg-layer-1: linear-gradient(
     145deg,
-    hsl(228, 34%, 7%) 0%,
-    hsl(231, 36%, 8%) 48%,
-    hsl(230, 40%, 7%) 100%
+    hsl(240, 23%, 9%) 0%,
+    hsl(240, 21%, 11%) 48%,
+    hsl(240, 22%, 9%) 100%
   );
   --ghost-bg-layer-2: radial-gradient(
     70rem 42rem at 10% -6%,
-    hsla(186, 100%, 56%, 0.18) 0%,
+    hsla(41, 100%, 70%, 0.16) 0%,
     transparent 55%
   );
   --ghost-bg-layer-3: radial-gradient(
     62rem 38rem at 110% 0%,
-    hsla(314, 100%, 57%, 0.16) 0%,
+    hsla(23, 100%, 66%, 0.14) 0%,
     transparent 52%
   );
   --ghost-bg-layer-4: radial-gradient(
     56rem 34rem at 50% 115%,
-    hsla(93, 100%, 50%, 0.08) 0%,
+    hsla(170, 100%, 58%, 0.08) 0%,
     transparent 60%
   );
 }
 
 :root[data-theme="light"] {
-  --sl-color-black: hsl(0, 0%, 100%);
-  --sl-color-white: hsl(227, 30%, 12%);
+  /* Catpuccin Latte base tones */
+  --sl-color-black: hsl(220, 23%, 95%);      /* Latte Base */
+  --sl-color-white: hsl(234, 16%, 35%);      /* Latte Text */
 
-  --sl-color-gray-1: hsl(224, 20%, 16%);
-  --sl-color-gray-2: hsl(226, 16%, 24%);
-  --sl-color-gray-3: hsl(226, 14%, 38%);
-  --sl-color-gray-4: hsl(224, 13%, 52%);
-  --sl-color-gray-5: hsl(223, 22%, 82%);
-  --sl-color-gray-6: hsl(225, 26%, 92%);
+  --sl-color-gray-1: hsl(234, 16%, 35%);     /* Latte Text */
+  --sl-color-gray-2: hsl(233, 10%, 47%);     /* Latte Subtext 1 */
+  --sl-color-gray-3: hsl(232, 10%, 53%);     /* Latte Overlay 2 */
+  --sl-color-gray-4: hsl(233, 10%, 57%);     /* Latte Overlay 1 */
+  --sl-color-gray-5: hsl(225, 14%, 77%);     /* Latte Surface 2 */
+  --sl-color-gray-6: hsl(220, 22%, 92%);     /* Latte Mantle */
 
-  --sl-color-accent-low: hsl(189, 82%, 90%);
-  --sl-color-accent: hsl(189, 100%, 36%);
-  --sl-color-accent-high: hsl(189, 100%, 25%);
+  --sl-color-accent-low: hsl(350, 80%, 92%);    /* Maroon light */
+  --sl-color-accent: hsl(350, 90%, 42%);         /* Latte Maroon boosted */
+  --sl-color-accent-high: hsl(350, 100%, 30%);   /* Maroon dark */
 
   --sl-color-text: var(--sl-color-gray-2);
   --sl-color-text-accent: var(--sl-color-accent);
-  --sl-color-text-invert: hsl(0, 0%, 100%);
-  --sl-color-bg: hsl(222, 34%, 97%);
-  --sl-color-bg-nav: hsl(218, 42%, 95%);
-  --sl-color-bg-sidebar: hsl(220, 34%, 96%);
-  --sl-color-bg-inline-code: hsl(219, 37%, 92%);
+  --sl-color-text-invert: hsl(220, 23%, 95%);   /* Latte Base */
+  --sl-color-bg: hsl(220, 23%, 95%);            /* Latte Base */
+  --sl-color-bg-nav: hsl(220, 22%, 92%);        /* Latte Mantle */
+  --sl-color-bg-sidebar: hsl(220, 21%, 89%);    /* Latte Crust */
+  --sl-color-bg-inline-code: hsl(225, 14%, 85%); /* Latte Surface 0 */
   --sl-color-bg-accent: var(--sl-color-accent);
-  --sl-color-hairline-light: hsl(201, 54%, 78%);
-  --sl-color-hairline: hsl(203, 44%, 72%);
-  --sl-color-hairline-shade: hsl(208, 32%, 82%);
+  --sl-color-hairline-light: hsl(227, 12%, 71%); /* Latte Surface 1 */
+  --sl-color-hairline: hsl(225, 14%, 77%);       /* Latte Surface 2 */
+  --sl-color-hairline-shade: hsl(220, 22%, 92%); /* Latte Mantle */
 
-  --ghost-h1: hsl(205, 68%, 22%);
-  --ghost-h2: hsl(189, 95%, 32%);
-  --ghost-h3: hsl(312, 70%, 40%);
-  --ghost-h4: hsl(88, 64%, 30%);
-  --ghost-h5: hsl(209, 52%, 30%);
-  --ghost-h6: hsl(214, 36%, 36%);
+  /* Latte heading hues — warm descent */
+  --ghost-h1: hsl(41, 82%, 36%);     /* Yellow */
+  --ghost-h2: hsl(23, 90%, 38%);     /* Peach */
+  --ghost-h3: hsl(350, 72%, 40%);    /* Maroon */
+  --ghost-h4: hsl(316, 72%, 40%);    /* Pink */
+  --ghost-h5: hsl(343, 68%, 38%);    /* Red */
+  --ghost-h6: hsl(0, 56%, 44%);      /* Flamingo */
 
   --ghost-bg-layer-1: linear-gradient(
     145deg,
-    hsl(218, 38%, 97%) 0%,
-    hsl(224, 34%, 96%) 52%,
-    hsl(219, 32%, 98%) 100%
+    hsl(220, 23%, 95%) 0%,
+    hsl(220, 22%, 94%) 52%,
+    hsl(220, 24%, 96%) 100%
   );
   --ghost-bg-layer-2: radial-gradient(
     70rem 42rem at 10% -6%,
-    hsla(189, 100%, 40%, 0.1) 0%,
+    hsla(41, 100%, 50%, 0.08) 0%,
     transparent 58%
   );
   --ghost-bg-layer-3: radial-gradient(
     62rem 38rem at 110% 0%,
-    hsla(315, 72%, 52%, 0.08) 0%,
+    hsla(23, 80%, 52%, 0.06) 0%,
     transparent 55%
   );
   --ghost-bg-layer-4: radial-gradient(
     56rem 34rem at 50% 115%,
-    hsla(90, 60%, 44%, 0.06) 0%,
-    transparent 62%
-  );
-}
-
-:root[data-ghost-palette="synthwave"] {
-  --sl-color-black: hsl(249, 36%, 8%);
-  --sl-color-white: hsl(209, 100%, 97%);
-  --sl-color-gray-1: hsl(210, 86%, 92%);
-  --sl-color-gray-2: hsl(214, 67%, 82%);
-  --sl-color-gray-3: hsl(222, 41%, 62%);
-  --sl-color-gray-4: hsl(238, 29%, 45%);
-  --sl-color-gray-5: hsl(247, 33%, 20%);
-  --sl-color-gray-6: hsl(250, 39%, 12%);
-  --sl-color-accent-low: hsl(323, 82%, 19%);
-  --sl-color-accent: hsl(320, 100%, 63%);
-  --sl-color-accent-high: hsl(319, 100%, 84%);
-  --sl-color-text-invert: hsl(251, 37%, 10%);
-  --sl-color-bg: hsl(250, 38%, 8%);
-  --sl-color-bg-nav: hsl(249, 42%, 9%);
-  --sl-color-bg-sidebar: hsl(251, 43%, 11%);
-  --sl-color-bg-inline-code: hsl(250, 35%, 14%);
-  --sl-color-hairline-light: hsl(303, 55%, 28%);
-  --sl-color-hairline: hsl(282, 47%, 21%);
-  --sl-color-hairline-shade: hsl(252, 47%, 8%);
-  --ghost-h1: hsl(190, 100%, 92%);
-  --ghost-h2: hsl(320, 100%, 70%);
-  --ghost-h3: hsl(42, 100%, 68%);
-  --ghost-h4: hsl(186, 100%, 67%);
-  --ghost-h5: hsl(210, 88%, 82%);
-  --ghost-h6: hsl(214, 75%, 74%);
-  --ghost-bg-layer-1: linear-gradient(
-    145deg,
-    hsl(249, 39%, 8%) 0%,
-    hsl(256, 44%, 10%) 55%,
-    hsl(245, 35%, 8%) 100%
-  );
-  --ghost-bg-layer-2: radial-gradient(
-    70rem 40rem at 8% -8%,
-    hsla(319, 100%, 62%, 0.2) 0%,
-    transparent 56%
-  );
-  --ghost-bg-layer-3: radial-gradient(
-    64rem 36rem at 105% 0%,
-    hsla(189, 100%, 58%, 0.18) 0%,
-    transparent 55%
-  );
-  --ghost-bg-layer-4: radial-gradient(
-    54rem 34rem at 50% 112%,
-    hsla(43, 100%, 58%, 0.1) 0%,
-    transparent 60%
-  );
-}
-
-:root[data-ghost-palette="matrix"] {
-  --sl-color-black: hsl(149, 18%, 5%);
-  --sl-color-white: hsl(145, 80%, 95%);
-  --sl-color-gray-1: hsl(143, 72%, 90%);
-  --sl-color-gray-2: hsl(145, 50%, 78%);
-  --sl-color-gray-3: hsl(145, 31%, 57%);
-  --sl-color-gray-4: hsl(148, 24%, 39%);
-  --sl-color-gray-5: hsl(152, 36%, 16%);
-  --sl-color-gray-6: hsl(154, 40%, 10%);
-  --sl-color-accent-low: hsl(124, 74%, 14%);
-  --sl-color-accent: hsl(130, 100%, 52%);
-  --sl-color-accent-high: hsl(133, 95%, 78%);
-  --sl-color-text-invert: hsl(155, 44%, 8%);
-  --sl-color-bg: hsl(152, 30%, 6%);
-  --sl-color-bg-nav: hsl(153, 33%, 7%);
-  --sl-color-bg-sidebar: hsl(154, 36%, 9%);
-  --sl-color-bg-inline-code: hsl(152, 30%, 12%);
-  --sl-color-hairline-light: hsl(153, 60%, 22%);
-  --sl-color-hairline: hsl(154, 53%, 18%);
-  --sl-color-hairline-shade: hsl(154, 50%, 7%);
-  --ghost-h1: hsl(138, 95%, 89%);
-  --ghost-h2: hsl(130, 100%, 60%);
-  --ghost-h3: hsl(186, 90%, 70%);
-  --ghost-h4: hsl(96, 100%, 70%);
-  --ghost-h5: hsl(144, 70%, 80%);
-  --ghost-h6: hsl(145, 58%, 72%);
-  --ghost-bg-layer-1: linear-gradient(
-    145deg,
-    hsl(152, 30%, 6%) 0%,
-    hsl(150, 34%, 7%) 52%,
-    hsl(156, 28%, 6%) 100%
-  );
-  --ghost-bg-layer-2: radial-gradient(
-    68rem 40rem at 8% -8%,
-    hsla(129, 100%, 50%, 0.17) 0%,
-    transparent 58%
-  );
-  --ghost-bg-layer-3: radial-gradient(
-    60rem 34rem at 108% 4%,
-    hsla(190, 92%, 62%, 0.14) 0%,
-    transparent 56%
-  );
-  --ghost-bg-layer-4: radial-gradient(
-    54rem 34rem at 48% 114%,
-    hsla(132, 88%, 42%, 0.09) 0%,
-    transparent 62%
-  );
-}
-
-:root[data-ghost-palette="ultraviolet"] {
-  --sl-color-black: hsl(232, 31%, 6%);
-  --sl-color-white: hsl(212, 100%, 97%);
-  --sl-color-gray-1: hsl(214, 92%, 92%);
-  --sl-color-gray-2: hsl(213, 72%, 83%);
-  --sl-color-gray-3: hsl(220, 43%, 64%);
-  --sl-color-gray-4: hsl(234, 29%, 45%);
-  --sl-color-gray-5: hsl(238, 34%, 18%);
-  --sl-color-gray-6: hsl(240, 38%, 11%);
-  --sl-color-accent-low: hsl(273, 70%, 18%);
-  --sl-color-accent: hsl(272, 100%, 66%);
-  --sl-color-accent-high: hsl(272, 100%, 86%);
-  --sl-color-text-invert: hsl(238, 34%, 9%);
-  --sl-color-bg: hsl(236, 34%, 7%);
-  --sl-color-bg-nav: hsl(237, 37%, 8%);
-  --sl-color-bg-sidebar: hsl(238, 41%, 10%);
-  --sl-color-bg-inline-code: hsl(236, 33%, 13%);
-  --sl-color-hairline-light: hsl(255, 57%, 24%);
-  --sl-color-hairline: hsl(248, 52%, 19%);
-  --sl-color-hairline-shade: hsl(238, 52%, 7%);
-  --ghost-h1: hsl(192, 100%, 90%);
-  --ghost-h2: hsl(272, 100%, 72%);
-  --ghost-h3: hsl(187, 100%, 68%);
-  --ghost-h4: hsl(326, 100%, 74%);
-  --ghost-h5: hsl(214, 84%, 82%);
-  --ghost-h6: hsl(216, 69%, 74%);
-  --ghost-bg-layer-1: linear-gradient(
-    145deg,
-    hsl(234, 35%, 7%) 0%,
-    hsl(239, 37%, 8%) 52%,
-    hsl(233, 32%, 7%) 100%
-  );
-  --ghost-bg-layer-2: radial-gradient(
-    72rem 42rem at 6% -9%,
-    hsla(272, 100%, 64%, 0.2) 0%,
-    transparent 56%
-  );
-  --ghost-bg-layer-3: radial-gradient(
-    64rem 36rem at 106% 3%,
-    hsla(187, 100%, 58%, 0.16) 0%,
-    transparent 54%
-  );
-  --ghost-bg-layer-4: radial-gradient(
-    56rem 34rem at 50% 114%,
-    hsla(326, 100%, 62%, 0.1) 0%,
+    hsla(170, 60%, 44%, 0.06) 0%,
     transparent 62%
   );
 }
@@ -287,16 +145,16 @@ body {
 
 .sidebar-pane,
 .right-sidebar-panel {
-  box-shadow: inset 0 0 0 1px hsla(186, 100%, 60%, 0.08);
+  box-shadow: inset 0 0 0 1px hsla(350, 100%, 68%, 0.08);
 }
 
 .sl-markdown-content :is(h1, h2, h3, h4) {
   letter-spacing: 0.015em;
   font-weight: 700;
   text-shadow:
-    0 0 10px hsla(186, 100%, 62%, 0.28),
-    0 0 20px hsla(186, 100%, 56%, 0.16),
-    0 0 28px hsla(315, 100%, 60%, 0.12);
+    0 0 10px hsla(41, 100%, 70%, 0.28),
+    0 0 20px hsla(23, 100%, 66%, 0.16),
+    0 0 28px hsla(350, 100%, 68%, 0.12);
 }
 
 .sl-markdown-content h1 {
@@ -334,28 +192,28 @@ body {
 .sidebar-content a[aria-current="page"],
 .right-sidebar-panel a[aria-current="true"] {
   box-shadow:
-    0 0 0 1px hsla(186, 100%, 65%, 0.75),
-    0 0 18px hsla(186, 100%, 56%, 0.35);
+    0 0 0 1px hsla(350, 100%, 68%, 0.75),
+    0 0 18px hsla(350, 100%, 60%, 0.35);
 }
 
 .sl-markdown-content a:hover,
 .sidebar-content a:hover,
 .right-sidebar-panel a:hover {
   color: var(--sl-color-accent-high);
-  text-shadow: 0 0 8px hsla(186, 100%, 62%, 0.28);
+  text-shadow: 0 0 8px hsla(350, 100%, 68%, 0.28);
 }
 
 .sl-link-button.primary {
   box-shadow:
-    0 0 0 1px hsla(186, 100%, 80%, 0.5),
-    0 0 22px hsla(186, 100%, 56%, 0.45);
+    0 0 0 1px hsla(350, 100%, 80%, 0.5),
+    0 0 22px hsla(350, 100%, 60%, 0.45);
 }
 
 .pagination-links a {
-  border-color: hsla(186, 100%, 62%, 0.35);
+  border-color: hsla(350, 100%, 68%, 0.35);
   box-shadow:
-    0 0 0 1px hsla(186, 100%, 62%, 0.25),
-    0 0 20px hsla(315, 100%, 54%, 0.12);
+    0 0 0 1px hsla(350, 100%, 68%, 0.25),
+    0 0 20px hsla(23, 100%, 66%, 0.12);
 }
 
 #starlight__main h1,
@@ -373,8 +231,8 @@ main[data-pagefind-body] > .content-panel:first-child .sl-container > h1#_top,
   letter-spacing: 0.06em;
   color: var(--ghost-h1);
   text-shadow:
-    0 0 12px hsla(186, 100%, 62%, 0.3),
-    0 0 24px hsla(186, 100%, 56%, 0.18);
+    0 0 12px hsla(41, 100%, 70%, 0.3),
+    0 0 24px hsla(350, 100%, 60%, 0.18);
 }
 
 .title-wrapper .site-title {
@@ -438,28 +296,28 @@ main[data-pagefind-body] > .content-panel:first-child .sl-container > h1#_top,
 }
 
 :root[data-theme="light"] :is(.sidebar-pane, .right-sidebar-panel) {
-  box-shadow: inset 0 0 0 1px hsla(194, 45%, 56%, 0.2);
+  box-shadow: inset 0 0 0 1px hsla(350, 45%, 56%, 0.2);
 }
 
 :root[data-theme="light"] .sl-markdown-content :is(h1, h2, h3, h4) {
   text-shadow:
-    0 0 4px hsla(189, 100%, 44%, 0.12),
-    0 0 8px hsla(315, 68%, 52%, 0.06);
+    0 0 4px hsla(41, 100%, 50%, 0.12),
+    0 0 8px hsla(350, 68%, 52%, 0.06);
 }
 
 @keyframes ghost-glow {
   0%,
   100% {
     text-shadow:
-      0 0 8px hsla(186, 100%, 62%, 0.2),
-      0 0 16px hsla(186, 100%, 56%, 0.1);
+      0 0 8px hsla(41, 100%, 70%, 0.2),
+      0 0 16px hsla(350, 100%, 68%, 0.1);
   }
   50% {
     text-shadow:
-      0 0 16px hsla(186, 100%, 62%, 0.6),
-      0 0 32px hsla(186, 100%, 56%, 0.4),
-      0 0 48px hsla(186, 100%, 50%, 0.22),
-      0 0 56px hsla(315, 100%, 60%, 0.15);
+      0 0 16px hsla(41, 100%, 70%, 0.6),
+      0 0 32px hsla(23, 100%, 66%, 0.4),
+      0 0 48px hsla(350, 100%, 60%, 0.22),
+      0 0 56px hsla(350, 100%, 68%, 0.15);
   }
 }
 
@@ -549,14 +407,14 @@ main[data-pagefind-body] > .content-panel:first-child .sl-container > h1#_top,
   0%,
   100% {
     text-shadow:
-      0 0 3px hsla(189, 100%, 44%, 0.1),
-      0 0 6px hsla(189, 100%, 44%, 0.06);
+      0 0 3px hsla(41, 100%, 50%, 0.1),
+      0 0 6px hsla(41, 100%, 50%, 0.06);
   }
   50% {
     text-shadow:
-      0 0 8px hsla(189, 100%, 44%, 0.35),
-      0 0 16px hsla(189, 100%, 44%, 0.2),
-      0 0 24px hsla(189, 100%, 44%, 0.1);
+      0 0 8px hsla(41, 100%, 50%, 0.35),
+      0 0 16px hsla(23, 100%, 50%, 0.2),
+      0 0 24px hsla(350, 100%, 44%, 0.1);
   }
 }
 
