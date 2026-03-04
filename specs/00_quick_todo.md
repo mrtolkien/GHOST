@@ -57,4 +57,6 @@
       pre-conceived idea of what the right answer is
   - Fixed: rewrote deep research prompt to avoid training-data brand injection in search
     queries. Added explicit rules about using category terms only.
-- [ ] Try completely removing the todo tool: I'm not sure it's pulling its weight
+- [x] Return full deep research report to GHOST: report but also negative info and such
+- [x] Try completely removing the todo tool: I'm not sure it's pulling its weight
+  - It was: removing it ended up costing many more tokens for worse results

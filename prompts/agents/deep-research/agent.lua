@@ -94,23 +94,7 @@ return {
                     session_id = ctx.session_id,
                 })
 
-                -- Build a formatted text version for the main session.
-                local parts = { args.report, "", "## Sources" }
-                if args.sources then
-                    for _, src in ipairs(args.sources) do
-                        table.insert(
-                            parts,
-                            string.format(
-                                "- [%s](%s) — %s (%s)",
-                                src.title or "Untitled",
-                                src.url or "",
-                                src.contribution or "",
-                                src.quality or "unknown"
-                            )
-                        )
-                    end
-                end
-                return table.concat(parts, "\n")
+                return report_data
             end,
             terminal = true,
         },
