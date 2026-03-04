@@ -1,16 +1,27 @@
-# Stage 1: Build the Ghost binary
-FROM rust:latest AS builder
+# Stage 1: Generate dependency recipe
+FROM lukemathwalker/cargo-chef:latest-rust-1 AS chef
+WORKDIR /build
+
+FROM chef AS planner
+COPY . .
+RUN cargo chef prepare --recipe-path recipe.json
+
+# Stage 2: Build dependencies (cached) then build Ghost
+FROM chef AS builder
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends pkg-config cmake && \
     rm -rf /var/lib/apt/lists/*
 
-WORKDIR /build
-COPY . .
+# Cook dependencies — this layer is cached until Cargo.toml/Cargo.lock change
+COPY --from=planner /build/recipe.json recipe.json
+RUN cargo chef cook --release --recipe-path recipe.json
 
+# Build the actual binary
+COPY . .
 RUN cargo build --release && strip target/release/ghost
 
-# Stage 2: Runtime with Nix
+# Stage 3: Runtime with Nix
 FROM nixos/nix:latest
 
 # Enable flakes
