@@ -2,6 +2,8 @@ name: Docker
 
 on:
   push:
+    branches:
+      - main
     tags:
       - "v*"
 
@@ -20,9 +22,15 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Extract version from tag
-        id: version
-        run: echo "version=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+      - name: Determine tags
+        id: tags
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/v}"
+            echo "tags=mrtolkien/ghost:latest,mrtolkien/ghost:$VERSION" >> "$GITHUB_OUTPUT"
+          else
+            echo "tags=mrtolkien/ghost:nightly" >> "$GITHUB_OUTPUT"
+          fi
 
       - uses: docker/build-push-action@v6
         with:
@@ -30,8 +38,6 @@ jobs:
           file: docker/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: |
-            mrtolkien/ghost:latest
-            mrtolkien/ghost:${{ steps.version.outputs.version }}
+          tags: ${{ steps.tags.outputs.tags }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
