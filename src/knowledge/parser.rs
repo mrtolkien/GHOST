@@ -78,15 +78,12 @@ pub fn slug_from_title(title: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::knowledge::types::Archetype;
-
     #[test]
     fn parse_valid_note_roundtrip() {
-        let raw = "---\ntitle: Rust\narchetype: concept\ntags:\n  - lang\ntrust: 8\n---\nRust is a systems programming language.\n\nIt has [[Ownership]] and [[concept>Borrowing]].\n";
+        let raw = "---\ntitle: Rust\ntags:\n  - lang\ntrust: 8\n---\nRust is a systems programming language.\n\nIt has [[Ownership]] and [[concept>Borrowing]].\n";
 
         let parsed = parse_note(raw).unwrap();
         assert_eq!(parsed.front.title, "Rust");
-        assert_eq!(parsed.front.archetype, Some(Archetype::Concept));
         assert_eq!(parsed.front.tags, vec!["lang"]);
         assert_eq!(parsed.front.trust, 8);
         assert!(parsed.body.contains("Rust is a systems"));
@@ -151,7 +148,6 @@ mod tests {
     fn serialize_roundtrip() {
         let front = NoteFrontMatter {
             title: "Test Note".to_string(),
-            archetype: Some(Archetype::Project),
             tags: vec!["a".into(), "b".into()],
             sources: vec![],
             trust: 7,
@@ -175,7 +171,6 @@ mod tests {
     fn sources_roundtrip() {
         let front = NoteFrontMatter {
             title: "With Sources".to_string(),
-            archetype: Some(Archetype::Concept),
             tags: vec!["test".into()],
             sources: vec![
                 "https://example.com/article".into(),
@@ -196,7 +191,6 @@ mod tests {
     fn sources_omitted_when_empty() {
         let front = NoteFrontMatter {
             title: "No Sources".to_string(),
-            archetype: None,
             tags: vec![],
             sources: vec![],
             trust: 5,

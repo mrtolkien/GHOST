@@ -41,15 +41,6 @@ impl Tool for NoteWrite {
                         "type": "string",
                         "description": "Markdown body content. May contain [[WikiLinks]] and [[rel>Target]] typed links."
                     },
-                    "archetype": {
-                        "type": "string",
-                        "enum": [
-                            "person", "concept", "decision", "event",
-                            "place", "project", "organization",
-                            "procedure", "media", "quote", "topic"
-                        ],
-                        "description": "Optional archetype classification"
-                    },
                     "tags": {
                         "type": "array",
                         "items": {"type": "string"},
@@ -87,7 +78,6 @@ impl Tool for NoteWrite {
             .get("body")
             .and_then(Value::as_str)
             .ok_or_else(|| ToolError::InvalidParams("missing required parameter 'body'".into()))?;
-        let archetype = params.get("archetype").and_then(Value::as_str);
         let tags: Vec<String> = params
             .get("tags")
             .and_then(Value::as_array)
@@ -112,11 +102,11 @@ impl Tool for NoteWrite {
 
         match action {
             "create" => {
-                self.create_note(ctx, title, body, archetype, &tags, &sources, trust)
+                self.create_note(ctx, title, body, &tags, &sources, trust)
                     .await
             }
             "update" => {
-                self.update_note(ctx, title, body, archetype, &tags, &sources, trust)
+                self.update_note(ctx, title, body, &tags, &sources, trust)
                     .await
             }
             _ => Err(ToolError::InvalidParams(format!(
@@ -188,7 +178,6 @@ impl NoteWrite {
         ctx: &ToolContext,
         title: &str,
         body: &str,
-        archetype: Option<&str>,
         tags: &[String],
         sources: &[String],
         trust: i64,
@@ -197,8 +186,6 @@ impl NoteWrite {
 
         let front = NoteFrontMatter {
             title: title.to_string(),
-            archetype: archetype
-                .and_then(|a| serde_json::from_value(Value::String(a.to_string())).ok()),
             tags: tags.to_vec(),
             sources: sources.to_vec(),
             trust,
@@ -233,7 +220,6 @@ impl NoteWrite {
             &ctx.db,
             title,
             &sanitized_body,
-            archetype,
             tags,
             sources,
             trust,
@@ -261,7 +247,7 @@ impl NoteWrite {
         if let Some(warning) = ref_warning {
             msg.push_str(&format!("\n\n{warning}"));
         }
-        if wiki_links.is_empty() && archetype != Some("topic") {
+        if wiki_links.is_empty() {
             msg.push_str(
                 "\n\nHINT: This note has no [[wiki links]]. Consider adding links \
                  to related entities to build the knowledge graph.",
@@ -290,7 +276,6 @@ impl NoteWrite {
         ctx: &ToolContext,
         title: &str,
         body: &str,
-        archetype: Option<&str>,
         tags: &[String],
         sources: &[String],
         trust: i64,
@@ -320,7 +305,6 @@ impl NoteWrite {
             &ctx.db,
             &existing.id,
             &sanitized_body,
-            archetype,
             tags,
             sources,
             trust,
@@ -332,8 +316,6 @@ impl NoteWrite {
 
         let front = NoteFrontMatter {
             title: title.to_string(),
-            archetype: archetype
-                .and_then(|a| serde_json::from_value(Value::String(a.to_string())).ok()),
             tags: tags.to_vec(),
             sources: sources.to_vec(),
             trust,
@@ -376,7 +358,7 @@ impl NoteWrite {
         if let Some(warning) = ref_warning {
             msg.push_str(&format!("\n\n{warning}"));
         }
-        if wiki_links.is_empty() && archetype != Some("topic") {
+        if wiki_links.is_empty() {
             msg.push_str(
                 "\n\nHINT: This note has no [[wiki links]]. Consider adding links \
                  to related entities to build the knowledge graph.",

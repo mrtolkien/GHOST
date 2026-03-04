@@ -201,9 +201,6 @@ async fn cmd_get(
 
         println!("ID: {}", note.id);
         println!("Title: {}", note.title);
-        if let Some(arch) = &note.archetype {
-            println!("Archetype: {arch}");
-        }
         let tags = note.tags_parsed();
         if !tags.is_empty() {
             println!("Tags: {}", tags.join(", "));
@@ -223,9 +220,6 @@ async fn cmd_get(
             match knowledge::read_note(workspace, filename) {
                 Ok(parsed) => {
                     println!("Title: {}", parsed.front.title);
-                    if let Some(arch) = &parsed.front.archetype {
-                        println!("Archetype: {arch}");
-                    }
                     if !parsed.front.tags.is_empty() {
                         println!("Tags: {}", parsed.front.tags.join(", "));
                     }
@@ -418,7 +412,6 @@ async fn cmd_reindex(
             }
         };
 
-        let archetype_str = parsed.front.archetype.map(|a| a.to_string());
         match db::knowledge::find_note_by_title(db, &parsed.front.title).await? {
             Some(existing) => {
                 // Compute relative path from file's position
@@ -431,7 +424,6 @@ async fn cmd_reindex(
                     db,
                     &existing.id,
                     &parsed.body,
-                    archetype_str.as_deref(),
                     &parsed.front.tags,
                     &parsed.front.sources,
                     parsed.front.trust,
@@ -459,7 +451,6 @@ async fn cmd_reindex(
                     db,
                     &parsed.front.title,
                     &parsed.body,
-                    archetype_str.as_deref(),
                     &parsed.front.tags,
                     &parsed.front.sources,
                     parsed.front.trust,

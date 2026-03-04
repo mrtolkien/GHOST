@@ -11,4 +11,4 @@ pub use files::{
     subfolder_from_tags, write_diary, write_note,
 };
 pub use parser::{extract_wiki_links, parse_note, serialize_note, slug_from_title};
-pub use types::{Archetype, KnowledgeKind, NoteFrontMatter, ParsedNote, WikiLink};
+pub use types::{KnowledgeKind, NoteFrontMatter, ParsedNote, WikiLink};

@@ -102,7 +102,6 @@ async fn embed_source_pipeline_stores_and_searches() {
         &db,
         "Dioxus Components",
         "Dioxus uses components as the basic building blocks of UI.",
-        None,
         &["dioxus".to_string()],
         &[],
         5,

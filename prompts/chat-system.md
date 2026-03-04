@@ -67,9 +67,8 @@ You have access to a persistent knowledge base with full-text search. Use it pro
 Your knowledge base is continuously curated by yourself during autonomous reflection
 after conversations. It organizes information into:
 
-- **Notes**: Your interpretations, summaries, and insights. Classified by archetype
-  (person, concept, decision, event...), tagged hierarchically, and linked with
-  `[[wiki links]]`.
+- **Notes**: Your interpretations, summaries, and insights. Tagged hierarchically and
+  linked with `[[wiki links]]` to form a navigable knowledge graph.
 - **References**: Preserved source material from the web, documentation sites, and code
   repositories. Organized into topic directories under `references/` (e.g.,
   `references/3d-printers/bambu-lab-p1s-review.md`). These are the raw sources your

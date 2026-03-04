@@ -13,7 +13,7 @@ pub async fn create_note(
     title: &str,
     body: &str,
 ) -> Result<String, DatabaseError> {
-    create_note_full(db, title, body, None, &[], &[], 5, None, None).await
+    create_note_full(db, title, body, &[], &[], 5, None, None).await
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -22,7 +22,6 @@ pub async fn create_note_full(
     db: &SqlitePool,
     title: &str,
     body: &str,
-    archetype: Option<&str>,
     tags: &[String],
     sources: &[String],
     trust: i64,
@@ -36,13 +35,12 @@ pub async fn create_note_full(
 
     sqlx::query(
         "INSERT INTO note \
-         (id, title, body, archetype, tags, sources, trust, topic_id, path, created_at, updated_at) \
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+         (id, title, body, tags, sources, trust, topic_id, path, created_at, updated_at) \
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
     )
     .bind(&id)
     .bind(title)
     .bind(body)
-    .bind(archetype)
     .bind(&tags_json)
     .bind(&sources_json)
     .bind(trust)
@@ -67,7 +65,6 @@ pub async fn update_note(
     db: &SqlitePool,
     note_id: &str,
     body: &str,
-    archetype: Option<&str>,
     tags: &[String],
     sources: &[String],
     trust: i64,
@@ -78,11 +75,10 @@ pub async fn update_note(
     let sources_json = serde_json::to_string(sources).unwrap_or_default();
 
     sqlx::query(
-        "UPDATE note SET body = ?, archetype = ?, tags = ?, sources = ?, \
+        "UPDATE note SET body = ?, tags = ?, sources = ?, \
          trust = ?, topic_id = COALESCE(?, topic_id), path = ?, updated_at = ? WHERE id = ?",
     )
     .bind(body)
-    .bind(archetype)
     .bind(&tags_json)
     .bind(&sources_json)
     .bind(trust)

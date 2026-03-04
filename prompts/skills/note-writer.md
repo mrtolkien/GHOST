@@ -2,7 +2,7 @@
 name: note-writer
 description:
   Comprehensive guide for creating structured knowledge notes. Covers discovery, note
-  format, titles, linking, archetypes, trust scores, tags, and special note types.
+  format, titles, linking, trust scores, tags, and special note types.
 ---
 
 # Note Writer — Knowledge Note Guide
@@ -84,22 +84,6 @@ Common patterns:
 - Source quality notes → `[[about>Topic]]`
 - Entity under a topic → `[[about>Topic Name]]` (makes topic notes natural graph hubs)
 
-## Archetypes
-
-| Archetype      | Purpose                                  |
-| -------------- | ---------------------------------------- |
-| `person`       | People, contacts, key individuals        |
-| `concept`      | Ideas, definitions, mental models        |
-| `decision`     | Choices with rationale and trade-offs    |
-| `event`        | Meetings, occurrences, milestones        |
-| `place`        | Locations, venues, geographic context    |
-| `project`      | Projects, initiatives, ongoing work      |
-| `organization` | Companies, teams, groups                 |
-| `procedure`    | How-tos, workflows, step-by-step guides  |
-| `media`        | Books, articles, films, podcasts         |
-| `quote`        | Notable quotes with attribution          |
-| `topic`        | Reference topic hubs for source material |
-
 ## Trust Scores
 
 - **1-3**: Unverified, speculative, or from uncertain sources
@@ -124,7 +108,7 @@ source's reliability and depth. Tag under `{domain}/sources`. Title format: "Sou
 
 **Decision notes**: When comparisons or trade-offs are involved, create a decision note
 linking the options with rationale. Use `[[compares>Option A]]` /
-`[[compares>Option B]]` edges. Archetype: `decision`.
+`[[compares>Option B]]` edges.
 
 ## Rules
 

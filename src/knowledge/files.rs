@@ -120,7 +120,6 @@ pub fn ensure_index_notes(
 
         let front = NoteFrontMatter {
             title,
-            archetype: Some(super::types::Archetype::Topic),
             tags: vec![folder_path.clone()],
             sources: vec![],
             trust: 5,
@@ -251,7 +250,6 @@ fn collect_md_files_recursive(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::knowledge::types::Archetype;
     use tempfile::TempDir;
 
     #[test]
@@ -261,7 +259,6 @@ mod tests {
 
         let front = NoteFrontMatter {
             title: "Test Note".to_string(),
-            archetype: Some(Archetype::Concept),
             tags: vec!["test".into()],
             sources: vec![],
             trust: 7,
@@ -285,7 +282,6 @@ mod tests {
 
         let front = NoteFrontMatter {
             title: "Flat Note".to_string(),
-            archetype: None,
             tags: vec![],
             sources: vec![],
             trust: 5,

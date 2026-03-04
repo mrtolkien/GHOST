@@ -7,15 +7,13 @@ use crate::db::GhostDb;
 use crate::error::GhostError;
 use crate::knowledge::reconcile::reconcile_edges;
 use crate::knowledge::sanitize::sanitize_reference_links;
-use crate::knowledge::{self, Archetype, NoteFrontMatter, extract_wiki_links};
+use crate::knowledge::{self, NoteFrontMatter, extract_wiki_links};
 
 #[derive(Debug, Subcommand)]
 pub enum NoteCommand {
     Create {
         #[arg(long)]
         title: String,
-        #[arg(long)]
-        archetype: Option<Archetype>,
         #[arg(long = "tag")]
         tags: Vec<String>,
         #[arg(long = "source")]
@@ -26,8 +24,6 @@ pub enum NoteCommand {
     Update {
         #[arg(long)]
         title: String,
-        #[arg(long)]
-        archetype: Option<Archetype>,
         #[arg(long = "tag")]
         tags: Vec<String>,
         #[arg(long = "source")]
@@ -51,42 +47,22 @@ pub async fn execute(command: NoteCommand) -> Result<(), GhostError> {
     match command {
         NoteCommand::Create {
             title,
-            archetype,
             tags,
             sources,
             trust,
         } => {
-            let msg = create_note(
-                &db,
-                &config.workspace,
-                &title,
-                &body,
-                archetype,
-                &tags,
-                &sources,
-                trust,
-            )
-            .await?;
+            let msg = create_note(&db, &config.workspace, &title, &body, &tags, &sources, trust)
+                .await?;
             println!("{msg}");
         }
         NoteCommand::Update {
             title,
-            archetype,
             tags,
             sources,
             trust,
         } => {
-            let msg = update_note(
-                &db,
-                &config.workspace,
-                &title,
-                &body,
-                archetype,
-                &tags,
-                &sources,
-                trust,
-            )
-            .await?;
+            let msg = update_note(&db, &config.workspace, &title, &body, &tags, &sources, trust)
+                .await?;
             println!("{msg}");
         }
     }
@@ -100,17 +76,14 @@ async fn create_note(
     workspace: &std::path::Path,
     title: &str,
     body: &str,
-    archetype: Option<Archetype>,
     tags: &[String],
     sources: &[String],
     trust: i64,
 ) -> Result<String, GhostError> {
     let (sanitized_body, ref_warning) = sanitize_reference_links(workspace, body);
 
-    let archetype_str = archetype.map(|a| a.to_string());
     let front = NoteFrontMatter {
         title: title.to_string(),
-        archetype,
         tags: tags.to_vec(),
         sources: sources.to_vec(),
         trust,
@@ -145,7 +118,6 @@ async fn create_note(
         db,
         title,
         &sanitized_body,
-        archetype_str.as_deref(),
         tags,
         sources,
         trust,
@@ -173,7 +145,7 @@ async fn create_note(
     if let Some(warning) = ref_warning {
         msg.push_str(&format!("\n\n{warning}"));
     }
-    if wiki_links.is_empty() && archetype_str.as_deref() != Some("topic") {
+    if wiki_links.is_empty() {
         msg.push_str(
             "\n\nHINT: This note has no [[wiki links]]. Consider adding links \
              to related entities to build the knowledge graph.",
@@ -200,14 +172,12 @@ async fn update_note(
     workspace: &std::path::Path,
     title: &str,
     body: &str,
-    archetype: Option<Archetype>,
     tags: &[String],
     sources: &[String],
     trust: i64,
 ) -> Result<String, GhostError> {
     let (sanitized_body, ref_warning) = sanitize_reference_links(workspace, body);
 
-    let archetype_str = archetype.map(|a| a.to_string());
     let existing = db::knowledge::find_note_by_title(db, title)
         .await
         .map_err(|e| GhostError::Database(Box::new(e)))?
@@ -231,7 +201,6 @@ async fn update_note(
         db,
         &existing.id,
         &sanitized_body,
-        archetype_str.as_deref(),
         tags,
         sources,
         trust,
@@ -243,7 +212,6 @@ async fn update_note(
 
     let front = NoteFrontMatter {
         title: title.to_string(),
-        archetype,
         tags: tags.to_vec(),
         sources: sources.to_vec(),
         trust,
@@ -281,7 +249,7 @@ async fn update_note(
     if let Some(warning) = ref_warning {
         msg.push_str(&format!("\n\n{warning}"));
     }
-    if wiki_links.is_empty() && archetype_str.as_deref() != Some("topic") {
+    if wiki_links.is_empty() {
         msg.push_str(
             "\n\nHINT: This note has no [[wiki links]]. Consider adding links \
              to related entities to build the knowledge graph.",

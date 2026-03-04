@@ -246,12 +246,10 @@ async fn process_note_change(
     let note_id = match crate::db::knowledge::find_note_by_title(db, &parsed.front.title).await {
         Ok(Some(n)) => {
             // Update existing note
-            let archetype_str = parsed.front.archetype.map(|a| a.to_string());
             let _ = crate::db::knowledge::update_note(
                 db,
                 &n.id,
                 &parsed.body,
-                archetype_str.as_deref(),
                 &parsed.front.tags,
                 &parsed.front.sources,
                 parsed.front.trust,
@@ -269,12 +267,10 @@ async fn process_note_change(
             n.id
         }
         _ => {
-            let archetype_str = parsed.front.archetype.map(|a| a.to_string());
             match crate::db::knowledge::create_note_full(
                 db,
                 &parsed.front.title,
                 &parsed.body,
-                archetype_str.as_deref(),
                 &parsed.front.tags,
                 &parsed.front.sources,
                 parsed.front.trust,

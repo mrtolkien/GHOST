@@ -38,7 +38,6 @@ pub async fn reconcile_edges(
                     db_conn,
                     &link.target,
                     "",
-                    None,
                     &[],
                     &[],
                     1,

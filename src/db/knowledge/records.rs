@@ -5,7 +5,6 @@ pub struct NoteRecord {
     pub id: String,
     pub title: String,
     pub body: String,
-    pub archetype: Option<String>,
     pub tags: String,    // JSON array of strings
     pub sources: String, // JSON array of strings
     pub trust: i64,

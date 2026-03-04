@@ -27,7 +27,7 @@ async fn upsert_and_count_embeddings() {
     let (db, _config, _workspace, _config_dir) = common::test_database().await;
 
     let note_id =
-        db::knowledge::create_note_full(&db, "Test Note", "body", None, &[], &[], 5, None, None)
+        db::knowledge::create_note_full(&db, "Test Note", "body", &[], &[], 5, None, None)
             .await
             .expect("create note");
 
@@ -53,10 +53,9 @@ async fn upsert_and_count_embeddings() {
 async fn upsert_overwrites_on_duplicate_source_and_chunk() {
     let (db, _config, _workspace, _config_dir) = common::test_database().await;
 
-    let note_id =
-        db::knowledge::create_note_full(&db, "Dup Note", "body", None, &[], &[], 5, None, None)
-            .await
-            .expect("create note");
+    let note_id = db::knowledge::create_note_full(&db, "Dup Note", "body", &[], &[], 5, None, None)
+        .await
+        .expect("create note");
 
     let vector_a = vec![0.1_f32; 1024];
     let vector_b = vec![0.9_f32; 1024];
@@ -101,7 +100,7 @@ async fn get_content_hash_returns_stored_hash() {
     let (db, _config, _workspace, _config_dir) = common::test_database().await;
 
     let note_id =
-        db::knowledge::create_note_full(&db, "Hash Note", "body", None, &[], &[], 5, None, None)
+        db::knowledge::create_note_full(&db, "Hash Note", "body", &[], &[], 5, None, None)
             .await
             .expect("create note");
 
@@ -130,7 +129,7 @@ async fn delete_embeddings_for_source_removes_all_chunks() {
     let (db, _config, _workspace, _config_dir) = common::test_database().await;
 
     let note_id =
-        db::knowledge::create_note_full(&db, "Multi Chunk", "body", None, &[], &[], 5, None, None)
+        db::knowledge::create_note_full(&db, "Multi Chunk", "body", &[], &[], 5, None, None)
             .await
             .expect("create note");
 
@@ -163,14 +162,12 @@ async fn delete_embeddings_for_source_removes_all_chunks() {
 async fn delete_all_embeddings_clears_table() {
     let (db, _config, _workspace, _config_dir) = common::test_database().await;
 
-    let note_a =
-        db::knowledge::create_note_full(&db, "Note A", "body", None, &[], &[], 5, None, None)
-            .await
-            .expect("create a");
-    let note_b =
-        db::knowledge::create_note_full(&db, "Note B", "body", None, &[], &[], 5, None, None)
-            .await
-            .expect("create b");
+    let note_a = db::knowledge::create_note_full(&db, "Note A", "body", &[], &[], 5, None, None)
+        .await
+        .expect("create a");
+    let note_b = db::knowledge::create_note_full(&db, "Note B", "body", &[], &[], 5, None, None)
+        .await
+        .expect("create b");
 
     let vector = vec![0.1_f32; 1024];
     db::embeddings::upsert_embedding(&db, "note", &note_a, 0, "a", "h1", &vector, None)
@@ -194,7 +191,7 @@ async fn vector_search_returns_results() {
     let (db, _config, _workspace, _config_dir) = common::test_database().await;
 
     let note_id =
-        db::knowledge::create_note_full(&db, "Search Me", "body", None, &[], &[], 5, None, None)
+        db::knowledge::create_note_full(&db, "Search Me", "body", &[], &[], 5, None, None)
             .await
             .expect("create note");
 
@@ -232,11 +229,10 @@ async fn vector_search_returns_results() {
 async fn vector_search_ranks_similar_higher() {
     let (db, _config, _workspace, _config_dir) = common::test_database().await;
 
-    let close_id =
-        db::knowledge::create_note_full(&db, "Close", "body", None, &[], &[], 5, None, None)
-            .await
-            .unwrap();
-    let far_id = db::knowledge::create_note_full(&db, "Far", "body", None, &[], &[], 5, None, None)
+    let close_id = db::knowledge::create_note_full(&db, "Close", "body", &[], &[], 5, None, None)
+        .await
+        .unwrap();
+    let far_id = db::knowledge::create_note_full(&db, "Far", "body", &[], &[], 5, None, None)
         .await
         .unwrap();
 
@@ -277,7 +273,6 @@ async fn vector_search_respects_limit() {
             &db,
             &format!("Limit Note {i}"),
             "body",
-            None,
             &[],
             &[],
             5,
@@ -390,7 +385,6 @@ async fn vector_insert_memory_stays_bounded() {
             &db,
             &format!("MemTest Note {i}"),
             &format!("body of note {i}"),
-            None,
             &[],
             &[],
             5,
@@ -504,7 +498,6 @@ async fn vector_insert_concurrent_stays_bounded() {
                     &db_c,
                     &format!("Concurrent Note {idx}"),
                     &format!("body {idx}"),
-                    None,
                     &[],
                     &[],
                     5,
@@ -622,7 +615,6 @@ async fn vector_insert_large_scale_memory() {
             &db,
             &format!("Scale Note {i}"),
             &format!("body {i}"),
-            None,
             &[],
             &[],
             5,

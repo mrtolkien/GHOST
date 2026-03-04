@@ -64,7 +64,6 @@ pub async fn test_database() -> (GhostDb, Config, TempDir, TempDir) {
 pub fn write_test_note(workspace: &std::path::Path, title: &str, body: &str) -> PathBuf {
     let front = NoteFrontMatter {
         title: title.to_string(),
-        archetype: None,
         tags: vec![],
         sources: vec![],
         trust: 5,
