@@ -3,10 +3,8 @@
   "agent_web_fetch_urls": [],
   "chat_tool_calls": [
     "read_file",
-    "todo",
-    "todo",
+    "read_file",
     "knowledge_search",
-    "todo",
     "agent_control"
   ]
 }
