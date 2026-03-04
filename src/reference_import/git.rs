@@ -117,6 +117,16 @@ pub async fn import_git(
             }
         };
 
+        // Write to disk: references/{topic}/{rel_path}
+        let disk_path = workspace
+            .join("references")
+            .join(&config.topic)
+            .join(&*rel_path);
+        if let Some(parent) = disk_path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        std::fs::write(&disk_path, &content)?;
+
         let ref_id = db::knowledge::create_reference(
             db,
             &topic_id,

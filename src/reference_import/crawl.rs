@@ -61,8 +61,13 @@ pub async fn import_crawl(
         }
         visited.insert(normalized.clone());
 
+        // Build file-based path: {topic}/{slug}.md
+        let slug = crate::web::slug_from_url(url.as_str());
+        let filename = format!("{slug}.md");
+        let ref_path = format!("{}/{filename}", config.topic);
+
         // Idempotency: skip if already imported
-        if db::knowledge::find_reference_by_path(db, &normalized)
+        if db::knowledge::find_reference_by_path(db, &ref_path)
             .await?
             .is_some()
         {
@@ -110,11 +115,21 @@ pub async fn import_crawl(
         // Convert the already-fetched HTML to markdown locally (no second fetch)
         let extracted = web::extract_content(&html, url.as_str(), &web::FetchOptions::default());
 
+        // Write to disk: references/{topic}/{slug}.md
+        let disk_path = workspace
+            .join("references")
+            .join(&config.topic)
+            .join(&filename);
+        if let Some(parent) = disk_path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        std::fs::write(&disk_path, &extracted.text)?;
+
         // Store as reference
         let ref_id = db::knowledge::create_reference(
             db,
             &topic_id,
-            &normalized,
+            &ref_path,
             &extracted.text,
             Some(url.as_str()),
             Some(&batch_id),
@@ -127,7 +142,7 @@ pub async fn import_crawl(
             content: extracted.text,
             tags: vec![config.topic.clone()],
             topic_id: Some(topic_id.clone()),
-            path: None,
+            path: Some(ref_path.clone()),
         });
 
         created += 1;

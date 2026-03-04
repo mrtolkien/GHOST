@@ -35,7 +35,9 @@ changes requiring re-creating the full GHOST workspace. Never care about migrati
 
 - **GHOST/OPERATOR**: AI agent / human user. One each per installation.
 - **Session**: Chat thread. **Agent**: Lua-defined autonomous worker (`agents/<name>/`).
-- **Knowledge**: Notes/references/diary in SQLite with graph edges + embeddings.
+- **Knowledge**: Notes/references/diary — dual storage: plain text files on disk (source
+  of truth) + SQLite for FTS5/BM25 search + embeddings. References live under
+  `references/{topic}/` in the workspace.
 - **Skill**: agentskills.io files in `$WORKSPACE/skills/`, read via file tools.
 - **Provider**: LLM backend (OpenRouter, Kimi, OpenAI OAuth/Codex Responses API).
 

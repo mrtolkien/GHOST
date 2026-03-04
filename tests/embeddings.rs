@@ -315,6 +315,7 @@ fn hybrid_merge_combines_bm25_and_embedding_scores() {
         snippet: "snippet".to_string(),
         score: 1.0,
         kind: "note".to_string(),
+        path: None,
     }];
 
     let embedding_hits = vec![db::embeddings::EmbeddingHit {
@@ -357,6 +358,7 @@ fn hybrid_merge_respects_limit() {
             snippet: String::new(),
             score: 1.0,
             kind: "note".to_string(),
+            path: None,
         })
         .collect();
 

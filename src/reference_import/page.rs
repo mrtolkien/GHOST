@@ -24,8 +24,10 @@ pub async fn import_page(
     // Ensure topic hierarchy
     let topic_id = ensure_topic_hierarchy(db, &config.topic).await?;
 
-    // Use url as the reference path
-    let ref_path = url.clone();
+    // Build file-based path: {topic}/{slug}.md
+    let slug = crate::web::slug_from_url(url);
+    let filename = format!("{slug}.md");
+    let ref_path = format!("{}/{filename}", config.topic);
 
     // Idempotency: skip if already imported
     if db::knowledge::find_reference_by_path(db, &ref_path)
@@ -52,6 +54,16 @@ pub async fn import_page(
         .await
         .map_err(|e| ImportError::Fetch(e.to_string()))?;
 
+    // Write to disk: references/{topic}/{slug}.md
+    let disk_path = workspace
+        .join("references")
+        .join(&config.topic)
+        .join(&filename);
+    if let Some(parent) = disk_path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    std::fs::write(&disk_path, &extracted.text)?;
+
     // Store as reference
     let ref_id = db::knowledge::create_reference(
         db,
@@ -71,7 +83,7 @@ pub async fn import_page(
         content: extracted.text,
         tags: vec![config.topic.clone()],
         topic_id: Some(topic_id.clone()),
-        path: None,
+        path: Some(ref_path.clone()),
     }];
     let embeddings_generated = embed_sources(&client, db, embed_requests).await?;
 

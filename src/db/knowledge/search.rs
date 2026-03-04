@@ -63,6 +63,7 @@ pub async fn search_notes(
                 snippet,
                 score: r.score,
                 kind: "note".to_string(),
+                path: None,
             }
         })
         .collect())
@@ -79,6 +80,7 @@ pub async fn search_references(
     struct RefSearchRow {
         id: String,
         topic_name: String,
+        path: String,
         content: String,
         score: f64,
     }
@@ -87,7 +89,7 @@ pub async fn search_references(
 
     let rows = if let Some(tid) = topic_id {
         sqlx::query_as::<_, RefSearchRow>(
-            "SELECT r.id, COALESCE(t.name, r.topic_id) AS topic_name, r.content, \
+            "SELECT r.id, COALESCE(t.name, r.topic_id) AS topic_name, r.path, r.content, \
              -bm25(reference_fts, 2.0, 1.0) AS score \
              FROM reference_fts \
              JOIN reference r ON r.rowid = reference_fts.rowid \
@@ -103,7 +105,7 @@ pub async fn search_references(
         .await
     } else {
         sqlx::query_as::<_, RefSearchRow>(
-            "SELECT r.id, COALESCE(t.name, r.topic_id) AS topic_name, r.content, \
+            "SELECT r.id, COALESCE(t.name, r.topic_id) AS topic_name, r.path, r.content, \
              -bm25(reference_fts, 2.0, 1.0) AS score \
              FROM reference_fts \
              JOIN reference r ON r.rowid = reference_fts.rowid \
@@ -133,6 +135,7 @@ pub async fn search_references(
                 snippet,
                 score: r.score,
                 kind: "reference".to_string(),
+                path: Some(format!("references/{}", r.path)),
             }
         })
         .collect())
@@ -182,6 +185,7 @@ pub async fn search_diary(
                 snippet,
                 score: r.score,
                 kind: "diary".to_string(),
+                path: None,
             }
         })
         .collect())
@@ -229,6 +233,7 @@ pub async fn search_topics(
             snippet: String::new(),
             score: r.score,
             kind: "topic".to_string(),
+            path: None,
         })
         .collect())
 }
@@ -257,6 +262,7 @@ pub fn hybrid_merge(
             snippet: hit.snippet.clone(),
             score: 0.0,
             kind: hit.kind.clone(),
+            path: hit.path.clone(),
         });
         entry.score += 0.4 * normalized;
     }
@@ -269,6 +275,7 @@ pub fn hybrid_merge(
             snippet: truncate_snippet(&hit.chunk_text, 150),
             score: 0.0,
             kind: hit.source_table.clone(),
+            path: None,
         });
         entry.score += 0.6 * hit.score;
         if entry.snippet.is_empty() {

@@ -168,7 +168,7 @@ impl Tool for KnowledgeSearch {
         }
 
         // Try hybrid search: embed query and merge with BM25
-        let hits = try_hybrid_search(
+        let mut hits = try_hybrid_search(
             &ctx.config.embeddings,
             &ctx.db,
             bm25_hits,
@@ -178,6 +178,16 @@ impl Tool for KnowledgeSearch {
             &resolved_topic_ids,
         )
         .await;
+
+        // Enrich path for reference hits that came from vector-only merge
+        for hit in &mut hits {
+            if hit.kind == "reference"
+                && hit.path.is_none()
+                && let Ok(rec) = db::knowledge::get_reference(&ctx.db, &hit.id).await
+            {
+                hit.path = Some(format!("references/{}", rec.path));
+            }
+        }
 
         // Format output
         format_results(&hits)
@@ -304,10 +314,17 @@ fn format_results(hits: &[SearchHit]) -> Result<String, ToolError> {
             current_kind = Some(&hit.kind);
         }
 
-        output.push_str(&format!(
-            "- **{}** (id: {}, score: {:.2})\n  {}\n\n",
-            hit.title, hit.id, hit.score, hit.snippet,
-        ));
+        if let Some(path) = &hit.path {
+            output.push_str(&format!(
+                "- **{}** (score: {:.2}, path: {})\n  {}\n\n",
+                hit.title, hit.score, path, hit.snippet,
+            ));
+        } else {
+            output.push_str(&format!(
+                "- **{}** (id: {}, score: {:.2})\n  {}\n\n",
+                hit.title, hit.id, hit.score, hit.snippet,
+            ));
+        }
     }
 
     output.push_str(&format!("---\n{} results total.", sorted.len()));

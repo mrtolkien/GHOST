@@ -19,12 +19,11 @@ Follow this order — stop as soon as you have an answer:
 2. **Git import** (preferred): find the docs repo via `gh`, import with
    `background: true`, tell the OPERATOR it's importing.
 3. **Crawl import** (fallback): only if no git source exists (e.g. docs-only site).
-4. **After import completes**: the result arrives as a `[shell-command completed]`
-   system message on the OPERATOR's next turn (there is no auto-trigger — the message
-   sits in the DB until the OPERATOR sends a follow-up). Search the imported refs, edit
-   the topic note, and answer. Note: reference records appear in the DB almost
-   immediately; only the embeddings trail behind. You can search whatever's embedded so
-   far.
+4. **After starting the background import**: tell the OPERATOR and **end your turn**. A
+   follow-up turn is triggered automatically when the import completes — you'll see the
+   `[shell-command completed]` system message. Search the imported refs and answer.
+   Note: reference records appear in the DB almost immediately; only the embeddings
+   trail behind. You can search whatever's embedded so far.
 
 ## CLI Commands
 
@@ -76,12 +75,9 @@ Git imports embed every file, which is slow on CPU. **Always use background mode
 ```
 
 Tell the OPERATOR: _"I'm importing the Dioxus docs in the background — I'll search them
-once the import finishes."_
-
-When the OPERATOR follows up, you'll see the `[shell-command completed]` system message
-(if the import finished). Search the imported references and answer the OPERATOR's
-question. If the import is still running, search whatever's been embedded so far and
-supplement with web search if needed.
+once the import finishes."_ Then **end your turn** — the completion watcher will
+automatically trigger a follow-up turn when the import finishes. You'll see the
+`[shell-command completed]` system message and can search the imported references.
 
 ## Crawl Import (Fallback)
 
@@ -93,6 +89,16 @@ Use only when no git source exists:
   "background": true
 }
 ```
+
+## Files on Disk
+
+All imported references are written to disk under `references/{topic}/` in the workspace
+AND stored in the DB for search. This means you can `read_file` on paths returned by
+`knowledge_search` to get full reference content — no need to re-fetch from the web.
+
+- **Git imports**: files mirror the repo structure (`references/{topic}/{rel_path}`)
+- **Crawl/page imports**: filenames are URL slugs (`references/{topic}/{slug}.md`)
+- `knowledge_search` results for references include a `path:` field you can `read_file`
 
 ## Post-Import: Enrich the Topic Note
 

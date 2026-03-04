@@ -71,6 +71,8 @@ pub struct SearchHit {
     pub snippet: String,
     pub score: f64,
     pub kind: String,
+    /// Workspace-relative file path (e.g. `references/dioxus/docs/hooks.md`).
+    pub path: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, sqlx::FromRow)]
