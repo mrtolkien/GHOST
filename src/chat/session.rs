@@ -327,7 +327,7 @@ impl SessionChat {
         &self.provider
     }
 
-    pub(super) fn config(&self) -> &Config {
+    pub fn config(&self) -> &Config {
         &self.config
     }
 
