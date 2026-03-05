@@ -90,11 +90,17 @@ Each subagent is dispatched via `agent_control(action: "start", ...)` with a foc
 prompt. Three roles:
 
 1. **Implementer** — Implements a single task. Follows TDD, commits, self-reviews. May
-   ask questions before starting.
+   ask questions before starting. See
+   `read_file("skills/superpowers/subagent-development/implementer-prompt.md")` for the
+   prompt template.
 2. **Spec reviewer** — Checks that the implementation matches the spec exactly. Reports
-   missing requirements and anything extra that was not requested.
+   missing requirements and anything extra that was not requested. See
+   `read_file("skills/superpowers/subagent-development/spec-reviewer-prompt.md")` for the
+   prompt template.
 3. **Code quality reviewer** — Reviews code quality only (after spec compliance is
-   confirmed). Checks style, structure, test coverage, naming, etc.
+   confirmed). Checks style, structure, test coverage, naming, etc. See
+   `read_file("skills/superpowers/subagent-development/code-quality-reviewer-prompt.md")`
+   for the prompt template.
 
 ## Step-by-Step
 

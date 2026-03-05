@@ -105,10 +105,24 @@ const DEFAULT_SKILLS: &[DefaultSkill] = &[
     },
     DefaultSkill {
         path: "superpowers/subagent-development",
-        files: &[(
-            "skill.md",
-            include_str!("../prompts/skills/superpowers/subagent-development/skill.md"),
-        )],
+        files: &[
+            (
+                "skill.md",
+                include_str!("../prompts/skills/superpowers/subagent-development/skill.md"),
+            ),
+            (
+                "implementer-prompt.md",
+                include_str!("../prompts/skills/superpowers/subagent-development/implementer-prompt.md"),
+            ),
+            (
+                "spec-reviewer-prompt.md",
+                include_str!("../prompts/skills/superpowers/subagent-development/spec-reviewer-prompt.md"),
+            ),
+            (
+                "code-quality-reviewer-prompt.md",
+                include_str!("../prompts/skills/superpowers/subagent-development/code-quality-reviewer-prompt.md"),
+            ),
+        ],
     },
     DefaultSkill {
         path: "superpowers/systematic-debugging",
