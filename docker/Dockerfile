@@ -42,13 +42,6 @@ RUN nix shell nixpkgs#patchelf --command sh -c '\
 COPY docker/default-flake.nix /opt/ghost/default-flake.nix
 COPY docker/entrypoint.sh /opt/ghost/entrypoint.sh
 
-# Pre-warm the Nix store with the default flake packages
-RUN mkdir -p /tmp/shell && \
-    cp /opt/ghost/default-flake.nix /tmp/shell/flake.nix && \
-    cd /tmp/shell && \
-    nix develop --command true && \
-    rm -rf /tmp/shell
-
 ENV GHOST_CONFIG_DIR=/config
 ENV GHOST_WORKSPACE=/workspace
 
