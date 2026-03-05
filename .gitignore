@@ -39,6 +39,9 @@ __pycache__
 # Nix
 /result
 
+# Worktrees
+.worktrees/
+
 # Agents
 .claude
 CLAUDE.md
