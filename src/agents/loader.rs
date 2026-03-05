@@ -57,7 +57,7 @@ pub fn discover_agents(workspace: &Path) -> Vec<AgentInfo> {
 
 /// Load an agent's config from its Lua folder. Lightweight — drops the VM
 /// after extracting the config.
-#[tracing::instrument(skip_all, fields(agent_name = name))]
+#[tracing::instrument(skip_all, fields(agent_name = name), level="debug")]
 pub fn load_agent(workspace: &Path, name: &str) -> Result<AgentConfig, AgentError> {
     let agent_dir = workspace.join("agents").join(name);
     let agent_lua = agent_dir.join("agent.lua");
@@ -80,7 +80,7 @@ pub fn load_agent(workspace: &Path, name: &str) -> Result<AgentConfig, AgentErro
 }
 
 /// Load an agent's config and keep the ScriptHost alive for hook execution.
-#[tracing::instrument(skip_all, fields(agent_name = name))]
+#[tracing::instrument(skip_all, fields(agent_name = name), level="debug")]
 pub fn load_agent_with_host(
     workspace: &Path,
     name: &str,
