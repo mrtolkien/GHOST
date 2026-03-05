@@ -2,6 +2,7 @@ pub mod agents;
 pub mod auth;
 pub mod chat;
 pub mod cli;
+pub mod coding;
 pub mod completion;
 pub mod config;
 pub mod config_cli;
