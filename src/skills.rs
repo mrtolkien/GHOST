@@ -126,10 +126,24 @@ const DEFAULT_SKILLS: &[DefaultSkill] = &[
     },
     DefaultSkill {
         path: "superpowers/systematic-debugging",
-        files: &[(
-            "skill.md",
-            include_str!("../prompts/skills/superpowers/systematic-debugging/skill.md"),
-        )],
+        files: &[
+            (
+                "skill.md",
+                include_str!("../prompts/skills/superpowers/systematic-debugging/skill.md"),
+            ),
+            (
+                "root-cause-tracing.md",
+                include_str!("../prompts/skills/superpowers/systematic-debugging/root-cause-tracing.md"),
+            ),
+            (
+                "condition-based-waiting.md",
+                include_str!("../prompts/skills/superpowers/systematic-debugging/condition-based-waiting.md"),
+            ),
+            (
+                "defense-in-depth.md",
+                include_str!("../prompts/skills/superpowers/systematic-debugging/defense-in-depth.md"),
+            ),
+        ],
     },
     DefaultSkill {
         path: "superpowers/tdd",
