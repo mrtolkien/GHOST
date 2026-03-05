@@ -1,5 +1,6 @@
 pub mod agent_runs;
 pub mod agent_state;
+pub mod coding_sessions;
 mod connection;
 pub mod embeddings;
 mod error;
