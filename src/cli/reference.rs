@@ -151,10 +151,7 @@ async fn cmd_import(
 
     match &import_config.source {
         ImportSource::File { path } => println!("Importing file: {path}"),
-        _ => println!(
-            "Importing from {source}: {}",
-            url.unwrap_or("<no url>")
-        ),
+        _ => println!("Importing from {source}: {}", url.unwrap_or("<no url>")),
     }
     println!("Topic: {topic}");
 
@@ -164,8 +161,14 @@ async fn cmd_import(
                 .await?
         }
         ImportSource::Page { .. } => {
-            crate::reference_import::import_page(db, workspace, &config.embeddings, &import_config)
-                .await?
+            crate::reference_import::import_page(
+                db,
+                workspace,
+                &config.embeddings,
+                &config.web,
+                &import_config,
+            )
+            .await?
         }
         ImportSource::Crawl { .. } => {
             crate::reference_import::import_crawl(db, workspace, &config.embeddings, &import_config)

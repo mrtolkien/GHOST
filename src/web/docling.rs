@@ -23,7 +23,11 @@ pub async fn convert_file(docling_url: &str, path: &Path) -> Result<String, WebE
 
     let form = multipart::Form::new().part("files", part).text(
         "options",
-        serde_json::json!({"to_formats": ["md"]}).to_string(),
+        serde_json::json!({
+            "to_formats": ["md"],
+            "image_export_mode": "placeholder"
+        })
+        .to_string(),
     );
 
     let client = reqwest::Client::new();
@@ -53,7 +57,7 @@ pub async fn convert_file(docling_url: &str, path: &Path) -> Result<String, WebE
 pub async fn convert_url(docling_url: &str, url: &str) -> Result<String, WebError> {
     let payload = serde_json::json!({
         "sources": [{"kind": "http", "url": url}],
-        "options": {"to_formats": ["md"]}
+        "options": {"to_formats": ["md"], "image_export_mode": "placeholder"}
     });
 
     let client = reqwest::Client::new();
@@ -79,7 +83,10 @@ pub async fn convert_url(docling_url: &str, url: &str) -> Result<String, WebErro
 }
 
 fn extract_markdown_from_response(body: &serde_json::Value) -> Result<String, WebError> {
-    if let Some(md) = body.pointer("/document/md_content").and_then(|v| v.as_str()) {
+    if let Some(md) = body
+        .pointer("/document/md_content")
+        .and_then(|v| v.as_str())
+    {
         return Ok(md.to_string());
     }
     Err(WebError::Docling(format!(

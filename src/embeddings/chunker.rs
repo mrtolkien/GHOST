@@ -93,8 +93,9 @@ fn split_with_overlap(text: &str, target: usize, overlap: usize) -> Vec<String> 
             .map(|pos| overlap_start + pos)
             .unwrap_or(abs_split);
 
-        // Guard: always advance past previous start to prevent infinite loops
-        start = next_start.max(start + 1);
+        // Guard: always advance past previous start to prevent infinite loops.
+        // Use ceil_char_boundary so start always lands on a valid char boundary.
+        start = text.ceil_char_boundary(next_start.max(start + 1));
     }
 
     parts

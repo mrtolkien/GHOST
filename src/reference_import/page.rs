@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use crate::config::EmbeddingsConfig;
+use crate::config::{EmbeddingsConfig, WebConfig};
 use crate::db;
 use crate::db::GhostDb;
 use crate::embeddings::EmbeddingClient;
@@ -10,12 +10,15 @@ use crate::web;
 use super::topic::ensure_topic_hierarchy;
 use super::types::{ImportConfig, ImportError, ImportResult, ImportSource};
 
-/// Import a single web page as a reference under a topic.
+/// Import a single web page or document URL as a reference under a topic.
+/// HTML pages are fetched and converted to markdown directly. Non-text URLs
+/// (PDF, DOCX, etc.) are routed through docling-serve for conversion.
 #[tracing::instrument(name = "import page", skip_all, fields(topic = %config.topic))]
 pub async fn import_page(
     db: &GhostDb,
     workspace: &Path,
     embeddings_config: &EmbeddingsConfig,
+    web_config: &WebConfig,
     config: &ImportConfig,
 ) -> Result<ImportResult, ImportError> {
     let ImportSource::Page { url } = &config.source else {
@@ -50,10 +53,22 @@ pub async fn import_page(
     // Upsert import batch
     let batch_id = db::knowledge::upsert_import_batch(db, &topic_id, "page", url, None, 0).await?;
 
-    // Fetch page content
-    let extracted = web::fetch(url, &web::FetchOptions::default(), None)
-        .await
-        .map_err(|e| ImportError::Fetch(e.to_string()))?;
+    // Fetch page content: try HTML fetch first, fall back to docling for non-text
+    let text = match web::fetch(url, &web::FetchOptions::default(), None).await {
+        Ok(extracted) => extracted.text,
+        Err(web::WebError::UnsupportedContentType { .. }) => {
+            let docling_url = web_config.docling_url.as_deref().ok_or_else(|| {
+                ImportError::Fetch(
+                    "URL has non-text content type (e.g. PDF) but docling_url is not configured"
+                        .into(),
+                )
+            })?;
+            web::docling::convert_url(docling_url, url)
+                .await
+                .map_err(|e| ImportError::Fetch(e.to_string()))?
+        }
+        Err(e) => return Err(ImportError::Fetch(e.to_string())),
+    };
 
     // Write to disk: references/{topic}/{slug}.md
     let disk_path = workspace
@@ -63,14 +78,14 @@ pub async fn import_page(
     if let Some(parent) = disk_path.parent() {
         std::fs::create_dir_all(parent)?;
     }
-    std::fs::write(&disk_path, &extracted.text)?;
+    std::fs::write(&disk_path, &text)?;
 
     // Store as reference
     let ref_id = db::knowledge::create_reference(
         db,
         &topic_id,
         &ref_path,
-        &extracted.text,
+        &text,
         Some(url),
         Some(&batch_id),
     )
@@ -81,7 +96,7 @@ pub async fn import_page(
     let embed_requests = vec![EmbedRequest {
         source_table: "reference".into(),
         source_id: ref_id,
-        content: extracted.text,
+        content: text,
         tags: vec![config.topic.clone()],
         topic_id: Some(topic_id.clone()),
         path: Some(ref_path.clone()),
