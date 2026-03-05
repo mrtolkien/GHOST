@@ -78,6 +78,7 @@ pub struct Settings {
     pub timing: Option<TimingSettings>,
     pub compaction: Option<CompactionSettings>,
     pub web: Option<WebSettings>,
+    pub coding: Option<CodingSettings>,
     pub debug: Option<DebugSettings>,
 }
 
@@ -164,6 +165,12 @@ pub enum SearchProviderKind {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
+pub struct CodingSettings {
+    pub model: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct DebugSettings {
     pub save_requests: Option<bool>,
 }
@@ -177,6 +184,7 @@ pub struct Config {
     pub timing: TimingConfig,
     pub compaction: CompactionConfig,
     pub web: WebConfig,
+    pub coding: CodingConfig,
     pub debug: DebugConfig,
 }
 
@@ -240,6 +248,11 @@ pub struct WebConfig {
 pub enum SearchProviderConfig {
     Brave,
     Searxng { url: String },
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct CodingConfig {
+    pub model: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -435,6 +448,9 @@ impl Config {
                     search_provider,
                 }
             },
+            coding: CodingConfig {
+                model: settings.coding.as_ref().and_then(|c| c.model.clone()),
+            },
             debug: DebugConfig {
                 save_requests: settings
                     .debug
@@ -501,6 +517,7 @@ fn empty_settings() -> Settings {
         timing: None,
         compaction: None,
         web: None,
+        coding: None,
         debug: None,
     }
 }
@@ -605,6 +622,7 @@ pub fn test_config(workspace: &std::path::Path) -> Config {
             docling_url: None,
             search_provider: SearchProviderConfig::Brave,
         },
+        coding: CodingConfig { model: None },
         debug: DebugConfig {
             save_requests: false,
         },
