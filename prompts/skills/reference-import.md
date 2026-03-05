@@ -1,11 +1,10 @@
 ---
 name: reference-import
 description:
-  Import external documentation, code, API references, and uploaded files (PDF, DOCX,
-  etc.) Use when the OPERATOR asks about a library, framework, SDK, or tool — especially
-  if knowledge_search returns no results for it. Also use when the OPERATOR wants to
-  learn or build something with a specific tool/framework — import the official docs
-  first so you have persistent, searchable reference material.
+  Import external content into the knowledge base — git repos, web pages, and binary
+  documents (PDF, DOCX, XLSX, PPTX, images). Use when knowledge_search has no results
+  for a topic, when you need to fetch non-HTML content that web_fetch cannot handle, or
+  when the OPERATOR wants persistent, searchable reference material from any source.
 ---
 
 # Reference Import Skill

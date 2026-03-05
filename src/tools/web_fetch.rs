@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use serde_json::{Value, json};
 
 use crate::providers::ToolDefinition;
-use crate::web::{FetchOptions, fetch, save_fetch_cache};
+use crate::web::{FetchOptions, WebError, fetch, save_fetch_cache};
 
 use super::context::ToolContext;
 use super::error::ToolError;
@@ -44,9 +44,18 @@ impl Tool for WebFetch {
 
         let options = FetchOptions::default();
 
-        let content = fetch(url, &options, ctx.config.web.crawl4ai_url.as_deref())
-            .await
-            .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
+        let content = match fetch(url, &options, ctx.config.web.crawl4ai_url.as_deref()).await
+        {
+            Ok(c) => c,
+            Err(WebError::UnsupportedContentType { content_type }) => {
+                return Err(ToolError::ExecutionFailed(format!(
+                    "This URL returned {content_type} which web_fetch cannot read. \
+                     Read the reference-import skill — it can import PDFs, DOCX, \
+                     and other binary documents into your knowledge base."
+                )));
+            }
+            Err(e) => return Err(ToolError::ExecutionFailed(e.to_string())),
+        };
 
         // Cache for reflection to curate later
         if let Err(e) = save_fetch_cache(&ctx.workspace, &ctx.session_id, url, &content) {
