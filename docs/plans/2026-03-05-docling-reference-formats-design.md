@@ -7,8 +7,8 @@
 references using docling-serve, with full upload support from Discord.
 
 **Architecture:** Add docling-serve as a Docker service (CPU, port 5001). Extend
-reference import with a `--source file` path that converts local files via docling's REST
-API. Rework Discord attachment handling to download all file types to `uploads/`.
+reference import with a `--source file` path that converts local files via docling's
+REST API. Rework Discord attachment handling to download all file types to `uploads/`.
 
 **Tech Stack:** docling-serve (Docker), reqwest multipart, existing reference import
 pipeline.
@@ -18,6 +18,7 @@ pipeline.
 ## Task 1: Add docling-serve to Docker Compose
 
 **Files:**
+
 - Modify: `docker-compose.yml`
 
 **Step 1: Add the service**
@@ -25,11 +26,11 @@ pipeline.
 Add `docling-serve` after the `searxng` service:
 
 ```yaml
-  docling-serve:
-    image: ghcr.io/docling-project/docling-serve-cpu:latest
-    networks:
-      - ghost-net
-    restart: unless-stopped
+docling-serve:
+  image: ghcr.io/docling-project/docling-serve-cpu:latest
+  networks:
+    - ghost-net
+  restart: unless-stopped
 ```
 
 **Step 2: Add env var to ghost service**
@@ -49,6 +50,7 @@ git commit -m "feat: add docling-serve to docker-compose"
 ## Task 2: Add `docling_url` to config
 
 **Files:**
+
 - Modify: `src/config.rs`
 
 **Step 1: Add to WebSettings** (line 144)
@@ -117,6 +119,7 @@ git commit -m "feat: add docling_url config (env DOCLING_URL)"
 ## Task 3: Create docling client module
 
 **Files:**
+
 - Create: `src/web/docling.rs`
 - Modify: `src/web/mod.rs`
 - Modify: `src/web/types.rs` (if WebError needs a new variant)
@@ -264,6 +267,7 @@ fn extract_markdown_from_response(body: &serde_json::Value) -> Result<String, We
 **Step 4: Export from `src/web/mod.rs`**
 
 Add:
+
 ```rust
 mod docling;
 pub use docling::{convert_file, convert_url};
@@ -283,6 +287,7 @@ git commit -m "feat: docling client for file and URL conversion"
 ## Task 4: Add `File` variant to import source + CLI
 
 **Files:**
+
 - Modify: `src/reference_import/types.rs`
 - Modify: `src/cli/reference.rs`
 
@@ -328,8 +333,8 @@ Make `url` optional (it's not needed for file imports):
 url: Option<String>,
 ```
 
-In `cmd_import`, update the signature to take `url: Option<&str>` and `path: Option<&str>`,
-and add the `"file"` match arm:
+In `cmd_import`, update the signature to take `url: Option<&str>` and
+`path: Option<&str>`, and add the `"file"` match arm:
 
 ```rust
 "file" => {
@@ -374,6 +379,7 @@ git commit -m "feat: add File import source variant and --path CLI arg"
 ## Task 5: Implement `import_file`
 
 **Files:**
+
 - Create: `src/reference_import/file.rs`
 - Modify: `src/reference_import/mod.rs`
 
@@ -545,6 +551,7 @@ pub async fn import_file(
 **Step 2: Export from `src/reference_import/mod.rs`**
 
 Add:
+
 ```rust
 mod file;
 pub use file::import_file;
@@ -564,6 +571,7 @@ git commit -m "feat: implement import_file with docling conversion"
 ## Task 6: Rework Discord attachment handling (downloads -> uploads)
 
 **Files:**
+
 - Modify: `src/interfaces/discord/bot.rs`
 
 **Step 1: Rename `downloads` to `uploads`**
@@ -661,8 +669,9 @@ async fn process_attachments(
 }
 ```
 
-> **Note:** The `TEXT_EXTENSIONS` constant can stay for now — it controls whether content
-> is inlined in the message or just referenced by path. Both types get downloaded.
+> **Note:** The `TEXT_EXTENSIONS` constant can stay for now — it controls whether
+> content is inlined in the message or just referenced by path. Both types get
+> downloaded.
 
 **Step 3: Run `just ci`**
 
@@ -678,6 +687,7 @@ git commit -m "refactor: rename downloads to uploads, download all file types"
 ## Task 7: Update reference-import skill
 
 **Files:**
+
 - Modify: `prompts/skills/reference-import.md`
 
 **Step 1: Update the skill**
@@ -690,29 +700,27 @@ Add file import documentation. Key additions:
 4. Update the decision flow to include file handling
 
 Add to CLI commands:
+
 ```
 ghost reference import --source file --path <path> --topic <name>
 ```
 
 Add new section:
-```markdown
+
+````markdown
 ## File Import (Uploaded Files)
 
-When the OPERATOR uploads a file (PDF, DOCX, XLSX, images, etc.), it lands in
-`uploads/` in the workspace. To import it as a reference:
+When the OPERATOR uploads a file (PDF, DOCX, XLSX, images, etc.), it lands in `uploads/`
+in the workspace. To import it as a reference:
 
-\```json
-{
-  "command": "ghost reference import --source file --path uploads/<filename> --topic <topic-name>",
-  "background": true
-}
-\```
+\```json { "command": "ghost reference import --source file --path uploads/<filename>
+--topic <topic-name>", "background": true } \```
 
-Docling handles: PDF, DOCX, XLSX, PPTX, HTML, images (PNG, JPG), and more.
-The original file is preserved in `references/<topic>/_originals/`.
+Docling handles: PDF, DOCX, XLSX, PPTX, HTML, images (PNG, JPG), and more. The original
+file is preserved in `references/<topic>/_originals/`.
 
 After import, the uploaded file can be cleaned up — `uploads/` is a transient inbox.
-```
+````
 
 **Step 2: Commit**
 
@@ -763,6 +771,7 @@ ghost reference import --source file --path uploads/test.pdf --topic test-pdf
 ```
 
 Verify:
+
 - `references/test-pdf/test.md` exists with extracted markdown
 - `references/test-pdf/_originals/test.pdf` exists
 - `references/test-pdf/_import.toml` has `source_type = "file"`
@@ -771,6 +780,7 @@ Verify:
 **Step 5: Test Discord upload flow**
 
 Send a PDF to the GHOST via Discord. Verify:
+
 - File appears in `uploads/`
 - Message shows `[File uploaded: uploads/<timestamp>_<filename>]`
 - GHOST can be instructed to import it
@@ -779,17 +789,17 @@ Send a PDF to the GHOST via Discord. Verify:
 
 ## Summary of All Files Changed
 
-| File | Action |
-|------|--------|
-| `docker-compose.yml` | Add docling-serve service + env var |
-| `Cargo.toml` | Add `multipart` feature to reqwest |
-| `src/config.rs` | Add `docling_url` to WebSettings + WebConfig |
-| `src/web/docling.rs` | New: docling REST client |
-| `src/web/mod.rs` | Export docling functions |
-| `src/web/types.rs` | Add `Docling` variant to WebError |
-| `src/reference_import/types.rs` | Add `File` variant to ImportSource |
-| `src/reference_import/file.rs` | New: import_file implementation |
-| `src/reference_import/mod.rs` | Export import_file |
-| `src/cli/reference.rs` | Add --path arg, file source, dispatch |
-| `src/interfaces/discord/bot.rs` | Rename downloads->uploads, download all types |
-| `prompts/skills/reference-import.md` | Document file import workflow |
+| File                                 | Action                                        |
+| ------------------------------------ | --------------------------------------------- |
+| `docker-compose.yml`                 | Add docling-serve service + env var           |
+| `Cargo.toml`                         | Add `multipart` feature to reqwest            |
+| `src/config.rs`                      | Add `docling_url` to WebSettings + WebConfig  |
+| `src/web/docling.rs`                 | New: docling REST client                      |
+| `src/web/mod.rs`                     | Export docling functions                      |
+| `src/web/types.rs`                   | Add `Docling` variant to WebError             |
+| `src/reference_import/types.rs`      | Add `File` variant to ImportSource            |
+| `src/reference_import/file.rs`       | New: import_file implementation               |
+| `src/reference_import/mod.rs`        | Export import_file                            |
+| `src/cli/reference.rs`               | Add --path arg, file source, dispatch         |
+| `src/interfaces/discord/bot.rs`      | Rename downloads->uploads, download all types |
+| `prompts/skills/reference-import.md` | Document file import workflow                 |

@@ -98,15 +98,9 @@ pub async fn import_file(
     std::fs::write(&disk_path, &markdown)?;
 
     // DB record
-    let ref_id = db::knowledge::create_reference(
-        db,
-        &topic_id,
-        &ref_path,
-        &markdown,
-        None,
-        Some(&batch_id),
-    )
-    .await?;
+    let ref_id =
+        db::knowledge::create_reference(db, &topic_id, &ref_path, &markdown, None, Some(&batch_id))
+            .await?;
 
     // Embed
     let client = EmbeddingClient::new(embeddings_config);

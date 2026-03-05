@@ -3,9 +3,8 @@ use sha2::{Digest, Sha256};
 use crate::db;
 use crate::db::GhostDb;
 
-use super::chunker::{Chunk, chunk_text};
+use super::chunker::{Chunk, chunk_content};
 use super::client::EmbeddingClient;
-use super::code_chunker::chunk_code;
 use super::error::EmbeddingError;
 
 #[derive(Debug, thiserror::Error)]
@@ -124,17 +123,6 @@ async fn embed_source_inner(
     }
 
     Ok(chunks.len())
-}
-
-/// Try code chunking first (if a file path is provided and the language is
-/// recognized), then fall back to plain text chunking.
-fn chunk_content(content: &str, tags: &[String], path: Option<&str>) -> Vec<Chunk> {
-    if let Some(p) = path
-        && let Some(chunks) = chunk_code(content, p, tags)
-    {
-        return chunks;
-    }
-    chunk_text(content, tags)
 }
 
 /// Embed chunk texts in batches according to client batch_size.

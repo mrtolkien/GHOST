@@ -9,39 +9,39 @@
     "SFMono-Regular", Menlo, Consolas, monospace;
 
   /* Neon Catpuccin Mocha — base tones */
-  --sl-color-black: hsl(240, 23%, 9%);       /* Crust */
-  --sl-color-white: hsl(226, 64%, 88%);      /* Text */
+  --sl-color-black: hsl(240, 23%, 9%); /* Crust */
+  --sl-color-white: hsl(226, 64%, 88%); /* Text */
 
-  --sl-color-gray-1: hsl(226, 64%, 88%);     /* Text */
-  --sl-color-gray-2: hsl(227, 35%, 80%);     /* Subtext 1 */
-  --sl-color-gray-3: hsl(228, 17%, 64%);     /* Overlay 2 */
-  --sl-color-gray-4: hsl(230, 13%, 55%);     /* Overlay 1 */
-  --sl-color-gray-5: hsl(237, 16%, 23%);     /* Surface 0 */
-  --sl-color-gray-6: hsl(240, 21%, 12%);     /* Mantle */
+  --sl-color-gray-1: hsl(226, 64%, 88%); /* Text */
+  --sl-color-gray-2: hsl(227, 35%, 80%); /* Subtext 1 */
+  --sl-color-gray-3: hsl(228, 17%, 64%); /* Overlay 2 */
+  --sl-color-gray-4: hsl(230, 13%, 55%); /* Overlay 1 */
+  --sl-color-gray-5: hsl(237, 16%, 23%); /* Surface 0 */
+  --sl-color-gray-6: hsl(240, 21%, 12%); /* Mantle */
 
-  --sl-color-accent-low: hsl(350, 80%, 18%);    /* Maroon dark */
-  --sl-color-accent: hsl(350, 100%, 68%);        /* Neon Maroon */
-  --sl-color-accent-high: hsl(350, 90%, 85%);    /* Maroon light */
+  --sl-color-accent-low: hsl(350, 80%, 18%); /* Maroon dark */
+  --sl-color-accent: hsl(350, 100%, 68%); /* Neon Maroon */
+  --sl-color-accent-high: hsl(350, 90%, 85%); /* Maroon light */
 
   --sl-color-text: var(--sl-color-gray-2);
   --sl-color-text-accent: var(--sl-color-accent);
-  --sl-color-text-invert: hsl(240, 23%, 9%);   /* Crust */
-  --sl-color-bg: hsl(240, 23%, 9%);            /* Crust */
-  --sl-color-bg-nav: hsl(240, 21%, 12%);       /* Mantle */
-  --sl-color-bg-sidebar: hsl(240, 21%, 15%);   /* Base */
+  --sl-color-text-invert: hsl(240, 23%, 9%); /* Crust */
+  --sl-color-bg: hsl(240, 23%, 9%); /* Crust */
+  --sl-color-bg-nav: hsl(240, 21%, 12%); /* Mantle */
+  --sl-color-bg-sidebar: hsl(240, 21%, 15%); /* Base */
   --sl-color-bg-inline-code: hsl(237, 16%, 23%); /* Surface 0 */
   --sl-color-bg-accent: var(--sl-color-accent);
   --sl-color-hairline-light: hsl(234, 13%, 31%); /* Surface 1 */
-  --sl-color-hairline: hsl(233, 16%, 26%);       /* Surface 0-1 blend */
-  --sl-color-hairline-shade: hsl(240, 23%, 9%);  /* Crust */
+  --sl-color-hairline: hsl(233, 16%, 26%); /* Surface 0-1 blend */
+  --sl-color-hairline-shade: hsl(240, 23%, 9%); /* Crust */
 
   /* Neon accent headings — Yellow → Peach → Maroon warm descent */
-  --ghost-h1: hsl(41, 100%, 70%);    /* Yellow neon */
-  --ghost-h2: hsl(23, 100%, 66%);    /* Peach neon */
-  --ghost-h3: hsl(350, 100%, 68%);   /* Maroon neon */
-  --ghost-h4: hsl(316, 100%, 72%);   /* Pink neon */
-  --ghost-h5: hsl(343, 100%, 64%);   /* Red neon */
-  --ghost-h6: hsl(0, 100%, 76%);     /* Flamingo neon */
+  --ghost-h1: hsl(41, 100%, 70%); /* Yellow neon */
+  --ghost-h2: hsl(23, 100%, 66%); /* Peach neon */
+  --ghost-h3: hsl(350, 100%, 68%); /* Maroon neon */
+  --ghost-h4: hsl(316, 100%, 72%); /* Pink neon */
+  --ghost-h5: hsl(343, 100%, 64%); /* Red neon */
+  --ghost-h6: hsl(0, 100%, 76%); /* Flamingo neon */
 
   /* Glow layers — Yellow / Peach / Teal (cool counterpoint) */
   --ghost-bg-layer-1: linear-gradient(
@@ -69,39 +69,39 @@
 
 :root[data-theme="light"] {
   /* Catpuccin Latte base tones */
-  --sl-color-black: hsl(220, 23%, 95%);      /* Latte Base */
-  --sl-color-white: hsl(234, 16%, 35%);      /* Latte Text */
+  --sl-color-black: hsl(220, 23%, 95%); /* Latte Base */
+  --sl-color-white: hsl(234, 16%, 35%); /* Latte Text */
 
-  --sl-color-gray-1: hsl(234, 16%, 35%);     /* Latte Text */
-  --sl-color-gray-2: hsl(233, 10%, 47%);     /* Latte Subtext 1 */
-  --sl-color-gray-3: hsl(232, 10%, 53%);     /* Latte Overlay 2 */
-  --sl-color-gray-4: hsl(233, 10%, 57%);     /* Latte Overlay 1 */
-  --sl-color-gray-5: hsl(225, 14%, 77%);     /* Latte Surface 2 */
-  --sl-color-gray-6: hsl(220, 22%, 92%);     /* Latte Mantle */
+  --sl-color-gray-1: hsl(234, 16%, 35%); /* Latte Text */
+  --sl-color-gray-2: hsl(233, 10%, 47%); /* Latte Subtext 1 */
+  --sl-color-gray-3: hsl(232, 10%, 53%); /* Latte Overlay 2 */
+  --sl-color-gray-4: hsl(233, 10%, 57%); /* Latte Overlay 1 */
+  --sl-color-gray-5: hsl(225, 14%, 77%); /* Latte Surface 2 */
+  --sl-color-gray-6: hsl(220, 22%, 92%); /* Latte Mantle */
 
-  --sl-color-accent-low: hsl(350, 80%, 92%);    /* Maroon light */
-  --sl-color-accent: hsl(350, 90%, 42%);         /* Latte Maroon boosted */
-  --sl-color-accent-high: hsl(350, 100%, 30%);   /* Maroon dark */
+  --sl-color-accent-low: hsl(350, 80%, 92%); /* Maroon light */
+  --sl-color-accent: hsl(350, 90%, 42%); /* Latte Maroon boosted */
+  --sl-color-accent-high: hsl(350, 100%, 30%); /* Maroon dark */
 
   --sl-color-text: var(--sl-color-gray-2);
   --sl-color-text-accent: var(--sl-color-accent);
-  --sl-color-text-invert: hsl(220, 23%, 95%);   /* Latte Base */
-  --sl-color-bg: hsl(220, 23%, 95%);            /* Latte Base */
-  --sl-color-bg-nav: hsl(220, 22%, 92%);        /* Latte Mantle */
-  --sl-color-bg-sidebar: hsl(220, 21%, 89%);    /* Latte Crust */
+  --sl-color-text-invert: hsl(220, 23%, 95%); /* Latte Base */
+  --sl-color-bg: hsl(220, 23%, 95%); /* Latte Base */
+  --sl-color-bg-nav: hsl(220, 22%, 92%); /* Latte Mantle */
+  --sl-color-bg-sidebar: hsl(220, 21%, 89%); /* Latte Crust */
   --sl-color-bg-inline-code: hsl(225, 14%, 85%); /* Latte Surface 0 */
   --sl-color-bg-accent: var(--sl-color-accent);
   --sl-color-hairline-light: hsl(227, 12%, 71%); /* Latte Surface 1 */
-  --sl-color-hairline: hsl(225, 14%, 77%);       /* Latte Surface 2 */
+  --sl-color-hairline: hsl(225, 14%, 77%); /* Latte Surface 2 */
   --sl-color-hairline-shade: hsl(220, 22%, 92%); /* Latte Mantle */
 
   /* Latte heading hues — warm descent */
-  --ghost-h1: hsl(41, 82%, 36%);     /* Yellow */
-  --ghost-h2: hsl(23, 90%, 38%);     /* Peach */
-  --ghost-h3: hsl(350, 72%, 40%);    /* Maroon */
-  --ghost-h4: hsl(316, 72%, 40%);    /* Pink */
-  --ghost-h5: hsl(343, 68%, 38%);    /* Red */
-  --ghost-h6: hsl(0, 56%, 44%);      /* Flamingo */
+  --ghost-h1: hsl(41, 82%, 36%); /* Yellow */
+  --ghost-h2: hsl(23, 90%, 38%); /* Peach */
+  --ghost-h3: hsl(350, 72%, 40%); /* Maroon */
+  --ghost-h4: hsl(316, 72%, 40%); /* Pink */
+  --ghost-h5: hsl(343, 68%, 38%); /* Red */
+  --ghost-h6: hsl(0, 56%, 44%); /* Flamingo */
 
   --ghost-bg-layer-1: linear-gradient(
     145deg,

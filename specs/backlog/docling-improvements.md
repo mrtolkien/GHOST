@@ -13,8 +13,8 @@ supports this natively via `do_picture_description: true` + a VLM pipeline confi
 
 - **Local VLM via docling**: Configure `VlmConvertOptions` with a local model
   (transformers/mlx engine). Requires GPU for reasonable speed.
-- **External VLM API**: Point docling at an OpenAI-compatible vision endpoint.
-  Could reuse the GHOST's existing provider infrastructure.
+- **External VLM API**: Point docling at an OpenAI-compatible vision endpoint. Could
+  reuse the GHOST's existing provider infrastructure.
 - **Post-processing**: Extract images separately, send to a vision model outside
   docling, and inject descriptions back into the markdown. More flexible but more
   complex.
@@ -31,6 +31,7 @@ Expose docling conversion options through the CLI and config:
 - `document_timeout` — per-document timeout override
 
 These could be exposed as:
+
 - CLI flags on `ghost reference import --source file/page`
 - Config defaults in `[docling]` section of config.toml
 - Both, with CLI overriding config

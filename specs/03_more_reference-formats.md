@@ -6,6 +6,9 @@ The PoC knowledge system handles markdown text. Real-world references come in ri
 formats that need extraction and indexing: PDFs, images, and large structured data
 files.
 
+We will use docling as it covers a lot of the spec by accepting pdf, xlsx, docx, even
+mp3, ...
+
 ## User Story
 
 ### Ark Nova
@@ -46,16 +49,6 @@ The GHOST discovers the Nobel Prize API and wants to make a query.
 
 It uses our reference import instead of a naked curl so the reference is well organized
 and disoverable.
-
-## PDFs
-
-- Extract text content for indexing and search
-- Preserve structure (headings, tables, page numbers) where possible
-- Handle scanned PDFs (OCR) as a stretch goal
-- Store extracted markdown in `references/` alongside or instead of the original file
-- Prior art: many Rust PDF libraries (`pdf-extract`, `lopdf`), or shell out to
-  `pdftotext`/`pandoc` or docling. Any system that is easy to self-host with Docker is
-  OK.
 
 ## Design Considerations
 

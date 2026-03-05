@@ -53,43 +53,43 @@ These columns have efficient indexes — always filter on them:
 
 ## Ghost Span Names (What to Query)
 
-| `span_name`                    | What it represents              | Key attributes                          |
-| ------------------------------ | ------------------------------- | --------------------------------------- |
-| `boot ghost`                   | Daemon startup                  | —                                       |
-| `create provider`              | Provider initialization         | `provider`, `endpoint`                  |
-| `create session_chat`          | Session chat setup              | —                                       |
-| `orchestrate response`         | Chat turn orchestration         | `session_id`                            |
-| `request completion`           | LLM provider call               | `gen_ai.*` fields (model, tokens, etc.) |
-| `execute agent`                | Full agent run                  | `gen_ai.agent.name`, `gen_ai.agent.id`  |
-| `run lua agent`                | Lua agent session               | `gen_ai.agent.name`                     |
-| `run lua agent with history`   | Agent with message history      | `gen_ai.agent.name`                     |
-| `start agent`                  | Agent spawn                     | `gen_ai.agent.name`                     |
-| `resume agent bg`              | Background agent resume         | `agent_id`                              |
-| `execute resume`               | Resume execution                | —                                       |
-| `receive discord message`      | Incoming Discord message        | `author`, `channel_id`, `content_len`   |
-| `send message`                 | Outgoing message                | —                                       |
-| `run tool`                     | Single tool execution           | `gen_ai.tool.name` + tool-specific      |
-| `run tools`                    | Tool execution batch            | —                                       |
-| `embed source`                 | Single embedding                | `source_id`, `source_table`             |
-| `embed batch`                  | Batch embedding                 | —                                       |
-| `embed sources`                | Embedding pipeline              | —                                       |
-| `reconcile embeddings`         | Embedding reconciliation        | —                                       |
-| `process file_change`          | File watcher event (single)     | `kind`, `path`                          |
-| `process file_changes`         | File watcher events (batch)     | —                                       |
-| `reboot session`               | Session reboot                  | `old_session_id`                        |
-| `start scheduler`              | Scheduler startup               | —                                       |
-| `start watcher`                | Watcher startup                 | —                                       |
-| `import page`                  | Reference import (page)         | `topic`                                 |
-| `import git`                   | Reference import (git)          | `topic`                                 |
-| `import crawl`                 | Reference import (crawl)        | `topic`                                 |
-| `import references`            | Reference import (pipeline)     | `topic`                                 |
-| `fetch url crawl4ai`           | URL fetch via Crawl4AI          | `url`                                   |
-| `fetch url reqwest`            | URL fetch via reqwest           | `url`                                   |
-| `search web`                   | Web search                      | `query`                                 |
+| `span_name`                  | What it represents          | Key attributes                          |
+| ---------------------------- | --------------------------- | --------------------------------------- |
+| `boot ghost`                 | Daemon startup              | —                                       |
+| `create provider`            | Provider initialization     | `provider`, `endpoint`                  |
+| `create session_chat`        | Session chat setup          | —                                       |
+| `orchestrate response`       | Chat turn orchestration     | `session_id`                            |
+| `request completion`         | LLM provider call           | `gen_ai.*` fields (model, tokens, etc.) |
+| `execute agent`              | Full agent run              | `gen_ai.agent.name`, `gen_ai.agent.id`  |
+| `run lua agent`              | Lua agent session           | `gen_ai.agent.name`                     |
+| `run lua agent with history` | Agent with message history  | `gen_ai.agent.name`                     |
+| `start agent`                | Agent spawn                 | `gen_ai.agent.name`                     |
+| `resume agent bg`            | Background agent resume     | `agent_id`                              |
+| `execute resume`             | Resume execution            | —                                       |
+| `receive discord message`    | Incoming Discord message    | `author`, `channel_id`, `content_len`   |
+| `send message`               | Outgoing message            | —                                       |
+| `run tool`                   | Single tool execution       | `gen_ai.tool.name` + tool-specific      |
+| `run tools`                  | Tool execution batch        | —                                       |
+| `embed source`               | Single embedding            | `source_id`, `source_table`             |
+| `embed batch`                | Batch embedding             | —                                       |
+| `embed sources`              | Embedding pipeline          | —                                       |
+| `reconcile embeddings`       | Embedding reconciliation    | —                                       |
+| `process file_change`        | File watcher event (single) | `kind`, `path`                          |
+| `process file_changes`       | File watcher events (batch) | —                                       |
+| `reboot session`             | Session reboot              | `old_session_id`                        |
+| `start scheduler`            | Scheduler startup           | —                                       |
+| `start watcher`              | Watcher startup             | —                                       |
+| `import page`                | Reference import (page)     | `topic`                                 |
+| `import git`                 | Reference import (git)      | `topic`                                 |
+| `import crawl`               | Reference import (crawl)    | `topic`                                 |
+| `import references`          | Reference import (pipeline) | `topic`                                 |
+| `fetch url crawl4ai`         | URL fetch via Crawl4AI      | `url`                                   |
+| `fetch url reqwest`          | URL fetch via reqwest       | `url`                                   |
+| `search web`                 | Web search                  | `query`                                 |
 
 > **Note:** `Chat error` is a log event (not a span) — query it with
-> `WHERE kind = 'log' AND message LIKE '%Chat error%'`. Other error log events follow
-> a similar pattern.
+> `WHERE kind = 'log' AND message LIKE '%Chat error%'`. Other error log events follow a
+> similar pattern.
 
 ## Accessing JSON Attributes
 

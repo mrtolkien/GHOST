@@ -85,15 +85,15 @@ Registered via `register_ctx()` when an agent has a database connection. Availab
 
 ### Async Methods
 
-| Method                                   | Signature                         | Description                     |
-| ---------------------------------------- | --------------------------------- | ------------------------------- |
-| `ctx:get(key)`                           | `→ string?`                       | Get agent state KV              |
-| `ctx:set(key, value)`                    | `→ ()`                            | Set agent state KV              |
-| `ctx:delete(key)`                        | `→ ()`                            | Delete agent state KV           |
-| `ctx:count_messages_since(sid, rfc3339)` | `→ integer`                       | Count messages after timestamp  |
-| `ctx:list_interface_sessions()`          | `→ {interface, session_id}[]`     | All interface sessions          |
-| `ctx:filter_transcript(sid)`             | `→ string`                        | Filtered transcript for session |
-| `ctx:list_messages(sid)`                 | `→ {role, content, created_at}[]` | All messages in session         |
+| Method                                   | Signature                           | Description                                             |
+| ---------------------------------------- | ----------------------------------- | ------------------------------------------------------- |
+| `ctx:get(key)`                           | `→ string?`                         | Get agent state KV                                      |
+| `ctx:set(key, value)`                    | `→ ()`                              | Set agent state KV                                      |
+| `ctx:delete(key)`                        | `→ ()`                              | Delete agent state KV                                   |
+| `ctx:count_messages_since(sid, rfc3339)` | `→ integer`                         | Count messages after timestamp                          |
+| `ctx:list_interface_sessions()`          | `→ {interface, session_id}[]`       | All interface sessions                                  |
+| `ctx:filter_transcript(sid)`             | `→ string`                          | Filtered transcript for session                         |
+| `ctx:list_messages(sid)`                 | `→ {role, content, created_at}[]`   | All messages in session                                 |
 | `ctx:curate_web_cache(sid?)`             | `string? → {moved, deleted, edges}` | Classify + move web cache (defaults to current session) |
 
 ### Sync Methods
@@ -116,7 +116,8 @@ Registered via `register_ctx()` when an agent has a database connection. Availab
 - `custom_tools` — array of tool definition tables (see custom_tools.rs)
 - Hook presence: `has_build`, `has_pre_turn`, `has_on_end_turn`, `has_post_completion`,
   `has_should_trigger`, `has_on_resume` — set by checking if the function exists
-- `compaction` — optional `AgentCompactionOverrides` table (fields: `threshold`, `keep_window`, `mask_preview_chars`, `instructions`)
+- `compaction` — optional `AgentCompactionOverrides` table (fields: `threshold`,
+  `keep_window`, `mask_preview_chars`, `instructions`)
 
 Hook functions are stored as Lua registry keys, not extracted as values.
 
