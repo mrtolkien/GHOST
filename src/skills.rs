@@ -153,16 +153,25 @@ pub fn parse_frontmatter(content: &str) -> Option<(String, String, Option<String
 
 /// Scan `$WORKSPACE/skills/` for subdirectories containing `skill.md`,
 /// parse their frontmatter, and return a sorted list of discovered skills.
+/// Recurses into namespace directories (those without `skill.md`).
 #[tracing::instrument(skip_all, level = "debug", fields(workspace = %workspace.display()))]
 pub fn discover_skills(workspace: &Path) -> Vec<Skill> {
     let skills_dir = workspace.join("skills");
+    let mut skills = Vec::new();
+    walk_skills_dir(&skills_dir, &mut skills);
+    skills.sort_by(|a, b| a.name.cmp(&b.name));
+    skills
+}
 
-    let entries = match fs::read_dir(&skills_dir) {
+/// Recursively walk a skills directory. If a subdirectory contains
+/// `skill.md` it is a leaf skill; otherwise it is a namespace and we
+/// recurse into it. Directories starting with `.` are skipped.
+pub(crate) fn walk_skills_dir(dir: &Path, skills: &mut Vec<Skill>) {
+    let entries = match fs::read_dir(dir) {
         Ok(entries) => entries,
-        Err(_) => return Vec::new(),
+        Err(_) => return,
     };
 
-    let mut skills = Vec::new();
     for entry in entries.flatten() {
         let dir_name = entry.file_name().to_string_lossy().to_string();
 
@@ -170,32 +179,40 @@ pub fn discover_skills(workspace: &Path) -> Vec<Skill> {
             continue;
         }
 
-        let skill_path = entry.path().join("skill.md");
-        let content = match fs::read_to_string(&skill_path) {
-            Ok(c) => c,
-            Err(_) => continue,
-        };
+        let entry_path = entry.path();
+        if !entry_path.is_dir() {
+            continue;
+        }
 
-        match parse_frontmatter(&content) {
-            Some((name, description, available)) => {
-                skills.push(Skill {
-                    name,
-                    description,
-                    available,
-                    path: skill_path,
-                });
+        let skill_path = entry_path.join("skill.md");
+        if skill_path.exists() {
+            // Leaf skill
+            let content = match fs::read_to_string(&skill_path) {
+                Ok(c) => c,
+                Err(_) => continue,
+            };
+
+            match parse_frontmatter(&content) {
+                Some((name, description, available)) => {
+                    skills.push(Skill {
+                        name,
+                        description,
+                        available,
+                        path: skill_path,
+                    });
+                }
+                None => {
+                    logfire::warn!(
+                        "Malformed skill frontmatter in {path}",
+                        path = skill_path.display().to_string(),
+                    );
+                }
             }
-            None => {
-                logfire::warn!(
-                    "Malformed skill frontmatter in {path}",
-                    path = skill_path.display().to_string(),
-                );
-            }
+        } else {
+            // Namespace directory — recurse
+            walk_skills_dir(&entry_path, skills);
         }
     }
-
-    skills.sort_by(|a, b| a.name.cmp(&b.name));
-    skills
 }
 
 /// Install default skills into `$WORKSPACE/skills/`, always overwriting
@@ -386,6 +403,36 @@ name: no-desc
         let found = discover_skills(dir.path());
         assert_eq!(found.len(), 1);
         assert_eq!(found[0].name, "valid");
+    }
+
+    #[test]
+    fn discover_skills_finds_nested() {
+        let dir = TempDir::new().unwrap();
+        let skills = dir.path().join("skills");
+
+        // Top-level skill
+        let top = skills.join("top-skill");
+        fs::create_dir_all(&top).unwrap();
+        fs::write(
+            top.join("skill.md"),
+            "---\nname: top-skill\ndescription: Top.\n---\n",
+        )
+        .unwrap();
+
+        // Nested skill under a namespace
+        let nested = skills.join("superpowers").join("nested-skill");
+        fs::create_dir_all(&nested).unwrap();
+        fs::write(
+            nested.join("skill.md"),
+            "---\nname: nested-skill\ndescription: Nested.\n---\n",
+        )
+        .unwrap();
+
+        let found = discover_skills(dir.path());
+        assert_eq!(found.len(), 2);
+        let names: Vec<&str> = found.iter().map(|s| s.name.as_str()).collect();
+        assert!(names.contains(&"top-skill"));
+        assert!(names.contains(&"nested-skill"));
     }
 
     #[test]
