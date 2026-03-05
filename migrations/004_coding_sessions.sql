@@ -1,6 +1,6 @@
 CREATE TABLE coding_sessions (
     id          TEXT PRIMARY KEY,
-    session_id  TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    session_id  TEXT NOT NULL REFERENCES session(id) ON DELETE CASCADE,
     channel_id  TEXT,
     working_dir TEXT NOT NULL,
     status      TEXT NOT NULL DEFAULT 'active',
