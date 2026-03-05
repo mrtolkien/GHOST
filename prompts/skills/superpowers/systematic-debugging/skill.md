@@ -288,9 +288,15 @@ external:
 
 For deeper techniques referenced throughout this skill:
 
-- **Root cause tracing:** `read_file("skills/superpowers/systematic-debugging/root-cause-tracing.md")` — Trace backward through the call chain to find the original trigger
-- **Condition-based waiting:** `read_file("skills/superpowers/systematic-debugging/condition-based-waiting.md")` — Replace arbitrary delays with condition polling to fix flaky tests
-- **Defense-in-depth:** `read_file("skills/superpowers/systematic-debugging/defense-in-depth.md")` — Validate at every layer to make bugs structurally impossible
+- **Root cause tracing:**
+  `read_file("skills/superpowers/systematic-debugging/root-cause-tracing.md")` — Trace
+  backward through the call chain to find the original trigger
+- **Condition-based waiting:**
+  `read_file("skills/superpowers/systematic-debugging/condition-based-waiting.md")` —
+  Replace arbitrary delays with condition polling to fix flaky tests
+- **Defense-in-depth:**
+  `read_file("skills/superpowers/systematic-debugging/defense-in-depth.md")` — Validate
+  at every layer to make bugs structurally impossible
 
 ## Real-World Impact
 
