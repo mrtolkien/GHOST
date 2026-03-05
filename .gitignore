@@ -20,6 +20,9 @@ Thumbs.db
 # Node.js dependencies
 node_modules/
 
+# Test fixtures (may contain captured secrets from e2e runs)
+tests/fixtures/
+
 # Other
 .bacon-locations
 /vibe/ongoing
