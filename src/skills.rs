@@ -10,6 +10,7 @@ const DEFAULT_SKILLS: &[(&str, &str)] = &[
         "brainstorming",
         include_str!("../prompts/skills/brainstorming.md"),
     ),
+    ("coding", include_str!("../prompts/skills/coding.md")),
     (
         "deep-research",
         include_str!("../prompts/skills/deep-research.md"),
@@ -362,7 +363,7 @@ name: no-desc
             assert!(content.contains("---"));
         }
 
-        assert_eq!(DEFAULT_SKILLS.len(), 20);
+        assert_eq!(DEFAULT_SKILLS.len(), 21);
     }
 
     #[test]
