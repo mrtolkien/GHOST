@@ -83,6 +83,7 @@ const DEFAULT_SKILLS: &[(&str, &str)] = &[
 pub struct Skill {
     pub name: String,
     pub description: String,
+    pub available: Option<String>,
     pub path: PathBuf,
 }
 
@@ -90,7 +91,7 @@ pub struct Skill {
 /// `description` per the agentskills.io spec. Returns `None` for
 /// malformed frontmatter. Unknown fields (triggers, metadata, etc.)
 /// are silently ignored.
-pub fn parse_frontmatter(content: &str) -> Option<(String, String)> {
+pub fn parse_frontmatter(content: &str) -> Option<(String, String, Option<String>)> {
     let content = content.trim_start();
     if !content.starts_with("---") {
         return None;
@@ -101,6 +102,7 @@ pub fn parse_frontmatter(content: &str) -> Option<(String, String)> {
     let block = &after_open[..close];
 
     let mut name = None;
+    let mut available = None;
     let mut description_parts: Vec<String> = Vec::new();
     let mut in_description = false;
 
@@ -118,6 +120,12 @@ pub fn parse_frontmatter(content: &str) -> Option<(String, String)> {
 
         if let Some(value) = trimmed.strip_prefix("name:") {
             name = Some(value.trim().to_string());
+            in_description = false;
+        } else if let Some(value) = trimmed.strip_prefix("available:") {
+            let value = value.trim();
+            if !value.is_empty() {
+                available = Some(value.to_string());
+            }
             in_description = false;
         } else if trimmed.starts_with("description:") {
             in_description = true;
@@ -140,7 +148,7 @@ pub fn parse_frontmatter(content: &str) -> Option<(String, String)> {
         return None;
     }
 
-    Some((name, description))
+    Some((name, description, available))
 }
 
 /// Scan `$WORKSPACE/skills/` for subdirectories containing `skill.md`,
@@ -169,10 +177,11 @@ pub fn discover_skills(workspace: &Path) -> Vec<Skill> {
         };
 
         match parse_frontmatter(&content) {
-            Some((name, description)) => {
+            Some((name, description, available)) => {
                 skills.push(Skill {
                     name,
                     description,
+                    available,
                     path: skill_path,
                 });
             }
@@ -219,9 +228,10 @@ description: A test skill for testing.
 
 # Body
 ";
-        let (name, desc) = parse_frontmatter(content).unwrap();
+        let (name, desc, available) = parse_frontmatter(content).unwrap();
         assert_eq!(name, "test-skill");
         assert_eq!(desc, "A test skill for testing.");
+        assert!(available.is_none());
     }
 
     #[test]
@@ -236,7 +246,7 @@ description:
 
 # Body
 ";
-        let (name, desc) = parse_frontmatter(content).unwrap();
+        let (name, desc, _) = parse_frontmatter(content).unwrap();
         assert_eq!(name, "multi-line");
         assert_eq!(
             desc,
@@ -259,9 +269,40 @@ metadata:
 
 # Body
 ";
-        let (name, desc) = parse_frontmatter(content).unwrap();
+        let (name, desc, _) = parse_frontmatter(content).unwrap();
         assert_eq!(name, "with-extras");
         assert_eq!(desc, "Has extra fields.");
+    }
+
+    #[test]
+    fn parse_frontmatter_extracts_available() {
+        let content = "\
+---
+name: coding-only
+description: Only for coding agent.
+available: coding
+---
+
+# Body
+";
+        let (name, desc, available) = parse_frontmatter(content).unwrap();
+        assert_eq!(name, "coding-only");
+        assert_eq!(desc, "Only for coding agent.");
+        assert_eq!(available.as_deref(), Some("coding"));
+    }
+
+    #[test]
+    fn parse_frontmatter_defaults_available_to_none() {
+        let content = "\
+---
+name: general
+description: Available everywhere.
+---
+
+# Body
+";
+        let (_, _, available) = parse_frontmatter(content).unwrap();
+        assert!(available.is_none());
     }
 
     #[test]

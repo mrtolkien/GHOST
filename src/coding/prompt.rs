@@ -83,10 +83,11 @@ fn discover_repo_skills(skills_dir: &Path) -> Vec<skills::Skill> {
             Ok(c) => c,
             Err(_) => continue,
         };
-        if let Some((name, description)) = skills::parse_frontmatter(&content) {
+        if let Some((name, description, available)) = skills::parse_frontmatter(&content) {
             found.push(skills::Skill {
                 name,
                 description,
+                available,
                 path: skill_path,
             });
         }
