@@ -7,29 +7,74 @@ const DEFAULT_SKILLS: &[(&str, &str)] = &[
         include_str!("../prompts/skills/agent-creator.md"),
     ),
     (
-        "knowledge-navigator",
-        include_str!("../prompts/skills/knowledge-navigator.md"),
-    ),
-    (
-        "note-writer",
-        include_str!("../prompts/skills/note-writer.md"),
+        "brainstorming",
+        include_str!("../prompts/skills/brainstorming.md"),
     ),
     (
         "deep-research",
         include_str!("../prompts/skills/deep-research.md"),
     ),
     (
+        "executing-plans",
+        include_str!("../prompts/skills/executing-plans.md"),
+    ),
+    (
+        "finishing-branch",
+        include_str!("../prompts/skills/finishing-branch.md"),
+    ),
+    (
+        "git-worktrees",
+        include_str!("../prompts/skills/git-worktrees.md"),
+    ),
+    (
+        "knowledge-navigator",
+        include_str!("../prompts/skills/knowledge-navigator.md"),
+    ),
+    ("nix-shell", include_str!("../prompts/skills/nix-shell.md")),
+    (
+        "note-writer",
+        include_str!("../prompts/skills/note-writer.md"),
+    ),
+    (
+        "parallel-agents",
+        include_str!("../prompts/skills/parallel-agents.md"),
+    ),
+    (
+        "project-manager",
+        include_str!("../prompts/skills/project-manager.md"),
+    ),
+    (
+        "receiving-review",
+        include_str!("../prompts/skills/receiving-review.md"),
+    ),
+    (
         "reference-import",
         include_str!("../prompts/skills/reference-import.md"),
     ),
     (
-        "skill-creator",
-        include_str!("../prompts/skills/skill-creator.md"),
+        "requesting-review",
+        include_str!("../prompts/skills/requesting-review.md"),
     ),
-    ("nix-shell", include_str!("../prompts/skills/nix-shell.md")),
     (
-        "project-manager",
-        include_str!("../prompts/skills/project-manager.md"),
+        "subagent-development",
+        include_str!("../prompts/skills/subagent-development.md"),
+    ),
+    (
+        "systematic-debugging",
+        include_str!("../prompts/skills/systematic-debugging.md"),
+    ),
+    ("tdd", include_str!("../prompts/skills/tdd.md")),
+    (
+        "verification",
+        include_str!("../prompts/skills/verification.md"),
+    ),
+    (
+        "writing-plans",
+        include_str!("../prompts/skills/writing-plans.md"),
+    ),
+    (
+        "writing-skills",
+        include_str!("../prompts/skills/writing-skills.md"),
     ),
 ];
 
@@ -317,7 +362,7 @@ name: no-desc
             assert!(content.contains("---"));
         }
 
-        assert_eq!(DEFAULT_SKILLS.len(), 8);
+        assert_eq!(DEFAULT_SKILLS.len(), 20);
     }
 
     #[test]
