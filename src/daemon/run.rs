@@ -11,14 +11,8 @@ use crate::error::GhostError;
 use crate::interfaces::discord::{self, DiscordSender};
 
 pub async fn run() -> Result<(), GhostError> {
-    let (
-        shutdown_tx,
-        watcher_handle,
-        scheduler_handle,
-        discord_result,
-        agent_watcher_handle,
-        completion_watcher_handle,
-    ) = boot().await?;
+    let (shutdown_tx, watcher_handle, scheduler_handle, discord_result, event_handler_handle) =
+        boot().await?;
 
     if let Some((_sender, handle)) = discord_result {
         info!("GHOST daemon running — press Ctrl+C to stop");
@@ -36,14 +30,10 @@ pub async fn run() -> Result<(), GhostError> {
         let _ = tokio::signal::ctrl_c().await;
     }
 
-    // Signal shutdown to watcher, scheduler, agent watcher, and completion watcher
     let _ = shutdown_tx.send(true);
     let _ = watcher_handle.await;
     let _ = scheduler_handle.await;
-    if let Some(aw_handle) = agent_watcher_handle {
-        let _ = aw_handle.await;
-    }
-    let _ = completion_watcher_handle.await;
+    let _ = event_handler_handle.await;
 
     info!("GHOST daemon stopped");
     Ok(())
@@ -54,7 +44,6 @@ type BootResult = (
     JoinHandle<()>,
     JoinHandle<()>,
     Option<(DiscordSender, JoinHandle<()>)>,
-    Option<JoinHandle<()>>,
     JoinHandle<()>,
 );
 
@@ -108,9 +97,15 @@ pub async fn boot() -> Result<BootResult, GhostError> {
         shutdown_rx.clone(),
     );
 
-    // Create agent runner (shared between SessionChat, scheduler, agent watcher)
-    // TODO(task-6): pass real SessionEventSender once daemon boot is wired
-    let agent_runner = Arc::new(AgentRunner::new(db.clone(), config.clone(), None));
+    // Create session event channel (background tasks → event handler)
+    let (event_tx, event_rx) = crate::events::channel();
+
+    // Create agent runner with event sender
+    let agent_runner = Arc::new(AgentRunner::new(
+        db.clone(),
+        config.clone(),
+        Some(event_tx.clone()),
+    ));
 
     // Spawn the unified scheduler (handles both cron jobs and idle agents)
     let scheduler_handle = crate::agents::scheduler::spawn_scheduler(
@@ -120,40 +115,21 @@ pub async fn boot() -> Result<BootResult, GhostError> {
         shutdown_rx.clone(),
     );
 
-    // Create completion event channel (background shell → watcher)
-    // TODO(task-6): replace with session event bus
-    let (_completion_tx, completion_rx) = crate::completion::channel();
-
-    // Create session event channel (background shell / agents → event handler)
-    let (session_event_tx, _session_event_rx) = crate::events::channel();
-
     let session_chat = Arc::new(
         SessionChat::from_config(db.clone(), config.clone())?
             .with_agent_runner(Arc::clone(&agent_runner))
-            .with_event_sender(session_event_tx),
+            .with_event_sender(event_tx),
     );
 
     let discord_result = discord::start_discord(&config, session_chat.clone(), db.clone()).await?;
 
-    // Spawn agent watcher (only if Discord is available)
-    let (agent_watcher_handle, discord_sender_arc) = if let Some((ref sender, _)) = discord_result {
-        let discord_sender = Arc::new(sender.clone());
+    let discord_sender_arc = discord_result
+        .as_ref()
+        .map(|(sender, _)| Arc::new(sender.clone()));
 
-        let handle = crate::agents::watcher::spawn_agent_watcher(
-            Arc::clone(&agent_runner),
-            Arc::clone(&session_chat),
-            Arc::clone(&discord_sender),
-            db.clone(),
-            shutdown_rx.clone(),
-        );
-        (Some(handle), Some(discord_sender))
-    } else {
-        (None, None)
-    };
-
-    // Spawn completion watcher unconditionally (not gated on Discord)
-    let completion_watcher_handle = super::completion_watcher::spawn_completion_watcher(
-        completion_rx,
+    // Spawn unified event handler (replaces agent_watcher + completion_watcher)
+    let event_handler_handle = super::event_handler::spawn_event_handler(
+        event_rx,
         Arc::clone(&session_chat),
         discord_sender_arc,
         db.clone(),
@@ -165,7 +141,6 @@ pub async fn boot() -> Result<BootResult, GhostError> {
         watcher_handle,
         scheduler_handle,
         discord_result,
-        agent_watcher_handle,
-        completion_watcher_handle,
+        event_handler_handle,
     ))
 }

@@ -51,7 +51,6 @@ pub struct AgentStatus {
 struct AgentHandle {
     agent_id: String,
     agent_name: String,
-    parent_session_id: Option<String>,
     agent_session_id: String,
     run_id: String,
     join_handle: JoinHandle<()>,
@@ -216,7 +215,6 @@ impl AgentRunner {
         let handle = AgentHandle {
             agent_id: agent_id.clone(),
             agent_name: agent_name.to_string(),
-            parent_session_id: parent_session_id.map(|s| s.to_string()),
             agent_session_id,
             run_id,
             join_handle,
@@ -284,7 +282,6 @@ impl AgentRunner {
         let handle = AgentHandle {
             agent_id: agent_id.to_string(),
             agent_name: agent_name.clone(),
-            parent_session_id: parent_session_id.map(|s| s.to_string()),
             agent_session_id,
             run_id,
             join_handle,
@@ -410,47 +407,7 @@ impl AgentRunner {
         })
     }
 
-    // TODO: remove when agents/watcher.rs is deleted
-    #[allow(dead_code)]
-    pub async fn take_completed(&self, agent_id: &str) -> Option<(AgentStatus, Option<String>)> {
-        let mut handles = self.handles.lock().await;
-        let handle = handles.get(agent_id)?;
-        if !handle.join_handle.is_finished() {
-            return None;
-        }
-        let parent = handle.parent_session_id.clone();
-        let agent_name = handle.agent_name.clone();
-        let agent_session_id = handle.agent_session_id.clone();
-        let run_id = handle.run_id.clone();
-        let metadata = handle.metadata.lock().await.clone();
-        handles.remove(agent_id);
-        drop(handles);
 
-        let message_count = db::sessions::count_messages_for_session(&self.db, &agent_session_id)
-            .await
-            .unwrap_or(0);
-
-        let todo_summary = db::sessions::get_session_todo_list(&self.db, &agent_session_id)
-            .await
-            .ok()
-            .flatten()
-            .map(|items| crate::tools::format_todo_list(&items));
-
-        let findings = self.get_run_transcript(&run_id).await;
-
-        Some((
-            AgentStatus {
-                agent_id: agent_id.to_string(),
-                agent_name,
-                status: "completed".to_string(),
-                message_count,
-                todo_summary,
-                findings,
-                metadata,
-            },
-            parent,
-        ))
-    }
 
     pub async fn list_agent_ids(&self) -> Vec<String> {
         self.handles.lock().await.keys().cloned().collect()
