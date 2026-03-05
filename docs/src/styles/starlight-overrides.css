@@ -246,9 +246,8 @@ main[data-pagefind-body] > .content-panel:first-child .sl-container > h1#_top,
   padding: 0 0.15em;
   margin-left: -0.15em;
   animation:
-    ghost-glow 8s ease-in-out infinite,
-    ghost-glitch 3s steps(1, end) infinite,
-    ghost-drift 7s ease-in-out infinite;
+    ghost-glow 5s linear forwards,
+    ghost-glitch 5s steps(1, end) forwards;
 }
 
 .title-wrapper .site-title span {
@@ -259,13 +258,8 @@ main[data-pagefind-body] > .content-panel:first-child .sl-container > h1#_top,
   font-family: "Oxanium", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
   letter-spacing: 0.04em;
   animation:
-    ghost-glow 8s ease-in-out infinite,
-    ghost-glitch 3s steps(1, end) infinite,
-    ghost-drift 7s ease-in-out infinite;
-  animation-delay:
-    -3s,
-    -1.7s,
-    -5s;
+    ghost-glow 5s linear forwards,
+    ghost-glitch 5s steps(1, end) forwards;
 }
 
 /* Let the GHOST glow bleed out of the header's clipping boundaries. */
@@ -306,13 +300,12 @@ main[data-pagefind-body] > .content-panel:first-child .sl-container > h1#_top,
 }
 
 @keyframes ghost-glow {
-  0%,
-  100% {
+  0% {
     text-shadow:
-      0 0 8px hsla(41, 100%, 70%, 0.2),
-      0 0 16px hsla(350, 100%, 68%, 0.1);
+      0 0 8px hsla(41, 100%, 70%, 0),
+      0 0 16px hsla(350, 100%, 68%, 0);
   }
-  50% {
+  100% {
     text-shadow:
       0 0 16px hsla(41, 100%, 70%, 0.6),
       0 0 32px hsla(23, 100%, 66%, 0.4),
@@ -322,95 +315,69 @@ main[data-pagefind-body] > .content-panel:first-child .sl-container > h1#_top,
 }
 
 @keyframes ghost-glitch {
-  0%,
-  100% {
+  0% {
     opacity: 1;
   }
-  7% {
-    opacity: 0.82;
-  }
-  8% {
+  /* first blink ~0.75s */
+  14% {
     opacity: 1;
   }
-  43% {
+  15% {
     opacity: 0.65;
   }
-  44% {
+  17% {
     opacity: 1;
   }
-  78% {
-    opacity: 0.88;
+  /* second blink ~2.75s */
+  54% {
+    opacity: 1;
   }
-  79% {
+  55% {
+    opacity: 0.75;
+  }
+  57% {
+    opacity: 1;
+  }
+  100% {
     opacity: 1;
   }
 }
 
 @keyframes ghost-glitch-light {
-  0%,
+  0% {
+    opacity: 1;
+  }
+  14% {
+    opacity: 1;
+  }
+  15% {
+    opacity: 0.75;
+  }
+  17% {
+    opacity: 1;
+  }
+  54% {
+    opacity: 1;
+  }
+  55% {
+    opacity: 0.82;
+  }
+  57% {
+    opacity: 1;
+  }
   100% {
-    opacity: 1;
-  }
-  7% {
-    opacity: 0.88;
-  }
-  8% {
-    opacity: 1;
-  }
-  43% {
-    opacity: 0.8;
-  }
-  44% {
     opacity: 1;
   }
 }
 
-@keyframes ghost-drift {
-  0%,
-  100% {
-    filter: brightness(1) hue-rotate(0deg);
-  }
-  23% {
-    filter: brightness(1.08) hue-rotate(-4deg);
-  }
-  41% {
-    filter: brightness(0.94) hue-rotate(6deg);
-  }
-  67% {
-    filter: brightness(1.12) hue-rotate(-8deg);
-  }
-  84% {
-    filter: brightness(0.97) hue-rotate(3deg);
-  }
-}
-
-@keyframes ghost-drift-light {
-  0%,
-  100% {
-    filter: brightness(1) hue-rotate(0deg);
-  }
-  23% {
-    filter: brightness(1.04) hue-rotate(-2deg);
-  }
-  41% {
-    filter: brightness(0.97) hue-rotate(3deg);
-  }
-  67% {
-    filter: brightness(1.06) hue-rotate(-4deg);
-  }
-  84% {
-    filter: brightness(0.98) hue-rotate(2deg);
-  }
-}
 
 @keyframes ghost-glow-light {
-  0%,
-  100% {
+  0% {
     text-shadow:
-      0 0 3px hsla(41, 100%, 50%, 0.1),
-      0 0 6px hsla(41, 100%, 50%, 0.06);
+      0 0 3px hsla(41, 100%, 50%, 0),
+      0 0 6px hsla(41, 100%, 50%, 0);
   }
-  50% {
+  100% {
     text-shadow:
       0 0 8px hsla(41, 100%, 50%, 0.35),
       0 0 16px hsla(23, 100%, 50%, 0.2),
@@ -420,7 +387,7 @@ main[data-pagefind-body] > .content-panel:first-child .sl-container > h1#_top,
 
 :root[data-theme="light"] .title-wrapper .site-title,
 :root[data-theme="light"] .hero h1 {
-  animation-name: ghost-glow-light, ghost-glitch-light, ghost-drift-light;
+  animation-name: ghost-glow-light, ghost-glitch-light;
 }
 
 .sl-markdown-content code,
