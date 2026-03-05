@@ -86,21 +86,23 @@ digraph process {
 
 ## Subagent Roles
 
-Each subagent is dispatched via `agent_control(action: "start", ...)` with a focused
-prompt. Three roles:
+Three Lua agents, dispatched via `agent_control`:
 
-1. **Implementer** — Implements a single task. Follows TDD, commits, self-reviews. May
-   ask questions before starting. See
-   `read_file("skills/superpowers/subagent-development/implementer-prompt.md")` for the
-   prompt template.
-2. **Spec reviewer** — Checks that the implementation matches the spec exactly. Reports
-   missing requirements and anything extra that was not requested. See
-   `read_file("skills/superpowers/subagent-development/spec-reviewer-prompt.md")` for the
-   prompt template.
-3. **Code quality reviewer** — Reviews code quality only (after spec compliance is
-   confirmed). Checks style, structure, test coverage, naming, etc. See
-   `read_file("skills/superpowers/subagent-development/code-quality-reviewer-prompt.md")`
-   for the prompt template.
+1. **Implementer** —
+   `agent_control(action: "start", agent: "coding-implementer", prompt: "<full task text + context>")`
+   Implements a single task. Follows TDD, commits, self-reviews. May ask questions
+   before starting.
+2. **Spec reviewer** —
+   `agent_control(action: "start", agent: "coding-spec-reviewer", prompt: "<spec text>")`
+   Checks that the implementation matches the spec exactly. Reports missing requirements
+   and anything extra that was not requested.
+3. **Code quality reviewer** —
+   `agent_control(action: "start", agent: "coding-quality-reviewer", prompt: "<scope>")`
+   Reviews code quality only (after spec compliance is confirmed). Checks style,
+   structure, test coverage, naming, etc.
+
+After all tasks, dispatch the final reviewer:
+`agent_control(action: "start", agent: "coding-reviewer", prompt: "<overall scope>")`
 
 ## Step-by-Step
 
@@ -115,7 +117,7 @@ prompt. Three roles:
    until approved. e. Dispatch code quality reviewer subagent. If issues found,
    implementer fixes and code quality reviewer reviews again. Repeat until approved. f.
    Mark task complete in the todo.
-4. **After all tasks:** Dispatch a final code reviewer subagent for the entire
+4. **After all tasks:** Dispatch the `coding-reviewer` agent for the entire
    implementation.
 5. **Wrap up** using the finishing-a-development-branch workflow.
 
@@ -261,8 +263,11 @@ Done!
 - Dispatch fix subagent with specific instructions
 - Don't try to fix manually (context pollution)
 
-## Related Skills
+## Related
 
-- Read `read_file("skills/project-manager/skill.md")` for managing the broader project
-- Subagents should follow TDD (test-driven development) for each task
+- Subagents follow TDD (test-driven development) for each task
 - Use the finishing-a-development-branch workflow after all tasks are complete
+- Prompt templates for reference:
+  `read_file("skills/superpowers/subagent-development/implementer-prompt.md")`
+  `read_file("skills/superpowers/subagent-development/spec-reviewer-prompt.md")`
+  `read_file("skills/superpowers/subagent-development/code-quality-reviewer-prompt.md")`
