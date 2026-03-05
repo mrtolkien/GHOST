@@ -21,14 +21,9 @@ pub async fn convert_file(docling_url: &str, path: &Path) -> Result<String, WebE
         .mime_str("application/octet-stream")
         .map_err(|e| WebError::Docling(e.to_string()))?;
 
-    let form = multipart::Form::new().part("files", part).text(
-        "options",
-        serde_json::json!({
-            "to_formats": ["md"],
-            "image_export_mode": "placeholder"
-        })
-        .to_string(),
-    );
+    let form = multipart::Form::new()
+        .part("files", part)
+        .text("image_export_mode", "placeholder");
 
     let client = reqwest::Client::new();
     let resp = client
