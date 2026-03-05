@@ -38,6 +38,9 @@ pub enum GhostError {
 
     #[error(transparent)]
     Project(#[from] crate::projects::ProjectError),
+
+    #[error(transparent)]
+    Coding(#[from] crate::coding::session::CodingError),
 }
 
 impl From<crate::db::DatabaseError> for GhostError {

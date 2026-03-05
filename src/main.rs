@@ -23,6 +23,10 @@ enum Commands {
         #[command(subcommand)]
         command: ghost::cli::config::ConfigCommand,
     },
+    Hack {
+        #[command(subcommand)]
+        command: ghost::cli::hack::HackCommand,
+    },
     Auth {
         #[command(subcommand)]
         command: ghost::cli::auth::AuthCommand,
@@ -70,6 +74,7 @@ async fn dispatch(command: Commands) -> Result<(), GhostError> {
         Commands::Init => ghost::cli::init::execute().await,
         Commands::Agent { command } => ghost::cli::agent::execute(command).await,
         Commands::Config { command } => ghost::cli::config::execute(command).await,
+        Commands::Hack { command } => ghost::cli::hack::execute(command).await,
         Commands::Auth { command } => ghost::cli::auth::execute(command).await,
         Commands::Session { command } => ghost::cli::session::execute(command).await,
         Commands::Knowledge { command } => ghost::cli::knowledge::execute(command).await,

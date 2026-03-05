@@ -2,6 +2,7 @@ pub mod agent;
 pub mod auth;
 pub mod config;
 pub mod daemon;
+pub mod hack;
 pub mod init;
 pub mod knowledge;
 pub mod project;
