@@ -129,7 +129,7 @@ impl Handler {
         Ok(new_session_str)
     }
 
-    /// Download text attachments to workspace/downloads/. Returns content to
+    /// Download attachments to workspace/uploads/. Returns content to
     /// prepend to the user message.
     #[tracing::instrument(skip_all, level = "debug", fields(
         attachment_count = attachments.len()
@@ -142,9 +142,9 @@ impl Handler {
             return String::new();
         }
 
-        let download_dir = self.config.workspace.join("downloads");
-        if let Err(e) = tokio::fs::create_dir_all(&download_dir).await {
-            error!("Failed to create downloads dir: {e}");
+        let upload_dir = self.config.workspace.join("uploads");
+        if let Err(e) = tokio::fs::create_dir_all(&upload_dir).await {
+            error!("Failed to create uploads dir: {e}");
             return String::new();
         }
 
@@ -160,15 +160,10 @@ impl Handler {
                 .unwrap_or("")
                 .to_lowercase();
 
-            let is_text = TEXT_EXTENSIONS.contains(&ext.as_str());
-
-            if !is_text {
-                lines.push(format!("[Attachment: {}]", attachment.filename));
-                continue;
-            }
+            let _is_text = TEXT_EXTENSIONS.contains(&ext.as_str());
 
             let dest_name = format!("{timestamp}_{}", attachment.filename);
-            let dest_path = download_dir.join(&dest_name);
+            let dest_path = upload_dir.join(&dest_name);
 
             match client.get(&attachment.url).send().await {
                 Ok(resp) => match resp.bytes().await {
@@ -186,7 +181,7 @@ impl Handler {
                             error!("Failed to write attachment {dest_name}: {e}");
                             continue;
                         }
-                        lines.push(format!("[Attachment downloaded: downloads/{dest_name}]"));
+                        lines.push(format!("[File uploaded: uploads/{dest_name}]"));
                     }
                     Err(e) => error!(
                         "Failed to download attachment body {}: {e}",
