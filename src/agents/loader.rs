@@ -160,6 +160,58 @@ const DEFAULT_AGENTS: &[(&str, &[(&str, &str)])] = &[
             ),
         ],
     ),
+    (
+        "coding-implementer",
+        &[
+            (
+                "agent.lua",
+                include_str!("../../prompts/agents/coding-implementer/agent.lua"),
+            ),
+            (
+                "prompt.md",
+                include_str!("../../prompts/agents/coding-implementer/prompt.md"),
+            ),
+        ],
+    ),
+    (
+        "coding-spec-reviewer",
+        &[
+            (
+                "agent.lua",
+                include_str!("../../prompts/agents/coding-spec-reviewer/agent.lua"),
+            ),
+            (
+                "prompt.md",
+                include_str!("../../prompts/agents/coding-spec-reviewer/prompt.md"),
+            ),
+        ],
+    ),
+    (
+        "coding-quality-reviewer",
+        &[
+            (
+                "agent.lua",
+                include_str!("../../prompts/agents/coding-quality-reviewer/agent.lua"),
+            ),
+            (
+                "prompt.md",
+                include_str!("../../prompts/agents/coding-quality-reviewer/prompt.md"),
+            ),
+        ],
+    ),
+    (
+        "coding-reviewer",
+        &[
+            (
+                "agent.lua",
+                include_str!("../../prompts/agents/coding-reviewer/agent.lua"),
+            ),
+            (
+                "prompt.md",
+                include_str!("../../prompts/agents/coding-reviewer/prompt.md"),
+            ),
+        ],
+    ),
 ];
 
 /// Install default agent folders into `$WORKSPACE/agents/`, always
