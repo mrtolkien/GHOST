@@ -356,7 +356,8 @@ impl LiveTestEnv {
     pub fn chat_with_completion_watcher(
         &self,
     ) -> (Arc<ghost::chat::SessionChat>, tokio::task::JoinHandle<()>) {
-        let (completion_tx, completion_rx) = ghost::completion::channel();
+        let (event_tx, _event_rx) = ghost::events::channel();
+        let (_completion_tx, completion_rx) = ghost::completion::channel();
         let (shutdown_tx, shutdown_rx) = tokio::sync::watch::channel(false);
         // Keep shutdown_tx alive by leaking — test cleanup doesn't need graceful shutdown.
         std::mem::forget(shutdown_tx);
@@ -365,7 +366,7 @@ impl LiveTestEnv {
             ghost::chat::SessionChat::from_config(self.db.clone(), self.config.clone())
                 .expect("build session chat")
                 .with_agent_runner(Arc::clone(&self.agent_runner))
-                .with_completion_sender(completion_tx),
+                .with_event_sender(event_tx),
         );
 
         let watcher_handle = ghost::daemon::completion_watcher::spawn_completion_watcher(

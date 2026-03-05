@@ -121,12 +121,16 @@ pub async fn boot() -> Result<BootResult, GhostError> {
     );
 
     // Create completion event channel (background shell → watcher)
-    let (completion_tx, completion_rx) = crate::completion::channel();
+    // TODO(task-6): replace with session event bus
+    let (_completion_tx, completion_rx) = crate::completion::channel();
+
+    // Create session event channel (background shell / agents → event handler)
+    let (session_event_tx, _session_event_rx) = crate::events::channel();
 
     let session_chat = Arc::new(
         SessionChat::from_config(db.clone(), config.clone())?
             .with_agent_runner(Arc::clone(&agent_runner))
-            .with_completion_sender(completion_tx),
+            .with_event_sender(session_event_tx),
     );
 
     let discord_result = discord::start_discord(&config, session_chat.clone(), db.clone()).await?;

@@ -100,7 +100,7 @@ impl Tool for RunShellCommand {
             let session_id = ctx.session_id.clone();
             let command_owned = command.to_string();
             let work_dir_owned = work_dir.clone();
-            let completion_tx = ctx.completion_tx.clone();
+            let event_tx = ctx.event_tx.clone();
 
             let workspace_owned = ctx.workspace.clone();
 
@@ -136,10 +136,11 @@ impl Tool for RunShellCommand {
                     );
                 }
 
-                if let Some(ref tx) = completion_tx {
-                    let _ = tx.send(crate::completion::CompletionEvent::ShellCommand {
-                        session_id,
-                        command: command_owned,
+                if let Some(ref tx) = event_tx {
+                    let _ = tx.send(crate::events::SessionEvent {
+                        session_id: session_id.clone(),
+                        system_message: msg.clone(),
+                        discord: None,
                     });
                 }
             });
@@ -216,7 +217,7 @@ mod tests {
             config: crate::config::test_config(workspace.path()),
             session_id: "test".to_string(),
             agent_runner: None,
-            completion_tx: None,
+            event_tx: None,
             channel_id: None,
         };
         (ctx, workspace)
