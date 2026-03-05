@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::Arc;
@@ -43,6 +44,9 @@ struct IdleAgent {
     name: String,
     idle_minutes: u64,
     has_should_trigger: bool,
+    /// Tracks when we last triggered this agent per session.
+    /// Only re-triggers if session has new activity after this timestamp.
+    last_triggered: HashMap<String, DateTime<Utc>>,
 }
 
 /// Spawn the unified agent scheduler. Handles both cron-scheduled agents
@@ -87,7 +91,7 @@ pub fn spawn_scheduler(
             tokio::select! {
                 _ = interval.tick() => {
                     tick_scheduled(&agent_runner, &db, &workspace, &mut scheduled).await;
-                    tick_idle(&agent_runner, &db, &workspace, &idle_agents).await;
+                    tick_idle(&agent_runner, &db, &workspace, &mut idle_agents).await;
                 }
                 path = fs_rx.recv() => {
                     if let Some(_path) = path {
@@ -170,6 +174,7 @@ fn build_entries(workspace: &Path) -> (Vec<TrackedEntry>, Vec<IdleAgent>) {
                     name: entry.run.clone(),
                     idle_minutes: minutes,
                     has_should_trigger,
+                    last_triggered: HashMap::new(),
                 });
             }
         }
@@ -269,7 +274,7 @@ async fn tick_idle(
     agent_runner: &AgentRunner,
     db: &GhostDb,
     workspace: &Path,
-    idle_agents: &[IdleAgent],
+    idle_agents: &mut [IdleAgent],
 ) {
     if idle_agents.is_empty() {
         return;
@@ -288,7 +293,7 @@ async fn tick_idle(
 
     let now = Utc::now();
 
-    for agent in idle_agents {
+    for agent in idle_agents.iter_mut() {
         let idle_threshold = chrono::Duration::minutes(agent.idle_minutes as i64);
 
         // Check should_trigger hook once per agent (not per session)
@@ -347,6 +352,16 @@ async fn tick_idle(
             if now - last_activity < idle_threshold {
                 continue;
             }
+
+            // Skip if no new activity since we last triggered for this session
+            if let Some(&triggered_at) = agent.last_triggered.get(&record.session_id)
+                && last_activity <= triggered_at
+            {
+                continue;
+            }
+
+            // Mark as triggered BEFORE running — prevents re-trigger on next tick
+            agent.last_triggered.insert(record.session_id.clone(), now);
 
             logfire::info!(
                 "idle threshold reached, triggering agent",
