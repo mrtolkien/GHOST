@@ -137,7 +137,7 @@ impl ScriptHost {
     }
 
     /// Call the `should_trigger(ctx)` hook. Returns whether the agent should run.
-    pub fn call_should_trigger(&self, ctx: AgentContext) -> LuaResult<bool> {
+    pub async fn call_should_trigger(&self, ctx: AgentContext) -> LuaResult<bool> {
         register_ctx(&self.lua, ctx)?;
 
         let globals = self.lua.globals();
@@ -148,7 +148,7 @@ impl ScriptHost {
             LuaValue::Function(f) => {
                 let globals = self.lua.globals();
                 let ctx_val: LuaValue = globals.get("ctx")?;
-                let result: LuaValue = f.call(ctx_val)?;
+                let result: LuaValue = f.call_async(ctx_val).await?;
                 match result {
                     LuaValue::Boolean(b) => Ok(b),
                     LuaValue::Nil => Ok(true),
@@ -1063,7 +1063,7 @@ mod tests {
 
         let db = test_db(dir.path()).await;
         let ctx = test_ctx(db, dir.path());
-        assert!(host.call_should_trigger(ctx).unwrap());
+        assert!(host.call_should_trigger(ctx).await.unwrap());
     }
 
     #[tokio::test]
@@ -1090,7 +1090,77 @@ mod tests {
         let db = test_db(dir.path()).await;
         let ctx = test_ctx(db, dir.path());
         // agent_slug is "test-agent", not "other-agent"
-        assert!(!host.call_should_trigger(ctx).unwrap());
+        assert!(!host.call_should_trigger(ctx).await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn should_trigger_with_async_ctx_methods() {
+        let dir = test_workspace();
+        write_agent_lua(
+            dir.path(),
+            r#"
+            return {
+                name = "test",
+                description = "test",
+                tools = {},
+                should_trigger = function(ctx)
+                    -- This calls an async method; must not error
+                    local sessions = ctx:list_interface_sessions()
+                    return #sessions > 0
+                end,
+            }
+            "#,
+        );
+
+        let agent_dir = dir.path().join("agents").join("test-agent");
+        let mut host = ScriptHost::new(&agent_dir, dir.path()).unwrap();
+        host.load_config().unwrap();
+
+        let db = test_db(dir.path()).await;
+        let ctx = test_ctx(db, dir.path());
+        // No interface sessions in test DB → should return false
+        let result = host.call_should_trigger(ctx).await.unwrap();
+        assert!(!result);
+    }
+
+    #[tokio::test]
+    async fn should_trigger_with_async_state_methods() {
+        let dir = test_workspace();
+        write_agent_lua(
+            dir.path(),
+            r#"
+            return {
+                name = "test",
+                description = "test",
+                tools = {},
+                should_trigger = function(ctx)
+                    local val = ctx:get("last_run")
+                    if val then
+                        return false
+                    end
+                    return true
+                end,
+            }
+            "#,
+        );
+
+        let agent_dir = dir.path().join("agents").join("test-agent");
+        let mut host = ScriptHost::new(&agent_dir, dir.path()).unwrap();
+        host.load_config().unwrap();
+
+        let db = test_db(dir.path()).await;
+
+        // First call: no state set → should trigger
+        let ctx = test_ctx(db.clone(), dir.path());
+        assert!(host.call_should_trigger(ctx).await.unwrap());
+
+        // Set state, then check again → should NOT trigger
+        crate::db::agent_state::set_state(&db, "test-agent", "last_run", "2026-01-01T00:00:00Z")
+            .await
+            .unwrap();
+
+        let ctx2 = test_ctx(db, dir.path());
+        assert!(!host.call_should_trigger(ctx2).await.unwrap());
     }
 
     #[tokio::test]
