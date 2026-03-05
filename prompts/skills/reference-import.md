@@ -17,10 +17,10 @@ Follow this order — stop as soon as you have an answer:
 
 1. **Search first**: `knowledge_search(query="<topic>", categories=["references"])`. If
    results exist, use them to answer. Done.
-2. **Single URL** (PDF, DOCX, or any web page): use `--source page --url <url>`. This
-   handles both HTML pages and binary documents — docling converts PDFs and other
-   non-text formats automatically. **Do not use `web_fetch` on PDF/binary URLs** — use
-   page import instead.
+2. **Single URL** (PDF, DOCX, or any web page): use `--source page --url <url>` with
+   `background: true`. This handles both HTML pages and binary documents — docling
+   converts PDFs and other non-text formats automatically. **Do not use `web_fetch` on
+   PDF/binary URLs** — use page import instead.
 3. **File upload**: if the OPERATOR uploaded a file, import it with `--source file`.
 4. **Git import** (preferred for whole doc sets): find the docs repo via `gh`, import
    with `background: true`, tell the OPERATOR it's importing.

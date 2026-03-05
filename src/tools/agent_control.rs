@@ -95,8 +95,17 @@ impl AgentControl {
 
         let parent_session_id = parse_session_thing_opt(&ctx.session_id);
 
+        // When the caller has a non-workspace cwd (e.g. coding agent in a repo),
+        // propagate it so spawned sub-agents resolve file tools relative to the
+        // same directory.
+        let cwd = if ctx.cwd != ctx.workspace {
+            Some(ctx.cwd.clone())
+        } else {
+            None
+        };
+
         let agent_id = runner
-            .run_in_background(agent_name, prompt, parent_session_id.as_deref())
+            .run_in_background(agent_name, prompt, parent_session_id.as_deref(), cwd)
             .await
             .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
 
@@ -129,8 +138,14 @@ impl AgentControl {
 
         let parent_session_id = parse_session_thing_opt(&ctx.session_id);
 
+        let cwd = if ctx.cwd != ctx.workspace {
+            Some(ctx.cwd.clone())
+        } else {
+            None
+        };
+
         let agent_name = runner
-            .resume_in_background(agent_id, prompt, parent_session_id.as_deref())
+            .resume_in_background(agent_id, prompt, parent_session_id.as_deref(), cwd)
             .await
             .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
 

@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use tokio::sync::Mutex;
@@ -56,6 +57,7 @@ struct AgentHandle {
     join_handle: JoinHandle<()>,
     cancel_token: CancellationToken,
     metadata: Arc<Mutex<Option<RunMetadata>>>,
+    _cwd: Option<PathBuf>,
 }
 
 /// Manages agent execution (sync and background).
@@ -120,6 +122,7 @@ impl AgentRunner {
             &agent_session_id,
             &cancel_token,
             parent_session_id,
+            None,
         )
         .await;
 
@@ -145,6 +148,7 @@ impl AgentRunner {
             prompt,
             session_id,
             &cancel_token,
+            None,
         )
         .await;
 
@@ -162,6 +166,7 @@ impl AgentRunner {
         agent_name: &str,
         prompt: &str,
         parent_session_id: Option<&str>,
+        cwd: Option<PathBuf>,
     ) -> Result<String, AgentError> {
         let agent_dir = self.config.workspace.join("agents").join(agent_name);
         if !agent_dir.join("agent.lua").exists() {
@@ -195,6 +200,7 @@ impl AgentRunner {
                 cancel_token: cancel_token.clone(),
                 metadata_slot: Arc::clone(&metadata_slot),
                 depth: 0,
+                cwd: cwd.clone(),
             },
             prompt_args(prompt),
         );
@@ -208,6 +214,7 @@ impl AgentRunner {
             join_handle,
             cancel_token,
             metadata: metadata_slot,
+            _cwd: cwd,
         };
         self.handles.lock().await.insert(agent_id.clone(), handle);
 
@@ -227,6 +234,7 @@ impl AgentRunner {
         agent_id: &str,
         prompt: &str,
         parent_session_id: Option<&str>,
+        cwd: Option<PathBuf>,
     ) -> Result<String, AgentError> {
         let agent_session_id = parse_agent_session_id(agent_id)?;
 
@@ -258,6 +266,7 @@ impl AgentRunner {
                 cancel_token: cancel_token.clone(),
                 metadata_slot: Arc::clone(&metadata_slot),
                 depth: 0,
+                cwd: cwd.clone(),
             },
             prompt.to_string(),
         );
@@ -271,6 +280,7 @@ impl AgentRunner {
             join_handle,
             cancel_token,
             metadata: metadata_slot,
+            _cwd: cwd,
         };
         self.handles
             .lock()
@@ -465,6 +475,7 @@ async fn setup_agent(
     args: HashMap<String, String>,
     agent_session_id: &str,
     parent_session_id: Option<&str>,
+    cwd: Option<&PathBuf>,
 ) -> Result<AgentSetup, AgentError> {
     let (agent_config, script_host) = load_agent_with_host(&config.workspace, agent_name)?;
     let script_host = Arc::new(script_host);
@@ -502,9 +513,13 @@ async fn setup_agent(
     let agent_compaction =
         build_agent_compaction_config(&config.compaction, agent_config.compaction.as_ref());
 
-    let session_chat = SessionChat::new(db.clone(), provider, tool_manager, config.clone())
+    let mut session_chat = SessionChat::new(db.clone(), provider, tool_manager, config.clone())
         .with_max_tool_iterations(agent_config.max_iterations)
         .with_compaction_config(agent_compaction);
+
+    if let Some(cwd) = cwd {
+        session_chat = session_chat.with_cwd_override(cwd.clone());
+    }
 
     Ok(AgentSetup {
         config: agent_config,
@@ -532,6 +547,7 @@ async fn setup_resume(
     agent_name: &str,
     prompt: &str,
     session_id: &str,
+    cwd: Option<&PathBuf>,
 ) -> Result<ResumeSetup, AgentError> {
     // Get config + system prompt from build()
     let setup = setup_agent(
@@ -541,6 +557,7 @@ async fn setup_resume(
         prompt_args(prompt),
         session_id,
         None,
+        cwd,
     )
     .await?;
 
@@ -668,6 +685,7 @@ async fn execute_agent(
     agent_session_id: &str,
     cancel_token: &CancellationToken,
     parent_session_id: Option<&str>,
+    cwd: Option<&PathBuf>,
 ) -> Result<AgentResult, AgentError> {
     let setup = setup_agent(
         db,
@@ -676,6 +694,7 @@ async fn execute_agent(
         args,
         agent_session_id,
         parent_session_id,
+        cwd,
     )
     .await?;
 
@@ -740,8 +759,9 @@ async fn execute_resume(
     prompt: &str,
     session_id: &str,
     cancel_token: &CancellationToken,
+    cwd: Option<&PathBuf>,
 ) -> Result<AgentResult, AgentError> {
-    let resume = setup_resume(db, config, agent_name, prompt, session_id).await?;
+    let resume = setup_resume(db, config, agent_name, prompt, session_id, cwd).await?;
 
     let result = tokio::select! {
         res = resume.session_chat.run_agent_with_history(
@@ -808,6 +828,7 @@ struct BackgroundTask {
     cancel_token: CancellationToken,
     metadata_slot: Arc<Mutex<Option<RunMetadata>>>,
     depth: u32,
+    cwd: Option<PathBuf>,
 }
 
 fn spawn_background_run(task: BackgroundTask, args: HashMap<String, String>) -> JoinHandle<()> {
@@ -822,6 +843,7 @@ fn spawn_background_run(task: BackgroundTask, args: HashMap<String, String>) -> 
                 &task.agent_session_id,
                 &task.cancel_token,
                 task.parent_session_id.as_deref(),
+                task.cwd.as_ref(),
             )
             .await;
 
@@ -842,7 +864,7 @@ fn spawn_background_resume(task: BackgroundTask, prompt: String) -> JoinHandle<(
                 &prompt,
                 &task.agent_session_id,
                 &task.cancel_token,
-                // Resume has no parent session context
+                task.cwd.as_ref(),
             )
             .await;
 
@@ -957,6 +979,7 @@ fn spawn_children_inner(
                     &agent_session_id,
                     &cancel_token,
                     Some(&parent_id),
+                    None,
                 )
                 .await;
 

@@ -44,15 +44,16 @@ impl Tool for WebFetch {
 
         let options = FetchOptions::default();
 
-        let content = match fetch(url, &options, ctx.config.web.crawl4ai_url.as_deref()).await
-        {
+        let content = match fetch(url, &options, ctx.config.web.crawl4ai_url.as_deref()).await {
             Ok(c) => c,
             Err(WebError::UnsupportedContentType { content_type }) => {
                 return Err(ToolError::ExecutionFailed(format!(
                     "This URL returned {content_type} which web_fetch cannot read. \
-                     Use the reference-import skill to import it: \
-                     `ghost reference import --source page --url <url> --topic <name>` \
-                     handles PDFs, DOCX, and other binary documents via docling."
+                     Import it directly with: \
+                     `ghost reference import --source page --url '{url}' --topic <name>` \
+                     (run with background: true). \
+                     Do NOT curl the file — page import handles PDFs and binary \
+                     documents via docling automatically."
                 )));
             }
             Err(e) => return Err(ToolError::ExecutionFailed(e.to_string())),
