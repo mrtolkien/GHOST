@@ -1,11 +1,11 @@
 ---
 name: reference-import
 description:
-  Import and query external documentation, code, and API references. Use when the
-  OPERATOR asks about a library, framework, SDK, or tool — especially if
-  knowledge_search returns no results for it. Also use when the OPERATOR wants to learn
-  or build something with a specific tool/framework — import the official docs first so
-  you have persistent, searchable reference material.
+  Import external documentation, code, API references, and uploaded files (PDF, DOCX,
+  etc.) Use when the OPERATOR asks about a library, framework, SDK, or tool — especially
+  if knowledge_search returns no results for it. Also use when the OPERATOR wants to
+  learn or build something with a specific tool/framework — import the official docs
+  first so you have persistent, searchable reference material.
 ---
 
 # Reference Import Skill
@@ -18,15 +18,16 @@ Follow this order — stop as soon as you have an answer:
 
 1. **Search first**: `knowledge_search(query="<topic>", categories=["references"])`. If
    results exist, use them to answer. Done.
-2. **Git import** (preferred): find the docs repo via `gh`, import with
+2. **File upload**: if the OPERATOR uploaded a file, import it with `--source file`.
+3. **Git import** (preferred): find the docs repo via `gh`, import with
    `background: true`, tell the OPERATOR it's importing.
-3. **Crawl import** (fallback): only if no git source exists (e.g. docs-only site).
-4. **After starting the background import**: tell the OPERATOR it's importing, include
-   any other pending offers or responses (e.g. project creation), then **end your turn**.
-   A follow-up turn is triggered automatically when the import completes — you'll see
-   the `[shell-command completed]` system message. Search the imported refs and answer.
-   Note: reference records appear in the DB almost immediately; only the embeddings
-   trail behind. You can search whatever's embedded so far.
+4. **Crawl import** (fallback): only if no git source exists (e.g. docs-only site).
+5. **After starting the background import**: tell the OPERATOR it's importing, include
+   any other pending offers or responses (e.g. project creation), then **end your
+   turn**. A follow-up turn is triggered automatically when the import completes —
+   you'll see the `[shell-command completed]` system message. Search the imported refs
+   and answer. Note: reference records appear in the DB almost immediately; only the
+   embeddings trail behind. You can search whatever's embedded so far.
 
 ## CLI Commands
 
@@ -38,6 +39,8 @@ ghost reference import --source page --url <url> --topic <name>
 
 ghost reference import --source crawl --url <url> --topic <name> \
     [--max-depth 3] [--max-pages 50]
+
+ghost reference import --source file --path <path> --topic <name>
 
 ghost topics list
 
@@ -91,6 +94,30 @@ Use only when no git source exists:
 {
   "command": "ghost reference import --source crawl --url https://docs.example.com/ --topic example/docs --max-depth 2 --max-pages 30",
   "background": true
+}
+```
+
+## File Import (Uploaded Files)
+
+When the OPERATOR uploads a file (PDF, DOCX, XLSX, PPTX, images, etc.), it lands in
+`uploads/` in the workspace. To import it as a reference:
+
+```json
+{
+  "command": "ghost reference import --source file --path uploads/<filename> --topic <topic-name>",
+  "background": true
+}
+```
+
+Docling-serve converts the file to markdown. Supported formats: PDF, DOCX, XLSX, PPTX,
+HTML, images (PNG, JPG), CSV, and more.
+
+The original file is preserved in `references/<topic>/_originals/`. After import, clean
+up the uploaded file — `uploads/` is a transient inbox:
+
+```json
+{
+  "command": "rm uploads/<filename>"
 }
 ```
 
