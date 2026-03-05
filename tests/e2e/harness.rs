@@ -25,6 +25,10 @@ pub const SCENARIO_PROJECT_CREATE: &str = "project_create";
 pub const STEP_PC_01: &str = "step_01_propose_project";
 pub const STEP_PC_02: &str = "step_02_confirm_and_create";
 
+pub const SCENARIO_CODING_AGENT: &str = "coding_agent";
+pub const STEP_CA_01: &str = "step_01_spawn_coding_session";
+pub const STEP_CA_02: &str = "step_02_coding_agent_edits";
+
 const STATE_FILE: &str = "state.json";
 const ARCHIVE_FILE: &str = "workspace.tar.zst";
 const TRANSCRIPT_JSON_FILE: &str = "transcript.json";
