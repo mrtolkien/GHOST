@@ -1,0 +1,2 @@
+- [x] Run GHOST with docker on my homelab
+- [ ] Run Ark Nova e2e after codex is available again (17h)

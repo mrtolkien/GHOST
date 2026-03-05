@@ -5,3 +5,5 @@ Review deployment:
 - Secondary target should be small Linux servers with no GPUs: in that case, embeddings
   and doclings should be configurable as remote services OR local services if perfs are
   acceptable (need to review docling RAM usage)
+
+Should also add portainer to the stack!
