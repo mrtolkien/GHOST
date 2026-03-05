@@ -11,11 +11,15 @@ use tokio::task::JoinHandle;
 use tracing::{error, info, warn};
 
 use crate::chat::{ChatStopReason, SessionChat};
+use crate::coding;
 use crate::config::Config;
 use crate::db;
 use crate::db::GhostDb;
 
 use super::send::{WARNING_EMBED_COLOR, send_assistant_v2, send_gateway_v2};
+
+/// Teal embed color for coding session messages.
+const CODING_EMBED_COLOR: u32 = 0x29_FF_D9;
 use super::ui_events::DiscordUiRenderer;
 use super::ui_events::format_statusline;
 
@@ -253,6 +257,67 @@ impl Handler {
             return;
         }
 
+        // Handle /kill command — end coding session takeover
+        if content.eq_ignore_ascii_case("/kill") {
+            let channel_str = msg.channel_id.to_string();
+            match db::coding_sessions::get_active_takeover(&self.db, &channel_str).await {
+                Ok(Some((coding_id, _session_id, working_dir))) => {
+                    let summary = coding::session::end(
+                        &self.db,
+                        &coding_id,
+                        std::path::Path::new(&working_dir),
+                    )
+                    .await
+                    .unwrap_or_else(|e| format!("(summary failed: {e})"));
+
+                    // Inject summary into GHOST's main session
+                    if let Ok(ghost_sid) = self.resolve_session(msg.channel_id).await {
+                        let summary_msg = format!("[coding session ended]\n\n{summary}");
+                        let _ = db::sessions::create_message(
+                            &self.db,
+                            &ghost_sid,
+                            "system",
+                            &summary_msg,
+                        )
+                        .await;
+                    }
+
+                    let _ = send_gateway_v2(
+                        &ctx.http,
+                        msg.channel_id,
+                        &format!("GHOST HACKED -- session ended.\n\n```\n{summary}\n```"),
+                        Some(CODING_EMBED_COLOR),
+                    )
+                    .await;
+                    return;
+                }
+                Ok(None) => {
+                    let _ = send_gateway_v2(
+                        &ctx.http,
+                        msg.channel_id,
+                        "No active coding session.",
+                        Some(WARNING_EMBED_COLOR),
+                    )
+                    .await;
+                    return;
+                }
+                Err(e) => {
+                    error!("Failed to check takeover: {e}");
+                    return;
+                }
+            }
+        }
+
+        // Check for active coding session takeover
+        let channel_str = msg.channel_id.to_string();
+        if let Ok(Some((_coding_id, session_id, working_dir))) =
+            db::coding_sessions::get_active_takeover(&self.db, &channel_str).await
+        {
+            self.handle_coding_message(ctx, msg, &session_id, &working_dir)
+                .await;
+            return;
+        }
+
         // Process attachments
         let attachment_text = self.process_attachments(&msg.attachments).await;
         let full_content = if attachment_text.is_empty() {
@@ -328,6 +393,89 @@ impl Handler {
                     session_id = %session_id,
                     error = %e,
                     "Chat error"
+                );
+                let _ = send_gateway_v2(
+                    &ctx.http,
+                    msg.channel_id,
+                    &format!("Error: {e}"),
+                    Some(WARNING_EMBED_COLOR),
+                )
+                .await;
+            }
+        }
+    }
+
+    /// Handle a message routed to the coding agent session.
+    #[tracing::instrument(name = "receive coding message", skip_all, fields(
+        session_id = session_id,
+        working_dir = working_dir,
+    ))]
+    async fn handle_coding_message(
+        &self,
+        ctx: Context,
+        msg: Message,
+        session_id: &str,
+        working_dir: &str,
+    ) {
+        let content = self.strip_bot_mention(&msg.content);
+
+        // Process attachments
+        let attachment_text = self.process_attachments(&msg.attachments).await;
+        let full_content = if attachment_text.is_empty() {
+            content.to_string()
+        } else if content.is_empty() {
+            attachment_text
+        } else {
+            format!("{content}\n\n{attachment_text}")
+        };
+
+        if full_content.trim().is_empty() {
+            return;
+        }
+
+        let _typing = TimedTyping::start(msg.channel_id, &ctx.http);
+
+        let system_prompt =
+            coding::prompt::build_coding_prompt(&self.config, std::path::Path::new(working_dir));
+
+        let (event_tx, event_rx) = tokio::sync::mpsc::unbounded_channel();
+        let renderer = DiscordUiRenderer::new(event_rx, Arc::clone(&ctx.http), msg.channel_id);
+        let renderer_handle = tokio::spawn(renderer.run());
+
+        let chat_result = self
+            .session_chat
+            .chat_coding(session_id, &full_content, &system_prompt, Some(&event_tx))
+            .await;
+
+        drop(event_tx);
+        let _ = renderer_handle.await;
+
+        match chat_result {
+            Ok((result, metadata)) => {
+                let response_text = format_statusline(&result.message, &metadata);
+                if let Err(e) = send_assistant_v2(&ctx.http, msg.channel_id, &response_text).await {
+                    error!(
+                        session_id = %session_id,
+                        error = %e,
+                        "Failed to send coding response"
+                    );
+                }
+
+                if result.stop_reason == ChatStopReason::MaxIterations {
+                    let _ = send_gateway_v2(
+                        &ctx.http,
+                        msg.channel_id,
+                        "Reached tool iteration limit. Send another message to continue.",
+                        Some(WARNING_EMBED_COLOR),
+                    )
+                    .await;
+                }
+            }
+            Err(e) => {
+                error!(
+                    session_id = %session_id,
+                    error = %e,
+                    "Coding chat error"
                 );
                 let _ = send_gateway_v2(
                     &ctx.http,

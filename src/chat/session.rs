@@ -35,6 +35,7 @@ pub struct SessionChat {
     agent_runner: Option<Arc<crate::agents::AgentRunner>>,
     compaction_override: Option<config::CompactionConfig>,
     completion_tx: Option<crate::completion::CompletionSender>,
+    cwd_override: Option<std::path::PathBuf>,
 }
 
 impl std::fmt::Debug for SessionChat {
@@ -72,6 +73,7 @@ impl SessionChat {
             agent_runner: None,
             compaction_override: None,
             completion_tx: None,
+            cwd_override: None,
         }
     }
 
@@ -96,6 +98,12 @@ impl SessionChat {
     #[must_use]
     pub fn with_completion_sender(mut self, tx: crate::completion::CompletionSender) -> Self {
         self.completion_tx = Some(tx);
+        self
+    }
+
+    #[must_use]
+    pub fn with_cwd_override(mut self, cwd: std::path::PathBuf) -> Self {
+        self.cwd_override = Some(cwd);
         self
     }
 
@@ -129,6 +137,48 @@ impl SessionChat {
             session_thing: &session_thing,
             event_tx,
             pending_todo_update: false,
+        };
+
+        run_tool_loop(
+            self,
+            session_id,
+            &model,
+            self.max_tool_iterations,
+            effort,
+            &mut handler,
+            &mut history,
+            event_tx,
+        )
+        .await
+    }
+
+    /// Chat in a coding session with a custom system prompt.
+    /// Uses `cwd_override` if set, otherwise falls back to workspace.
+    #[tracing::instrument(name = "orchestrate coding response", skip_all, fields(session_id = session_id))]
+    pub async fn chat_coding(
+        &self,
+        session_id: &str,
+        user_message: &str,
+        system_prompt: &str,
+        event_tx: Option<&EventSender>,
+    ) -> Result<(ChatResult, RunMetadata), ChatError> {
+        let session_thing = parse_session_thing(session_id)?;
+        db::sessions::get_session(&self.db, &session_thing).await?;
+        db::sessions::update_activity(&self.db, &session_thing).await?;
+        db::sessions::create_message(&self.db, &session_thing, "user", user_message).await?;
+
+        let (mut history, stored_ids) = self.load_provider_history(&session_thing).await?;
+        self.compact_if_needed(&session_thing, &mut history, &stored_ids)
+            .await;
+
+        let model = self.default_model_name()?;
+        let effort = resolve_reasoning_effort(None, None, self.model_reasoning_effort());
+        let mut handler = CodingHandler {
+            session_chat: self,
+            session_thing: &session_thing,
+            event_tx,
+            pending_todo_update: false,
+            system_prompt: system_prompt.to_string(),
         };
 
         run_tool_loop(
@@ -221,9 +271,13 @@ impl SessionChat {
         tool_use_id: &str,
         input: Value,
     ) -> ContentBlock {
+        let cwd = self
+            .cwd_override
+            .clone()
+            .unwrap_or_else(|| self.config.workspace.clone());
         let tool_ctx = ToolContext {
             workspace: self.config.workspace.clone(),
-            cwd: self.config.workspace.clone(),
+            cwd,
             db: self.db.clone(),
             config: self.config.clone(),
             session_id: session_id.to_string(),
@@ -393,6 +447,116 @@ impl ToolLoopHandler for ChatHandler<'_> {
         self.session_chat.apply_masking_if_needed(history);
 
         // Emit TodoUpdated UI event (no injection — main chat has no TODO nudge)
+        if self.pending_todo_update {
+            let todo_items =
+                db::sessions::get_session_todo_list(self.session_chat.db(), self.session_thing)
+                    .await?;
+            if let Some(ref items) = todo_items
+                && let Some(tx) = self.event_tx
+            {
+                let _ = tx.send(ToolLoopEvent::TodoUpdated {
+                    items: items.clone(),
+                });
+            }
+            self.pending_todo_update = false;
+        }
+
+        Ok(())
+    }
+}
+
+// ---------------------------------------------------------------------------
+// CodingHandler — coding session handler with custom system prompt
+// ---------------------------------------------------------------------------
+
+struct CodingHandler<'a> {
+    session_chat: &'a SessionChat,
+    session_thing: &'a str,
+    event_tx: Option<&'a EventSender>,
+    pending_todo_update: bool,
+    system_prompt: String,
+}
+
+#[async_trait]
+impl ToolLoopHandler for CodingHandler<'_> {
+    fn system_prompt(&self) -> Result<String, ChatError> {
+        Ok(self.system_prompt.clone())
+    }
+
+    async fn on_assistant_tool_use(
+        &mut self,
+        text: &str,
+        tool_uses: &[Value],
+        raw_output: Option<Vec<Value>>,
+    ) -> Result<(), ChatError> {
+        self.pending_todo_update = tool_uses
+            .iter()
+            .any(|t| t.get("name").and_then(Value::as_str) == Some("todo"));
+
+        db::sessions::create_message_with_metadata(
+            self.session_chat.db(),
+            self.session_thing,
+            "assistant",
+            text,
+            Some(tool_uses.to_vec()),
+            None,
+            raw_output,
+        )
+        .await?;
+        Ok(())
+    }
+
+    async fn on_tool_results(&mut self, results: &[ContentBlock]) -> Result<(), ChatError> {
+        db::sessions::create_message_with_metadata(
+            self.session_chat.db(),
+            self.session_thing,
+            "user",
+            "",
+            None,
+            Some(tool_results_to_values(results)),
+            None,
+        )
+        .await?;
+        Ok(())
+    }
+
+    async fn on_end_turn(
+        &mut self,
+        message: String,
+        stop_reason: StopReason,
+        tool_uses: &[Value],
+        raw_output: Option<Vec<Value>>,
+    ) -> Result<ChatResult, ChatError> {
+        db::sessions::create_message_with_metadata(
+            self.session_chat.db(),
+            self.session_thing,
+            "assistant",
+            &message,
+            Some(tool_uses.to_vec()),
+            None,
+            raw_output,
+        )
+        .await?;
+
+        Ok(ChatResult {
+            message,
+            stop_reason: if stop_reason == StopReason::MaxTokens {
+                ChatStopReason::MaxTokens
+            } else {
+                ChatStopReason::EndTurn
+            },
+        })
+    }
+
+    async fn post_tool_iteration(
+        &mut self,
+        history: &mut Vec<ChatMessage>,
+        _last_input_tokens: u32,
+    ) -> Result<(), ChatError> {
+        self.session_chat
+            .compact_in_tool_loop(self.session_thing, history)
+            .await;
+
         if self.pending_todo_update {
             let todo_items =
                 db::sessions::get_session_todo_list(self.session_chat.db(), self.session_thing)
