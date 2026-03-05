@@ -54,10 +54,7 @@ async fn handle_event(
 ) {
     let session_id = &event.session_id;
 
-    logfire::info!(
-        "handling session event",
-        session_id = session_id.clone(),
-    );
+    logfire::info!("handling session event", session_id = session_id.clone(),);
 
     // Wait for the session to be idle before triggering continuation.
     if !wait_for_idle(db, session_id).await {
@@ -176,10 +173,9 @@ async fn resolve_discord_channel(db: &GhostDb, session_id: &str) -> Option<u64> 
     // Fallback: coding_sessions.channel_id
     if let Ok(Some((_working_dir, Some(channel_str)))) =
         db::coding_sessions::get_coding_session_for_chat_session(db, session_id).await
+        && let Some(channel_id) = parse_discord_channel_id(&channel_str)
     {
-        if let Some(channel_id) = parse_discord_channel_id(&channel_str) {
-            return Some(channel_id);
-        }
+        return Some(channel_id);
     }
 
     None

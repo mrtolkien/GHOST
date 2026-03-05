@@ -407,8 +407,6 @@ impl AgentRunner {
         })
     }
 
-
-
     pub async fn list_agent_ids(&self) -> Vec<String> {
         self.handles.lock().await.keys().cloned().collect()
     }

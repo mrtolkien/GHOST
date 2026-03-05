@@ -95,8 +95,8 @@ prompt. Three roles:
    prompt template.
 2. **Spec reviewer** — Checks that the implementation matches the spec exactly. Reports
    missing requirements and anything extra that was not requested. See
-   `read_file("skills/superpowers/subagent-development/spec-reviewer-prompt.md")` for the
-   prompt template.
+   `read_file("skills/superpowers/subagent-development/spec-reviewer-prompt.md")` for
+   the prompt template.
 3. **Code quality reviewer** — Reviews code quality only (after spec compliance is
    confirmed). Checks style, structure, test coverage, naming, etc. See
    `read_file("skills/superpowers/subagent-development/code-quality-reviewer-prompt.md")`
