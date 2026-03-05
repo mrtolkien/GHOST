@@ -13,7 +13,7 @@ use crate::e2e::harness;
 async fn ark_nova_step_01_pdf_rules_import() {
     let env = common::live_test_database("ark_nova_step_01").await;
     let session = env.create_session().await;
-    let (chat, _watcher_handle) = env.chat_with_completion_watcher();
+    let (chat, _watcher_handle) = env.chat_with_event_handler();
 
     // --- Phase 1: User asks about Ark Nova setup (5 min timeout) ---
     env.log("Phase 1: user asks about Ark Nova game rules");
