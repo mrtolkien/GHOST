@@ -9,6 +9,7 @@ services:
     environment:
       - CRAWL4AI_URL=http://crawl4ai:11235
       - SEARXNG_URL=http://searxng:8080
+      - DOCLING_URL=http://docling-serve:5001
     networks:
       - ghost-net
     restart: unless-stopped
@@ -23,6 +24,12 @@ services:
     image: searxng/searxng:latest
     volumes:
       - ./docker/searxng-settings.yml:/etc/searxng/settings.yml:ro
+    networks:
+      - ghost-net
+    restart: unless-stopped
+
+  docling-serve:
+    image: quay.io/docling-project/docling-serve:latest
     networks:
       - ghost-net
     restart: unless-stopped
