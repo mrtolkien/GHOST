@@ -119,15 +119,9 @@ async fn coding_session_start_without_prompt_stores_no_messages() {
     let (db, config, _workspace, _config_dir) = common::test_database().await;
     let repo = create_mock_repo().await;
 
-    let session = coding::session::start(
-        &db,
-        &config,
-        repo.path().to_path_buf(),
-        None,
-        None,
-    )
-    .await
-    .expect("start coding session");
+    let session = coding::session::start(&db, &config, repo.path().to_path_buf(), None, None)
+        .await
+        .expect("start coding session");
 
     let messages = db::sessions::list_messages_by_session(&db, &session.session_id)
         .await
@@ -245,10 +239,8 @@ fn coding_prompt_prefers_agents_md_over_claude_md() {
 #[test]
 fn coding_prompt_discovers_workspace_skills() {
     let ws = TempDir::new().unwrap();
-    ghost::config_workspace::bootstrap_workspace(
-        &config::test_config(ws.path()),
-    )
-    .expect("bootstrap");
+    ghost::config_workspace::bootstrap_workspace(&config::test_config(ws.path()))
+        .expect("bootstrap");
     ghost::skills::install_default_skills(ws.path()).expect("install skills");
 
     let config = config::test_config(ws.path());
@@ -290,11 +282,14 @@ fn coding_prompt_discovers_repo_local_skills() {
 #[tokio::test]
 async fn chat_coding_uses_custom_system_prompt() {
     let (db, config, _workspace, _config_dir) = common::test_database().await;
-    let session_id = db::sessions::create_session(&db).await.expect("create session");
+    let session_id = db::sessions::create_session(&db)
+        .await
+        .expect("create session");
 
-    let provider = Arc::new(MockProvider::new(vec![
-        respond_response("coding response", vec![]),
-    ]));
+    let provider = Arc::new(MockProvider::new(vec![respond_response(
+        "coding response",
+        vec![],
+    )]));
     let requests = provider.requests();
 
     let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config);
@@ -320,7 +315,9 @@ async fn chat_coding_uses_custom_system_prompt() {
 #[tokio::test]
 async fn chat_coding_tool_loop_works() {
     let (db, config, _workspace, _config_dir) = common::test_database().await;
-    let session_id = db::sessions::create_session(&db).await.expect("create session");
+    let session_id = db::sessions::create_session(&db)
+        .await
+        .expect("create session");
 
     let provider = Arc::new(MockProvider::new(vec![
         response(
@@ -345,7 +342,10 @@ async fn chat_coding_tool_loop_works() {
         .expect("chat_coding with tool");
 
     assert_eq!(result.message, "tool done");
-    assert!(metadata.iterations >= 1, "should have at least 1 tool iteration");
+    assert!(
+        metadata.iterations >= 1,
+        "should have at least 1 tool iteration"
+    );
 
     // Verify tool result was sent back
     let recorded = requests.lock().expect("lock");
@@ -359,17 +359,23 @@ async fn chat_coding_tool_loop_works() {
             )
         })
     });
-    assert!(has_tool_result, "second request should contain echo tool result");
+    assert!(
+        has_tool_result,
+        "second request should contain echo tool result"
+    );
 }
 
 #[tokio::test]
 async fn chat_coding_persists_messages_to_db() {
     let (db, config, _workspace, _config_dir) = common::test_database().await;
-    let session_id = db::sessions::create_session(&db).await.expect("create session");
+    let session_id = db::sessions::create_session(&db)
+        .await
+        .expect("create session");
 
-    let provider = Arc::new(MockProvider::new(vec![
-        respond_response("I updated the file.", vec![]),
-    ]));
+    let provider = Arc::new(MockProvider::new(vec![respond_response(
+        "I updated the file.",
+        vec![],
+    )]));
     let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config);
 
     let _ = chat
@@ -382,11 +388,21 @@ async fn chat_coding_persists_messages_to_db() {
         .expect("list messages");
 
     // Should have: user message + assistant response
-    assert!(messages.len() >= 2, "should have at least 2 messages, got {}", messages.len());
+    assert!(
+        messages.len() >= 2,
+        "should have at least 2 messages, got {}",
+        messages.len()
+    );
     assert_eq!(messages[0].role, "user");
     assert!(messages[0].content.contains("fix the bug"));
     assert_eq!(messages.last().unwrap().role, "assistant");
-    assert!(messages.last().unwrap().content.contains("I updated the file."));
+    assert!(
+        messages
+            .last()
+            .unwrap()
+            .content
+            .contains("I updated the file.")
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -396,7 +412,9 @@ async fn chat_coding_persists_messages_to_db() {
 #[tokio::test]
 async fn cwd_override_affects_tool_execution() {
     let (db, config, _workspace, _config_dir) = common::test_database().await;
-    let session_id = db::sessions::create_session(&db).await.expect("create session");
+    let session_id = db::sessions::create_session(&db)
+        .await
+        .expect("create session");
 
     // Write a file inside the workspace so path resolution passes
     let subdir = config.workspace.join("repo");
@@ -470,11 +488,11 @@ async fn full_coding_session_lifecycle() {
     assert!(takeover.is_some());
 
     // 2. Chat in the coding session
-    let provider = Arc::new(MockProvider::new(vec![
-        respond_response("I'll add the greeting function now.", vec![]),
-    ]));
-    let system_prompt =
-        coding::prompt::build_coding_prompt(&config, repo.path());
+    let provider = Arc::new(MockProvider::new(vec![respond_response(
+        "I'll add the greeting function now.",
+        vec![],
+    )]));
+    let system_prompt = coding::prompt::build_coding_prompt(&config, repo.path());
 
     let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config.clone())
         .with_cwd_override(repo.path().to_path_buf());
@@ -491,9 +509,12 @@ async fn full_coding_session_lifecycle() {
     assert!(!result.message.is_empty());
 
     // 3. Make a commit in the repo (simulating agent work)
-    tokio::fs::write(repo.path().join("greet.rs"), "pub fn greet() { println!(\"hi\"); }\n")
-        .await
-        .expect("write file");
+    tokio::fs::write(
+        repo.path().join("greet.rs"),
+        "pub fn greet() { println!(\"hi\"); }\n",
+    )
+    .await
+    .expect("write file");
     tokio::process::Command::new("git")
         .args(["add", "."])
         .current_dir(repo.path())
@@ -536,9 +557,10 @@ async fn full_coding_session_lifecycle() {
     assert_eq!(sid, session.session_id);
 
     // 6. Chat again on the resumed session
-    let provider2 = Arc::new(MockProvider::new(vec![
-        respond_response("Resumed and ready.", vec![]),
-    ]));
+    let provider2 = Arc::new(MockProvider::new(vec![respond_response(
+        "Resumed and ready.",
+        vec![],
+    )]));
     let chat2 = SessionChat::new(db.clone(), provider2, ToolManager::empty(), config)
         .with_cwd_override(repo.path().to_path_buf());
 
@@ -647,7 +669,10 @@ async fn ending_one_session_doesnt_affect_other() {
     let takeover = db::coding_sessions::get_active_takeover(&db, "chan-Y")
         .await
         .expect("takeover Y");
-    assert!(takeover.is_some(), "s2 should still be active after ending s1");
+    assert!(
+        takeover.is_some(),
+        "s2 should still be active after ending s1"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -700,7 +725,10 @@ async fn entry_banner_fires_on_first_message() {
     let count = db::sessions::count_messages_for_session(&db, &session.session_id)
         .await
         .expect("count messages");
-    assert_eq!(count, 1, "should have exactly 1 message (the initial prompt)");
+    assert_eq!(
+        count, 1,
+        "should have exactly 1 message (the initial prompt)"
+    );
     assert!(count <= 1, "banner condition should be true");
 
     // After a chat turn, count > 1, banner should not fire
@@ -737,5 +765,8 @@ async fn entry_banner_fires_without_initial_prompt() {
         .await
         .expect("count messages");
     assert_eq!(count, 0);
-    assert!(count <= 1, "banner condition should be true with 0 messages");
+    assert!(
+        count <= 1,
+        "banner condition should be true with 0 messages"
+    );
 }

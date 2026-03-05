@@ -47,6 +47,17 @@ export default defineConfig({
           ],
         },
         {
+          label: "GHOST HACK",
+          items: [
+            { label: "Overview", slug: "ghost-hack/overview" },
+            {
+              label: "Project Context",
+              slug: "ghost-hack/project-context",
+            },
+            { label: "Configuration", slug: "ghost-hack/configuration" },
+          ],
+        },
+        {
           label: "Knowledge",
           items: [
             { label: "Knowledge Base", slug: "knowledge/knowledge" },
@@ -58,8 +69,14 @@ export default defineConfig({
           label: "Skills & Tools",
           items: [
             { label: "Overview", slug: "skills-and-tools/overview" },
-            { label: "Default Skills", slug: "skills-and-tools/default-skills" },
-            { label: "Creating Skills", slug: "skills-and-tools/creating-skills" },
+            {
+              label: "Default Skills",
+              slug: "skills-and-tools/default-skills",
+            },
+            {
+              label: "Creating Skills",
+              slug: "skills-and-tools/creating-skills",
+            },
             { label: "Core Tools", slug: "skills-and-tools/core-tools" },
           ],
         },

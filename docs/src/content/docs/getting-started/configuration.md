@@ -61,6 +61,10 @@ threshold = 0.85 # Compact when context is 85% full
 keep_window = 20 # Messages to keep after compaction
 mask_preview_chars = 100 # Preview chars for compacted messages
 
+# Coding agent
+[coding]
+# model = "fast"  # Optional: use a different model alias for coding
+
 # Web
 [web]
 search_max_results = 5 # Default Brave search results

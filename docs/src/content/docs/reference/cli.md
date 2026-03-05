@@ -61,6 +61,16 @@ ghost job run <name>             # Execute job immediately
 ghost job logs [name]            # View job execution logs
 ```
 
+## ghost hack
+
+Manage coding sessions. See [GHOST HACK](/ghost-hack/overview/) for details.
+
+```bash
+ghost hack start <dir> [--prompt "task"]   # Start a coding session
+ghost hack resume <id> [--prompt "task"]   # Resume a previous session
+ghost hack list                            # List recent sessions
+```
+
 ## ghost session
 
 Inspect chat sessions.

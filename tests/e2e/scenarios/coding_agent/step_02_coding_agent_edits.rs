@@ -25,10 +25,11 @@ async fn coding_agent_step_02_coding_agent_edits() {
     let coding_session_id = state.assertion_markers["coding_chat_session_id"]
         .as_str()
         .expect("coding_chat_session_id should be a string");
-    let working_dir_str = state.assertion_markers["working_dir"]
+    let relative_working_dir = state.assertion_markers["working_dir"]
         .as_str()
         .expect("working_dir should be a string");
-    let working_dir = std::path::Path::new(working_dir_str);
+    // Resolve the relative working_dir against the restored workspace
+    let working_dir = env.workspace_path().join(relative_working_dir);
 
     // Verify the repo file exists in the restored snapshot
     assert!(
@@ -37,15 +38,15 @@ async fn coding_agent_step_02_coding_agent_edits() {
         working_dir.display()
     );
 
-    let original = std::fs::read_to_string(working_dir.join("greeting.py"))
-        .expect("read greeting.py");
+    let original =
+        std::fs::read_to_string(working_dir.join("greeting.py")).expect("read greeting.py");
     assert!(
         original.contains("hello"),
         "original greeting.py should contain 'hello'"
     );
 
     // Build the coding agent system prompt
-    let system_prompt = ghost::coding::prompt::build_coding_prompt(&env.config, working_dir);
+    let system_prompt = ghost::coding::prompt::build_coding_prompt(&env.config, &working_dir);
 
     // Create a SessionChat with cwd_override pointing to the repo
     let chat = ghost::chat::SessionChat::from_config(env.db.clone(), env.config.clone())
@@ -67,7 +68,8 @@ async fn coding_agent_step_02_coding_agent_edits() {
     .expect("TIMEOUT: coding agent should respond within 180s")
     .expect("coding agent chat failed in step_02");
 
-    env.log_session_json("coding_agent", coding_session_id).await;
+    env.log_session_json("coding_agent", coding_session_id)
+        .await;
 
     assert!(
         !result.message.trim().is_empty(),
@@ -75,10 +77,9 @@ async fn coding_agent_step_02_coding_agent_edits() {
     );
 
     // Verify the coding agent used file editing tools
-    let messages =
-        ghost::db::sessions::list_messages_by_session(&env.db, coding_session_id)
-            .await
-            .expect("list coding session messages");
+    let messages = ghost::db::sessions::list_messages_by_session(&env.db, coding_session_id)
+        .await
+        .expect("list coding session messages");
 
     let edit_tools = ["write_file", "file_edit"];
     let has_file_edit = messages.iter().any(|msg| {
@@ -126,10 +127,9 @@ async fn coding_agent_step_02_coding_agent_edits() {
         "coding_tool_calls".to_string(),
         serde_json::json!(tool_calls),
     );
-    new_state.assertion_markers.insert(
-        "modified_content".to_string(),
-        serde_json::json!(modified),
-    );
+    new_state
+        .assertion_markers
+        .insert("modified_content".to_string(), serde_json::json!(modified));
 
     harness::save_step_snapshot(&env, &new_state).await;
 }

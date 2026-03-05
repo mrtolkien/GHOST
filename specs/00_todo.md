@@ -1,2 +1,5 @@
 - [x] Run GHOST with docker on my homelab
 - [ ] Run Ark Nova e2e after codex is available again (17h)
+- [ ] ?session description for coding agent?
+- [ ] Review skills for chat vs coding
+- [ ] Review lua agents for coding!

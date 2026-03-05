@@ -314,8 +314,7 @@ impl Handler {
             db::coding_sessions::get_active_takeover(&self.db, &channel_str).await
         {
             // Send entry banner on first interaction
-            if let Ok(count) =
-                db::sessions::count_messages_for_session(&self.db, &session_id).await
+            if let Ok(count) = db::sessions::count_messages_for_session(&self.db, &session_id).await
                 && count <= 1
             {
                 let _ = send_gateway_v2(

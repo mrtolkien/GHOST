@@ -32,19 +32,27 @@ async fn coding_agent_step_01_spawn_coding_session() {
     )
     .expect("write greeting.py");
     run_cmd(&repo_dir, "git", &["add", "."]);
-    run_cmd(&repo_dir, "git", &["-c", "commit.gpgsign=false", "commit", "-m", "initial commit"]);
+    run_cmd(
+        &repo_dir,
+        "git",
+        &[
+            "-c",
+            "commit.gpgsign=false",
+            "commit",
+            "-m",
+            "initial commit",
+        ],
+    );
 
     // Create a reference note so GHOST knows about the repo
     common::write_test_reference(
         env.workspace_path(),
         "test-repo",
         "repo.md",
-        &format!(
-            "# test-repo\n\n\
-             Local path: code/test-repo\n\
-             Build: python3 greeting.py\n\
-             Test: python3 -c \"from greeting import greet; assert greet() == 'hello'\"\n"
-        ),
+        "# test-repo\n\n\
+        Local path: code/test-repo\n\
+        Build: python3 greeting.py\n\
+        Test: python3 -c \"from greeting import greet; assert greet() == 'hello'\"\n",
     );
 
     let session = env.create_session().await;
@@ -57,7 +65,7 @@ async fn coding_agent_step_01_spawn_coding_session() {
             &session,
             "Hack on test-repo. The repo is already cloned at code/test-repo. \
              Start a coding session so I can work on it. \
-             Use '--prompt \"improve the greeting function\"' as the initial prompt.",
+             Use '--prompt \"change the greeting function to 'hello world'\"' as the initial prompt.",
             None,
         ),
     )
@@ -102,22 +110,31 @@ async fn coding_agent_step_01_spawn_coding_session() {
     );
 
     // Verify a coding session was created in the DB
-    let coding_sessions =
-        ghost::db::coding_sessions::list_recent_coding_sessions(&env.db, 10)
-            .await
-            .expect("list coding sessions");
+    let coding_sessions = ghost::db::coding_sessions::list_recent_coding_sessions(&env.db, 10)
+        .await
+        .expect("list coding sessions");
     assert!(
         !coding_sessions.is_empty(),
         "at least one coding session should exist after ghost hack start"
     );
 
-    let (coding_id, coding_session_id, working_dir, status, _started_at) =
-        &coding_sessions[0];
+    let (coding_id, coding_session_id, working_dir, status, _started_at) = &coding_sessions[0];
     assert_eq!(status, "active", "coding session should be active");
     assert!(
         working_dir.contains("test-repo"),
         "working_dir should reference test-repo: {working_dir}"
     );
+
+    // Store working_dir as relative to workspace so step 02 can resolve it
+    // against its own restored workspace (which has a different temp path).
+    let workspace_str = env
+        .workspace_path()
+        .to_str()
+        .expect("workspace path is utf-8");
+    let relative_working_dir = working_dir
+        .strip_prefix(workspace_str)
+        .map(|s| s.trim_start_matches('/'))
+        .unwrap_or(working_dir);
 
     // Save state for step 02
     let mut state = harness::fresh_step_state(
@@ -136,7 +153,7 @@ async fn coding_agent_step_01_spawn_coding_session() {
     );
     state.assertion_markers.insert(
         "working_dir".to_string(),
-        serde_json::json!(working_dir),
+        serde_json::json!(relative_working_dir),
     );
 
     harness::save_step_snapshot(&env, &state).await;
