@@ -1,82 +1,147 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-const DEFAULT_SKILLS: &[(&str, &str)] = &[
-    (
-        "agent-creator",
-        include_str!("../prompts/skills/agent-creator.md"),
-    ),
-    (
-        "brainstorming",
-        include_str!("../prompts/skills/brainstorming.md"),
-    ),
-    ("coding", include_str!("../prompts/skills/coding.md")),
-    (
-        "deep-research",
-        include_str!("../prompts/skills/deep-research.md"),
-    ),
-    (
-        "executing-plans",
-        include_str!("../prompts/skills/executing-plans.md"),
-    ),
-    (
-        "finishing-branch",
-        include_str!("../prompts/skills/finishing-branch.md"),
-    ),
-    (
-        "git-worktrees",
-        include_str!("../prompts/skills/git-worktrees.md"),
-    ),
-    (
-        "knowledge-navigator",
-        include_str!("../prompts/skills/knowledge-navigator.md"),
-    ),
-    ("nix-shell", include_str!("../prompts/skills/nix-shell.md")),
-    (
-        "note-writer",
-        include_str!("../prompts/skills/note-writer.md"),
-    ),
-    (
-        "parallel-agents",
-        include_str!("../prompts/skills/parallel-agents.md"),
-    ),
-    (
-        "project-manager",
-        include_str!("../prompts/skills/project-manager.md"),
-    ),
-    (
-        "receiving-review",
-        include_str!("../prompts/skills/receiving-review.md"),
-    ),
-    (
-        "reference-import",
-        include_str!("../prompts/skills/reference-import.md"),
-    ),
-    (
-        "requesting-review",
-        include_str!("../prompts/skills/requesting-review.md"),
-    ),
-    (
-        "subagent-development",
-        include_str!("../prompts/skills/subagent-development.md"),
-    ),
-    (
-        "systematic-debugging",
-        include_str!("../prompts/skills/systematic-debugging.md"),
-    ),
-    ("tdd", include_str!("../prompts/skills/tdd.md")),
-    (
-        "verification",
-        include_str!("../prompts/skills/verification.md"),
-    ),
-    (
-        "writing-plans",
-        include_str!("../prompts/skills/writing-plans.md"),
-    ),
-    (
-        "writing-skills",
-        include_str!("../prompts/skills/writing-skills.md"),
-    ),
+struct DefaultSkill {
+    path: &'static str,
+    files: &'static [(&'static str, &'static str)],
+}
+
+const DEFAULT_SKILLS: &[DefaultSkill] = &[
+    DefaultSkill {
+        path: "agent-creator",
+        files: &[(
+            "skill.md",
+            include_str!("../prompts/skills/agent-creator.md"),
+        )],
+    },
+    DefaultSkill {
+        path: "brainstorming",
+        files: &[(
+            "skill.md",
+            include_str!("../prompts/skills/brainstorming.md"),
+        )],
+    },
+    DefaultSkill {
+        path: "coding",
+        files: &[("skill.md", include_str!("../prompts/skills/coding.md"))],
+    },
+    DefaultSkill {
+        path: "deep-research",
+        files: &[(
+            "skill.md",
+            include_str!("../prompts/skills/deep-research.md"),
+        )],
+    },
+    DefaultSkill {
+        path: "executing-plans",
+        files: &[(
+            "skill.md",
+            include_str!("../prompts/skills/executing-plans.md"),
+        )],
+    },
+    DefaultSkill {
+        path: "finishing-branch",
+        files: &[(
+            "skill.md",
+            include_str!("../prompts/skills/finishing-branch.md"),
+        )],
+    },
+    DefaultSkill {
+        path: "git-worktrees",
+        files: &[(
+            "skill.md",
+            include_str!("../prompts/skills/git-worktrees.md"),
+        )],
+    },
+    DefaultSkill {
+        path: "knowledge-navigator",
+        files: &[(
+            "skill.md",
+            include_str!("../prompts/skills/knowledge-navigator.md"),
+        )],
+    },
+    DefaultSkill {
+        path: "nix-shell",
+        files: &[("skill.md", include_str!("../prompts/skills/nix-shell.md"))],
+    },
+    DefaultSkill {
+        path: "note-writer",
+        files: &[("skill.md", include_str!("../prompts/skills/note-writer.md"))],
+    },
+    DefaultSkill {
+        path: "parallel-agents",
+        files: &[(
+            "skill.md",
+            include_str!("../prompts/skills/parallel-agents.md"),
+        )],
+    },
+    DefaultSkill {
+        path: "project-manager",
+        files: &[(
+            "skill.md",
+            include_str!("../prompts/skills/project-manager.md"),
+        )],
+    },
+    DefaultSkill {
+        path: "receiving-review",
+        files: &[(
+            "skill.md",
+            include_str!("../prompts/skills/receiving-review.md"),
+        )],
+    },
+    DefaultSkill {
+        path: "reference-import",
+        files: &[(
+            "skill.md",
+            include_str!("../prompts/skills/reference-import.md"),
+        )],
+    },
+    DefaultSkill {
+        path: "requesting-review",
+        files: &[(
+            "skill.md",
+            include_str!("../prompts/skills/requesting-review.md"),
+        )],
+    },
+    DefaultSkill {
+        path: "subagent-development",
+        files: &[(
+            "skill.md",
+            include_str!("../prompts/skills/subagent-development.md"),
+        )],
+    },
+    DefaultSkill {
+        path: "systematic-debugging",
+        files: &[(
+            "skill.md",
+            include_str!("../prompts/skills/systematic-debugging.md"),
+        )],
+    },
+    DefaultSkill {
+        path: "tdd",
+        files: &[("skill.md", include_str!("../prompts/skills/tdd.md"))],
+    },
+    DefaultSkill {
+        path: "verification",
+        files: &[(
+            "skill.md",
+            include_str!("../prompts/skills/verification.md"),
+        )],
+    },
+    DefaultSkill {
+        path: "writing-plans",
+        files: &[(
+            "skill.md",
+            include_str!("../prompts/skills/writing-plans.md"),
+        )],
+    },
+    DefaultSkill {
+        path: "writing-skills",
+        files: &[(
+            "skill.md",
+            include_str!("../prompts/skills/writing-skills.md"),
+        )],
+    },
 ];
 
 #[derive(Debug)]
@@ -221,10 +286,12 @@ pub(crate) fn walk_skills_dir(dir: &Path, skills: &mut Vec<Skill>) {
 pub fn install_default_skills(workspace: &Path) -> Result<(), std::io::Error> {
     let skills_dir = workspace.join("skills");
 
-    for (name, content) in DEFAULT_SKILLS {
-        let skill_dir = skills_dir.join(name);
+    for skill in DEFAULT_SKILLS {
+        let skill_dir = skills_dir.join(skill.path);
         fs::create_dir_all(&skill_dir)?;
-        fs::write(skill_dir.join("skill.md"), content)?;
+        for (filename, content) in skill.files {
+            fs::write(skill_dir.join(filename), content)?;
+        }
     }
 
     Ok(())
@@ -443,12 +510,14 @@ name: no-desc
 
         install_default_skills(dir.path()).unwrap();
 
-        for (name, _) in DEFAULT_SKILLS {
-            let skill_file = skills.join(name).join("skill.md");
-            assert!(skill_file.exists(), "Expected {skill_file:?} to exist");
+        for skill in DEFAULT_SKILLS {
+            for (filename, _) in skill.files {
+                let file = skills.join(skill.path).join(filename);
+                assert!(file.exists(), "Expected {file:?} to exist");
 
-            let content = fs::read_to_string(&skill_file).unwrap();
-            assert!(content.contains("---"));
+                let content = fs::read_to_string(&file).unwrap();
+                assert!(content.contains("---") || !filename.ends_with(".md"));
+            }
         }
 
         assert_eq!(DEFAULT_SKILLS.len(), 21);
@@ -462,7 +531,7 @@ name: no-desc
 
         install_default_skills(dir.path()).unwrap();
 
-        let first_skill = DEFAULT_SKILLS[0].0;
+        let first_skill = DEFAULT_SKILLS[0].path;
         let skill_file = skills.join(first_skill).join("skill.md");
         fs::write(&skill_file, "custom content").unwrap();
 
