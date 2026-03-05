@@ -2,9 +2,9 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use crate::agents::AgentRunner;
-use crate::completion::CompletionSender;
 use crate::config::Config;
 use crate::db::GhostDb;
+use crate::events::SessionEventSender;
 
 use super::ToolError;
 
@@ -16,7 +16,7 @@ pub struct ToolContext {
     pub config: Config,
     pub session_id: String,
     pub agent_runner: Option<Arc<AgentRunner>>,
-    pub completion_tx: Option<CompletionSender>,
+    pub event_tx: Option<SessionEventSender>,
     pub channel_id: Option<String>,
 }
 

@@ -13,7 +13,7 @@ use crate::e2e::harness;
 async fn reference_import_step_01_autonomous_import() {
     let env = common::live_test_database("reference_import_step_01").await;
     let session = env.create_session().await;
-    let (chat, _watcher_handle) = env.chat_with_completion_watcher();
+    let (chat, _watcher_handle) = env.chat_with_event_handler();
 
     // --- Phase 1: Single user message (5 min timeout) ---
     env.log("Phase 1: single user message about Dioxus");

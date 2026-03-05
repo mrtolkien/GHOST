@@ -1,6 +1,6 @@
 # Session Event Bus — Design
 
-## Status: DRAFT
+## Status: IMPLEMENTED
 
 ## Problem
 

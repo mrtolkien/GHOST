@@ -350,13 +350,13 @@ impl LiveTestEnv {
             .with_agent_runner(Arc::clone(&self.agent_runner))
     }
 
-    /// SessionChat wired with a completion channel + spawned watcher,
+    /// SessionChat wired with an event channel + spawned event handler,
     /// mirroring the production daemon's wiring. Returns the chat handle
-    /// and the watcher's join handle.
-    pub fn chat_with_completion_watcher(
+    /// and the handler's join handle.
+    pub fn chat_with_event_handler(
         &self,
     ) -> (Arc<ghost::chat::SessionChat>, tokio::task::JoinHandle<()>) {
-        let (completion_tx, completion_rx) = ghost::completion::channel();
+        let (event_tx, event_rx) = ghost::events::channel();
         let (shutdown_tx, shutdown_rx) = tokio::sync::watch::channel(false);
         // Keep shutdown_tx alive by leaking — test cleanup doesn't need graceful shutdown.
         std::mem::forget(shutdown_tx);
@@ -365,18 +365,18 @@ impl LiveTestEnv {
             ghost::chat::SessionChat::from_config(self.db.clone(), self.config.clone())
                 .expect("build session chat")
                 .with_agent_runner(Arc::clone(&self.agent_runner))
-                .with_completion_sender(completion_tx),
+                .with_event_sender(event_tx),
         );
 
-        let watcher_handle = ghost::daemon::completion_watcher::spawn_completion_watcher(
-            completion_rx,
+        let handler_handle = ghost::daemon::event_handler::spawn_event_handler(
+            event_rx,
             Arc::clone(&session_chat),
             None, // no Discord in tests
             self.db.clone(),
             shutdown_rx,
         );
 
-        (session_chat, watcher_handle)
+        (session_chat, handler_handle)
     }
 
     /// Poll DB for a final assistant message (no tool_calls) beyond
@@ -527,54 +527,47 @@ impl LiveTestEnv {
             }
 
             for agent_id in &agent_ids {
-                if let Some((status, parent)) = self.agent_runner.take_completed(agent_id).await {
-                    let findings = status
-                        .findings
-                        .as_deref()
-                        .unwrap_or("Agent completed without producing findings.");
+                let status = match self.agent_runner.status(agent_id).await {
+                    Ok(s) => s,
+                    Err(_) => continue,
+                };
+                if status.status != "completed" {
+                    continue;
+                }
 
-                    self.log(format!(
-                        "agent '{}' completed ({} messages)",
-                        status.agent_name, status.message_count
-                    ));
+                let findings = status
+                    .findings
+                    .as_deref()
+                    .unwrap_or("Agent completed without producing findings.");
 
-                    // Extract bare session ID from agent_id
-                    let agent_session_id = agent_id
-                        .split_once(':')
-                        .map(|(_, id)| id.to_string())
-                        .unwrap_or_else(|| agent_id.clone());
+                self.log(format!(
+                    "agent '{}' completed ({} messages)",
+                    status.agent_name, status.message_count
+                ));
 
-                    self.log_session_json("agent", &agent_session_id).await;
+                // Extract bare session ID from agent_id
+                let agent_session_id = agent_id
+                    .split_once(':')
+                    .map(|(_, id)| id.to_string())
+                    .unwrap_or_else(|| agent_id.clone());
 
-                    let parent_id = parent.unwrap_or_else(|| session_id.to_string());
+                self.log_session_json("agent", &agent_session_id).await;
 
-                    // Inject findings as system message
-                    let system_msg =
-                        format!("[agent:{} completed]\n\n{findings}", status.agent_name);
-                    ghost::db::sessions::create_message(
-                        &self.db,
-                        &parent_id,
-                        "system",
-                        &system_msg,
-                    )
-                    .await
-                    .expect("inject agent findings");
-
-                    // Trigger follow-up chat turn
-                    let chat = self.chat();
-                    let trigger = "[system] Research agent completed.";
-                    match chat.chat(&parent_id, trigger, None).await {
-                        Ok((result, _metadata)) => {
-                            return Some(AgentOutcome {
-                                chat_result: result,
-                                agent_session: agent_session_id,
-                                findings: findings.to_string(),
-                            });
-                        }
-                        Err(e) => {
-                            self.log(format!("ERROR: follow-up chat turn failed: {e}"));
-                            return None;
-                        }
+                // finish_background already injected findings into parent.
+                // Trigger follow-up chat turn on parent session.
+                let chat = self.chat();
+                let trigger = "[system] Research agent completed.";
+                match chat.chat(session_id, trigger, None).await {
+                    Ok((result, _metadata)) => {
+                        return Some(AgentOutcome {
+                            chat_result: result,
+                            agent_session: agent_session_id,
+                            findings: findings.to_string(),
+                        });
+                    }
+                    Err(e) => {
+                        self.log(format!("ERROR: follow-up chat turn failed: {e}"));
+                        return None;
                     }
                 }
             }
@@ -995,7 +988,11 @@ pub async fn live_test_database_from_snapshot(
         .await
         .expect("connect to fresh temp database");
 
-    let agent_runner = Arc::new(ghost::agents::AgentRunner::new(db.clone(), config.clone()));
+    let agent_runner = Arc::new(ghost::agents::AgentRunner::new(
+        db.clone(),
+        config.clone(),
+        None,
+    ));
 
     LiveTestEnv {
         db,

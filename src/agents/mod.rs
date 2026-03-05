@@ -3,8 +3,6 @@ pub mod error;
 pub mod loader;
 pub mod runner;
 pub mod scheduler;
-pub mod watcher;
-
 pub use crontab::{install_default_crontab, load_crontab};
 pub use error::AgentError;
 pub use loader::{

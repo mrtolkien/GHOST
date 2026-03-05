@@ -34,7 +34,7 @@ pub struct SessionChat {
     max_tool_iterations: usize,
     agent_runner: Option<Arc<crate::agents::AgentRunner>>,
     compaction_override: Option<config::CompactionConfig>,
-    completion_tx: Option<crate::completion::CompletionSender>,
+    event_tx: Option<crate::events::SessionEventSender>,
     cwd_override: Option<std::path::PathBuf>,
     channel_id: Option<String>,
 }
@@ -73,7 +73,7 @@ impl SessionChat {
             max_tool_iterations: DEFAULT_MAX_TOOL_ITERATIONS,
             agent_runner: None,
             compaction_override: None,
-            completion_tx: None,
+            event_tx: None,
             cwd_override: None,
             channel_id: None,
         }
@@ -98,8 +98,8 @@ impl SessionChat {
     }
 
     #[must_use]
-    pub fn with_completion_sender(mut self, tx: crate::completion::CompletionSender) -> Self {
-        self.completion_tx = Some(tx);
+    pub fn with_event_sender(mut self, tx: crate::events::SessionEventSender) -> Self {
+        self.event_tx = Some(tx);
         self
     }
 
@@ -291,7 +291,7 @@ impl SessionChat {
             config: self.config.clone(),
             session_id: session_id.to_string(),
             agent_runner: self.agent_runner.clone(),
-            completion_tx: self.completion_tx.clone(),
+            event_tx: self.event_tx.clone(),
             channel_id: self.channel_id.clone(),
         };
 
@@ -327,7 +327,7 @@ impl SessionChat {
         &self.provider
     }
 
-    pub(super) fn config(&self) -> &Config {
+    pub fn config(&self) -> &Config {
         &self.config
     }
 

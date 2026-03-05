@@ -1233,7 +1233,7 @@ MCP servers are available.
 
 Don't assume packages are available:
 
-`````markdown theme={null}
+````markdown theme={null}
 **Bad example: Assumes installation**: "Use the pdf library to process the file."
 
 **Good example: Explicit about dependencies**: "Install required package:
@@ -1246,9 +1246,7 @@ from pypdf import PdfReader
 reader = PdfReader("file.pdf")
 ```"
 ````
-`````
-
-```
+````
 
 ## Technical notes
 

@@ -51,7 +51,6 @@ pub struct AgentStatus {
 struct AgentHandle {
     agent_id: String,
     agent_name: String,
-    parent_session_id: Option<String>,
     agent_session_id: String,
     run_id: String,
     join_handle: JoinHandle<()>,
@@ -66,6 +65,7 @@ pub struct AgentRunner {
     db: GhostDb,
     config: Config,
     handles: Arc<Mutex<HashMap<String, AgentHandle>>>,
+    event_tx: Option<crate::events::SessionEventSender>,
 }
 
 // ---------------------------------------------------------------------------
@@ -74,11 +74,16 @@ pub struct AgentRunner {
 
 impl AgentRunner {
     #[must_use]
-    pub fn new(db: GhostDb, config: Config) -> Self {
+    pub fn new(
+        db: GhostDb,
+        config: Config,
+        event_tx: Option<crate::events::SessionEventSender>,
+    ) -> Self {
         Self {
             db,
             config,
             handles: Arc::new(Mutex::new(HashMap::new())),
+            event_tx,
         }
     }
 
@@ -201,6 +206,8 @@ impl AgentRunner {
                 metadata_slot: Arc::clone(&metadata_slot),
                 depth: 0,
                 cwd: cwd.clone(),
+                event_tx: self.event_tx.clone(),
+                handles: Arc::clone(&self.handles),
             },
             prompt_args(prompt),
         );
@@ -208,7 +215,6 @@ impl AgentRunner {
         let handle = AgentHandle {
             agent_id: agent_id.clone(),
             agent_name: agent_name.to_string(),
-            parent_session_id: parent_session_id.map(|s| s.to_string()),
             agent_session_id,
             run_id,
             join_handle,
@@ -267,6 +273,8 @@ impl AgentRunner {
                 metadata_slot: Arc::clone(&metadata_slot),
                 depth: 0,
                 cwd: cwd.clone(),
+                event_tx: self.event_tx.clone(),
+                handles: Arc::clone(&self.handles),
             },
             prompt.to_string(),
         );
@@ -274,7 +282,6 @@ impl AgentRunner {
         let handle = AgentHandle {
             agent_id: agent_id.to_string(),
             agent_name: agent_name.clone(),
-            parent_session_id: parent_session_id.map(|s| s.to_string()),
             agent_session_id,
             run_id,
             join_handle,
@@ -398,46 +405,6 @@ impl AgentRunner {
             findings,
             metadata: None,
         })
-    }
-
-    pub async fn take_completed(&self, agent_id: &str) -> Option<(AgentStatus, Option<String>)> {
-        let mut handles = self.handles.lock().await;
-        let handle = handles.get(agent_id)?;
-        if !handle.join_handle.is_finished() {
-            return None;
-        }
-        let parent = handle.parent_session_id.clone();
-        let agent_name = handle.agent_name.clone();
-        let agent_session_id = handle.agent_session_id.clone();
-        let run_id = handle.run_id.clone();
-        let metadata = handle.metadata.lock().await.clone();
-        handles.remove(agent_id);
-        drop(handles);
-
-        let message_count = db::sessions::count_messages_for_session(&self.db, &agent_session_id)
-            .await
-            .unwrap_or(0);
-
-        let todo_summary = db::sessions::get_session_todo_list(&self.db, &agent_session_id)
-            .await
-            .ok()
-            .flatten()
-            .map(|items| crate::tools::format_todo_list(&items));
-
-        let findings = self.get_run_transcript(&run_id).await;
-
-        Some((
-            AgentStatus {
-                agent_id: agent_id.to_string(),
-                agent_name,
-                status: "completed".to_string(),
-                message_count,
-                todo_summary,
-                findings,
-                metadata,
-            },
-            parent,
-        ))
     }
 
     pub async fn list_agent_ids(&self) -> Vec<String> {
@@ -829,6 +796,8 @@ struct BackgroundTask {
     metadata_slot: Arc<Mutex<Option<RunMetadata>>>,
     depth: u32,
     cwd: Option<PathBuf>,
+    event_tx: Option<crate::events::SessionEventSender>,
+    handles: Arc<Mutex<HashMap<String, AgentHandle>>>,
 }
 
 fn spawn_background_run(task: BackgroundTask, args: HashMap<String, String>) -> JoinHandle<()> {
@@ -875,9 +844,9 @@ fn spawn_background_resume(task: BackgroundTask, prompt: String) -> JoinHandle<(
 }
 
 async fn finish_background(task: BackgroundTask, result: Result<AgentResult, AgentError>) {
-    let (status, transcript) = match result {
+    let (status, transcript, metadata) = match result {
         Ok(agent_result) => {
-            *task.metadata_slot.lock().await = Some(agent_result.metadata);
+            *task.metadata_slot.lock().await = Some(agent_result.metadata.clone());
             spawn_children_inner(
                 agent_result.spawns,
                 &task.db,
@@ -885,7 +854,7 @@ async fn finish_background(task: BackgroundTask, result: Result<AgentResult, Age
                 &task.agent_session_id,
                 task.depth,
             );
-            ("ok", agent_result.findings)
+            ("ok", agent_result.findings, Some(agent_result.metadata))
         }
         Err(e) => {
             logfire::error!(
@@ -894,13 +863,52 @@ async fn finish_background(task: BackgroundTask, result: Result<AgentResult, Age
                 error = e.to_string(),
             );
             let partial = last_assistant_message(&task.db, &task.agent_session_id).await;
-            ("failed", partial)
+            ("failed", partial, None)
         }
     };
 
+    // Persist run record
     if let Err(e) = db::agent_runs::finish_run(&task.db, &task.run_id, status, &transcript).await {
         logfire::error!("failed to finish agent run", error = e.to_string());
     }
+
+    // Send session event to parent (if there is a parent)
+    if let Some(ref parent_id) = task.parent_session_id {
+        let system_msg = format!("[agent:{} completed]\n\n{transcript}", task.agent_name);
+
+        // Inject findings as system message in parent session
+        if let Err(e) =
+            db::sessions::create_message(&task.db, parent_id, "system", &system_msg).await
+        {
+            logfire::error!(
+                "failed to inject agent findings into parent session",
+                error = e.to_string(),
+            );
+        }
+
+        // Send event for continuation
+        if let Some(ref tx) = task.event_tx {
+            let discord = metadata.map(|m| crate::events::DiscordPayload {
+                agent_name: Some(task.agent_name.clone()),
+                agent_metadata: Some(m),
+                agent_findings: Some(transcript.clone()),
+            });
+            let _ = tx.send(crate::events::SessionEvent {
+                session_id: parent_id.clone(),
+                system_message: system_msg,
+                discord,
+            });
+        }
+    }
+
+    // Clean up handle from the map
+    task.handles.lock().await.remove(&task.agent_session_id);
+
+    logfire::info!(
+        "agent finished",
+        agent_name = task.agent_name.clone(),
+        status = status,
+    );
 }
 
 /// Spawn child agents from post_completion, enforcing depth limit.
