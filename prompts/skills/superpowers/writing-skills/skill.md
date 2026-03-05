@@ -3,6 +3,7 @@ name: writing-skills
 description:
   Use when creating new skills, editing existing skills, or verifying skills work before
   deployment
+available: coding
 ---
 
 # Writing Skills
@@ -304,7 +305,7 @@ agent, synthesis]
 
 Use skill name only, with explicit requirement markers:
 
-- Good: `**REQUIRED:** Read read_file("skills/test-driven-development/skill.md")`
+- Good: `**REQUIRED:** Read read_file("skills/superpowers/tdd/skill.md")`
 - Good: `**REQUIRED BACKGROUND:** You MUST understand the test-driven-development skill`
 - Bad: `See skills/testing/test-driven-development` (unclear if required)
 

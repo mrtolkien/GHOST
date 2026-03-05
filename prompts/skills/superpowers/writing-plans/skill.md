@@ -4,6 +4,7 @@ description:
   Use when you have a spec or requirements for a multi-step task, before touching code.
   Write comprehensive implementation plans assuming the engineer has zero context for
   our codebase and questionable taste.
+available: coding
 ---
 
 # Writing Plans
@@ -40,8 +41,9 @@ plan."
 ```markdown
 # [Feature Name] Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use `read_file("skills/executing-plans/skill.md")`
-> to implement this plan task-by-task.
+> **For Claude:** REQUIRED SUB-SKILL: Use
+> `read_file("skills/superpowers/executing-plans/skill.md")` to implement this plan
+> task-by-task.
 
 **Goal:** [One sentence describing what this builds]
 

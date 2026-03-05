@@ -3,6 +3,7 @@ name: tdd
 description:
   Use when implementing any feature or bugfix, before writing implementation code. Write
   the test first. Watch it fail. Write minimal code to pass.
+available: coding
 ---
 
 # Test-Driven Development (TDD)

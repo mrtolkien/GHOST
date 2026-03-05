@@ -15,10 +15,10 @@ const DEFAULT_SKILLS: &[DefaultSkill] = &[
         )],
     },
     DefaultSkill {
-        path: "brainstorming",
+        path: "superpowers/brainstorming",
         files: &[(
             "skill.md",
-            include_str!("../prompts/skills/brainstorming.md"),
+            include_str!("../prompts/skills/superpowers/brainstorming/skill.md"),
         )],
     },
     DefaultSkill {
@@ -33,24 +33,24 @@ const DEFAULT_SKILLS: &[DefaultSkill] = &[
         )],
     },
     DefaultSkill {
-        path: "executing-plans",
+        path: "superpowers/executing-plans",
         files: &[(
             "skill.md",
-            include_str!("../prompts/skills/executing-plans.md"),
+            include_str!("../prompts/skills/superpowers/executing-plans/skill.md"),
         )],
     },
     DefaultSkill {
-        path: "finishing-branch",
+        path: "superpowers/finishing-branch",
         files: &[(
             "skill.md",
-            include_str!("../prompts/skills/finishing-branch.md"),
+            include_str!("../prompts/skills/superpowers/finishing-branch/skill.md"),
         )],
     },
     DefaultSkill {
-        path: "git-worktrees",
+        path: "superpowers/git-worktrees",
         files: &[(
             "skill.md",
-            include_str!("../prompts/skills/git-worktrees.md"),
+            include_str!("../prompts/skills/superpowers/git-worktrees/skill.md"),
         )],
     },
     DefaultSkill {
@@ -69,10 +69,10 @@ const DEFAULT_SKILLS: &[DefaultSkill] = &[
         files: &[("skill.md", include_str!("../prompts/skills/note-writer.md"))],
     },
     DefaultSkill {
-        path: "parallel-agents",
+        path: "superpowers/parallel-agents",
         files: &[(
             "skill.md",
-            include_str!("../prompts/skills/parallel-agents.md"),
+            include_str!("../prompts/skills/superpowers/parallel-agents/skill.md"),
         )],
     },
     DefaultSkill {
@@ -83,10 +83,10 @@ const DEFAULT_SKILLS: &[DefaultSkill] = &[
         )],
     },
     DefaultSkill {
-        path: "receiving-review",
+        path: "superpowers/receiving-review",
         files: &[(
             "skill.md",
-            include_str!("../prompts/skills/receiving-review.md"),
+            include_str!("../prompts/skills/superpowers/receiving-review/skill.md"),
         )],
     },
     DefaultSkill {
@@ -97,49 +97,52 @@ const DEFAULT_SKILLS: &[DefaultSkill] = &[
         )],
     },
     DefaultSkill {
-        path: "requesting-review",
+        path: "superpowers/requesting-review",
         files: &[(
             "skill.md",
-            include_str!("../prompts/skills/requesting-review.md"),
+            include_str!("../prompts/skills/superpowers/requesting-review/skill.md"),
         )],
     },
     DefaultSkill {
-        path: "subagent-development",
+        path: "superpowers/subagent-development",
         files: &[(
             "skill.md",
-            include_str!("../prompts/skills/subagent-development.md"),
+            include_str!("../prompts/skills/superpowers/subagent-development/skill.md"),
         )],
     },
     DefaultSkill {
-        path: "systematic-debugging",
+        path: "superpowers/systematic-debugging",
         files: &[(
             "skill.md",
-            include_str!("../prompts/skills/systematic-debugging.md"),
+            include_str!("../prompts/skills/superpowers/systematic-debugging/skill.md"),
         )],
     },
     DefaultSkill {
-        path: "tdd",
-        files: &[("skill.md", include_str!("../prompts/skills/tdd.md"))],
-    },
-    DefaultSkill {
-        path: "verification",
+        path: "superpowers/tdd",
         files: &[(
             "skill.md",
-            include_str!("../prompts/skills/verification.md"),
+            include_str!("../prompts/skills/superpowers/tdd/skill.md"),
         )],
     },
     DefaultSkill {
-        path: "writing-plans",
+        path: "superpowers/verification",
         files: &[(
             "skill.md",
-            include_str!("../prompts/skills/writing-plans.md"),
+            include_str!("../prompts/skills/superpowers/verification/skill.md"),
         )],
     },
     DefaultSkill {
-        path: "writing-skills",
+        path: "superpowers/writing-plans",
         files: &[(
             "skill.md",
-            include_str!("../prompts/skills/writing-skills.md"),
+            include_str!("../prompts/skills/superpowers/writing-plans/skill.md"),
+        )],
+    },
+    DefaultSkill {
+        path: "superpowers/writing-skills",
+        files: &[(
+            "skill.md",
+            include_str!("../prompts/skills/superpowers/writing-skills/skill.md"),
         )],
     },
 ];

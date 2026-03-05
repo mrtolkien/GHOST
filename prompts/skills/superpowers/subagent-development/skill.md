@@ -4,6 +4,7 @@ description:
   Use when executing implementation plans with independent tasks in the current session.
   Dispatch a fresh subagent per task, with two-stage review after each — spec compliance
   review first, then code quality review. Keeps context clean and quality high.
+available: coding
 ---
 
 # Subagent-Driven Development
