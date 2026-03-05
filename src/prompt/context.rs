@@ -78,7 +78,10 @@ pub fn build_operator_context(workspace: &Path) -> String {
 /// disclosure). Returns empty string if no skills found.
 #[tracing::instrument(skip_all, level = "debug", fields(workspace = %workspace.display()))]
 pub fn build_ghost_skills(workspace: &Path) -> String {
-    let skills = crate::skills::discover_skills(workspace);
+    let skills: Vec<_> = crate::skills::discover_skills(workspace)
+        .into_iter()
+        .filter(|s| s.available.as_deref() != Some("coding"))
+        .collect();
 
     if skills.is_empty() {
         return String::new();
@@ -284,6 +287,34 @@ mod tests {
         assert!(result.contains("0/1 tasks done"));
         assert!(!result.contains("Paused One"));
         assert!(result.contains("ghost project"));
+    }
+
+    #[test]
+    fn build_ghost_skills_excludes_coding_only() {
+        let dir = TempDir::new().unwrap();
+        let skills = dir.path().join("skills");
+
+        // Coding-only skill
+        let coding = skills.join("coding-skill");
+        fs::create_dir_all(&coding).unwrap();
+        fs::write(
+            coding.join("skill.md"),
+            "---\nname: coding-skill\ndescription: Coding only.\navailable: coding\n---\n",
+        )
+        .unwrap();
+
+        // General skill
+        let general = skills.join("general-skill");
+        fs::create_dir_all(&general).unwrap();
+        fs::write(
+            general.join("skill.md"),
+            "---\nname: general-skill\ndescription: For everyone.\n---\n",
+        )
+        .unwrap();
+
+        let result = build_ghost_skills(dir.path());
+        assert!(result.contains("general-skill"));
+        assert!(!result.contains("coding-skill"));
     }
 
     #[test]
