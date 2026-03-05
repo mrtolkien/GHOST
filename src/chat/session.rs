@@ -36,6 +36,7 @@ pub struct SessionChat {
     compaction_override: Option<config::CompactionConfig>,
     completion_tx: Option<crate::completion::CompletionSender>,
     cwd_override: Option<std::path::PathBuf>,
+    channel_id: Option<String>,
 }
 
 impl std::fmt::Debug for SessionChat {
@@ -74,6 +75,7 @@ impl SessionChat {
             compaction_override: None,
             completion_tx: None,
             cwd_override: None,
+            channel_id: None,
         }
     }
 
@@ -104,6 +106,12 @@ impl SessionChat {
     #[must_use]
     pub fn with_cwd_override(mut self, cwd: std::path::PathBuf) -> Self {
         self.cwd_override = Some(cwd);
+        self
+    }
+
+    #[must_use]
+    pub fn with_channel_id(mut self, channel_id: String) -> Self {
+        self.channel_id = Some(channel_id);
         self
     }
 
@@ -179,6 +187,7 @@ impl SessionChat {
             event_tx,
             pending_todo_update: false,
             system_prompt: system_prompt.to_string(),
+            compaction: coding_compaction_config(self.compaction_config()),
         };
 
         run_tool_loop(
@@ -283,6 +292,7 @@ impl SessionChat {
             session_id: session_id.to_string(),
             agent_runner: self.agent_runner.clone(),
             completion_tx: self.completion_tx.clone(),
+            channel_id: self.channel_id.clone(),
         };
 
         match self.tool_manager.execute(name, input, &tool_ctx).await {
@@ -465,6 +475,28 @@ impl ToolLoopHandler for ChatHandler<'_> {
     }
 }
 
+/// Build a compaction config tuned for coding sessions.
+///
+/// Uses a larger keep window (12 messages) and coding-specific instructions
+/// that preserve plan/TODO state, files modified, test results, and OPERATOR
+/// decisions across compaction boundaries.
+fn coding_compaction_config(base: &config::CompactionConfig) -> config::CompactionConfig {
+    config::CompactionConfig {
+        keep_window: 12,
+        instructions: Some(
+            "Preserve the following across compaction:\n\
+             - The current plan and TODO checklist status\n\
+             - All files created, modified, or deleted\n\
+             - Test results (pass/fail, which tests)\n\
+             - OPERATOR decisions and preferences\n\
+             - Current git branch and recent commits\n\
+             - Any errors or blockers encountered"
+                .to_string(),
+        ),
+        ..base.clone()
+    }
+}
+
 // ---------------------------------------------------------------------------
 // CodingHandler — coding session handler with custom system prompt
 // ---------------------------------------------------------------------------
@@ -475,6 +507,7 @@ struct CodingHandler<'a> {
     event_tx: Option<&'a EventSender>,
     pending_todo_update: bool,
     system_prompt: String,
+    compaction: config::CompactionConfig,
 }
 
 #[async_trait]
@@ -554,7 +587,7 @@ impl ToolLoopHandler for CodingHandler<'_> {
         _last_input_tokens: u32,
     ) -> Result<(), ChatError> {
         self.session_chat
-            .compact_in_tool_loop(self.session_thing, history)
+            .compact_in_tool_loop_with_config(self.session_thing, history, &self.compaction)
             .await;
 
         if self.pending_todo_update {

@@ -547,8 +547,19 @@ impl SessionChat {
         session_id: &str,
         history: &mut Vec<ChatMessage>,
     ) {
+        self.compact_in_tool_loop_with_config(session_id, history, self.compaction_config())
+            .await;
+    }
+
+    /// Like `compact_in_tool_loop` but with an explicit compaction config.
+    #[tracing::instrument(skip_all, level = "debug", fields(session_id = %session_id))]
+    pub(super) async fn compact_in_tool_loop_with_config(
+        &self,
+        session_id: &str,
+        history: &mut Vec<ChatMessage>,
+        compaction: &CompactionConfig,
+    ) {
         let context_window = self.model_context_window();
-        let compaction = self.compaction_config();
         let tools = self.tool_manager().all_tool_schemas();
 
         let budget = compute_budget(context_window, "", &tools, history, compaction.threshold);

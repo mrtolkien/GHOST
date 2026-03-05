@@ -217,6 +217,7 @@ mod tests {
             session_id: "test".to_string(),
             agent_runner: None,
             completion_tx: None,
+            channel_id: None,
         };
         (ctx, workspace)
     }

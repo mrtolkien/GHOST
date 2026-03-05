@@ -17,6 +17,7 @@ fn tool_ctx(
         session_id: session_id.to_string(),
         agent_runner: None,
         completion_tx: None,
+        channel_id: None,
     }
 }
 
@@ -293,6 +294,7 @@ async fn unknown_tool_returns_not_found() {
         session_id: "test".to_string(),
         agent_runner: None,
         completion_tx: None,
+        channel_id: None,
     };
 
     let result = manager.execute("nonexistent_tool", json!({}), &ctx).await;

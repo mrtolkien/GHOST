@@ -17,6 +17,7 @@ pub struct ToolContext {
     pub session_id: String,
     pub agent_runner: Option<Arc<AgentRunner>>,
     pub completion_tx: Option<CompletionSender>,
+    pub channel_id: Option<String>,
 }
 
 /// Resolve a path relative to a base directory and enforce that the result

@@ -313,6 +313,21 @@ impl Handler {
         if let Ok(Some((_coding_id, session_id, working_dir))) =
             db::coding_sessions::get_active_takeover(&self.db, &channel_str).await
         {
+            // Send entry banner on first interaction
+            if let Ok(count) =
+                db::sessions::count_messages_for_session(&self.db, &session_id).await
+                && count <= 1
+            {
+                let _ = send_gateway_v2(
+                    &ctx.http,
+                    msg.channel_id,
+                    "**GHOST HACKED** — you're now talking to the coding agent. \
+                     Send `/kill` to end the session.",
+                    Some(CODING_EMBED_COLOR),
+                )
+                .await;
+            }
+
             self.handle_coding_message(ctx, msg, &session_id, &working_dir)
                 .await;
             return;
