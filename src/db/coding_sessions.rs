@@ -126,3 +126,24 @@ pub async fn list_recent_coding_sessions(
         source,
     })
 }
+
+/// Look up an active coding session by its chat session ID.
+/// Returns `(working_dir, channel_id)` if found.
+pub async fn get_coding_session_for_chat_session(
+    db: &SqlitePool,
+    session_id: &str,
+) -> Result<Option<(String, Option<String>)>, DatabaseError> {
+    sqlx::query_as::<_, (String, Option<String>)>(
+        "SELECT working_dir, channel_id FROM coding_sessions
+         WHERE session_id = ? AND status = 'active'
+         LIMIT 1",
+    )
+    .bind(session_id)
+    .fetch_optional(db)
+    .await
+    .map_err(|source| DatabaseError::Query {
+        table: "coding_sessions",
+        operation: "get_for_chat_session",
+        source,
+    })
+}
