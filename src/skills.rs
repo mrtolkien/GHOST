@@ -98,10 +98,16 @@ const DEFAULT_SKILLS: &[DefaultSkill] = &[
     },
     DefaultSkill {
         path: "superpowers/requesting-review",
-        files: &[(
-            "skill.md",
-            include_str!("../prompts/skills/superpowers/requesting-review/skill.md"),
-        )],
+        files: &[
+            (
+                "skill.md",
+                include_str!("../prompts/skills/superpowers/requesting-review/skill.md"),
+            ),
+            (
+                "code-reviewer.md",
+                include_str!("../prompts/skills/superpowers/requesting-review/code-reviewer.md"),
+            ),
+        ],
     },
     DefaultSkill {
         path: "superpowers/subagent-development",
@@ -112,15 +118,21 @@ const DEFAULT_SKILLS: &[DefaultSkill] = &[
             ),
             (
                 "implementer-prompt.md",
-                include_str!("../prompts/skills/superpowers/subagent-development/implementer-prompt.md"),
+                include_str!(
+                    "../prompts/skills/superpowers/subagent-development/implementer-prompt.md"
+                ),
             ),
             (
                 "spec-reviewer-prompt.md",
-                include_str!("../prompts/skills/superpowers/subagent-development/spec-reviewer-prompt.md"),
+                include_str!(
+                    "../prompts/skills/superpowers/subagent-development/spec-reviewer-prompt.md"
+                ),
             ),
             (
                 "code-quality-reviewer-prompt.md",
-                include_str!("../prompts/skills/superpowers/subagent-development/code-quality-reviewer-prompt.md"),
+                include_str!(
+                    "../prompts/skills/superpowers/subagent-development/code-quality-reviewer-prompt.md"
+                ),
             ),
         ],
     },
@@ -133,24 +145,36 @@ const DEFAULT_SKILLS: &[DefaultSkill] = &[
             ),
             (
                 "root-cause-tracing.md",
-                include_str!("../prompts/skills/superpowers/systematic-debugging/root-cause-tracing.md"),
+                include_str!(
+                    "../prompts/skills/superpowers/systematic-debugging/root-cause-tracing.md"
+                ),
             ),
             (
                 "condition-based-waiting.md",
-                include_str!("../prompts/skills/superpowers/systematic-debugging/condition-based-waiting.md"),
+                include_str!(
+                    "../prompts/skills/superpowers/systematic-debugging/condition-based-waiting.md"
+                ),
             ),
             (
                 "defense-in-depth.md",
-                include_str!("../prompts/skills/superpowers/systematic-debugging/defense-in-depth.md"),
+                include_str!(
+                    "../prompts/skills/superpowers/systematic-debugging/defense-in-depth.md"
+                ),
             ),
         ],
     },
     DefaultSkill {
         path: "superpowers/tdd",
-        files: &[(
-            "skill.md",
-            include_str!("../prompts/skills/superpowers/tdd/skill.md"),
-        )],
+        files: &[
+            (
+                "skill.md",
+                include_str!("../prompts/skills/superpowers/tdd/skill.md"),
+            ),
+            (
+                "testing-anti-patterns.md",
+                include_str!("../prompts/skills/superpowers/tdd/testing-anti-patterns.md"),
+            ),
+        ],
     },
     DefaultSkill {
         path: "superpowers/verification",
@@ -168,10 +192,28 @@ const DEFAULT_SKILLS: &[DefaultSkill] = &[
     },
     DefaultSkill {
         path: "superpowers/writing-skills",
-        files: &[(
-            "skill.md",
-            include_str!("../prompts/skills/superpowers/writing-skills/skill.md"),
-        )],
+        files: &[
+            (
+                "skill.md",
+                include_str!("../prompts/skills/superpowers/writing-skills/skill.md"),
+            ),
+            (
+                "best-practices.md",
+                include_str!("../prompts/skills/superpowers/writing-skills/best-practices.md"),
+            ),
+            (
+                "persuasion-principles.md",
+                include_str!(
+                    "../prompts/skills/superpowers/writing-skills/persuasion-principles.md"
+                ),
+            ),
+            (
+                "testing-skills-with-subagents.md",
+                include_str!(
+                    "../prompts/skills/superpowers/writing-skills/testing-skills-with-subagents.md"
+                ),
+            ),
+        ],
     },
 ];
 
@@ -547,7 +589,14 @@ name: no-desc
                 assert!(file.exists(), "Expected {file:?} to exist");
 
                 let content = fs::read_to_string(&file).unwrap();
-                assert!(content.contains("---") || !filename.ends_with(".md"));
+                if *filename == "skill.md" {
+                    assert!(
+                        content.contains("---"),
+                        "skill.md in {} should have frontmatter",
+                        skill.path
+                    );
+                }
+                assert!(!content.is_empty(), "File {file:?} should not be empty");
             }
         }
 

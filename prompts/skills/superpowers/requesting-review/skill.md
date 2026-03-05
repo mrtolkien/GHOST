@@ -98,6 +98,12 @@ You: [Fix progress indicators]
 - Review before merge
 - Review when stuck
 
+## Code Reviewer Prompt Template
+
+When starting a code-reviewer agent, use the prompt template at
+`read_file("skills/superpowers/requesting-review/code-reviewer.md")`. It includes the
+full review checklist, output format, and `{PLACEHOLDER}` variables to fill in.
+
 ## Red Flags
 
 **Never:**

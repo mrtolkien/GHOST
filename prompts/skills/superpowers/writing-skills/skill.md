@@ -652,6 +652,18 @@ How future GHOST finds your skill:
 
 **Optimize for this flow** - put searchable terms early and often.
 
+## Companion Guides
+
+- **Authoring best practices:**
+  `read_file("skills/superpowers/writing-skills/best-practices.md")` — Conciseness,
+  structure, progressive disclosure, evaluation-driven development
+- **Persuasion principles:**
+  `read_file("skills/superpowers/writing-skills/persuasion-principles.md")` — Psychology
+  of effective skill design (authority, commitment, scarcity)
+- **Testing skills with subagents:**
+  `read_file("skills/superpowers/writing-skills/testing-skills-with-subagents.md")` —
+  Pressure scenarios, rationalization tables, bulletproofing
+
 ## The Bottom Line
 
 **Creating skills IS TDD for process documentation.**
