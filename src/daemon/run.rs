@@ -109,7 +109,8 @@ pub async fn boot() -> Result<BootResult, GhostError> {
     );
 
     // Create agent runner (shared between SessionChat, scheduler, agent watcher)
-    let agent_runner = Arc::new(AgentRunner::new(db.clone(), config.clone()));
+    // TODO(task-6): pass real SessionEventSender once daemon boot is wired
+    let agent_runner = Arc::new(AgentRunner::new(db.clone(), config.clone(), None));
 
     // Spawn the unified scheduler (handles both cron jobs and idle agents)
     let scheduler_handle = crate::agents::scheduler::spawn_scheduler(

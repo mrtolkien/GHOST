@@ -995,7 +995,7 @@ pub async fn live_test_database_from_snapshot(
         .await
         .expect("connect to fresh temp database");
 
-    let agent_runner = Arc::new(ghost::agents::AgentRunner::new(db.clone(), config.clone()));
+    let agent_runner = Arc::new(ghost::agents::AgentRunner::new(db.clone(), config.clone(), None));
 
     LiveTestEnv {
         db,
