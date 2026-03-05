@@ -207,7 +207,7 @@ async fn tick_scheduled(
                         name.clone(),
                         String::new(),
                     );
-                    match host.call_should_trigger(ctx) {
+                    match host.call_should_trigger(ctx).await {
                         Ok(false) => {
                             logfire::debug!(
                                 "scheduled agent skipped by should_trigger",
@@ -219,10 +219,13 @@ async fn tick_scheduled(
                         }
                         Err(e) => {
                             logfire::warn!(
-                                "should_trigger hook error, proceeding anyway",
+                                "should_trigger hook error, skipping agent",
                                 agent_name = name.clone(),
                                 error = e.to_string(),
                             );
+                            entry.last_run = Some(now);
+                            entry.next_run = entry.entry.cron.after(&now).next();
+                            continue;
                         }
                         Ok(true) => {}
                     }
@@ -298,7 +301,7 @@ async fn tick_idle(
                         agent.name.clone(),
                         String::new(),
                     );
-                    match host.call_should_trigger(ctx) {
+                    match host.call_should_trigger(ctx).await {
                         Ok(false) => {
                             logfire::debug!(
                                 "idle agent skipped by should_trigger",
@@ -308,10 +311,11 @@ async fn tick_idle(
                         }
                         Err(e) => {
                             logfire::warn!(
-                                "should_trigger hook error, proceeding anyway",
+                                "should_trigger hook error, skipping agent",
                                 agent_name = agent.name.clone(),
                                 error = e.to_string(),
                             );
+                            continue;
                         }
                         Ok(true) => {}
                     }
