@@ -1,6 +1,7 @@
 mod browser;
 mod cache;
 pub mod curation;
+pub mod docling;
 mod fetch;
 mod search;
 mod searxng;

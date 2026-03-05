@@ -144,6 +144,7 @@ pub struct CompactionSettings {
 pub struct WebSettings {
     pub search_max_results: Option<usize>,
     pub crawl4ai_url: Option<String>,
+    pub docling_url: Option<String>,
     pub search: Option<SearchProviderSettings>,
 }
 
@@ -231,6 +232,7 @@ pub struct CompactionConfig {
 pub struct WebConfig {
     pub search_max_results: usize,
     pub crawl4ai_url: Option<String>,
+    pub docling_url: Option<String>,
     pub search_provider: SearchProviderConfig,
 }
 
@@ -400,6 +402,12 @@ impl Config {
                     .and_then(|w| w.crawl4ai_url.clone())
                     .or_else(|| env::var("CRAWL4AI_URL").ok());
 
+                let docling_url = settings
+                    .web
+                    .as_ref()
+                    .and_then(|w| w.docling_url.clone())
+                    .or_else(|| env::var("DOCLING_URL").ok());
+
                 let search_provider = match settings.web.as_ref().and_then(|w| w.search.as_ref()) {
                     Some(s) => match s.provider {
                         SearchProviderKind::Brave => SearchProviderConfig::Brave,
@@ -423,6 +431,7 @@ impl Config {
                         .and_then(|w| w.search_max_results)
                         .unwrap_or(5),
                     crawl4ai_url,
+                    docling_url,
                     search_provider,
                 }
             },
@@ -593,6 +602,7 @@ pub fn test_config(workspace: &std::path::Path) -> Config {
         web: WebConfig {
             search_max_results: 5,
             crawl4ai_url: None,
+            docling_url: None,
             search_provider: SearchProviderConfig::Brave,
         },
         debug: DebugConfig {

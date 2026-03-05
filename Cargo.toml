@@ -25,6 +25,7 @@ reqwest = { version = "0.13", default-features = false, features = [
   "rustls",
   "query",
   "form",
+  "multipart",
 ] }
 resvg = "0.47"
 scraper = "0.22"

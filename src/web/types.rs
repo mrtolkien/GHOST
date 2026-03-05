@@ -37,6 +37,9 @@ pub enum WebError {
 
     #[error("crawl4ai failed for {url}: {detail}")]
     Crawl4ai { url: String, detail: String },
+
+    #[error("docling conversion failed: {0}")]
+    Docling(String),
 }
 
 #[derive(Debug, Clone, Serialize)]
