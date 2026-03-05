@@ -50,8 +50,9 @@ impl Tool for WebFetch {
             Err(WebError::UnsupportedContentType { content_type }) => {
                 return Err(ToolError::ExecutionFailed(format!(
                     "This URL returned {content_type} which web_fetch cannot read. \
-                     Read the reference-import skill — it can import PDFs, DOCX, \
-                     and other binary documents into your knowledge base."
+                     Use the reference-import skill to import it: \
+                     `ghost reference import --source page --url <url> --topic <name>` \
+                     handles PDFs, DOCX, and other binary documents via docling."
                 )));
             }
             Err(e) => return Err(ToolError::ExecutionFailed(e.to_string())),

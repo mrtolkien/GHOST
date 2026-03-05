@@ -17,11 +17,15 @@ Follow this order — stop as soon as you have an answer:
 
 1. **Search first**: `knowledge_search(query="<topic>", categories=["references"])`. If
    results exist, use them to answer. Done.
-2. **File upload**: if the OPERATOR uploaded a file, import it with `--source file`.
-3. **Git import** (preferred): find the docs repo via `gh`, import with
-   `background: true`, tell the OPERATOR it's importing.
-4. **Crawl import** (fallback): only if no git source exists (e.g. docs-only site).
-5. **After starting the background import**: tell the OPERATOR it's importing, include
+2. **Single URL** (PDF, DOCX, or any web page): use `--source page --url <url>`. This
+   handles both HTML pages and binary documents — docling converts PDFs and other
+   non-text formats automatically. **Do not use `web_fetch` on PDF/binary URLs** — use
+   page import instead.
+3. **File upload**: if the OPERATOR uploaded a file, import it with `--source file`.
+4. **Git import** (preferred for whole doc sets): find the docs repo via `gh`, import
+   with `background: true`, tell the OPERATOR it's importing.
+5. **Crawl import** (fallback): only if no git source exists (e.g. docs-only site).
+6. **After starting the background import**: tell the OPERATOR it's importing, include
    any other pending offers or responses (e.g. project creation), then **end your
    turn**. A follow-up turn is triggered automatically when the import completes —
    you'll see the `[shell-command completed]` system message. Search the imported refs
