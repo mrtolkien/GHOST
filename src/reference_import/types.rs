@@ -32,7 +32,6 @@ pub struct ImportResult {
     pub batch_id: String,
     pub references_created: usize,
     pub references_skipped: usize,
-    pub embeddings_generated: usize,
 }
 
 #[derive(Debug, Error)]
@@ -45,9 +44,6 @@ pub enum ImportError {
 
     #[error("database error: {0}")]
     Database(#[from] crate::db::DatabaseError),
-
-    #[error("embedding error: {0}")]
-    Embedding(#[from] crate::embeddings::pipeline::PipelineError),
 
     #[error("I/O error: {0}")]
     Io(#[from] std::io::Error),

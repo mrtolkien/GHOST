@@ -26,24 +26,14 @@ async fn import_and_query_git_references() {
         topic: "dioxus/docs".to_string(),
     };
 
-    let result = ghost::reference_import::import_git(
-        &db,
-        workspace_path,
-        &config.embeddings,
-        &import_config,
-    )
-    .await
-    .expect("import git");
+    let result = ghost::reference_import::import_git(&db, workspace_path, &import_config)
+        .await
+        .expect("import git");
 
     assert!(
         result.references_created > 0,
         "should create references, got 0"
     );
-    assert!(
-        result.embeddings_generated > 0,
-        "should generate embeddings, got 0"
-    );
-
     // --- Phase 2: Verify topic + import batch metadata ---
 
     let topic = db::knowledge::find_topic_by_name(&db, "dioxus/docs")
@@ -106,9 +96,31 @@ async fn import_and_query_git_references() {
         "search on unrelated topic should return nothing"
     );
 
-    // --- Phase 4: Vector search (requires Ollama) ---
+    // --- Phase 3b: Generate embeddings (normally handled by file watcher) ---
 
     let client = EmbeddingClient::new(&config.embeddings);
+    {
+        let refs = db::knowledge::list_references_by_topic(&db, Some(&topic.id), 1000)
+            .await
+            .expect("list refs");
+        let embed_requests: Vec<ghost::embeddings::pipeline::EmbedRequest> = refs
+            .into_iter()
+            .map(|r| ghost::embeddings::pipeline::EmbedRequest {
+                source_table: "reference".into(),
+                source_id: r.id,
+                content: r.content,
+                tags: vec![],
+                topic_id: Some(topic.id.clone()),
+                path: Some(r.path),
+            })
+            .collect();
+        let embedded = ghost::embeddings::pipeline::embed_sources(&client, &db, embed_requests)
+            .await
+            .expect("embed references");
+        assert!(embedded > 0, "should generate embeddings");
+    }
+
+    // --- Phase 4: Vector search (requires Ollama) ---
     assert!(
         client.is_available().await,
         "Ollama must be running for this test"
@@ -172,14 +184,9 @@ async fn import_and_query_git_references() {
 
     // --- Phase 6: Idempotent re-import ---
 
-    let result2 = ghost::reference_import::import_git(
-        &db,
-        workspace_path,
-        &config.embeddings,
-        &import_config,
-    )
-    .await
-    .expect("re-import");
+    let result2 = ghost::reference_import::import_git(&db, workspace_path, &import_config)
+        .await
+        .expect("re-import");
 
     assert_eq!(
         result2.references_created, 0,

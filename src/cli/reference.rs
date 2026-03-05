@@ -157,38 +157,22 @@ async fn cmd_import(
 
     let result = match &import_config.source {
         ImportSource::Git { .. } => {
-            crate::reference_import::import_git(db, workspace, &config.embeddings, &import_config)
-                .await?
+            crate::reference_import::import_git(db, workspace, &import_config).await?
         }
         ImportSource::Page { .. } => {
-            crate::reference_import::import_page(
-                db,
-                workspace,
-                &config.embeddings,
-                &config.web,
-                &import_config,
-            )
-            .await?
+            crate::reference_import::import_page(db, workspace, &config.web, &import_config).await?
         }
         ImportSource::Crawl { .. } => {
-            crate::reference_import::import_crawl(db, workspace, &config.embeddings, &import_config)
-                .await?
+            crate::reference_import::import_crawl(db, workspace, &import_config).await?
         }
         ImportSource::File { .. } => {
-            crate::reference_import::import_file(
-                db,
-                workspace,
-                &config.embeddings,
-                &config.web,
-                &import_config,
-            )
-            .await?
+            crate::reference_import::import_file(db, workspace, &config.web, &import_config).await?
         }
     };
 
     println!(
-        "Done. Created: {}, Skipped: {}, Embeddings: {}",
-        result.references_created, result.references_skipped, result.embeddings_generated
+        "Done. Created: {}, Skipped: {}",
+        result.references_created, result.references_skipped
     );
 
     if result.references_created > 0 {

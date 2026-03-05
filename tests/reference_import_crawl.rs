@@ -22,14 +22,9 @@ async fn crawl_import_small_site() {
     };
 
     // --- Phase 1: Initial crawl ---
-    let result = ghost::reference_import::import_crawl(
-        &env.db,
-        workspace_path,
-        &env.config.embeddings,
-        &import_config,
-    )
-    .await
-    .expect("initial crawl");
+    let result = ghost::reference_import::import_crawl(&env.db, workspace_path, &import_config)
+        .await
+        .expect("initial crawl");
 
     assert!(
         result.references_created > 0,
@@ -70,14 +65,9 @@ async fn crawl_import_small_site() {
     );
 
     // --- Phase 2: Idempotent re-crawl ---
-    let result2 = ghost::reference_import::import_crawl(
-        &env.db,
-        workspace_path,
-        &env.config.embeddings,
-        &import_config,
-    )
-    .await
-    .expect("re-crawl");
+    let result2 = ghost::reference_import::import_crawl(&env.db, workspace_path, &import_config)
+        .await
+        .expect("re-crawl");
 
     assert_eq!(
         result2.references_created, 0,

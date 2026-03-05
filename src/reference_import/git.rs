@@ -2,11 +2,8 @@ use std::path::{Path, PathBuf};
 
 use tokio::process::Command;
 
-use crate::config::EmbeddingsConfig;
 use crate::db;
 use crate::db::GhostDb;
-use crate::embeddings::EmbeddingClient;
-use crate::embeddings::pipeline::{EmbedRequest, embed_sources};
 
 use super::topic::ensure_topic_hierarchy;
 use super::types::{ImportConfig, ImportError, ImportResult, ImportSource};
@@ -20,7 +17,6 @@ use super::types::{ImportConfig, ImportError, ImportResult, ImportSource};
 pub async fn import_git(
     db: &GhostDb,
     workspace: &Path,
-    embeddings_config: &EmbeddingsConfig,
     config: &ImportConfig,
 ) -> Result<ImportResult, ImportError> {
     let ImportSource::Git {
@@ -78,8 +74,6 @@ pub async fn import_git(
     println!("Found {total_files} files to process");
     let mut created = 0usize;
     let mut skipped = 0usize;
-    let mut embed_requests = Vec::new();
-
     // Upsert import batch (we'll update ref_count after creating references)
     let batch_id = db::knowledge::upsert_import_batch(
         db,
@@ -128,7 +122,7 @@ pub async fn import_git(
         }
         std::fs::write(&disk_path, &content)?;
 
-        let ref_id = db::knowledge::create_reference(
+        db::knowledge::create_reference(
             db,
             &topic_id,
             &ref_path,
@@ -138,22 +132,8 @@ pub async fn import_git(
         )
         .await?;
 
-        embed_requests.push(EmbedRequest {
-            source_table: "reference".into(),
-            source_id: ref_id,
-            content,
-            tags: vec![config.topic.clone()],
-            topic_id: Some(topic_id.clone()),
-            path: Some(rel_path.to_string()),
-        });
-
         created += 1;
     }
-
-    // Batch embed
-    println!("Embedding {created} references...");
-    let client = EmbeddingClient::new(embeddings_config);
-    let embeddings_generated = embed_sources(&client, db, embed_requests).await?;
 
     // Update import batch with final ref count
     let total_refs = db::knowledge::count_references_by_topic(db, &topic_id).await? as usize;
@@ -182,7 +162,6 @@ pub async fn import_git(
         batch_id,
         references_created: created,
         references_skipped: skipped,
-        embeddings_generated,
     })
 }
 

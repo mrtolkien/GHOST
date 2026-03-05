@@ -1,10 +1,8 @@
 use std::path::Path;
 
-use crate::config::{EmbeddingsConfig, WebConfig};
+use crate::config::WebConfig;
 use crate::db;
 use crate::db::GhostDb;
-use crate::embeddings::EmbeddingClient;
-use crate::embeddings::pipeline::{EmbedRequest, embed_sources};
 
 use super::topic::ensure_topic_hierarchy;
 use super::types::{ImportConfig, ImportError, ImportResult, ImportSource};
@@ -13,7 +11,6 @@ use super::types::{ImportConfig, ImportError, ImportResult, ImportSource};
 pub async fn import_file(
     db: &GhostDb,
     workspace: &Path,
-    embeddings_config: &EmbeddingsConfig,
     web_config: &WebConfig,
     config: &ImportConfig,
 ) -> Result<ImportResult, ImportError> {
@@ -67,7 +64,6 @@ pub async fn import_file(
             batch_id,
             references_created: 0,
             references_skipped: 1,
-            embeddings_generated: 0,
         });
     }
 
@@ -98,21 +94,8 @@ pub async fn import_file(
     std::fs::write(&disk_path, &markdown)?;
 
     // DB record
-    let ref_id =
-        db::knowledge::create_reference(db, &topic_id, &ref_path, &markdown, None, Some(&batch_id))
-            .await?;
-
-    // Embed
-    let client = EmbeddingClient::new(embeddings_config);
-    let embed_requests = vec![EmbedRequest {
-        source_table: "reference".into(),
-        source_id: ref_id,
-        content: markdown,
-        tags: vec![config.topic.clone()],
-        topic_id: Some(topic_id.clone()),
-        path: Some(ref_path.clone()),
-    }];
-    let embeddings_generated = embed_sources(&client, db, embed_requests).await?;
+    db::knowledge::create_reference(db, &topic_id, &ref_path, &markdown, None, Some(&batch_id))
+        .await?;
 
     // Update batch
     let total_refs = db::knowledge::count_references_by_topic(db, &topic_id).await? as usize;
@@ -140,6 +123,5 @@ pub async fn import_file(
         batch_id,
         references_created: 1,
         references_skipped: 0,
-        embeddings_generated,
     })
 }

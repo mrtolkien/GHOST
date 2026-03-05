@@ -4,11 +4,8 @@ use std::path::Path;
 use scraper::{Html, Selector};
 use url::Url;
 
-use crate::config::EmbeddingsConfig;
 use crate::db;
 use crate::db::GhostDb;
-use crate::embeddings::EmbeddingClient;
-use crate::embeddings::pipeline::{EmbedRequest, embed_sources};
 use crate::web;
 
 use super::topic::ensure_topic_hierarchy;
@@ -19,7 +16,6 @@ use super::types::{ImportConfig, ImportError, ImportResult, ImportSource};
 pub async fn import_crawl(
     db: &GhostDb,
     workspace: &Path,
-    embeddings_config: &EmbeddingsConfig,
     config: &ImportConfig,
 ) -> Result<ImportResult, ImportError> {
     let ImportSource::Crawl {
@@ -47,7 +43,6 @@ pub async fn import_crawl(
 
     let mut queue: VecDeque<(Url, usize)> = VecDeque::new();
     let mut visited: HashSet<String> = HashSet::new();
-    let mut embed_requests: Vec<EmbedRequest> = Vec::new();
     let mut created = 0usize;
     let mut skipped = 0usize;
 
@@ -127,7 +122,7 @@ pub async fn import_crawl(
         std::fs::write(&disk_path, &extracted.text)?;
 
         // Store as reference
-        let ref_id = db::knowledge::create_reference(
+        db::knowledge::create_reference(
             db,
             &topic_id,
             &ref_path,
@@ -137,25 +132,11 @@ pub async fn import_crawl(
         )
         .await?;
 
-        embed_requests.push(EmbedRequest {
-            source_table: "reference".into(),
-            source_id: ref_id,
-            content: extracted.text,
-            tags: vec![config.topic.clone()],
-            topic_id: Some(topic_id.clone()),
-            path: Some(ref_path.clone()),
-        });
-
         created += 1;
 
         // Small delay between fetches to be polite
         tokio::time::sleep(std::time::Duration::from_millis(200)).await;
     }
-
-    // Batch embed
-    println!("Embedding {created} references...");
-    let client = EmbeddingClient::new(embeddings_config);
-    let embeddings_generated = embed_sources(&client, db, embed_requests).await?;
 
     // Update import batch with final count
     let total_refs = db::knowledge::count_references_by_topic(db, &topic_id).await? as usize;
@@ -184,7 +165,6 @@ pub async fn import_crawl(
         batch_id,
         references_created: created,
         references_skipped: skipped,
-        embeddings_generated,
     })
 }
 

@@ -1,10 +1,8 @@
 use std::path::Path;
 
-use crate::config::{EmbeddingsConfig, WebConfig};
+use crate::config::WebConfig;
 use crate::db;
 use crate::db::GhostDb;
-use crate::embeddings::EmbeddingClient;
-use crate::embeddings::pipeline::{EmbedRequest, embed_sources};
 use crate::web;
 
 use super::topic::ensure_topic_hierarchy;
@@ -13,11 +11,13 @@ use super::types::{ImportConfig, ImportError, ImportResult, ImportSource};
 /// Import a single web page or document URL as a reference under a topic.
 /// HTML pages are fetched and converted to markdown directly. Non-text URLs
 /// (PDF, DOCX, etc.) are routed through docling-serve for conversion.
+///
+/// Embeddings are handled by the file watcher when it detects the new file
+/// under `references/`.
 #[tracing::instrument(name = "import page", skip_all, fields(topic = %config.topic))]
 pub async fn import_page(
     db: &GhostDb,
     workspace: &Path,
-    embeddings_config: &EmbeddingsConfig,
     web_config: &WebConfig,
     config: &ImportConfig,
 ) -> Result<ImportResult, ImportError> {
@@ -46,7 +46,6 @@ pub async fn import_page(
             batch_id,
             references_created: 0,
             references_skipped: 1,
-            embeddings_generated: 0,
         });
     }
 
@@ -81,27 +80,8 @@ pub async fn import_page(
     std::fs::write(&disk_path, &text)?;
 
     // Store as reference
-    let ref_id = db::knowledge::create_reference(
-        db,
-        &topic_id,
-        &ref_path,
-        &text,
-        Some(url),
-        Some(&batch_id),
-    )
-    .await?;
-
-    // Embed
-    let client = EmbeddingClient::new(embeddings_config);
-    let embed_requests = vec![EmbedRequest {
-        source_table: "reference".into(),
-        source_id: ref_id,
-        content: text,
-        tags: vec![config.topic.clone()],
-        topic_id: Some(topic_id.clone()),
-        path: Some(ref_path.clone()),
-    }];
-    let embeddings_generated = embed_sources(&client, db, embed_requests).await?;
+    db::knowledge::create_reference(db, &topic_id, &ref_path, &text, Some(url), Some(&batch_id))
+        .await?;
 
     // Update import batch with final ref count
     let total_refs = db::knowledge::count_references_by_topic(db, &topic_id).await? as usize;
@@ -117,6 +97,5 @@ pub async fn import_page(
         batch_id,
         references_created: 1,
         references_skipped: 0,
-        embeddings_generated,
     })
 }
