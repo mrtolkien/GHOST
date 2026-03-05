@@ -87,7 +87,7 @@ CREATE TABLE note (
 CREATE TABLE import_batch (
     id TEXT PRIMARY KEY NOT NULL,
     topic_id TEXT NOT NULL REFERENCES topic(id) ON DELETE CASCADE,
-    source_type TEXT NOT NULL CHECK (source_type IN ('git', 'page', 'crawl')),
+    source_type TEXT NOT NULL CHECK (source_type IN ('git', 'page', 'crawl', 'file')),
     source_url TEXT NOT NULL,
     version_ref TEXT,
     ref_count INTEGER NOT NULL DEFAULT 0,
