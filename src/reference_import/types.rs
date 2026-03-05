@@ -21,6 +21,9 @@ pub enum ImportSource {
         max_depth: usize,
         max_pages: usize,
     },
+    File {
+        path: String,
+    },
 }
 
 #[derive(Debug)]

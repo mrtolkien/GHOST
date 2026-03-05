@@ -6,15 +6,19 @@ use crate::reference_import::{ImportConfig, ImportSource};
 
 #[derive(Debug, Subcommand)]
 pub enum ReferenceCommand {
-    /// Import references from a git repo, web page, or crawl
+    /// Import references from a git repo, web page, crawl, or local file
     Import {
-        /// Source type: "git", "page", or "crawl"
+        /// Source type: "git", "page", "crawl", or "file"
         #[arg(long)]
         source: String,
 
-        /// URL to import from
+        /// URL to import from (not needed for file imports)
         #[arg(long)]
-        url: String,
+        url: Option<String>,
+
+        /// Local file path (file import only)
+        #[arg(long)]
+        path: Option<String>,
 
         /// Topic name (hierarchical, e.g. "dioxus/docs")
         #[arg(long)]
@@ -55,6 +59,7 @@ pub async fn execute(command: ReferenceCommand) -> Result<(), GhostError> {
         ReferenceCommand::Import {
             source,
             url,
+            path,
             topic,
             paths,
             extensions,
@@ -65,7 +70,8 @@ pub async fn execute(command: ReferenceCommand) -> Result<(), GhostError> {
                 &db,
                 &config,
                 &source,
-                &url,
+                url.as_deref(),
+                path.as_deref(),
                 &topic,
                 &paths,
                 &extensions,
@@ -81,37 +87,60 @@ pub async fn execute(command: ReferenceCommand) -> Result<(), GhostError> {
 }
 
 #[allow(clippy::too_many_arguments)]
-#[tracing::instrument(name = "import references", skip_all, fields(source, topic, url))]
+#[tracing::instrument(name = "import references", skip_all, fields(source, topic))]
 async fn cmd_import(
     db: &db::GhostDb,
     config: &crate::config::Config,
     source: &str,
-    url: &str,
+    url: Option<&str>,
+    path: Option<&str>,
     topic: &str,
     paths: &[String],
     extensions: &[String],
     max_depth: usize,
     max_pages: usize,
 ) -> Result<(), GhostError> {
+    let require_url = || -> Result<&str, GhostError> {
+        url.ok_or_else(|| {
+            GhostError::Io(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "--url is required for git/page/crawl imports",
+            ))
+        })
+    };
+
     let import_config = ImportConfig {
         source: match source {
             "git" => ImportSource::Git {
-                url: url.to_string(),
+                url: require_url()?.to_string(),
                 paths: paths.to_vec(),
                 extensions: extensions.to_vec(),
             },
             "page" => ImportSource::Page {
-                url: url.to_string(),
+                url: require_url()?.to_string(),
             },
             "crawl" => ImportSource::Crawl {
-                url: url.to_string(),
+                url: require_url()?.to_string(),
                 max_depth,
                 max_pages,
             },
+            "file" => {
+                let path = path.ok_or_else(|| {
+                    GhostError::Io(std::io::Error::new(
+                        std::io::ErrorKind::InvalidInput,
+                        "--path is required for file imports",
+                    ))
+                })?;
+                ImportSource::File {
+                    path: path.to_string(),
+                }
+            }
             other => {
                 return Err(GhostError::Io(std::io::Error::new(
                     std::io::ErrorKind::InvalidInput,
-                    format!("unknown source type: {other} (expected 'git', 'page', or 'crawl')"),
+                    format!(
+                        "unknown source type: {other} (expected 'git', 'page', 'crawl', or 'file')"
+                    ),
                 )));
             }
         },
@@ -120,7 +149,13 @@ async fn cmd_import(
 
     let workspace = std::path::Path::new(&config.workspace);
 
-    println!("Importing from {source}: {url}");
+    match &import_config.source {
+        ImportSource::File { path } => println!("Importing file: {path}"),
+        _ => println!(
+            "Importing from {source}: {}",
+            url.unwrap_or("<no url>")
+        ),
+    }
     println!("Topic: {topic}");
 
     let result = match &import_config.source {
@@ -135,6 +170,16 @@ async fn cmd_import(
         ImportSource::Crawl { .. } => {
             crate::reference_import::import_crawl(db, workspace, &config.embeddings, &import_config)
                 .await?
+        }
+        ImportSource::File { .. } => {
+            crate::reference_import::import_file(
+                db,
+                workspace,
+                &config.embeddings,
+                &config.web,
+                &import_config,
+            )
+            .await?
         }
     };
 
