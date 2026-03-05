@@ -21,7 +21,7 @@ Thumbs.db
 node_modules/
 
 # Test fixtures (may contain captured secrets from e2e runs)
-tests/fixtures/
+tests/fixtures/e2e/
 
 # Other
 .bacon-locations
