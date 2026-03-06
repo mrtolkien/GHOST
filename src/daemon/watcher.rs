@@ -313,17 +313,26 @@ async fn process_reference_change(
     workspace: &Path,
     path: &Path,
 ) -> Result<Option<EmbedRequest>, PipelineError> {
-    let rel_path = path
+    let fs_rel = path
         .strip_prefix(workspace)
         .unwrap_or(path)
         .to_string_lossy()
         .to_string();
 
+    // DB stores paths without the `references/` prefix (e.g. `ark-nova/rules/slug.md`).
+    // The filesystem-relative path includes it, so strip it for DB lookups/inserts.
+    let ref_path = fs_rel
+        .strip_prefix("references/")
+        .unwrap_or(&fs_rel)
+        .to_string();
+
     if !path.exists() {
-        if let Ok(Some(ref_)) = crate::db::knowledge::find_reference_by_path(db, &rel_path).await {
+        if let Ok(Some(ref_)) =
+            crate::db::knowledge::find_reference_by_path(db, &ref_path).await
+        {
             crate::db::embeddings::delete_embeddings_for_source(db, &ref_.id).await?;
             crate::db::knowledge::delete_reference(db, &ref_.id).await?;
-            logfire::info!("watcher: deleted reference", path = rel_path);
+            logfire::info!("watcher: deleted reference", path = ref_path);
         }
         return Ok(None);
     }
@@ -338,22 +347,20 @@ async fn process_reference_change(
         Err(_) => return Ok(None),
     };
 
-    // Extract full topic path between "references/" and the filename
-    let topic_name = {
-        let without_prefix = rel_path.strip_prefix("references/").unwrap_or(&rel_path);
-        match without_prefix.rsplit_once('/') {
-            Some((parent, _)) => parent.to_string(),
-            None => "unknown".to_string(),
-        }
+    // Extract full topic path: everything before the filename
+    // e.g. `ark-nova/rules/slug.md` → `ark-nova/rules`
+    let topic_name = match ref_path.rsplit_once('/') {
+        Some((parent, _)) => parent.to_string(),
+        None => "unknown".to_string(),
     };
 
     logfire::info!(
         "watcher: processing reference change",
-        path = rel_path.clone(),
+        path = ref_path.clone(),
     );
 
     let (ref_id, resolved_topic_id) =
-        match crate::db::knowledge::find_reference_by_path(db, &rel_path).await {
+        match crate::db::knowledge::find_reference_by_path(db, &ref_path).await {
             Ok(Some(r)) => (r.id.clone(), r.topic_id.clone()),
             _ => {
                 let tid = match crate::db::knowledge::find_or_create_topic(db, &topic_name).await {
@@ -361,7 +368,7 @@ async fn process_reference_change(
                     Err(_) => return Ok(None),
                 };
                 match crate::db::knowledge::create_reference(
-                    db, &tid, &rel_path, &content, None, None,
+                    db, &tid, &ref_path, &content, None, None,
                 )
                 .await
                 {
@@ -371,12 +378,8 @@ async fn process_reference_change(
             }
         };
 
-    // Use file path for code chunking on reference files
-    let embed_path = path
-        .strip_prefix(workspace)
-        .unwrap_or(path)
-        .to_string_lossy()
-        .to_string();
+    // Use filesystem-relative path (with references/ prefix) for code chunking
+    let embed_path = fs_rel;
 
     Ok(Some(EmbedRequest {
         source_table: "reference".into(),

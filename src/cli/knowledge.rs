@@ -361,7 +361,30 @@ async fn cmd_stats(db: &GhostDb) -> Result<(), GhostError> {
 }
 
 async fn cmd_references(db: &GhostDb, topic: Option<&str>, limit: usize) -> Result<(), GhostError> {
-    let refs = db::knowledge::list_references_by_topic(db, topic, limit).await?;
+    // Resolve topic name → ID(s) using prefix matching
+    let topic_id = if let Some(name) = topic {
+        let topics = db::knowledge::find_topics_by_prefix(db, name).await?;
+        if topics.is_empty() {
+            println!("No references for topic '{name}'");
+            return Ok(());
+        }
+        Some(topics.into_iter().map(|t| t.id).collect::<Vec<_>>())
+    } else {
+        None
+    };
+
+    let refs = match &topic_id {
+        Some(ids) => {
+            let mut all = Vec::new();
+            for id in ids {
+                all.extend(
+                    db::knowledge::list_references_by_topic(db, Some(id), limit).await?,
+                );
+            }
+            all
+        }
+        None => db::knowledge::list_references_by_topic(db, None, limit).await?,
+    };
 
     if refs.is_empty() {
         match topic {
@@ -371,13 +394,25 @@ async fn cmd_references(db: &GhostDb, topic: Option<&str>, limit: usize) -> Resu
         return Ok(());
     }
 
+    // Build topic_id → name lookup for display
+    let all_topics = db::knowledge::list_topics(db).await?;
+    let topic_names: std::collections::HashMap<&str, &str> = all_topics
+        .iter()
+        .map(|t| (t.id.as_str(), t.name.as_str()))
+        .collect();
+
     let mut current_topic_id: Option<&str> = None;
     for r in &refs {
         if current_topic_id != Some(&r.topic_id) {
             if current_topic_id.is_some() {
                 println!();
             }
-            println!("## {}", r.topic_id);
+            let fallback = r.topic_id.as_str();
+            let display_name = topic_names
+                .get(r.topic_id.as_str())
+                .copied()
+                .unwrap_or(fallback);
+            println!("## {display_name}");
             current_topic_id = Some(&r.topic_id);
         }
         let url = r.source_url.as_deref().unwrap_or("-");
@@ -477,24 +512,30 @@ async fn cmd_reindex(
     let mut ref_synced = 0usize;
 
     for path in &ref_files {
-        let rel_path = path
+        // DB stores paths without the `references/` prefix (e.g. `ark-nova/rules/slug.md`).
+        let ref_path = path
             .strip_prefix(workspace)
             .unwrap_or(path)
             .to_string_lossy()
+            .strip_prefix("references/")
+            .unwrap_or(&path.to_string_lossy())
             .to_string();
-        let topic_name = path
-            .parent()
-            .and_then(|p| p.file_name())
-            .and_then(|f| f.to_str())
+
+        // Extract full topic hierarchy: everything before the filename
+        // e.g. `ark-nova/rules/slug.md` → `ark-nova/rules`
+        let topic_name = ref_path
+            .rsplit_once('/')
+            .map(|(parent, _)| parent)
             .unwrap_or("unknown");
 
-        if db::knowledge::find_reference_by_path(db, &rel_path)
+        if db::knowledge::find_reference_by_path(db, &ref_path)
             .await?
             .is_none()
         {
             let topic_id = db::knowledge::find_or_create_topic(db, topic_name).await?;
             let content = std::fs::read_to_string(path).map_err(std::io::Error::other)?;
-            db::knowledge::create_reference(db, &topic_id, &rel_path, &content, None, None).await?;
+            db::knowledge::create_reference(db, &topic_id, &ref_path, &content, None, None)
+                .await?;
             ref_synced += 1;
         }
     }

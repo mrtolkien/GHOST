@@ -242,9 +242,10 @@ pub async fn link_cited_edges(
         let Some(rel_path) = rel_path else {
             continue;
         };
+        // rel_path has no `references/` prefix (e.g. `topic/domain/file.md`)
         let topic_name = rel_path
-            .strip_prefix("references/")
-            .and_then(|r| r.split('/').next())
+            .split('/')
+            .next()
             .unwrap_or(&domain)
             .to_string();
         let ref_record = match db::knowledge::find_reference_by_url(db, &file.url).await {
@@ -268,7 +269,7 @@ pub async fn link_cited_edges(
                                     continue;
                                 }
                             };
-                        let ref_file = workspace.join(&rel_path);
+                        let ref_file = workspace.join("references").join(&rel_path);
                         let content = std::fs::read_to_string(&ref_file).unwrap_or_default();
                         let preview: String = content.chars().take(2000).collect();
                         match db::knowledge::create_reference(
@@ -547,9 +548,10 @@ fn move_to_references(
     let dest_path = dest_dir.join(&file.filename);
     std::fs::rename(cache_path, &dest_path)?;
 
+    // Return without `references/` prefix to match DB convention
     let rel = match note_topic {
-        Some(topic) => format!("references/{topic}/{domain}/{}", file.filename),
-        None => format!("references/{domain}/{}", file.filename),
+        Some(topic) => format!("{topic}/{domain}/{}", file.filename),
+        None => format!("{domain}/{}", file.filename),
     };
     Ok(rel)
 }
@@ -558,6 +560,9 @@ fn move_to_references(
 ///
 /// Searches `references/**/{domain}/{filename}` and falls back to
 /// `references/{domain}/{filename}`.
+///
+/// Returns the path without the `references/` prefix to match the DB
+/// convention (e.g. `topic/domain/filename`).
 fn find_reference_on_disk(workspace: &Path, domain: &str, filename: &str) -> Option<String> {
     let refs_dir = workspace.join("references");
     if !refs_dir.exists() {
@@ -572,7 +577,7 @@ fn find_reference_on_disk(workspace: &Path, domain: &str, filename: &str) -> Opt
                 if candidate.exists() {
                     let topic = entry.file_name();
                     return Some(format!(
-                        "references/{}/{domain}/{filename}",
+                        "{}/{domain}/{filename}",
                         topic.to_string_lossy()
                     ));
                 }
@@ -582,7 +587,7 @@ fn find_reference_on_disk(workspace: &Path, domain: &str, filename: &str) -> Opt
     // Fallback: references/{domain}/{filename}
     let flat = refs_dir.join(domain).join(filename);
     if flat.exists() {
-        return Some(format!("references/{domain}/{filename}"));
+        return Some(format!("{domain}/{filename}"));
     }
     None
 }

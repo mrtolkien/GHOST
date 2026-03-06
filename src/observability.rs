@@ -28,7 +28,7 @@ impl DaemonObservability {
     }
 }
 
-pub fn init_for_daemon() -> Result<DaemonObservability, ObservabilityError> {
+pub fn init() -> Result<DaemonObservability, ObservabilityError> {
     if running_under_cargo_test() {
         return Ok(DaemonObservability::disabled());
     }

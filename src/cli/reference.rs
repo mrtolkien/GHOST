@@ -49,8 +49,9 @@ pub enum ReferenceCommand {
     },
 }
 
-#[tracing::instrument(skip_all)]
+#[tracing::instrument(name = "execute reference_command", skip_all)]
 pub async fn execute(command: ReferenceCommand) -> Result<(), GhostError> {
+    let _observability = crate::observability::init()?;
     let config = crate::config::load()?;
     crate::config_workspace::bootstrap_workspace(&config)?;
     let db = crate::db::connect(&config.workspace, config.embeddings.dimension).await?;
