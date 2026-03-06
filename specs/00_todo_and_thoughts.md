@@ -28,6 +28,9 @@
 - [x] In tools use in discord, don't show default values (like background=False for
       shell commands)
 
+- [x] Add image generation for visual responses -> Nano banana?
+  - Read and vendor the skill from openclaw -> it uses uv to run a script
+
 ---
 
 - [ ] ?session description for coding agent? -> would help with resume
@@ -41,5 +44,5 @@
       need to be able to directly insert messages to the chat.
   - This would benefit from using an LLM to generate user messages :D
 
-- [ ] Add image generation for visual responses -> Nano banana?
-  - Read and vendor the skill from openclaw -> it uses uv to run a script
+- [ ] Path management in skills is a mess: some are absolute, some assume folder names,
+      some are relative. We need a reliable, consistent, easy to use standard.

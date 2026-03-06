@@ -78,11 +78,30 @@ const DEFAULT_SKILLS: &[DefaultSkill] = &[
         )],
     },
     DefaultSkill {
+        path: "image-generation",
+        files: &[
+            (
+                "skill.md",
+                include_str!("../prompts/skills/image-generation/skill.md"),
+            ),
+            (
+                "scripts/generate_image.py",
+                include_str!("../prompts/skills/image-generation/scripts/generate_image.py"),
+            ),
+        ],
+    },
+    DefaultSkill {
         path: "knowledge-navigator",
-        files: &[(
-            "skill.md",
-            include_str!("../prompts/skills/knowledge-navigator.md"),
-        )],
+        files: &[
+            (
+                "skill.md",
+                include_str!("../prompts/skills/knowledge-navigator/skill.md"),
+            ),
+            (
+                "schema.sql",
+                include_str!("../prompts/skills/knowledge-navigator/schema.sql"),
+            ),
+        ],
     },
     DefaultSkill {
         path: "nix-shell",
@@ -677,7 +696,7 @@ name: no-desc
             }
         }
 
-        assert_eq!(DEFAULT_SKILLS.len(), 21);
+        assert_eq!(DEFAULT_SKILLS.len(), 22);
     }
 
     #[test]
