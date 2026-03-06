@@ -128,7 +128,12 @@ impl ToolManager {
 
         match &result {
             Ok(output) => {
-                logfire::info!("tool executed", output_len = output.len() as u64,);
+                let truncated: String = output.chars().take(2000).collect();
+                logfire::info!(
+                    "tool executed",
+                    output_len = output.len() as u64,
+                    output = truncated,
+                );
             }
             Err(err) => {
                 logfire::warn!("tool execution failed", error = err.to_string(),);
