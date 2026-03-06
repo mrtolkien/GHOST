@@ -39,8 +39,17 @@ e2e-refresh models="primary":
 e2e-check:
     rtk cargo test --features e2e-tests --test e2e_steps --no-run
 
+# Generate schema.sql from migrations
+generate-schema:
+    ./scripts/generate-schema.sh
+
+# Check that schema.sql is up-to-date with migrations
+check-schema:
+    @./scripts/generate-schema.sh > /dev/null
+    @git diff --exit-code prompts/skills/knowledge-navigator/schema.sql || (echo "schema.sql is stale — run 'just generate-schema'" && exit 1)
+
 # Run all checks (format, clippy, test)
-ci: fmt check clippy test
+ci: fmt check clippy test check-schema
 
 # Clean build artifacts
 clean:

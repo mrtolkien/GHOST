@@ -72,6 +72,19 @@ CLI:
 - `ghost reference import --source git --url <url> --topic <name>` — import new
   references
 
+## Direct SQL Access
+
+The `schema.sql` extra included with this skill contains the full table definitions for
+the SQLite database. If the CLI commands above are not sufficient for debugging or
+advanced queries, you can use `sqlite3` directly against the workspace database:
+
+```bash
+sqlite3 ~/GHOST/ghost.db "SELECT count(*) FROM note"
+```
+
+Consult the schema extra to understand table structure, column names, and relationships
+before writing queries.
+
 ## Workflow Tips
 
 1. **Before creating notes**, always search first to avoid duplicates.
