@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use crate::scripting::host::ScriptHost;
 use crate::scripting::types::AgentConfig;
@@ -12,69 +12,171 @@ pub struct AgentInfo {
     pub description: String,
 }
 
-/// Scan `$WORKSPACE/agents/` for agent definition folders and return a
-/// sorted list of agent name + description pairs.
+/// Resolve the directory containing `agent.lua` for a given agent name.
 ///
-/// Looks for directories containing `agent.lua`. Falls back to scanning
-/// `.md` files for backward compatibility during migration.
-#[tracing::instrument(skip_all, level = "debug", fields(workspace = %workspace.display()))]
-pub fn discover_agents(workspace: &Path) -> Vec<AgentInfo> {
-    let agents_dir = workspace.join("agents");
+/// Search order:
+/// 1. `$WORKSPACE/agents/{name}/agent.lua` (trigger/scheduled agents)
+/// 2. `$WORKSPACE/skills/**//{name}/agent.lua` (skill-coupled agents)
+///
+/// Returns `None` if no matching agent is found.
+pub fn resolve_agent_dir(workspace: &Path, name: &str) -> Option<PathBuf> {
+    // Primary: agents directory
+    let agents_path = workspace.join("agents").join(name);
+    if agents_path.join("agent.lua").exists() {
+        return Some(agents_path);
+    }
 
-    let entries = match std::fs::read_dir(&agents_dir) {
-        Ok(entries) => entries,
-        Err(_) => return Vec::new(),
-    };
+    // Secondary: walk skills directory
+    let skills_dir = workspace.join("skills");
+    find_agent_in_dir(&skills_dir, name)
+}
 
-    let mut agents = Vec::new();
+/// Recursively search a directory tree for a subdirectory named `name`
+/// that contains `agent.lua`.
+fn find_agent_in_dir(dir: &Path, name: &str) -> Option<PathBuf> {
+    let entries = std::fs::read_dir(dir).ok()?;
     for entry in entries.flatten() {
         let path = entry.path();
+        if !path.is_dir() {
+            continue;
+        }
+        let dir_name = entry.file_name();
+        let dir_name = dir_name.to_string_lossy();
+        if dir_name.starts_with('.') {
+            continue;
+        }
 
-        // Lua folder agent: agents/{name}/agent.lua
-        if path.is_dir() {
-            let agent_lua = path.join("agent.lua");
-            if agent_lua.exists() {
-                match load_agent(workspace, &entry.file_name().to_string_lossy()) {
-                    Ok(config) => agents.push(AgentInfo {
-                        name: config.name,
-                        description: config.description,
-                    }),
-                    Err(e) => {
-                        logfire::warn!(
-                            "Malformed agent.lua in {path}: {error}",
-                            path = path.display().to_string(),
-                            error = e.to_string(),
-                        );
-                    }
-                }
-            }
+        if *dir_name == *name && path.join("agent.lua").exists() {
+            return Some(path);
+        }
+
+        // Recurse into subdirectories
+        if let Some(found) = find_agent_in_dir(&path, name) {
+            return Some(found);
         }
     }
+    None
+}
+
+/// Scan `$WORKSPACE/agents/` and `$WORKSPACE/skills/` for agent
+/// definition folders and return a sorted, deduplicated list of agent
+/// name + description pairs. `agents/` is scanned first so its entries
+/// win on name collisions (matching `resolve_agent_dir` priority).
+#[tracing::instrument(skip_all, level = "debug", fields(workspace = %workspace.display()))]
+pub fn discover_agents(workspace: &Path) -> Vec<AgentInfo> {
+    let mut agents = Vec::new();
+
+    // Scan agents/ directory first (priority source)
+    collect_agents_from_dir(&workspace.join("agents"), workspace, &mut agents);
+
+    // Scan skills/ directory recursively
+    collect_agents_recursive(&workspace.join("skills"), workspace, &mut agents);
+
+    // Deduplicate by name — first-seen wins (agents/ entries came first)
+    let mut seen = std::collections::HashSet::new();
+    agents.retain(|a| {
+        if seen.contains(&a.name) {
+            logfire::warn!(
+                "Duplicate agent name '{name}' — keeping agents/ version",
+                name = a.name.clone(),
+            );
+            false
+        } else {
+            seen.insert(a.name.clone());
+            true
+        }
+    });
 
     agents.sort_by(|a, b| a.name.cmp(&b.name));
     agents
+}
+
+/// Collect agents from a flat directory (each subdirectory with agent.lua).
+fn collect_agents_from_dir(dir: &Path, workspace: &Path, agents: &mut Vec<AgentInfo>) {
+    let entries = match std::fs::read_dir(dir) {
+        Ok(entries) => entries,
+        Err(_) => return,
+    };
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if !path.is_dir() {
+            continue;
+        }
+        if entry.file_name().to_string_lossy().starts_with('.') {
+            continue;
+        }
+        if path.join("agent.lua").exists() {
+            try_load_agent_info(&path, workspace, agents);
+        }
+    }
+}
+
+/// Recursively collect agents from a directory tree.
+fn collect_agents_recursive(dir: &Path, workspace: &Path, agents: &mut Vec<AgentInfo>) {
+    let entries = match std::fs::read_dir(dir) {
+        Ok(entries) => entries,
+        Err(_) => return,
+    };
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if !path.is_dir() {
+            continue;
+        }
+        let dir_name = entry.file_name();
+        if dir_name.to_string_lossy().starts_with('.') {
+            continue;
+        }
+
+        if path.join("agent.lua").exists() {
+            try_load_agent_info(&path, workspace, agents);
+        } else {
+            collect_agents_recursive(&path, workspace, agents);
+        }
+    }
+}
+
+fn try_load_agent_info(agent_dir: &Path, workspace: &Path, agents: &mut Vec<AgentInfo>) {
+    match load_agent_from_dir(agent_dir, workspace) {
+        Ok(config) => agents.push(AgentInfo {
+            name: config.name,
+            description: config.description,
+        }),
+        Err(e) => {
+            logfire::warn!(
+                "Malformed agent.lua in {path}: {error}",
+                path = agent_dir.display().to_string(),
+                error = e.to_string(),
+            );
+        }
+    }
 }
 
 /// Load an agent's config from its Lua folder. Lightweight — drops the VM
 /// after extracting the config.
 #[tracing::instrument(skip_all, fields(agent_name = name), level="debug")]
 pub fn load_agent(workspace: &Path, name: &str) -> Result<AgentConfig, AgentError> {
-    let agent_dir = workspace.join("agents").join(name);
-    let agent_lua = agent_dir.join("agent.lua");
+    let agent_dir = resolve_agent_dir(workspace, name).ok_or_else(|| AgentError::NotFound {
+        name: name.to_string(),
+    })?;
+    load_agent_from_dir(&agent_dir, workspace)
+}
 
-    if !agent_lua.exists() {
-        return Err(AgentError::NotFound {
-            name: name.to_string(),
-        });
-    }
+/// Load an agent config directly from a known directory.
+fn load_agent_from_dir(agent_dir: &Path, workspace: &Path) -> Result<AgentConfig, AgentError> {
+    let name = agent_dir
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_default();
 
-    let mut host = ScriptHost::new(&agent_dir, workspace).map_err(|e| AgentError::ScriptError {
+    let mut host = ScriptHost::new(agent_dir, workspace).map_err(|e| AgentError::ScriptError {
         agent: name.to_string(),
         message: e.to_string(),
     })?;
 
     host.load_config().map_err(|e| AgentError::ScriptError {
-        agent: name.to_string(),
+        agent: name,
         message: e.to_string(),
     })
 }
@@ -85,14 +187,9 @@ pub fn load_agent_with_host(
     workspace: &Path,
     name: &str,
 ) -> Result<(AgentConfig, ScriptHost), AgentError> {
-    let agent_dir = workspace.join("agents").join(name);
-    let agent_lua = agent_dir.join("agent.lua");
-
-    if !agent_lua.exists() {
-        return Err(AgentError::NotFound {
-            name: name.to_string(),
-        });
-    }
+    let agent_dir = resolve_agent_dir(workspace, name).ok_or_else(|| AgentError::NotFound {
+        name: name.to_string(),
+    })?;
 
     let mut host = ScriptHost::new(&agent_dir, workspace).map_err(|e| AgentError::ScriptError {
         agent: name.to_string(),
@@ -110,109 +207,26 @@ pub fn load_agent_with_host(
 /// LuaLS type stubs for agent developers.
 const LUA_TYPE_STUBS: &str = include_str!("../../prompts/types/ghost.lua");
 
-/// TODO: Make this more palatable, this is hard to read and error-prone
-/// Embedded default agent files (agent.lua + prompt.md per agent).
-const DEFAULT_AGENTS: &[(&str, &[(&str, &str)])] = &[
-    (
-        "deep-research",
-        &[
-            (
-                "agent.lua",
-                include_str!("../../prompts/agents/deep-research/agent.lua"),
-            ),
-            (
-                "prompt.md",
-                include_str!("../../prompts/agents/deep-research/prompt.md"),
-            ),
-        ],
-    ),
-    (
-        "deep-research-reflection",
-        &[
-            (
-                "agent.lua",
-                include_str!("../../prompts/agents/deep-research-reflection/agent.lua"),
-            ),
-            (
-                "prompt.md",
-                include_str!("../../prompts/agents/deep-research-reflection/prompt.md"),
-            ),
-            (
-                "user-message.md",
-                include_str!("../../prompts/agents/deep-research-reflection/user-message.md"),
-            ),
-        ],
-    ),
-    (
-        "chat-reflection",
-        &[
-            (
-                "agent.lua",
-                include_str!("../../prompts/agents/chat-reflection/agent.lua"),
-            ),
-            (
-                "prompt.md",
-                include_str!("../../prompts/agents/chat-reflection/prompt.md"),
-            ),
-            (
-                "user-message.md",
-                include_str!("../../prompts/agents/chat-reflection/user-message.md"),
-            ),
-        ],
-    ),
-    (
-        "coding-implementer",
-        &[
-            (
-                "agent.lua",
-                include_str!("../../prompts/agents/coding-implementer/agent.lua"),
-            ),
-            (
-                "prompt.md",
-                include_str!("../../prompts/agents/coding-implementer/prompt.md"),
-            ),
-        ],
-    ),
-    (
-        "coding-spec-reviewer",
-        &[
-            (
-                "agent.lua",
-                include_str!("../../prompts/agents/coding-spec-reviewer/agent.lua"),
-            ),
-            (
-                "prompt.md",
-                include_str!("../../prompts/agents/coding-spec-reviewer/prompt.md"),
-            ),
-        ],
-    ),
-    (
-        "coding-quality-reviewer",
-        &[
-            (
-                "agent.lua",
-                include_str!("../../prompts/agents/coding-quality-reviewer/agent.lua"),
-            ),
-            (
-                "prompt.md",
-                include_str!("../../prompts/agents/coding-quality-reviewer/prompt.md"),
-            ),
-        ],
-    ),
-    (
-        "coding-reviewer",
-        &[
-            (
-                "agent.lua",
-                include_str!("../../prompts/agents/coding-reviewer/agent.lua"),
-            ),
-            (
-                "prompt.md",
-                include_str!("../../prompts/agents/coding-reviewer/prompt.md"),
-            ),
-        ],
-    ),
-];
+/// Embedded default agent files for trigger/scheduled agents that live
+/// in `$WORKSPACE/agents/`. Skill-coupled agents are installed via
+/// `install_default_skills` instead.
+const DEFAULT_AGENTS: &[(&str, &[(&str, &str)])] = &[(
+    "chat-reflection",
+    &[
+        (
+            "agent.lua",
+            include_str!("../../prompts/agents/chat-reflection/agent.lua"),
+        ),
+        (
+            "prompt.md",
+            include_str!("../../prompts/agents/chat-reflection/prompt.md"),
+        ),
+        (
+            "user-message.md",
+            include_str!("../../prompts/agents/chat-reflection/user-message.md"),
+        ),
+    ],
+)];
 
 /// Install default agent folders into `$WORKSPACE/agents/`, always
 /// overwriting with the binary's built-in versions. Also installs
@@ -240,6 +254,7 @@ pub fn install_default_agents(workspace: &Path) -> Result<(), std::io::Error> {
 }
 
 /// Validate a single agent's Lua config. Returns errors as strings.
+/// Resolves agent by name from both `agents/` and `skills/`.
 pub fn validate_agent(workspace: &Path, name: &str) -> Vec<String> {
     let mut errors = Vec::new();
 
@@ -311,6 +326,12 @@ mod tests {
         std::fs::write(agent_dir.join("agent.lua"), lua_content).unwrap();
     }
 
+    fn setup_skill_agent(workspace: &Path, skill_path: &str, name: &str, lua_content: &str) {
+        let agent_dir = workspace.join("skills").join(skill_path).join(name);
+        std::fs::create_dir_all(&agent_dir).unwrap();
+        std::fs::write(agent_dir.join("agent.lua"), lua_content).unwrap();
+    }
+
     #[test]
     fn discover_agents_finds_lua_folders() {
         let dir = tempfile::TempDir::new().unwrap();
@@ -332,6 +353,58 @@ mod tests {
     }
 
     #[test]
+    fn discover_agents_finds_skill_coupled_agents() {
+        let dir = tempfile::TempDir::new().unwrap();
+        setup_skill_agent(
+            dir.path(),
+            "my-skill",
+            "my-agent",
+            r#"return { name = "my-agent", description = "Skill agent", tools = {} }"#,
+        );
+
+        let found = discover_agents(dir.path());
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].name, "my-agent");
+    }
+
+    #[test]
+    fn discover_agents_finds_nested_skill_agents() {
+        let dir = tempfile::TempDir::new().unwrap();
+        setup_skill_agent(
+            dir.path(),
+            "superpowers/subagent-dev",
+            "implementer",
+            r#"return { name = "implementer", description = "Impl", tools = {} }"#,
+        );
+
+        let found = discover_agents(dir.path());
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].name, "implementer");
+    }
+
+    #[test]
+    fn discover_agents_finds_both_agents_and_skill_agents() {
+        let dir = tempfile::TempDir::new().unwrap();
+        setup_lua_agent(
+            dir.path(),
+            "trigger-agent",
+            r#"return { name = "trigger-agent", description = "Triggered", tools = {} }"#,
+        );
+        setup_skill_agent(
+            dir.path(),
+            "research",
+            "researcher",
+            r#"return { name = "researcher", description = "Researches", tools = {} }"#,
+        );
+
+        let found = discover_agents(dir.path());
+        assert_eq!(found.len(), 2);
+        let names: Vec<&str> = found.iter().map(|a| a.name.as_str()).collect();
+        assert!(names.contains(&"trigger-agent"));
+        assert!(names.contains(&"researcher"));
+    }
+
+    #[test]
     fn discover_agents_skips_invalid() {
         let dir = tempfile::TempDir::new().unwrap();
         setup_lua_agent(
@@ -347,10 +420,63 @@ mod tests {
     }
 
     #[test]
+    fn resolve_agent_dir_prefers_agents_over_skills() {
+        let dir = tempfile::TempDir::new().unwrap();
+        setup_lua_agent(
+            dir.path(),
+            "my-agent",
+            r#"return { name = "my-agent", description = "In agents/", tools = {} }"#,
+        );
+        setup_skill_agent(
+            dir.path(),
+            "some-skill",
+            "my-agent",
+            r#"return { name = "my-agent", description = "In skills/", tools = {} }"#,
+        );
+
+        let resolved = resolve_agent_dir(dir.path(), "my-agent").unwrap();
+        assert_eq!(resolved, dir.path().join("agents").join("my-agent"));
+    }
+
+    #[test]
+    fn resolve_agent_dir_finds_skill_agent() {
+        let dir = tempfile::TempDir::new().unwrap();
+        setup_skill_agent(
+            dir.path(),
+            "deep-research",
+            "deep-research",
+            r#"return { name = "deep-research", description = "Research", tools = {} }"#,
+        );
+
+        let resolved = resolve_agent_dir(dir.path(), "deep-research").unwrap();
+        assert!(resolved.ends_with("skills/deep-research/deep-research"));
+    }
+
+    #[test]
+    fn resolve_agent_dir_returns_none_for_missing() {
+        let dir = tempfile::TempDir::new().unwrap();
+        assert!(resolve_agent_dir(dir.path(), "nonexistent").is_none());
+    }
+
+    #[test]
     fn load_agent_not_found() {
         let dir = tempfile::TempDir::new().unwrap();
         let err = load_agent(dir.path(), "nonexistent").unwrap_err();
         assert!(matches!(err, AgentError::NotFound { .. }));
+    }
+
+    #[test]
+    fn load_agent_from_skill_dir() {
+        let dir = tempfile::TempDir::new().unwrap();
+        setup_skill_agent(
+            dir.path(),
+            "my-skill",
+            "skill-agent",
+            r#"return { name = "skill-agent", description = "From skill", tools = {} }"#,
+        );
+
+        let config = load_agent(dir.path(), "skill-agent").unwrap();
+        assert_eq!(config.name, "skill-agent");
     }
 
     #[test]

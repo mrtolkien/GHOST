@@ -179,25 +179,7 @@ fn workspace_bootstrap_creates_identity_files() {
     assert!(workspace.path().join(".cache").exists());
     assert!(workspace.path().join("notes").exists());
 
-    // Default agents installed as Lua folders
-    assert!(
-        workspace
-            .path()
-            .join("agents/deep-research/agent.lua")
-            .exists()
-    );
-    assert!(
-        workspace
-            .path()
-            .join("agents/deep-research/prompt.md")
-            .exists()
-    );
-    assert!(
-        workspace
-            .path()
-            .join("agents/deep-research-reflection/agent.lua")
-            .exists()
-    );
+    // Trigger agents stay in agents/
     assert!(
         workspace
             .path()
@@ -207,6 +189,26 @@ fn workspace_bootstrap_creates_identity_files() {
     assert!(
         workspace.path().join("agents/crontab.lua").exists(),
         "crontab.lua should be installed by default"
+    );
+
+    // Skill-coupled agents installed inside skills/
+    assert!(
+        workspace
+            .path()
+            .join("skills/deep-research/deep-research/agent.lua")
+            .exists()
+    );
+    assert!(
+        workspace
+            .path()
+            .join("skills/deep-research/deep-research-reflection/agent.lua")
+            .exists()
+    );
+    assert!(
+        workspace
+            .path()
+            .join("skills/superpowers/subagent-development/coding-implementer/agent.lua")
+            .exists()
     );
 }
 

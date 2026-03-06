@@ -1,34 +1,71 @@
 ---
 name: agent-creator
 description:
-  Create and improve Lua-defined agents. Use when the OPERATOR asks for background
-  automation, scheduled tasks, or new agents in $WORKSPACE/agents/.
+  Create spawnable Lua agents coupled with skills. Use when the OPERATOR wants a
+  reusable background agent that can be dispatched via agent_control. Always creates a
+  skill+agent pair so the agent is discoverable through progressive disclosure.
 ---
 
 # Agent Creator
 
-Use this skill when the OPERATOR asks for background automation or scheduled tasks.
+Use this skill when the OPERATOR wants to create a new background agent.
 
-## Goal
+## Core Principle
 
-Design agents that run autonomously with clear purpose and focused tool usage.
+**Every spawnable agent must live inside a skill.** Skills provide discoverability —
+without a skill, an agent is invisible. This skill always creates a skill+agent pair.
 
-## Where Agents Live
+For scheduled/cron agents (e.g., periodic digests, idle reflections), those live in
+`$WORKSPACE/agents/` and are triggered by `crontab.lua` — that's a different workflow,
+not covered here.
 
-Each agent is a folder in `$WORKSPACE/agents/<name>/` containing:
+## File Layout
 
-- `agent.lua` — configuration and hooks (required)
-- `prompt.md` — system prompt template (required)
+```
+skills/<skill-name>/
+├── skill.md              # Describes when/how to use the agent
+└── <agent-name>/
+    ├── agent.lua          # Configuration and hooks (required)
+    └── prompt.md          # System prompt template (required)
+```
 
-## `agent.lua` Contract
+A skill can contain multiple agents (see `superpowers/subagent-development/` for an
+example with 4 coding agents).
+
+## Step 1: Create the Skill
+
+Write `skills/<skill-name>/skill.md` with frontmatter:
+
+```markdown
+---
+name: <skill-name>
+description:
+  <When should GHOST read this skill? Be specific about the trigger conditions.>
+---
+
+# <Skill Name>
+
+<Explain what the agent does, when to use it, and how to spawn it.>
+
+## Spawning
+
+\`\`\` agent_control(action: "start", agent: "<agent-name>", prompt:
+"<what to include>") \`\`\`
+```
+
+The skill's description is what makes GHOST discover and read it. Write it like a
+trigger condition — "Use when the OPERATOR asks about X" or "Read when Y happens."
+
+## Step 2: Create the Agent
+
+### `agent.lua` Contract
 
 ```lua
-local nudges = require("ghost.nudges")   -- optional
 local template = require("ghost.template")
 
 return {
     -- Required
-    name = "my-agent",
+    name = "<agent-name>",
     description = "What this agent does",
 
     -- Model settings
@@ -62,61 +99,40 @@ return {
     -- pre_turn = nudges.compose(...),
     -- on_end_turn = nudges.progress_gate(...),
     -- post_completion = function(ctx) end,
-    -- should_trigger = function(ctx) return true end,
 }
 ```
 
-## Scheduling
+### `prompt.md` Template
 
-Agents are dispatch-only by default. To schedule your agent, add an entry to
-`$WORKSPACE/agents/crontab.lua`:
+Write a focused system prompt. Use `{{variable}}` for template interpolation:
 
-```lua title="agents/crontab.lua"
-return {
-    { idle_minutes = 30, run = "chat-reflection" },
-    { cron = "0 9 * * 1", run = "weekly-digest" },  -- Monday 9:00 UTC
-}
+```markdown
+# Agent Name — Purpose
+
+You are in autonomous mode. Today is {{date}}.
+
+**A text-only response (no tool calls) ends your session.**
+
+## Workflow
+
+1. First step
+2. Second step
+3. Handoff (text-only final message)
 ```
 
-Entry types:
+## Step 3: Validate
 
-- `cron` — 5-field cron expression (UTC)
-- `idle_minutes` — trigger after interface sessions idle for N minutes
-
-## Chaining Agents
-
-To chain agents, use `ctx:spawn_agent()` in a terminal custom tool handler. The child
-receives the full `args` table in its `build(ctx, args)` hook:
-
-```lua
-custom_tools = {
-    {
-        name = "report_findings",
-        description = "Submit findings and spawn reflection",
-        parameters = {
-            { name = "report", type = "string", required = true },
-            { name = "sources", type = "string", required = true },
-        },
-        terminal = true,
-        handler = function(ctx, args)
-            ctx:spawn_agent("deep-research-reflection", {
-                report = args.report,
-                sources = args.sources,
-            })
-            return "Reflection spawned."
-        end,
-    },
-},
 ```
-
-You can also use `ctx:spawn_agent()` in `post_completion`, but terminal custom tools are
-preferred when the agent should decide what structured data to pass.
+ghost agent validate <agent-name>
+```
 
 ## Nudge Library (`ghost.nudges`)
 
-Nudges inject guidance into the agent's tool loop to keep it on track:
+Nudges inject guidance into the agent's tool loop:
 
 ```lua
+local nudges = require("ghost.nudges")
+
 pre_turn = nudges.compose(
     nudges.todo_list(),
     nudges.iteration_countdown({
@@ -161,57 +177,25 @@ custom_tools = {
 },
 ```
 
-## `prompt.md` Template
+## Chaining Agents
 
-Write a focused system prompt. Use `{{variable}}` for template interpolation:
-
-```markdown
-# Agent Name — Purpose
-
-You are in autonomous mode. Today is {{date}}.
-
-**A text-only response (no tool calls) ends your session.**
-
-## Workflow
-
-1. First step
-2. Second step
-3. Handoff (text-only final message)
-```
-
-## Validate Before Finishing
-
-```
-ghost agent validate <name>
-```
-
-## Example: Weekly Digest Agent
-
-`agents/weekly-digest/agent.lua`:
+To chain agents, use `ctx:spawn_agent()` in a terminal custom tool handler:
 
 ```lua
-local template = require("ghost.template")
-
-return {
-    name = "weekly-digest",
-    description = "Weekly summary of activity and knowledge",
-    max_iterations = 20,
-    tools = { "knowledge_search", "read_file", "write_file", "run_shell_command" },
-    build = function(ctx, args)
-        return {
-            system_prompt = template.render(read_file("prompt.md"), {
-                date = os.date("%Y-%m-%d"),
-            }),
-            messages = {
-                { role = "user", content = args.prompt or "Create the weekly digest." },
-            },
-        }
-    end,
-}
-```
-
-Then add to `agents/crontab.lua`:
-
-```lua
-{ cron = "0 9 * * 1", run = "weekly-digest" },
+custom_tools = {
+    {
+        name = "report_findings",
+        description = "Submit findings and spawn reflection",
+        parameters = {
+            { name = "report", type = "string", required = true },
+        },
+        terminal = true,
+        handler = function(ctx, args)
+            ctx:spawn_agent("reflection-agent", {
+                report = args.report,
+            })
+            return "Reflection spawned."
+        end,
+    },
+},
 ```

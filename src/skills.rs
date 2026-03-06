@@ -27,10 +27,34 @@ const DEFAULT_SKILLS: &[DefaultSkill] = &[
     },
     DefaultSkill {
         path: "deep-research",
-        files: &[(
-            "skill.md",
-            include_str!("../prompts/skills/deep-research.md"),
-        )],
+        files: &[
+            (
+                "skill.md",
+                include_str!("../prompts/skills/deep-research/skill.md"),
+            ),
+            (
+                "deep-research/agent.lua",
+                include_str!("../prompts/skills/deep-research/deep-research/agent.lua"),
+            ),
+            (
+                "deep-research/prompt.md",
+                include_str!("../prompts/skills/deep-research/deep-research/prompt.md"),
+            ),
+            (
+                "deep-research-reflection/agent.lua",
+                include_str!("../prompts/skills/deep-research/deep-research-reflection/agent.lua"),
+            ),
+            (
+                "deep-research-reflection/prompt.md",
+                include_str!("../prompts/skills/deep-research/deep-research-reflection/prompt.md"),
+            ),
+            (
+                "deep-research-reflection/user-message.md",
+                include_str!(
+                    "../prompts/skills/deep-research/deep-research-reflection/user-message.md"
+                ),
+            ),
+        ],
     },
     DefaultSkill {
         path: "superpowers/executing-plans",
@@ -132,6 +156,54 @@ const DEFAULT_SKILLS: &[DefaultSkill] = &[
                 "code-quality-reviewer-prompt.md",
                 include_str!(
                     "../prompts/skills/superpowers/subagent-development/code-quality-reviewer-prompt.md"
+                ),
+            ),
+            (
+                "coding-implementer/agent.lua",
+                include_str!(
+                    "../prompts/skills/superpowers/subagent-development/coding-implementer/agent.lua"
+                ),
+            ),
+            (
+                "coding-implementer/prompt.md",
+                include_str!(
+                    "../prompts/skills/superpowers/subagent-development/coding-implementer/prompt.md"
+                ),
+            ),
+            (
+                "coding-spec-reviewer/agent.lua",
+                include_str!(
+                    "../prompts/skills/superpowers/subagent-development/coding-spec-reviewer/agent.lua"
+                ),
+            ),
+            (
+                "coding-spec-reviewer/prompt.md",
+                include_str!(
+                    "../prompts/skills/superpowers/subagent-development/coding-spec-reviewer/prompt.md"
+                ),
+            ),
+            (
+                "coding-quality-reviewer/agent.lua",
+                include_str!(
+                    "../prompts/skills/superpowers/subagent-development/coding-quality-reviewer/agent.lua"
+                ),
+            ),
+            (
+                "coding-quality-reviewer/prompt.md",
+                include_str!(
+                    "../prompts/skills/superpowers/subagent-development/coding-quality-reviewer/prompt.md"
+                ),
+            ),
+            (
+                "coding-reviewer/agent.lua",
+                include_str!(
+                    "../prompts/skills/superpowers/subagent-development/coding-reviewer/agent.lua"
+                ),
+            ),
+            (
+                "coding-reviewer/prompt.md",
+                include_str!(
+                    "../prompts/skills/superpowers/subagent-development/coding-reviewer/prompt.md"
                 ),
             ),
         ],
@@ -363,7 +435,12 @@ pub fn install_default_skills(workspace: &Path) -> Result<(), std::io::Error> {
         let skill_dir = skills_dir.join(skill.path);
         fs::create_dir_all(&skill_dir)?;
         for (filename, content) in skill.files {
-            fs::write(skill_dir.join(filename), content)?;
+            let file_path = skill_dir.join(filename);
+            // Agent files live in subdirectories (e.g. "deep-research/agent.lua")
+            if let Some(parent) = file_path.parent() {
+                fs::create_dir_all(parent)?;
+            }
+            fs::write(file_path, content)?;
         }
     }
 
@@ -601,6 +678,38 @@ name: no-desc
         }
 
         assert_eq!(DEFAULT_SKILLS.len(), 21);
+    }
+
+    #[test]
+    fn install_default_skills_creates_agent_subdirs() {
+        let dir = TempDir::new().unwrap();
+        install_default_skills(dir.path()).unwrap();
+
+        let skills = dir.path().join("skills");
+
+        // Deep-research agents
+        assert!(
+            skills
+                .join("deep-research/deep-research/agent.lua")
+                .exists()
+        );
+        assert!(
+            skills
+                .join("deep-research/deep-research-reflection/agent.lua")
+                .exists()
+        );
+
+        // Coding agents
+        assert!(
+            skills
+                .join("superpowers/subagent-development/coding-implementer/agent.lua")
+                .exists()
+        );
+        assert!(
+            skills
+                .join("superpowers/subagent-development/coding-reviewer/agent.lua")
+                .exists()
+        );
     }
 
     #[test]

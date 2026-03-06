@@ -173,8 +173,8 @@ impl AgentRunner {
         parent_session_id: Option<&str>,
         cwd: Option<PathBuf>,
     ) -> Result<String, AgentError> {
-        let agent_dir = self.config.workspace.join("agents").join(agent_name);
-        if !agent_dir.join("agent.lua").exists() {
+        // Verify agent exists before spawning background task.
+        if super::loader::resolve_agent_dir(&self.config.workspace, agent_name).is_none() {
             return Err(AgentError::NotFound {
                 name: agent_name.to_string(),
             });
