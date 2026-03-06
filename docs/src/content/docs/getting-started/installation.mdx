@@ -6,26 +6,26 @@ description: Overview of how to install and run GHOST.
 GHOST runs as a set of services: the main daemon, an embedding server, a
 document processor, a web scraper, and a search engine.
 
-| Component | Role |
-|---|---|
-| **GHOST** | Main daemon |
-| **llama-server** | Embeddings (Qwen3 8B) |
+| Component         | Role                    |
+| ----------------- | ----------------------- |
+| **GHOST**         | Main daemon             |
+| **llama-server**  | Embeddings (Qwen3 8B)   |
 | **docling-serve** | PDF/document processing |
-| **Crawl4AI** | Web page extraction |
-| **SearXNG** | Web search |
+| **Crawl4AI**      | Web page extraction     |
+| **SearXNG**       | Web search              |
 
 How these are deployed depends on the platform — on macOS, GPU services run
-natively for Metal acceleration; on Linux, everything can run in Docker
-(with NVIDIA GPU passthrough where available).
+natively for Metal acceleration; on Linux, everything can run in Docker (with
+NVIDIA GPU passthrough where available).
 
 ## Install Guides
 
 Choose the guide for your platform:
 
-- **[macOS (Apple Silicon)](/ghost/getting-started/install-macos/)** — recommended
-  for Mac Mini / MacBook. One-command install with Metal GPU acceleration.
-- **[Linux](/ghost/getting-started/install-linux/)** — work in progress.
-- **[From Source](/ghost/getting-started/install-source/)** — for development or
+- **[macOS (Apple Silicon)](/getting-started/install-macos/)** — recommended for
+  Mac Mini / MacBook. One-command install with Metal GPU acceleration.
+- **[Linux](/getting-started/install-linux/)** — work in progress.
+- **[From Source](/getting-started/install-source/)** — for development or
   manual setups.
 
 ## What You'll Need
