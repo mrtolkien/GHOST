@@ -23,6 +23,15 @@ pub enum WebCommand {
         /// Output raw HTML without conversion
         #[arg(long, conflicts_with = "readability")]
         raw: bool,
+        /// CSS selector or JS condition to wait for (e.g. "css:.content-loaded")
+        #[arg(long)]
+        wait_for: Option<String>,
+        /// Focus extraction on a CSS selector region
+        #[arg(long)]
+        css_selector: Option<String>,
+        /// Scroll full page for lazy-loaded content
+        #[arg(long)]
+        scan_full_page: bool,
     },
 }
 
@@ -70,8 +79,17 @@ pub async fn execute(command: WebCommand) -> Result<(), GhostError> {
             url,
             readability,
             raw,
+            wait_for,
+            css_selector,
+            scan_full_page,
         } => {
-            let options = web::FetchOptions { readability, raw };
+            let options = web::FetchOptions {
+                readability,
+                raw,
+                wait_for,
+                css_selector,
+                scan_full_page,
+            };
             let content = web::fetch(&url, &options, config.web.crawl4ai_url.as_deref()).await?;
 
             match web::save_fetch_cache(&config.workspace, "cli", &url, &content) {

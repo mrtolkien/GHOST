@@ -7,7 +7,7 @@ mod search;
 mod searxng;
 mod types;
 
-pub use browser::fetch_with_crawl4ai;
+pub use browser::{Crawl4aiOptions, fetch_with_crawl4ai};
 pub use cache::{
     format_search_metadata, save_fetch_cache, save_search_cache, scan_web_cache, slug_from_url,
 };

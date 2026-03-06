@@ -3,7 +3,7 @@
 use std::fs;
 use std::path::PathBuf;
 
-use ghost::web::{FetchOptions, fetch, fetch_with_crawl4ai};
+use ghost::web::{Crawl4aiOptions, FetchOptions, fetch, fetch_with_crawl4ai};
 
 const OUT_DIR: &str = "/tmp/ghost-web-fetch-test";
 
@@ -27,298 +27,366 @@ fn save(name: &str, url: &str, method: &str, word_count: usize, text: &str) {
 }
 
 // ---------------------------------------------------------------------------
-// Comparison tests: fetch the same page with reqwest+readability vs crawl4ai
+// Core crawl4ai functionality tests
 // ---------------------------------------------------------------------------
 
-/// All3DP article — readability often returns boilerplate/nav only.
+/// Wikipedia — reliable, fast, validates basic extraction.
 #[tokio::test]
-async fn compare_all3dp_article() {
-    let url = "https://all3dp.com/1/snapmaker-u1-reviewed-make-haste-not-waste/";
-    eprintln!("\n=== All3DP Article ===");
+async fn crawl4ai_wikipedia() {
+    let url = "https://en.wikipedia.org/wiki/3D_printing";
+    eprintln!("\n=== Wikipedia ===");
 
-    let reqwest_result = fetch(
-        url,
-        &FetchOptions {
-            readability: true,
-            ..Default::default()
-        },
-        None, // no crawl4ai fallback — test reqwest alone
-    )
-    .await
-    .expect("reqwest fetch");
-    save(
-        "all3dp_article",
-        url,
-        "reqwest",
-        reqwest_result.word_count,
-        &reqwest_result.text,
-    );
-
-    let c4ai_md = fetch_with_crawl4ai(&crawl4ai_url(), url)
+    let start = std::time::Instant::now();
+    let result = fetch(url, &FetchOptions::default(), Some(&crawl4ai_url()))
         .await
-        .expect("crawl4ai fetch");
-    let c4ai_words = c4ai_md.split_whitespace().count();
-    save("all3dp_article", url, "crawl4ai", c4ai_words, &c4ai_md);
+        .expect("fetch should succeed");
 
+    let elapsed = start.elapsed();
+    save("wikipedia", url, "crawl4ai", result.word_count, &result.text);
     eprintln!(
-        "  reqwest: {} words, crawl4ai: {} words",
-        reqwest_result.word_count, c4ai_words
+        "  {} words in {:.1}s",
+        result.word_count,
+        elapsed.as_secs_f64()
     );
 
-    // crawl4ai should extract the actual article content
     assert!(
-        c4ai_words > reqwest_result.word_count,
-        "crawl4ai should extract more content than reqwest+readability \
-         (crawl4ai={c4ai_words}, reqwest={})",
-        reqwest_result.word_count
+        result.word_count > 1000,
+        "Wikipedia article should have substance (got {} words)",
+        result.word_count
+    );
+    assert!(
+        elapsed.as_secs() < 30,
+        "should complete in < 30s (took {:.1}s)",
+        elapsed.as_secs_f64()
     );
 }
 
-/// All3DP best-enclosed list — the page from the e2e research agent.
+/// Reddit — JS-heavy, crawl4ai should extract discussion content.
 #[tokio::test]
-async fn compare_all3dp_enclosed_list() {
-    let url = "https://all3dp.com/1/best-enclosed-3d-printers/";
-    eprintln!("\n=== All3DP Enclosed List ===");
-
-    let reqwest_result = fetch(
-        url,
-        &FetchOptions {
-            readability: true,
-            ..Default::default()
-        },
-        None,
-    )
-    .await
-    .expect("reqwest fetch");
-    save(
-        "all3dp_enclosed",
-        url,
-        "reqwest",
-        reqwest_result.word_count,
-        &reqwest_result.text,
-    );
-
-    let c4ai_md = fetch_with_crawl4ai(&crawl4ai_url(), url)
-        .await
-        .expect("crawl4ai fetch");
-    let c4ai_words = c4ai_md.split_whitespace().count();
-    save("all3dp_enclosed", url, "crawl4ai", c4ai_words, &c4ai_md);
-
-    eprintln!(
-        "  reqwest: {} words, crawl4ai: {} words",
-        reqwest_result.word_count, c4ai_words
-    );
-}
-
-/// Reddit thread — reqwest returns tons of nav/ad boilerplate.
-#[tokio::test]
-async fn compare_reddit_thread() {
+async fn crawl4ai_reddit() {
     let url = "https://www.reddit.com/r/3Dprinting/comments/1ip98af/best_enclosed_fdm_3d_printer_to_start_with/";
     eprintln!("\n=== Reddit Thread ===");
 
-    let reqwest_result = fetch(
-        url,
-        &FetchOptions {
-            readability: true,
-            ..Default::default()
-        },
-        None,
-    )
-    .await
-    .expect("reqwest fetch");
-    save(
-        "reddit_thread",
-        url,
-        "reqwest",
-        reqwest_result.word_count,
-        &reqwest_result.text,
-    );
-
-    let c4ai_md = fetch_with_crawl4ai(&crawl4ai_url(), url)
+    let md = fetch_with_crawl4ai(&crawl4ai_url(), url, &Crawl4aiOptions::default())
         .await
         .expect("crawl4ai fetch");
-    let c4ai_words = c4ai_md.split_whitespace().count();
-    save("reddit_thread", url, "crawl4ai", c4ai_words, &c4ai_md);
+    let words = md.split_whitespace().count();
+    save("reddit_thread", url, "crawl4ai", words, &md);
+    eprintln!("  {words} words");
 
-    eprintln!(
-        "  reqwest: {} words, crawl4ai: {} words",
-        reqwest_result.word_count, c4ai_words
+    assert!(
+        words > 200,
+        "should extract discussion content (got {words} words)"
     );
 }
 
-/// Tom's Hardware review — typically works OK with readability, compare anyway.
+/// Tom's Hardware — content-heavy review site.
 #[tokio::test]
-async fn compare_toms_hardware() {
+async fn crawl4ai_toms_hardware() {
     let url = "https://www.tomshardware.com/best-picks/best-3d-printers";
     eprintln!("\n=== Tom's Hardware ===");
 
-    let reqwest_result = fetch(
-        url,
-        &FetchOptions {
-            readability: true,
-            ..Default::default()
-        },
-        None,
-    )
-    .await
-    .expect("reqwest fetch");
-    save(
-        "toms_hardware",
-        url,
-        "reqwest",
-        reqwest_result.word_count,
-        &reqwest_result.text,
-    );
-
-    let c4ai_md = fetch_with_crawl4ai(&crawl4ai_url(), url)
+    let md = fetch_with_crawl4ai(&crawl4ai_url(), url, &Crawl4aiOptions::default())
         .await
         .expect("crawl4ai fetch");
-    let c4ai_words = c4ai_md.split_whitespace().count();
-    save("toms_hardware", url, "crawl4ai", c4ai_words, &c4ai_md);
+    let words = md.split_whitespace().count();
+    save("toms_hardware", url, "crawl4ai", words, &md);
+    eprintln!("  {words} words");
 
-    eprintln!(
-        "  reqwest: {} words, crawl4ai: {} words",
-        reqwest_result.word_count, c4ai_words
+    assert!(
+        words > 1000,
+        "should extract review content (got {words} words)"
     );
 }
 
-/// PCMag — returns 403 via reqwest, crawl4ai should work.
+/// GitHub issue — JS-rendered SPA.
 #[tokio::test]
-async fn compare_pcmag() {
-    let url = "https://www.pcmag.com/picks/the-best-3d-printers";
-    eprintln!("\n=== PCMag ===");
+async fn crawl4ai_github_issue() {
+    let url = "https://github.com/rust-lang/rust/issues/34511";
+    eprintln!("\n=== GitHub Issue ===");
 
-    let reqwest_result = fetch(
-        url,
-        &FetchOptions {
-            readability: true,
-            ..Default::default()
-        },
-        None,
-    )
-    .await;
-    match &reqwest_result {
-        Ok(c) => {
-            save("pcmag", url, "reqwest", c.word_count, &c.text);
-            eprintln!("  reqwest: {} words", c.word_count);
-        }
-        Err(e) => eprintln!("  reqwest: FAILED — {e}"),
-    }
-
-    let c4ai_md = fetch_with_crawl4ai(&crawl4ai_url(), url)
+    let result = fetch(url, &FetchOptions::default(), Some(&crawl4ai_url()))
         .await
-        .expect("crawl4ai should handle PCMag");
-    let c4ai_words = c4ai_md.split_whitespace().count();
-    save("pcmag", url, "crawl4ai", c4ai_words, &c4ai_md);
-    eprintln!("  crawl4ai: {c4ai_words} words");
-
-    assert!(
-        c4ai_words > 500,
-        "crawl4ai should extract substantial PCMag content (got {c4ai_words} words)"
-    );
-}
-
-// ---------------------------------------------------------------------------
-// Integration test: verify fetch() with crawl4ai_url upgrades bad extractions
-// ---------------------------------------------------------------------------
-
-/// Verify that fetch() with crawl4ai_url falls back automatically for All3DP.
-#[tokio::test]
-async fn fetch_with_fallback_all3dp() {
-    let url = "https://all3dp.com/1/best-enclosed-3d-printers/";
-    eprintln!("\n=== fetch() with fallback — All3DP ===");
-
-    let result = fetch(
-        url,
-        &FetchOptions {
-            readability: true,
-            ..Default::default()
-        },
-        Some(&crawl4ai_url()),
-    )
-    .await
-    .expect("fetch should succeed");
+        .expect("fetch should succeed");
 
     save(
-        "all3dp_enclosed_integrated",
+        "github_issue",
         url,
-        "fetch_with_fallback",
+        "crawl4ai",
         result.word_count,
         &result.text,
     );
+    eprintln!("  {} words", result.word_count);
 
-    eprintln!("  word count: {}", result.word_count);
-    // With fallback, we should get substantial article content
+    // GitHub SPA may render issue content or issue list — just verify
+    // we got substantial content from the JS-rendered page
     assert!(
-        result.word_count > 200,
-        "fetch with crawl4ai fallback should extract meaningful content (got {} words)",
+        result.word_count > 500,
+        "should extract GitHub page content (got {} words)",
         result.word_count
     );
 }
 
-/// Verify that fetch() with crawl4ai_url falls back for Reddit.
+/// CSS selector should focus extraction on a specific DOM region.
 #[tokio::test]
-async fn fetch_with_fallback_reddit() {
+async fn crawl4ai_css_selector() {
+    let url = "https://en.wikipedia.org/wiki/3D_printing";
+    eprintln!("\n=== CSS Selector ===");
+
+    let full = fetch_with_crawl4ai(&crawl4ai_url(), url, &Crawl4aiOptions::default())
+        .await
+        .expect("full fetch");
+    let full_words = full.split_whitespace().count();
+
+    let focused = fetch_with_crawl4ai(
+        &crawl4ai_url(),
+        url,
+        &Crawl4aiOptions {
+            css_selector: Some("#mw-content-text".into()),
+            ..Default::default()
+        },
+    )
+    .await
+    .expect("focused fetch");
+    let focused_words = focused.split_whitespace().count();
+
+    save("wikipedia_full", url, "crawl4ai_full", full_words, &full);
+    save(
+        "wikipedia_focused",
+        url,
+        "crawl4ai_selector",
+        focused_words,
+        &focused,
+    );
+    eprintln!("  full: {full_words} words, focused: {focused_words} words");
+
+    assert!(
+        focused_words > 500,
+        "focused should still have substance (got {focused_words} words)"
+    );
+}
+
+/// AuroraTech — huge page with graphs and charts, should find specific
+/// products deep in the page.
+#[tokio::test]
+async fn crawl4ai_auroratech() {
+    let url = "https://auroratechchannel.com/";
+    eprintln!("\n=== AuroraTech ===");
+
+    let md = fetch_with_crawl4ai(&crawl4ai_url(), url, &Crawl4aiOptions::default())
+        .await
+        .expect("crawl4ai fetch");
+    let words = md.split_whitespace().count();
+    save("auroratech", url, "crawl4ai", words, &md);
+    eprintln!("  {words} words");
+
+    assert!(
+        words > 500,
+        "should extract substantial content (got {words} words)"
+    );
+    assert!(
+        md.to_lowercase().contains("elegoo centauri carbon"),
+        "should find 'Elegoo Centauri Carbon' in the page"
+    );
+}
+
+/// MyBest — very long Japanese page with lots of JS and JSON data.
+#[tokio::test]
+async fn crawl4ai_mybest() {
+    let url = "https://my-best.com/306";
+    eprintln!("\n=== MyBest ===");
+
+    let md = fetch_with_crawl4ai(&crawl4ai_url(), url, &Crawl4aiOptions::default())
+        .await
+        .expect("crawl4ai fetch");
+    let words = md.split_whitespace().count();
+    save("mybest", url, "crawl4ai", words, &md);
+    eprintln!("  {words} words");
+
+    assert!(
+        words > 1000,
+        "should extract substantial JS-heavy content (got {words} words)"
+    );
+}
+
+/// Stack Overflow answer — the most common research target.
+#[tokio::test]
+async fn crawl4ai_stackoverflow() {
+    let url =
+        "https://stackoverflow.com/questions/927358/how-do-i-undo-the-most-recent-local-commits-in-git";
+    eprintln!("\n=== Stack Overflow ===");
+
+    let md = fetch_with_crawl4ai(&crawl4ai_url(), url, &Crawl4aiOptions::default())
+        .await
+        .expect("crawl4ai fetch");
+    let words = md.split_whitespace().count();
+    save("stackoverflow", url, "crawl4ai", words, &md);
+    eprintln!("  {words} words");
+
+    assert!(
+        words > 500,
+        "should extract Q&A content (got {words} words)"
+    );
+    assert!(
+        md.to_lowercase().contains("git reset"),
+        "should contain 'git reset' in the answer"
+    );
+}
+
+/// React docs — client-rendered SPA, validates JS framework doc extraction.
+#[tokio::test]
+async fn crawl4ai_react_docs() {
+    let url = "https://react.dev/learn";
+    eprintln!("\n=== React Docs (SPA) ===");
+
+    let md = fetch_with_crawl4ai(&crawl4ai_url(), url, &Crawl4aiOptions::default())
+        .await
+        .expect("crawl4ai fetch");
+    let words = md.split_whitespace().count();
+    save("react_docs", url, "crawl4ai", words, &md);
+    eprintln!("  {words} words");
+
+    assert!(
+        words > 500,
+        "should extract docs content (got {words} words)"
+    );
+}
+
+/// ArXiv abstract — academic paper metadata extraction.
+#[tokio::test]
+async fn crawl4ai_arxiv() {
+    let url = "https://arxiv.org/abs/2401.10020";
+    eprintln!("\n=== ArXiv Paper ===");
+
+    let md = fetch_with_crawl4ai(&crawl4ai_url(), url, &Crawl4aiOptions::default())
+        .await
+        .expect("crawl4ai fetch");
+    let words = md.split_whitespace().count();
+    save("arxiv", url, "crawl4ai", words, &md);
+    eprintln!("  {words} words");
+
+    assert!(words > 100, "should extract abstract (got {words} words)");
+    assert!(
+        md.to_lowercase().contains("abstract"),
+        "should contain the abstract section"
+    );
+}
+
+/// GSMarena comparison — structured data tables.
+#[tokio::test]
+async fn crawl4ai_gsmarena_comparison() {
+    let url = "https://www.gsmarena.com/compare.php3?idPhone1=12082&idPhone2=11861";
+    eprintln!("\n=== GSMarena Comparison ===");
+
+    let md = fetch_with_crawl4ai(&crawl4ai_url(), url, &Crawl4aiOptions::default())
+        .await
+        .expect("crawl4ai fetch");
+    let words = md.split_whitespace().count();
+    save("gsmarena", url, "crawl4ai", words, &md);
+    eprintln!("  {words} words");
+
+    assert!(
+        words > 200,
+        "should extract comparison data (got {words} words)"
+    );
+    let lower = md.to_lowercase();
+    assert!(
+        lower.contains("samsung") || lower.contains("galaxy") || lower.contains("apple") || lower.contains("iphone"),
+        "should contain phone brand names"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Integration: fetch() with HEAD routing + crawl4ai primary path
+// ---------------------------------------------------------------------------
+
+/// fetch() routes HTML to crawl4ai and extracts Reddit content.
+#[tokio::test]
+async fn fetch_integrated_reddit() {
     let url = "https://www.reddit.com/r/3Dprinting/comments/1ip98af/best_enclosed_fdm_3d_printer_to_start_with/";
-    eprintln!("\n=== fetch() with fallback — Reddit ===");
+    eprintln!("\n=== fetch() integrated — Reddit ===");
 
     let result = fetch(
         url,
-        &FetchOptions {
-            readability: true,
-            ..Default::default()
-        },
+        &FetchOptions::default(),
         Some(&crawl4ai_url()),
     )
     .await
     .expect("fetch should succeed");
 
     save(
-        "reddit_thread_integrated",
+        "reddit_integrated",
         url,
-        "fetch_with_fallback",
+        "fetch_integrated",
         result.word_count,
         &result.text,
     );
-
     eprintln!("  word count: {}", result.word_count);
-    // Reddit reqwest gets ~59 words; with fallback should get actual discussion
+
     assert!(
         result.word_count > 200,
-        "Reddit via fallback should have discussion content (got {} words)",
+        "Reddit via crawl4ai should have discussion content (got {} words)",
         result.word_count
     );
 }
 
-/// Verify that fetch() with crawl4ai_url falls back for PCMag (403).
+/// fetch() routes HTML to crawl4ai for PCMag (which blocks reqwest with 403).
 #[tokio::test]
-async fn fetch_with_fallback_pcmag() {
+async fn fetch_integrated_pcmag() {
     let url = "https://www.pcmag.com/picks/the-best-3d-printers";
-    eprintln!("\n=== fetch() with fallback — PCMag ===");
+    eprintln!("\n=== fetch() integrated — PCMag ===");
 
     let result = fetch(
         url,
-        &FetchOptions {
-            readability: true,
-            ..Default::default()
-        },
+        &FetchOptions::default(),
         Some(&crawl4ai_url()),
     )
     .await
-    .expect("fetch with fallback should succeed for PCMag");
+    .expect("fetch should succeed");
 
     save(
         "pcmag_integrated",
         url,
-        "fetch_with_fallback",
+        "fetch_integrated",
         result.word_count,
         &result.text,
     );
-
     eprintln!("  word count: {}", result.word_count);
+
     assert!(
         result.word_count > 500,
-        "PCMag via fallback should have substantial content (got {} words)",
+        "PCMag should have substantial content (got {} words)",
+        result.word_count
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Fallback: when crawl4ai is unavailable, fetch() uses local extraction
+// ---------------------------------------------------------------------------
+
+/// When crawl4ai is down, fetch() falls back to local reqwest+readability.
+#[tokio::test]
+async fn fallback_to_local() {
+    let url = "https://en.wikipedia.org/wiki/3D_printing";
+    let bad_url = "http://localhost:1";
+    eprintln!("\n=== Fallback to Local ===");
+
+    let result = fetch(url, &FetchOptions::default(), Some(bad_url))
+        .await
+        .expect("should fall back to local extraction");
+
+    save(
+        "wikipedia_fallback",
+        url,
+        "local_fallback",
+        result.word_count,
+        &result.text,
+    );
+    eprintln!("  {} words (local extraction)", result.word_count);
+
+    assert!(
+        result.word_count > 500,
+        "local fallback should produce content (got {} words)",
         result.word_count
     );
 }
