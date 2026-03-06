@@ -62,6 +62,8 @@ pub async fn boot() -> Result<BootResult, GhostError> {
     crate::config_workspace::bootstrap_workspace(&config)?;
     info!(workspace = %config.workspace.display(), "config loaded");
 
+    crate::tools::shell::spawn_flake_warmup(config.workspace.clone());
+
     info!("connecting to database");
     let db = crate::db::connect(&config.workspace, config.embeddings.dimension).await?;
     info!("database ready");

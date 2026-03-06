@@ -193,6 +193,36 @@ impl Tool for RunShellCommand {
     }
 }
 
+/// Spawn a background task that evaluates the workspace flake so subsequent
+/// `nix develop` invocations are fast.
+pub fn spawn_flake_warmup(workspace: std::path::PathBuf) {
+    let shell_dir = workspace.join("shell");
+    if !shell_dir.join("flake.nix").exists() {
+        return;
+    }
+    tokio::spawn(async move {
+        tracing::info!("warming up nix flake");
+        let result = tokio::process::Command::new("nix")
+            .args(["develop", shell_dir.to_str().unwrap_or("."), "--command", "true"])
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::piped())
+            .output()
+            .await;
+        match result {
+            Ok(output) if output.status.success() => {
+                tracing::info!("nix flake warmup complete");
+            }
+            Ok(output) => {
+                let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
+                logfire::warn!("nix flake warmup failed", stderr = stderr);
+            }
+            Err(e) => {
+                logfire::warn!("nix flake warmup failed", error = e.to_string());
+            }
+        }
+    });
+}
+
 fn format_output(output: &std::process::Output) -> String {
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);

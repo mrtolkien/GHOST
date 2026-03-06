@@ -31,13 +31,13 @@
 - [x] Add image generation for visual responses -> Nano banana?
   - Read and vendor the skill from openclaw -> it uses uv to run a script
 
----
-
-- [ ] ?session description for coding agent? -> would help with resume
-
-- [ ] Coupled with that, we should let the GHOST directly query its sqlite database
+- [x] Coupled with that, we should let the GHOST directly query its sqlite database
       somehow. There should be the full schema somewhere (likely as an attachement to
       the knowledge navigator skill) + sqlite3 in the flake (or stg else?)
+
+---
+
+- [ ] ?session description for coding agent? -> would need a respond-type tool
 
 - [ ] We should have a _true_ e2e test which actually starts the daemon and interacts
       with it. The only cheating we would do is the provider/Discord layer: we would
