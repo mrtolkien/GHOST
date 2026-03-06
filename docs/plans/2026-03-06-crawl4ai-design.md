@@ -1,8 +1,10 @@
 # Crawl4ai: Primary Fetch Path + Agent Control — Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this
+> plan task-by-task.
 
-**Goal:** Make crawl4ai the primary web fetch path with agent-controllable options and live tests.
+**Goal:** Make crawl4ai the primary web fetch path with agent-controllable options and
+live tests.
 
 **Architecture:** HTML fetches route through crawl4ai with tuned defaults (no scrolling,
 networkidle, overlay removal). The agent controls `wait_for`, `css_selector`, and
@@ -51,20 +53,20 @@ HEAD(url)
 **Key property:** One real fetch per page. HEAD is ~50ms overhead (no body). We never
 download the same page twice.
 
-**When `crawl4ai_url` is None:** Skip HEAD, do reqwest GET directly with local extraction
-(same as today). This keeps `import_page` and offline use working.
+**When `crawl4ai_url` is None:** Skip HEAD, do reqwest GET directly with local
+extraction (same as today). This keeps `import_page` and offline use working.
 
 ### Callers
 
-| Caller | File | Notes |
-|--------|------|-------|
-| `WebFetch` tool | `src/tools/web_fetch.rs:47` | Primary path — gets new params |
-| `ghost web fetch` CLI | `src/cli/web.rs:75` | Passes config.crawl4ai_url, uses FetchOptions |
-| `import_page` | `src/reference_import/page.rs:56` | Passes `None` for crawl4ai_url, default options — **leave unchanged** |
-| Live tests | `tests/web_fetch_live.rs` | Call both `fetch` and `fetch_with_crawl4ai` directly |
+| Caller                | File                              | Notes                                                                 |
+| --------------------- | --------------------------------- | --------------------------------------------------------------------- |
+| `WebFetch` tool       | `src/tools/web_fetch.rs:47`       | Primary path — gets new params                                        |
+| `ghost web fetch` CLI | `src/cli/web.rs:75`               | Passes config.crawl4ai_url, uses FetchOptions                         |
+| `import_page`         | `src/reference_import/page.rs:56` | Passes `None` for crawl4ai_url, default options — **leave unchanged** |
+| Live tests            | `tests/web_fetch_live.rs`         | Call both `fetch` and `fetch_with_crawl4ai` directly                  |
 
-`import_page` intentionally skips crawl4ai (it runs in bulk import where browser overhead
-isn't worth it, and content-type routing matters). No changes needed there.
+`import_page` intentionally skips crawl4ai (it runs in bulk import where browser
+overhead isn't worth it, and content-type routing matters). No changes needed there.
 
 ---
 
@@ -73,6 +75,7 @@ isn't worth it, and content-type routing matters). No changes needed there.
 ### Task 1: Add `Crawl4aiOptions` and update `browser.rs`
 
 **Files:**
+
 - Modify: `src/web/browser.rs`
 
 **Step 1: Add the options struct and update `crawler_params`**
@@ -181,6 +184,7 @@ feat: add Crawl4aiOptions and tune crawl4ai defaults
 ### Task 2: Update `FetchOptions` and rewrite `fetch()` flow
 
 **Files:**
+
 - Modify: `src/web/types.rs` (FetchOptions)
 - Modify: `src/web/fetch.rs` (fetch function)
 
@@ -325,13 +329,13 @@ async fn fetch_legacy(url: &str, options: &FetchOptions) -> Result<ExtractedCont
 }
 ```
 
-The old `fetch()` body moves into `fetch_legacy()` with minimal changes (just remove
-the crawl4ai fallback branches since those are now handled by the new flow).
+The old `fetch()` body moves into `fetch_legacy()` with minimal changes (just remove the
+crawl4ai fallback branches since those are now handled by the new flow).
 
 **Step 4: Run `just ci`**
 
-Should compile. Existing unit tests in `fetch.rs` test `extract_content()` directly
-(not `fetch()`), so they should pass unchanged.
+Should compile. Existing unit tests in `fetch.rs` test `extract_content()` directly (not
+`fetch()`), so they should pass unchanged.
 
 **Step 5: Commit**
 
@@ -344,6 +348,7 @@ feat: HEAD-based routing with crawl4ai as primary HTML path
 ### Task 3: Update `web_fetch` tool schema
 
 **Files:**
+
 - Modify: `src/tools/web_fetch.rs`
 
 **Step 1: Add new properties to input schema**
@@ -414,6 +419,7 @@ feat: expose crawl4ai options in web_fetch tool schema
 ### Task 4: Update CLI caller
 
 **Files:**
+
 - Modify: `src/cli/web.rs`
 
 **Step 1: Add CLI args for new options**
@@ -464,12 +470,13 @@ feat: add crawl4ai options to ghost web fetch CLI
 ### Task 5: Update existing live tests
 
 **Files:**
+
 - Modify: `tests/web_fetch_live.rs`
 
 **Step 1: Fix all `fetch_with_crawl4ai` calls**
 
-Update every call to pass `&Crawl4aiOptions::default()` as the third argument.
-Add import: `use ghost::web::Crawl4aiOptions;`
+Update every call to pass `&Crawl4aiOptions::default()` as the third argument. Add
+import: `use ghost::web::Crawl4aiOptions;`
 
 **Step 2: Run live tests**
 
@@ -491,6 +498,7 @@ test: update existing live tests for new crawl4ai signature
 ### Task 6: New live tests — crawl4ai primary path
 
 **Files:**
+
 - Modify: `tests/web_fetch_live.rs`
 
 Add these tests after the existing ones:
@@ -674,8 +682,8 @@ Fix any clippy warnings or formatting issues.
 
 **Step 2: Verify the spec file is up to date**
 
-Update `specs/w_crawl4ai.md` to reflect the completed work (mark issues resolved,
-remove stale TODOs).
+Update `specs/w_crawl4ai.md` to reflect the completed work (mark issues resolved, remove
+stale TODOs).
 
 **Step 3: Commit**
 

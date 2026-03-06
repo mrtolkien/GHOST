@@ -24,6 +24,9 @@ export default defineConfig({
           label: "Getting Started",
           items: [
             { label: "Installation", slug: "getting-started/installation" },
+            { label: "macOS", slug: "getting-started/install-macos" },
+            { label: "Linux", slug: "getting-started/install-linux" },
+            { label: "From Source", slug: "getting-started/install-source" },
             {
               label: "Configuration",
               slug: "getting-started/configuration",

@@ -1,0 +1,86 @@
+---
+title: Source Installation
+description: Install GHOST from source for development or manual setups.
+---
+
+import { Steps } from "@astrojs/starlight/components";
+
+This method runs all services in Docker using the dev compose files. Suitable
+for contributing to GHOST or for setups where you want full control.
+
+## Prerequisites
+
+- **Docker** with Docker Compose —
+  [docs.docker.com](https://docs.docker.com/get-docker/)
+- **Discord bot token** — see [Interfaces](/ghost/interfaces/)
+- **API key** for at least one LLM provider (OpenRouter, Kimi, etc.)
+
+## Setup
+
+<Steps>
+
+1. **Clone the repository**
+
+   ```bash
+   git clone https://github.com/mrtolkien/ghost.git
+   cd ghost
+   ```
+
+2. **Configure secrets**
+
+   Create a `.env` file in the project root:
+
+   ```bash title=".env"
+   # Required: at least one LLM provider
+   OPENROUTER_API_KEY=sk-or-...
+
+   # Required: Discord bot
+   DISCORD_TOKEN=...
+   ```
+
+3. **Start all services**
+
+   ```bash
+   docker compose up -d
+   ```
+
+   This starts GHOST, Crawl4AI (web extraction), SearXNG (web search), and
+   docling-serve (PDF processing). GHOST auto-detects the companion services
+   via container networking.
+
+4. **Configure GHOST**
+
+   Create `~/.config/ghost/config.toml`:
+
+   ```toml title="~/.config/ghost/config.toml"
+   [discord]
+   allowed_user_id = "your-discord-user-id"
+
+   [models.primary]
+   provider = "openrouter"
+   model = "anthropic/claude-sonnet-4"
+   context_window = 200000
+   ```
+
+</Steps>
+
+## Building Locally
+
+To build the GHOST image from source instead of pulling from Docker Hub:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.local.yml up --build
+```
+
+## Workspace
+
+GHOST stores its data in `~/GHOST/` by default (bind-mounted into the container
+at `/workspace`). This includes identity files, notes, skills, agents, and the
+Nix shell flake.
+
+## Shell Tools
+
+The Docker image uses Nix to manage CLI tools deterministically. The default set
+(git, ripgrep, fd, jq, curl, etc.) is pre-installed. GHOST can add tools at
+runtime by editing `shell/flake.nix` in the workspace — changes take effect on
+the next command, no restart needed.
