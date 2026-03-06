@@ -27,6 +27,8 @@ fn shell_command(
         let mut cmd = tokio::process::Command::new("nix");
         cmd.args([
             "develop",
+            "--keep",
+            "PATH",
             shell_dir.to_str().unwrap_or("."),
             "--command",
             "sh",
