@@ -95,4 +95,6 @@ pub enum CodingError {
     Git(String),
     #[error("working directory not found: {0}")]
     WorkingDirNotFound(String),
+    #[error("coding session is already active: {0}")]
+    SessionAlreadyActive(String),
 }

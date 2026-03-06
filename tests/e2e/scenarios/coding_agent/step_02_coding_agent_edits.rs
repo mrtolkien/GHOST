@@ -48,10 +48,9 @@ async fn coding_agent_step_02_coding_agent_edits() {
     // Build the coding agent system prompt
     let system_prompt = ghost::coding::prompt::build_coding_prompt(&env.config, &working_dir);
 
-    // Create a SessionChat with cwd_override pointing to the repo
+    // Create a SessionChat for the coding agent
     let chat = ghost::chat::SessionChat::from_config(env.db.clone(), env.config.clone())
-        .expect("build session chat")
-        .with_cwd_override(working_dir.to_path_buf());
+        .expect("build session chat");
 
     // Send a coding request to the coding agent session
     let (result, _metadata) = tokio::time::timeout(
@@ -61,6 +60,7 @@ async fn coding_agent_step_02_coding_agent_edits() {
             "Change the greet function to return \"hello world\" instead of \"hello\". \
              Edit the file directly.",
             &system_prompt,
+            &working_dir,
             None,
         ),
     )

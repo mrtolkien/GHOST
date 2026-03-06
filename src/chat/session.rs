@@ -160,14 +160,14 @@ impl SessionChat {
         .await
     }
 
-    /// Chat in a coding session with a custom system prompt.
-    /// Uses `cwd_override` if set, otherwise falls back to workspace.
+    /// Chat in a coding session with a custom system prompt and working directory.
     #[tracing::instrument(name = "orchestrate coding response", skip_all, fields(session_id = session_id))]
     pub async fn chat_coding(
         &self,
         session_id: &str,
         user_message: &str,
         system_prompt: &str,
+        working_dir: &std::path::Path,
         event_tx: Option<&EventSender>,
     ) -> Result<(ChatResult, RunMetadata), ChatError> {
         let session_thing = parse_session_thing(session_id)?;
@@ -187,6 +187,7 @@ impl SessionChat {
             event_tx,
             pending_todo_update: false,
             system_prompt: system_prompt.to_string(),
+            working_dir: working_dir.to_path_buf(),
             compaction: coding_compaction_config(self.compaction_config()),
         };
 
@@ -259,6 +260,7 @@ impl SessionChat {
         &self,
         session_id: &str,
         tool_calls: &[Value],
+        cwd_override: Option<&std::path::Path>,
     ) -> Vec<ContentBlock> {
         let futures: Vec<_> = tool_calls
             .iter()
@@ -266,7 +268,7 @@ impl SessionChat {
                 let id = call.get("id").and_then(Value::as_str)?;
                 let name = call.get("name").and_then(Value::as_str)?;
                 let input = call.get("input").cloned().unwrap_or_else(|| json!({}));
-                Some(self.execute_single_tool(session_id, name, id, input))
+                Some(self.execute_single_tool(session_id, name, id, input, cwd_override))
             })
             .collect();
 
@@ -279,10 +281,11 @@ impl SessionChat {
         name: &str,
         tool_use_id: &str,
         input: Value,
+        cwd_override: Option<&std::path::Path>,
     ) -> ContentBlock {
-        let cwd = self
-            .cwd_override
-            .clone()
+        let cwd = cwd_override
+            .map(|p| p.to_path_buf())
+            .or_else(|| self.cwd_override.clone())
             .unwrap_or_else(|| self.config.workspace.clone());
         let tool_ctx = ToolContext {
             workspace: self.config.workspace.clone(),
@@ -507,6 +510,7 @@ struct CodingHandler<'a> {
     event_tx: Option<&'a EventSender>,
     pending_todo_update: bool,
     system_prompt: String,
+    working_dir: std::path::PathBuf,
     compaction: config::CompactionConfig,
 }
 
@@ -514,6 +518,10 @@ struct CodingHandler<'a> {
 impl ToolLoopHandler for CodingHandler<'_> {
     fn system_prompt(&self) -> Result<String, ChatError> {
         Ok(self.system_prompt.clone())
+    }
+
+    fn tool_cwd(&self) -> Option<&std::path::Path> {
+        Some(&self.working_dir)
     }
 
     async fn on_assistant_tool_use(

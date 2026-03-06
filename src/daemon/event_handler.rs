@@ -95,7 +95,7 @@ async fn handle_event(
                 working_dir = working_dir.display().to_string(),
             );
             session_chat
-                .chat_coding(session_id, trigger, &system_prompt, None)
+                .chat_coding(session_id, trigger, &system_prompt, &working_dir, None)
                 .await
         }
         None => {

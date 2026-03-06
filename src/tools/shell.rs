@@ -15,9 +15,15 @@ const MAX_OUTPUT_CHARS: usize = 50_000;
 
 /// Build a `Command` that runs `sh -c <cmd>` inside `nix develop` if the
 /// workspace has a `shell/flake.nix`, otherwise runs directly.
-fn shell_command(command: &str, workspace: &std::path::Path) -> tokio::process::Command {
+/// Sets `GHOST_CHANNEL_ID` if available so child processes (e.g. `ghost hack
+/// start`) can auto-detect the calling channel.
+fn shell_command(
+    command: &str,
+    workspace: &std::path::Path,
+    channel_id: Option<&str>,
+) -> tokio::process::Command {
     let shell_dir = workspace.join("shell");
-    if shell_dir.join("flake.nix").exists() {
+    let mut cmd = if shell_dir.join("flake.nix").exists() {
         let mut cmd = tokio::process::Command::new("nix");
         cmd.args([
             "develop",
@@ -32,7 +38,11 @@ fn shell_command(command: &str, workspace: &std::path::Path) -> tokio::process::
         let mut cmd = tokio::process::Command::new("sh");
         cmd.args(["-c", command]);
         cmd
+    };
+    if let Some(id) = channel_id {
+        cmd.env("GHOST_CHANNEL_ID", id);
     }
+    cmd
 }
 
 #[async_trait]
@@ -101,11 +111,12 @@ impl Tool for RunShellCommand {
             let command_owned = command.to_string();
             let work_dir_owned = work_dir.clone();
             let event_tx = ctx.event_tx.clone();
+            let channel_id = ctx.channel_id.clone();
 
             let workspace_owned = ctx.workspace.clone();
 
             tokio::spawn(async move {
-                let child = shell_command(&command_owned, &workspace_owned)
+                let child = shell_command(&command_owned, &workspace_owned, channel_id.as_deref())
                     .current_dir(&work_dir_owned)
                     .stdout(std::process::Stdio::piped())
                     .stderr(std::process::Stdio::piped())
@@ -158,7 +169,7 @@ impl Tool for RunShellCommand {
 
         let timeout = std::time::Duration::from_millis(timeout_ms);
 
-        let child = shell_command(command, &ctx.workspace)
+        let child = shell_command(command, &ctx.workspace, ctx.channel_id.as_deref())
             .current_dir(&work_dir)
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())

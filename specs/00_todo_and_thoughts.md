@@ -5,10 +5,10 @@
 - [x] Run Ark Nova e2e after codex is available again (17h)
 - [x] Review lua agents for coding -> some of the skills should use agents
 - [x] Re-running the deploy scripts nuked the memory
-- [ ] Basic generic agent?
-- [ ] Review import fails + how do timed out commands behave. When the GHOST tried to do
+- [x] Review import fails + how do timed out commands behave. When the GHOST tried to do
       a sync import, it timed out. Then it tried a background one, which failed because
       of a UNIQUE CONSTRAINT error.
+- [ ] Basic generic agent?
 - [ ] Review agents lua files: should likely be close to the _skills_ that actually
       makes them discoverable
 

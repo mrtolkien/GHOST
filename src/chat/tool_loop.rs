@@ -55,6 +55,12 @@ pub(super) trait ToolLoopHandler: Send {
         Ok(())
     }
 
+    /// Override the working directory for tool execution.
+    /// Returns `None` to use the default (workspace or session cwd_override).
+    fn tool_cwd(&self) -> Option<&std::path::Path> {
+        None
+    }
+
     /// Check whether the model should be allowed to end its turn.
     ///
     /// Called when the model sends an EndTurn with non-empty text (i.e. tries
@@ -261,7 +267,7 @@ pub(super) async fn run_tool_loop(
                 });
 
                 let tool_results = session_chat
-                    .execute_tool_calls(session_id, &tool_uses)
+                    .execute_tool_calls(session_id, &tool_uses, handler.tool_cwd())
                     .await;
                 handler.on_tool_results(&tool_results).await?;
 

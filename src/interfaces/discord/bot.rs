@@ -449,8 +449,8 @@ impl Handler {
 
         let _typing = TimedTyping::start(msg.channel_id, &ctx.http);
 
-        let system_prompt =
-            coding::prompt::build_coding_prompt(&self.config, std::path::Path::new(working_dir));
+        let working_path = std::path::Path::new(working_dir);
+        let system_prompt = coding::prompt::build_coding_prompt(&self.config, working_path);
 
         let (event_tx, event_rx) = tokio::sync::mpsc::unbounded_channel();
         let renderer = DiscordUiRenderer::new(event_rx, Arc::clone(&ctx.http), msg.channel_id);
@@ -458,7 +458,13 @@ impl Handler {
 
         let chat_result = self
             .session_chat
-            .chat_coding(session_id, &full_content, &system_prompt, Some(&event_tx))
+            .chat_coding(
+                session_id,
+                &full_content,
+                &system_prompt,
+                working_path,
+                Some(&event_tx),
+            )
             .await;
 
         drop(event_tx);

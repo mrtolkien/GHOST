@@ -21,6 +21,9 @@ You spawn a **coding agent** that takes over the Discord channel. The coding age
 full access to the repo, can read/edit files, run commands, and commit changes. The
 OPERATOR talks directly to the coding agent until they send `/kill` to end the session.
 
+**Don't create a project** for single-session coding tasks. Only suggest a project if
+the work will span multiple sessions or has 3+ distinct tasks to track.
+
 ## Workflow
 
 ### 1. Identify the Repo
@@ -51,13 +54,11 @@ run_shell_command command="cd code/<slug> && git fetch && git status"
 
 ### 3. Start the Coding Session
 
-Run the CLI command with the channel ID so the takeover activates:
-
 ```
-run_shell_command command="ghost hack start code/<slug> --prompt '<task description>' --channel-id <channel_id>"
+run_shell_command command="ghost hack start code/<slug> --prompt '<task description>'"
 ```
 
-The channel ID is available in your system info. The command outputs:
+The command outputs:
 
 ```
 coding_session_id=<id>
@@ -92,7 +93,7 @@ run_shell_command command="ghost hack list"
 Then resume with:
 
 ```
-run_shell_command command="ghost hack resume <coding_session_id> --channel-id <channel_id>"
+run_shell_command command="ghost hack resume <coding_session_id>"
 ```
 
 ## Creating `repo.md` References
@@ -109,6 +110,6 @@ and any setup notes.
 ## Important
 
 - Always check for an existing `repo.md` before cloning
-- Use `--channel-id` so the takeover activates immediately
+- The channel ID is passed automatically — no need to specify it manually
 - The coding agent has its own session — your conversation history is separate
 - After `/kill`, the coding agent's session is preserved for future `resume`

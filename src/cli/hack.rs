@@ -44,6 +44,7 @@ pub async fn execute(command: HackCommand) -> Result<(), GhostError> {
             channel_id,
         } => {
             let working_dir = resolve_working_dir(&config, &dir)?;
+            let channel_id = channel_id.or_else(|| std::env::var("GHOST_CHANNEL_ID").ok());
 
             let session =
                 coding::session::start(&db, &config, working_dir, channel_id, prompt).await?;
@@ -57,6 +58,7 @@ pub async fn execute(command: HackCommand) -> Result<(), GhostError> {
             prompt,
             channel_id,
         } => {
+            let channel_id = channel_id.or_else(|| std::env::var("GHOST_CHANNEL_ID").ok());
             let (chat_session_id, working_dir, status) =
                 crate::db::coding_sessions::get_coding_session(&db, &session_id)
                     .await?
@@ -68,7 +70,7 @@ pub async fn execute(command: HackCommand) -> Result<(), GhostError> {
 
             if status == "active" {
                 return Err(
-                    coding::session::CodingError::Git("Session is already active".into()).into(),
+                    coding::session::CodingError::SessionAlreadyActive(session_id.clone()).into(),
                 );
             }
 

@@ -294,9 +294,10 @@ async fn chat_coding_uses_custom_system_prompt() {
 
     let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config);
     let system_prompt = "You are a coding agent working in /tmp/repo.";
+    let tmp = TempDir::new().unwrap();
 
     let (result, _metadata) = chat
-        .chat_coding(&session_id, "list files", system_prompt, None)
+        .chat_coding(&session_id, "list files", system_prompt, tmp.path(), None)
         .await
         .expect("chat_coding");
 
@@ -336,8 +337,9 @@ async fn chat_coding_tool_loop_works() {
     tools.register(Arc::new(EchoTool));
     let chat = SessionChat::new(db.clone(), provider, tools, config);
 
+    let tmp = TempDir::new().unwrap();
     let (result, metadata) = chat
-        .chat_coding(&session_id, "run tool", "system prompt", None)
+        .chat_coding(&session_id, "run tool", "system prompt", tmp.path(), None)
         .await
         .expect("chat_coding with tool");
 
@@ -378,8 +380,15 @@ async fn chat_coding_persists_messages_to_db() {
     )]));
     let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config);
 
+    let tmp = TempDir::new().unwrap();
     let _ = chat
-        .chat_coding(&session_id, "fix the bug", "coding system prompt", None)
+        .chat_coding(
+            &session_id,
+            "fix the bug",
+            "coding system prompt",
+            tmp.path(),
+            None,
+        )
         .await
         .expect("chat_coding");
 
@@ -434,12 +443,11 @@ async fn cwd_override_affects_tool_execution() {
     ]));
     let requests = provider.requests();
 
-    // cwd_override points to workspace/repo — read_file("test.txt") resolves there
-    let chat = SessionChat::new(db.clone(), provider, ToolManager::for_chat(), config)
-        .with_cwd_override(subdir.clone());
+    let chat = SessionChat::new(db.clone(), provider, ToolManager::for_chat(), config);
 
+    // working_dir points to workspace/repo — read_file("test.txt") resolves there
     let _ = chat
-        .chat_coding(&session_id, "read test.txt", "system prompt", None)
+        .chat_coding(&session_id, "read test.txt", "system prompt", &subdir, None)
         .await
         .expect("chat_coding with cwd");
 
@@ -494,14 +502,14 @@ async fn full_coding_session_lifecycle() {
     )]));
     let system_prompt = coding::prompt::build_coding_prompt(&config, repo.path());
 
-    let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config.clone())
-        .with_cwd_override(repo.path().to_path_buf());
+    let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config.clone());
 
     let (result, _) = chat
         .chat_coding(
             &session.session_id,
             "add a greeting function",
             &system_prompt,
+            repo.path(),
             None,
         )
         .await
@@ -561,14 +569,14 @@ async fn full_coding_session_lifecycle() {
         "Resumed and ready.",
         vec![],
     )]));
-    let chat2 = SessionChat::new(db.clone(), provider2, ToolManager::empty(), config)
-        .with_cwd_override(repo.path().to_path_buf());
+    let chat2 = SessionChat::new(db.clone(), provider2, ToolManager::empty(), config);
 
     let (result2, _) = chat2
         .chat_coding(
             &session.session_id,
             "what did we do last time?",
             &system_prompt,
+            repo.path(),
             None,
         )
         .await
