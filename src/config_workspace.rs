@@ -5,7 +5,7 @@ use crate::config::{Config, ConfigError};
 const DEFAULT_BOOT_TEMPLATE: &str =
     "# BOOT\n\nYou are a GHOST, a personal AI agent for your OPERATOR.\n";
 
-const DEFAULT_FLAKE: &str = include_str!("../docker/default-flake.nix");
+const DEFAULT_FLAKE: &str = include_str!("../deploy/common/default-flake.nix");
 
 #[tracing::instrument(skip_all, fields(workspace = %config.workspace.display()))]
 pub fn bootstrap_workspace(config: &Config) -> Result<(), ConfigError> {
