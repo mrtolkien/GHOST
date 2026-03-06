@@ -3,12 +3,6 @@ name: coding
 description:
   Manage coding sessions. Use when the OPERATOR asks to work on code, hack on a repo,
   implement features, fix bugs, or do any development work in a codebase.
-triggers:
-  - hack on
-  - implement
-  - fix this bug
-  - code this
-  - work on this repo
 ---
 
 # Coding Session Manager

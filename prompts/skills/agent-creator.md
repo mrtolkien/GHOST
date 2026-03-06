@@ -3,11 +3,6 @@ name: agent-creator
 description:
   Create and improve Lua-defined agents. Use when the OPERATOR asks for background
   automation, scheduled tasks, or new agents in $WORKSPACE/agents/.
-triggers:
-  - create an agent
-  - schedule a task
-  - automate this
-  - new agent
 ---
 
 # Agent Creator
