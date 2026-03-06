@@ -17,28 +17,14 @@ PROVIDERS = {
     "OpenRouter": {
         "env_key": "OPENROUTER_API_KEY",
         "config_name": "openrouter",
-        "models": [
-            ("anthropic/claude-sonnet-4", 200_000),
-            ("anthropic/claude-haiku-4", 200_000),
-            ("google/gemini-2.5-pro-preview", 1_000_000),
-            ("google/gemini-2.5-flash-preview", 1_000_000),
-            ("deepseek/deepseek-r1", 64_000),
-        ],
     },
     "Kimi": {
         "env_key": "KIMI_API_KEY",
         "config_name": "kimi",
-        "models": [
-            ("kimi-k2", 128_000),
-        ],
     },
-    "OpenAI (OAuth — free, uses ChatGPT account)": {
+    "ChatGPT subscription (OAuth — free, uses your ChatGPT account)": {
         "env_key": None,
         "config_name": "openai_oauth",
-        "models": [
-            ("o4-mini", 200_000),
-            ("gpt-4.1", 1_000_000),
-        ],
     },
 }
 
@@ -56,11 +42,11 @@ def select_provider() -> dict:
 def get_api_key(provider: dict) -> str | None:
     if provider["env_key"] is None:
         questionary.print(
-            "  OpenAI OAuth uses your ChatGPT account — no API key needed.",
+            "  ChatGPT OAuth uses your ChatGPT account — no API key needed.",
             style="italic",
         )
         questionary.print(
-            "  Run `ghost auth openai` after install to complete OAuth login.",
+            "  After install, run `ghost auth codex` to complete the OAuth login.",
             style="italic",
         )
         return None
@@ -74,15 +60,23 @@ def get_api_key(provider: dict) -> str | None:
     return api_key.strip()
 
 
-def select_model(provider: dict) -> tuple[str, int]:
-    choices = [f"{name} ({ctx // 1000}k ctx)" for name, ctx in provider["models"]]
-    selection = questionary.select(
-        "Select your default model:", choices=choices
+def get_model_config() -> tuple[str, int]:
+    model = questionary.text(
+        "Enter the model name (e.g. anthropic/claude-sonnet-4):",
+        validate=lambda v: len(v.strip()) > 0 or "Model name cannot be empty",
     ).ask()
-    if selection is None:
+    if model is None:
         sys.exit(1)
-    idx = choices.index(selection)
-    return provider["models"][idx]
+
+    ctx_str = questionary.text(
+        "Enter the context window size:",
+        default="200000",
+        validate=lambda v: v.strip().isdigit() or "Must be a number",
+    ).ask()
+    if ctx_str is None:
+        sys.exit(1)
+
+    return model.strip(), int(ctx_str.strip())
 
 
 def get_discord_config() -> tuple[str, str]:
@@ -126,7 +120,8 @@ def write_env(
     existing = read_env(env_path)
     if existing:
         questionary.print(
-            f"  Existing .env found — updating managed keys only.", style="fg:yellow"
+            "  Existing .env found — updating managed keys only.",
+            style="fg:yellow",
         )
 
     if api_key and env_key:
@@ -226,7 +221,7 @@ def write_config(
     lines = read_toml_lines(config_path)
     if lines:
         questionary.print(
-            f"  Existing config.toml found — updating managed sections only.",
+            "  Existing config.toml found — updating managed sections only.",
             style="fg:yellow",
         )
 
@@ -277,7 +272,7 @@ def main() -> None:
 
     provider = select_provider()
     api_key = get_api_key(provider)
-    model, context_window = select_model(provider)
+    model, context_window = get_model_config()
     discord_token, discord_user_id = get_discord_config()
 
     questionary.print("\n  Writing configuration...\n", style="bold")
@@ -295,6 +290,12 @@ def main() -> None:
     )
 
     questionary.print("\n  GHOST configuration complete!\n", style="bold fg:green")
+
+    if provider["env_key"] is None:
+        questionary.print(
+            "\n  Remember: run `ghost auth codex` to complete OpenAI OAuth login.\n",
+            style="bold fg:yellow",
+        )
 
 
 if __name__ == "__main__":
