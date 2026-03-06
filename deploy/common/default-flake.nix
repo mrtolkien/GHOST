@@ -10,6 +10,9 @@
         pkgs = nixpkgs.legacyPackages.${system};
       in {
         devShells.default = pkgs.mkShell {
+          shellHook = ''
+            export PATH="/usr/local/bin:$PATH"
+          '';
           packages = with pkgs; [
             git
             gh

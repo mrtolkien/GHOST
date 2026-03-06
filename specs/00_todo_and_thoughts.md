@@ -16,3 +16,4 @@
 
 - [ ] Remove todo for chat session? Overkill, often used for no good reason
 - [ ] ?session description for coding agent? -> would help with resume
+- [ ] No statusline for messages that respond to an external trigger
