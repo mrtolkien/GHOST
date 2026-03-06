@@ -327,9 +327,7 @@ async fn process_reference_change(
         .to_string();
 
     if !path.exists() {
-        if let Ok(Some(ref_)) =
-            crate::db::knowledge::find_reference_by_path(db, &ref_path).await
-        {
+        if let Ok(Some(ref_)) = crate::db::knowledge::find_reference_by_path(db, &ref_path).await {
             crate::db::embeddings::delete_embeddings_for_source(db, &ref_.id).await?;
             crate::db::knowledge::delete_reference(db, &ref_.id).await?;
             logfire::info!("watcher: deleted reference", path = ref_path);

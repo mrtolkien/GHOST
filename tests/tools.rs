@@ -22,21 +22,21 @@ fn tool_ctx(
 }
 
 #[tokio::test]
-async fn for_chat_registers_nine_tools() {
+async fn for_chat_registers_expected_tools() {
     let manager = ToolManager::for_chat();
     let schemas = manager.all_tool_schemas();
-    assert_eq!(schemas.len(), 9, "expected 9 tools, got {}", schemas.len());
+    assert_eq!(schemas.len(), 8, "expected 8 tools, got {}", schemas.len());
 
     let names: Vec<&str> = schemas.iter().map(|s| s.name.as_str()).collect();
     assert!(names.contains(&"run_shell_command"));
     assert!(names.contains(&"read_file"));
     assert!(names.contains(&"write_file"));
     assert!(names.contains(&"file_edit"));
-    assert!(names.contains(&"todo"));
     assert!(names.contains(&"knowledge_search"));
     assert!(names.contains(&"web_search"));
     assert!(names.contains(&"web_fetch"));
     assert!(names.contains(&"agent_control"));
+    assert!(!names.contains(&"todo"), "todo should not be in chat tools");
 
     for schema in &schemas {
         assert!(!schema.description.is_empty());
@@ -78,7 +78,7 @@ async fn todo_round_trip_through_db() {
         .await
         .expect("create session");
     let ctx = tool_ctx(&config, &db, &session_id);
-    let manager = ToolManager::for_chat();
+    let manager = ToolManager::for_agent(&["todo".to_string()]);
 
     // Plan
     let result = manager
@@ -252,7 +252,7 @@ async fn todo_invalid_index_returns_error() {
         .await
         .expect("create session");
     let ctx = tool_ctx(&config, &db, &session_id);
-    let manager = ToolManager::for_chat();
+    let manager = ToolManager::for_agent(&["todo".to_string()]);
 
     // Plan with one item
     manager

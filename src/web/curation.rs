@@ -243,11 +243,7 @@ pub async fn link_cited_edges(
             continue;
         };
         // rel_path has no `references/` prefix (e.g. `topic/domain/file.md`)
-        let topic_name = rel_path
-            .split('/')
-            .next()
-            .unwrap_or(&domain)
-            .to_string();
+        let topic_name = rel_path.split('/').next().unwrap_or(&domain).to_string();
         let ref_record = match db::knowledge::find_reference_by_url(db, &file.url).await {
             Ok(Some(r)) => r,
             Ok(None) => {
@@ -576,10 +572,7 @@ fn find_reference_on_disk(workspace: &Path, domain: &str, filename: &str) -> Opt
                 let candidate = path.join(domain).join(filename);
                 if candidate.exists() {
                     let topic = entry.file_name();
-                    return Some(format!(
-                        "{}/{domain}/{filename}",
-                        topic.to_string_lossy()
-                    ));
+                    return Some(format!("{}/{domain}/{filename}", topic.to_string_lossy()));
                 }
             }
         }

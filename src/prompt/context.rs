@@ -102,9 +102,10 @@ pub fn build_ghost_skills(workspace: &Path) -> String {
 
     format!(
         "## Available Skills\n\n\
-         ALWAYS read the full skill file with `read_file` before starting any task \
+         Read the full skill file with `read_file` before starting any task \
          that matches a skill's description. Skills contain critical workflow \
          instructions that you MUST follow.\n\n\
+         Do not re-read a skills you already read recently.
          <available_skills>\n{}\n</available_skills>",
         entries.join("\n"),
     )
@@ -315,21 +316,5 @@ mod tests {
         let result = build_ghost_skills(dir.path());
         assert!(result.contains("general-skill"));
         assert!(!result.contains("coding-skill"));
-    }
-
-    #[test]
-    fn skills_instruction_pushes_reading() {
-        let dir = TempDir::new().unwrap();
-        let skill_dir = dir.path().join("skills").join("test");
-        fs::create_dir_all(&skill_dir).unwrap();
-        fs::write(
-            skill_dir.join("skill.md"),
-            "---\nname: test\ndescription: A test.\n---\n",
-        )
-        .unwrap();
-
-        let result = build_ghost_skills(dir.path());
-        assert!(result.contains("ALWAYS read the full skill file"));
-        assert!(result.contains("MUST follow"));
     }
 }

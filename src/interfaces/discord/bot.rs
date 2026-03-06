@@ -2,7 +2,9 @@ use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 
 use serenity::async_trait;
-use serenity::builder::{CreateCommand, CreateInteractionResponse, CreateInteractionResponseMessage};
+use serenity::builder::{
+    CreateCommand, CreateInteractionResponse, CreateInteractionResponseMessage,
+};
 use serenity::http::Http;
 use serenity::model::application::Command;
 use serenity::model::channel::Message;

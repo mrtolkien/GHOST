@@ -377,9 +377,7 @@ async fn cmd_references(db: &GhostDb, topic: Option<&str>, limit: usize) -> Resu
         Some(ids) => {
             let mut all = Vec::new();
             for id in ids {
-                all.extend(
-                    db::knowledge::list_references_by_topic(db, Some(id), limit).await?,
-                );
+                all.extend(db::knowledge::list_references_by_topic(db, Some(id), limit).await?);
             }
             all
         }
@@ -534,8 +532,7 @@ async fn cmd_reindex(
         {
             let topic_id = db::knowledge::find_or_create_topic(db, topic_name).await?;
             let content = std::fs::read_to_string(path).map_err(std::io::Error::other)?;
-            db::knowledge::create_reference(db, &topic_id, &ref_path, &content, None, None)
-                .await?;
+            db::knowledge::create_reference(db, &topic_id, &ref_path, &content, None, None).await?;
             ref_synced += 1;
         }
     }

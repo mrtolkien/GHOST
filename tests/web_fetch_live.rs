@@ -42,7 +42,13 @@ async fn crawl4ai_wikipedia() {
         .expect("fetch should succeed");
 
     let elapsed = start.elapsed();
-    save("wikipedia", url, "crawl4ai", result.word_count, &result.text);
+    save(
+        "wikipedia",
+        url,
+        "crawl4ai",
+        result.word_count,
+        &result.text,
+    );
     eprintln!(
         "  {} words in {:.1}s",
         result.word_count,
@@ -212,8 +218,7 @@ async fn crawl4ai_mybest() {
 /// Stack Overflow answer — the most common research target.
 #[tokio::test]
 async fn crawl4ai_stackoverflow() {
-    let url =
-        "https://stackoverflow.com/questions/927358/how-do-i-undo-the-most-recent-local-commits-in-git";
+    let url = "https://stackoverflow.com/questions/927358/how-do-i-undo-the-most-recent-local-commits-in-git";
     eprintln!("\n=== Stack Overflow ===");
 
     let md = fetch_with_crawl4ai(&crawl4ai_url(), url, &Crawl4aiOptions::default())
@@ -291,7 +296,10 @@ async fn crawl4ai_gsmarena_comparison() {
     );
     let lower = md.to_lowercase();
     assert!(
-        lower.contains("samsung") || lower.contains("galaxy") || lower.contains("apple") || lower.contains("iphone"),
+        lower.contains("samsung")
+            || lower.contains("galaxy")
+            || lower.contains("apple")
+            || lower.contains("iphone"),
         "should contain phone brand names"
     );
 }
@@ -306,13 +314,9 @@ async fn fetch_integrated_reddit() {
     let url = "https://www.reddit.com/r/3Dprinting/comments/1ip98af/best_enclosed_fdm_3d_printer_to_start_with/";
     eprintln!("\n=== fetch() integrated — Reddit ===");
 
-    let result = fetch(
-        url,
-        &FetchOptions::default(),
-        Some(&crawl4ai_url()),
-    )
-    .await
-    .expect("fetch should succeed");
+    let result = fetch(url, &FetchOptions::default(), Some(&crawl4ai_url()))
+        .await
+        .expect("fetch should succeed");
 
     save(
         "reddit_integrated",
@@ -336,13 +340,9 @@ async fn fetch_integrated_pcmag() {
     let url = "https://www.pcmag.com/picks/the-best-3d-printers";
     eprintln!("\n=== fetch() integrated — PCMag ===");
 
-    let result = fetch(
-        url,
-        &FetchOptions::default(),
-        Some(&crawl4ai_url()),
-    )
-    .await
-    .expect("fetch should succeed");
+    let result = fetch(url, &FetchOptions::default(), Some(&crawl4ai_url()))
+        .await
+        .expect("fetch should succeed");
 
     save(
         "pcmag_integrated",
