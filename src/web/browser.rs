@@ -13,33 +13,21 @@ pub struct Crawl4aiOptions {
 
 /// Build crawler_config params for crawl4ai.
 ///
-/// Generic config: tag exclusions, word-count thresholds, and a pruning
-/// content filter to reduce navigation/ad noise. No domain-specific rules —
-/// the PruningContentFilter handles content extraction heuristically.
+/// Uses `domcontentloaded` (not `networkidle` — most sites with ads/trackers
+/// never reach network idle and time out). No PruningContentFilter (unreliable,
+/// returns empty on Wikipedia). No `remove_overlay_elements` (strips actual
+/// content on Wikipedia). We rely on excluded_tags + word_count_threshold for
+/// noise reduction, and our own 120K char truncation for size capping.
 fn crawler_params(options: &Crawl4aiOptions) -> Value {
     let mut params = json!({
         "cache_mode": "bypass",
         "scan_full_page": options.scan_full_page,
-        "wait_until": "networkidle",
+        "wait_until": "domcontentloaded",
         "page_timeout": 60000,
         "delay_before_return_html": 0.5,
-        "remove_overlay_elements": true,
         "excluded_tags": ["nav", "footer", "header"],
         "word_count_threshold": 10,
-        "exclude_external_links": true,
-        "markdown_generator": {
-            "type": "DefaultMarkdownGenerator",
-            "params": {
-                "content_filter": {
-                    "type": "PruningContentFilter",
-                    "params": {
-                        "threshold": 0.4,
-                        "threshold_type": "fixed",
-                        "min_word_threshold": 0
-                    }
-                }
-            }
-        }
+        "exclude_external_links": true
     });
 
     if let Some(wait_for) = &options.wait_for {
@@ -98,10 +86,8 @@ pub async fn fetch_with_crawl4ai(
         detail: format!("failed to parse response: {e}"),
     })?;
 
-    // Prefer fit_markdown (filtered) over raw_markdown (noisy).
     let markdown = json
-        .pointer("/results/0/markdown/fit_markdown")
-        .or_else(|| json.pointer("/results/0/markdown/raw_markdown"))
+        .pointer("/results/0/markdown/raw_markdown")
         .or_else(|| json.pointer("/results/0/markdown"))
         .and_then(|v| v.as_str())
         .filter(|s| !s.is_empty())
@@ -126,13 +112,12 @@ mod tests {
     #[test]
     fn crawler_params_defaults() {
         let params = crawler_params(&Crawl4aiOptions::default());
-        assert_eq!(params["wait_until"], "networkidle");
+        assert_eq!(params["wait_until"], "domcontentloaded");
         assert_eq!(params["scan_full_page"], false);
-        assert_eq!(params["remove_overlay_elements"], true);
+        assert!(params.get("remove_overlay_elements").is_none());
         assert_eq!(params["delay_before_return_html"], 0.5);
         assert!(params.get("wait_for").is_none());
         assert!(params.get("css_selector").is_none());
-        assert!(params["markdown_generator"]["params"]["content_filter"].is_object());
     }
 
     #[test]
