@@ -5,11 +5,15 @@ services:
       - ${GHOST_WORKSPACE:-~/GHOST}:/workspace
       - ${GHOST_CONFIG:-~/.config/ghost}:/config
       - nix-store:/nix
-    env_file: .env
+    env_file: ${GHOST_CONFIG:-~/.config/ghost}/.env
     environment:
+      - GHOST_CONFIG_DIR=/config
+      - GHOST_WORKSPACE=/workspace
       - CRAWL4AI_URL=http://crawl4ai:11235
       - SEARXNG_URL=http://searxng:8080
-      - DOCLING_URL=http://docling-serve:5001
+      - DOCLING_URL=http://host.docker.internal:5001
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
       - ghost-net
     restart: unless-stopped
@@ -23,13 +27,7 @@ services:
   searxng:
     image: searxng/searxng:latest
     volumes:
-      - ./deploy/common/searxng-settings.yml:/etc/searxng/settings.yml:ro
-    networks:
-      - ghost-net
-    restart: unless-stopped
-
-  docling-serve:
-    image: quay.io/docling-project/docling-serve:latest
+      - ${GHOST_CONFIG:-~/.config/ghost}/searxng-settings.yml:/etc/searxng/settings.yml:ro
     networks:
       - ghost-net
     restart: unless-stopped

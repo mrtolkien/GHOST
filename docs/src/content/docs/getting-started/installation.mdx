@@ -1,88 +1,36 @@
 ---
 title: Installation
-description: How to install and run GHOST using Docker.
-# TODO: This will be replaced with a real onboarding guide
+description: Overview of how to install and run GHOST.
 ---
 
-import { Steps } from "@astrojs/starlight/components";
+GHOST runs as a set of services: the main daemon, an embedding server, a
+document processor, a web scraper, and a search engine.
 
-## Prerequisites
+| Component | Role |
+|---|---|
+| **GHOST** | Main daemon |
+| **llama-server** | Embeddings (Qwen3 8B) |
+| **docling-serve** | PDF/document processing |
+| **Crawl4AI** | Web page extraction |
+| **SearXNG** | Web search |
 
-- **Docker** with Docker Compose —
-  [docs.docker.com](https://docs.docker.com/get-docker/)
-- **Discord bot token** — for the Discord interface (see
-  [Interfaces](/ghost/interfaces/))
-- **API key** for at least one LLM provider (OpenRouter, Kimi, etc.)
+How these are deployed depends on the platform — on macOS, GPU services run
+natively for Metal acceleration; on Linux, everything can run in Docker
+(with NVIDIA GPU passthrough where available).
 
-## Setup
+## Install Guides
 
-<Steps>
+Choose the guide for your platform:
 
-1. **Get the compose file**
+- **[macOS (Apple Silicon)](/ghost/getting-started/install-macos/)** — recommended
+  for Mac Mini / MacBook. One-command install with Metal GPU acceleration.
+- **[Linux](/ghost/getting-started/install-linux/)** — work in progress.
+- **[From Source](/ghost/getting-started/install-source/)** — for development or
+  manual setups.
 
-   ```bash
-   git clone https://github.com/mrtolkien/ghost.git
-   cd ghost
-   ```
+## What You'll Need
 
-   Or just download `docker-compose.yml` and `docker/searxng-settings.yml`.
+Before starting any install, have these ready:
 
-2. **Configure secrets**
-
-   Create a `.env` file in the project root:
-
-   ```bash title=".env"
-   # Required: at least one LLM provider
-   OPENROUTER_API_KEY=sk-or-...
-
-   # Required: Discord bot
-   DISCORD_TOKEN=...
-
-   ```
-
-3. **Start all services**
-
-   ```bash
-   docker compose up -d
-   ```
-
-   This starts GHOST, Crawl4AI (web extraction), and SearXNG (web search). GHOST
-   auto-detects the companion services via container networking.
-
-4. **Configure (optional)**
-
-   Most settings work out of the box with env vars. For advanced configuration,
-   create `~/.config/ghost/config.toml`:
-
-   ```toml title="~/.config/ghost/config.toml"
-   [discord]
-   allowed_user_id = "your-discord-user-id"
-
-   [models.primary]
-   provider = "openrouter"
-   model = "anthropic/claude-sonnet-4"
-   context_window = 200000
-   ```
-
-</Steps>
-
-## Workspace
-
-GHOST stores its data in `~/GHOST/` by default (bind-mounted into the container
-at `/workspace`). This includes identity files, notes, skills, agents, and the
-Nix shell flake.
-
-## Shell Tools
-
-The Docker image uses Nix to manage CLI tools deterministically. The default set
-(git, ripgrep, fd, jq, curl, etc.) is pre-installed. GHOST can add tools at
-runtime by editing `shell/flake.nix` in the workspace — changes take effect on
-the next command, no restart needed.
-
-## Building locally
-
-For development, use the local build override:
-
-```bash
-docker compose -f docker-compose.yml -f docker-compose.local.yml up --build
-```
+- An **API key** for at least one LLM provider (OpenRouter, Kimi, etc.)
+- A **Discord bot token** — see [Interfaces](/ghost/interfaces/)

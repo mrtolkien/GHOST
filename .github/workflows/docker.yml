@@ -32,7 +32,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: docker/Dockerfile
+          file: deploy/common/Dockerfile
           platforms: ${{ matrix.platform }}
           outputs: type=image,name=mrtolkien/ghost,push-by-digest=true,name-canonical=true,push=true
           cache-from: type=gha,scope=${{ matrix.platform }}
