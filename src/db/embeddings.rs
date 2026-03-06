@@ -290,6 +290,105 @@ pub async fn vector_search(
     Ok(hits)
 }
 
+/// Atomically replace all embeddings for a source in a single transaction.
+///
+/// Deletes all existing chunks for `source_id`, then inserts all new chunks.
+/// Either all chunks are persisted (with the new hash) or none are.
+#[tracing::instrument(skip_all, fields(source_id = %source_id, chunks = chunks.len()))]
+pub async fn replace_embeddings_for_source(
+    db: &SqlitePool,
+    source_table: &str,
+    source_id: &str,
+    chunks: &[(usize, String, Vec<f32>)],
+    content_hash: &str,
+    topic_id: Option<&str>,
+) -> Result<(), DatabaseError> {
+    let mut tx = db.begin().await.map_err(|source| DatabaseError::Query {
+        table: "embedding",
+        operation: "replace/begin",
+        source,
+    })?;
+
+    // Delete old vec_embedding rows
+    sqlx::query(
+        "DELETE FROM vec_embedding WHERE rowid IN \
+         (SELECT rowid FROM embedding WHERE source_id = ?)",
+    )
+    .bind(source_id)
+    .execute(&mut *tx)
+    .await
+    .map_err(|source| DatabaseError::Query {
+        table: "vec_embedding",
+        operation: "replace/delete_vec",
+        source,
+    })?;
+
+    // Delete old embedding rows
+    sqlx::query("DELETE FROM embedding WHERE source_id = ?")
+        .bind(source_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(|source| DatabaseError::Query {
+            table: "embedding",
+            operation: "replace/delete",
+            source,
+        })?;
+
+    // Insert all new chunks
+    for (chunk_index, chunk_text, vector) in chunks {
+        let id = new_id();
+        sqlx::query(
+            "INSERT INTO embedding \
+             (id, source_table, source_id, chunk_index, chunk_text, content_hash, topic_id, created_at) \
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        )
+        .bind(&id)
+        .bind(source_table)
+        .bind(source_id)
+        .bind(*chunk_index as i64)
+        .bind(chunk_text)
+        .bind(content_hash)
+        .bind(topic_id)
+        .bind(now())
+        .execute(&mut *tx)
+        .await
+        .map_err(|source| DatabaseError::Query {
+            table: "embedding",
+            operation: "replace/insert",
+            source,
+        })?;
+
+        let (rowid,): (i64,) = sqlx::query_as("SELECT last_insert_rowid()")
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(|source| DatabaseError::Query {
+                table: "embedding",
+                operation: "replace/rowid",
+                source,
+            })?;
+
+        let vec_json = serde_json::to_string(vector).unwrap_or_default();
+        sqlx::query("INSERT INTO vec_embedding(rowid, embedding) VALUES (?, ?)")
+            .bind(rowid)
+            .bind(&vec_json)
+            .execute(&mut *tx)
+            .await
+            .map_err(|source| DatabaseError::Query {
+                table: "vec_embedding",
+                operation: "replace/insert_vec",
+                source,
+            })?;
+    }
+
+    tx.commit().await.map_err(|source| DatabaseError::Query {
+        table: "embedding",
+        operation: "replace/commit",
+        source,
+    })?;
+
+    Ok(())
+}
+
 #[tracing::instrument(skip_all)]
 pub async fn count_embeddings(db: &SqlitePool) -> Result<i64, DatabaseError> {
     let (count,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM embedding")
