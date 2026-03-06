@@ -54,10 +54,11 @@ pub(crate) async fn fetch_raw(url: &str) -> Result<(String, String), WebError> {
 
 /// Fetch a URL and extract readable content as markdown.
 ///
-/// For HTML pages, converts to markdown (via htmd) with optional readability
-/// extraction. Falls back to crawl4ai for JS-heavy pages or HTTP errors.
-/// Non-HTML text is returned as-is. Content is truncated to 30K chars.
-#[tracing::instrument(name = "fetch url reqwest", skip_all, fields(url = %url))]
+/// When `crawl4ai_url` is set, uses a HEAD request for cheap content-type
+/// routing: HTML goes through crawl4ai (browser rendering), non-HTML text
+/// through reqwest, and binary types are rejected. When crawl4ai is
+/// unavailable, falls back to local extraction (htmd + readability).
+#[tracing::instrument(name = "fetch url", skip_all, fields(url = %url))]
 pub async fn fetch(
     url: &str,
     options: &FetchOptions,
@@ -76,28 +77,116 @@ pub async fn fetch(
         }
     }
 
-    let response = client().get(parsed.clone()).send().await?;
+    let c4ai_options = super::browser::Crawl4aiOptions {
+        wait_for: options.wait_for.clone(),
+        css_selector: options.css_selector.clone(),
+        scan_full_page: options.scan_full_page,
+    };
+
+    // When crawl4ai is available, use HEAD for cheap content-type routing.
+    if let Some(c4ai_url) = crawl4ai_url {
+        match head_content_type(&parsed).await {
+            Ok(ct) => {
+                if is_html_content_type(&ct) {
+                    return fetch_html_via_crawl4ai(c4ai_url, url, &c4ai_options, options)
+                        .await;
+                } else if is_text_content(&ct) {
+                    return fetch_text_via_reqwest(url).await;
+                } else {
+                    return Err(WebError::UnsupportedContentType { content_type: ct });
+                }
+            }
+            Err(_) => {
+                // HEAD failed (403, 405, timeout) — try crawl4ai directly.
+                logfire::info!(
+                    "HEAD request failed, trying crawl4ai directly",
+                    url = url.to_string(),
+                );
+                return fetch_html_via_crawl4ai(c4ai_url, url, &c4ai_options, options).await;
+            }
+        }
+    }
+
+    // Legacy path: no crawl4ai — reqwest GET + local extraction.
+    fetch_legacy(url, options).await
+}
+
+/// Cheap HEAD request — returns content-type string or error.
+async fn head_content_type(url: &Url) -> Result<String, WebError> {
+    let response = client()
+        .head(url.clone())
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await?;
+    if !response.status().is_success() {
+        return Err(WebError::HttpStatus {
+            status: response.status().as_u16(),
+            url: url.to_string(),
+        });
+    }
+    Ok(parse_content_type(response.headers()).unwrap_or_default())
+}
+
+fn is_html_content_type(ct: &str) -> bool {
+    ct == "text/html" || ct == "application/xhtml+xml" || ct.is_empty()
+}
+
+/// HTML path: crawl4ai first, local extraction fallback.
+async fn fetch_html_via_crawl4ai(
+    c4ai_url: &str,
+    page_url: &str,
+    c4ai_options: &super::browser::Crawl4aiOptions,
+    fetch_options: &FetchOptions,
+) -> Result<ExtractedContent, WebError> {
+    match super::browser::fetch_with_crawl4ai(c4ai_url, page_url, c4ai_options).await {
+        Ok(markdown) => Ok(markdown_to_content(markdown, None)),
+        Err(e) => {
+            logfire::warn!(
+                "crawl4ai failed, falling back to local extraction",
+                url = page_url.to_string(),
+                error = e.to_string(),
+            );
+            let (html, _final_url) = fetch_raw(page_url).await?;
+            Ok(extract_content(&html, page_url, fetch_options))
+        }
+    }
+}
+
+/// Non-HTML text path: reqwest GET, return raw text.
+async fn fetch_text_via_reqwest(url: &str) -> Result<ExtractedContent, WebError> {
+    let parsed = Url::parse(url).map_err(|_| WebError::InvalidUrl {
+        url: url.to_string(),
+    })?;
+    let response = client().get(parsed).send().await?;
+    if !response.status().is_success() {
+        return Err(WebError::HttpStatus {
+            status: response.status().as_u16(),
+            url: url.to_string(),
+        });
+    }
+    let bytes = response.bytes().await?;
+    let text = String::from_utf8_lossy(&bytes).replace('\0', "");
+    let (text, truncated) = truncate(text, MAX_EXTRACT_CHARS);
+    let word_count = text.split_whitespace().count();
+    Ok(ExtractedContent {
+        title: None,
+        text,
+        word_count,
+        truncated,
+    })
+}
+
+/// Legacy path: reqwest GET + local extraction (no crawl4ai).
+/// Used by import_page (passes crawl4ai_url=None) and offline mode.
+async fn fetch_legacy(url: &str, options: &FetchOptions) -> Result<ExtractedContent, WebError> {
+    let parsed = Url::parse(url).map_err(|_| WebError::InvalidUrl {
+        url: url.to_string(),
+    })?;
+
+    let response = client().get(parsed).send().await?;
     let status = response.status().as_u16();
 
     if !response.status().is_success() {
-        if let Some(c4ai_url) = crawl4ai_url {
-            logfire::info!(
-                "HTTP error, trying crawl4ai fallback",
-                url = url.to_string(),
-                status = status as u64,
-            );
-            match super::browser::fetch_with_crawl4ai(c4ai_url, url).await {
-                Ok(markdown) => return Ok(markdown_to_content(markdown, None)),
-                Err(e) => {
-                    logfire::warn!(
-                        "crawl4ai fallback also failed after HTTP error",
-                        url = url.to_string(),
-                        original_status = status as u64,
-                        crawl4ai_error = e.to_string(),
-                    );
-                }
-            }
-        }
         return Err(WebError::HttpStatus {
             status,
             url: url.to_string(),
@@ -115,7 +204,7 @@ pub async fn fetch(
     }
 
     logfire::info!(
-        "web fetch complete",
+        "web fetch complete (legacy)",
         url = url.to_string(),
         status = status as u64,
         content_type = content_type.as_deref().unwrap_or("unknown").to_string(),
@@ -130,8 +219,7 @@ pub async fn fetch(
     );
 
     if is_html {
-        let content = extract_content(&raw_text, url, options);
-        Ok(content)
+        Ok(extract_content(&raw_text, url, options))
     } else {
         let text = raw_text.replace('\0', "");
         let (text, truncated) = truncate(text, MAX_EXTRACT_CHARS);

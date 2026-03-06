@@ -69,4 +69,7 @@ pub struct ExtractedContent {
 pub struct FetchOptions {
     pub readability: bool,
     pub raw: bool,
+    pub wait_for: Option<String>,
+    pub css_selector: Option<String>,
+    pub scan_full_page: bool,
 }
