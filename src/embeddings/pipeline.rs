@@ -105,24 +105,23 @@ async fn embed_source_inner(
 
     let vectors = embed_chunks(client, &chunks).await?;
 
-    // Delete old embeddings for this source, then insert new ones
-    db::embeddings::delete_embeddings_for_source(db, source_id).await?;
+    let chunk_data: Vec<(usize, String, Vec<f32>)> = chunks
+        .iter()
+        .zip(vectors)
+        .map(|(chunk, vec)| (chunk.index, chunk.text.clone(), vec))
+        .collect();
 
-    for (chunk, vector) in chunks.iter().zip(vectors.iter()) {
-        db::embeddings::upsert_embedding(
-            db,
-            source_table,
-            source_id,
-            chunk.index,
-            &chunk.text,
-            hash,
-            vector,
-            topic_id,
-        )
-        .await?;
-    }
+    db::embeddings::replace_embeddings_for_source(
+        db,
+        source_table,
+        source_id,
+        &chunk_data,
+        hash,
+        topic_id,
+    )
+    .await?;
 
-    Ok(chunks.len())
+    Ok(chunk_data.len())
 }
 
 /// Embed chunk texts in batches according to client batch_size.
@@ -235,27 +234,29 @@ pub async fn embed_sources(
         all_vectors.extend(vectors);
     }
 
-    // Phase 4: distribute vectors back and persist
+    // Phase 4: distribute vectors back and persist atomically per source
     let mut total_embedded = 0usize;
     for (src, range) in prepared.iter().zip(ranges.iter()) {
         let src_vectors = &all_vectors[range.clone()];
 
-        db::embeddings::delete_embeddings_for_source(db, &src.id).await?;
+        let chunk_data: Vec<(usize, String, Vec<f32>)> = src
+            .chunks
+            .iter()
+            .zip(src_vectors.iter())
+            .map(|(chunk, vec)| (chunk.index, chunk.text.clone(), vec.clone()))
+            .collect();
 
-        for (chunk, vector) in src.chunks.iter().zip(src_vectors.iter()) {
-            db::embeddings::upsert_embedding(
-                db,
-                &src.table,
-                &src.id,
-                chunk.index,
-                &chunk.text,
-                &src.hash,
-                vector,
-                src.topic_id.as_deref(),
-            )
-            .await?;
-        }
-        total_embedded += src.chunks.len();
+        db::embeddings::replace_embeddings_for_source(
+            db,
+            &src.table,
+            &src.id,
+            &chunk_data,
+            &src.hash,
+            src.topic_id.as_deref(),
+        )
+        .await?;
+
+        total_embedded += chunk_data.len();
     }
 
     tracing::Span::current().record("embedded", total_embedded as u64);

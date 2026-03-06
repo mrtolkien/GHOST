@@ -11,8 +11,14 @@ use crate::error::GhostError;
 use crate::interfaces::discord::{self, DiscordSender};
 
 pub async fn run() -> Result<(), GhostError> {
-    let (shutdown_tx, watcher_handle, scheduler_handle, discord_result, event_handler_handle) =
-        boot().await?;
+    let (
+        shutdown_tx,
+        watcher_handle,
+        reconcile_handle,
+        scheduler_handle,
+        discord_result,
+        event_handler_handle,
+    ) = boot().await?;
 
     if let Some((_sender, handle)) = discord_result {
         info!("GHOST daemon running — press Ctrl+C to stop");
@@ -32,6 +38,7 @@ pub async fn run() -> Result<(), GhostError> {
 
     let _ = shutdown_tx.send(true);
     let _ = watcher_handle.await;
+    let _ = reconcile_handle.await;
     let _ = scheduler_handle.await;
     let _ = event_handler_handle.await;
 
@@ -41,6 +48,7 @@ pub async fn run() -> Result<(), GhostError> {
 
 type BootResult = (
     watch::Sender<bool>,
+    JoinHandle<()>,
     JoinHandle<()>,
     JoinHandle<()>,
     Option<(DiscordSender, JoinHandle<()>)>,
@@ -97,6 +105,13 @@ pub async fn boot() -> Result<BootResult, GhostError> {
         shutdown_rx.clone(),
     );
 
+    // Spawn hourly embedding reconciliation
+    let reconcile_handle = super::watcher::spawn_reconciliation_loop(
+        db.clone(),
+        config.embeddings.clone(),
+        shutdown_rx.clone(),
+    );
+
     // Create session event channel (background tasks → event handler)
     let (event_tx, event_rx) = crate::events::channel();
 
@@ -143,6 +158,7 @@ pub async fn boot() -> Result<BootResult, GhostError> {
     Ok((
         shutdown_tx,
         watcher_handle,
+        reconcile_handle,
         scheduler_handle,
         discord_result,
         event_handler_handle,

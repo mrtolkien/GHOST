@@ -24,13 +24,6 @@ pub fn spawn_watcher(
     tokio::spawn(async move {
         let client = EmbeddingClient::new(&embeddings_config);
 
-        if !client.is_available().await {
-            logfire::warn!("Ollama unavailable at watcher start — file watcher disabled");
-            // Wait for shutdown instead of polling
-            let _ = shutdown.changed().await;
-            return;
-        }
-
         let (tx, mut rx) = mpsc::channel::<PathBuf>(256);
 
         let _watcher = match setup_watcher(&workspace, tx) {
@@ -109,11 +102,20 @@ async fn process_batch(
         }
     }
 
-    // Phase 2: batch-embed all collected sources in one call
-    if !embed_requests.is_empty()
-        && let Err(e) = crate::embeddings::pipeline::embed_sources(client, db, embed_requests).await
-    {
-        logfire::warn!("batch embedding error", error = e.to_string());
+    // Phase 2: batch-embed all collected sources (skip if Ollama unavailable)
+    if !embed_requests.is_empty() {
+        if client.is_available().await {
+            if let Err(e) =
+                crate::embeddings::pipeline::embed_sources(client, db, embed_requests).await
+            {
+                logfire::warn!("batch embedding error", error = e.to_string());
+            }
+        } else {
+            logfire::debug!(
+                "Ollama unavailable — skipping embedding (will catch up on reconciliation)",
+                sources = embed_requests.len(),
+            );
+        }
     }
 }
 
@@ -435,4 +437,48 @@ async fn process_diary_change(
         topic_id: None,
         path: None,
     }))
+}
+
+const RECONCILE_INTERVAL: Duration = Duration::from_secs(60 * 60);
+
+/// Periodically reconcile embeddings to catch missed file changes.
+///
+/// Runs `reconcile_embeddings` once per hour. Skips if Ollama is unavailable.
+/// The hash check inside `reconcile_embeddings` makes this cheap when nothing changed.
+#[tracing::instrument(name = "start reconciliation loop", skip_all)]
+pub fn spawn_reconciliation_loop(
+    db: GhostDb,
+    embeddings_config: EmbeddingsConfig,
+    mut shutdown: tokio::sync::watch::Receiver<bool>,
+) -> tokio::task::JoinHandle<()> {
+    tokio::spawn(async move {
+        let client = EmbeddingClient::new(&embeddings_config);
+
+        loop {
+            tokio::select! {
+                _ = tokio::time::sleep(RECONCILE_INTERVAL) => {}
+                _ = shutdown.changed() => break,
+            }
+
+            if !client.is_available().await {
+                logfire::debug!("Ollama unavailable — skipping periodic reconciliation");
+                continue;
+            }
+
+            info!("running periodic embedding reconciliation");
+            match crate::embeddings::pipeline::reconcile_embeddings(&client, &db).await {
+                Ok((embedded, skipped)) => {
+                    if embedded > 0 {
+                        info!(embedded, skipped, "periodic reconciliation complete");
+                    }
+                }
+                Err(e) => {
+                    logfire::warn!(
+                        "periodic reconciliation failed",
+                        error = e.to_string(),
+                    );
+                }
+            }
+        }
+    })
 }

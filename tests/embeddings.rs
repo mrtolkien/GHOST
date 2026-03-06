@@ -361,6 +361,34 @@ fn hybrid_merge_respects_limit() {
     assert_eq!(merged.len(), 3);
 }
 
+#[test]
+fn hybrid_merge_prefers_embedding_snippet() {
+    let bm25_hits = vec![db::knowledge::SearchHit {
+        id: "abc".to_string(),
+        title: "Hit".to_string(),
+        snippet: "bm25 snippet".to_string(),
+        score: 1.0,
+        kind: "reference".to_string(),
+        path: None,
+    }];
+
+    let embedding_hits = vec![db::embeddings::EmbeddingHit {
+        source_id: "abc".to_string(),
+        source_table: "reference".to_string(),
+        chunk_text: "The BREAK occurs when the round marker reaches the end".to_string(),
+        score: 0.8,
+        topic_id: None,
+    }];
+
+    let merged = db::knowledge::hybrid_merge(&bm25_hits, &embedding_hits, 10);
+    assert_eq!(merged.len(), 1);
+    assert!(
+        merged[0].snippet.contains("BREAK"),
+        "should prefer embedding chunk snippet, got: {}",
+        merged[0].snippet,
+    );
+}
+
 // --- Vector insert memory reproduction ---
 
 /// Reproduces the production path: for each source, delete old embeddings then
@@ -666,6 +694,46 @@ async fn vector_insert_large_scale_memory() {
         delta_mb < 1024,
         "RSS grew by {delta_mb}MB for {count} embeddings (~20MB raw data)"
     );
+}
+
+#[tokio::test]
+async fn replace_embeddings_atomically_swaps_all_chunks() {
+    let (db, _config, _workspace, _config_dir) = common::test_database().await;
+
+    let note_id =
+        db::knowledge::create_note_full(&db, "Atomic Note", "body", &[], &[], 5, None, None)
+            .await
+            .expect("create note");
+
+    // Insert 2 old chunks
+    let old_vec = vec![0.1_f32; 1024];
+    for i in 0..2 {
+        db::embeddings::upsert_embedding(
+            &db, "note", &note_id, i, &format!("old chunk {i}"), "old_hash", &old_vec, None,
+        )
+        .await
+        .unwrap();
+    }
+    assert_eq!(db::embeddings::count_embeddings(&db).await.unwrap(), 2);
+
+    // Replace with 3 new chunks atomically
+    let new_vec = vec![0.9_f32; 1024];
+    let chunks: Vec<(usize, String, Vec<f32>)> = (0..3)
+        .map(|i| (i, format!("new chunk {i}"), new_vec.clone()))
+        .collect();
+
+    db::embeddings::replace_embeddings_for_source(
+        &db, "note", &note_id, &chunks, "new_hash", None,
+    )
+    .await
+    .expect("replace");
+
+    // Should have exactly 3 chunks now
+    assert_eq!(db::embeddings::count_embeddings(&db).await.unwrap(), 3);
+
+    // Hash should be the new one
+    let hash = db::embeddings::get_content_hash(&db, &note_id).await.unwrap();
+    assert_eq!(hash.as_deref(), Some("new_hash"));
 }
 
 // --- Chunker ---

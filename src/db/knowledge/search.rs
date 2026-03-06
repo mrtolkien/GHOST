@@ -36,7 +36,9 @@ pub async fn search_notes(
     let fts_query = sanitize_fts_query(query);
 
     let rows = sqlx::query_as::<_, NoteSearchRow>(
-        "SELECT n.id, n.title, n.body, -bm25(note_fts, 2.0, 1.0) AS score \
+        "SELECT n.id, n.title, \
+         snippet(note_fts, 1, '', '', '...', 24) AS body, \
+         -bm25(note_fts, 2.0, 1.0) AS score \
          FROM note_fts \
          JOIN note n ON n.rowid = note_fts.rowid \
          WHERE note_fts MATCH ? \
@@ -76,6 +78,9 @@ pub async fn search_references(
     limit: usize,
     topic_id: Option<&str>,
 ) -> Result<Vec<SearchHit>, DatabaseError> {
+    // Note: reference_fts uses external content mode with a synthetic `topic_name`
+    // column that doesn't exist in the `reference` table, so snippet() can't be
+    // used here. We fall back to truncating r.content in Rust.
     #[derive(sqlx::FromRow)]
     struct RefSearchRow {
         id: String,
@@ -158,7 +163,9 @@ pub async fn search_diary(
     let fts_query = sanitize_fts_query(query);
 
     let rows = sqlx::query_as::<_, DiarySearchRow>(
-        "SELECT d.id, d.date, d.body, -bm25(diary_fts) AS score \
+        "SELECT d.id, d.date, \
+         snippet(diary_fts, 0, '', '', '...', 24) AS body, \
+         -bm25(diary_fts) AS score \
          FROM diary_fts \
          JOIN diary d ON d.rowid = diary_fts.rowid \
          WHERE diary_fts MATCH ? \
@@ -269,17 +276,19 @@ pub fn hybrid_merge(
 
     for hit in embedding_hits {
         let key = hit.source_id.clone();
+        let chunk_snippet = truncate_snippet(&hit.chunk_text, 150);
         let entry = merged.entry(key).or_insert_with(|| SearchHit {
             id: hit.source_id.clone(),
             title: String::new(),
-            snippet: truncate_snippet(&hit.chunk_text, 150),
+            snippet: chunk_snippet.clone(),
             score: 0.0,
             kind: hit.source_table.clone(),
             path: None,
         });
         entry.score += 0.6 * hit.score;
-        if entry.snippet.is_empty() {
-            entry.snippet = truncate_snippet(&hit.chunk_text, 150);
+        // Prefer embedding chunk snippet — it's semantically matched to the query
+        if !chunk_snippet.is_empty() {
+            entry.snippet = chunk_snippet;
         }
     }
 
