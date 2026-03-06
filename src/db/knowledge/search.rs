@@ -36,7 +36,9 @@ pub async fn search_notes(
     let fts_query = sanitize_fts_query(query);
 
     let rows = sqlx::query_as::<_, NoteSearchRow>(
-        "SELECT n.id, n.title, n.body, -bm25(note_fts, 2.0, 1.0) AS score \
+        "SELECT n.id, n.title, \
+         snippet(note_fts, 1, '', '', '...', 24) AS body, \
+         -bm25(note_fts, 2.0, 1.0) AS score \
          FROM note_fts \
          JOIN note n ON n.rowid = note_fts.rowid \
          WHERE note_fts MATCH ? \
@@ -81,7 +83,7 @@ pub async fn search_references(
         id: String,
         topic_name: String,
         path: String,
-        content: String,
+        snippet: String,
         score: f64,
     }
 
@@ -89,7 +91,8 @@ pub async fn search_references(
 
     let rows = if let Some(tid) = topic_id {
         sqlx::query_as::<_, RefSearchRow>(
-            "SELECT r.id, COALESCE(t.name, r.topic_id) AS topic_name, r.path, r.content, \
+            "SELECT r.id, COALESCE(t.name, r.topic_id) AS topic_name, r.path, \
+             snippet(reference_fts, 1, '', '', '...', 24) AS snippet, \
              -bm25(reference_fts, 2.0, 1.0) AS score \
              FROM reference_fts \
              JOIN reference r ON r.rowid = reference_fts.rowid \
@@ -105,7 +108,8 @@ pub async fn search_references(
         .await
     } else {
         sqlx::query_as::<_, RefSearchRow>(
-            "SELECT r.id, COALESCE(t.name, r.topic_id) AS topic_name, r.path, r.content, \
+            "SELECT r.id, COALESCE(t.name, r.topic_id) AS topic_name, r.path, \
+             snippet(reference_fts, 1, '', '', '...', 24) AS snippet, \
              -bm25(reference_fts, 2.0, 1.0) AS score \
              FROM reference_fts \
              JOIN reference r ON r.rowid = reference_fts.rowid \
@@ -127,16 +131,13 @@ pub async fn search_references(
 
     Ok(rows
         .into_iter()
-        .map(|r| {
-            let snippet = truncate_snippet(&r.content, 150);
-            SearchHit {
-                id: r.id,
-                title: r.topic_name,
-                snippet,
-                score: r.score,
-                kind: "reference".to_string(),
-                path: Some(format!("references/{}", r.path)),
-            }
+        .map(|r| SearchHit {
+            id: r.id,
+            title: r.topic_name,
+            snippet: r.snippet,
+            score: r.score,
+            kind: "reference".to_string(),
+            path: Some(format!("references/{}", r.path)),
         })
         .collect())
 }
@@ -158,7 +159,9 @@ pub async fn search_diary(
     let fts_query = sanitize_fts_query(query);
 
     let rows = sqlx::query_as::<_, DiarySearchRow>(
-        "SELECT d.id, d.date, d.body, -bm25(diary_fts) AS score \
+        "SELECT d.id, d.date, \
+         snippet(diary_fts, 0, '', '', '...', 24) AS body, \
+         -bm25(diary_fts) AS score \
          FROM diary_fts \
          JOIN diary d ON d.rowid = diary_fts.rowid \
          WHERE diary_fts MATCH ? \
