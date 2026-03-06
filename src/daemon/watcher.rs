@@ -440,3 +440,47 @@ async fn process_diary_change(
         path: None,
     }))
 }
+
+const RECONCILE_INTERVAL: Duration = Duration::from_secs(60 * 60);
+
+/// Periodically reconcile embeddings to catch missed file changes.
+///
+/// Runs `reconcile_embeddings` once per hour. Skips if Ollama is unavailable.
+/// The hash check inside `reconcile_embeddings` makes this cheap when nothing changed.
+#[tracing::instrument(name = "start reconciliation loop", skip_all)]
+pub fn spawn_reconciliation_loop(
+    db: GhostDb,
+    embeddings_config: EmbeddingsConfig,
+    mut shutdown: tokio::sync::watch::Receiver<bool>,
+) -> tokio::task::JoinHandle<()> {
+    tokio::spawn(async move {
+        let client = EmbeddingClient::new(&embeddings_config);
+
+        loop {
+            tokio::select! {
+                _ = tokio::time::sleep(RECONCILE_INTERVAL) => {}
+                _ = shutdown.changed() => break,
+            }
+
+            if !client.is_available().await {
+                logfire::debug!("Ollama unavailable — skipping periodic reconciliation");
+                continue;
+            }
+
+            info!("running periodic embedding reconciliation");
+            match crate::embeddings::pipeline::reconcile_embeddings(&client, &db).await {
+                Ok((embedded, skipped)) => {
+                    if embedded > 0 {
+                        info!(embedded, skipped, "periodic reconciliation complete");
+                    }
+                }
+                Err(e) => {
+                    logfire::warn!(
+                        "periodic reconciliation failed",
+                        error = e.to_string(),
+                    );
+                }
+            }
+        }
+    })
+}
