@@ -1,0 +1,3 @@
+- Onboarding should include oauth sync
+- Onboarding should properly list available models for all providers
+- Onboarding should work on Linux with all GPU types (Nvidia, AMD, Intel, ...)
