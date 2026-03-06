@@ -15,6 +15,7 @@ pub enum ChatStopReason {
     EndTurn,
     MaxTokens,
     MaxIterations,
+    Stopped,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]

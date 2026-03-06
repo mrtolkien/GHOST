@@ -6,7 +6,7 @@ use serenity::prelude::*;
 use tokio::task::JoinHandle;
 use tracing::info;
 
-use crate::chat::SessionChat;
+use crate::chat::{ActiveSessions, SessionChat};
 use crate::config::Config;
 use crate::db::GhostDb;
 
@@ -82,6 +82,7 @@ pub async fn start_discord(
     config: &Config,
     session_chat: Arc<SessionChat>,
     db: GhostDb,
+    active_sessions: ActiveSessions,
 ) -> Result<Option<(DiscordSender, JoinHandle<()>)>, DiscordError> {
     if !config.discord.enabled {
         info!("Discord is disabled in config");
@@ -114,6 +115,7 @@ pub async fn start_discord(
         db,
         config.clone(),
         config.discord.allowed_user_ids.clone(),
+        active_sessions,
     );
 
     let mut client = Client::builder(&token, intents)

@@ -3,7 +3,9 @@ use std::time::Duration;
 use async_trait::async_trait;
 use serde_json::Value;
 
+use super::interrupt::InterruptReceiver;
 use crate::chat::compaction;
+use crate::chat::interrupt::Interrupt;
 use crate::providers::types::{DebugContext, ProviderError, ReasoningEffort};
 use crate::providers::{ChatMessage, ChatRequest, ContentBlock, Role, StopReason};
 
@@ -74,6 +76,38 @@ pub(super) trait ToolLoopHandler: Send {
     }
 }
 
+enum InterruptAction {
+    Continue,
+    Stop,
+}
+
+/// Drain all pending interrupts from the channel.
+/// Steer messages are persisted to DB and appended to history.
+/// Returns `Stop` if any `Interrupt::Stop` was received.
+async fn drain_interrupts(
+    rx: &mut InterruptReceiver,
+    history: &mut Vec<ChatMessage>,
+    db: &crate::db::GhostDb,
+    session_id: &str,
+) -> Result<InterruptAction, ChatError> {
+    let mut action = InterruptAction::Continue;
+    while let Ok(interrupt) = rx.try_recv() {
+        match interrupt {
+            Interrupt::Stop => {
+                action = InterruptAction::Stop;
+            }
+            Interrupt::Steer { message } => {
+                crate::db::sessions::create_message(db, session_id, "user", &message).await?;
+                history.push(ChatMessage {
+                    role: Role::User,
+                    content: vec![ContentBlock::Text { text: message }],
+                });
+            }
+        }
+    }
+    Ok(action)
+}
+
 /// Shared tool-use loop for both interactive chat and background jobs.
 #[allow(clippy::too_many_arguments)]
 pub(super) async fn run_tool_loop(
@@ -85,6 +119,7 @@ pub(super) async fn run_tool_loop(
     handler: &mut (impl ToolLoopHandler + ?Sized),
     history: &mut Vec<ChatMessage>,
     event_tx: Option<&EventSender>,
+    mut interrupt_rx: Option<InterruptReceiver>,
 ) -> Result<(ChatResult, RunMetadata), ChatError> {
     let started_at = std::time::Instant::now();
     let mut metadata = RunMetadata {
@@ -294,6 +329,28 @@ pub(super) async fn run_tool_loop(
                 handler
                     .post_tool_iteration(history, response.usage.input_tokens)
                     .await?;
+
+                // Check for OPERATOR interrupts (steering messages or /stop)
+                if let Some(ref mut rx) = interrupt_rx {
+                    match drain_interrupts(rx, history, session_chat.db(), session_id).await? {
+                        InterruptAction::Continue => {}
+                        InterruptAction::Stop => {
+                            metadata.iterations = iterations;
+                            metadata.duration = started_at.elapsed();
+                            let fallback = last_result.unwrap_or(ChatResult {
+                                message: String::new(),
+                                stop_reason: ChatStopReason::Stopped,
+                            });
+                            return Ok((
+                                ChatResult {
+                                    stop_reason: ChatStopReason::Stopped,
+                                    ..fallback
+                                },
+                                metadata,
+                            ));
+                        }
+                    }
+                }
             }
             StopReason::EndTurn | StopReason::MaxTokens => {
                 let tool_uses = extract_tool_use_blocks(&response.content);

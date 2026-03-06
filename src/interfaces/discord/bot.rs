@@ -10,7 +10,7 @@ use serenity::prelude::*;
 use tokio::task::JoinHandle;
 use tracing::{error, info, warn};
 
-use crate::chat::{ChatStopReason, SessionChat};
+use crate::chat::{ActiveSessions, ChatStopReason, SessionChat};
 use crate::coding;
 use crate::config::Config;
 use crate::db;
@@ -71,6 +71,7 @@ pub(super) struct Handler {
     allowed_user_ids: Vec<String>,
     bot_user_id: OnceLock<String>,
     started_at: std::time::SystemTime,
+    active_sessions: ActiveSessions,
 }
 
 impl Handler {
@@ -79,6 +80,7 @@ impl Handler {
         db: GhostDb,
         config: Config,
         allowed_user_ids: Vec<String>,
+        active_sessions: ActiveSessions,
     ) -> Self {
         Self {
             session_chat,
@@ -87,6 +89,7 @@ impl Handler {
             allowed_user_ids,
             bot_user_id: OnceLock::new(),
             started_at: std::time::SystemTime::now(),
+            active_sessions,
         }
     }
 
@@ -308,6 +311,37 @@ impl Handler {
             }
         }
 
+        // Handle /stop command — gracefully stop a running tool loop
+        if content.eq_ignore_ascii_case("/stop") {
+            let session_id = match self.resolve_session(msg.channel_id).await {
+                Ok(id) => id,
+                Err(e) => {
+                    error!("Failed to resolve session for /stop: {e}");
+                    return;
+                }
+            };
+
+            if let Some(tx) = self.active_sessions.get(&session_id) {
+                let _ = tx.send(crate::chat::interrupt::Interrupt::Stop);
+                let _ = send_gateway_v2(
+                    &ctx.http,
+                    msg.channel_id,
+                    "Stopping after current operation finishes.",
+                    None,
+                )
+                .await;
+            } else {
+                let _ = send_gateway_v2(
+                    &ctx.http,
+                    msg.channel_id,
+                    "Nothing is running right now.",
+                    Some(WARNING_EMBED_COLOR),
+                )
+                .await;
+            }
+            return;
+        }
+
         // Check for active coding session takeover
         let channel_str = msg.channel_id.to_string();
         if let Ok(Some((_coding_id, session_id, working_dir))) =
@@ -362,6 +396,14 @@ impl Handler {
             }
         };
 
+        // If a tool loop is already running for this session, steer it
+        if let Some(tx) = self.active_sessions.get(&session_id) {
+            let _ = tx.send(crate::chat::interrupt::Interrupt::Steer {
+                message: full_content,
+            });
+            return;
+        }
+
         // Start typing indicator
         let _typing = TimedTyping::start(msg.channel_id, &ctx.http);
 
@@ -400,6 +442,10 @@ impl Handler {
                         Some(WARNING_EMBED_COLOR),
                     )
                     .await;
+                }
+
+                if result.stop_reason == ChatStopReason::Stopped {
+                    let _ = send_gateway_v2(&ctx.http, msg.channel_id, "Stopped.", None).await;
                 }
             }
             Err(e) => {
@@ -447,6 +493,14 @@ impl Handler {
             return;
         }
 
+        // If a tool loop is already running for this coding session, steer it
+        if let Some(tx) = self.active_sessions.get(session_id) {
+            let _ = tx.send(crate::chat::interrupt::Interrupt::Steer {
+                message: full_content,
+            });
+            return;
+        }
+
         let _typing = TimedTyping::start(msg.channel_id, &ctx.http);
 
         let working_path = std::path::Path::new(working_dir);
@@ -489,6 +543,10 @@ impl Handler {
                         Some(WARNING_EMBED_COLOR),
                     )
                     .await;
+                }
+
+                if result.stop_reason == ChatStopReason::Stopped {
+                    let _ = send_gateway_v2(&ctx.http, msg.channel_id, "Stopped.", None).await;
                 }
             }
             Err(e) => {

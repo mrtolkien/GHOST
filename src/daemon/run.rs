@@ -5,7 +5,7 @@ use tokio::task::JoinHandle;
 use tracing::info;
 
 use crate::agents::AgentRunner;
-use crate::chat::SessionChat;
+use crate::chat::{ActiveSessions, SessionChat};
 use crate::embeddings::EmbeddingClient;
 use crate::error::GhostError;
 use crate::interfaces::discord::{self, DiscordSender};
@@ -115,13 +115,17 @@ pub async fn boot() -> Result<BootResult, GhostError> {
         shutdown_rx.clone(),
     );
 
+    let active_sessions: ActiveSessions = std::sync::Arc::new(dashmap::DashMap::new());
+
     let session_chat = Arc::new(
         SessionChat::from_config(db.clone(), config.clone())?
             .with_agent_runner(Arc::clone(&agent_runner))
-            .with_event_sender(event_tx),
+            .with_event_sender(event_tx)
+            .with_active_sessions(active_sessions.clone()),
     );
 
-    let discord_result = discord::start_discord(&config, session_chat.clone(), db.clone()).await?;
+    let discord_result =
+        discord::start_discord(&config, session_chat.clone(), db.clone(), active_sessions).await?;
 
     let discord_sender_arc = discord_result
         .as_ref()
