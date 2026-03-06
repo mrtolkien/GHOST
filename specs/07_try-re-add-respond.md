@@ -1,10 +1,11 @@
 Having structured response types would be nice:
 
-- Sources / citations
-- Questions from the GHOST?
+- Sources / citations -> allows to show them much more cleanly (separate category,
+  nicely formatted links, ...)
+- Interactions from the GHOST: questions with pre-filled answers, yes/no triggers, ...
   - Needs to check how claude code does it's "questions" thing: is it a tool?
 
-This goes hand in hand with security:
+This is tangentially linked to security:
 
 - The GHOST should be autonomous _but_ still ask for validation/feedback
 - We might need to add a structured way to respond that allows for it
