@@ -1,9 +1,9 @@
 ---
 name: agent-creator
 description:
-  Create spawnable Lua agents coupled with skills. Use when the OPERATOR wants a
-  reusable background agent that can be dispatched via agent_control. Always creates a
-  skill+agent pair so the agent is discoverable through progressive disclosure.
+  Create spawnable Lua agents coupled with skills. Use when you need to create an
+  autonomous agent that achieves a specific task. Also use when the OPERATOR wants a
+  reusable background agent.
 ---
 
 # Agent Creator
@@ -40,7 +40,8 @@ Write `skills/<skill-name>/skill.md` with frontmatter:
 ---
 name: <skill-name>
 description:
-  <When should GHOST read this skill? Be specific about the trigger conditions.>
+  <When should GHOST read this skill? Be specific about the trigger conditions.> <Do NOT
+  describe *what* it does, focus on WHY this skill should be read.>
 ---
 
 # <Skill Name>
