@@ -8,8 +8,8 @@
 - [x] Review import fails + how do timed out commands behave. When the GHOST tried to do
       a sync import, it timed out. Then it tried a background one, which failed because
       of a UNIQUE CONSTRAINT error.
-- [ ] Basic generic agent?
-- [ ] Review agents lua files: should likely be close to the _skills_ that actually
+- [x] Basic generic agent?
+- [x] Review agents lua files: should likely be close to the _skills_ that actually
       makes them discoverable
 
 ---
