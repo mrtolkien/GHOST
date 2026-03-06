@@ -15,3 +15,5 @@ This goes hand in hand with security:
 
 We removed the response tool in the past because of issues with e2e tests... But
 reasoning was off, which was the real issue
+
+Linked to /home/tolki/Development/ghost/specs/07b-message-source-linking.md

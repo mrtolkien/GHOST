@@ -1,5 +1,7 @@
 # Topic Matching at Scale
 
+> > [!WARNING] POSSIBLY OBSOLETE, NEED TO REVIEW
+
 ## Problem
 
 The reflection agent's first step is `fd -t d . notes/` to list all existing topic
