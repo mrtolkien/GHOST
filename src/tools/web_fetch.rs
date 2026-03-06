@@ -64,7 +64,10 @@ impl Tool for WebFetch {
         })?;
 
         let options = FetchOptions {
-            wait_for: params.get("wait_for").and_then(Value::as_str).map(String::from),
+            wait_for: params
+                .get("wait_for")
+                .and_then(Value::as_str)
+                .map(String::from),
             css_selector: params
                 .get("css_selector")
                 .and_then(Value::as_str)

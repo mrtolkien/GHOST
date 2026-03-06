@@ -88,8 +88,7 @@ pub async fn fetch(
         match head_content_type(&parsed).await {
             Ok(ct) => {
                 if is_html_content_type(&ct) {
-                    return fetch_html_via_crawl4ai(c4ai_url, url, &c4ai_options, options)
-                        .await;
+                    return fetch_html_via_crawl4ai(c4ai_url, url, &c4ai_options, options).await;
                 } else if is_text_content(&ct) {
                     return fetch_text_via_reqwest(url).await;
                 } else {
