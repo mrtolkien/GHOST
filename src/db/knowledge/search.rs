@@ -78,12 +78,15 @@ pub async fn search_references(
     limit: usize,
     topic_id: Option<&str>,
 ) -> Result<Vec<SearchHit>, DatabaseError> {
+    // Note: reference_fts uses external content mode with a synthetic `topic_name`
+    // column that doesn't exist in the `reference` table, so snippet() can't be
+    // used here. We fall back to truncating r.content in Rust.
     #[derive(sqlx::FromRow)]
     struct RefSearchRow {
         id: String,
         topic_name: String,
         path: String,
-        snippet: String,
+        content: String,
         score: f64,
     }
 
@@ -91,8 +94,7 @@ pub async fn search_references(
 
     let rows = if let Some(tid) = topic_id {
         sqlx::query_as::<_, RefSearchRow>(
-            "SELECT r.id, COALESCE(t.name, r.topic_id) AS topic_name, r.path, \
-             snippet(reference_fts, 1, '', '', '...', 24) AS snippet, \
+            "SELECT r.id, COALESCE(t.name, r.topic_id) AS topic_name, r.path, r.content, \
              -bm25(reference_fts, 2.0, 1.0) AS score \
              FROM reference_fts \
              JOIN reference r ON r.rowid = reference_fts.rowid \
@@ -108,8 +110,7 @@ pub async fn search_references(
         .await
     } else {
         sqlx::query_as::<_, RefSearchRow>(
-            "SELECT r.id, COALESCE(t.name, r.topic_id) AS topic_name, r.path, \
-             snippet(reference_fts, 1, '', '', '...', 24) AS snippet, \
+            "SELECT r.id, COALESCE(t.name, r.topic_id) AS topic_name, r.path, r.content, \
              -bm25(reference_fts, 2.0, 1.0) AS score \
              FROM reference_fts \
              JOIN reference r ON r.rowid = reference_fts.rowid \
@@ -131,13 +132,16 @@ pub async fn search_references(
 
     Ok(rows
         .into_iter()
-        .map(|r| SearchHit {
-            id: r.id,
-            title: r.topic_name,
-            snippet: r.snippet,
-            score: r.score,
-            kind: "reference".to_string(),
-            path: Some(format!("references/{}", r.path)),
+        .map(|r| {
+            let snippet = truncate_snippet(&r.content, 150);
+            SearchHit {
+                id: r.id,
+                title: r.topic_name,
+                snippet,
+                score: r.score,
+                kind: "reference".to_string(),
+                path: Some(format!("references/{}", r.path)),
+            }
         })
         .collect())
 }
