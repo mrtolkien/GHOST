@@ -2,9 +2,9 @@
 
 ## Goal
 
-A single `curl | sh` command installs and runs the full GHOST stack on a Mac Mini
-(Apple Silicon). Only prerequisite: a terminal. Only interactive steps: choose an LLM
-provider and paste credentials.
+A single `curl | sh` command installs and runs the full GHOST stack on a Mac Mini (Apple
+Silicon). Only prerequisite: a terminal. Only interactive steps: choose an LLM provider
+and paste credentials.
 
 ## Architecture
 
@@ -39,8 +39,8 @@ deploy/
   linux/                         # future: systemd units, install script, compose
 ```
 
-Existing root-level `docker-compose.yml` and `docker-compose.local.yml` stay as-is
-for development use. `docker/Dockerfile` moves to `deploy/common/Dockerfile`.
+Existing root-level `docker-compose.yml` and `docker-compose.local.yml` stay as-is for
+development use. `docker/Dockerfile` moves to `deploy/common/Dockerfile`.
 
 ## Install Script (deploy/macos/install.sh)
 
@@ -95,11 +95,11 @@ Outputs:
 
 ## Docker Compose (deploy/macos/docker-compose.yml)
 
-Self-contained file, no `-f` merging. Curled to `~/.config/ghost/docker-compose.yml`
-so the user can inspect and edit it later.
+Self-contained file, no `-f` merging. Curled to `~/.config/ghost/docker-compose.yml` so
+the user can inspect and edit it later.
 
-Services: ghost, crawl4ai, searxng. No docling (runs natively). Ghost env vars point
-to host services via `host.docker.internal`.
+Services: ghost, crawl4ai, searxng. No docling (runs natively). Ghost env vars point to
+host services via `host.docker.internal`.
 
 ## Generated Config
 
@@ -136,12 +136,12 @@ url = "http://searxng:8080"
 
 ## Separation of Concerns
 
-| Concern | Owner |
-|---|---|
+| Concern                              | Owner                            |
+| ------------------------------------ | -------------------------------- |
 | Install nix, docker, system services | `install.sh` (platform-specific) |
-| Interactive config generation | `onboard.py` (shared) |
-| Reading config, running the daemon | `ghost` (Rust CLI) |
-| Post-install config changes | `ghost config set ...` |
+| Interactive config generation        | `onboard.py` (shared)            |
+| Reading config, running the daemon   | `ghost` (Rust CLI)               |
+| Post-install config changes          | `ghost config set ...`           |
 
 The onboarding script is an installer artifact. Ghost does not depend on it or know
 about it. After install, all config management goes through `ghost config`.

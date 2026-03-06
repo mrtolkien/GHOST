@@ -1,13 +1,13 @@
 # Deployment & Onboarding Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement
-> this plan task-by-task.
+> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this
+> plan task-by-task.
 
 **Goal:** Single `curl | sh` install for the full GHOST stack on macOS Apple Silicon.
 
 **Architecture:** Nix installs all packages (llama-cpp, docling-serve, docker, colima).
-launchd runs GPU services natively with Metal. Docker runs ghost + crawl4ai + searxng.
-A Python onboarding wizard (`questionary`) handles interactive config.
+launchd runs GPU services natively with Metal. Docker runs ghost + crawl4ai + searxng. A
+Python onboarding wizard (`questionary`) handles interactive config.
 
 **Tech Stack:** Shell (install script), Python + questionary (onboarding), launchd
 (plists), Docker Compose, Nix.
@@ -21,6 +21,7 @@ A Python onboarding wizard (`questionary`) handles interactive config.
 Move existing Docker files to `deploy/common/`, update all references.
 
 **Files:**
+
 - Move: `docker/Dockerfile` → `deploy/common/Dockerfile`
 - Move: `docker/entrypoint.sh` → `deploy/common/entrypoint.sh`
 - Move: `docker/default-flake.nix` → `deploy/common/default-flake.nix`
@@ -102,6 +103,7 @@ Self-contained compose file for the installed macOS setup. No docling (runs nati
 Ghost connects to host services via `host.docker.internal`.
 
 **Files:**
+
 - Create: `deploy/macos/docker-compose.yml`
 
 **Step 1: Write the compose file**
@@ -149,8 +151,8 @@ networks:
 ```
 
 Note: `env_file` points to the config directory (not CWD). `extra_hosts` ensures
-`host.docker.internal` resolves on both Docker Desktop and Colima. The searxng
-settings file is loaded from the ghost config dir (curled there during install).
+`host.docker.internal` resolves on both Docker Desktop and Colima. The searxng settings
+file is loaded from the ghost config dir (curled there during install).
 
 **Step 2: Commit**
 
@@ -163,10 +165,11 @@ git commit -m "feat: add macOS-specific docker-compose for installed setup"
 
 ### Task 3: Create launchd plist templates
 
-Plist files for llama-server and docling-serve. These are templates — the install
-script substitutes `__MODEL_PATH__` and `__LLAMA_SERVER_BIN__` etc. at install time.
+Plist files for llama-server and docling-serve. These are templates — the install script
+substitutes `__MODEL_PATH__` and `__LLAMA_SERVER_BIN__` etc. at install time.
 
 **Files:**
+
 - Create: `deploy/macos/com.ghost.llama-server.plist`
 - Create: `deploy/macos/com.ghost.docling-serve.plist`
 
@@ -247,6 +250,7 @@ git commit -m "feat: add launchd plist templates for llama-server and docling-se
 Interactive config wizard. PEP 723 inline deps. Writes `.env` and `config.toml`.
 
 **Files:**
+
 - Create: `deploy/common/onboard.py`
 
 **Step 1: Write the onboarding script**
@@ -458,6 +462,7 @@ git commit -m "feat: add interactive onboarding wizard"
 Shell script that orchestrates the full install. Idempotent — safe to re-run.
 
 **Files:**
+
 - Create: `deploy/macos/install.sh`
 
 **Step 1: Write the install script**
@@ -615,9 +620,9 @@ git commit -m "feat: add macOS install script"
 
 ### Task 6: Update root docker-compose.yml env_file path
 
-The root dev compose currently uses `env_file: .env` (root of repo). The macOS
-compose uses `${GHOST_CONFIG_DIR}/.env`. Make sure the root dev compose still
-works (it already does — `.env` is relative to CWD which is the repo root).
+The root dev compose currently uses `env_file: .env` (root of repo). The macOS compose
+uses `${GHOST_CONFIG_DIR}/.env`. Make sure the root dev compose still works (it already
+does — `.env` is relative to CWD which is the repo root).
 
 No changes needed to root compose. This task is just verification.
 
@@ -644,6 +649,7 @@ Expected: valid compose config with `host.docker.internal` in env vars.
 Update the installation docs page to reference the new install method.
 
 **Files:**
+
 - Modify: `docs/src/content/docs/getting-started/installation.mdx`
 
 **Step 1: Read the `/docs` skill for formatting conventions**
@@ -652,9 +658,8 @@ Invoke the docs skill before editing.
 
 **Step 2: Rewrite installation.mdx**
 
-The page should lead with the single-command install, then explain what it does,
-then cover manual/dev setup as an alternative. Keep existing "Building locally"
-section.
+The page should lead with the single-command install, then explain what it does, then
+cover manual/dev setup as an alternative. Keep existing "Building locally" section.
 
 **Step 3: Commit**
 
@@ -680,6 +685,7 @@ find deploy/ -type f | sort
 ```
 
 Expected:
+
 ```
 deploy/common/Dockerfile
 deploy/common/default-flake.nix
@@ -699,8 +705,8 @@ deploy/linux/.gitkeep
 just ci
 ```
 
-Expected: all checks pass (this doesn't test the install script, but ensures
-nothing in the Rust codebase broke from the file moves).
+Expected: all checks pass (this doesn't test the install script, but ensures nothing in
+the Rust codebase broke from the file moves).
 
 **Step 4: Commit any remaining changes**
 

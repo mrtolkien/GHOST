@@ -1,22 +1,34 @@
 # Embedding Reliability & Search Snippet Quality
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this
+> plan task-by-task.
 
-**Goal:** Fix three embedding reliability issues (transactional persistence, watcher resilience, periodic reconciliation) and improve search snippet quality using FTS5 snippet() function.
+**Goal:** Fix three embedding reliability issues (transactional persistence, watcher
+resilience, periodic reconciliation) and improve search snippet quality using FTS5
+snippet() function.
 
-**Architecture:** Make embedding persistence atomic per-source so partial failures can't poison the hash check. Make the file watcher resilient to Ollama downtime (sync files to DB always, embed when available). Add hourly background reconciliation. Replace first-line snippet extraction with FTS5's built-in `snippet()` for BM25 hits and prefer embedding chunk text in hybrid merge.
+**Architecture:** Make embedding persistence atomic per-source so partial failures can't
+poison the hash check. Make the file watcher resilient to Ollama downtime (sync files to
+DB always, embed when available). Add hourly background reconciliation. Replace
+first-line snippet extraction with FTS5's built-in `snippet()` for BM25 hits and prefer
+embedding chunk text in hybrid merge.
 
-**Tech Stack:** SQLite (sqlx transactions), tokio (spawn, interval), FTS5 snippet() function
+**Tech Stack:** SQLite (sqlx transactions), tokio (spawn, interval), FTS5 snippet()
+function
 
 ---
 
 ### Task 1: Transactional embedding persistence — DB function
 
 **Files:**
+
 - Modify: `src/db/embeddings.rs` (add `replace_embeddings_for_source`)
 - Test: `tests/embeddings.rs`
 
-The root cause of partial embeddings: each `upsert_embedding` call stores the content hash independently. If the process errors after inserting 3 of 52 chunks, those 3 rows have the correct hash — future reconciliation sees the hash match and skips the source, leaving it permanently under-embedded.
+The root cause of partial embeddings: each `upsert_embedding` call stores the content
+hash independently. If the process errors after inserting 3 of 52 chunks, those 3 rows
+have the correct hash — future reconciliation sees the hash match and skips the source,
+leaving it permanently under-embedded.
 
 Fix: a new function that deletes old + inserts all new chunks in a single transaction.
 
@@ -192,9 +204,11 @@ feat: add transactional replace_embeddings_for_source
 ### Task 2: Wire pipeline to use transactional persistence
 
 **Files:**
+
 - Modify: `src/embeddings/pipeline.rs` — `embed_source_inner` and `embed_sources`
 
-Replace the delete-then-loop-upsert pattern with a single `replace_embeddings_for_source` call.
+Replace the delete-then-loop-upsert pattern with a single
+`replace_embeddings_for_source` call.
 
 **Step 1: Update `embed_source_inner`**
 
@@ -271,8 +285,8 @@ In the same file, replace the Phase 4 loop (lines 238–259):
 
 **Step 3: Run all embedding tests**
 
-Run: `cargo test --test embeddings -- --nocapture`
-Expected: All PASS (existing tests should still work since behavior is unchanged for happy path)
+Run: `cargo test --test embeddings -- --nocapture` Expected: All PASS (existing tests
+should still work since behavior is unchanged for happy path)
 
 **Step 4: Commit**
 
@@ -285,9 +299,12 @@ fix: use transactional embedding persistence to prevent partial state
 ### Task 3: Make file watcher resilient to Ollama downtime
 
 **Files:**
+
 - Modify: `src/daemon/watcher.rs`
 
-Currently the watcher exits permanently if Ollama is unavailable at startup (line 27–32). Change it to always run the file sync loop, and check Ollama availability per batch.
+Currently the watcher exits permanently if Ollama is unavailable at startup (line
+27–32). Change it to always run the file sync loop, and check Ollama availability per
+batch.
 
 **Step 1: Modify `spawn_watcher`**
 
@@ -385,11 +402,13 @@ fix: file watcher syncs to DB even when Ollama is unavailable
 ### Task 4: Periodic embedding reconciliation
 
 **Files:**
+
 - Modify: `src/daemon/watcher.rs` (add `spawn_reconciliation_loop`)
 - Modify: `src/daemon/run.rs` (spawn the loop, track its handle)
 - Modify: `src/daemon/mod.rs` if `spawn_reconciliation_loop` needs to be pub
 
-Spawn a background task that runs `reconcile_embeddings` once per hour. It checks Ollama availability before each run and skips silently if unavailable.
+Spawn a background task that runs `reconcile_embeddings` once per hour. It checks Ollama
+availability before each run and skips silently if unavailable.
 
 **Step 1: Add `spawn_reconciliation_loop` to `src/daemon/watcher.rs`**
 
@@ -485,11 +504,15 @@ feat: add hourly periodic embedding reconciliation
 ### Task 5: FTS5 snippet() for BM25 search results
 
 **Files:**
-- Modify: `src/db/knowledge/search.rs` — `search_notes`, `search_references`, `search_diary`
-- Modify: `src/db/knowledge/records.rs` — `truncate_snippet` stays but is no longer the primary snippet source for BM25
+
+- Modify: `src/db/knowledge/search.rs` — `search_notes`, `search_references`,
+  `search_diary`
+- Modify: `src/db/knowledge/records.rs` — `truncate_snippet` stays but is no longer the
+  primary snippet source for BM25
 - Test: `tests/embeddings.rs` (hybrid merge tests)
 
-Replace `truncate_snippet(&r.content, 150)` (first line of entire document) with FTS5's `snippet()` which returns text around the matching terms.
+Replace `truncate_snippet(&r.content, 150)` (first line of entire document) with FTS5's
+`snippet()` which returns text around the matching terms.
 
 **Step 1: Update `search_references` in `src/db/knowledge/search.rs`**
 
@@ -571,7 +594,8 @@ pub async fn search_references(
 
 **Step 2: Update `search_notes`**
 
-Same pattern — use `snippet(note_fts, 1, '', '', '...', 24)` for the body column (column 1):
+Same pattern — use `snippet(note_fts, 1, '', '', '...', 24)` for the body column (column
+1):
 
 ```rust
     let rows = sqlx::query_as::<_, NoteSearchRow>(
@@ -586,7 +610,9 @@ Same pattern — use `snippet(note_fts, 1, '', '', '...', 24)` for the body colu
     )
 ```
 
-Keep `NoteSearchRow.body` as the field name — it now contains the snippet text. The mapping code already does `truncate_snippet(&r.body, 150)` which is fine as a safety truncation on the snippet output.
+Keep `NoteSearchRow.body` as the field name — it now contains the snippet text. The
+mapping code already does `truncate_snippet(&r.body, 150)` which is fine as a safety
+truncation on the snippet output.
 
 **Step 3: Update `search_diary`**
 
@@ -607,7 +633,8 @@ Use `snippet(diary_fts, 0, '', '', '...', 24)` — diary_fts has only `body` at 
 
 **Step 4: Run `just ci`**
 
-Expected: All checks and tests pass. The hybrid_merge tests in `tests/embeddings.rs` use hand-crafted `SearchHit` structs and don't query the DB, so they won't be affected.
+Expected: All checks and tests pass. The hybrid_merge tests in `tests/embeddings.rs` use
+hand-crafted `SearchHit` structs and don't query the DB, so they won't be affected.
 
 **Step 5: Commit**
 
@@ -620,10 +647,14 @@ fix: use FTS5 snippet() for context-aware search snippets
 ### Task 6: Prefer embedding chunk snippet in hybrid merge
 
 **Files:**
+
 - Modify: `src/db/knowledge/search.rs` — `hybrid_merge`
 - Test: `tests/embeddings.rs`
 
-Currently in `hybrid_merge`, BM25 snippet takes priority (set first, embedding snippet only fills empty). Now that BM25 snippets are better (FTS5 snippet()), we should still prefer the embedding chunk snippet when available, since the chunk text is semantically matched to the query and often more relevant.
+Currently in `hybrid_merge`, BM25 snippet takes priority (set first, embedding snippet
+only fills empty). Now that BM25 snippets are better (FTS5 snippet()), we should still
+prefer the embedding chunk snippet when available, since the chunk text is semantically
+matched to the query and often more relevant.
 
 **Step 1: Write test**
 
@@ -666,7 +697,8 @@ Expected: FAIL — currently BM25 snippet wins.
 
 **Step 3: Update `hybrid_merge`**
 
-In `src/db/knowledge/search.rs`, in the embedding hit loop (lines 270–283), overwrite the snippet when the embedding provides chunk text:
+In `src/db/knowledge/search.rs`, in the embedding hit loop (lines 270–283), overwrite
+the snippet when the embedding provides chunk text:
 
 ```rust
     for hit in embedding_hits {
@@ -690,10 +722,14 @@ In `src/db/knowledge/search.rs`, in the embedding hit loop (lines 270–283), ov
 
 **Step 4: Run all tests**
 
-Run: `cargo test --test embeddings -- --nocapture`
-Expected: All PASS (new test passes, existing hybrid_merge tests still pass since they don't have conflicting snippets or the expected values don't depend on snippet content).
+Run: `cargo test --test embeddings -- --nocapture` Expected: All PASS (new test passes,
+existing hybrid_merge tests still pass since they don't have conflicting snippets or the
+expected values don't depend on snippet content).
 
-Check the existing `hybrid_merge_combines_bm25_and_embedding_scores` test — it has `snippet: "snippet"` for BM25 and `chunk_text: "chunk"` for embedding. After this change, the merged snippet will be `"chunk"` instead of `"snippet"`. This test doesn't assert on snippet content, so it's fine.
+Check the existing `hybrid_merge_combines_bm25_and_embedding_scores` test — it has
+`snippet: "snippet"` for BM25 and `chunk_text: "chunk"` for embedding. After this
+change, the merged snippet will be `"chunk"` instead of `"snippet"`. This test doesn't
+assert on snippet content, so it's fine.
 
 **Step 5: Run `just ci`**
 

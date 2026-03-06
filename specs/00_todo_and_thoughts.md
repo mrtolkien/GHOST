@@ -14,11 +14,14 @@
 
 ---
 
-- [ ] Remove todo for chat session? Overkill, often used for no good reason
+- [x] Remove todo for chat session? Overkill, often used for no good reason
 - [ ] ?session description for coding agent? -> would help with resume
-- [ ] No statusline for messages that respond to an external trigger
-- [ ] Add image generation for visual responses -> Nano banana?
-- [ ] Currently, the GHOST reads the knowledge navigator skill extremely often. This
+
+---
+
+- [x] No statusline for messages that respond to an external trigger
+- [x] Add image generation for visual responses -> Nano banana?
+- [x] Currently, the GHOST reads the knowledge navigator skill extremely often. This
       highlights two issues:
   - The skill's definition is too broad, it should only get read when the GHOST wants to
     know about its internals
@@ -27,10 +30,11 @@
 - [ ] Coupled with that, we should let the GHOST directly query its sqlite database
       somehow. There should be the full schema somewhere (likely as an attachement to
       the knowledge navigator skill) + sqlite3 in the flake (or stg else?)
+
+- [x] In tools use in discord, don't show default values (like background=False for
+      shell commands)
+
 - [ ] We should have a _true_ e2e test which actually starts the daemon and interacts
       with it. The only cheating we would do is the provider/Discord layer: we would
       need to be able to directly insert messages to the chat.
   - This would benefit from using an LLM to generate user messages :D
-- [ ] In tools use in discord, don't show default values (like background=False for
-      shell commands)
-- [ ] Source quoting in messages makes them pretty hard to read

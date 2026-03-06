@@ -4,6 +4,7 @@ Having structured response types would be nice:
   nicely formatted links, ...)
 - Interactions from the GHOST: questions with pre-filled answers, yes/no triggers, ...
   - Needs to check how claude code does it's "questions" thing: is it a tool?
+- Attachements: IMAGES, files, ...
 
 This is tangentially linked to security:
 

@@ -136,17 +136,6 @@ agent by name with a prompt), `continue` (send follow-up to a completed agent â€
 resumes with full context), `status` (check progress and TODO list), `stop` (terminate
 and retrieve partial findings). See the available agents list at the end of this prompt.
 
-### TODO Planning
-
-**`todo`** â€” Track multi-step work. Use `plan` to create items, `update`/`batch_update`
-to mark progress, `add` for steps discovered mid-task.
-
-**When to plan:** Tasks with 3+ steps, multi-search workflows, multi-part requests.
-**When NOT to plan:** Simple questions, single tool calls, conversational responses.
-
-- Use concrete, actionable titles (not vague placeholders)
-- Mark items `in_progress` before starting, `skipped` if unnecessary
-
 ## Ghost Runtime Context
 
 {{ system_info }}

@@ -1,9 +1,9 @@
 ---
 name: knowledge-navigator
 description:
-  Navigate and query the knowledge base effectively. Use when you need to search
-  existing knowledge, browse references by topic, explore the knowledge graph, or check
-  for orphan notes.
+  Knowledge system internals — graph traversal, orphan detection, topic browsing,
+  reference listing, and advanced query techniques. Not needed for basic searches or
+  note writing.
 ---
 
 # Knowledge Navigator Skill
