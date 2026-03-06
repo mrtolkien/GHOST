@@ -2,7 +2,9 @@ use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 
 use serenity::async_trait;
+use serenity::builder::{CreateCommand, CreateInteractionResponse, CreateInteractionResponseMessage};
 use serenity::http::Http;
+use serenity::model::application::Command;
 use serenity::model::channel::Message;
 use serenity::model::gateway::Ready;
 use serenity::model::id::ChannelId;
@@ -213,134 +215,6 @@ impl Handler {
     ))]
     async fn handle_message(&self, ctx: Context, msg: Message) {
         let content = self.strip_bot_mention(&msg.content);
-
-        // Handle /REBOOT command
-        if content.eq_ignore_ascii_case("/reboot") {
-            let session_id = match self.resolve_session(msg.channel_id).await {
-                Ok(id) => id,
-                Err(e) => {
-                    error!("Failed to resolve session for reboot: {e}");
-                    let _ = send_gateway_v2(
-                        &ctx.http,
-                        msg.channel_id,
-                        "Failed to resolve session.",
-                        Some(WARNING_EMBED_COLOR),
-                    )
-                    .await;
-                    return;
-                }
-            };
-
-            match self.session_chat.reboot_session(&session_id).await {
-                Ok(new_id) => {
-                    info!(
-                        old_session = %session_id,
-                        new_session = %new_id,
-                        "session rebooted"
-                    );
-                    let _ = send_gateway_v2(
-                        &ctx.http,
-                        msg.channel_id,
-                        "Session rebooted. Starting fresh.",
-                        None,
-                    )
-                    .await;
-                }
-                Err(e) => {
-                    error!("Reboot failed: {e}");
-                    let _ = send_gateway_v2(
-                        &ctx.http,
-                        msg.channel_id,
-                        &format!("Reboot failed: {e}"),
-                        Some(WARNING_EMBED_COLOR),
-                    )
-                    .await;
-                }
-            }
-            return;
-        }
-
-        // Handle /kill command — end coding session takeover
-        if content.eq_ignore_ascii_case("/kill") {
-            let channel_str = msg.channel_id.to_string();
-            match db::coding_sessions::get_active_takeover(&self.db, &channel_str).await {
-                Ok(Some((coding_id, _session_id, working_dir))) => {
-                    let summary = coding::session::end(
-                        &self.db,
-                        &coding_id,
-                        std::path::Path::new(&working_dir),
-                    )
-                    .await
-                    .unwrap_or_else(|e| format!("(summary failed: {e})"));
-
-                    // Inject summary into GHOST's main session
-                    if let Ok(ghost_sid) = self.resolve_session(msg.channel_id).await {
-                        let summary_msg = format!("[coding session ended]\n\n{summary}");
-                        let _ = db::sessions::create_message(
-                            &self.db,
-                            &ghost_sid,
-                            "system",
-                            &summary_msg,
-                        )
-                        .await;
-                    }
-
-                    let _ = send_gateway_v2(
-                        &ctx.http,
-                        msg.channel_id,
-                        &format!("GHOST HACKED -- session ended.\n\n```\n{summary}\n```"),
-                        Some(CODING_EMBED_COLOR),
-                    )
-                    .await;
-                    return;
-                }
-                Ok(None) => {
-                    let _ = send_gateway_v2(
-                        &ctx.http,
-                        msg.channel_id,
-                        "No active coding session.",
-                        Some(WARNING_EMBED_COLOR),
-                    )
-                    .await;
-                    return;
-                }
-                Err(e) => {
-                    error!("Failed to check takeover: {e}");
-                    return;
-                }
-            }
-        }
-
-        // Handle /stop command — gracefully stop a running tool loop
-        if content.eq_ignore_ascii_case("/stop") {
-            let session_id = match self.resolve_session(msg.channel_id).await {
-                Ok(id) => id,
-                Err(e) => {
-                    error!("Failed to resolve session for /stop: {e}");
-                    return;
-                }
-            };
-
-            if let Some(tx) = self.active_sessions.get(&session_id) {
-                let _ = tx.send(crate::chat::interrupt::Interrupt::Stop);
-                let _ = send_gateway_v2(
-                    &ctx.http,
-                    msg.channel_id,
-                    "Stopping after current operation finishes.",
-                    None,
-                )
-                .await;
-            } else {
-                let _ = send_gateway_v2(
-                    &ctx.http,
-                    msg.channel_id,
-                    "Nothing is running right now.",
-                    Some(WARNING_EMBED_COLOR),
-                )
-                .await;
-            }
-            return;
-        }
 
         // Check for active coding session takeover
         let channel_str = msg.channel_id.to_string();
@@ -584,12 +458,194 @@ impl EventHandler for Handler {
         self.handle_message(ctx, msg).await;
     }
 
-    async fn ready(&self, _ctx: Context, ready: Ready) {
+    async fn interaction_create(
+        &self,
+        ctx: Context,
+        interaction: serenity::model::application::Interaction,
+    ) {
+        let Some(command) = interaction.as_command() else {
+            return;
+        };
+
+        let channel_id = command.channel_id;
+
+        match command.data.name.as_str() {
+            "stop" => {
+                let session_id = match self.resolve_session(channel_id).await {
+                    Ok(id) => id,
+                    Err(e) => {
+                        error!("Failed to resolve session for /stop: {e}");
+                        let _ = command
+                            .create_response(
+                                &ctx.http,
+                                CreateInteractionResponse::Message(
+                                    CreateInteractionResponseMessage::new()
+                                        .content("Failed to resolve session.")
+                                        .ephemeral(true),
+                                ),
+                            )
+                            .await;
+                        return;
+                    }
+                };
+
+                if let Some(tx) = self.active_sessions.get(&session_id) {
+                    let _ = tx.send(crate::chat::interrupt::Interrupt::Stop);
+                    let _ = command
+                        .create_response(
+                            &ctx.http,
+                            CreateInteractionResponse::Message(
+                                CreateInteractionResponseMessage::new()
+                                    .content("Stopping after current operation finishes."),
+                            ),
+                        )
+                        .await;
+                } else {
+                    let _ = command
+                        .create_response(
+                            &ctx.http,
+                            CreateInteractionResponse::Message(
+                                CreateInteractionResponseMessage::new()
+                                    .content("Nothing is running right now.")
+                                    .ephemeral(true),
+                            ),
+                        )
+                        .await;
+                }
+            }
+            "reboot" => {
+                let session_id = match self.resolve_session(channel_id).await {
+                    Ok(id) => id,
+                    Err(e) => {
+                        error!("Failed to resolve session for /reboot: {e}");
+                        let _ = command
+                            .create_response(
+                                &ctx.http,
+                                CreateInteractionResponse::Message(
+                                    CreateInteractionResponseMessage::new()
+                                        .content("Failed to resolve session.")
+                                        .ephemeral(true),
+                                ),
+                            )
+                            .await;
+                        return;
+                    }
+                };
+
+                match self.session_chat.reboot_session(&session_id).await {
+                    Ok(new_id) => {
+                        info!(
+                            old_session = %session_id,
+                            new_session = %new_id,
+                            "session rebooted"
+                        );
+                        let _ = command
+                            .create_response(
+                                &ctx.http,
+                                CreateInteractionResponse::Message(
+                                    CreateInteractionResponseMessage::new()
+                                        .content("Session rebooted. Starting fresh."),
+                                ),
+                            )
+                            .await;
+                    }
+                    Err(e) => {
+                        error!("Reboot failed: {e}");
+                        let _ = command
+                            .create_response(
+                                &ctx.http,
+                                CreateInteractionResponse::Message(
+                                    CreateInteractionResponseMessage::new()
+                                        .content(format!("Reboot failed: {e}"))
+                                        .ephemeral(true),
+                                ),
+                            )
+                            .await;
+                    }
+                }
+            }
+            "kill" => {
+                let channel_str = channel_id.to_string();
+                match db::coding_sessions::get_active_takeover(&self.db, &channel_str).await {
+                    Ok(Some((coding_id, _session_id, working_dir))) => {
+                        let summary = coding::session::end(
+                            &self.db,
+                            &coding_id,
+                            std::path::Path::new(&working_dir),
+                        )
+                        .await
+                        .unwrap_or_else(|e| format!("(summary failed: {e})"));
+
+                        // Inject summary into GHOST's main session
+                        if let Ok(ghost_sid) = self.resolve_session(channel_id).await {
+                            let summary_msg = format!("[coding session ended]\n\n{summary}");
+                            let _ = db::sessions::create_message(
+                                &self.db,
+                                &ghost_sid,
+                                "system",
+                                &summary_msg,
+                            )
+                            .await;
+                        }
+
+                        let _ = command
+                            .create_response(
+                                &ctx.http,
+                                CreateInteractionResponse::Message(
+                                    CreateInteractionResponseMessage::new().content(format!(
+                                        "GHOST HACKED -- session ended.\n\n```\n{summary}\n```"
+                                    )),
+                                ),
+                            )
+                            .await;
+                    }
+                    Ok(None) => {
+                        let _ = command
+                            .create_response(
+                                &ctx.http,
+                                CreateInteractionResponse::Message(
+                                    CreateInteractionResponseMessage::new()
+                                        .content("No active coding session.")
+                                        .ephemeral(true),
+                                ),
+                            )
+                            .await;
+                    }
+                    Err(e) => {
+                        error!("Failed to check takeover: {e}");
+                        let _ = command
+                            .create_response(
+                                &ctx.http,
+                                CreateInteractionResponse::Message(
+                                    CreateInteractionResponseMessage::new()
+                                        .content("Internal error checking coding session.")
+                                        .ephemeral(true),
+                                ),
+                            )
+                            .await;
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    async fn ready(&self, ctx: Context, ready: Ready) {
         info!(
             bot_name = %ready.user.name,
             bot_id = %ready.user.id,
             "Discord bot connected"
         );
         let _ = self.bot_user_id.set(ready.user.id.to_string());
+
+        let commands = vec![
+            CreateCommand::new("stop").description("Stop the current operation"),
+            CreateCommand::new("reboot").description("Start a fresh session"),
+            CreateCommand::new("kill").description("End the active coding session"),
+        ];
+
+        if let Err(e) = Command::set_global_commands(&ctx.http, commands).await {
+            error!("Failed to register slash commands: {e}");
+        }
     }
 }
