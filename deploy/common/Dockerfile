@@ -39,8 +39,8 @@ RUN nix shell nixpkgs#patchelf --command sh -c '\
              /usr/local/bin/ghost'
 
 # Copy default flake and entrypoint
-COPY docker/default-flake.nix /opt/ghost/default-flake.nix
-COPY docker/entrypoint.sh /opt/ghost/entrypoint.sh
+COPY deploy/common/default-flake.nix /opt/ghost/default-flake.nix
+COPY deploy/common/entrypoint.sh /opt/ghost/entrypoint.sh
 
 ENV GHOST_CONFIG_DIR=/config
 ENV GHOST_WORKSPACE=/workspace

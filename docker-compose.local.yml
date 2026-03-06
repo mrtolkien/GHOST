@@ -2,5 +2,5 @@ services:
   ghost:
     build:
       context: .
-      dockerfile: docker/Dockerfile
+      dockerfile: deploy/common/Dockerfile
     image: ghost:local

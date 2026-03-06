@@ -23,7 +23,7 @@ services:
   searxng:
     image: searxng/searxng:latest
     volumes:
-      - ./docker/searxng-settings.yml:/etc/searxng/settings.yml:ro
+      - ./deploy/common/searxng-settings.yml:/etc/searxng/settings.yml:ro
     networks:
       - ghost-net
     restart: unless-stopped
