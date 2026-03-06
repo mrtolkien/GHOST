@@ -361,6 +361,34 @@ fn hybrid_merge_respects_limit() {
     assert_eq!(merged.len(), 3);
 }
 
+#[test]
+fn hybrid_merge_prefers_embedding_snippet() {
+    let bm25_hits = vec![db::knowledge::SearchHit {
+        id: "abc".to_string(),
+        title: "Hit".to_string(),
+        snippet: "bm25 snippet".to_string(),
+        score: 1.0,
+        kind: "reference".to_string(),
+        path: None,
+    }];
+
+    let embedding_hits = vec![db::embeddings::EmbeddingHit {
+        source_id: "abc".to_string(),
+        source_table: "reference".to_string(),
+        chunk_text: "The BREAK occurs when the round marker reaches the end".to_string(),
+        score: 0.8,
+        topic_id: None,
+    }];
+
+    let merged = db::knowledge::hybrid_merge(&bm25_hits, &embedding_hits, 10);
+    assert_eq!(merged.len(), 1);
+    assert!(
+        merged[0].snippet.contains("BREAK"),
+        "should prefer embedding chunk snippet, got: {}",
+        merged[0].snippet,
+    );
+}
+
 // --- Vector insert memory reproduction ---
 
 /// Reproduces the production path: for each source, delete old embeddings then

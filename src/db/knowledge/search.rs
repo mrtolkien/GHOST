@@ -272,17 +272,19 @@ pub fn hybrid_merge(
 
     for hit in embedding_hits {
         let key = hit.source_id.clone();
+        let chunk_snippet = truncate_snippet(&hit.chunk_text, 150);
         let entry = merged.entry(key).or_insert_with(|| SearchHit {
             id: hit.source_id.clone(),
             title: String::new(),
-            snippet: truncate_snippet(&hit.chunk_text, 150),
+            snippet: chunk_snippet.clone(),
             score: 0.0,
             kind: hit.source_table.clone(),
             path: None,
         });
         entry.score += 0.6 * hit.score;
-        if entry.snippet.is_empty() {
-            entry.snippet = truncate_snippet(&hit.chunk_text, 150);
+        // Prefer embedding chunk snippet — it's semantically matched to the query
+        if !chunk_snippet.is_empty() {
+            entry.snippet = chunk_snippet;
         }
     }
 
