@@ -1,10 +1,15 @@
 # Interruptions & Steering — Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this
+> plan task-by-task.
 
-**Goal:** Let the OPERATOR send messages to a running tool loop (steering) and gracefully stop it (`/stop`), via Discord.
+**Goal:** Let the OPERATOR send messages to a running tool loop (steering) and
+gracefully stop it (`/stop`), via Discord.
 
-**Architecture:** An `mpsc` interrupt channel is created per tool loop invocation and registered in a shared `ActiveSessions` map. The Discord handler checks this map — if a session is active, it sends an `Interrupt` instead of starting a new `chat()`. The tool loop drains interrupts between tool iterations via `try_recv()`.
+**Architecture:** An `mpsc` interrupt channel is created per tool loop invocation and
+registered in a shared `ActiveSessions` map. The Discord handler checks this map — if a
+session is active, it sends an `Interrupt` instead of starting a new `chat()`. The tool
+loop drains interrupts between tool iterations via `try_recv()`.
 
 **Tech Stack:** Rust, tokio mpsc, dashmap, serenity (Discord)
 
@@ -15,6 +20,7 @@
 ### Task 1: Add `dashmap` dependency
 
 **Files:**
+
 - Modify: `Cargo.toml`
 
 **Step 1: Add dashmap to Cargo.toml**
@@ -27,8 +33,7 @@ dashmap = "6"
 
 **Step 2: Verify it compiles**
 
-Run: `cargo check`
-Expected: compiles with no errors
+Run: `cargo check` Expected: compiles with no errors
 
 **Step 3: Commit**
 
@@ -42,6 +47,7 @@ git commit -m "chore: add dashmap dependency for active session tracking"
 ### Task 2: Create `src/chat/interrupt.rs` and add `ChatStopReason::Stopped`
 
 **Files:**
+
 - Create: `src/chat/interrupt.rs`
 - Modify: `src/chat/mod.rs:1-12`
 - Modify: `src/chat/types.rs:13-18`
@@ -112,8 +118,9 @@ pub enum ChatStopReason {
 
 **Step 4: Verify it compiles**
 
-Run: `cargo check`
-Expected: compiles (no callers use `Stopped` yet, and `ChatStopReason` is non-exhaustive in match arms that already have `_` or explicit variants)
+Run: `cargo check` Expected: compiles (no callers use `Stopped` yet, and
+`ChatStopReason` is non-exhaustive in match arms that already have `_` or explicit
+variants)
 
 **Step 5: Commit**
 
@@ -127,7 +134,9 @@ git commit -m "feat: add interrupt channel types and ChatStopReason::Stopped"
 ### Task 3: Wire `InterruptReceiver` into `run_tool_loop`
 
 **Files:**
-- Modify: `src/chat/tool_loop.rs:78-88` (signature), `~104` (top of loop), `~296-297` (after ToolUse post_tool_iteration)
+
+- Modify: `src/chat/tool_loop.rs:78-88` (signature), `~104` (top of loop), `~296-297`
+  (after ToolUse post_tool_iteration)
 
 **Step 1: Add the interrupt receiver parameter**
 
@@ -149,7 +158,9 @@ pub(super) async fn run_tool_loop(
 
 **Step 2: Add interrupt drain logic after `post_tool_iteration`**
 
-After the `handler.post_tool_iteration(...)` call inside the `StopReason::ToolUse` arm (around line 296), add the interrupt check. Add this helper function and enum at the top of the file:
+After the `handler.post_tool_iteration(...)` call inside the `StopReason::ToolUse` arm
+(around line 296), add the interrupt check. Add this helper function and enum at the top
+of the file:
 
 ```rust
 use super::interrupt::{Interrupt, InterruptReceiver};
@@ -214,7 +225,12 @@ if let Some(ref mut rx) = interrupt_rx {
 }
 ```
 
-**Important**: `interrupt_rx` must be stored as a mutable local, not a reference parameter, because `&mut Option<&mut T>` is awkward. Use `mut interrupt_rx: Option<&mut InterruptReceiver>` in the signature so `ref mut` works on it inside the loop. Actually, since we use it across loop iterations, keep the parameter as `mut interrupt_rx: Option<InterruptReceiver>` (owned) instead of a reference. This avoids borrow checker issues with `&mut` across await points.
+**Important**: `interrupt_rx` must be stored as a mutable local, not a reference
+parameter, because `&mut Option<&mut T>` is awkward. Use
+`mut interrupt_rx: Option<&mut InterruptReceiver>` in the signature so `ref mut` works
+on it inside the loop. Actually, since we use it across loop iterations, keep the
+parameter as `mut interrupt_rx: Option<InterruptReceiver>` (owned) instead of a
+reference. This avoids borrow checker issues with `&mut` across await points.
 
 Updated signature:
 
@@ -244,12 +260,13 @@ if let Some(ref mut rx) = interrupt_rx {
 
 **Step 3: Verify it compiles**
 
-Run: `cargo check`
-Expected: Compile errors in callers of `run_tool_loop` (they don't pass the new param yet). That's expected — we fix callers in the next task.
+Run: `cargo check` Expected: Compile errors in callers of `run_tool_loop` (they don't
+pass the new param yet). That's expected — we fix callers in the next task.
 
 **Step 4: Fix all callers in `session.rs`**
 
-In `src/chat/session.rs`, update all four calls to `run_tool_loop` to pass `None` as the last argument:
+In `src/chat/session.rs`, update all four calls to `run_tool_loop` to pass `None` as the
+last argument:
 
 ```rust
 run_tool_loop(
@@ -266,12 +283,12 @@ run_tool_loop(
 .await
 ```
 
-There are four call sites: `chat()`, `chat_coding()`, `run_agent()`, and `run_agent_with_history()`. Update all four.
+There are four call sites: `chat()`, `chat_coding()`, `run_agent()`, and
+`run_agent_with_history()`. Update all four.
 
 **Step 5: Verify it compiles and tests pass**
 
-Run: `just ci`
-Expected: all green
+Run: `just ci` Expected: all green
 
 **Step 6: Commit**
 
@@ -285,7 +302,10 @@ git commit -m "feat: wire interrupt receiver into tool loop with drain logic"
 ### Task 4: Add `ActiveSessions` to `SessionChat` and register/unregister in chat methods
 
 **Files:**
-- Modify: `src/chat/session.rs:28-40` (struct), `~51-80` (constructors), `~126-161` (chat), `~165-205` (chat_coding), `~854-912` (run_agent), `~920-990` (run_agent_with_history)
+
+- Modify: `src/chat/session.rs:28-40` (struct), `~51-80` (constructors), `~126-161`
+  (chat), `~165-205` (chat_coding), `~854-912` (run_agent), `~920-990`
+  (run_agent_with_history)
 
 **Step 1: Add `active_sessions` field to `SessionChat`**
 
@@ -339,7 +359,8 @@ pub fn active_sessions(&self) -> &ActiveSessions {
 
 **Step 3: Register/unregister in `chat()`**
 
-In `SessionChat::chat()`, create an interrupt channel, register before the tool loop, unregister after:
+In `SessionChat::chat()`, create an interrupt channel, register before the tool loop,
+unregister after:
 
 ```rust
 pub async fn chat(
@@ -389,7 +410,8 @@ pub async fn chat(
 
 **Step 4: Same pattern for `chat_coding()`**
 
-Same register/unregister pattern. Create `(int_tx, int_rx)`, insert before `run_tool_loop`, remove after.
+Same register/unregister pattern. Create `(int_tx, int_rx)`, insert before
+`run_tool_loop`, remove after.
 
 **Step 5: Same pattern for `run_agent()` and `run_agent_with_history()`**
 
@@ -397,8 +419,7 @@ Same register/unregister pattern for both agent methods.
 
 **Step 6: Verify it compiles and tests pass**
 
-Run: `just ci`
-Expected: all green
+Run: `just ci` Expected: all green
 
 **Step 7: Commit**
 
@@ -412,7 +433,9 @@ git commit -m "feat: register/unregister active sessions around tool loop"
 ### Task 5: Wire `ActiveSessions` into Discord handler and add steering + `/stop`
 
 **Files:**
-- Modify: `src/interfaces/discord/bot.rs:67-91` (Handler struct + new), `~211-420` (handle_message), `~427-509` (handle_coding_message)
+
+- Modify: `src/interfaces/discord/bot.rs:67-91` (Handler struct + new), `~211-420`
+  (handle_message), `~427-509` (handle_coding_message)
 - Modify: `src/interfaces/discord/start.rs:81-135` (start_discord)
 - Modify: `src/daemon/run.rs:100-125` (boot)
 
@@ -455,7 +478,8 @@ impl Handler {
 
 **Step 2: Add `/stop` command handling in `handle_message()`**
 
-After the existing `/kill` command block (around line 309) and before the coding session check, add `/stop`:
+After the existing `/kill` command block (around line 309) and before the coding session
+check, add `/stop`:
 
 ```rust
 // Handle /stop command — gracefully stop a running tool loop
@@ -492,7 +516,8 @@ if content.eq_ignore_ascii_case("/stop") {
 
 **Step 3: Add steering routing in `handle_message()`**
 
-After resolving the session (around line 363, after `let session_id = ...`) and before the typing indicator, add:
+After resolving the session (around line 363, after `let session_id = ...`) and before
+the typing indicator, add:
 
 ```rust
 // If a tool loop is already running for this session, steer it
@@ -506,7 +531,8 @@ if let Some(tx) = self.active_sessions.get(&session_id) {
 
 **Step 4: Add steering routing in `handle_coding_message()`**
 
-Similarly, at the start of `handle_coding_message()`, after building `full_content` and the empty check, add:
+Similarly, at the start of `handle_coding_message()`, after building `full_content` and
+the empty check, add:
 
 ```rust
 // If a tool loop is already running for this coding session, steer it
@@ -520,7 +546,8 @@ if let Some(tx) = self.active_sessions.get(session_id) {
 
 **Step 5: Update `start_discord()` to pass `ActiveSessions`**
 
-In `src/interfaces/discord/start.rs`, update the function signature and handler creation:
+In `src/interfaces/discord/start.rs`, update the function signature and handler
+creation:
 
 ```rust
 pub async fn start_discord(
@@ -532,11 +559,13 @@ pub async fn start_discord(
 ```
 
 Add the import:
+
 ```rust
 use crate::chat::ActiveSessions;
 ```
 
 Update the handler construction:
+
 ```rust
 let handler = super::bot::Handler::new(
     session_chat,
@@ -574,8 +603,7 @@ let discord_result = discord::start_discord(
 
 **Step 7: Verify it compiles and tests pass**
 
-Run: `just ci`
-Expected: all green
+Run: `just ci` Expected: all green
 
 **Step 8: Commit**
 
@@ -589,11 +617,14 @@ git commit -m "feat: wire interrupts into Discord handler with /stop and steerin
 ### Task 6: Handle `ChatStopReason::Stopped` in Discord response
 
 **Files:**
-- Modify: `src/interfaces/discord/bot.rs` (inside `handle_message` and `handle_coding_message` match arms)
+
+- Modify: `src/interfaces/discord/bot.rs` (inside `handle_message` and
+  `handle_coding_message` match arms)
 
 **Step 1: Add Stopped feedback in `handle_message()`**
 
-In the `Ok((result, metadata))` arm of `handle_message()`, after the existing `MaxIterations` warning, add:
+In the `Ok((result, metadata))` arm of `handle_message()`, after the existing
+`MaxIterations` warning, add:
 
 ```rust
 if result.stop_reason == ChatStopReason::Stopped {
@@ -607,7 +638,8 @@ if result.stop_reason == ChatStopReason::Stopped {
 }
 ```
 
-The last assistant message (if any) is still sent via `send_assistant_v2` as usual — this just adds a confirmation.
+The last assistant message (if any) is still sent via `send_assistant_v2` as usual —
+this just adds a confirmation.
 
 **Step 2: Same in `handle_coding_message()`**
 
@@ -615,8 +647,7 @@ Same pattern in the coding handler's match arm.
 
 **Step 3: Verify it compiles and tests pass**
 
-Run: `just ci`
-Expected: all green
+Run: `just ci` Expected: all green
 
 **Step 4: Commit**
 
@@ -630,20 +661,23 @@ git commit -m "feat: show 'Stopped' feedback in Discord on graceful stop"
 ### Task 7: Handle `Stopped` in event handler (background agents)
 
 **Files:**
+
 - Modify: `src/daemon/event_handler.rs` — check if `Stopped` needs any special handling
 
 **Step 1: Read `src/daemon/event_handler.rs` and check how chat results are handled**
 
-The event handler calls `session_chat.chat()` for continuation turns. If that returns `Stopped`, it should just log it and not send a continuation — the OPERATOR already knows.
+The event handler calls `session_chat.chat()` for continuation turns. If that returns
+`Stopped`, it should just log it and not send a continuation — the OPERATOR already
+knows.
 
 **Step 2: Add Stopped handling if needed**
 
-If the event handler's chat result handling has a match on `stop_reason`, add `Stopped` to the appropriate arm. If it doesn't match on stop_reason, no change needed.
+If the event handler's chat result handling has a match on `stop_reason`, add `Stopped`
+to the appropriate arm. If it doesn't match on stop_reason, no change needed.
 
 **Step 3: Verify it compiles and tests pass**
 
-Run: `just ci`
-Expected: all green
+Run: `just ci` Expected: all green
 
 **Step 4: Commit (if changes were made)**
 
@@ -656,6 +690,7 @@ git commit -m "fix: handle Stopped reason in event handler"
 ### Task 8: Integration test
 
 **Files:**
+
 - Modify: existing test file or create a unit test in `src/chat/interrupt.rs`
 
 Read the `/testing` skill before writing tests.
@@ -700,8 +735,7 @@ mod tests {
 
 **Step 2: Run tests**
 
-Run: `cargo test -p ghost interrupt`
-Expected: all pass
+Run: `cargo test -p ghost interrupt` Expected: all pass
 
 **Step 3: Commit**
 
@@ -716,8 +750,7 @@ git commit -m "test: unit tests for interrupt channel"
 
 **Step 1: Run full CI**
 
-Run: `just ci`
-Expected: all green — format, check, clippy, tests
+Run: `just ci` Expected: all green — format, check, clippy, tests
 
 **Step 2: Review all changes**
 

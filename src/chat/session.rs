@@ -37,6 +37,7 @@ pub struct SessionChat {
     event_tx: Option<crate::events::SessionEventSender>,
     cwd_override: Option<std::path::PathBuf>,
     channel_id: Option<String>,
+    active_sessions: super::interrupt::ActiveSessions,
 }
 
 impl std::fmt::Debug for SessionChat {
@@ -76,6 +77,7 @@ impl SessionChat {
             event_tx: None,
             cwd_override: None,
             channel_id: None,
+            active_sessions: std::sync::Arc::new(dashmap::DashMap::new()),
         }
     }
 
@@ -115,6 +117,19 @@ impl SessionChat {
         self
     }
 
+    #[must_use]
+    pub fn with_active_sessions(
+        mut self,
+        active_sessions: super::interrupt::ActiveSessions,
+    ) -> Self {
+        self.active_sessions = active_sessions;
+        self
+    }
+
+    pub fn active_sessions(&self) -> &super::interrupt::ActiveSessions {
+        &self.active_sessions
+    }
+
     /// Return the effective compaction config (override if set, else global).
     pub(super) fn compaction_config(&self) -> &config::CompactionConfig {
         self.compaction_override
@@ -147,7 +162,10 @@ impl SessionChat {
             pending_todo_update: false,
         };
 
-        run_tool_loop(
+        let (int_tx, int_rx) = super::interrupt::channel();
+        self.active_sessions.insert(session_id.to_string(), int_tx);
+
+        let result = run_tool_loop(
             self,
             session_id,
             &model,
@@ -156,8 +174,12 @@ impl SessionChat {
             &mut handler,
             &mut history,
             event_tx,
+            Some(int_rx),
         )
-        .await
+        .await;
+
+        self.active_sessions.remove(session_id);
+        result
     }
 
     /// Chat in a coding session with a custom system prompt and working directory.
@@ -191,7 +213,10 @@ impl SessionChat {
             compaction: coding_compaction_config(self.compaction_config()),
         };
 
-        run_tool_loop(
+        let (int_tx, int_rx) = super::interrupt::channel();
+        self.active_sessions.insert(session_id.to_string(), int_tx);
+
+        let result = run_tool_loop(
             self,
             session_id,
             &model,
@@ -200,8 +225,12 @@ impl SessionChat {
             &mut handler,
             &mut history,
             event_tx,
+            Some(int_rx),
         )
-        .await
+        .await;
+
+        self.active_sessions.remove(session_id);
+        result
     }
 
     #[tracing::instrument(name = "reboot session", skip_all, fields(old_session_id = session_id))]
@@ -898,7 +927,10 @@ impl SessionChat {
             pending_todo_update: false,
         };
 
-        run_tool_loop(
+        let (int_tx, int_rx) = super::interrupt::channel();
+        self.active_sessions.insert(session_id.to_string(), int_tx);
+
+        let result = run_tool_loop(
             self,
             session_id,
             &model,
@@ -907,8 +939,12 @@ impl SessionChat {
             &mut handler,
             &mut history,
             event_tx,
+            Some(int_rx),
         )
-        .await
+        .await;
+
+        self.active_sessions.remove(session_id);
+        result
     }
 
     /// Resume a Lua-defined agent with pre-built history.
@@ -976,7 +1012,10 @@ impl SessionChat {
             pending_todo_update: false,
         };
 
-        run_tool_loop(
+        let (int_tx, int_rx) = super::interrupt::channel();
+        self.active_sessions.insert(session_id.to_string(), int_tx);
+
+        let result = run_tool_loop(
             self,
             session_id,
             &model,
@@ -985,7 +1024,11 @@ impl SessionChat {
             &mut handler,
             &mut history,
             event_tx,
+            Some(int_rx),
         )
-        .await
+        .await;
+
+        self.active_sessions.remove(session_id);
+        result
     }
 }
