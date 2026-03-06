@@ -20,18 +20,23 @@ impl Tool for WebFetch {
     fn schema(&self) -> ToolDefinition {
         ToolDefinition {
             name: self.name().to_string(),
-            description: "Fetch and extract the text content of a web page. Uses a \
-                          headless browser for JavaScript-rendered pages. Content is \
-                          automatically cached for later reference curation.\n\n\
-                          Options:\n\
-                          - wait_for: wait for a CSS selector (css:.content) or JS \
-                            condition (js:() => ...) before extracting. Use when \
-                            content loads dynamically.\n\
-                          - css_selector: restrict extraction to a specific DOM region \
-                            (e.g. 'article', 'main', '#content'). Reduces noise.\n\
-                          - scan_full_page: scroll the entire page to trigger \
-                            lazy-loaded content. Slower — only use for infinite-scroll \
-                            or long list pages."
+            description: "Fetch and extract the text content of a web page as markdown. \
+                          Uses a headless browser — works on JS-rendered SPAs, pages \
+                          that block bots, and dynamic content. Content is cached for \
+                          later reference curation.\n\n\
+                          Works well by default for most pages (articles, docs, forums, \
+                          product reviews, Stack Overflow, Wikipedia). Only use the \
+                          options below when the default extraction is insufficient:\n\n\
+                          - css_selector: focus extraction on a DOM region (e.g. \
+                            'article', '#main-content', '.post-body'). Use when output \
+                            has too much sidebar/menu noise.\n\
+                          - scan_full_page: scroll the entire page before extracting. \
+                            Use ONLY for infinite-scroll pages or long lists where \
+                            content near the bottom is missing. Adds 10-20s.\n\
+                          - wait_for: wait for a CSS selector (css:.loaded) or JS \
+                            condition (js:() => document.querySelector('.data')) \
+                            before extracting. Use when content loads after an async \
+                            fetch or animation."
                 .to_string(),
             input_schema: json!({
                 "type": "object",
@@ -40,17 +45,17 @@ impl Tool for WebFetch {
                         "type": "string",
                         "description": "The URL to fetch."
                     },
-                    "wait_for": {
-                        "type": "string",
-                        "description": "CSS selector (css:<sel>) or JS condition (js:<code>) to wait for before extraction."
-                    },
                     "css_selector": {
                         "type": "string",
-                        "description": "CSS selector to focus extraction on (e.g. 'article', '#main-content')."
+                        "description": "CSS selector to focus extraction on a specific region (e.g. 'article', '#main-content', '.post-body'). Reduces noise from sidebars and menus."
                     },
                     "scan_full_page": {
                         "type": "boolean",
-                        "description": "Scroll full page for lazy-loaded content. Default: false."
+                        "description": "Scroll the entire page to trigger lazy-loaded content. Adds 10-20s. Only use for infinite-scroll pages or long lists where bottom content is missing. Default: false."
+                    },
+                    "wait_for": {
+                        "type": "string",
+                        "description": "Wait condition before extracting: CSS selector (css:.loaded) or JS expression (js:() => document.querySelector('.data')). Use when content loads asynchronously after page load."
                     }
                 },
                 "required": ["url"]

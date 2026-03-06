@@ -166,6 +166,136 @@ async fn crawl4ai_css_selector() {
     );
 }
 
+/// AuroraTech — huge page with graphs and charts, should find specific
+/// products deep in the page.
+#[tokio::test]
+async fn crawl4ai_auroratech() {
+    let url = "https://auroratechchannel.com/";
+    eprintln!("\n=== AuroraTech ===");
+
+    let md = fetch_with_crawl4ai(&crawl4ai_url(), url, &Crawl4aiOptions::default())
+        .await
+        .expect("crawl4ai fetch");
+    let words = md.split_whitespace().count();
+    save("auroratech", url, "crawl4ai", words, &md);
+    eprintln!("  {words} words");
+
+    assert!(
+        words > 500,
+        "should extract substantial content (got {words} words)"
+    );
+    assert!(
+        md.to_lowercase().contains("elegoo centauri carbon"),
+        "should find 'Elegoo Centauri Carbon' in the page"
+    );
+}
+
+/// MyBest — very long Japanese page with lots of JS and JSON data.
+#[tokio::test]
+async fn crawl4ai_mybest() {
+    let url = "https://my-best.com/306";
+    eprintln!("\n=== MyBest ===");
+
+    let md = fetch_with_crawl4ai(&crawl4ai_url(), url, &Crawl4aiOptions::default())
+        .await
+        .expect("crawl4ai fetch");
+    let words = md.split_whitespace().count();
+    save("mybest", url, "crawl4ai", words, &md);
+    eprintln!("  {words} words");
+
+    assert!(
+        words > 1000,
+        "should extract substantial JS-heavy content (got {words} words)"
+    );
+}
+
+/// Stack Overflow answer — the most common research target.
+#[tokio::test]
+async fn crawl4ai_stackoverflow() {
+    let url =
+        "https://stackoverflow.com/questions/927358/how-do-i-undo-the-most-recent-local-commits-in-git";
+    eprintln!("\n=== Stack Overflow ===");
+
+    let md = fetch_with_crawl4ai(&crawl4ai_url(), url, &Crawl4aiOptions::default())
+        .await
+        .expect("crawl4ai fetch");
+    let words = md.split_whitespace().count();
+    save("stackoverflow", url, "crawl4ai", words, &md);
+    eprintln!("  {words} words");
+
+    assert!(
+        words > 500,
+        "should extract Q&A content (got {words} words)"
+    );
+    assert!(
+        md.to_lowercase().contains("git reset"),
+        "should contain 'git reset' in the answer"
+    );
+}
+
+/// React docs — client-rendered SPA, validates JS framework doc extraction.
+#[tokio::test]
+async fn crawl4ai_react_docs() {
+    let url = "https://react.dev/learn";
+    eprintln!("\n=== React Docs (SPA) ===");
+
+    let md = fetch_with_crawl4ai(&crawl4ai_url(), url, &Crawl4aiOptions::default())
+        .await
+        .expect("crawl4ai fetch");
+    let words = md.split_whitespace().count();
+    save("react_docs", url, "crawl4ai", words, &md);
+    eprintln!("  {words} words");
+
+    assert!(
+        words > 500,
+        "should extract docs content (got {words} words)"
+    );
+}
+
+/// ArXiv abstract — academic paper metadata extraction.
+#[tokio::test]
+async fn crawl4ai_arxiv() {
+    let url = "https://arxiv.org/abs/2401.10020";
+    eprintln!("\n=== ArXiv Paper ===");
+
+    let md = fetch_with_crawl4ai(&crawl4ai_url(), url, &Crawl4aiOptions::default())
+        .await
+        .expect("crawl4ai fetch");
+    let words = md.split_whitespace().count();
+    save("arxiv", url, "crawl4ai", words, &md);
+    eprintln!("  {words} words");
+
+    assert!(words > 100, "should extract abstract (got {words} words)");
+    assert!(
+        md.to_lowercase().contains("abstract"),
+        "should contain the abstract section"
+    );
+}
+
+/// GSMarena comparison — structured data tables.
+#[tokio::test]
+async fn crawl4ai_gsmarena_comparison() {
+    let url = "https://www.gsmarena.com/compare.php3?idPhone1=12082&idPhone2=11861";
+    eprintln!("\n=== GSMarena Comparison ===");
+
+    let md = fetch_with_crawl4ai(&crawl4ai_url(), url, &Crawl4aiOptions::default())
+        .await
+        .expect("crawl4ai fetch");
+    let words = md.split_whitespace().count();
+    save("gsmarena", url, "crawl4ai", words, &md);
+    eprintln!("  {words} words");
+
+    assert!(
+        words > 200,
+        "should extract comparison data (got {words} words)"
+    );
+    let lower = md.to_lowercase();
+    assert!(
+        lower.contains("samsung") || lower.contains("galaxy") || lower.contains("apple") || lower.contains("iphone"),
+        "should contain phone brand names"
+    );
+}
+
 // ---------------------------------------------------------------------------
 // Integration: fetch() with HEAD routing + crawl4ai primary path
 // ---------------------------------------------------------------------------
