@@ -274,7 +274,11 @@ pub(super) async fn run_tool_loop(
                         let input = t.get("input").unwrap_or(&Value::Null);
                         Some(ToolCallInfo {
                             name: name.to_string(),
-                            args_summary: summarize_tool_args(input),
+                            args_summary: summarize_tool_args(
+                                name,
+                                input,
+                                &session_chat.config().workspace,
+                            ),
                         })
                     })
                     .collect();
@@ -455,7 +459,7 @@ const ARG_VALUE_MAX: usize = 60;
 const ARGS_SUMMARY_MAX: usize = 120;
 
 /// Produce a short human-readable summary of tool call arguments.
-fn summarize_tool_args(input: &Value) -> String {
+fn summarize_tool_args(tool_name: &str, input: &Value, workspace: &std::path::Path) -> String {
     let Some(obj) = input.as_object() else {
         return String::new();
     };
@@ -467,6 +471,9 @@ fn summarize_tool_args(input: &Value) -> String {
     let mut total = 0usize;
 
     for (key, val) in obj {
+        if is_default_arg(tool_name, key, val, workspace) {
+            continue;
+        }
         let val_str = match val {
             Value::String(s) => truncate_str(s, ARG_VALUE_MAX),
             Value::Null => "null".to_string(),
@@ -487,6 +494,22 @@ fn summarize_tool_args(input: &Value) -> String {
 
     let result = parts.join(", ");
     truncate_str(&result, ARGS_SUMMARY_MAX)
+}
+
+/// Returns true if the argument matches a known default value for the tool.
+fn is_default_arg(tool_name: &str, key: &str, val: &Value, workspace: &std::path::Path) -> bool {
+    match (tool_name, key) {
+        ("run_shell_command", "background") => val == &Value::Bool(false),
+        ("run_shell_command", "timeout_ms") => val.as_u64() == Some(30_000),
+        ("run_shell_command", "directory") => {
+            val.as_str().is_some_and(|s| {
+                matches!(s, "" | ".") || std::path::Path::new(s) == workspace
+            })
+        }
+        ("web_fetch", "scroll") => val == &Value::Bool(false),
+        ("knowledge_search", "limit") => val.as_u64() == Some(10),
+        _ => false,
+    }
 }
 
 fn truncate_str(s: &str, max: usize) -> String {
