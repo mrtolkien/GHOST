@@ -3,7 +3,7 @@
 use std::fs;
 use std::path::PathBuf;
 
-use ghost::web::{FetchOptions, fetch, fetch_with_crawl4ai};
+use ghost::web::{Crawl4aiOptions, FetchOptions, fetch, fetch_with_crawl4ai};
 
 const OUT_DIR: &str = "/tmp/ghost-web-fetch-test";
 
@@ -54,7 +54,7 @@ async fn compare_all3dp_article() {
         &reqwest_result.text,
     );
 
-    let c4ai_md = fetch_with_crawl4ai(&crawl4ai_url(), url)
+    let c4ai_md = fetch_with_crawl4ai(&crawl4ai_url(), url, &Crawl4aiOptions::default())
         .await
         .expect("crawl4ai fetch");
     let c4ai_words = c4ai_md.split_whitespace().count();
@@ -98,7 +98,7 @@ async fn compare_all3dp_enclosed_list() {
         &reqwest_result.text,
     );
 
-    let c4ai_md = fetch_with_crawl4ai(&crawl4ai_url(), url)
+    let c4ai_md = fetch_with_crawl4ai(&crawl4ai_url(), url, &Crawl4aiOptions::default())
         .await
         .expect("crawl4ai fetch");
     let c4ai_words = c4ai_md.split_whitespace().count();
@@ -134,7 +134,7 @@ async fn compare_reddit_thread() {
         &reqwest_result.text,
     );
 
-    let c4ai_md = fetch_with_crawl4ai(&crawl4ai_url(), url)
+    let c4ai_md = fetch_with_crawl4ai(&crawl4ai_url(), url, &Crawl4aiOptions::default())
         .await
         .expect("crawl4ai fetch");
     let c4ai_words = c4ai_md.split_whitespace().count();
@@ -170,7 +170,7 @@ async fn compare_toms_hardware() {
         &reqwest_result.text,
     );
 
-    let c4ai_md = fetch_with_crawl4ai(&crawl4ai_url(), url)
+    let c4ai_md = fetch_with_crawl4ai(&crawl4ai_url(), url, &Crawl4aiOptions::default())
         .await
         .expect("crawl4ai fetch");
     let c4ai_words = c4ai_md.split_whitespace().count();
@@ -205,7 +205,7 @@ async fn compare_pcmag() {
         Err(e) => eprintln!("  reqwest: FAILED — {e}"),
     }
 
-    let c4ai_md = fetch_with_crawl4ai(&crawl4ai_url(), url)
+    let c4ai_md = fetch_with_crawl4ai(&crawl4ai_url(), url, &Crawl4aiOptions::default())
         .await
         .expect("crawl4ai should handle PCMag");
     let c4ai_words = c4ai_md.split_whitespace().count();
@@ -319,6 +319,171 @@ async fn fetch_with_fallback_pcmag() {
     assert!(
         result.word_count > 500,
         "PCMag via fallback should have substantial content (got {} words)",
+        result.word_count
+    );
+}
+
+// ---------------------------------------------------------------------------
+// New tests: crawl4ai as primary path, HEAD routing, agent options
+// ---------------------------------------------------------------------------
+
+/// Wikipedia should be fast with the new defaults (no full-page scroll).
+#[tokio::test]
+async fn crawl4ai_wikipedia_fast() {
+    let url = "https://en.wikipedia.org/wiki/3D_printing";
+    eprintln!("\n=== Wikipedia Speed Baseline ===");
+
+    let start = std::time::Instant::now();
+    let result = fetch(url, &FetchOptions::default(), Some(&crawl4ai_url()))
+        .await
+        .expect("fetch should succeed");
+
+    let elapsed = start.elapsed();
+    save(
+        "wikipedia",
+        url,
+        "crawl4ai_primary",
+        result.word_count,
+        &result.text,
+    );
+    eprintln!(
+        "  {} words in {:.1}s",
+        result.word_count,
+        elapsed.as_secs_f64()
+    );
+
+    assert!(
+        result.word_count > 1000,
+        "Wikipedia article should have substance (got {} words)",
+        result.word_count
+    );
+    assert!(
+        elapsed.as_secs() < 30,
+        "Wikipedia fetch should complete in < 30s (took {:.1}s)",
+        elapsed.as_secs_f64()
+    );
+}
+
+/// All3DP big list — needs scan_full_page to reach items near the bottom.
+#[tokio::test]
+async fn crawl4ai_all3dp_full_list() {
+    let url = "https://all3dp.com/1/best-3d-printer-reviews-top-3d-printers-home-3-d-printer-3d/";
+    eprintln!("\n=== All3DP Full List (scan_full_page) ===");
+
+    let result = fetch(
+        url,
+        &FetchOptions {
+            scan_full_page: true,
+            ..Default::default()
+        },
+        Some(&crawl4ai_url()),
+    )
+    .await
+    .expect("fetch should succeed");
+
+    save(
+        "all3dp_full_list",
+        url,
+        "crawl4ai_scroll",
+        result.word_count,
+        &result.text,
+    );
+    eprintln!("  {} words", result.word_count);
+
+    let text_lower = result.text.to_lowercase();
+    assert!(
+        text_lower.contains("anycubic photon mono m7 max") || text_lower.contains("photon mono m7"),
+        "Should find Anycubic Photon Mono M7 Max deep in the page"
+    );
+}
+
+/// GitHub issue — JS-rendered, reqwest alone gets a shell.
+#[tokio::test]
+async fn crawl4ai_github_issue() {
+    let url = "https://github.com/rust-lang/rust/issues/34511";
+    eprintln!("\n=== GitHub Issue (JS-rendered) ===");
+
+    let result = fetch(url, &FetchOptions::default(), Some(&crawl4ai_url()))
+        .await
+        .expect("fetch should succeed");
+
+    save(
+        "github_issue",
+        url,
+        "crawl4ai_primary",
+        result.word_count,
+        &result.text,
+    );
+    eprintln!("  {} words", result.word_count);
+
+    assert!(
+        result.text.contains("Are we async yet"),
+        "Should contain the issue title"
+    );
+}
+
+/// CSS selector should focus extraction and produce less noise.
+#[tokio::test]
+async fn crawl4ai_css_selector() {
+    let url = "https://en.wikipedia.org/wiki/3D_printing";
+    eprintln!("\n=== CSS Selector Focus ===");
+
+    let full = fetch_with_crawl4ai(&crawl4ai_url(), url, &Crawl4aiOptions::default())
+        .await
+        .expect("full fetch");
+    let full_words = full.split_whitespace().count();
+
+    let focused = fetch_with_crawl4ai(
+        &crawl4ai_url(),
+        url,
+        &Crawl4aiOptions {
+            css_selector: Some("#mw-content-text".into()),
+            ..Default::default()
+        },
+    )
+    .await
+    .expect("focused fetch");
+    let focused_words = focused.split_whitespace().count();
+
+    save("wikipedia_full", url, "crawl4ai_full", full_words, &full);
+    save(
+        "wikipedia_focused",
+        url,
+        "crawl4ai_selector",
+        focused_words,
+        &focused,
+    );
+    eprintln!("  full: {full_words} words, focused: {focused_words} words");
+
+    assert!(
+        focused_words > 500,
+        "focused should still have substance (got {focused_words} words)"
+    );
+}
+
+/// When crawl4ai is unavailable, fetch() falls back to local extraction.
+#[tokio::test]
+async fn crawl4ai_fallback_to_local() {
+    let url = "https://en.wikipedia.org/wiki/3D_printing";
+    let bad_url = "http://localhost:1";
+    eprintln!("\n=== Fallback to Local Extraction ===");
+
+    let result = fetch(url, &FetchOptions::default(), Some(bad_url))
+        .await
+        .expect("should fall back to local extraction");
+
+    save(
+        "wikipedia_fallback",
+        url,
+        "local_fallback",
+        result.word_count,
+        &result.text,
+    );
+    eprintln!("  {} words (local extraction)", result.word_count);
+
+    assert!(
+        result.word_count > 500,
+        "local fallback should produce content (got {} words)",
         result.word_count
     );
 }
