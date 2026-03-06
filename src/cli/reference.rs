@@ -176,8 +176,19 @@ async fn cmd_import(
     );
 
     if result.references_created > 0 {
+        // Show where the references live on disk
+        let ref_dir = format!("references/{topic}/");
+        match source {
+            "page" | "file" => {
+                println!("Reference saved to: {ref_dir}");
+            }
+            _ => {
+                println!("References saved to: {ref_dir}");
+            }
+        }
+        println!("Embeddings are being computed in the background by the file watcher.");
         println!(
-            "\n  WARNING: A skeleton index note exists at notes/{topic}/index.md\n  \
+            "\n  NOTE: A skeleton index note exists at notes/{topic}/index.md\n  \
              It may only contain a placeholder description.\n  \
              Edit it with a real description of what this library/topic is about —\n  \
              semantic search relies on this to discover the topic."

@@ -146,10 +146,19 @@ pub async fn create_reference(
     import_batch_id: Option<&str>,
 ) -> Result<String, DatabaseError> {
     let id = new_id();
+    let ts = now();
 
-    sqlx::query(
+    // Upsert: if a reference with the same (topic_id, path) already exists,
+    // update its content in place. This handles re-imports gracefully — e.g.
+    // when a long-running PDF import is retried after a timeout.
+    let row = sqlx::query_as::<_, (String,)>(
         "INSERT INTO reference (id, topic_id, path, content, source_url, import_batch_id, created_at) \
-         VALUES (?, ?, ?, ?, ?, ?, ?)",
+         VALUES (?, ?, ?, ?, ?, ?, ?) \
+         ON CONFLICT(topic_id, path) DO UPDATE SET \
+           content = excluded.content, \
+           source_url = excluded.source_url, \
+           import_batch_id = excluded.import_batch_id \
+         RETURNING id",
     )
     .bind(&id)
     .bind(topic_id)
@@ -157,8 +166,8 @@ pub async fn create_reference(
     .bind(content)
     .bind(source_url)
     .bind(import_batch_id)
-    .bind(now())
-    .execute(db)
+    .bind(&ts)
+    .fetch_one(db)
     .await
     .map_err(|source| DatabaseError::Query {
         table: "reference",
@@ -166,7 +175,7 @@ pub async fn create_reference(
         source,
     })?;
 
-    Ok(id)
+    Ok(row.0)
 }
 
 // --- Read ---
