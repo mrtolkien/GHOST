@@ -14,8 +14,9 @@ pub use crud::{
     list_references_by_topic, list_references_page, update_note, update_reference_path,
 };
 pub use graph::{
-    create_cited_edge, create_edge, delete_outgoing_edges, incoming_cited, incoming_edges,
-    orphan_notes, outgoing_edges, related_note_ids,
+    backfill_message_source_references, create_cited_edge, create_edge, create_message_source,
+    delete_outgoing_edges, incoming_cited, incoming_edges, orphan_notes, outgoing_edges,
+    related_note_ids,
 };
 pub use import_batch::{
     delete_import_batch, get_import_batch_by_topic, list_import_batches, upsert_import_batch,

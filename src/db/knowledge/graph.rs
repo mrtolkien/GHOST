@@ -145,6 +145,58 @@ pub async fn delete_outgoing_edges(db: &SqlitePool, note_id: &str) -> Result<(),
 }
 
 #[tracing::instrument(skip_all, level = "debug")]
+#[tracing::instrument(skip_all, level = "debug", fields(message_id = %message_id, url = %url))]
+pub async fn create_message_source(
+    db: &SqlitePool,
+    message_id: &str,
+    url: &str,
+    title: Option<&str>,
+) -> Result<String, DatabaseError> {
+    let id = new_id();
+    sqlx::query(
+        "INSERT INTO message_source (id, message_id, url, title, created_at) \
+         VALUES (?, ?, ?, ?, ?)",
+    )
+    .bind(&id)
+    .bind(message_id)
+    .bind(url)
+    .bind(title)
+    .bind(now())
+    .execute(db)
+    .await
+    .map_err(|source| DatabaseError::Query {
+        table: "message_source",
+        operation: "create_message_source",
+        source,
+    })?;
+    Ok(id)
+}
+
+/// Backfill `reference_id` on message_source rows that match the given URL.
+/// Called during reflection/curation after reference records are created.
+#[tracing::instrument(skip_all, level = "debug", fields(url = %url, reference_id = %reference_id))]
+pub async fn backfill_message_source_references(
+    db: &SqlitePool,
+    url: &str,
+    reference_id: &str,
+) -> Result<u64, DatabaseError> {
+    let result = sqlx::query(
+        "UPDATE message_source SET reference_id = ? \
+         WHERE url = ? AND reference_id IS NULL",
+    )
+    .bind(reference_id)
+    .bind(url)
+    .execute(db)
+    .await
+    .map_err(|source| DatabaseError::Query {
+        table: "message_source",
+        operation: "backfill_message_source_references",
+        source,
+    })?;
+    Ok(result.rows_affected())
+}
+
+#[tracing::instrument(skip_all, level = "debug")]
 pub async fn orphan_notes(db: &SqlitePool) -> Result<Vec<NoteRecord>, DatabaseError> {
     sqlx::query_as::<_, NoteRecord>(
         "SELECT * FROM note \
