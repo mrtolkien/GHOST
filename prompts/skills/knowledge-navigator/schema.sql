@@ -80,6 +80,14 @@ CREATE TABLE message (
     raw_output TEXT,   -- JSON array
     created_at TEXT NOT NULL
 );
+CREATE TABLE message_source (
+    id TEXT PRIMARY KEY NOT NULL,
+    message_id TEXT NOT NULL REFERENCES message(id) ON DELETE CASCADE,
+    reference_id TEXT REFERENCES reference(id) ON DELETE SET NULL,
+    url TEXT NOT NULL,
+    title TEXT,
+    created_at TEXT NOT NULL
+);
 CREATE TABLE note (
     id TEXT PRIMARY KEY NOT NULL,
     title TEXT NOT NULL UNIQUE,
@@ -140,3 +148,6 @@ CREATE INDEX idx_coding_sessions_channel ON coding_sessions(channel_id)
     WHERE status = 'active';
 CREATE INDEX idx_coding_sessions_status ON coding_sessions(status);
 CREATE INDEX idx_message_session ON message(session_id, created_at);
+CREATE INDEX idx_message_source_message ON message_source(message_id);
+CREATE INDEX idx_message_source_reference ON message_source(reference_id);
+CREATE INDEX idx_message_source_url ON message_source(url);

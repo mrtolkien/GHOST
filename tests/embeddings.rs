@@ -709,7 +709,14 @@ async fn replace_embeddings_atomically_swaps_all_chunks() {
     let old_vec = vec![0.1_f32; 1024];
     for i in 0..2 {
         db::embeddings::upsert_embedding(
-            &db, "note", &note_id, i, &format!("old chunk {i}"), "old_hash", &old_vec, None,
+            &db,
+            "note",
+            &note_id,
+            i,
+            &format!("old chunk {i}"),
+            "old_hash",
+            &old_vec,
+            None,
         )
         .await
         .unwrap();
@@ -722,17 +729,17 @@ async fn replace_embeddings_atomically_swaps_all_chunks() {
         .map(|i| (i, format!("new chunk {i}"), new_vec.clone()))
         .collect();
 
-    db::embeddings::replace_embeddings_for_source(
-        &db, "note", &note_id, &chunks, "new_hash", None,
-    )
-    .await
-    .expect("replace");
+    db::embeddings::replace_embeddings_for_source(&db, "note", &note_id, &chunks, "new_hash", None)
+        .await
+        .expect("replace");
 
     // Should have exactly 3 chunks now
     assert_eq!(db::embeddings::count_embeddings(&db).await.unwrap(), 3);
 
     // Hash should be the new one
-    let hash = db::embeddings::get_content_hash(&db, &note_id).await.unwrap();
+    let hash = db::embeddings::get_content_hash(&db, &note_id)
+        .await
+        .unwrap();
     assert_eq!(hash.as_deref(), Some("new_hash"));
 }
 

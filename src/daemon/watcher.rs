@@ -473,10 +473,7 @@ pub fn spawn_reconciliation_loop(
                     }
                 }
                 Err(e) => {
-                    logfire::warn!(
-                        "periodic reconciliation failed",
-                        error = e.to_string(),
-                    );
+                    logfire::warn!("periodic reconciliation failed", error = e.to_string(),);
                 }
             }
         }

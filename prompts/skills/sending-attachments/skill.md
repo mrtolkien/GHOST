@@ -1,14 +1,14 @@
 ---
 name: sending-attachments
 description:
-  Use when you need to send an image, generated file, CSV, or any
-  attachment to the OPERATOR.
+  Use when you need to send an image, generated file, CSV, or any attachment to the
+  OPERATOR.
 ---
 
 # Sending Attachments
 
-Send files to the OPERATOR. Session and channel are detected automatically
-from environment — no IDs needed.
+Send files to the OPERATOR. Session and channel are detected automatically from
+environment — no IDs needed.
 
 ## Commands
 

@@ -120,11 +120,16 @@ impl Tool for RunShellCommand {
             let workspace_owned = ctx.workspace.clone();
 
             tokio::spawn(async move {
-                let child = shell_command(&command_owned, &workspace_owned, channel_id.as_deref(), Some(&session_id))
-                    .current_dir(&work_dir_owned)
-                    .stdout(std::process::Stdio::piped())
-                    .stderr(std::process::Stdio::piped())
-                    .spawn();
+                let child = shell_command(
+                    &command_owned,
+                    &workspace_owned,
+                    channel_id.as_deref(),
+                    Some(&session_id),
+                )
+                .current_dir(&work_dir_owned)
+                .stdout(std::process::Stdio::piped())
+                .stderr(std::process::Stdio::piped())
+                .spawn();
 
                 let output_text = match child {
                     Ok(child) => match child.wait_with_output().await {
@@ -173,12 +178,17 @@ impl Tool for RunShellCommand {
 
         let timeout = std::time::Duration::from_millis(timeout_ms);
 
-        let child = shell_command(command, &ctx.workspace, ctx.channel_id.as_deref(), Some(&ctx.session_id))
-            .current_dir(&work_dir)
-            .stdout(std::process::Stdio::piped())
-            .stderr(std::process::Stdio::piped())
-            .spawn()
-            .map_err(|e| ToolError::ExecutionFailed(format!("failed to spawn shell: {e}")))?;
+        let child = shell_command(
+            command,
+            &ctx.workspace,
+            ctx.channel_id.as_deref(),
+            Some(&ctx.session_id),
+        )
+        .current_dir(&work_dir)
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .map_err(|e| ToolError::ExecutionFailed(format!("failed to spawn shell: {e}")))?;
 
         let output = match tokio::time::timeout(timeout, child.wait_with_output()).await {
             Ok(Ok(output)) => output,
@@ -207,7 +217,12 @@ pub fn spawn_flake_warmup(workspace: std::path::PathBuf) {
     tokio::spawn(async move {
         tracing::info!("warming up nix flake");
         let result = tokio::process::Command::new("nix")
-            .args(["develop", shell_dir.to_str().unwrap_or("."), "--command", "true"])
+            .args([
+                "develop",
+                shell_dir.to_str().unwrap_or("."),
+                "--command",
+                "true",
+            ])
             .stdout(std::process::Stdio::null())
             .stderr(std::process::Stdio::piped())
             .output()

@@ -7,7 +7,11 @@ use serenity::model::id::ChannelId;
 use crate::error::GhostError;
 
 /// Send a file (image or generic) to the OPERATOR via Discord.
-async fn send_file(path: &std::path::Path, caption: Option<&str>, is_image: bool) -> Result<(), GhostError> {
+async fn send_file(
+    path: &std::path::Path,
+    caption: Option<&str>,
+    is_image: bool,
+) -> Result<(), GhostError> {
     let channel_id: u64 = std::env::var("GHOST_CHANNEL_ID")
         .map_err(|_| {
             std::io::Error::new(
@@ -34,10 +38,7 @@ async fn send_file(path: &std::path::Path, caption: Option<&str>, is_image: bool
     }
 
     let file_data = std::fs::read(path)?;
-    let filename = path
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or("file");
+    let filename = path.file_name().and_then(|n| n.to_str()).unwrap_or("file");
 
     // Send via Discord
     let token = std::env::var("DISCORD_BOT_TOKEN").map_err(|_| {
@@ -56,7 +57,7 @@ async fn send_file(path: &std::path::Path, caption: Option<&str>, is_image: bool
     channel
         .send_message(&http, message)
         .await
-        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+        .map_err(|e| std::io::Error::other(e.to_string()))?;
 
     // Record in session history (best-effort)
     if let Some(ref sid) = session_id {
@@ -65,9 +66,7 @@ async fn send_file(path: &std::path::Path, caption: Option<&str>, is_image: bool
             if let Ok(db) = crate::db::connect(&config.workspace, config.embeddings.dimension).await
             {
                 let kind = if is_image { "image" } else { "file" };
-                let cap_suffix = caption
-                    .map(|c| format!(" — {c}"))
-                    .unwrap_or_default();
+                let cap_suffix = caption.map(|c| format!(" — {c}")).unwrap_or_default();
                 let msg = format!("[sent {kind}: {filename}{cap_suffix}]");
                 let _ = crate::db::sessions::create_message(&db, sid, "system", &msg).await;
             }

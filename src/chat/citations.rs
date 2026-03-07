@@ -68,10 +68,7 @@ mod tests {
         let citations = extract_citations(text);
         assert_eq!(citations.len(), 2);
         assert_eq!(citations[0].url, "https://tomshardware.com/reviews/test");
-        assert_eq!(
-            citations[0].title.as_deref(),
-            Some("Tom's Hardware Review")
-        );
+        assert_eq!(citations[0].title.as_deref(), Some("Tom's Hardware Review"));
         assert_eq!(citations[1].url, "https://all3dp.com/guide");
     }
 

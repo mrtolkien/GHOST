@@ -72,9 +72,9 @@ Preserve the OPERATOR's creative intent in both cases.
 - **Generation**: "Create an image of: <subject>. Style: <style>. Composition:
   <camera/shot>. Lighting: <lighting>. Background: <background>. Color palette:
   <palette>. Avoid: <list>."
-- **Editing** (preserve everything else): "Change ONLY: <single change>. Keep
-  identical: subject, composition/crop, pose, lighting, color palette, background,
-  text, and overall style. Do not add new objects."
+- **Editing** (preserve everything else): "Change ONLY: <single change>. Keep identical:
+  subject, composition/crop, pose, lighting, color palette, background, text, and
+  overall style. Do not add new objects."
 
 ## Common Failures
 
