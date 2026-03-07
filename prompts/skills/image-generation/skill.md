@@ -15,38 +15,17 @@ Run the bundled script via `run_shell_command`. Images are saved to `$WORKSPACE/
 
 **Generate new image:**
 
-```
-run_shell_command command="uv run $WORKSPACE/skills/image-generation/scripts/generate_image.py --prompt 'your image description' --filename '$WORKSPACE/tmp/yyyy-mm-dd-hh-mm-ss-name.png'"
+```sh
+uv run $WORKSPACE/skills/image-generation/scripts/generate_image.py --prompt 'your image description' --filename '$WORKSPACE/tmp/yyyy-mm-dd-hh-mm-ss-name.png'
 ```
 
 **Edit existing image:**
 
-```
-run_shell_command command="uv run $WORKSPACE/skills/image-generation/scripts/generate_image.py --prompt 'editing instructions' --filename '$WORKSPACE/tmp/yyyy-mm-dd-hh-mm-ss-name.png' --input-image 'path/to/input.png'"
+```sh
+uv run $WORKSPACE/skills/image-generation/scripts/generate_image.py --prompt 'editing instructions' --filename '$WORKSPACE/tmp/yyyy-mm-dd-hh-mm-ss-name.png' --input-image 'path/to/input.png'
 ```
 
 **Resolution option:** Append `--resolution 1K|2K|4K` (default: 1K).
-
-## Workflow (draft -> iterate -> final)
-
-Fast iteration without burning time on 4K until the prompt is correct.
-
-1. **Draft (1K)**: quick feedback loop — generate at default resolution
-2. **Iterate**: adjust prompt in small diffs; use a new filename per run. If editing,
-   keep the same `--input-image` for every iteration until happy.
-3. **Final (4K)**: only when prompt is locked — add `--resolution 4K`
-
-## Resolution Mapping
-
-- No mention of resolution -> `1K`
-- "low resolution", "1080", "1080p", "1K" -> `1K`
-- "2K", "2048", "normal", "medium resolution" -> `2K`
-- "high resolution", "high-res", "hi-res", "4K", "ultra" -> `4K`
-
-## API Key
-
-The script reads `GEMINI_API_KEY` from the environment (set in `.env`). If missing, it
-exits with an error.
 
 ## Filename Convention
 
