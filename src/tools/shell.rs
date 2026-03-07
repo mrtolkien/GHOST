@@ -21,6 +21,7 @@ fn shell_command(
     command: &str,
     workspace: &std::path::Path,
     channel_id: Option<&str>,
+    session_id: Option<&str>,
 ) -> tokio::process::Command {
     let shell_dir = workspace.join("shell");
     let mut cmd = if shell_dir.join("flake.nix").exists() {
@@ -41,6 +42,9 @@ fn shell_command(
     };
     if let Some(id) = channel_id {
         cmd.env("GHOST_CHANNEL_ID", id);
+    }
+    if let Some(id) = session_id {
+        cmd.env("GHOST_SESSION_ID", id);
     }
     cmd
 }
@@ -116,7 +120,7 @@ impl Tool for RunShellCommand {
             let workspace_owned = ctx.workspace.clone();
 
             tokio::spawn(async move {
-                let child = shell_command(&command_owned, &workspace_owned, channel_id.as_deref())
+                let child = shell_command(&command_owned, &workspace_owned, channel_id.as_deref(), Some(&session_id))
                     .current_dir(&work_dir_owned)
                     .stdout(std::process::Stdio::piped())
                     .stderr(std::process::Stdio::piped())
@@ -169,7 +173,7 @@ impl Tool for RunShellCommand {
 
         let timeout = std::time::Duration::from_millis(timeout_ms);
 
-        let child = shell_command(command, &ctx.workspace, ctx.channel_id.as_deref())
+        let child = shell_command(command, &ctx.workspace, ctx.channel_id.as_deref(), Some(&ctx.session_id))
             .current_dir(&work_dir)
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())
