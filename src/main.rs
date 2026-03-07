@@ -55,6 +55,22 @@ enum Commands {
         #[command(subcommand)]
         command: ghost::cli::web::WebCommand,
     },
+    /// Send an image to the OPERATOR
+    SendImage {
+        /// Path to the image file
+        path: std::path::PathBuf,
+        /// Optional caption
+        #[arg(long)]
+        caption: Option<String>,
+    },
+    /// Send a file attachment to the OPERATOR
+    Attach {
+        /// Path to the file
+        path: std::path::PathBuf,
+        /// Optional caption
+        #[arg(long)]
+        caption: Option<String>,
+    },
     Version,
 }
 
@@ -82,6 +98,10 @@ async fn dispatch(command: Commands) -> Result<(), GhostError> {
         Commands::Reference { command } => ghost::cli::reference::execute(command).await,
         Commands::Topics { command } => ghost::cli::topics::execute(command).await,
         Commands::Web { command } => ghost::cli::web::execute(command).await,
+        Commands::SendImage { path, caption } => {
+            ghost::cli::send::execute_send_image(path, caption).await
+        }
+        Commands::Attach { path, caption } => ghost::cli::send::execute_attach(path, caption).await,
         Commands::Version => {
             println!("{}", env!("CARGO_PKG_VERSION"));
             Ok(())
