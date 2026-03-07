@@ -304,6 +304,17 @@ pub async fn link_cited_edges(
             }
         };
 
+        // Backfill message_source rows that cited this URL
+        if let Err(e) =
+            db::knowledge::backfill_message_source_references(db, &file.url, &ref_record.id).await
+        {
+            logfire::warn!(
+                "link_cited_edges: failed to backfill message_source",
+                url = file.url.clone(),
+                error = e.to_string(),
+            );
+        }
+
         // Find notes that cite this URL (via frontmatter sources field)
         for (note_title, source_urls) in &note_urls {
             let cites = source_urls
