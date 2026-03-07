@@ -22,9 +22,55 @@ pub struct MarkdownAttachment {
     pub data: Vec<u8>,
 }
 
+/// Clean up a trailing Sources/References section for compact display.
+///
+/// Detects `## Sources`, `## References`, `**Sources**`, or `Sources:` sections
+/// at the end of the text. Strips verbose per-source descriptions, keeping only
+/// `[N] [Title](url)` lines. Passes through already-clean sections unchanged.
+pub fn clean_citation_section(text: &str) -> String {
+    let section_markers = ["## Sources", "## References", "**Sources**", "Sources:"];
+    let section_start = section_markers
+        .iter()
+        .filter_map(|marker| text.rfind(marker))
+        .max();
+
+    let Some(start) = section_start else {
+        return text.to_string();
+    };
+
+    let section = &text[start..];
+
+    // If already in clean [N] [Title](url) format, pass through
+    let titled_re = regex::Regex::new(r"\[\d+\]\s+\[[^\]]+\]\([^)]+\)").unwrap();
+    if titled_re.is_match(section) {
+        return text.to_string();
+    }
+
+    // Otherwise, extract URLs and reformat
+    let url_re = regex::Regex::new(r"https?://[^\s\]\)>,]+").unwrap();
+    let urls: Vec<&str> = url_re
+        .find_iter(section)
+        .map(|m| m.as_str().trim_end_matches(|c: char| ".,;:)".contains(c)))
+        .collect();
+
+    if urls.is_empty() {
+        return text.to_string();
+    }
+
+    let before = text[..start].trim_end();
+    let mut clean = before.to_string();
+    clean.push_str("\n\n## Sources\n");
+    for (i, url) in urls.iter().enumerate() {
+        clean.push_str(&format!("[{}] {}\n", i + 1, url));
+    }
+
+    clean
+}
+
 /// Convert markdown text into v2 components and optional table-image
 /// attachments.
 pub fn markdown_to_v2_components(text: &str) -> MarkdownComponents {
+    let text = &clean_citation_section(text);
     let mut components = Vec::new();
     let mut attachments = Vec::new();
     let mut text_buf = String::new();
@@ -375,5 +421,28 @@ mod tests {
         assert_eq!(out.components.len(), 5);
         assert_eq!(out.components[1]["type"], 14);
         assert_eq!(out.components[3]["type"], 14);
+    }
+
+    #[test]
+    fn clean_citation_section_passes_through_clean() {
+        let text = "Answer.\n\n## Sources\n[1] [Title](https://example.com)\n";
+        assert_eq!(clean_citation_section(text), text);
+    }
+
+    #[test]
+    fn clean_citation_section_reformats_verbose() {
+        let text = "Answer.\n\n## Sources\n\
+            1. https://example.com/page - This is a really long description\n\
+            2. https://other.com/article - Another verbose description\n";
+        let cleaned = clean_citation_section(text);
+        assert!(cleaned.contains("[1] https://example.com/page"));
+        assert!(cleaned.contains("[2] https://other.com/article"));
+        assert!(!cleaned.contains("really long description"));
+    }
+
+    #[test]
+    fn clean_citation_section_no_sources() {
+        let text = "Just an answer.";
+        assert_eq!(clean_citation_section(text), text);
     }
 }
