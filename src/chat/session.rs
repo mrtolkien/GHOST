@@ -460,7 +460,7 @@ impl ToolLoopHandler for ChatHandler<'_> {
         tool_uses: &[Value],
         raw_output: Option<Vec<Value>>,
     ) -> Result<ChatResult, ChatError> {
-        db::sessions::create_message_with_metadata(
+        let msg_id = db::sessions::create_message_with_metadata(
             self.session_chat.db(),
             self.session_thing,
             "assistant",
@@ -470,6 +470,18 @@ impl ToolLoopHandler for ChatHandler<'_> {
             raw_output,
         )
         .await?;
+
+        // Extract citations and create message_source records
+        let citations = super::citations::extract_citations(&message);
+        for citation in &citations {
+            let _ = db::knowledge::create_message_source(
+                self.session_chat.db(),
+                &msg_id,
+                &citation.url,
+                citation.title.as_deref(),
+            )
+            .await;
+        }
 
         Ok(ChatResult {
             message,

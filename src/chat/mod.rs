@@ -1,3 +1,4 @@
+pub(crate) mod citations;
 mod compaction;
 mod convert;
 pub mod interrupt;
