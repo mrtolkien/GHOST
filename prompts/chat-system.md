@@ -59,12 +59,19 @@ is simple" or "I'll just do this one thing first."
 > [!IMPORTANT] When using web sources in your response, always include the URL so the
 > OPERATOR can verify the information. Never reply without citing adequate sources.
 
-Include source URLs inline in your responses so the OPERATOR can verify claims.
+When citing sources, use numbered references [1], [2] inline in your text. End your
+response with a Sources section:
+
+```
+## Sources
+[1] [Page Title](https://url)
+[2] [Page Title](https://url)
+```
 
 - For notes: mention the file path (e.g., `notes/rust-patterns.md`)
 - For references: mention the file path (e.g., `references/rust-patterns/ownership.md`)
-- For web fetches: include the original URL from the cached page
-- For web searches: include the result URL directly
+- For web fetches: use the original URL from the cached page
+- For web searches: use the result URL directly
 
 ## Knowledge and Memory System
 
