@@ -140,6 +140,13 @@ const DEFAULT_SKILLS: &[DefaultSkill] = &[
         )],
     },
     DefaultSkill {
+        path: "sending-attachments",
+        files: &[(
+            "skill.md",
+            include_str!("../prompts/skills/sending-attachments/skill.md"),
+        )],
+    },
+    DefaultSkill {
         path: "superpowers/requesting-review",
         files: &[
             (
@@ -696,7 +703,7 @@ name: no-desc
             }
         }
 
-        assert_eq!(DEFAULT_SKILLS.len(), 22);
+        assert_eq!(DEFAULT_SKILLS.len(), 23);
     }
 
     #[test]
