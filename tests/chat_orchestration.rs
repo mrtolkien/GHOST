@@ -22,7 +22,7 @@ async fn chat_returns_response_text() {
     )]));
     let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config);
     let result = chat
-        .chat(&session_id, "hi", None)
+        .chat(&session_id, "hi", None, None)
         .await
         .expect("chat result");
 
@@ -55,7 +55,7 @@ async fn tool_loop_executes_and_sends_tool_result_back() {
     let chat = SessionChat::new(db.clone(), provider, tools, config);
 
     let result = chat
-        .chat(&session_id, "run tool", None)
+        .chat(&session_id, "run tool", None, None)
         .await
         .expect("chat result");
     assert_eq!(result.0.message, "done");
@@ -108,7 +108,7 @@ async fn max_iterations_stops_loop() {
     tools.register(Arc::new(EchoTool));
     let chat = SessionChat::new(db.clone(), provider, tools, config).with_max_tool_iterations(1);
     let result = chat
-        .chat(&session_id, "loop", None)
+        .chat(&session_id, "loop", None, None)
         .await
         .expect("chat result");
     assert_eq!(result.0.stop_reason, ChatStopReason::MaxIterations);
@@ -128,7 +128,7 @@ async fn chat_persists_user_and_assistant_messages() {
     let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config);
 
     let _ = chat
-        .chat(&session_id, "persist", None)
+        .chat(&session_id, "persist", None, None)
         .await
         .expect("chat result");
 
@@ -200,7 +200,7 @@ async fn main_chat_does_not_inject_todo() {
     let requests = provider.requests();
     let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config);
     let _ = chat
-        .chat(&session_id, "check todo", None)
+        .chat(&session_id, "check todo", None, None)
         .await
         .expect("chat result");
 
@@ -267,7 +267,7 @@ async fn compaction_triggers_when_over_threshold() {
     let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config);
 
     let result = chat
-        .chat(&session_id, "new question", None)
+        .chat(&session_id, "new question", None, None)
         .await
         .expect("chat result");
     assert_eq!(result.0.message, "post-compaction");
@@ -323,7 +323,7 @@ async fn original_messages_preserved_after_compaction() {
     let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config);
 
     let _ = chat
-        .chat(&session_id, "check", None)
+        .chat(&session_id, "check", None, None)
         .await
         .expect("chat result");
 
@@ -369,7 +369,7 @@ async fn no_compaction_below_threshold() {
     let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config);
 
     let result = chat
-        .chat(&session_id, "short message", None)
+        .chat(&session_id, "short message", None, None)
         .await
         .expect("chat result");
     assert_eq!(result.0.message, "no compact");
@@ -417,7 +417,7 @@ async fn double_compaction_summary_of_summary() {
     ]));
     let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config.clone());
     let r1 = chat
-        .chat(&session_id, "round1 question", None)
+        .chat(&session_id, "round1 question", None, None)
         .await
         .expect("round 1");
     assert_eq!(r1.0.message, "round1");
@@ -440,7 +440,7 @@ async fn double_compaction_summary_of_summary() {
     let chat2 = SessionChat::new(db.clone(), provider2, ToolManager::empty(), config);
 
     let r2 = chat2
-        .chat(&session_id, "round2 question", None)
+        .chat(&session_id, "round2 question", None, None)
         .await
         .expect("round 2");
     assert_eq!(r2.0.message, "round2");

@@ -19,6 +19,7 @@ async fn project_create_step_01_propose_project() {
             "I want to build a keyboard with ergogen, from scratch. \
              Tell me how to do this.",
             None,
+            None,
         ),
     )
     .await

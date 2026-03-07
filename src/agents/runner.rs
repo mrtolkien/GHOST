@@ -672,6 +672,7 @@ async fn execute_agent(
             &setup.config,
             &setup.script_host,
             None,
+            None,
         ) => res?,
         () = cancel_token.cancelled() => {
             logfire::info!("agent cancelled", agent_name = agent_name.to_string());
@@ -738,6 +739,7 @@ async fn execute_resume(
             resume.db_message_count,
             &resume.config,
             &resume.script_host,
+            None,
             None,
         ) => res?,
         () = cancel_token.cancelled() => {

@@ -28,7 +28,12 @@ async fn printer_3d_step_04_finalize_chat_and_reflect() {
     let chat = env.chat();
     let (result, _metadata) = tokio::time::timeout(
         Duration::from_secs(180),
-        chat.chat(&chat_session, "[system] Research agent completed.", None),
+        chat.chat(
+            &chat_session,
+            "[system] Research agent completed.",
+            None,
+            None,
+        ),
     )
     .await
     .expect("TIMEOUT: final chat response did not complete in step_04")

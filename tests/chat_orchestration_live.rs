@@ -15,6 +15,7 @@ async fn session_chat_live_roundtrip_with_default_config() {
             &session,
             "Reply in one short sentence: what is Rust best known for?",
             None,
+            None,
         )
         .await
         .expect("chat response");

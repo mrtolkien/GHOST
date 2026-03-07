@@ -36,7 +36,6 @@ pub struct SessionChat {
     compaction_override: Option<config::CompactionConfig>,
     event_tx: Option<crate::events::SessionEventSender>,
     cwd_override: Option<std::path::PathBuf>,
-    channel_id: Option<String>,
     active_sessions: super::interrupt::ActiveSessions,
 }
 
@@ -76,7 +75,6 @@ impl SessionChat {
             compaction_override: None,
             event_tx: None,
             cwd_override: None,
-            channel_id: None,
             active_sessions: std::sync::Arc::new(dashmap::DashMap::new()),
         }
     }
@@ -112,12 +110,6 @@ impl SessionChat {
     }
 
     #[must_use]
-    pub fn with_channel_id(mut self, channel_id: String) -> Self {
-        self.channel_id = Some(channel_id);
-        self
-    }
-
-    #[must_use]
     pub fn with_active_sessions(
         mut self,
         active_sessions: super::interrupt::ActiveSessions,
@@ -142,6 +134,7 @@ impl SessionChat {
         &self,
         session_id: &str,
         user_message: &str,
+        channel_id: Option<String>,
         event_tx: Option<&EventSender>,
     ) -> Result<(ChatResult, RunMetadata), ChatError> {
         let session_thing = parse_session_thing(session_id)?;
@@ -175,6 +168,7 @@ impl SessionChat {
             &mut history,
             event_tx,
             Some(int_rx),
+            channel_id,
         )
         .await;
 
@@ -190,6 +184,7 @@ impl SessionChat {
         user_message: &str,
         system_prompt: &str,
         working_dir: &std::path::Path,
+        channel_id: Option<String>,
         event_tx: Option<&EventSender>,
     ) -> Result<(ChatResult, RunMetadata), ChatError> {
         let session_thing = parse_session_thing(session_id)?;
@@ -226,6 +221,7 @@ impl SessionChat {
             &mut history,
             event_tx,
             Some(int_rx),
+            channel_id,
         )
         .await;
 
@@ -290,6 +286,7 @@ impl SessionChat {
         session_id: &str,
         tool_calls: &[Value],
         cwd_override: Option<&std::path::Path>,
+        channel_id: Option<&str>,
     ) -> Vec<ContentBlock> {
         let futures: Vec<_> = tool_calls
             .iter()
@@ -297,7 +294,14 @@ impl SessionChat {
                 let id = call.get("id").and_then(Value::as_str)?;
                 let name = call.get("name").and_then(Value::as_str)?;
                 let input = call.get("input").cloned().unwrap_or_else(|| json!({}));
-                Some(self.execute_single_tool(session_id, name, id, input, cwd_override))
+                Some(self.execute_single_tool(
+                    session_id,
+                    name,
+                    id,
+                    input,
+                    cwd_override,
+                    channel_id,
+                ))
             })
             .collect();
 
@@ -311,6 +315,7 @@ impl SessionChat {
         tool_use_id: &str,
         input: Value,
         cwd_override: Option<&std::path::Path>,
+        channel_id: Option<&str>,
     ) -> ContentBlock {
         let cwd = cwd_override
             .map(|p| p.to_path_buf())
@@ -324,7 +329,7 @@ impl SessionChat {
             session_id: session_id.to_string(),
             agent_runner: self.agent_runner.clone(),
             event_tx: self.event_tx.clone(),
-            channel_id: self.channel_id.clone(),
+            channel_id: channel_id.map(String::from),
         };
 
         match self.tool_manager.execute(name, input, &tool_ctx).await {
@@ -898,6 +903,7 @@ impl SessionChat {
         build_result: BuildResult,
         config: &crate::scripting::AgentConfig,
         script_host: &ScriptHost,
+        channel_id: Option<String>,
         event_tx: Option<&EventSender>,
     ) -> Result<(ChatResult, RunMetadata), ChatError> {
         let session_thing = parse_session_thing(session_id)?;
@@ -952,6 +958,7 @@ impl SessionChat {
             &mut history,
             event_tx,
             Some(int_rx),
+            channel_id,
         )
         .await;
 
@@ -978,6 +985,7 @@ impl SessionChat {
         db_message_count: usize,
         config: &crate::scripting::AgentConfig,
         script_host: &ScriptHost,
+        channel_id: Option<String>,
         event_tx: Option<&EventSender>,
     ) -> Result<(ChatResult, RunMetadata), ChatError> {
         let session_thing = parse_session_thing(session_id)?;
@@ -1037,6 +1045,7 @@ impl SessionChat {
             &mut history,
             event_tx,
             Some(int_rx),
+            channel_id,
         )
         .await;
 

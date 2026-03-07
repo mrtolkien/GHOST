@@ -24,6 +24,7 @@ async fn reference_import_step_01_autonomous_import() {
             &session,
             "I want to learn about Dioxus — what is it, and how do hooks work?",
             None,
+            None,
         ),
     )
     .await

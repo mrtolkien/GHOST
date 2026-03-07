@@ -87,6 +87,7 @@ async fn handle_event(
 
     // Determine if this is a coding session and trigger the appropriate chat.
     let trigger = "[system] Background task completed.";
+    let channel_id_str = discord_channel_id.map(|id| id.to_string());
     let chat_result = match detect_coding_session(db, session_chat, session_id).await {
         Some((working_dir, system_prompt)) => {
             logfire::info!(
@@ -95,7 +96,14 @@ async fn handle_event(
                 working_dir = working_dir.display().to_string(),
             );
             session_chat
-                .chat_coding(session_id, trigger, &system_prompt, &working_dir, None)
+                .chat_coding(
+                    session_id,
+                    trigger,
+                    &system_prompt,
+                    &working_dir,
+                    channel_id_str,
+                    None,
+                )
                 .await
         }
         None => {
@@ -103,7 +111,9 @@ async fn handle_event(
                 "triggering GHOST continuation",
                 session_id = session_id.clone(),
             );
-            session_chat.chat(session_id, trigger, None).await
+            session_chat
+                .chat(session_id, trigger, channel_id_str, None)
+                .await
         }
     };
 

@@ -67,6 +67,7 @@ async fn coding_agent_step_01_spawn_coding_session() {
              Start a coding session so I can work on it. \
              Use '--prompt \"change the greeting function to 'hello world'\"' as the initial prompt.",
             None,
+            None,
         ),
     )
     .await

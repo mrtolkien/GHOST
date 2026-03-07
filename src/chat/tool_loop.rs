@@ -120,6 +120,7 @@ pub(super) async fn run_tool_loop(
     history: &mut Vec<ChatMessage>,
     event_tx: Option<&EventSender>,
     mut interrupt_rx: Option<InterruptReceiver>,
+    channel_id: Option<String>,
 ) -> Result<(ChatResult, RunMetadata), ChatError> {
     let started_at = std::time::Instant::now();
     let mut metadata = RunMetadata {
@@ -306,7 +307,12 @@ pub(super) async fn run_tool_loop(
                 });
 
                 let tool_results = session_chat
-                    .execute_tool_calls(session_id, &tool_uses, handler.tool_cwd())
+                    .execute_tool_calls(
+                        session_id,
+                        &tool_uses,
+                        handler.tool_cwd(),
+                        channel_id.as_deref(),
+                    )
                     .await;
                 handler.on_tool_results(&tool_results).await?;
 

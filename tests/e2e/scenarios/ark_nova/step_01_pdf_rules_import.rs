@@ -25,6 +25,7 @@ async fn ark_nova_step_01_pdf_rules_import() {
             "How do you set up a game of Ark Nova? I need the full setup procedure \
              from the official rules. The rulebook is a PDF available online.",
             None,
+            None,
         ),
     )
     .await

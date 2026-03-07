@@ -15,6 +15,7 @@ async fn printer_3d_step_01_spawn_agent() {
             "I want to buy a new enclosed 3D printer for home use around $1000 in 2026. \
              Please do deep research with concrete model recommendations, pricing, and sources.",
             None,
+            None,
         ),
     )
     .await

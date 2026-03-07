@@ -3,7 +3,6 @@
       scripts!!!
 - [x] Review skills for chat vs coding
 - [x] Run Ark Nova e2e after codex is available again (17h)
-- [x] Review lua agents for coding -> some of the skills should use agents
 - [x] Re-running the deploy scripts nuked the memory
 - [x] Review import fails + how do timed out commands behave. When the GHOST tried to do
       a sync import, it timed out. Then it tried a background one, which failed because
@@ -35,14 +34,9 @@
       somehow. There should be the full schema somewhere (likely as an attachement to
       the knowledge navigator skill) + sqlite3 in the flake (or stg else?)
 
+- [x] Create a simple flow to report issues from the live version of my assistant
+
 ---
-
-- [ ] ?session description for coding agent? -> would need a respond-type tool
-
-- [ ] We should have a _true_ e2e test which actually starts the daemon and interacts
-      with it. The only cheating we would do is the provider/Discord layer: we would
-      need to be able to directly insert messages to the chat.
-  - This would benefit from using an LLM to generate user messages :D
 
 - [ ] Path management in skills is a mess: some are absolute, some assume folder names,
       some are relative. We need a reliable, consistent, easy to use standard.

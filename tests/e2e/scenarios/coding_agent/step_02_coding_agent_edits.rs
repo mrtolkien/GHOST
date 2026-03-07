@@ -62,6 +62,7 @@ async fn coding_agent_step_02_coding_agent_edits() {
             &system_prompt,
             &working_dir,
             None,
+            None,
         ),
     )
     .await

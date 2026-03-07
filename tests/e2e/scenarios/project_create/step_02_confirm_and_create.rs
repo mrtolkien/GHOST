@@ -22,6 +22,7 @@ async fn project_create_step_02_confirm_and_create() {
             session,
             "Yes, please create a project for this and set up the initial tasks.",
             None,
+            None,
         ),
     )
     .await

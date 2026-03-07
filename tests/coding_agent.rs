@@ -297,7 +297,14 @@ async fn chat_coding_uses_custom_system_prompt() {
     let tmp = TempDir::new().unwrap();
 
     let (result, _metadata) = chat
-        .chat_coding(&session_id, "list files", system_prompt, tmp.path(), None)
+        .chat_coding(
+            &session_id,
+            "list files",
+            system_prompt,
+            tmp.path(),
+            None,
+            None,
+        )
         .await
         .expect("chat_coding");
 
@@ -339,7 +346,14 @@ async fn chat_coding_tool_loop_works() {
 
     let tmp = TempDir::new().unwrap();
     let (result, metadata) = chat
-        .chat_coding(&session_id, "run tool", "system prompt", tmp.path(), None)
+        .chat_coding(
+            &session_id,
+            "run tool",
+            "system prompt",
+            tmp.path(),
+            None,
+            None,
+        )
         .await
         .expect("chat_coding with tool");
 
@@ -387,6 +401,7 @@ async fn chat_coding_persists_messages_to_db() {
             "fix the bug",
             "coding system prompt",
             tmp.path(),
+            None,
             None,
         )
         .await
@@ -447,7 +462,14 @@ async fn cwd_override_affects_tool_execution() {
 
     // working_dir points to workspace/repo — read_file("test.txt") resolves there
     let _ = chat
-        .chat_coding(&session_id, "read test.txt", "system prompt", &subdir, None)
+        .chat_coding(
+            &session_id,
+            "read test.txt",
+            "system prompt",
+            &subdir,
+            None,
+            None,
+        )
         .await
         .expect("chat_coding with cwd");
 
@@ -510,6 +532,7 @@ async fn full_coding_session_lifecycle() {
             "add a greeting function",
             &system_prompt,
             repo.path(),
+            None,
             None,
         )
         .await
@@ -577,6 +600,7 @@ async fn full_coding_session_lifecycle() {
             "what did we do last time?",
             &system_prompt,
             repo.path(),
+            None,
             None,
         )
         .await

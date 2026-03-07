@@ -1,12 +1,18 @@
 # Structured Responses: Images, Attachments, and Citation Formatting
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this
+> plan task-by-task.
 
-**Goal:** Enable the GHOST to send images/files to the OPERATOR, format citations cleanly, and link messages to their sources.
+**Goal:** Enable the GHOST to send images/files to the OPERATOR, format citations
+cleanly, and link messages to their sources.
 
-**Architecture:** Skill + CLI command pattern for attachments (no new tools in model schema). Post-hoc citation extraction in the interface rendering layer. Two-phase message-to-source linking via a new `message_source` DB table with backfill during reflection.
+**Architecture:** Skill + CLI command pattern for attachments (no new tools in model
+schema). Post-hoc citation extraction in the interface rendering layer. Two-phase
+message-to-source linking via a new `message_source` DB table with backfill during
+reflection.
 
-**Tech Stack:** Rust (clap CLI, serenity Discord API, sqlx SQLite), Markdown skill files.
+**Tech Stack:** Rust (clap CLI, serenity Discord API, sqlx SQLite), Markdown skill
+files.
 
 ---
 
@@ -24,37 +30,39 @@ However, three capabilities are still needed:
 3. **Message-to-source linking** — no record of which sources informed a message
 4. **Future: interaction prompts** — yes/no questions, multi-choice pickers (deferred)
 
-Industry review: no major system uses a monolithic "respond" tool. They all use plain text
-responses combined with (a) post-hoc citation extraction, (b) dedicated tools for specific
-interactions, and (c) API-level annotations.
+Industry review: no major system uses a monolithic "respond" tool. They all use plain
+text responses combined with (a) post-hoc citation extraction, (b) dedicated tools for
+specific interactions, and (c) API-level annotations.
 
 ## Design
 
 ### 1. Session identity for CLI commands
 
-Add `GHOST_SESSION_ID` env var in `shell_command()` (`src/tools/shell.rs`), alongside the
-existing `GHOST_CHANNEL_ID`. Child processes get session context from environment — the
-model never needs to know its own session ID.
+Add `GHOST_SESSION_ID` env var in `shell_command()` (`src/tools/shell.rs`), alongside
+the existing `GHOST_CHANNEL_ID`. Child processes get session context from environment —
+the model never needs to know its own session ID.
 
 ### 2. Image and attachment CLI commands
 
 Two new CLI subcommands under `ghost`:
 
 - `ghost send-image <path> [--caption "description"]` — send an image to the OPERATOR
-- `ghost attach <path> [--caption "description"]` — send a generic file (CSV, JSON, etc.)
+- `ghost attach <path> [--caption "description"]` — send a generic file (CSV, JSON,
+  etc.)
 
 Both commands:
 
 - Read `GHOST_CHANNEL_ID` and `GHOST_SESSION_ID` from environment
 - Load config from the standard config path
 - Send the file through the active interface (Discord for PoC, extensible later)
-- Write a system message to the DB session for history (e.g. `[sent image: filename.png]`)
+- Write a system message to the DB session for history (e.g.
+  `[sent image: filename.png]`)
 - Exit with success/failure message
 - Only accept local file paths (use `curl`/`web_fetch` to download remote files first)
 
-This is the simplest approach (no daemon coordination). The daemon doesn't need real-time
-awareness because the model already knows what it did — it ran the shell command. The DB
-record ensures the session history is complete.
+This is the simplest approach (no daemon coordination). The daemon doesn't need
+real-time awareness because the model already knows what it did — it ran the shell
+command. The DB record ensures the session history is complete.
 
 ### 3. Skill: `sending-attachments`
 
@@ -65,14 +73,14 @@ A lightweight skill that tells the model how to send files. Minimal context foot
 ---
 name: sending-attachments
 description:
-  Use when you need to send an image, generated file, CSV, or any
-  attachment to the OPERATOR.
+  Use when you need to send an image, generated file, CSV, or any attachment to the
+  OPERATOR.
 ---
 
 # Sending Attachments
 
-Send files to the OPERATOR. Session and channel are detected automatically
-from environment — no IDs needed.
+Send files to the OPERATOR. Session and channel are detected automatically from
+environment — no IDs needed.
 
 ## Commands
 
@@ -98,8 +106,8 @@ from environment — no IDs needed.
 
 **Prompt addition** (one line in `prompts/chat-system.md`):
 
-> When citing sources, use [1], [2] inline. End with a Sources section listing
-> [N] [Title](url).
+> When citing sources, use [1], [2] inline. End with a Sources section listing [N]
+> [Title](url).
 
 **Post-processing** at the interface rendering layer. Each interface implements its own
 citation formatting (Discord PoC: `src/interfaces/discord/markdown.rs`, future web UI
@@ -130,38 +138,41 @@ CREATE INDEX idx_message_source_url ON message_source(url);
 
 **Two-phase linking:**
 
-1. **On `on_end_turn`** (in `ChatHandler`): extract URLs from the response text using the
-   existing `URL_RE` regex. Create `message_source` rows with `url` and `title` (parsed
-   from the `[N] [Title](url)` format). `reference_id` is NULL at this point — the web
-   cache hasn't been curated yet.
+1. **On `on_end_turn`** (in `ChatHandler`): extract URLs from the response text using
+   the existing `URL_RE` regex. Create `message_source` rows with `url` and `title`
+   (parsed from the `[N] [Title](url)` format). `reference_id` is NULL at this point —
+   the web cache hasn't been curated yet.
 
 2. **During reflection/curation** (in `link_cited_edges` or alongside it): after
-   `curate_references` moves cache files to `references/` and creates DB records, backfill
-   `reference_id` on matching `message_source` rows:
+   `curate_references` moves cache files to `references/` and creates DB records,
+   backfill `reference_id` on matching `message_source` rows:
    ```sql
    UPDATE message_source SET reference_id = ? WHERE url = ? AND reference_id IS NULL
    ```
 
 This enables queries like:
-- "What sources informed this message?" — `SELECT * FROM message_source WHERE message_id = ?`
-- "Which messages cited this reference?" — `SELECT * FROM message_source WHERE reference_id = ?`
+
+- "What sources informed this message?" —
+  `SELECT * FROM message_source WHERE message_id = ?`
+- "Which messages cited this reference?" —
+  `SELECT * FROM message_source WHERE reference_id = ?`
 
 ## Files
 
-| File | Change |
-|---|---|
-| `src/tools/shell.rs` | Add `GHOST_SESSION_ID` env var to `shell_command()` |
-| `src/cli/mod.rs` | Add `SendImage` / `Attach` subcommands |
-| `src/cli/send.rs` (new) | CLI handler: read file, send via interface, write DB record |
-| `src/main.rs` | Wire new CLI commands |
-| `prompts/skills/sending-attachments/skill.md` (new) | Skill for sending files |
-| `src/skills.rs` | Register the new default skill |
-| `prompts/chat-system.md` | One-line citation format instruction |
-| `src/interfaces/discord/markdown.rs` | Citation post-processing for display |
-| `migrations/NNN_message_source.sql` (new) | `message_source` table |
-| `src/db/knowledge/graph.rs` | Add `message_source` CRUD + backfill query |
-| `src/chat/session.rs` | Extract URLs in `on_end_turn`, create `message_source` rows |
-| `src/web/curation.rs` | Backfill `reference_id` during curation step |
+| File                                                | Change                                                      |
+| --------------------------------------------------- | ----------------------------------------------------------- |
+| `src/tools/shell.rs`                                | Add `GHOST_SESSION_ID` env var to `shell_command()`         |
+| `src/cli/mod.rs`                                    | Add `SendImage` / `Attach` subcommands                      |
+| `src/cli/send.rs` (new)                             | CLI handler: read file, send via interface, write DB record |
+| `src/main.rs`                                       | Wire new CLI commands                                       |
+| `prompts/skills/sending-attachments/skill.md` (new) | Skill for sending files                                     |
+| `src/skills.rs`                                     | Register the new default skill                              |
+| `prompts/chat-system.md`                            | One-line citation format instruction                        |
+| `src/interfaces/discord/markdown.rs`                | Citation post-processing for display                        |
+| `migrations/NNN_message_source.sql` (new)           | `message_source` table                                      |
+| `src/db/knowledge/graph.rs`                         | Add `message_source` CRUD + backfill query                  |
+| `src/chat/session.rs`                               | Extract URLs in `on_end_turn`, create `message_source` rows |
+| `src/web/curation.rs`                               | Backfill `reference_id` during curation step                |
 
 ## Non-goals
 
@@ -169,9 +180,10 @@ This enables queries like:
   via the interface. The daemon API is a future concern (spec d: remote CLI).
 - **Interaction prompts**: Deferred to a later spec. The skill + CLI pattern can be
   extended when needed.
-- **Replacing model text output**: The model still responds with plain text. No structured
-  output tool.
-- **URL sending**: Use `curl` or `web_fetch` to download files first, then send local path.
+- **Replacing model text output**: The model still responds with plain text. No
+  structured output tool.
+- **URL sending**: Use `curl` or `web_fetch` to download files first, then send local
+  path.
 
 ---
 
@@ -180,6 +192,7 @@ This enables queries like:
 ### Task 1: Add `GHOST_SESSION_ID` env var to shell tool
 
 **Files:**
+
 - Modify: `src/tools/shell.rs:20-45` (`shell_command` function)
 - Modify: `src/tools/context.rs:12-21` (`ToolContext` — session_id already exists)
 
@@ -208,11 +221,13 @@ fn shell_command(
 **Step 2: Update both call sites in `execute()`**
 
 In the `background` branch (~line 119):
+
 ```rust
 let child = shell_command(&command_owned, &workspace_owned, channel_id.as_deref(), Some(&session_id))
 ```
 
 In the foreground branch (~line 172):
+
 ```rust
 let child = shell_command(command, &ctx.workspace, ctx.channel_id.as_deref(), Some(&ctx.session_id))
 ```
@@ -224,8 +239,7 @@ In `test_ctx()` (~line 252), no changes needed — `session_id` is already `"tes
 
 **Step 4: Run tests**
 
-Run: `cargo test --lib shell`
-Expected: All existing shell tests pass.
+Run: `cargo test --lib shell` Expected: All existing shell tests pass.
 
 **Step 5: Commit**
 
@@ -239,6 +253,7 @@ git commit -m "feat: pass GHOST_SESSION_ID env var to shell child processes"
 ### Task 2: Migration — `message_source` table
 
 **Files:**
+
 - Create: `migrations/005_message_source.sql`
 
 **Step 1: Write the migration**
@@ -259,8 +274,8 @@ CREATE INDEX idx_message_source_url ON message_source(url);
 
 **Step 2: Verify migration applies**
 
-Run: `cargo test --lib db::connection` (or any test that runs migrations)
-Expected: PASS — migration applies cleanly.
+Run: `cargo test --lib db::connection` (or any test that runs migrations) Expected: PASS
+— migration applies cleanly.
 
 **Step 3: Commit**
 
@@ -274,6 +289,7 @@ git commit -m "feat: add message_source table for message-to-reference linking"
 ### Task 3: DB CRUD for `message_source`
 
 **Files:**
+
 - Modify: `src/db/knowledge/graph.rs` (add functions)
 - Modify: `src/db/knowledge/mod.rs` (re-export new functions)
 
@@ -345,8 +361,7 @@ re-exports (follow existing pattern in that file).
 
 **Step 4: Run tests**
 
-Run: `cargo check`
-Expected: Compiles cleanly.
+Run: `cargo check` Expected: Compiles cleanly.
 
 **Step 5: Commit**
 
@@ -360,6 +375,7 @@ git commit -m "feat: add message_source CRUD and backfill queries"
 ### Task 4: Citation extraction in `on_end_turn`
 
 **Files:**
+
 - Modify: `src/chat/session.rs:456-482` (`ChatHandler::on_end_turn`)
 - Create: `src/chat/citations.rs` (extraction logic)
 - Modify: `src/chat/mod.rs` (add module)
@@ -463,8 +479,7 @@ Add `pub(crate) mod citations;` to the module declarations.
 
 **Step 3: Run tests**
 
-Run: `cargo test --lib chat::citations`
-Expected: All 3 tests pass.
+Run: `cargo test --lib chat::citations` Expected: All 3 tests pass.
 
 **Step 4: Wire into `ChatHandler::on_end_turn`**
 
@@ -520,8 +535,7 @@ generates `new_id()` internally, just needs to return it).
 
 **Step 5: Run tests**
 
-Run: `cargo test --lib chat`
-Expected: PASS.
+Run: `cargo test --lib chat` Expected: PASS.
 
 **Step 6: Commit**
 
@@ -535,6 +549,7 @@ git commit -m "feat: extract citations from responses and create message_source 
 ### Task 5: Backfill `reference_id` during curation
 
 **Files:**
+
 - Modify: `src/web/curation.rs:226-338` (`link_cited_edges` function)
 
 **Step 1: Add backfill call inside the `link_cited_edges` loop**
@@ -558,13 +573,13 @@ if let Err(e) = db::knowledge::backfill_message_source_references(
 }
 ```
 
-Insert this right after `ref_record` is resolved (before the note-matching loop at
-~line 308).
+Insert this right after `ref_record` is resolved (before the note-matching loop at ~line
+308).
 
 **Step 2: Run tests**
 
-Run: `cargo test --lib web::curation`
-Expected: PASS (existing tests don't touch message_source).
+Run: `cargo test --lib web::curation` Expected: PASS (existing tests don't touch
+message_source).
 
 **Step 3: Commit**
 
@@ -578,6 +593,7 @@ git commit -m "feat: backfill message_source.reference_id during curation"
 ### Task 6: Update system prompt for citation format
 
 **Files:**
+
 - Modify: `prompts/chat-system.md:57-67` (Sources and Citations section)
 
 **Step 1: Replace the Sources and Citations section**
@@ -592,11 +608,12 @@ Replace the current block (~lines 57-67):
 
 When citing sources, use numbered references [1], [2] inline in your text. End your
 response with a Sources section:
-
 ```
+
 ## Sources
-[1] [Page Title](https://url)
-[2] [Page Title](https://url)
+
+[1] [Page Title](https://url) [2] [Page Title](https://url)
+
 ```
 
 - For notes: mention the file path (e.g., `notes/rust-patterns.md`)
@@ -617,6 +634,7 @@ git commit -m "feat: add citation format instructions to system prompt"
 ### Task 7: CLI `send-image` and `attach` commands
 
 **Files:**
+
 - Create: `src/cli/send.rs`
 - Modify: `src/cli/mod.rs`
 - Modify: `src/main.rs`
@@ -773,14 +791,14 @@ Commands::Attach { path, caption } => ghost::cli::send::execute_attach(path, cap
 
 **Step 4: Verify compilation**
 
-Run: `cargo check`
-Expected: Compiles.
+Run: `cargo check` Expected: Compiles.
 
 **Step 5: Manual smoke test**
 
 ```sh
 GHOST_CHANNEL_ID=123 DISCORD_BOT_TOKEN=fake cargo run -- send-image /tmp/test.png
 ```
+
 Expected: Error about invalid token (not a crash).
 
 **Step 6: Commit**
@@ -795,6 +813,7 @@ git commit -m "feat: add ghost send-image and ghost attach CLI commands"
 ### Task 8: Register `sending-attachments` skill
 
 **Files:**
+
 - Create: `prompts/skills/sending-attachments/skill.md`
 - Modify: `src/skills.rs`
 
@@ -820,14 +839,14 @@ DefaultSkill {
 **Step 3: Update skill count assertion**
 
 In the test `install_default_skills_creates_files`, update:
+
 ```rust
 assert_eq!(DEFAULT_SKILLS.len(), 23);
 ```
 
 **Step 4: Run tests**
 
-Run: `cargo test --lib skills`
-Expected: All skill tests pass.
+Run: `cargo test --lib skills` Expected: All skill tests pass.
 
 **Step 5: Commit**
 
@@ -841,6 +860,7 @@ git commit -m "feat: add sending-attachments skill"
 ### Task 9: Citation post-processing for Discord
 
 **Files:**
+
 - Modify: `src/interfaces/discord/markdown.rs`
 
 This is the most nuanced task. The goal: detect a trailing Sources/References section in
@@ -941,8 +961,7 @@ fn clean_citation_section_no_sources() {
 
 **Step 4: Run tests**
 
-Run: `cargo test --lib discord::markdown`
-Expected: All tests pass.
+Run: `cargo test --lib discord::markdown` Expected: All tests pass.
 
 **Step 5: Commit**
 
@@ -957,8 +976,7 @@ git commit -m "feat: clean citation sections for compact Discord display"
 
 **Step 1: Run full CI**
 
-Run: `just ci`
-Expected: Format, check, clippy, and all tests pass.
+Run: `just ci` Expected: Format, check, clippy, and all tests pass.
 
 **Step 2: Fix any issues**
 

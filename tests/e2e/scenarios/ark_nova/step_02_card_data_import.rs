@@ -32,6 +32,7 @@ async fn ark_nova_step_02_card_data_import() {
              Find the card data — there should be a project on GitHub \
              with all the card definitions.",
             None,
+            None,
         ),
     )
     .await

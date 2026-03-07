@@ -24,6 +24,7 @@ async fn codex_tool_calling_smoke() {
             "Use the web_search tool to search for 'rust programming language'. \
              You MUST call web_search. After searching, tell me the first result title.",
             None,
+            None,
         )
         .await
         .expect("chat failed");

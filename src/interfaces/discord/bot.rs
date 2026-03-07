@@ -291,7 +291,12 @@ impl Handler {
         // Chat with GHOST
         let chat_result = self
             .session_chat
-            .chat(&session_id, &full_content, Some(&event_tx))
+            .chat(
+                &session_id,
+                &full_content,
+                Some(msg.channel_id.to_string()),
+                Some(&event_tx),
+            )
             .await;
 
         // Drop sender so renderer finishes
@@ -393,6 +398,7 @@ impl Handler {
                 &full_content,
                 &system_prompt,
                 working_path,
+                Some(msg.channel_id.to_string()),
                 Some(&event_tx),
             )
             .await;
