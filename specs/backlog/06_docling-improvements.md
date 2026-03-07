@@ -1,5 +1,12 @@
 # Backlog — Docling Extraction Improvements
 
+## Performance
+
+Review performance: currently on my homelab (CPU-only) it can take over 10 minutes and
+time out.
+
+We need to review what affects docling perf and how we can improve it.
+
 ## VLM-Powered Image Descriptions
 
 Currently docling extracts images as placeholders (`image_export_mode: "placeholder"`).
