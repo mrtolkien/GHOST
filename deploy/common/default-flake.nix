@@ -34,6 +34,7 @@
             gzip
             gnutar
             uv
+            python314
             sqlite-interactive
           ];
         };
