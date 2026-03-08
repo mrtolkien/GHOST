@@ -267,7 +267,5 @@ Done!
 
 - Subagents follow TDD (test-driven development) for each task
 - Use the finishing-a-development-branch workflow after all tasks are complete
-- Prompt templates for reference:
-  `read_file("skills/superpowers/subagent-development/implementer-prompt.md")`
-  `read_file("skills/superpowers/subagent-development/spec-reviewer-prompt.md")`
-  `read_file("skills/superpowers/subagent-development/code-quality-reviewer-prompt.md")`
+- Prompt templates for reference: Read the `implementer-prompt.md`,
+  `spec-reviewer-prompt.md`, and `code-quality-reviewer-prompt.md` extras

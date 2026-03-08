@@ -100,8 +100,7 @@ You: [Fix progress indicators]
 
 ## Code Reviewer Prompt Template
 
-When starting a code-reviewer agent, use the prompt template at
-`read_file("skills/superpowers/requesting-review/code-reviewer.md")`. It includes the
+When starting a code-reviewer agent, read the `code-reviewer.md` extra. It includes the
 full review checklist, output format, and `{PLACEHOLDER}` variables to fill in.
 
 ## Red Flags

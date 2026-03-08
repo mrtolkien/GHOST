@@ -179,8 +179,8 @@ with pdfplumber.open("file.pdf") as pdf:
 
 ## Advanced features
 
-**Form filling**: See read_file("skills/pdf/forms.md") for complete guide **API
-reference**: See read_file("skills/pdf/reference.md") for all methods
+**Form filling**: Read the `forms.md` extra from the `pdf` skill for complete guide
+**API reference**: Read the `reference.md` extra from the `pdf` skill for all methods
 ````
 
 The agent loads companion files only when needed.

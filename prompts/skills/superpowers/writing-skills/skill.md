@@ -654,14 +654,11 @@ How future GHOST finds your skill:
 
 ## Companion Guides
 
-- **Authoring best practices:**
-  `read_file("skills/superpowers/writing-skills/best-practices.md")` — Conciseness,
+- **Authoring best practices:** Read the `best-practices.md` extra — Conciseness,
   structure, progressive disclosure, evaluation-driven development
-- **Persuasion principles:**
-  `read_file("skills/superpowers/writing-skills/persuasion-principles.md")` — Psychology
-  of effective skill design (authority, commitment, scarcity)
-- **Testing skills with subagents:**
-  `read_file("skills/superpowers/writing-skills/testing-skills-with-subagents.md")` —
+- **Persuasion principles:** Read the `persuasion-principles.md` extra — Psychology of
+  effective skill design (authority, commitment, scarcity)
+- **Testing skills with subagents:** Read the `testing-skills-with-subagents.md` extra —
   Pressure scenarios, rationalization tables, bulletproofing
 
 ## The Bottom Line

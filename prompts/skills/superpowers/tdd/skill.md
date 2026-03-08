@@ -350,8 +350,7 @@ Never fix bugs without a test.
 ## Testing Anti-Patterns
 
 When adding mocks or test utilities, watch out for common pitfalls. For the full guide
-with gate functions and examples, see
-`read_file("skills/superpowers/tdd/testing-anti-patterns.md")`.
+with gate functions and examples, read the `testing-anti-patterns.md` extra.
 
 - Testing mock behavior instead of real behavior
 - Adding test-only methods to production types
