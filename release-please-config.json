@@ -1,0 +1,13 @@
+{
+  "packages": {
+    ".": {
+      "release-type": "rust",
+      "extra-files": [
+        {
+          "type": "generic",
+          "path": "nix/package.nix"
+        }
+      ]
+    }
+  }
+}
