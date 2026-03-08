@@ -1,7 +1,7 @@
 { lib, stdenv, autoPatchelfHook, glibc }:
 
 let
-  version = "0.1.0"; # x-release-please-version
+  version = "0.2.0"; # x-release-please-version
 
   sources = {
     x86_64-linux = "https://github.com/mrtolkien/ghost/releases/download/v${version}/ghost-x86_64-linux";
