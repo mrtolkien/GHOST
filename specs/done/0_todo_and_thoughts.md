@@ -38,5 +38,5 @@
 
 ---
 
-- [ ] Path management in skills is a mess: some are absolute, some assume folder names,
+- [x] Path management in skills is a mess: some are absolute, some assume folder names,
       some are relative. We need a reliable, consistent, easy to use standard.

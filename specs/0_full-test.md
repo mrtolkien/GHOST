@@ -1,1 +1,2 @@
-- [ ] Test coding agent
+- [ ] Test coding agent on live env
+- [ ] List features that need to get tested
