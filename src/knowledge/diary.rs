@@ -46,6 +46,33 @@ pub fn list_diary_entries(workspace: &Path) -> Result<Vec<PathBuf>, KnowledgeErr
     list_md_files(&workspace.join("diary"))
 }
 
+/// Load the most recent `count` non-empty diary entries from disk.
+/// Returns `(date, body)` pairs in chronological order.
+#[must_use]
+pub fn load_recent_diary(workspace: &Path, count: usize) -> Vec<(String, String)> {
+    let paths = match list_diary_entries(workspace) {
+        Ok(p) => p,
+        Err(_) => return Vec::new(),
+    };
+
+    paths
+        .iter()
+        .rev()
+        .filter_map(|path| {
+            let date = path.file_stem()?.to_str()?.to_string();
+            let body = std::fs::read_to_string(path).ok()?;
+            if body.trim().is_empty() {
+                return None;
+            }
+            Some((date, body))
+        })
+        .take(count)
+        .collect::<Vec<_>>()
+        .into_iter()
+        .rev()
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -61,5 +88,31 @@ mod tests {
 
         let content = read_diary(workspace.path(), "2026-02-17").unwrap();
         assert_eq!(content, "Today was good.\n");
+    }
+
+    #[test]
+    fn load_recent_diary_returns_last_n_entries() {
+        let workspace = TempDir::new().unwrap();
+        let diary_dir = workspace.path().join("diary");
+        std::fs::create_dir_all(&diary_dir).unwrap();
+
+        std::fs::write(diary_dir.join("2026-03-05.md"), "Day five.").unwrap();
+        std::fs::write(diary_dir.join("2026-03-06.md"), "Day six.").unwrap();
+        std::fs::write(diary_dir.join("2026-03-07.md"), "Day seven.").unwrap();
+        std::fs::write(diary_dir.join("2026-03-08.md"), "").unwrap(); // empty, skipped
+
+        let entries = load_recent_diary(workspace.path(), 2);
+        assert_eq!(entries.len(), 2);
+        assert_eq!(entries[0].0, "2026-03-06");
+        assert_eq!(entries[0].1, "Day six.");
+        assert_eq!(entries[1].0, "2026-03-07");
+        assert_eq!(entries[1].1, "Day seven.");
+    }
+
+    #[test]
+    fn load_recent_diary_empty_dir() {
+        let workspace = TempDir::new().unwrap();
+        let entries = load_recent_diary(workspace.path(), 2);
+        assert!(entries.is_empty());
     }
 }

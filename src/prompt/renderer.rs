@@ -44,7 +44,7 @@ impl PromptRenderer {
 
         let ghost_identity = context::build_ghost_identity(workspace);
         let operator_context = context::build_operator_context(workspace);
-        let ghost_diary = context::build_ghost_diary();
+        let ghost_diary = context::build_ghost_diary(workspace);
         let ghost_skills = context::build_ghost_skills(workspace);
         let active_projects = context::build_active_projects(workspace);
         let system_info = context::build_system_info(workspace);

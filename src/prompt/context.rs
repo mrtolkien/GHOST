@@ -111,11 +111,19 @@ pub fn build_ghost_skills(workspace: &Path) -> String {
     )
 }
 
-/// Placeholder for diary content. Will be wired to the database in a future spec.
-#[tracing::instrument(skip_all, level = "debug")]
-pub fn build_ghost_diary() -> String {
-    // TODO(spec-15): wire to diary query
-    String::new()
+/// Build recent diary entries for the system prompt.
+#[tracing::instrument(skip_all, level = "debug", fields(workspace = %workspace.display()))]
+pub fn build_ghost_diary(workspace: &Path) -> String {
+    let entries = crate::knowledge::load_recent_diary(workspace, 2);
+    if entries.is_empty() {
+        return String::new();
+    }
+
+    let mut parts = vec!["## Diary\n".to_string()];
+    for (date, body) in &entries {
+        parts.push(format!("### {date}\n\n{body}"));
+    }
+    parts.join("\n")
 }
 
 /// Scan `projects/` for active projects and build a summary section for the
@@ -316,5 +324,28 @@ mod tests {
         let result = build_ghost_skills(dir.path());
         assert!(result.contains("general-skill"));
         assert!(!result.contains("coding-skill"));
+    }
+
+    #[test]
+    fn build_ghost_diary_formats_recent_entries() {
+        let dir = TempDir::new().unwrap();
+        let diary_dir = dir.path().join("diary");
+        fs::create_dir_all(&diary_dir).unwrap();
+        fs::write(diary_dir.join("2026-03-07.md"), "Had a great chat.").unwrap();
+        fs::write(diary_dir.join("2026-03-08.md"), "Built a feature.").unwrap();
+
+        let result = build_ghost_diary(dir.path());
+        assert!(result.contains("## Diary"));
+        assert!(result.contains("### 2026-03-07"));
+        assert!(result.contains("Had a great chat."));
+        assert!(result.contains("### 2026-03-08"));
+        assert!(result.contains("Built a feature."));
+    }
+
+    #[test]
+    fn build_ghost_diary_empty_when_no_entries() {
+        let dir = TempDir::new().unwrap();
+        let result = build_ghost_diary(dir.path());
+        assert!(result.is_empty());
     }
 }
