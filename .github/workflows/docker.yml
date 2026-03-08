@@ -138,8 +138,9 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           TAG="${GITHUB_REF#refs/tags/}"
+          mkdir -p upload
           for dir in ghost-*/; do
             name=$(basename "$dir")
-            mv "$dir/ghost" "$name"
-            gh release upload "$TAG" "$name" --repo "$GH_REPO" --clobber
+            mv "$dir/ghost" "upload/$name"
           done
+          gh release upload "$TAG" upload/* --repo "$GH_REPO" --clobber
