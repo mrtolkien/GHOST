@@ -1,2 +1,3 @@
 - [ ] Test coding agent on live env
+- [ ] Project creation
 - [ ] List features that need to get tested
