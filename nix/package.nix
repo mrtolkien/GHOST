@@ -1,29 +1,21 @@
-{ lib, stdenv, fetchurl, autoPatchelfHook, glibc }:
+{ lib, stdenv, autoPatchelfHook, glibc }:
 
 let
-  version = "0.1.0";
+  version = "0.1.0"; # x-release-please-version
 
   sources = {
-    x86_64-linux = {
-      url = "https://github.com/mrtolkien/ghost/releases/download/v${version}/ghost-x86_64-linux";
-      hash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
-    };
-    aarch64-linux = {
-      url = "https://github.com/mrtolkien/ghost/releases/download/v${version}/ghost-aarch64-linux";
-      hash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
-    };
+    x86_64-linux = "https://github.com/mrtolkien/ghost/releases/download/v${version}/ghost-x86_64-linux";
+    aarch64-linux = "https://github.com/mrtolkien/ghost/releases/download/v${version}/ghost-aarch64-linux";
   };
 
-  src = sources.${stdenv.hostPlatform.system}
+  url = sources.${stdenv.hostPlatform.system}
     or (throw "Unsupported system: ${stdenv.hostPlatform.system}");
 in
 stdenv.mkDerivation {
   pname = "ghost";
   inherit version;
 
-  src = fetchurl {
-    inherit (src) url hash;
-  };
+  src = builtins.fetchurl url;
 
   dontUnpack = true;
   nativeBuildInputs = [ autoPatchelfHook ];

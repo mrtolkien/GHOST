@@ -9,6 +9,7 @@ on:
 
 jobs:
   build-binary:
+    if: startsWith(github.ref, 'refs/tags/v')
     strategy:
       matrix:
         include:
@@ -28,6 +29,10 @@ jobs:
 
       - name: Install build deps
         run: sudo apt-get update && sudo apt-get install -y pkg-config cmake
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
 
       - name: Build release binary
         run: |
@@ -134,8 +139,9 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           TAG="${GITHUB_REF#refs/tags/}"
+          mkdir -p upload
           for dir in ghost-*/; do
             name=$(basename "$dir")
-            mv "$dir/ghost" "$name"
-            gh release upload "$TAG" "$name" --repo "$GH_REPO" --clobber
+            mv "$dir/ghost" "upload/$name"
           done
+          gh release upload "$TAG" upload/* --repo "$GH_REPO" --clobber
