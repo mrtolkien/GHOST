@@ -15,16 +15,6 @@ pub struct PromptContext {
     pub provider: String,
 }
 
-/// Input context for rendering a job prompt.
-#[derive(Debug, Clone)]
-pub struct JobPromptContext {
-    pub prompt_body: String,
-    pub previous_handoff: Option<String>,
-    pub diary_today: Option<String>,
-    pub recent_messages: Option<String>,
-    pub web_cache_files: Option<String>,
-}
-
 /// Assembles system and job prompts from templates and runtime context.
 #[derive(Debug, Clone)]
 pub struct PromptRenderer {
@@ -60,32 +50,6 @@ impl PromptRenderer {
         vars.insert("model_info", model_info);
 
         Ok(render_template(BASE_SYSTEM_PROMPT, &vars))
-    }
-
-    /// Render a job prompt with job-specific variables.
-    #[tracing::instrument(skip_all, level = "debug", fields(job_name = %job_name))]
-    pub fn render_job_prompt(
-        &self,
-        job_name: &str,
-        context: &JobPromptContext,
-    ) -> Result<String, PromptError> {
-        let _ = job_name; // used only in the tracing span
-
-        let mut vars: HashMap<&str, String> = HashMap::new();
-        if let Some(ref handoff) = context.previous_handoff {
-            vars.insert("previous_handoff", handoff.clone());
-        }
-        if let Some(ref diary) = context.diary_today {
-            vars.insert("diary_today", diary.clone());
-        }
-        if let Some(ref msgs) = context.recent_messages {
-            vars.insert("recent_messages", msgs.clone());
-        }
-        if let Some(ref files) = context.web_cache_files {
-            vars.insert("web_cache_files", files.clone());
-        }
-
-        Ok(render_template(&context.prompt_body, &vars))
     }
 }
 
@@ -134,39 +98,5 @@ mod tests {
         // Base template still present, runtime context still filled
         assert!(prompt.contains("System Prompt"));
         assert!(prompt.contains("Model: m"));
-    }
-
-    #[test]
-    fn job_prompt_interpolates_provided_vars_and_blanks_missing() {
-        let dir = TempDir::new().unwrap();
-        let renderer = PromptRenderer::new(test_config(dir.path()));
-
-        let with_vars = renderer
-            .render_job_prompt(
-                "reflection",
-                &JobPromptContext {
-                    prompt_body: "H:{{ previous_handoff }} D:{{ diary_today }}".to_string(),
-                    previous_handoff: Some("all good".to_string()),
-                    diary_today: Some("wrote code".to_string()),
-                    recent_messages: None,
-                    web_cache_files: None,
-                },
-            )
-            .unwrap();
-        assert_eq!(with_vars, "H:all good D:wrote code");
-
-        let without_vars = renderer
-            .render_job_prompt(
-                "reflection",
-                &JobPromptContext {
-                    prompt_body: "prev={{ previous_handoff }}".to_string(),
-                    previous_handoff: None,
-                    diary_today: None,
-                    recent_messages: None,
-                    web_cache_files: None,
-                },
-            )
-            .unwrap();
-        assert_eq!(without_vars, "prev=");
     }
 }

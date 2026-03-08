@@ -4,4 +4,4 @@ mod renderer;
 pub(crate) mod template;
 
 pub use error::PromptError;
-pub use renderer::{JobPromptContext, PromptContext, PromptRenderer};
+pub use renderer::{PromptContext, PromptRenderer};
