@@ -20,6 +20,7 @@ use crate::config::Config;
 use crate::db;
 use crate::db::GhostDb;
 
+use super::feedback;
 use super::send::{WARNING_EMBED_COLOR, send_assistant_v2, send_gateway_v2};
 
 /// Teal embed color for coding session messages.
@@ -634,6 +635,76 @@ impl EventHandler for Handler {
                     }
                 }
             }
+            "feedback" => {
+                let feedback_message = command
+                    .data
+                    .options
+                    .iter()
+                    .find(|o| o.name == "message")
+                    .and_then(|o| o.value.as_str())
+                    .unwrap_or("(no message)")
+                    .to_string();
+
+                let session_id = match self.resolve_session(channel_id).await {
+                    Ok(id) => id,
+                    Err(e) => {
+                        error!("Failed to resolve session for /feedback: {e}");
+                        let _ = command
+                            .create_response(
+                                &ctx.http,
+                                CreateInteractionResponse::Message(
+                                    CreateInteractionResponseMessage::new()
+                                        .content("Failed to resolve session.")
+                                        .ephemeral(true),
+                                ),
+                            )
+                            .await;
+                        return;
+                    }
+                };
+
+                let timestamp = chrono::Utc::now().format("%Y-%m-%dT%H-%M-%S").to_string();
+                let slug = feedback::make_slug(&feedback_message);
+                let folder_name = format!("{timestamp}-{slug}");
+                let feedback_dir = self.config.workspace.join("feedback").join(&folder_name);
+
+                match feedback::save_feedback(
+                    &self.config.workspace,
+                    &feedback_dir,
+                    &self.db,
+                    &session_id,
+                    &feedback_message,
+                )
+                .await
+                {
+                    Ok(name) => {
+                        info!(folder = %name, session_id = %session_id, "feedback saved");
+                        let _ = command
+                            .create_response(
+                                &ctx.http,
+                                CreateInteractionResponse::Message(
+                                    CreateInteractionResponseMessage::new()
+                                        .content(format!("Feedback saved to `feedback/{name}/`"))
+                                        .ephemeral(true),
+                                ),
+                            )
+                            .await;
+                    }
+                    Err(e) => {
+                        error!("Failed to save feedback: {e}");
+                        let _ = command
+                            .create_response(
+                                &ctx.http,
+                                CreateInteractionResponse::Message(
+                                    CreateInteractionResponseMessage::new()
+                                        .content(format!("Failed to save feedback: {e}"))
+                                        .ephemeral(true),
+                                ),
+                            )
+                            .await;
+                    }
+                }
+            }
             _ => {}
         }
     }
@@ -650,6 +721,16 @@ impl EventHandler for Handler {
             CreateCommand::new("stop").description("Stop the current operation"),
             CreateCommand::new("reboot").description("Start a fresh session"),
             CreateCommand::new("kill").description("End the active coding session"),
+            CreateCommand::new("feedback")
+                .description("Report an issue with the last interaction")
+                .add_option(
+                    serenity::builder::CreateCommandOption::new(
+                        serenity::model::application::CommandOptionType::String,
+                        "message",
+                        "What went wrong?",
+                    )
+                    .required(true),
+                ),
         ];
 
         if let Err(e) = Command::set_global_commands(&ctx.http, commands).await {

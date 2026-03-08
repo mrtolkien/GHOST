@@ -324,6 +324,28 @@ pub async fn get_last_message(
     })
 }
 
+#[tracing::instrument(skip_all, level = "debug", fields(session_id = %session_id, n = n))]
+pub async fn get_last_n_messages(
+    db: &SqlitePool,
+    session_id: &str,
+    n: usize,
+) -> Result<Vec<MessageRecord>, DatabaseError> {
+    sqlx::query_as::<_, MessageRecord>(
+        "SELECT * FROM (
+             SELECT * FROM message WHERE session_id = ? ORDER BY created_at DESC LIMIT ?
+         ) ORDER BY created_at ASC",
+    )
+    .bind(session_id)
+    .bind(n as i64)
+    .fetch_all(db)
+    .await
+    .map_err(|source| DatabaseError::Query {
+        table: "message",
+        operation: "get_last_n",
+        source,
+    })
+}
+
 #[tracing::instrument(skip_all, level = "debug", fields(limit = limit))]
 pub async fn list_recent_sessions(
     db: &SqlitePool,
