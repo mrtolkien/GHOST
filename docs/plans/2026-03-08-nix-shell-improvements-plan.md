@@ -6,43 +6,78 @@
 shell manager, and make the ghost binary a Nix flake input for self-update without image
 rebuilds.
 
-**Architecture:** CI publishes release binaries to GitHub. A top-level `flake.nix`
-defines a ghost package that fetches those binaries. The workspace `shell/flake.nix`
-uses home-manager with ghost as an input. The daemon runs `home-manager switch` on boot
-and the GHOST runs it via shell commands after editing the flake. Shell commands run
-without `nix develop` wrapping — packages are in PATH via home-manager's profile.
+**Architecture:** CI publishes release binaries to GitHub Releases. A top-level
+`flake.nix` defines a ghost package that fetches those binaries by hash. The workspace
+`shell/flake.nix` uses home-manager with ghost as an input. The entrypoint runs
+`home-manager switch` to bootstrap (installing ghost + packages). The daemon runs
+`home-manager switch` on boot for subsequent updates. Shell commands run without
+`nix develop` wrapping — packages are in PATH via home-manager's profile.
 
-**Tech Stack:** Nix flakes, home-manager (standalone), GitHub Actions, patchelf
+**Tech Stack:** Nix flakes, home-manager (standalone), GitHub Actions
 
 **Design doc:** `docs/plans/2026-03-08-nix-shell-improvements-design.md`
 
 ---
 
-### Task 1: CI — Extract binary build into standalone job
+## Dependency diagram
 
-Split the binary build out of the Docker multi-stage build into its own CI job that
-uploads the binary as a workflow artifact. The Docker job then pulls the artifact instead
-of building from source.
+```
+Phase 1 (CI + Nix flake — needs a real release before Phase 2):
+  Task 1: CI binary build job
+  Task 2: CI release upload job (depends on Task 1)
+  Task 3: Ghost Nix flake with placeholder hashes
+
+  >>> STOP: push workflow, create v0.1.0 tag, get real binary hashes <<<
+
+Phase 2 (Nix flake hashes + workspace flake):
+  Task 4: Update nix/package.nix with real hashes
+  Task 5: Workspace flake template → home-manager
+
+Phase 3 (Rust daemon changes — all independent of each other):
+  Task 6: Daemon — home-manager switch on boot + remove nix develop
+  Task 7: System prompt — parse home-manager packages
+  Task 8: Skill — update nix-shell.md
+
+Phase 4 (Docker — depends on Phase 2 + 3):
+  Task 9: Dockerfile — simplify (no build stages, no ghost binary)
+  Task 10: Entrypoint — bootstrap home-manager on first boot
+
+Phase 5 (Self-update — can be done later):
+  Task 11: Re-exec on binary change
+```
+
+**IMPORTANT — what the Docker image does NOT contain:**
+The Docker image has NO ghost binary. It is a minimal `nixos/nix` image with the
+default flake template and entrypoint script. On first boot, the entrypoint runs
+`home-manager switch` which fetches the ghost binary from GitHub Releases via the
+Nix flake. The `/nix` Docker volume caches everything for subsequent boots.
+
+---
+
+### Task 1: CI — Add binary build job
+
+Add a standalone CI job that builds the ghost binary on native runners and uploads
+it as a workflow artifact. This is separate from the Docker job — the Docker job
+does NOT use this artifact. The artifact is only used by the release upload job
+(Task 2).
 
 **Files:**
 - Modify: `.github/workflows/docker.yml`
 
-**Step 1: Add `build-binary` job with matrix**
+**Step 1: Add `build-binary` job**
 
-Add a new job before the existing `build` job. Uses the same runner matrix (x64 + arm
-native builders). Installs Rust, builds the binary, uploads as artifact.
+Add this job BEFORE the existing `build` job. It runs in parallel with Docker —
+no dependency between them.
 
 ```yaml
   build-binary:
     strategy:
       matrix:
         include:
-          - platform: linux/amd64
-            runner: ubuntu-latest
+          - runner: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             artifact: ghost-x86_64-linux
-          - platform: linux/arm64
-            runner: ubuntu-24.04-arm
+          - runner: ubuntu-24.04-arm
             target: aarch64-unknown-linux-gnu
             artifact: ghost-aarch64-linux
     runs-on: ${{ matrix.runner }}
@@ -57,7 +92,9 @@ native builders). Installs Rust, builds the binary, uploads as artifact.
         run: sudo apt-get update && sudo apt-get install -y pkg-config cmake
 
       - name: Build release binary
-        run: cargo build --release --target ${{ matrix.target }} && strip target/${{ matrix.target }}/release/ghost
+        run: |
+          cargo build --release --target ${{ matrix.target }}
+          strip target/${{ matrix.target }}/release/ghost
 
       - uses: actions/upload-artifact@v4
         with:
@@ -66,59 +103,21 @@ native builders). Installs Rust, builds the binary, uploads as artifact.
           retention-days: 7
 ```
 
-**Step 2: Simplify Docker `build` job to use pre-built binary**
+The existing `build` (Docker) and `merge` jobs stay UNCHANGED. `build-binary` runs
+in parallel with them.
 
-Update the existing `build` job to:
-1. Depend on `build-binary`
-2. Download the binary artifact
-3. Pass it to the Docker build via `COPY` from a local path
-
-Add `needs: build-binary` and download the artifact before Docker build:
-
-```yaml
-  build:
-    needs: build-binary
-    # ... existing matrix ...
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Determine artifact name
-        id: artifact
-        run: |
-          if [[ "${{ matrix.platform }}" == "linux/amd64" ]]; then
-            echo "name=ghost-x86_64-linux" >> "$GITHUB_OUTPUT"
-          else
-            echo "name=ghost-aarch64-linux" >> "$GITHUB_OUTPUT"
-          fi
-
-      - uses: actions/download-artifact@v4
-        with:
-          name: ${{ steps.artifact.outputs.name }}
-          path: deploy/common/ghost-bin/
-
-      - name: Make binary executable
-        run: chmod +x deploy/common/ghost-bin/ghost
-
-      # ... existing Docker build steps ...
-```
-
-**Step 3: Verify workflow runs**
-
-Push to a branch and check GitHub Actions.
-Expected: binary builds on both architectures, Docker build uses the artifacts.
-
-**Step 4: Commit**
+**Step 2: Commit**
 
 ```
-feat: extract binary build into standalone CI job
+feat: add standalone binary build CI job
 ```
 
 ---
 
 ### Task 2: CI — Add release upload job
 
-On `v*` tags, attach the built binaries to the GitHub Release so the Nix flake can
-fetch them by URL + hash.
+On `v*` tags, download the binary artifacts and attach them to the GitHub Release.
+These URLs are what the Nix flake fetches.
 
 **Files:**
 - Modify: `.github/workflows/docker.yml`
@@ -150,35 +149,26 @@ fetch them by URL + hash.
           done
 ```
 
-**Step 2: Test with a draft release**
-
-Create a test tag and verify binaries appear on the release page.
-
-**Step 3: Commit**
+**Step 2: Commit**
 
 ```
-feat: upload release binaries to GitHub Releases
+feat: upload release binaries to GitHub Releases on tags
 ```
 
 ---
 
-### Task 3: Ghost Nix package flake
+### Task 3: Ghost Nix flake with placeholder hashes
 
-Create a top-level `flake.nix` that defines the ghost package. This is what the
-workspace flake references as an input.
+Create the top-level `flake.nix` and `nix/package.nix` that define the ghost
+package. Use placeholder hashes — they'll be filled in after the first release.
 
 **Files:**
+- Create: `nix/package.nix`
 - Create: `flake.nix` (repo root)
-- Create: `nix/package.nix` (package derivation)
 
 **Step 1: Create `nix/package.nix`**
 
-Nix function that builds the ghost package from a pre-built binary.
-Uses `autoPatchelfHook` to fix the glibc dynamic linker (same logic currently in
-the Dockerfile at `deploy/common/Dockerfile:35-39`).
-
 ```nix
-# nix/package.nix
 { lib, stdenv, fetchurl, autoPatchelfHook, glibc }:
 
 let
@@ -207,7 +197,6 @@ stdenv.mkDerivation {
   };
 
   dontUnpack = true;
-
   nativeBuildInputs = [ autoPatchelfHook ];
   buildInputs = [ glibc ];
 
@@ -221,9 +210,6 @@ stdenv.mkDerivation {
   };
 }
 ```
-
-Note: placeholder hashes (`sha256-AAA...`) will be updated after the first release.
-To get real hashes: `nix-prefetch-url <release-url>`
 
 **Step 2: Create `flake.nix`**
 
@@ -248,29 +234,65 @@ To get real hashes: `nix-prefetch-url <release-url>`
 
 **Step 3: Generate `flake.lock`**
 
-Run `nix flake lock` to pin nixpkgs. Commit the lock file.
+Run: `nix flake lock`
 
-**Step 4: Test locally**
+Commit the lock file.
 
-Run: `nix flake check` (will pass even with placeholder hashes — evaluation works,
-build would fail until real hashes are set).
-
-**Step 5: Add README section about building from source**
-
-Add a short note about using `rustPlatform.buildRustPackage` for the main branch
-(dev/debug only).
-
-**Step 6: Commit**
+**Step 4: Commit**
 
 ```
-feat: add Nix flake for ghost package
+feat: add Nix flake for ghost package (placeholder hashes)
 ```
 
 ---
 
-### Task 4: Default workspace flake — switch to home-manager
+### >>> STOP HERE <<<
 
-Rewrite the workspace flake template to use home-manager instead of `devShells`.
+**Push Tasks 1-3 to a branch and merge to main. Then:**
+
+1. Create a `v0.1.0` tag on main
+2. Wait for CI to run — `build-binary` builds the binaries, `release` attaches them
+   to the GitHub Release
+3. Get the real sha256 hashes:
+   ```sh
+   nix-prefetch-url https://github.com/mrtolkien/ghost/releases/download/v0.1.0/ghost-x86_64-linux
+   nix-prefetch-url https://github.com/mrtolkien/ghost/releases/download/v0.1.0/ghost-aarch64-linux
+   ```
+4. Resume with Task 4
+
+---
+
+### Task 4: Update Nix flake with real hashes
+
+Replace the placeholder hashes in `nix/package.nix` with the real ones from the
+v0.1.0 release.
+
+**Files:**
+- Modify: `nix/package.nix`
+
+**Step 1: Replace hashes**
+
+Replace the `sha256-AAA...` placeholders with the real hashes obtained from
+`nix-prefetch-url`.
+
+**Step 2: Verify the flake builds**
+
+Run: `nix build .#default`
+
+This should fetch the binary from GitHub Releases, patch it with autoPatchelfHook,
+and produce `result/bin/ghost`.
+
+**Step 3: Commit**
+
+```
+feat: set real binary hashes in Nix flake for v0.1.0
+```
+
+---
+
+### Task 5: Workspace flake template — switch to home-manager
+
+Rewrite the default workspace flake to use home-manager instead of `devShells`.
 
 **Files:**
 - Modify: `deploy/common/default-flake.nix`
@@ -329,7 +351,14 @@ Rewrite the workspace flake template to use home-manager instead of `devShells`.
 }
 ```
 
-**Step 2: Commit**
+**Step 2: Verify `include_str!` still works**
+
+Run: `cargo check`
+
+The existing `include_str!("../deploy/common/default-flake.nix")` in
+`src/config_workspace.rs:8` points to the same file — just verify it compiles.
+
+**Step 3: Commit**
 
 ```
 feat: switch workspace flake template to home-manager
@@ -337,17 +366,19 @@ feat: switch workspace flake template to home-manager
 
 ---
 
-### Task 5: Daemon — run `home-manager switch` on boot + remove `nix develop`
+### Task 6: Daemon — home-manager switch on boot + remove `nix develop`
 
-Replace `spawn_flake_warmup()` with `home-manager switch` and remove the `nix develop`
-wrapping from shell commands. Store the home-manager profile PATH so child processes
-inherit it.
+Replace `spawn_flake_warmup()` with `run_home_manager_switch()`. Remove the
+`nix develop` wrapping from `shell_command()`. Store the home-manager profile
+PATH so child processes inherit it.
 
 **Files:**
-- Modify: `src/tools/shell.rs` (replace `spawn_flake_warmup`, simplify `shell_command`)
-- Modify: `src/daemon/run.rs:65` (call new boot function)
+- Modify: `src/tools/shell.rs`
+- Modify: `src/daemon/run.rs:65`
 
-**Step 1: Write test for home-manager PATH resolution**
+**Step 1: Write test for profile PATH resolution**
+
+Add to `src/tools/shell.rs` tests:
 
 ```rust
 #[test]
@@ -364,14 +395,14 @@ fn resolve_hm_profile_finds_bin_dir() {
 
 Run: `cargo test -p ghost shell::tests::resolve_hm_profile_finds_bin_dir`
 
-**Step 3: Implement profile PATH resolution + home-manager switch**
+**Step 3: Add profile PATH resolution + home-manager switch function**
 
 Add to `src/tools/shell.rs`:
 
 ```rust
 use std::sync::OnceLock;
 
-/// PATH prefix from home-manager profile, set after `home-manager switch`.
+/// PATH prefix from home-manager profile.
 static HM_PATH_PREFIX: OnceLock<String> = OnceLock::new();
 
 /// Run `home-manager switch` for the workspace flake.
@@ -423,9 +454,10 @@ fn resolve_hm_profile_path_with_home(home: &std::path::Path) -> Option<std::path
 
 **Step 4: Run test, verify it passes**
 
-**Step 5: Simplify `shell_command()` — remove `nix develop`**
+**Step 5: Simplify `shell_command()` — remove `nix develop` wrapping**
 
-Replace the `shell_command()` function at `src/tools/shell.rs:20-50`:
+Replace the entire `shell_command()` function at `src/tools/shell.rs:20-50`.
+The new version does NOT check for `shell/flake.nix` and does NOT use `nix develop`:
 
 ```rust
 fn shell_command(
@@ -455,7 +487,7 @@ fn shell_command(
 
 **Step 6: Delete `spawn_flake_warmup()`**
 
-Remove lines 210-243 from `src/tools/shell.rs`.
+Delete the entire function at `src/tools/shell.rs:212-243`.
 
 **Step 7: Update daemon boot**
 
@@ -483,16 +515,16 @@ feat: replace nix develop wrapping with home-manager profile PATH
 
 ---
 
-### Task 6: System prompt — parse home-manager packages
+### Task 7: System prompt — parse home-manager packages
 
 Update the flake parser to read `home.packages` instead of `packages = with pkgs;`.
 
 **Files:**
-- Modify: `src/prompt/context.rs:31-43` (`parse_flake_packages`)
+- Modify: `src/prompt/context.rs` (`parse_flake_packages` function)
 
 **Step 1: Update the test**
 
-Modify test at `src/prompt/context.rs:242` to use home-manager format:
+Modify `system_info_includes_shell_tools_from_flake` test to use the new format:
 
 ```rust
 #[test]
@@ -540,7 +572,9 @@ fn parse_flake_packages(path: &Path) -> Option<String> {
         .split_whitespace()
         .filter(|s| !s.starts_with('#') && !s.starts_with("ghost."))
         .collect();
-    if names.is_empty() { return None; }
+    if names.is_empty() {
+        return None;
+    }
     Some(names.join(", "))
 }
 ```
@@ -557,87 +591,9 @@ feat: parse home-manager package list in system prompt
 
 ---
 
-### Task 7: Dockerfile — simplify
+### Task 8: Skill — update nix-shell.md
 
-Remove the cargo-chef build stages. Docker image becomes a minimal Nix runtime.
-
-**Files:**
-- Modify: `deploy/common/Dockerfile`
-
-**Step 1: Rewrite Dockerfile**
-
-```dockerfile
-FROM nixos/nix:latest
-
-# Enable flakes
-RUN echo "experimental-features = nix-command flakes" >> /etc/nix/nix.conf
-
-# Copy default flake template and entrypoint
-COPY deploy/common/default-flake.nix /opt/ghost/default-flake.nix
-COPY deploy/common/entrypoint.sh /opt/ghost/entrypoint.sh
-
-ENV GHOST_CONFIG_DIR=/config
-ENV GHOST_WORKSPACE=/workspace
-
-ENTRYPOINT ["/opt/ghost/entrypoint.sh"]
-```
-
-**Step 2: Commit**
-
-```
-refactor: simplify Dockerfile to minimal Nix runtime
-```
-
----
-
-### Task 8: Entrypoint — bootstrap home-manager on first boot
-
-The entrypoint bootstraps the environment on first boot (when ghost isn't in PATH yet).
-After first boot, the `/nix` volume caches everything for fast subsequent starts.
-
-**Files:**
-- Modify: `deploy/common/entrypoint.sh`
-
-**Step 1: Rewrite entrypoint**
-
-```sh
-#!/bin/sh
-set -e
-
-WORKSPACE="${GHOST_WORKSPACE:-/workspace}"
-
-# Ensure workspace shell directory exists with default flake
-mkdir -p "$WORKSPACE/shell"
-if [ ! -f "$WORKSPACE/shell/flake.nix" ]; then
-  cp /opt/ghost/default-flake.nix "$WORKSPACE/shell/flake.nix"
-fi
-
-# Bootstrap home-manager environment (installs ghost + all packages).
-# Fast if already cached in /nix volume.
-echo "Running home-manager switch..."
-nix run home-manager -- switch --flake "$WORKSPACE/shell/"
-
-# Source home-manager profile for PATH
-export PATH="$HOME/.nix-profile/bin:$PATH"
-
-# Ghost is now in PATH via home-manager
-ghost daemon "$@"
-```
-
-Note: the entrypoint handles the initial bootstrap. The daemon's own
-`run_home_manager_switch()` handles subsequent switches triggered by the GHOST.
-
-**Step 2: Commit**
-
-```
-feat: bootstrap home-manager environment in entrypoint
-```
-
----
-
-### Task 9: Skill — update nix-shell.md
-
-Update the GHOST-facing skill to document the home-manager workflow.
+Update the GHOST-facing skill for the home-manager workflow.
 
 **Files:**
 - Modify: `prompts/skills/nix-shell.md`
@@ -717,14 +673,100 @@ docs: update nix-shell skill for home-manager workflow
 
 ---
 
-### Task 10: Self-update — re-exec on binary change
+### Task 9: Dockerfile — simplify
+
+Remove ALL build stages. The Docker image has NO ghost binary. It is a minimal
+`nixos/nix` image that only contains the default flake template and entrypoint.
+
+**IMPORTANT: The Docker image does NOT download, build, or include the ghost binary
+in any way. Ghost is installed at runtime by home-manager via the Nix flake.**
+
+**Files:**
+- Modify: `deploy/common/Dockerfile`
+
+**Step 1: Rewrite Dockerfile**
+
+Delete the entire file and replace with:
+
+```dockerfile
+FROM nixos/nix:latest
+
+# Enable flakes
+RUN echo "experimental-features = nix-command flakes" >> /etc/nix/nix.conf
+
+# Copy default flake template and entrypoint
+COPY deploy/common/default-flake.nix /opt/ghost/default-flake.nix
+COPY deploy/common/entrypoint.sh /opt/ghost/entrypoint.sh
+RUN chmod +x /opt/ghost/entrypoint.sh
+
+ENV GHOST_CONFIG_DIR=/config
+ENV GHOST_WORKSPACE=/workspace
+
+ENTRYPOINT ["/opt/ghost/entrypoint.sh"]
+```
+
+That's it. No `cargo-chef`. No `COPY --from=builder`. No `patchelf`. No ghost binary.
+
+**Step 2: Commit**
+
+```
+refactor: simplify Dockerfile to minimal Nix runtime (no ghost binary)
+```
+
+---
+
+### Task 10: Entrypoint — bootstrap home-manager on first boot
+
+The entrypoint runs `home-manager switch` before starting the daemon. This is the
+mechanism that installs the ghost binary on first boot. The `/nix` Docker volume
+caches everything for fast subsequent starts.
+
+**Files:**
+- Modify: `deploy/common/entrypoint.sh`
+
+**Step 1: Rewrite entrypoint**
+
+```sh
+#!/bin/sh
+set -e
+
+WORKSPACE="${GHOST_WORKSPACE:-/workspace}"
+
+# Ensure workspace shell directory exists with default flake
+mkdir -p "$WORKSPACE/shell"
+if [ ! -f "$WORKSPACE/shell/flake.nix" ]; then
+  cp /opt/ghost/default-flake.nix "$WORKSPACE/shell/flake.nix"
+fi
+
+# Bootstrap home-manager environment (installs ghost + all packages).
+# First boot downloads everything (~30-60s). Subsequent boots are fast
+# because the /nix volume caches the store.
+echo "Running home-manager switch..."
+nix run home-manager -- switch --flake "$WORKSPACE/shell/"
+
+# Add home-manager profile to PATH so we can find ghost
+export PATH="$HOME/.nix-profile/bin:$PATH"
+
+# Ghost is now available via home-manager — start the daemon
+ghost daemon "$@"
+```
+
+**Step 2: Commit**
+
+```
+feat: bootstrap home-manager environment in entrypoint
+```
+
+---
+
+### Task 11: Self-update — re-exec on binary change (optional, can defer)
 
 After shell commands containing `home-manager switch`, check if the ghost binary
 changed. If so, trigger graceful re-exec.
 
 **Files:**
 - Modify: `src/tools/shell.rs` (add binary hash check)
-- Modify: `src/daemon/run.rs` (record boot hash, add re-exec mechanism)
+- Modify: `src/daemon/run.rs` (record boot hash, add re-exec)
 
 **Step 1: Write test for binary hash comparison**
 
@@ -781,9 +823,10 @@ In `src/daemon/run.rs`, add near line 65:
 crate::tools::shell::record_boot_binary_hash();
 ```
 
-For re-exec, use `std::os::unix::process::CommandExt`:
+For re-exec, use `std::os::unix::process::CommandExt::exec()`:
 ```rust
 pub fn re_exec() -> ! {
+    use std::os::unix::process::CommandExt;
     let exe = std::env::current_exe().expect("cannot resolve exe path");
     let args: Vec<String> = std::env::args().collect();
     tracing::info!("re-executing ghost with updated binary");
@@ -792,9 +835,9 @@ pub fn re_exec() -> ! {
 }
 ```
 
-The trigger: after `run_shell_command` returns for commands containing
+Trigger: after `run_shell_command` returns for commands containing
 `home-manager switch`, call `binary_changed()`. If true, initiate graceful
-shutdown and re-exec. Exact trigger mechanism to be refined during implementation.
+shutdown and re-exec.
 
 **Step 4: Run test, verify it passes**
 
@@ -810,24 +853,6 @@ feat: detect ghost binary changes and support re-exec for self-update
 
 ---
 
-### Task 11: Verify workspace bootstrap
-
-Confirm `include_str!` at `src/config_workspace.rs:8` still works with the updated
-`deploy/common/default-flake.nix`.
-
-**Files:**
-- Verify: `src/config_workspace.rs:8`
-
-**Step 1: Run cargo check**
-
-Run: `cargo check`
-
-The `include_str!("../deploy/common/default-flake.nix")` path is unchanged.
-
-**Step 2: Commit if needed**
-
----
-
 ### Task 12: Final verification
 
 **Step 1: Run full CI**
@@ -838,7 +863,7 @@ Run: `just ci`
 
 Run: `docker build -f deploy/common/Dockerfile -t ghost:test .`
 
-Verify image is ~150 MB (vs previous ~1 GB+).
+Verify image is small (~150 MB — just `nixos/nix` base + 2 files).
 
 **Step 3: Test first boot flow**
 
@@ -848,18 +873,13 @@ docker run --rm -v ghost-test-nix:/nix -v /tmp/ghost-workspace:/workspace \
 ```
 
 Verify:
-- Entrypoint copies default flake to workspace
-- `home-manager switch` runs and installs packages + ghost
-- Ghost daemon starts
+- Entrypoint copies default flake to `/workspace/shell/flake.nix`
+- `home-manager switch` runs and installs packages + ghost binary
+- Ghost daemon starts successfully
 - Shell commands work without `nix develop` wrapping
 
 **Step 4: Test flake edit flow**
 
 Edit `/workspace/shell/flake.nix` (add a package), run
-`home-manager switch --flake /workspace/shell/`, verify the new package is available.
-
-**Step 5: Commit any final fixes**
-
-```
-chore: final verification of nix shell improvements
-```
+`home-manager switch --flake /workspace/shell/`, verify the new package is available
+in subsequent `run_shell_command` calls.
