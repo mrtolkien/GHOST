@@ -274,8 +274,8 @@ When searching, start agent with template... [20 lines of repeated instructions]
 
 # GOOD: Reference other skill
 
-Always use agents (50-100x context savings). REQUIRED: Read
-`read_file("skills/other-skill/skill.md")` for workflow.
+Always use agents (50-100x context savings). **REQUIRED:** Read the other skill's
+`skill.md` for workflow.
 ```
 
 **Compress examples:**
@@ -305,7 +305,7 @@ agent, synthesis]
 
 Use skill name only, with explicit requirement markers:
 
-- Good: `**REQUIRED:** Read read_file("skills/superpowers/tdd/skill.md")`
+- Good: `**REQUIRED:** Read the \`tdd\` skill`
 - Good: `**REQUIRED BACKGROUND:** You MUST understand the test-driven-development skill`
 - Bad: `See skills/testing/test-driven-development` (unclear if required)
 

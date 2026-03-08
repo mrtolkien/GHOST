@@ -182,7 +182,7 @@ You MUST complete each phase before proceeding to the next.
    - Automated test if possible
    - One-off test script if no framework
    - MUST have before fixing
-   - Use `read_file("skills/superpowers/tdd/skill.md")` for writing proper failing tests
+   - Read the `tdd` skill for writing proper failing tests
 
 2. **Implement Single Fix**
    - Address the root cause identified

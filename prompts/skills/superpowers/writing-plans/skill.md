@@ -42,7 +42,7 @@ plan."
 # [Feature Name] Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use
-> `read_file("skills/superpowers/executing-plans/skill.md")` to implement this plan
+> Use superpowers:executing-plans to implement this plan
 > task-by-task.
 
 **Goal:** [One sentence describing what this builds]
@@ -104,7 +104,7 @@ git commit -m "feat: add specific feature"
 - Exact file paths always
 - Complete code in plan (not "add validation")
 - Exact commands with expected output
-- Reference relevant skills with `read_file("skills/<name>/skill.md")`
+- Reference relevant skills by name (e.g., "Read the `tdd` skill")
 - DRY, YAGNI, TDD, frequent commits
 
 ## Execution Handoff

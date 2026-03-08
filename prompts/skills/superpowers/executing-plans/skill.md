@@ -59,7 +59,7 @@ Based on feedback:
 After all tasks complete and verified:
 
 - Announce: "I'm using the finishing-a-development-branch skill to complete this work."
-- **REQUIRED SUB-SKILL:** `read_file("skills/superpowers/finishing-branch/skill.md")`
+- **REQUIRED SUB-SKILL:** Read the `finishing-branch` skill
 - Follow that skill to verify tests, present options, execute choice
 
 ## When to Stop and Ask for Help
@@ -96,7 +96,5 @@ After all tasks complete and verified:
 
 **Required workflow skills:**
 
-- `read_file("skills/superpowers/writing-plans/skill.md")` - Creates the plan this skill
-  executes
-- `read_file("skills/superpowers/finishing-branch/skill.md")` - Complete development
-  after all tasks
+- **`writing-plans`** - Creates the plan this skill executes
+- **`finishing-branch`** - Complete development after all tasks

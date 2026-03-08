@@ -43,9 +43,8 @@ complete them in order:
 4. **Present design** — in sections scaled to their complexity, get OPERATOR approval
    after each section
 5. **Write design doc** — save to `docs/plans/YYYY-MM-DD-<topic>-design.md` and commit
-6. **Transition to implementation** — read
-   `read_file("skills/superpowers/writing-plans/skill.md")` to create implementation
-   plan
+6. **Transition to implementation** — read the `writing-plans` skill to create
+   implementation plan
 
 ## Process Flow
 
@@ -107,9 +106,7 @@ or read any other skill. The ONLY next step after brainstorming is writing-plans
 
 **Implementation:**
 
-- Read the writing-plans skill via
-  `read_file("skills/superpowers/writing-plans/skill.md")` to create a detailed
-  implementation plan
+- Read the `writing-plans` skill to create a detailed implementation plan
 - Do NOT start implementing directly. writing-plans is the next step.
 
 ## Key Principles

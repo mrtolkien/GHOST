@@ -9,7 +9,7 @@ Use this template when dispatching a code quality reviewer subagent.
 ```
 agent_control(action: "start", ...):
   Use the code-reviewer prompt template at
-  read_file("skills/superpowers/requesting-review/code-reviewer.md")
+  Read the `code-reviewer.md` extra from the `requesting-review` skill
 
   WHAT_WAS_IMPLEMENTED: [from implementer's report]
   PLAN_OR_REQUIREMENTS: Task N from [plan-file]
