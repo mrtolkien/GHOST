@@ -62,6 +62,25 @@ impl Tool for ReadFile {
             result.push_str(&format!("{line_num:>width$} | {line}\n"));
         }
 
+        // Append extra-files block for skill.md files
+        if raw_path.ends_with("skill.md")
+            && path.components().any(|c| c.as_os_str() == "skills")
+        {
+            if let Some(skill_dir) = path.parent() {
+                let extras = crate::skills::collect_extras(skill_dir);
+                if !extras.is_empty() {
+                    result.push_str("\n<extra-files>\n");
+                    for extra in &extras {
+                        result.push_str(&format!(
+                            "  <file path=\"{}\" />\n",
+                            extra.display()
+                        ));
+                    }
+                    result.push_str("</extra-files>\n");
+                }
+            }
+        }
+
         Ok(result)
     }
 }
@@ -110,6 +129,78 @@ mod tests {
             .execute(json!({"path": "nonexistent.txt"}), &ctx)
             .await;
         assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn read_skill_md_appends_extra_files() {
+        let workspace = TempDir::new().unwrap();
+        let skill_dir = workspace.path().join("skills").join("test-skill");
+        std::fs::create_dir_all(skill_dir.join("scripts")).unwrap();
+
+        std::fs::write(
+            skill_dir.join("skill.md"),
+            "---\nname: test-skill\ndescription: Test.\n---\n\n# Test Skill\n",
+        )
+        .unwrap();
+        std::fs::write(skill_dir.join("reference.md"), "ref content").unwrap();
+        std::fs::write(skill_dir.join("scripts/run.py"), "print()").unwrap();
+
+        let ctx = test_ctx_in(workspace.path());
+        let result = ReadFile
+            .execute(json!({"path": "skills/test-skill/skill.md"}), &ctx)
+            .await
+            .unwrap();
+
+        assert!(result.contains("<extra-files>"));
+        assert!(result.contains("./reference.md"));
+        assert!(result.contains("./scripts/run.py"));
+        assert!(result.contains("</extra-files>"));
+    }
+
+    #[tokio::test]
+    async fn read_skill_md_no_extras_no_block() {
+        let workspace = TempDir::new().unwrap();
+        let skill_dir = workspace.path().join("skills").join("bare-skill");
+        std::fs::create_dir_all(&skill_dir).unwrap();
+
+        std::fs::write(
+            skill_dir.join("skill.md"),
+            "---\nname: bare-skill\ndescription: Bare.\n---\n\n# Bare\n",
+        )
+        .unwrap();
+
+        let ctx = test_ctx_in(workspace.path());
+        let result = ReadFile
+            .execute(json!({"path": "skills/bare-skill/skill.md"}), &ctx)
+            .await
+            .unwrap();
+
+        assert!(!result.contains("<extra-files>"));
+    }
+
+    #[tokio::test]
+    async fn read_skill_md_excludes_agent_dirs() {
+        let workspace = TempDir::new().unwrap();
+        let skill_dir = workspace.path().join("skills").join("with-agent");
+        std::fs::create_dir_all(skill_dir.join("my-agent")).unwrap();
+
+        std::fs::write(
+            skill_dir.join("skill.md"),
+            "---\nname: with-agent\ndescription: Has agent.\n---\n\n# Agent Skill\n",
+        )
+        .unwrap();
+        std::fs::write(skill_dir.join("my-agent/agent.lua"), "return {}").unwrap();
+        std::fs::write(skill_dir.join("my-agent/prompt.md"), "prompt").unwrap();
+
+        let ctx = test_ctx_in(workspace.path());
+        let result = ReadFile
+            .execute(json!({"path": "skills/with-agent/skill.md"}), &ctx)
+            .await
+            .unwrap();
+
+        assert!(!result.contains("<extra-files>"));
+        assert!(!result.contains("agent.lua"));
+        assert!(!result.contains("prompt.md"));
     }
 
     #[tokio::test]
