@@ -136,6 +136,6 @@ jobs:
           TAG="${GITHUB_REF#refs/tags/}"
           for dir in ghost-*/; do
             name=$(basename "$dir")
-            cp "$dir/ghost" "$name"
+            mv "$dir/ghost" "$name"
             gh release upload "$TAG" "$name" --repo "$GH_REPO" --clobber
           done
