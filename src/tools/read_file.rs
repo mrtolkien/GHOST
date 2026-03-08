@@ -65,19 +65,15 @@ impl Tool for ReadFile {
         // Append extra-files block for skill.md files
         if raw_path.ends_with("skill.md")
             && path.components().any(|c| c.as_os_str() == "skills")
+            && let Some(skill_dir) = path.parent()
         {
-            if let Some(skill_dir) = path.parent() {
-                let extras = crate::skills::collect_extras(skill_dir);
-                if !extras.is_empty() {
-                    result.push_str("\n<extra-files>\n");
-                    for extra in &extras {
-                        result.push_str(&format!(
-                            "  <file path=\"{}\" />\n",
-                            extra.display()
-                        ));
-                    }
-                    result.push_str("</extra-files>\n");
+            let extras = crate::skills::collect_extras(skill_dir);
+            if !extras.is_empty() {
+                result.push_str("\n<extra-files>\n");
+                for extra in &extras {
+                    result.push_str(&format!("  <file path=\"{}\" />\n", extra.display()));
                 }
+                result.push_str("</extra-files>\n");
             }
         }
 

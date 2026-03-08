@@ -41,9 +41,8 @@ plan."
 ```markdown
 # [Feature Name] Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use
-> Use superpowers:executing-plans to implement this plan
-> task-by-task.
+> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this
+> plan task-by-task.
 
 **Goal:** [One sentence describing what this builds]
 
