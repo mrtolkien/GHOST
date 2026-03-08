@@ -473,6 +473,50 @@ pub fn install_default_skills(workspace: &Path) -> Result<(), std::io::Error> {
     Ok(())
 }
 
+/// Collect extra files in a skill directory for the `<extra-files>` block.
+///
+/// Walks `skill_dir` recursively, returning `./`-relative paths for all
+/// files except `skill.md` and anything inside agent directories (dirs
+/// containing `agent.lua`). Returns sorted paths; empty vec if no extras.
+pub fn collect_extras(skill_dir: &Path) -> Vec<PathBuf> {
+    let mut extras = Vec::new();
+    walk_extras(skill_dir, skill_dir, &mut extras);
+    extras.sort();
+    extras
+}
+
+fn walk_extras(base: &Path, dir: &Path, extras: &mut Vec<PathBuf>) {
+    let entries = match fs::read_dir(dir) {
+        Ok(entries) => entries,
+        Err(_) => return,
+    };
+
+    // Skip this directory entirely if it contains agent.lua
+    if dir != base && dir.join("agent.lua").exists() {
+        return;
+    }
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+
+        if path.is_dir() {
+            walk_extras(base, &path, extras);
+        } else {
+            let name = entry.file_name();
+            let name = name.to_string_lossy();
+
+            // Skip skill.md itself
+            if name == "skill.md" {
+                continue;
+            }
+
+            if let Ok(rel) = path.strip_prefix(base) {
+                extras.push(PathBuf::from(".").join(rel));
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -736,6 +780,72 @@ name: no-desc
                 .join("superpowers/subagent-development/coding-reviewer/agent.lua")
                 .exists()
         );
+    }
+
+    #[test]
+    fn collect_extras_finds_non_agent_files() {
+        let dir = TempDir::new().unwrap();
+        let skill_dir = dir.path().join("skills").join("my-skill");
+        fs::create_dir_all(skill_dir.join("scripts")).unwrap();
+        fs::create_dir_all(skill_dir.join("my-agent")).unwrap();
+
+        // Skill file (excluded from extras)
+        fs::write(
+            skill_dir.join("skill.md"),
+            "---\nname: my-skill\ndescription: Test.\n---\n",
+        )
+        .unwrap();
+        // Extra files (included)
+        fs::write(skill_dir.join("reference.md"), "ref").unwrap();
+        fs::write(skill_dir.join("schema.sql"), "CREATE TABLE").unwrap();
+        fs::write(skill_dir.join("scripts/run.py"), "print()").unwrap();
+        // Agent dir (excluded entirely)
+        fs::write(skill_dir.join("my-agent/agent.lua"), "return {}").unwrap();
+        fs::write(skill_dir.join("my-agent/prompt.md"), "prompt").unwrap();
+
+        let extras = collect_extras(&skill_dir);
+        let paths: Vec<String> = extras.iter().map(|p| p.display().to_string()).collect();
+
+        assert_eq!(paths.len(), 3);
+        assert!(paths.contains(&"./reference.md".to_string()));
+        assert!(paths.contains(&"./schema.sql".to_string()));
+        assert!(paths.contains(&"./scripts/run.py".to_string()));
+    }
+
+    #[test]
+    fn collect_extras_empty_when_no_extras() {
+        let dir = TempDir::new().unwrap();
+        let skill_dir = dir.path().join("skills").join("simple");
+        fs::create_dir_all(&skill_dir).unwrap();
+        fs::write(
+            skill_dir.join("skill.md"),
+            "---\nname: simple\ndescription: Test.\n---\n",
+        )
+        .unwrap();
+
+        let extras = collect_extras(&skill_dir);
+        assert!(extras.is_empty());
+    }
+
+    #[test]
+    fn collect_extras_skips_nested_agent_dirs() {
+        let dir = TempDir::new().unwrap();
+        let skill_dir = dir.path().join("skills").join("complex");
+        fs::create_dir_all(skill_dir.join("agent-a")).unwrap();
+        fs::create_dir_all(skill_dir.join("agent-b")).unwrap();
+
+        fs::write(
+            skill_dir.join("skill.md"),
+            "---\nname: complex\ndescription: Test.\n---\n",
+        )
+        .unwrap();
+        fs::write(skill_dir.join("agent-a/agent.lua"), "return {}").unwrap();
+        fs::write(skill_dir.join("agent-a/prompt.md"), "p").unwrap();
+        fs::write(skill_dir.join("agent-b/agent.lua"), "return {}").unwrap();
+        fs::write(skill_dir.join("agent-b/user-message.md"), "u").unwrap();
+
+        let extras = collect_extras(&skill_dir);
+        assert!(extras.is_empty());
     }
 
     #[test]
