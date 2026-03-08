@@ -16,13 +16,13 @@ Run the bundled script via `run_shell_command`. Images are saved to `$WORKSPACE/
 **Generate new image:**
 
 ```sh
-uv run $WORKSPACE/skills/image-generation/scripts/generate_image.py --prompt 'your image description' --filename '$WORKSPACE/tmp/yyyy-mm-dd-hh-mm-ss-name.png'
+uv run ./scripts/generate_image.py --prompt 'your image description' --filename 'tmp/yyyy-mm-dd-hh-mm-ss-name.png'
 ```
 
 **Edit existing image:**
 
 ```sh
-uv run $WORKSPACE/skills/image-generation/scripts/generate_image.py --prompt 'editing instructions' --filename '$WORKSPACE/tmp/yyyy-mm-dd-hh-mm-ss-name.png' --input-image 'path/to/input.png'
+uv run ./scripts/generate_image.py --prompt 'editing instructions' --filename 'tmp/yyyy-mm-dd-hh-mm-ss-name.png' --input-image 'path/to/input.png'
 ```
 
 **Resolution option:** Append `--resolution 1K|2K|4K` (default: 1K).
