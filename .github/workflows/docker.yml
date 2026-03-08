@@ -8,6 +8,38 @@ on:
       - "v*"
 
 jobs:
+  build-binary:
+    strategy:
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            artifact: ghost-x86_64-linux
+          - runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            artifact: ghost-aarch64-linux
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install build deps
+        run: sudo apt-get update && sudo apt-get install -y pkg-config cmake
+
+      - name: Build release binary
+        run: |
+          cargo build --release --target ${{ matrix.target }}
+          strip target/${{ matrix.target }}/release/ghost
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: target/${{ matrix.target }}/release/ghost
+          retention-days: 7
+
   build:
     strategy:
       matrix:
@@ -83,3 +115,27 @@ jobs:
           IFS=',' read -ra TAG_ARRAY <<< "${{ steps.tags.outputs.tags }}"
           TAG_ARGS=$(printf -- '--tag %s ' "${TAG_ARRAY[@]}")
           docker buildx imagetools create $TAG_ARGS $DIGEST_ARGS
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build-binary
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: ghost-*
+          merge-multiple: false
+
+      - name: Upload binaries to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          for dir in ghost-*/; do
+            name=$(basename "$dir")
+            cp "$dir/ghost" "$name"
+            gh release upload "$TAG" "$name" --repo "$GH_REPO" --clobber
+          done
