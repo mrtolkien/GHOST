@@ -7,58 +7,63 @@ use tracing::info;
 
 use crate::agents::AgentRunner;
 use crate::chat::{ActiveSessions, SessionChat};
+use crate::config::Config;
 use crate::db::{self, GhostDb};
 use crate::embeddings::EmbeddingClient;
 use crate::error::GhostError;
 use crate::interfaces::discord::{self, DiscordSender};
 
-pub async fn run() -> Result<(), GhostError> {
-    let (
-        shutdown_tx,
-        watcher_handle,
-        reconcile_handle,
-        scheduler_handle,
-        discord_result,
-        event_handler_handle,
-    ) = boot().await?;
+/// Handle to a running GHOST daemon. Returned by `boot()`.
+#[allow(dead_code)]
+pub struct DaemonHandle {
+    pub session_chat: Arc<SessionChat>,
+    pub db: GhostDb,
+    pub config: Config,
+    pub agent_runner: Arc<AgentRunner>,
+    pub active_sessions: ActiveSessions,
+    shutdown_tx: watch::Sender<bool>,
+    handles: Vec<JoinHandle<()>>,
+    discord: Option<(DiscordSender, JoinHandle<()>)>,
+    idle_trigger_tx: tokio::sync::mpsc::Sender<()>,
+}
 
-    if let Some((_sender, handle)) = discord_result {
-        info!("GHOST daemon running — press Ctrl+C to stop");
-
-        tokio::select! {
-            _ = tokio::signal::ctrl_c() => {
-                info!("Ctrl+C received, shutting down...");
-            }
-            _ = handle => {
-                info!("Discord bot task ended");
-            }
-        }
-    } else {
-        info!("No interfaces enabled. Waiting for Ctrl+C...");
-        let _ = tokio::signal::ctrl_c().await;
+impl DaemonHandle {
+    /// Trigger idle agents immediately (reflection, etc.).
+    pub async fn trigger_idle_agents(&self) {
+        let _ = self.idle_trigger_tx.send(()).await;
     }
 
-    let _ = shutdown_tx.send(true);
-    let _ = watcher_handle.await;
-    let _ = reconcile_handle.await;
-    let _ = scheduler_handle.await;
-    let _ = event_handler_handle.await;
+    /// Signal all subsystems to shut down and wait for them.
+    pub async fn shutdown(self) {
+        let _ = self.shutdown_tx.send(true);
+        for h in self.handles {
+            let _ = h.await;
+        }
+        if let Some((_, h)) = self.discord {
+            let _ = h.await;
+        }
+    }
+}
+
+pub async fn run() -> Result<(), GhostError> {
+    let handle = boot().await?;
+
+    if handle.discord.is_some() {
+        info!("GHOST daemon running — press Ctrl+C to stop");
+    } else {
+        info!("No interfaces enabled. Waiting for Ctrl+C...");
+    }
+
+    tokio::signal::ctrl_c().await.ok();
+    info!("Ctrl+C received, shutting down...");
+    handle.shutdown().await;
 
     info!("GHOST daemon stopped");
     Ok(())
 }
 
-type BootResult = (
-    watch::Sender<bool>,
-    JoinHandle<()>,
-    JoinHandle<()>,
-    JoinHandle<()>,
-    Option<(DiscordSender, JoinHandle<()>)>,
-    JoinHandle<()>,
-);
-
 #[tracing::instrument(name = "boot ghost", skip_all)]
-pub async fn boot() -> Result<BootResult, GhostError> {
+pub async fn boot() -> Result<DaemonHandle, GhostError> {
     info!("loading config");
     let config = crate::config::load()?;
 
@@ -144,11 +149,13 @@ pub async fn boot() -> Result<BootResult, GhostError> {
     ));
 
     // Spawn the unified scheduler (handles both cron jobs and idle agents)
+    let (idle_trigger_tx, idle_trigger_rx) = tokio::sync::mpsc::channel::<()>(8);
     let scheduler_handle = crate::agents::scheduler::spawn_scheduler(
         Arc::clone(&agent_runner),
         config.clone(),
         db.clone(),
         shutdown_rx.clone(),
+        idle_trigger_rx,
     );
 
     let active_sessions: ActiveSessions = std::sync::Arc::new(dashmap::DashMap::new());
@@ -172,7 +179,7 @@ pub async fn boot() -> Result<BootResult, GhostError> {
         &config,
         session_chat.clone(),
         db.clone(),
-        active_sessions,
+        active_sessions.clone(),
         bundled_tx,
     )
     .await?;
@@ -203,14 +210,22 @@ pub async fn boot() -> Result<BootResult, GhostError> {
         shutdown_rx.clone(),
     );
 
-    Ok((
+    Ok(DaemonHandle {
+        session_chat,
+        db,
+        config,
+        agent_runner,
+        active_sessions,
         shutdown_tx,
-        watcher_handle,
-        reconcile_handle,
-        scheduler_handle,
-        discord_result,
-        event_handler_handle,
-    ))
+        handles: vec![
+            watcher_handle,
+            reconcile_handle,
+            scheduler_handle,
+            event_handler_handle,
+        ],
+        discord: discord_result,
+        idle_trigger_tx,
+    })
 }
 
 async fn handle_bundled_updates(
