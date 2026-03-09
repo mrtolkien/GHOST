@@ -37,7 +37,7 @@ pub async fn search_notes(
 
     let rows = sqlx::query_as::<_, NoteSearchRow>(
         "SELECT n.id, n.title, \
-         snippet(note_fts, 1, '', '', '...', 24) AS body, \
+         snippet(note_fts, 1, '', '', '...', 80) AS body, \
          -bm25(note_fts, 2.0, 1.0) AS score \
          FROM note_fts \
          JOIN note n ON n.rowid = note_fts.rowid \
@@ -58,7 +58,7 @@ pub async fn search_notes(
     Ok(rows
         .into_iter()
         .map(|r| {
-            let snippet = truncate_snippet(&r.body, 150);
+            let snippet = truncate_snippet(&r.body, 500);
             SearchHit {
                 id: r.id,
                 title: r.title,
@@ -92,7 +92,7 @@ pub async fn search_references(
     let rows = if let Some(tid) = topic_id {
         sqlx::query_as::<_, RefSearchRow>(
             "SELECT r.id, COALESCE(t.name, r.topic_id) AS topic_name, r.path, \
-             snippet(reference_fts, 0, '', '', '...', 24) AS snippet, \
+             snippet(reference_fts, 0, '', '', '...', 80) AS snippet, \
              -bm25(reference_fts, 1.0) AS score \
              FROM reference_fts \
              JOIN reference r ON r.rowid = reference_fts.rowid \
@@ -109,7 +109,7 @@ pub async fn search_references(
     } else {
         sqlx::query_as::<_, RefSearchRow>(
             "SELECT r.id, COALESCE(t.name, r.topic_id) AS topic_name, r.path, \
-             snippet(reference_fts, 0, '', '', '...', 24) AS snippet, \
+             snippet(reference_fts, 0, '', '', '...', 80) AS snippet, \
              -bm25(reference_fts, 1.0) AS score \
              FROM reference_fts \
              JOIN reference r ON r.rowid = reference_fts.rowid \
@@ -132,7 +132,7 @@ pub async fn search_references(
     Ok(rows
         .into_iter()
         .map(|r| {
-            let snippet = truncate_snippet(&r.snippet, 150);
+            let snippet = truncate_snippet(&r.snippet, 500);
             SearchHit {
                 id: r.id,
                 title: r.topic_name,
@@ -163,7 +163,7 @@ pub async fn search_diary(
 
     let rows = sqlx::query_as::<_, DiarySearchRow>(
         "SELECT d.id, d.date, \
-         snippet(diary_fts, 0, '', '', '...', 24) AS body, \
+         snippet(diary_fts, 0, '', '', '...', 80) AS body, \
          -bm25(diary_fts) AS score \
          FROM diary_fts \
          JOIN diary d ON d.rowid = diary_fts.rowid \
@@ -184,7 +184,7 @@ pub async fn search_diary(
     Ok(rows
         .into_iter()
         .map(|r| {
-            let snippet = truncate_snippet(&r.body, 150);
+            let snippet = truncate_snippet(&r.body, 500);
             SearchHit {
                 id: r.id,
                 title: r.date,
@@ -275,7 +275,7 @@ pub fn hybrid_merge(
 
     for hit in embedding_hits {
         let key = hit.source_id.clone();
-        let chunk_snippet = truncate_snippet(&hit.chunk_text, 150);
+        let chunk_snippet = truncate_snippet(&hit.chunk_text, 500);
         let entry = merged.entry(key).or_insert_with(|| SearchHit {
             id: hit.source_id.clone(),
             title: String::new(),
