@@ -41,6 +41,7 @@ RUN nix shell nixpkgs#patchelf --command sh -c '\
 # Copy entrypoint
 COPY deploy/common/entrypoint.sh /opt/ghost/entrypoint.sh
 
+ENV PATH="/usr/local/bin:${PATH}"
 ENV GHOST_CONFIG_DIR=/config
 ENV GHOST_WORKSPACE=/workspace
 

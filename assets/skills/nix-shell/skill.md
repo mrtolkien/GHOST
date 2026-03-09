@@ -1,51 +1,42 @@
 ---
 name: nix-shell
 description:
-  Manage the workspace shell environment via Nix + home-manager. Use when you need a CLI
-  tool that isn't available, want to install a tool permanently, set environment
-  variables, or add shell hooks.
+  Manage the workspace shell environment via Nix. Use when you need a CLI tool that
+  isn't available, want to install a tool permanently, or manage the shell environment.
 ---
 
 # Nix Shell Management
 
 ## Workspace flake
 
-`$WORKSPACE/shell/flake.nix` defines the persistent shell environment using
-home-manager. All installed packages are available in PATH for every
-`run_shell_command`.
+`$WORKSPACE/shell/flake.nix` defines the shell environment using `nix develop`. All
+installed packages are available in PATH for every `run_shell_command`.
 
 ## Adding packages permanently
 
-Edit `$WORKSPACE/shell/flake.nix` and add to the `home.packages` list:
+Edit `$WORKSPACE/shell/flake.nix` and add to the `packages` list:
 
-    home.packages = with pkgs; [
+    packages = with pkgs; [
       # ... existing packages ...
       nodejs
     ];
 
-Then apply the change:
+Then **validate the change** by running:
 
-    home-manager switch --flake $WORKSPACE/shell/#ghost-$(uname -m)
+    nix develop $WORKSPACE/shell --command sh -c "echo ok"
 
 Check the output for errors. If the package name is wrong, find it with
 `nix search nixpkgs <query>`.
 
-## Setting environment variables
-
-In `$WORKSPACE/shell/flake.nix`, add to `home.sessionVariables`:
-
-    home.sessionVariables = {
-      MY_VAR = "value";
-    };
-
-Then apply: `home-manager switch --flake $WORKSPACE/shell/#ghost-$(uname -m)`
+**Important**: After validating, new packages take effect on the next daemon restart.
+Tell the OPERATOR that a restart is needed to pick up changes.
 
 ## Updating flake inputs
 
 To pull the latest nixpkgs:
 
     nix flake update --flake $WORKSPACE/shell/
-    home-manager switch --flake $WORKSPACE/shell/#ghost-$(uname -m)
+    nix develop $WORKSPACE/shell --command sh -c "echo ok"
 
 ## One-off tool use
 
@@ -60,9 +51,3 @@ Run a tool without adding it to the flake:
 
 Package names in nixpkgs sometimes differ from the command name. Always check with
 `nix search` before editing the flake.
-
-## Documentation
-
-If you need home-manager docs (available options, programs.\* modules, etc.), use the
-`context7` MCP to look up `home-manager` documentation. For nixpkgs package search, use
-`nix search nixpkgs <query>`.

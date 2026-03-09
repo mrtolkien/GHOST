@@ -134,8 +134,8 @@ pub async fn boot_with_config(config: Config) -> Result<DaemonHandle, GhostError
         std::fs::write(&dest, file.content)?;
     }
 
-    if let Err(e) = crate::tools::shell::run_home_manager_switch(&config.workspace).await {
-        logfire::warn!("home-manager switch failed at boot", error = e.to_string());
+    if let Err(e) = crate::tools::shell::run_nix_shell_setup(&config.workspace).await {
+        logfire::warn!("nix shell setup failed at boot", error = e.to_string());
     }
 
     info!("connecting to database");

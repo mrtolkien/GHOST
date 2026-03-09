@@ -24,51 +24,48 @@ pub fn background_shell_count() -> usize {
     BACKGROUND_SHELL_COUNT.load(Ordering::Relaxed)
 }
 
-/// PATH prefix from home-manager profile, set after `home-manager switch`.
-static HM_PATH_PREFIX: OnceLock<String> = OnceLock::new();
+/// PATH extracted from `nix develop` at boot, cached for the daemon lifetime.
+static NIX_SHELL_PATH: OnceLock<String> = OnceLock::new();
 
-/// Run `home-manager switch` for the workspace flake.
-/// Called at daemon boot. GHOST triggers subsequent switches via
-/// `run_shell_command`.
-pub async fn run_home_manager_switch(workspace: &std::path::Path) -> Result<(), String> {
+/// Extract PATH from the workspace's `nix develop` shell.
+/// Called at daemon boot. Uses `nix develop shell/ --command sh -c 'echo $PATH'`
+/// to get the full PATH that includes all flake packages.
+pub async fn run_nix_shell_setup(workspace: &std::path::Path) -> Result<(), String> {
     let shell_dir = workspace.join("shell");
     if !shell_dir.join("flake.nix").exists() {
         return Ok(());
     }
 
-    let arch = std::env::consts::ARCH;
-    let flake_ref = format!("{}#ghost-{arch}", shell_dir.display());
-    tracing::info!(flake_ref, "running home-manager switch");
-    let output = tokio::process::Command::new("home-manager")
-        .args(["switch", "--flake", &flake_ref])
+    let shell_dir_str = shell_dir.display().to_string();
+    tracing::info!(shell_dir = %shell_dir_str, "extracting PATH from nix develop");
+    let output = tokio::process::Command::new("nix")
+        .args([
+            "develop",
+            &shell_dir_str,
+            "--command",
+            "sh",
+            "-c",
+            "echo $PATH",
+        ])
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
         .output()
         .await
-        .map_err(|e| format!("failed to run home-manager switch: {e}"))?;
+        .map_err(|e| format!("failed to run nix develop: {e}"))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("home-manager switch failed: {stderr}"));
+        return Err(format!("nix develop failed: {stderr}"));
     }
 
-    if let Some(profile_bin) = resolve_hm_profile_path() {
-        let _ = HM_PATH_PREFIX.set(profile_bin.to_string_lossy().to_string());
-        tracing::info!(path = %profile_bin.display(), "home-manager profile PATH set");
+    let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if !path.is_empty() {
+        let _ = NIX_SHELL_PATH.set(path.clone());
+        tracing::info!(path_len = path.len(), "nix shell PATH cached");
     }
 
-    tracing::info!("home-manager switch complete");
+    tracing::info!("nix shell setup complete");
     Ok(())
-}
-
-fn resolve_hm_profile_path() -> Option<std::path::PathBuf> {
-    let home = std::env::var("HOME").ok()?;
-    resolve_hm_profile_path_with_home(std::path::Path::new(&home))
-}
-
-fn resolve_hm_profile_path_with_home(home: &std::path::Path) -> Option<std::path::PathBuf> {
-    let profile_bin = home.join(".nix-profile/bin");
-    profile_bin.is_dir().then_some(profile_bin)
 }
 
 /// Build a `Command` that runs `sh -c <cmd>`, prepending the home-manager
@@ -83,11 +80,13 @@ fn shell_command(
     let mut cmd = tokio::process::Command::new("sh");
     cmd.args(["-c", command]);
 
-    // Prepend home-manager profile to PATH
-    if let Some(hm_path) = HM_PATH_PREFIX.get() {
-        let current_path = std::env::var("PATH").unwrap_or_default();
-        cmd.env("PATH", format!("{hm_path}:{current_path}"));
-    }
+    // Build PATH: /usr/local/bin (ghost binary) + nix shell packages + system
+    let current_path = std::env::var("PATH").unwrap_or_default();
+    let path = match NIX_SHELL_PATH.get() {
+        Some(nix_path) => format!("/usr/local/bin:{nix_path}"),
+        None => format!("/usr/local/bin:{current_path}"),
+    };
+    cmd.env("PATH", path);
 
     if let Some(id) = channel_id {
         cmd.env("GHOST_CHANNEL_ID", id);
@@ -350,22 +349,6 @@ mod tests {
         let output = result.unwrap();
         assert!(output.text.contains("stderr"));
         assert!(output.text.contains("oops"));
-    }
-
-    #[test]
-    fn resolve_hm_profile_finds_bin_dir() {
-        let home = TempDir::new().unwrap();
-        let profile_bin = home.path().join(".nix-profile/bin");
-        std::fs::create_dir_all(&profile_bin).unwrap();
-        let result = resolve_hm_profile_path_with_home(home.path());
-        assert_eq!(result, Some(profile_bin));
-    }
-
-    #[test]
-    fn resolve_hm_profile_returns_none_when_missing() {
-        let home = TempDir::new().unwrap();
-        let result = resolve_hm_profile_path_with_home(home.path());
-        assert_eq!(result, None);
     }
 
     #[tokio::test]
