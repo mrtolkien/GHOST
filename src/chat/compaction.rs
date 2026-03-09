@@ -205,6 +205,9 @@ pub fn mask_tool_results(
                             is_error: *is_error,
                         }
                     }
+                    ContentBlock::Image { filename, .. } => ContentBlock::Text {
+                        text: format!("[image: {filename}]"),
+                    },
                     other => other.clone(),
                 })
                 .collect();
