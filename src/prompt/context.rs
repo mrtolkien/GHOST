@@ -27,15 +27,28 @@ pub fn build_system_info(workspace: &Path) -> String {
     info
 }
 
-/// Extract package names from a Nix flake's `packages = with pkgs; [ ... ];` block.
+/// Extract package names from a Nix flake's `home.packages` or `packages`
+/// block (`= with pkgs; [ ... ];`).
 fn parse_flake_packages(path: &Path) -> Option<String> {
     let content = std::fs::read_to_string(path).ok()?;
-    let start = content.find("packages = with pkgs; [")?;
+
+    let marker = if content.contains("home.packages = with pkgs; [") {
+        "home.packages = with pkgs; ["
+    } else if content.contains("packages = with pkgs; [") {
+        "packages = with pkgs; ["
+    } else {
+        return None;
+    };
+
+    let start = content.find(marker)?;
     let after = &content[start..];
     let end = after.find(']')?;
-    let block = &after["packages = with pkgs; [".len()..end];
+    let block = &after[marker.len()..end];
 
-    let names: Vec<&str> = block.split_whitespace().collect();
+    let names: Vec<&str> = block
+        .split_whitespace()
+        .filter(|s| !s.starts_with('#'))
+        .collect();
     if names.is_empty() {
         return None;
     }
@@ -253,7 +266,7 @@ mod tests {
         fs::create_dir_all(&shell_dir).unwrap();
         fs::write(
             shell_dir.join("flake.nix"),
-            "devShells.default = pkgs.mkShell {\n  packages = with pkgs; [\n    git\n    ripgrep\n    jq\n  ];\n};",
+            "home.packages = with pkgs; [\n  git\n  ripgrep\n  jq\n];\n",
         )
         .unwrap();
 
