@@ -12,6 +12,9 @@ use tracing::warn;
 /// Components v2 message flag (IS_COMPONENTS_V2 = 1 << 15).
 const V2_FLAG: u64 = 1 << 15;
 
+/// Suppress URL auto-embeds (SUPPRESS_EMBEDS = 1 << 2).
+const SUPPRESS_EMBEDS: u64 = 1 << 2;
+
 /// Maximum components per v2 message.
 pub const MAX_V2_COMPONENTS: usize = 40;
 
@@ -108,6 +111,32 @@ pub async fn send_v2_message(
 
     let payload = serde_json::json!({
         "flags": V2_FLAG,
+        "components": capped,
+    });
+
+    http.send_message(channel_id, attachments, &payload).await
+}
+
+/// Send a Components v2 message with URL auto-embeds suppressed.
+pub async fn send_v2_message_suppress_embeds(
+    http: &Http,
+    channel_id: ChannelId,
+    components: &[serde_json::Value],
+    attachments: Vec<CreateAttachment>,
+) -> serenity::Result<serenity::model::channel::Message> {
+    let capped = if components.len() > MAX_V2_COMPONENTS {
+        warn!(
+            "v2 message has {} components, capping at {}",
+            components.len(),
+            MAX_V2_COMPONENTS
+        );
+        &components[..MAX_V2_COMPONENTS]
+    } else {
+        components
+    };
+
+    let payload = serde_json::json!({
+        "flags": V2_FLAG | SUPPRESS_EMBEDS,
         "components": capped,
     });
 

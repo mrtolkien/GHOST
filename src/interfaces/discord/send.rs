@@ -3,7 +3,10 @@ use serenity::http::Http;
 use serenity::model::id::ChannelId;
 use tracing::{debug, trace, warn};
 
-use super::components_v2::{container, group_into_v2_messages, send_v2_message, text_display};
+use super::components_v2::{
+    container, group_into_v2_messages, send_v2_message, send_v2_message_suppress_embeds,
+    text_display,
+};
 use super::markdown;
 
 pub const DISCORD_MESSAGE_LIMIT: usize = 2000;
@@ -68,7 +71,7 @@ pub async fn send_assistant_v2_with_suffix(
             file_count = files.len(),
             "sending v2 chunk"
         );
-        if let Err(e) = send_v2_message(http, channel_id, chunk, files).await {
+        if let Err(e) = send_v2_message_suppress_embeds(http, channel_id, chunk, files).await {
             warn!(
                 chunk_index = i,
                 error = %e,
