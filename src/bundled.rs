@@ -199,6 +199,209 @@ pub fn apply_updates(
     Ok(())
 }
 
+// ── Discord update dialog ───────────────────────────────────────────
+
+use crate::interfaces::discord::components_v2::*;
+use serenity::http::Http;
+use serenity::model::id::ChannelId;
+
+/// Present bundled file changes to the user via Discord and wait for their
+/// decision. Returns the set of accepted file paths and accepted deletions.
+pub async fn prompt_updates_via_discord(
+    changes: &BundledChanges,
+    http: &Http,
+    channel_id: ChannelId,
+    rx: &mut tokio::sync::mpsc::UnboundedReceiver<String>,
+) -> UpdateDecision {
+    let summary = format!(
+        "**Workspace Update Available**\n{} files modified, {} files removed",
+        changes.changed.len(),
+        changes.removed.len(),
+    );
+
+    let components = vec![container(
+        vec![
+            text_display(&summary),
+            action_row(vec![
+                button("Accept All", "bundled_accept_all", 3),
+                button("Review", "bundled_review", 1),
+                button("Reject All", "bundled_reject_all", 4),
+            ]),
+        ],
+        Some(0x5865F2),
+    )];
+
+    let msg = match send_v2_message(http, channel_id, &components, Vec::new()).await {
+        Ok(msg) => msg,
+        Err(e) => {
+            tracing::error!("Failed to send bundled update dialog: {e}");
+            return UpdateDecision::accept_all(changes);
+        }
+    };
+
+    loop {
+        let Some(custom_id) = rx.recv().await else {
+            return UpdateDecision::accept_all(changes);
+        };
+
+        match custom_id.as_str() {
+            "bundled_accept_all" => {
+                let done = vec![container(
+                    vec![text_display("**Workspace Update** — All changes accepted.")],
+                    Some(0x57F287),
+                )];
+                let _ = edit_v2_message(http, channel_id, msg.id, &done).await;
+                return UpdateDecision::accept_all(changes);
+            }
+            "bundled_reject_all" => {
+                let done = vec![container(
+                    vec![text_display("**Workspace Update** — All changes rejected.")],
+                    Some(0xED4245),
+                )];
+                let _ = edit_v2_message(http, channel_id, msg.id, &done).await;
+                return UpdateDecision::reject_all();
+            }
+            "bundled_review" => {
+                let reviewing = vec![container(
+                    vec![text_display("**Workspace Update** — Reviewing changes...")],
+                    Some(0x5865F2),
+                )];
+                let _ = edit_v2_message(http, channel_id, msg.id, &reviewing).await;
+                return review_files(changes, http, channel_id, rx).await;
+            }
+            _ => continue,
+        }
+    }
+}
+
+/// Present each changed file one by one with Accept/Reject buttons.
+async fn review_files(
+    changes: &BundledChanges,
+    http: &Http,
+    channel_id: ChannelId,
+    rx: &mut tokio::sync::mpsc::UnboundedReceiver<String>,
+) -> UpdateDecision {
+    let mut accepted_paths: Vec<String> = Vec::new();
+    let mut accepted_deletions: Vec<String> = Vec::new();
+    let total = changes.changed.len() + changes.removed.len();
+
+    // Review changed files
+    for (i, changed) in changes.changed.iter().enumerate() {
+        let counter = format!("[{}/{}]", i + 1, total);
+
+        // Truncate diff for Discord's 4000 char limit
+        let diff_display = if changed.diff.len() > 3400 {
+            let truncated = &changed.diff[..3400];
+            let remaining_lines = changed.diff[3400..].lines().count();
+            format!("{truncated}\n... and {remaining_lines} more lines")
+        } else {
+            changed.diff.clone()
+        };
+
+        let content = format!(
+            "{counter} **{}**\n```diff\n{}\n```",
+            changed.path, diff_display
+        );
+
+        let file_id = changed.path.replace('/', "_");
+        let components = vec![container(
+            vec![
+                text_display(&content),
+                action_row(vec![
+                    button("Accept", &format!("bundled_file_accept:{file_id}"), 3),
+                    button("Reject", &format!("bundled_file_reject:{file_id}"), 4),
+                ]),
+            ],
+            None,
+        )];
+
+        let file_msg = match send_v2_message(http, channel_id, &components, Vec::new()).await {
+            Ok(m) => m,
+            Err(e) => {
+                tracing::error!("Failed to send file review: {e}");
+                accepted_paths.push(changed.path.to_string());
+                continue;
+            }
+        };
+
+        loop {
+            let Some(custom_id) = rx.recv().await else {
+                break;
+            };
+            if custom_id.starts_with("bundled_file_accept:") {
+                accepted_paths.push(changed.path.to_string());
+                let done = vec![container(
+                    vec![text_display(&format!("**{}** — accepted", changed.path))],
+                    Some(0x57F287),
+                )];
+                let _ = edit_v2_message(http, channel_id, file_msg.id, &done).await;
+                break;
+            } else if custom_id.starts_with("bundled_file_reject:") {
+                let done = vec![container(
+                    vec![text_display(&format!("**{}** — rejected", changed.path))],
+                    Some(0xED4245),
+                )];
+                let _ = edit_v2_message(http, channel_id, file_msg.id, &done).await;
+                break;
+            }
+        }
+    }
+
+    // Review removed files
+    for (i, path) in changes.removed.iter().enumerate() {
+        let counter = format!("[{}/{}]", changes.changed.len() + i + 1, total);
+        let content =
+            format!("{counter} **{path}**\nThis file was removed from the default bundle.",);
+
+        let file_id = path.replace('/', "_");
+        let components = vec![container(
+            vec![
+                text_display(&content),
+                action_row(vec![
+                    button("Delete", &format!("bundled_file_accept:{file_id}"), 4),
+                    button("Keep", &format!("bundled_file_reject:{file_id}"), 2),
+                ]),
+            ],
+            None,
+        )];
+
+        let file_msg = match send_v2_message(http, channel_id, &components, Vec::new()).await {
+            Ok(m) => m,
+            Err(e) => {
+                tracing::error!("Failed to send removal review: {e}");
+                continue;
+            }
+        };
+
+        loop {
+            let Some(custom_id) = rx.recv().await else {
+                break;
+            };
+            if custom_id.starts_with("bundled_file_accept:") {
+                accepted_deletions.push(path.clone());
+                let done = vec![container(
+                    vec![text_display(&format!("**{path}** — deleted"))],
+                    Some(0xED4245),
+                )];
+                let _ = edit_v2_message(http, channel_id, file_msg.id, &done).await;
+                break;
+            } else if custom_id.starts_with("bundled_file_reject:") {
+                let done = vec![container(
+                    vec![text_display(&format!("**{path}** — kept"))],
+                    Some(0x57F287),
+                )];
+                let _ = edit_v2_message(http, channel_id, file_msg.id, &done).await;
+                break;
+            }
+        }
+    }
+
+    UpdateDecision {
+        accepted_paths,
+        accepted_deletions,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -270,7 +473,11 @@ mod tests {
         apply_updates(dir.path(), &changes, &decision).unwrap();
 
         for file in bundled_files() {
-            assert!(dir.path().join(file.path).exists(), "Missing: {}", file.path);
+            assert!(
+                dir.path().join(file.path).exists(),
+                "Missing: {}",
+                file.path
+            );
         }
     }
 

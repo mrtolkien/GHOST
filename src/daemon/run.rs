@@ -1,11 +1,13 @@
 use std::sync::Arc;
 
+use serenity::model::id::ChannelId;
 use tokio::sync::watch;
 use tokio::task::JoinHandle;
 use tracing::info;
 
 use crate::agents::AgentRunner;
 use crate::chat::{ActiveSessions, SessionChat};
+use crate::db::{self, GhostDb};
 use crate::embeddings::EmbeddingClient;
 use crate::error::GhostError;
 use crate::interfaces::discord::{self, DiscordSender};
@@ -59,8 +61,23 @@ type BootResult = (
 pub async fn boot() -> Result<BootResult, GhostError> {
     info!("loading config");
     let config = crate::config::load()?;
-    crate::config_workspace::bootstrap_workspace(&config)?;
+
+    // Phase 1: create directories + user-only files
+    crate::config_workspace::bootstrap_workspace_dirs(&config)?;
     info!(workspace = %config.workspace.display(), "config loaded");
+
+    // Check for bundled file changes BEFORE installing
+    let changes = crate::bundled::compute_changes(&config.workspace);
+    let has_updates = changes.has_updates();
+
+    // Auto-install new files immediately (no conflict possible)
+    for file in &changes.new {
+        let dest = config.workspace.join(file.path);
+        if let Some(parent) = dest.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        std::fs::write(&dest, file.content)?;
+    }
 
     crate::tools::shell::spawn_flake_warmup(config.workspace.clone());
 
@@ -141,9 +158,35 @@ pub async fn boot() -> Result<BootResult, GhostError> {
             .with_active_sessions(active_sessions.clone()),
     );
 
-    let discord_result =
-        discord::start_discord(&config, session_chat.clone(), db.clone(), active_sessions, None)
-            .await?;
+    // Create bundled update channel if there are updates to review
+    let (bundled_tx, bundled_rx) = if has_updates {
+        let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+        (Some(tx), Some(rx))
+    } else {
+        (None, None)
+    };
+
+    let discord_result = discord::start_discord(
+        &config,
+        session_chat.clone(),
+        db.clone(),
+        active_sessions,
+        bundled_tx,
+    )
+    .await?;
+
+    // If there are updates, prompt the user or auto-accept
+    if has_updates {
+        handle_bundled_updates(&config, &changes, &db, &discord_result, bundled_rx).await?;
+    } else {
+        // No updates, just save manifest
+        crate::bundled::save_manifest(&config.workspace).map_err(|source| {
+            crate::config::ConfigError::WriteFile {
+                path: config.workspace.clone(),
+                source,
+            }
+        })?;
+    }
 
     let discord_sender_arc = discord_result
         .as_ref()
@@ -166,4 +209,55 @@ pub async fn boot() -> Result<BootResult, GhostError> {
         discord_result,
         event_handler_handle,
     ))
+}
+
+async fn handle_bundled_updates(
+    config: &crate::config::Config,
+    changes: &crate::bundled::BundledChanges,
+    db: &GhostDb,
+    discord_result: &Option<(DiscordSender, JoinHandle<()>)>,
+    mut bundled_rx: Option<tokio::sync::mpsc::UnboundedReceiver<String>>,
+) -> Result<(), GhostError> {
+    let decision = if let (Some(rx), Some((sender, _))) = (&mut bundled_rx, discord_result) {
+        if let Some(channel_id) = resolve_update_channel(db).await {
+            info!(
+                changed = changes.changed.len(),
+                removed = changes.removed.len(),
+                "prompting user for bundled file updates"
+            );
+            crate::bundled::prompt_updates_via_discord(changes, sender.http(), channel_id, rx).await
+        } else {
+            info!("no Discord channel found, auto-accepting bundled updates");
+            crate::bundled::UpdateDecision::accept_all(changes)
+        }
+    } else {
+        info!("no Discord available, auto-accepting bundled updates");
+        crate::bundled::UpdateDecision::accept_all(changes)
+    };
+
+    crate::bundled::apply_updates(&config.workspace, changes, &decision).map_err(|source| {
+        crate::config::ConfigError::WriteFile {
+            path: config.workspace.clone(),
+            source,
+        }
+    })?;
+
+    Ok(())
+}
+
+/// Find a Discord channel to post the update dialog in.
+async fn resolve_update_channel(db: &GhostDb) -> Option<ChannelId> {
+    let interfaces = db::interface_sessions::list_all_interface_sessions(db)
+        .await
+        .ok()?;
+    for iface in interfaces {
+        if let Some(id) = iface
+            .interface
+            .strip_prefix("discord:channel:")
+            .and_then(|s| s.parse::<u64>().ok())
+        {
+            return Some(ChannelId::new(id));
+        }
+    }
+    None
 }

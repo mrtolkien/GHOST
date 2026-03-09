@@ -482,17 +482,16 @@ impl EventHandler for Handler {
 
             // Acknowledge the interaction immediately
             let _ = component
-                .create_response(
-                    &ctx.http,
-                    CreateInteractionResponse::Acknowledge,
-                )
+                .create_response(&ctx.http, CreateInteractionResponse::Acknowledge)
                 .await;
 
             // Forward bundled update responses
-            if custom_id.starts_with("bundled_") {
-                if let Some(tx) = &self.bundled_update_tx {
-                    let _ = tx.send(custom_id.clone());
-                }
+            if let Some(tx) = custom_id
+                .starts_with("bundled_")
+                .then_some(())
+                .and(self.bundled_update_tx.as_ref())
+            {
+                let _ = tx.send(custom_id.clone());
             }
             return;
         }
