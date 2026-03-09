@@ -143,6 +143,18 @@ impl LiveTestEnv {
         self.workspace.path()
     }
 
+    /// Boot the real daemon with this test's config. Discord is skipped
+    /// because no DISCORD_BOT_TOKEN is set in the test environment.
+    pub async fn boot_daemon(&self) -> ghost::daemon::DaemonHandle {
+        // Ensure no Discord token leaks from the host env
+        unsafe {
+            std::env::remove_var("DISCORD_BOT_TOKEN");
+        }
+        ghost::daemon::boot_with_config(self.config.clone())
+            .await
+            .expect("daemon boot failed")
+    }
+
     /// Write a full workspace snapshot as a tar.zst archive.
     pub fn write_workspace_archive(&self, dest: &Path) {
         write_workspace_archive(self.workspace.path(), dest)

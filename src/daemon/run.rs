@@ -111,7 +111,12 @@ pub async fn run() -> Result<(), GhostError> {
 pub async fn boot() -> Result<DaemonHandle, GhostError> {
     info!("loading config");
     let config = crate::config::load()?;
+    boot_with_config(config).await
+}
 
+/// Boot the daemon with a pre-built config (for tests and programmatic use).
+#[tracing::instrument(name = "boot ghost", skip_all)]
+pub async fn boot_with_config(config: Config) -> Result<DaemonHandle, GhostError> {
     // Phase 1: create directories + user-only files
     crate::config_workspace::bootstrap_workspace_dirs(&config)?;
     info!(workspace = %config.workspace.display(), "config loaded");
