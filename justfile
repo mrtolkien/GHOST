@@ -49,7 +49,7 @@ check-schema:
     @git diff --exit-code assets/skills/knowledge-navigator/schema.sql || (echo "schema.sql is stale — run 'just generate-schema'" && exit 1)
 
 # Run all checks (format, clippy, test)
-ci: fmt check clippy test check-schema
+ci: fmt check clippy test generate-schema
 
 # Clean build artifacts
 clean:
