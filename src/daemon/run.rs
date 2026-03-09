@@ -62,7 +62,9 @@ pub async fn boot() -> Result<BootResult, GhostError> {
     crate::config_workspace::bootstrap_workspace(&config)?;
     info!(workspace = %config.workspace.display(), "config loaded");
 
-    crate::tools::shell::spawn_flake_warmup(config.workspace.clone());
+    if let Err(e) = crate::tools::shell::run_home_manager_switch(&config.workspace).await {
+        logfire::warn!("home-manager switch failed at boot", error = e.to_string());
+    }
 
     info!("connecting to database");
     let db = crate::db::connect(&config.workspace, config.embeddings.dimension).await?;

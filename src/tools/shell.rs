@@ -1,3 +1,5 @@
+use std::sync::OnceLock;
+
 use async_trait::async_trait;
 use serde_json::{Value, json};
 
@@ -13,33 +15,73 @@ pub struct RunShellCommand;
 const DEFAULT_TIMEOUT_MS: u64 = 30_000;
 const MAX_OUTPUT_CHARS: usize = 50_000;
 
-/// Build a `Command` that runs `sh -c <cmd>` inside `nix develop` if the
-/// workspace has a `shell/flake.nix`, otherwise runs directly.
-/// Sets `GHOST_CHANNEL_ID` if available so child processes (e.g. `ghost hack
-/// start`) can auto-detect the calling channel.
+/// PATH prefix from home-manager profile, set after `home-manager switch`.
+static HM_PATH_PREFIX: OnceLock<String> = OnceLock::new();
+
+/// Run `home-manager switch` for the workspace flake.
+/// Called at daemon boot. GHOST triggers subsequent switches via
+/// `run_shell_command`.
+pub async fn run_home_manager_switch(workspace: &std::path::Path) -> Result<(), String> {
+    let shell_dir = workspace.join("shell");
+    if !shell_dir.join("flake.nix").exists() {
+        return Ok(());
+    }
+
+    tracing::info!("running home-manager switch");
+    let output = tokio::process::Command::new("home-manager")
+        .args([
+            "switch",
+            "--flake",
+            shell_dir.to_str().unwrap_or("."),
+        ])
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .output()
+        .await
+        .map_err(|e| format!("failed to run home-manager switch: {e}"))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("home-manager switch failed: {stderr}"));
+    }
+
+    if let Some(profile_bin) = resolve_hm_profile_path() {
+        let _ = HM_PATH_PREFIX.set(profile_bin.to_string_lossy().to_string());
+        tracing::info!(path = %profile_bin.display(), "home-manager profile PATH set");
+    }
+
+    tracing::info!("home-manager switch complete");
+    Ok(())
+}
+
+fn resolve_hm_profile_path() -> Option<std::path::PathBuf> {
+    let home = std::env::var("HOME").ok()?;
+    resolve_hm_profile_path_with_home(std::path::Path::new(&home))
+}
+
+fn resolve_hm_profile_path_with_home(home: &std::path::Path) -> Option<std::path::PathBuf> {
+    let profile_bin = home.join(".nix-profile/bin");
+    profile_bin.is_dir().then_some(profile_bin)
+}
+
+/// Build a `Command` that runs `sh -c <cmd>`, prepending the home-manager
+/// profile PATH if available. Sets `GHOST_CHANNEL_ID` / `GHOST_SESSION_ID`
+/// so child processes can auto-detect the calling context.
 fn shell_command(
     command: &str,
-    workspace: &std::path::Path,
+    _workspace: &std::path::Path,
     channel_id: Option<&str>,
     session_id: Option<&str>,
 ) -> tokio::process::Command {
-    let shell_dir = workspace.join("shell");
-    let mut cmd = if shell_dir.join("flake.nix").exists() {
-        let mut cmd = tokio::process::Command::new("nix");
-        cmd.args([
-            "develop",
-            shell_dir.to_str().unwrap_or("."),
-            "--command",
-            "sh",
-            "-c",
-            command,
-        ]);
-        cmd
-    } else {
-        let mut cmd = tokio::process::Command::new("sh");
-        cmd.args(["-c", command]);
-        cmd
-    };
+    let mut cmd = tokio::process::Command::new("sh");
+    cmd.args(["-c", command]);
+
+    // Prepend home-manager profile to PATH
+    if let Some(hm_path) = HM_PATH_PREFIX.get() {
+        let current_path = std::env::var("PATH").unwrap_or_default();
+        cmd.env("PATH", format!("{hm_path}:{current_path}"));
+    }
+
     if let Some(id) = channel_id {
         cmd.env("GHOST_CHANNEL_ID", id);
     }
@@ -207,41 +249,6 @@ impl Tool for RunShellCommand {
     }
 }
 
-/// Spawn a background task that evaluates the workspace flake so subsequent
-/// `nix develop` invocations are fast.
-pub fn spawn_flake_warmup(workspace: std::path::PathBuf) {
-    let shell_dir = workspace.join("shell");
-    if !shell_dir.join("flake.nix").exists() {
-        return;
-    }
-    tokio::spawn(async move {
-        tracing::info!("warming up nix flake");
-        let result = tokio::process::Command::new("nix")
-            .args([
-                "develop",
-                shell_dir.to_str().unwrap_or("."),
-                "--command",
-                "true",
-            ])
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::piped())
-            .output()
-            .await;
-        match result {
-            Ok(output) if output.status.success() => {
-                tracing::info!("nix flake warmup complete");
-            }
-            Ok(output) => {
-                let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
-                logfire::warn!("nix flake warmup failed", stderr = stderr);
-            }
-            Err(e) => {
-                logfire::warn!("nix flake warmup failed", error = e.to_string());
-            }
-        }
-    });
-}
-
 fn format_output(output: &std::process::Output) -> String {
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
@@ -331,6 +338,22 @@ mod tests {
         let output = result.unwrap();
         assert!(output.contains("stderr"));
         assert!(output.contains("oops"));
+    }
+
+    #[test]
+    fn resolve_hm_profile_finds_bin_dir() {
+        let home = TempDir::new().unwrap();
+        let profile_bin = home.path().join(".nix-profile/bin");
+        std::fs::create_dir_all(&profile_bin).unwrap();
+        let result = resolve_hm_profile_path_with_home(home.path());
+        assert_eq!(result, Some(profile_bin));
+    }
+
+    #[test]
+    fn resolve_hm_profile_returns_none_when_missing() {
+        let home = TempDir::new().unwrap();
+        let result = resolve_hm_profile_path_with_home(home.path());
+        assert_eq!(result, None);
     }
 
     #[tokio::test]
