@@ -1,4 +1,5 @@
 use std::sync::OnceLock;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use async_trait::async_trait;
 use serde_json::{Value, json};
@@ -14,6 +15,13 @@ pub struct RunShellCommand;
 
 const DEFAULT_TIMEOUT_MS: u64 = 30_000;
 const MAX_OUTPUT_CHARS: usize = 50_000;
+
+static BACKGROUND_SHELL_COUNT: AtomicUsize = AtomicUsize::new(0);
+
+/// Number of currently running background shell commands.
+pub fn background_shell_count() -> usize {
+    BACKGROUND_SHELL_COUNT.load(Ordering::Relaxed)
+}
 
 /// PATH prefix from home-manager profile, set after `home-manager switch`.
 static HM_PATH_PREFIX: OnceLock<String> = OnceLock::new();
@@ -157,6 +165,7 @@ impl Tool for RunShellCommand {
 
             let workspace_owned = ctx.workspace.clone();
 
+            BACKGROUND_SHELL_COUNT.fetch_add(1, Ordering::Relaxed);
             tokio::spawn(async move {
                 let child = shell_command(
                     &command_owned,
@@ -201,6 +210,8 @@ impl Tool for RunShellCommand {
                         discord: None,
                     });
                 }
+
+                BACKGROUND_SHELL_COUNT.fetch_sub(1, Ordering::Relaxed);
             });
 
             return Ok("Command started in background. You'll see the result as a \

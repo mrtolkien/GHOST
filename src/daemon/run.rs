@@ -1,67 +1,122 @@
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use serenity::model::id::ChannelId;
 use tokio::sync::watch;
 use tokio::task::JoinHandle;
 use tracing::info;
 
+#[derive(Debug, thiserror::Error)]
+#[error("system did not settle within {0:?}")]
+pub struct SettleTimeout(std::time::Duration);
+
 use crate::agents::AgentRunner;
 use crate::chat::{ActiveSessions, SessionChat};
+use crate::config::Config;
 use crate::db::{self, GhostDb};
 use crate::embeddings::EmbeddingClient;
 use crate::error::GhostError;
 use crate::interfaces::discord::{self, DiscordSender};
 
-pub async fn run() -> Result<(), GhostError> {
-    let (
-        shutdown_tx,
-        watcher_handle,
-        reconcile_handle,
-        scheduler_handle,
-        discord_result,
-        event_handler_handle,
-    ) = boot().await?;
+/// Handle to a running GHOST daemon. Returned by `boot()`.
+#[allow(dead_code)]
+pub struct DaemonHandle {
+    pub session_chat: Arc<SessionChat>,
+    pub db: GhostDb,
+    pub config: Config,
+    pub agent_runner: Arc<AgentRunner>,
+    pub active_sessions: ActiveSessions,
+    shutdown_tx: watch::Sender<bool>,
+    handles: Vec<JoinHandle<()>>,
+    discord: Option<(DiscordSender, JoinHandle<()>)>,
+    idle_trigger_tx: tokio::sync::mpsc::Sender<()>,
+    watcher_busy: Arc<AtomicBool>,
+}
 
-    if let Some((_sender, handle)) = discord_result {
-        info!("GHOST daemon running — press Ctrl+C to stop");
-
-        tokio::select! {
-            _ = tokio::signal::ctrl_c() => {
-                info!("Ctrl+C received, shutting down...");
-            }
-            _ = handle => {
-                info!("Discord bot task ended");
-            }
-        }
-    } else {
-        info!("No interfaces enabled. Waiting for Ctrl+C...");
-        let _ = tokio::signal::ctrl_c().await;
+impl DaemonHandle {
+    /// Returns true when all subsystems are idle.
+    pub fn is_idle(&self) -> bool {
+        self.active_sessions.is_empty()
+            && self.agent_runner.active_count() == 0
+            && !self.watcher_busy.load(Ordering::Relaxed)
+            && crate::tools::shell::background_shell_count() == 0
     }
 
-    let _ = shutdown_tx.send(true);
-    let _ = watcher_handle.await;
-    let _ = reconcile_handle.await;
-    let _ = scheduler_handle.await;
-    let _ = event_handler_handle.await;
+    /// Trigger idle agents immediately (reflection, etc.).
+    pub async fn trigger_idle_agents(&self) {
+        let _ = self.idle_trigger_tx.send(()).await;
+    }
+
+    /// Wait until all subsystems are idle, or timeout (default 180s).
+    pub async fn settle(&self) -> Result<(), SettleTimeout> {
+        self.settle_with_timeout(std::time::Duration::from_secs(180))
+            .await
+    }
+
+    /// Wait until all subsystems are idle, or timeout after `timeout`.
+    pub async fn settle_with_timeout(
+        &self,
+        timeout: std::time::Duration,
+    ) -> Result<(), SettleTimeout> {
+        let deadline = tokio::time::Instant::now() + timeout;
+        let poll = std::time::Duration::from_millis(500);
+
+        loop {
+            if self.is_idle() {
+                // Stay idle for one more poll to catch races
+                tokio::time::sleep(poll).await;
+                if self.is_idle() {
+                    return Ok(());
+                }
+            }
+
+            if tokio::time::Instant::now() >= deadline {
+                return Err(SettleTimeout(timeout));
+            }
+
+            tokio::time::sleep(poll).await;
+        }
+    }
+
+    /// Signal all subsystems to shut down and wait for them.
+    pub async fn shutdown(self) {
+        let _ = self.shutdown_tx.send(true);
+        for h in self.handles {
+            let _ = h.await;
+        }
+        if let Some((_, h)) = self.discord {
+            let _ = h.await;
+        }
+    }
+}
+
+pub async fn run() -> Result<(), GhostError> {
+    let handle = boot().await?;
+
+    if handle.discord.is_some() {
+        info!("GHOST daemon running — press Ctrl+C to stop");
+    } else {
+        info!("No interfaces enabled. Waiting for Ctrl+C...");
+    }
+
+    tokio::signal::ctrl_c().await.ok();
+    info!("Ctrl+C received, shutting down...");
+    handle.shutdown().await;
 
     info!("GHOST daemon stopped");
     Ok(())
 }
 
-type BootResult = (
-    watch::Sender<bool>,
-    JoinHandle<()>,
-    JoinHandle<()>,
-    JoinHandle<()>,
-    Option<(DiscordSender, JoinHandle<()>)>,
-    JoinHandle<()>,
-);
-
 #[tracing::instrument(name = "boot ghost", skip_all)]
-pub async fn boot() -> Result<BootResult, GhostError> {
+pub async fn boot() -> Result<DaemonHandle, GhostError> {
     info!("loading config");
     let config = crate::config::load()?;
+    boot_with_config(config).await
+}
 
+/// Boot the daemon with a pre-built config (for tests and programmatic use).
+#[tracing::instrument(name = "boot ghost", skip_all)]
+pub async fn boot_with_config(config: Config) -> Result<DaemonHandle, GhostError> {
     // Phase 1: create directories + user-only files
     crate::config_workspace::bootstrap_workspace_dirs(&config)?;
     info!(workspace = %config.workspace.display(), "config loaded");
@@ -119,11 +174,13 @@ pub async fn boot() -> Result<BootResult, GhostError> {
 
     // Spawn file watcher for automatic embedding on content changes
     let (shutdown_tx, shutdown_rx) = tokio::sync::watch::channel(false);
+    let watcher_busy = Arc::new(AtomicBool::new(false));
     let watcher_handle = super::watcher::spawn_watcher(
         db.clone(),
         config.workspace.clone(),
         config.embeddings.clone(),
         shutdown_rx.clone(),
+        Arc::clone(&watcher_busy),
     );
 
     // Spawn hourly embedding reconciliation
@@ -144,11 +201,13 @@ pub async fn boot() -> Result<BootResult, GhostError> {
     ));
 
     // Spawn the unified scheduler (handles both cron jobs and idle agents)
+    let (idle_trigger_tx, idle_trigger_rx) = tokio::sync::mpsc::channel::<()>(8);
     let scheduler_handle = crate::agents::scheduler::spawn_scheduler(
         Arc::clone(&agent_runner),
         config.clone(),
         db.clone(),
         shutdown_rx.clone(),
+        idle_trigger_rx,
     );
 
     let active_sessions: ActiveSessions = std::sync::Arc::new(dashmap::DashMap::new());
@@ -172,7 +231,7 @@ pub async fn boot() -> Result<BootResult, GhostError> {
         &config,
         session_chat.clone(),
         db.clone(),
-        active_sessions,
+        active_sessions.clone(),
         bundled_tx,
     )
     .await?;
@@ -203,14 +262,23 @@ pub async fn boot() -> Result<BootResult, GhostError> {
         shutdown_rx.clone(),
     );
 
-    Ok((
+    Ok(DaemonHandle {
+        session_chat,
+        db,
+        config,
+        agent_runner,
+        active_sessions,
         shutdown_tx,
-        watcher_handle,
-        reconcile_handle,
-        scheduler_handle,
-        discord_result,
-        event_handler_handle,
-    ))
+        handles: vec![
+            watcher_handle,
+            reconcile_handle,
+            scheduler_handle,
+            event_handler_handle,
+        ],
+        discord: discord_result,
+        idle_trigger_tx,
+        watcher_busy,
+    })
 }
 
 async fn handle_bundled_updates(

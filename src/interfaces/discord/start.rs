@@ -98,11 +98,13 @@ pub async fn start_discord(
         return Err(DiscordError::MissingAllowedUser);
     }
 
-    let token = std::env::var("DISCORD_BOT_TOKEN").map_err(|_| DiscordError::MissingToken)?;
-
-    if token.is_empty() {
-        return Err(DiscordError::MissingToken);
-    }
+    let token = match std::env::var("DISCORD_BOT_TOKEN") {
+        Ok(t) if !t.is_empty() => t,
+        _ => {
+            info!("DISCORD_BOT_TOKEN not set, skipping Discord");
+            return Ok(None);
+        }
+    };
 
     info!("Starting Discord bot...");
 
