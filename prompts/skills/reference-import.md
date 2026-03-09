@@ -1,10 +1,10 @@
 ---
 name: reference-import
 description:
-  Import external content into the knowledge base — git repos and web crawls.
-  Use when knowledge_search has no results for a topic, when the OPERATOR wants
-  persistent, searchable reference material from a git repository or website.
-  For PDF/DOCX/file imports, use the document-import skill instead.
+  Import external content into the knowledge base — git repos and web crawls. Use when
+  knowledge_search has no results for a topic, when the OPERATOR wants persistent,
+  searchable reference material from a git repository or website. For PDF/DOCX/file
+  imports, use the document-import skill instead.
 ---
 
 # Reference Import Skill

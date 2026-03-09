@@ -37,9 +37,10 @@ pub async fn convert(
     source: DoclingSource<'_>,
     options: &ConvertOptions,
 ) -> Result<String, WebError> {
-    let base_url = config.url.as_deref().ok_or_else(|| {
-        WebError::Docling("docling URL not configured ([docling].url)".into())
-    })?;
+    let base_url = config
+        .url
+        .as_deref()
+        .ok_or_else(|| WebError::Docling("docling URL not configured ([docling].url)".into()))?;
     let timeout = Duration::from_secs(config.timeout);
 
     // Build source JSON
@@ -49,10 +50,7 @@ pub async fn convert(
                 .await
                 .map_err(|e| WebError::Docling(format!("failed to read file: {e}")))?;
             let b64 = base64::engine::general_purpose::STANDARD.encode(&file_bytes);
-            let filename = path
-                .file_name()
-                .and_then(|n| n.to_str())
-                .unwrap_or("file");
+            let filename = path.file_name().and_then(|n| n.to_str()).unwrap_or("file");
             json!({"kind": "file", "base64_string": b64, "filename": filename})
         }
         DoclingSource::Url { url } => {
@@ -123,9 +121,7 @@ pub async fn convert(
             .await
             .map_err(|e| WebError::Docling(format!("invalid poll response: {e}")))?;
 
-        let status = poll_body["task_status"]
-            .as_str()
-            .unwrap_or("unknown");
+        let status = poll_body["task_status"].as_str().unwrap_or("unknown");
 
         match status {
             "success" => break,

@@ -1,6 +1,5 @@
 use clap::Subcommand;
 
-use crate::db;
 use crate::error::GhostError;
 use crate::reference_import::{ImportConfig, ImportSource};
 

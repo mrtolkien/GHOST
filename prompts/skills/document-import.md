@@ -2,9 +2,9 @@
 name: document-import
 description:
   Import documents (PDF, DOCX, XLSX, PPTX, images) into the knowledge base via
-  docling-serve. Use when the OPERATOR asks to import a document from a URL or
-  uploaded file, when web_fetch returns an unsupported content type, or when you
-  need to import non-HTML content as a searchable reference.
+  docling-serve. Use when the OPERATOR asks to import a document from a URL or uploaded
+  file, when web_fetch returns an unsupported content type, or when you need to import
+  non-HTML content as a searchable reference.
 ---
 
 # Document Import Skill
@@ -13,8 +13,8 @@ Import documents (PDF, DOCX, etc.) as topic-scoped references via docling-serve.
 
 ## Decision Flow
 
-1. **Search first**: `knowledge_search(query="<topic>", categories=["references"])`.
-   If results exist, use them. Done.
+1. **Search first**: `knowledge_search(query="<topic>", categories=["references"])`. If
+   results exist, use them. Done.
 2. **URL source**: use `ghost document import url --url <url> --topic <name>` with
    `background: true`.
 3. **File upload**: if the OPERATOR uploaded a file, import with
@@ -22,8 +22,8 @@ Import documents (PDF, DOCX, etc.) as topic-scoped references via docling-serve.
    `background: true`.
 4. **After starting the import**: tell the OPERATOR it's importing, include any other
    pending responses, then **end your turn**. A follow-up turn is triggered
-   automatically when the import completes — you'll see the
-   `[shell-command completed]` system message. Search the imported refs and answer.
+   automatically when the import completes — you'll see the `[shell-command completed]`
+   system message. Search the imported refs and answer.
 
 ## CLI Commands
 
