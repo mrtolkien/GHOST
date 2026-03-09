@@ -241,7 +241,7 @@ fn coding_prompt_discovers_workspace_skills() {
     let ws = TempDir::new().unwrap();
     ghost::config_workspace::bootstrap_workspace(&config::test_config(ws.path()))
         .expect("bootstrap");
-    ghost::skills::install_default_skills(ws.path()).expect("install skills");
+    ghost::bundled::install_all(ws.path()).expect("install bundled files");
 
     let config = config::test_config(ws.path());
     let repo = TempDir::new().unwrap();

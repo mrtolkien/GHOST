@@ -48,6 +48,26 @@ pub fn media_gallery(attachment_filename: &str) -> serde_json::Value {
     })
 }
 
+/// Build a `Button` component (type 2).
+///
+/// `style`: 1=Primary (blue), 2=Secondary (grey), 3=Success (green), 4=Danger (red)
+pub fn button(label: &str, custom_id: &str, style: u8) -> serde_json::Value {
+    serde_json::json!({
+        "type": 2,
+        "style": style,
+        "label": label,
+        "custom_id": custom_id,
+    })
+}
+
+/// Build an `ActionRow` component (type 1) containing buttons.
+pub fn action_row(components: Vec<serde_json::Value>) -> serde_json::Value {
+    serde_json::json!({
+        "type": 1,
+        "components": components,
+    })
+}
+
 /// Build a `Container` component (type 17) wrapping inner components.
 pub fn container(
     components: Vec<serde_json::Value>,

@@ -1,320 +1,6 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-struct DefaultSkill {
-    path: &'static str,
-    files: &'static [(&'static str, &'static str)],
-}
-
-const DEFAULT_SKILLS: &[DefaultSkill] = &[
-    DefaultSkill {
-        path: "agent-creator",
-        files: &[(
-            "skill.md",
-            include_str!("../prompts/skills/agent-creator.md"),
-        )],
-    },
-    DefaultSkill {
-        path: "superpowers/brainstorming",
-        files: &[(
-            "skill.md",
-            include_str!("../prompts/skills/superpowers/brainstorming/skill.md"),
-        )],
-    },
-    DefaultSkill {
-        path: "coding",
-        files: &[("skill.md", include_str!("../prompts/skills/coding.md"))],
-    },
-    DefaultSkill {
-        path: "deep-research",
-        files: &[
-            (
-                "skill.md",
-                include_str!("../prompts/skills/deep-research/skill.md"),
-            ),
-            (
-                "deep-research/agent.lua",
-                include_str!("../prompts/skills/deep-research/deep-research/agent.lua"),
-            ),
-            (
-                "deep-research/prompt.md",
-                include_str!("../prompts/skills/deep-research/deep-research/prompt.md"),
-            ),
-            (
-                "deep-research-reflection/agent.lua",
-                include_str!("../prompts/skills/deep-research/deep-research-reflection/agent.lua"),
-            ),
-            (
-                "deep-research-reflection/prompt.md",
-                include_str!("../prompts/skills/deep-research/deep-research-reflection/prompt.md"),
-            ),
-            (
-                "deep-research-reflection/user-message.md",
-                include_str!(
-                    "../prompts/skills/deep-research/deep-research-reflection/user-message.md"
-                ),
-            ),
-        ],
-    },
-    DefaultSkill {
-        path: "superpowers/executing-plans",
-        files: &[(
-            "skill.md",
-            include_str!("../prompts/skills/superpowers/executing-plans/skill.md"),
-        )],
-    },
-    DefaultSkill {
-        path: "superpowers/finishing-branch",
-        files: &[(
-            "skill.md",
-            include_str!("../prompts/skills/superpowers/finishing-branch/skill.md"),
-        )],
-    },
-    DefaultSkill {
-        path: "superpowers/git-worktrees",
-        files: &[(
-            "skill.md",
-            include_str!("../prompts/skills/superpowers/git-worktrees/skill.md"),
-        )],
-    },
-    DefaultSkill {
-        path: "image-generation",
-        files: &[
-            (
-                "skill.md",
-                include_str!("../prompts/skills/image-generation/skill.md"),
-            ),
-            (
-                "scripts/generate_image.py",
-                include_str!("../prompts/skills/image-generation/scripts/generate_image.py"),
-            ),
-        ],
-    },
-    DefaultSkill {
-        path: "knowledge-navigator",
-        files: &[
-            (
-                "skill.md",
-                include_str!("../prompts/skills/knowledge-navigator/skill.md"),
-            ),
-            (
-                "schema.sql",
-                include_str!("../prompts/skills/knowledge-navigator/schema.sql"),
-            ),
-        ],
-    },
-    DefaultSkill {
-        path: "nix-shell",
-        files: &[("skill.md", include_str!("../prompts/skills/nix-shell.md"))],
-    },
-    DefaultSkill {
-        path: "note-writer",
-        files: &[("skill.md", include_str!("../prompts/skills/note-writer.md"))],
-    },
-    DefaultSkill {
-        path: "superpowers/parallel-agents",
-        files: &[(
-            "skill.md",
-            include_str!("../prompts/skills/superpowers/parallel-agents/skill.md"),
-        )],
-    },
-    DefaultSkill {
-        path: "project-manager",
-        files: &[(
-            "skill.md",
-            include_str!("../prompts/skills/project-manager.md"),
-        )],
-    },
-    DefaultSkill {
-        path: "superpowers/receiving-review",
-        files: &[(
-            "skill.md",
-            include_str!("../prompts/skills/superpowers/receiving-review/skill.md"),
-        )],
-    },
-    DefaultSkill {
-        path: "reference-import",
-        files: &[(
-            "skill.md",
-            include_str!("../prompts/skills/reference-import.md"),
-        )],
-    },
-    DefaultSkill {
-        path: "sending-attachments",
-        files: &[(
-            "skill.md",
-            include_str!("../prompts/skills/sending-attachments/skill.md"),
-        )],
-    },
-    DefaultSkill {
-        path: "superpowers/requesting-review",
-        files: &[
-            (
-                "skill.md",
-                include_str!("../prompts/skills/superpowers/requesting-review/skill.md"),
-            ),
-            (
-                "code-reviewer.md",
-                include_str!("../prompts/skills/superpowers/requesting-review/code-reviewer.md"),
-            ),
-        ],
-    },
-    DefaultSkill {
-        path: "superpowers/subagent-development",
-        files: &[
-            (
-                "skill.md",
-                include_str!("../prompts/skills/superpowers/subagent-development/skill.md"),
-            ),
-            (
-                "implementer-prompt.md",
-                include_str!(
-                    "../prompts/skills/superpowers/subagent-development/implementer-prompt.md"
-                ),
-            ),
-            (
-                "spec-reviewer-prompt.md",
-                include_str!(
-                    "../prompts/skills/superpowers/subagent-development/spec-reviewer-prompt.md"
-                ),
-            ),
-            (
-                "code-quality-reviewer-prompt.md",
-                include_str!(
-                    "../prompts/skills/superpowers/subagent-development/code-quality-reviewer-prompt.md"
-                ),
-            ),
-            (
-                "coding-implementer/agent.lua",
-                include_str!(
-                    "../prompts/skills/superpowers/subagent-development/coding-implementer/agent.lua"
-                ),
-            ),
-            (
-                "coding-implementer/prompt.md",
-                include_str!(
-                    "../prompts/skills/superpowers/subagent-development/coding-implementer/prompt.md"
-                ),
-            ),
-            (
-                "coding-spec-reviewer/agent.lua",
-                include_str!(
-                    "../prompts/skills/superpowers/subagent-development/coding-spec-reviewer/agent.lua"
-                ),
-            ),
-            (
-                "coding-spec-reviewer/prompt.md",
-                include_str!(
-                    "../prompts/skills/superpowers/subagent-development/coding-spec-reviewer/prompt.md"
-                ),
-            ),
-            (
-                "coding-quality-reviewer/agent.lua",
-                include_str!(
-                    "../prompts/skills/superpowers/subagent-development/coding-quality-reviewer/agent.lua"
-                ),
-            ),
-            (
-                "coding-quality-reviewer/prompt.md",
-                include_str!(
-                    "../prompts/skills/superpowers/subagent-development/coding-quality-reviewer/prompt.md"
-                ),
-            ),
-            (
-                "coding-reviewer/agent.lua",
-                include_str!(
-                    "../prompts/skills/superpowers/subagent-development/coding-reviewer/agent.lua"
-                ),
-            ),
-            (
-                "coding-reviewer/prompt.md",
-                include_str!(
-                    "../prompts/skills/superpowers/subagent-development/coding-reviewer/prompt.md"
-                ),
-            ),
-        ],
-    },
-    DefaultSkill {
-        path: "superpowers/systematic-debugging",
-        files: &[
-            (
-                "skill.md",
-                include_str!("../prompts/skills/superpowers/systematic-debugging/skill.md"),
-            ),
-            (
-                "root-cause-tracing.md",
-                include_str!(
-                    "../prompts/skills/superpowers/systematic-debugging/root-cause-tracing.md"
-                ),
-            ),
-            (
-                "condition-based-waiting.md",
-                include_str!(
-                    "../prompts/skills/superpowers/systematic-debugging/condition-based-waiting.md"
-                ),
-            ),
-            (
-                "defense-in-depth.md",
-                include_str!(
-                    "../prompts/skills/superpowers/systematic-debugging/defense-in-depth.md"
-                ),
-            ),
-        ],
-    },
-    DefaultSkill {
-        path: "superpowers/tdd",
-        files: &[
-            (
-                "skill.md",
-                include_str!("../prompts/skills/superpowers/tdd/skill.md"),
-            ),
-            (
-                "testing-anti-patterns.md",
-                include_str!("../prompts/skills/superpowers/tdd/testing-anti-patterns.md"),
-            ),
-        ],
-    },
-    DefaultSkill {
-        path: "superpowers/verification",
-        files: &[(
-            "skill.md",
-            include_str!("../prompts/skills/superpowers/verification/skill.md"),
-        )],
-    },
-    DefaultSkill {
-        path: "superpowers/writing-plans",
-        files: &[(
-            "skill.md",
-            include_str!("../prompts/skills/superpowers/writing-plans/skill.md"),
-        )],
-    },
-    DefaultSkill {
-        path: "superpowers/writing-skills",
-        files: &[
-            (
-                "skill.md",
-                include_str!("../prompts/skills/superpowers/writing-skills/skill.md"),
-            ),
-            (
-                "best-practices.md",
-                include_str!("../prompts/skills/superpowers/writing-skills/best-practices.md"),
-            ),
-            (
-                "persuasion-principles.md",
-                include_str!(
-                    "../prompts/skills/superpowers/writing-skills/persuasion-principles.md"
-                ),
-            ),
-            (
-                "testing-skills-with-subagents.md",
-                include_str!(
-                    "../prompts/skills/superpowers/writing-skills/testing-skills-with-subagents.md"
-                ),
-            ),
-        ],
-    },
-];
-
 #[derive(Debug)]
 pub struct Skill {
     pub name: String,
@@ -449,28 +135,6 @@ pub(crate) fn walk_skills_dir(dir: &Path, skills: &mut Vec<Skill>) {
             walk_skills_dir(&entry_path, skills);
         }
     }
-}
-
-/// Install default skills into `$WORKSPACE/skills/`, always overwriting
-/// with the binary's built-in versions.
-#[tracing::instrument(skip_all, level = "debug", fields(workspace = %workspace.display()))]
-pub fn install_default_skills(workspace: &Path) -> Result<(), std::io::Error> {
-    let skills_dir = workspace.join("skills");
-
-    for skill in DEFAULT_SKILLS {
-        let skill_dir = skills_dir.join(skill.path);
-        fs::create_dir_all(&skill_dir)?;
-        for (filename, content) in skill.files {
-            let file_path = skill_dir.join(filename);
-            // Agent files live in subdirectories (e.g. "deep-research/agent.lua")
-            if let Some(parent) = file_path.parent() {
-                fs::create_dir_all(parent)?;
-            }
-            fs::write(file_path, content)?;
-        }
-    }
-
-    Ok(())
 }
 
 /// Collect extra files in a skill directory for the `<extra-files>` block.
@@ -723,37 +387,27 @@ name: no-desc
     }
 
     #[test]
-    fn install_default_skills_creates_files() {
+    fn bundled_install_creates_skill_files() {
         let dir = TempDir::new().unwrap();
+        crate::bundled::install_all(dir.path()).unwrap();
+
         let skills = dir.path().join("skills");
-        fs::create_dir_all(&skills).unwrap();
 
-        install_default_skills(dir.path()).unwrap();
+        // Spot-check key skill files exist
+        assert!(skills.join("agent-creator/skill.md").exists());
+        assert!(skills.join("coding/skill.md").exists());
+        assert!(skills.join("deep-research/skill.md").exists());
+        assert!(skills.join("nix-shell/skill.md").exists());
 
-        for skill in DEFAULT_SKILLS {
-            for (filename, _) in skill.files {
-                let file = skills.join(skill.path).join(filename);
-                assert!(file.exists(), "Expected {file:?} to exist");
-
-                let content = fs::read_to_string(&file).unwrap();
-                if *filename == "skill.md" {
-                    assert!(
-                        content.contains("---"),
-                        "skill.md in {} should have frontmatter",
-                        skill.path
-                    );
-                }
-                assert!(!content.is_empty(), "File {file:?} should not be empty");
-            }
-        }
-
-        assert_eq!(DEFAULT_SKILLS.len(), 23);
+        // Verify skill files have frontmatter
+        let content = fs::read_to_string(skills.join("coding/skill.md")).unwrap();
+        assert!(content.contains("---"), "skill.md should have frontmatter");
     }
 
     #[test]
-    fn install_default_skills_creates_agent_subdirs() {
+    fn bundled_install_creates_agent_subdirs() {
         let dir = TempDir::new().unwrap();
-        install_default_skills(dir.path()).unwrap();
+        crate::bundled::install_all(dir.path()).unwrap();
 
         let skills = dir.path().join("skills");
 
@@ -849,20 +503,17 @@ name: no-desc
     }
 
     #[test]
-    fn install_default_skills_overwrites_existing() {
+    fn bundled_install_overwrites_existing() {
         let dir = TempDir::new().unwrap();
-        let skills = dir.path().join("skills");
-        fs::create_dir_all(&skills).unwrap();
+        crate::bundled::install_all(dir.path()).unwrap();
 
-        install_default_skills(dir.path()).unwrap();
+        let first = &crate::bundled::bundled_files()[0];
+        let file = dir.path().join(first.path);
+        fs::write(&file, "custom content").unwrap();
 
-        let first_skill = DEFAULT_SKILLS[0].path;
-        let skill_file = skills.join(first_skill).join("skill.md");
-        fs::write(&skill_file, "custom content").unwrap();
+        crate::bundled::install_all(dir.path()).unwrap();
 
-        install_default_skills(dir.path()).unwrap();
-
-        let content = fs::read_to_string(&skill_file).unwrap();
+        let content = fs::read_to_string(&file).unwrap();
         assert_ne!(content, "custom content", "should overwrite existing files");
     }
 }

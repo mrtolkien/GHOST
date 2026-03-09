@@ -46,7 +46,7 @@ generate-schema:
 # Check that schema.sql is up-to-date with migrations
 check-schema:
     @./scripts/generate-schema.sh > /dev/null
-    @git diff --exit-code prompts/skills/knowledge-navigator/schema.sql || (echo "schema.sql is stale — run 'just generate-schema'" && exit 1)
+    @git diff --exit-code assets/skills/knowledge-navigator/schema.sql || (echo "schema.sql is stale — run 'just generate-schema'" && exit 1)
 
 # Run all checks (format, clippy, test)
 ci: fmt check clippy test check-schema

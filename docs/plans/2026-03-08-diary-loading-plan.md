@@ -1,16 +1,21 @@
 # Diary Loading Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this
+> plan task-by-task.
 
-**Goal:** Load the last 2 diary entries into chat context at session start and post-compaction for cross-session continuity.
+**Goal:** Load the last 2 diary entries into chat context at session start and
+post-compaction for cross-session continuity.
 
-**Architecture:** Read diary files directly from disk (source of truth) in `build_ghost_diary`. Split `knowledge/files.rs` into per-type modules first. Clean up dead `JobPromptContext` code.
+**Architecture:** Read diary files directly from disk (source of truth) in
+`build_ghost_diary`. Split `knowledge/files.rs` into per-type modules first. Clean up
+dead `JobPromptContext` code.
 
 **Tech Stack:** Rust, std::fs, chrono (existing deps only)
 
 **Design doc:** `docs/plans/2026-03-08-diary-loading-design.md`
 
-**Skill references:** Read `@testing` before writing tests. Run `just ci` after each task.
+**Skill references:** Read `@testing` before writing tests. Run `just ci` after each
+task.
 
 ---
 
@@ -19,6 +24,7 @@
 Pure refactor — move note functions to their own module.
 
 **Files:**
+
 - Create: `src/knowledge/notes.rs`
 - Modify: `src/knowledge/files.rs` (remove note functions)
 - Modify: `src/knowledge/mod.rs` (add `mod notes`, update re-exports)
@@ -26,6 +32,7 @@ Pure refactor — move note functions to their own module.
 **Step 1: Create `src/knowledge/notes.rs`**
 
 Move these functions from `files.rs` into `notes.rs`:
+
 - `note_path`
 - `subfolder_from_tags`
 - `read_note`
@@ -34,6 +41,7 @@ Move these functions from `files.rs` into `notes.rs`:
 - `ensure_index_notes`
 
 Move these tests:
+
 - `write_then_read_roundtrip`
 - `write_note_no_tags_goes_flat`
 - `ensure_index_notes_creates_hierarchy`
@@ -44,6 +52,7 @@ Move these tests:
 - `subfolder_from_tags_extracts_first`
 
 The file needs these imports:
+
 ```rust
 use std::path::{Path, PathBuf};
 
@@ -53,8 +62,8 @@ use super::parser::{parse_note, serialize_note};
 use super::types::{NoteFrontMatter, ParsedNote};
 ```
 
-Also move `list_notes` here (it uses `collect_md_files_recursive` from files.rs).
-Make `collect_md_files_recursive` in `files.rs` `pub(super)` so `notes.rs` can use it.
+Also move `list_notes` here (it uses `collect_md_files_recursive` from files.rs). Make
+`collect_md_files_recursive` in `files.rs` `pub(super)` so `notes.rs` can use it.
 
 **Step 2: Update `src/knowledge/mod.rs`**
 
@@ -81,6 +90,7 @@ pub use types::{KnowledgeKind, NoteFrontMatter, ParsedNote, WikiLink};
 **Step 3: Remove moved functions and tests from `files.rs`**
 
 Remove from `files.rs`:
+
 - `note_path` (lines 8-14)
 - `subfolder_from_tags` (lines 19-21)
 - `read_note` (lines 35-42)
@@ -91,8 +101,8 @@ Remove from `files.rs`:
 - All note-related tests
 - The `use super::parser` and `use super::types` imports (no longer needed in files.rs)
 
-Make `collect_md_files_recursive` `pub(super)` (was `fn`).
-Make `list_md_files` `pub(super)` (diary.rs will need it in task 2).
+Make `collect_md_files_recursive` `pub(super)` (was `fn`). Make `list_md_files`
+`pub(super)` (diary.rs will need it in task 2).
 
 **Step 4: Run `just ci` — all tests pass, no clippy warnings**
 
@@ -110,6 +120,7 @@ git commit -m "refactor: extract knowledge/notes.rs from files.rs"
 Pure refactor — move diary functions to their own module.
 
 **Files:**
+
 - Create: `src/knowledge/diary.rs`
 - Modify: `src/knowledge/files.rs` (remove diary functions)
 - Modify: `src/knowledge/mod.rs` (add `mod diary`, update re-exports)
@@ -117,6 +128,7 @@ Pure refactor — move diary functions to their own module.
 **Step 1: Create `src/knowledge/diary.rs`**
 
 Move these functions from `files.rs`:
+
 - `diary_path`
 - `load_diary_today`
 - `read_diary`
@@ -124,9 +136,11 @@ Move these functions from `files.rs`:
 - `list_diary_entries`
 
 Move these tests:
+
 - `diary_write_and_read`
 
 Imports:
+
 ```rust
 use std::path::{Path, PathBuf};
 
@@ -139,6 +153,7 @@ Note: `load_diary_today` uses `chrono::Utc` — keep that import.
 **Step 2: Update `src/knowledge/mod.rs` re-exports**
 
 Add:
+
 ```rust
 pub use diary::{
     diary_path, list_diary_entries, load_diary_today, read_diary, write_diary,
@@ -153,6 +168,7 @@ Remove `diary_path`, `load_diary_today`, `read_diary`, `write_diary`,
 `list_diary_entries`, and `diary_write_and_read` test.
 
 After this, `files.rs` should only contain:
+
 - `reference_path`
 - `list_references`
 - `list_md_files` (pub(super))
@@ -176,6 +192,7 @@ git commit -m "refactor: extract knowledge/diary.rs from files.rs"
 The feature itself — read last 2 diary entries and inject into system prompt.
 
 **Files:**
+
 - Modify: `src/knowledge/diary.rs` (add `load_recent_diary`)
 - Modify: `src/knowledge/mod.rs` (re-export `load_recent_diary`)
 - Modify: `src/prompt/context.rs` (implement `build_ghost_diary`)
@@ -213,8 +230,8 @@ fn load_recent_diary_empty_dir() {
 
 **Step 2: Run tests to verify they fail**
 
-Run: `cargo test -p ghost knowledge::diary::tests::load_recent -- --nocapture`
-Expected: FAIL — `load_recent_diary` doesn't exist yet.
+Run: `cargo test -p ghost knowledge::diary::tests::load_recent -- --nocapture` Expected:
+FAIL — `load_recent_diary` doesn't exist yet.
 
 **Step 3: Implement `load_recent_diary` in `diary.rs`**
 
@@ -324,6 +341,7 @@ git commit -m "feat: load last 2 diary entries into system prompt"
 ### Task 4: Delete dead `JobPromptContext` code
 
 **Files:**
+
 - Modify: `src/prompt/renderer.rs` (delete struct, method, test)
 - Modify: `src/prompt/mod.rs` (remove re-export)
 

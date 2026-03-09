@@ -1,5 +1,5 @@
 mod bot;
-mod components_v2;
+pub(crate) mod components_v2;
 mod feedback;
 mod markdown;
 pub(crate) mod send;

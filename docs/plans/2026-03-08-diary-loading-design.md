@@ -1,16 +1,14 @@
 # Diary Loading into Session Context
 
-**Date**: 2026-03-08
-**Spec**: `specs/1_diary.md`
-**Goal**: Load recent diary entries into chat context at session start and
-post-compaction so GHOST has continuity across sessions.
+**Date**: 2026-03-08 **Spec**: `specs/1_diary.md` **Goal**: Load recent diary entries
+into chat context at session start and post-compaction so GHOST has continuity across
+sessions.
 
 ## Decision: File-based, sync reads
 
-Diary files on disk (`<workspace>/diary/YYYY-MM-DD.md`) are the source of truth.
-We read the last 2 files directly from disk rather than querying SQLite. This
-keeps `render_system_prompt` sync and avoids threading a DB pool through the
-prompt layer.
+Diary files on disk (`<workspace>/diary/YYYY-MM-DD.md`) are the source of truth. We read
+the last 2 files directly from disk rather than querying SQLite. This keeps
+`render_system_prompt` sync and avoids threading a DB pool through the prompt layer.
 
 ## Design
 
@@ -23,8 +21,8 @@ Split `knowledge/files.rs` into per-type modules:
 - **`knowledge/notes.rs`** — `note_path`, `subfolder_from_tags`, `read_note`,
   `write_note`, `note_relative_path`, `ensure_index_notes`
 - **`knowledge/files.rs`** — shared helpers (`list_md_files`,
-  `collect_md_files_recursive`) + `reference_path`, `list_references`
-  (references too small for own module)
+  `collect_md_files_recursive`) + `reference_path`, `list_references` (references too
+  small for own module)
 
 `knowledge/mod.rs` re-exports stay the same. Tests move with their functions.
 
@@ -51,9 +49,11 @@ Wire into prompt layer:
 ## Diary
 
 ### 2026-03-07
+
 <body>
 
 ### 2026-03-08
+
 <body>
 ```
 
@@ -61,8 +61,7 @@ Wire into prompt layer:
 
 Update `render_system_prompt` to pass `workspace` (already available).
 
-Works for both session start and post-compaction since both call
-`render_system_prompt`.
+Works for both session start and post-compaction since both call `render_system_prompt`.
 
 ### 3. Cleanup dead code
 

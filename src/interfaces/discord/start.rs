@@ -37,6 +37,10 @@ pub struct DiscordSender {
 }
 
 impl DiscordSender {
+    pub fn http(&self) -> &Arc<Http> {
+        &self.http
+    }
+
     /// Send GHOST assistant-style content to a channel.
     #[tracing::instrument(skip_all, fields(channel_id = %channel_id))]
     pub async fn send_to_channel(&self, channel_id: u64, content: &str) -> serenity::Result<()> {
@@ -83,6 +87,7 @@ pub async fn start_discord(
     session_chat: Arc<SessionChat>,
     db: GhostDb,
     active_sessions: ActiveSessions,
+    bundled_update_tx: Option<tokio::sync::mpsc::UnboundedSender<String>>,
 ) -> Result<Option<(DiscordSender, JoinHandle<()>)>, DiscordError> {
     if !config.discord.enabled {
         info!("Discord is disabled in config");
@@ -116,6 +121,7 @@ pub async fn start_discord(
         config.clone(),
         config.discord.allowed_user_ids.clone(),
         active_sessions,
+        bundled_update_tx,
     );
 
     let mut client = Client::builder(&token, intents)
