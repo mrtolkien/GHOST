@@ -154,36 +154,40 @@ fn format_todo_display(items: &[TodoItem]) -> String {
     out
 }
 
-/// Append a statusline to a response message.
+/// Build statusline v2 components: a separator + `-#` subtext line.
 #[must_use]
-pub fn format_statusline(text: &str, metadata: &RunMetadata) -> String {
+pub fn format_statusline(metadata: &RunMetadata) -> Vec<serde_json::Value> {
+    use super::components_v2::{separator, text_display};
+    use crate::tools::display::tool_emoji;
+
     let mut parts = Vec::new();
 
-    // Model alias
-    parts.push(metadata.model_alias.clone());
+    // Model alias in inline code
+    parts.push(format!("`{}`", metadata.model_alias));
 
     // Token counts
-    let tokens = format!(
-        "{}↑ {}↓{}",
+    let mut tokens = format!(
+        "{}↑ {}↓",
         format_token_count(metadata.input_tokens),
         format_token_count(metadata.output_tokens),
-        if metadata.cache_read_tokens > 0 {
-            format!(" {}⚡", format_token_count(metadata.cache_read_tokens))
-        } else {
-            String::new()
-        },
     );
+    if metadata.cache_read_tokens > 0 {
+        tokens.push_str(&format!(
+            " {}⚡\u{FE0E}",
+            format_token_count(metadata.cache_read_tokens)
+        ));
+    }
     parts.push(tokens);
 
-    // Tool breakdown: "2 web_fetch · 3 knowledge_search"
+    // Tool breakdown with emojis: 🔍︎×3 📄︎×2
     if !metadata.tool_counts.is_empty() {
         let mut tools: Vec<_> = metadata.tool_counts.iter().collect();
         tools.sort_by(|a, b| b.1.cmp(a.1).then_with(|| a.0.cmp(b.0)));
         let tool_parts: Vec<String> = tools
             .iter()
-            .map(|(name, count)| format!("{count} {name}"))
+            .map(|(name, count)| format!("{}×{}", tool_emoji(name), count))
             .collect();
-        parts.push(tool_parts.join(" · "));
+        parts.push(tool_parts.join(" "));
     }
 
     // Duration
@@ -197,7 +201,10 @@ pub fn format_statusline(text: &str, metadata: &RunMetadata) -> String {
     };
     parts.push(duration);
 
-    format!("{text}\n─\n`{}`", parts.join(" | "))
+    vec![
+        separator(true),
+        text_display(&format!("-# {}", parts.join(" · "))),
+    ]
 }
 
 /// Format a compact agent completion summary for a v2 container.
@@ -260,6 +267,11 @@ mod tests {
     use std::collections::HashMap;
     use std::time::Duration;
 
+    /// Extract text content from a TextDisplay component.
+    fn text_content(component: &serde_json::Value) -> &str {
+        component["content"].as_str().unwrap_or("")
+    }
+
     #[test]
     fn statusline_no_tools() {
         let metadata = RunMetadata {
@@ -271,8 +283,17 @@ mod tests {
             cache_read_tokens: 0,
             duration: Duration::from_secs_f64(1.5),
         };
-        let result = format_statusline("Hello", &metadata);
-        assert_eq!(result, "Hello\n─\n`primary | 500↑ 200↓ | 1.5s`");
+        let components = format_statusline(&metadata);
+        assert_eq!(components.len(), 2);
+        // First component is a separator
+        assert_eq!(components[0]["type"], 14);
+        // Second is a TextDisplay with -# subtext
+        let text = text_content(&components[1]);
+        assert!(text.starts_with("-# "), "expected subtext: {text}");
+        assert!(text.contains("`primary`"));
+        assert!(text.contains("500↑"));
+        assert!(text.contains("200↓"));
+        assert!(text.contains("1.5s"));
     }
 
     #[test]
@@ -289,14 +310,14 @@ mod tests {
             cache_read_tokens: 8_000,
             duration: Duration::from_secs_f64(4.2),
         };
-        let result = format_statusline("Done", &metadata);
-        assert!(result.starts_with("Done\n─\n`primary | "));
-        assert!(result.contains("12.5k↑"));
-        assert!(result.contains("856↓"));
-        assert!(result.contains("8.0k⚡"));
-        assert!(result.contains("3 knowledge_search"));
-        assert!(result.contains("2 web_fetch"));
-        assert!(result.contains("4.2s"));
+        let components = format_statusline(&metadata);
+        let text = text_content(&components[1]);
+        assert!(text.contains("12.5k↑"));
+        assert!(text.contains("856↓"));
+        assert!(text.contains("8.0k⚡"));
+        assert!(text.contains("×3")); // knowledge_search count
+        assert!(text.contains("×2")); // web_fetch count
+        assert!(text.contains("4.2s"));
     }
 
     #[test]
@@ -310,8 +331,9 @@ mod tests {
             cache_read_tokens: 0,
             duration: Duration::from_secs(154),
         };
-        let result = format_statusline("Done", &metadata);
-        assert!(result.contains("2m34s"));
+        let components = format_statusline(&metadata);
+        let text = text_content(&components[1]);
+        assert!(text.contains("2m34s"));
     }
 
     #[test]

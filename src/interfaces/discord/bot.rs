@@ -22,7 +22,7 @@ use crate::db::GhostDb;
 use crate::providers::ContentBlock;
 
 use super::feedback;
-use super::send::{WARNING_EMBED_COLOR, send_assistant_v2, send_gateway_v2};
+use super::send::{WARNING_EMBED_COLOR, send_assistant_v2_with_suffix, send_gateway_v2};
 
 /// Teal embed color for coding session messages.
 const CODING_EMBED_COLOR: u32 = 0x29_FF_D9;
@@ -328,8 +328,15 @@ impl Handler {
 
         match chat_result {
             Ok((result, metadata)) => {
-                let response_text = format_statusline(&result.message, &metadata);
-                if let Err(e) = send_assistant_v2(&ctx.http, msg.channel_id, &response_text).await {
+                let statusline = format_statusline(&metadata);
+                if let Err(e) = send_assistant_v2_with_suffix(
+                    &ctx.http,
+                    msg.channel_id,
+                    &result.message,
+                    &statusline,
+                )
+                .await
+                {
                     error!(
                         session_id = %session_id,
                         error = %e,
@@ -438,8 +445,15 @@ impl Handler {
 
         match chat_result {
             Ok((result, metadata)) => {
-                let response_text = format_statusline(&result.message, &metadata);
-                if let Err(e) = send_assistant_v2(&ctx.http, msg.channel_id, &response_text).await {
+                let statusline = format_statusline(&metadata);
+                if let Err(e) = send_assistant_v2_with_suffix(
+                    &ctx.http,
+                    msg.channel_id,
+                    &result.message,
+                    &statusline,
+                )
+                .await
+                {
                     error!(
                         session_id = %session_id,
                         error = %e,

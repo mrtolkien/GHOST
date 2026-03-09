@@ -11,7 +11,9 @@ use crate::config::Config;
 use crate::db::GhostDb;
 
 use super::components_v2::{container, send_v2_message, text_display};
-use super::send::{GATEWAY_EMBED_COLOR, send_assistant_v2, send_gateway_v2};
+use super::send::{
+    GATEWAY_EMBED_COLOR, send_assistant_v2, send_assistant_v2_with_suffix, send_gateway_v2,
+};
 use super::table_image;
 
 #[derive(Debug, thiserror::Error)]
@@ -45,6 +47,17 @@ impl DiscordSender {
     #[tracing::instrument(skip_all, fields(channel_id = %channel_id))]
     pub async fn send_to_channel(&self, channel_id: u64, content: &str) -> serenity::Result<()> {
         send_assistant_v2(&self.http, ChannelId::new(channel_id), content).await
+    }
+
+    /// Send GHOST assistant-style content with statusline suffix components.
+    #[tracing::instrument(skip_all, fields(channel_id = %channel_id))]
+    pub async fn send_to_channel_with_suffix(
+        &self,
+        channel_id: u64,
+        content: &str,
+        suffix: &[serde_json::Value],
+    ) -> serenity::Result<()> {
+        send_assistant_v2_with_suffix(&self.http, ChannelId::new(channel_id), content, suffix).await
     }
 
     /// Send a system/gateway message to a channel.

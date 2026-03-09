@@ -120,13 +120,12 @@ async fn handle_event(
     // Send response to Discord.
     match chat_result {
         Ok((result, metadata)) => {
-            let response_text = crate::interfaces::discord::ui_events::format_statusline(
-                &result.message,
-                &metadata,
-            );
+            let statusline = crate::interfaces::discord::ui_events::format_statusline(&metadata);
             if let Some(sender) = discord_sender
                 && let Some(channel_id) = discord_channel_id
-                && let Err(e) = sender.send_to_channel(channel_id, &response_text).await
+                && let Err(e) = sender
+                    .send_to_channel_with_suffix(channel_id, &result.message, &statusline)
+                    .await
             {
                 logfire::error!(
                     "failed to send event response to Discord",

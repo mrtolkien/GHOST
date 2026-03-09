@@ -23,8 +23,20 @@ pub async fn send_assistant_v2(
     channel_id: ChannelId,
     content: &str,
 ) -> serenity::Result<()> {
+    send_assistant_v2_with_suffix(http, channel_id, content, &[]).await
+}
+
+/// Send GHOST assistant text with extra v2 components appended to the
+/// last message chunk (used for statusline).
+#[tracing::instrument(name = "send message", skip_all, fields(channel_id = %channel_id, content_len = content.len()))]
+pub async fn send_assistant_v2_with_suffix(
+    http: &Http,
+    channel_id: ChannelId,
+    content: &str,
+    suffix: &[serde_json::Value],
+) -> serenity::Result<()> {
     let markdown::MarkdownComponents {
-        components,
+        mut components,
         attachments,
     } = markdown::markdown_to_v2_components(content);
 
@@ -41,6 +53,9 @@ pub async fn send_assistant_v2(
         );
         return send_plain_text(http, channel_id, content).await;
     }
+
+    // Append suffix components (e.g. statusline) to the component list
+    components.extend_from_slice(suffix);
 
     let chunks = group_into_v2_messages(components);
     trace!(chunk_count = chunks.len(), "sending v2 message chunks");
