@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{Value, json};
 
 use crate::providers::types::{
     ChatRequest, ChatResponse, ContentBlock, ProviderError, Role, StopReason, ToolDefinition, Usage,
@@ -177,6 +177,7 @@ pub(crate) fn convert_messages(request: &ChatRequest) -> Vec<OpenAiMessage> {
 
     for message in &request.messages {
         let mut text_parts = Vec::new();
+        let mut image_parts: Vec<Value> = Vec::new();
         let mut tool_calls = Vec::new();
         let mut tool_results = Vec::new();
 
@@ -207,6 +208,21 @@ pub(crate) fn convert_messages(request: &ChatRequest) -> Vec<OpenAiMessage> {
                         tool_call_id: Some(tool_use_id.clone()),
                     });
                 }
+                ContentBlock::Image { path, .. } => {
+                    match crate::images::load_image_base64(std::path::Path::new(path)) {
+                        Ok((b64, mime)) => {
+                            image_parts.push(json!({
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": format!("data:{mime};base64,{b64}")
+                                }
+                            }));
+                        }
+                        Err(e) => {
+                            text_parts.push(format!("[Image unavailable: {e}]"));
+                        }
+                    }
+                }
                 ContentBlock::RawOutput {
                     original_type,
                     value,
@@ -232,7 +248,17 @@ pub(crate) fn convert_messages(request: &ChatRequest) -> Vec<OpenAiMessage> {
             Role::System => "system",
         };
 
-        let content = (!text_parts.is_empty()).then(|| Value::String(text_parts.join("\n\n")));
+        // Build content: if images present, use content array; otherwise plain string
+        let content = if !image_parts.is_empty() {
+            let mut parts = Vec::new();
+            if !text_parts.is_empty() {
+                parts.push(json!({"type": "text", "text": text_parts.join("\n\n")}));
+            }
+            parts.extend(image_parts);
+            Some(Value::Array(parts))
+        } else {
+            (!text_parts.is_empty()).then(|| Value::String(text_parts.join("\n\n")))
+        };
         if content.is_some() || !tool_calls.is_empty() {
             messages.push(OpenAiMessage {
                 role: role.to_string(),

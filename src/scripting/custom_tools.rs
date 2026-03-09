@@ -1,3 +1,4 @@
+use crate::tools::ToolOutput;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -72,7 +73,7 @@ impl Tool for LuaToolAdapter {
         self.terminal
     }
 
-    async fn execute(&self, params: Value, _ctx: &ToolContext) -> Result<String, ToolError> {
+    async fn execute(&self, params: Value, _ctx: &ToolContext) -> Result<ToolOutput, ToolError> {
         let lua = self.script_host.lua();
         let key = self
             .script_host
@@ -109,10 +110,10 @@ impl Tool for LuaToolAdapter {
         match result {
             LuaValue::String(s) => s
                 .to_str()
-                .map(|s| s.to_string())
+                .map(|s| ToolOutput::text(s.to_string()))
                 .map_err(|e| ToolError::ExecutionFailed(format!("invalid UTF-8 in result: {e}"))),
-            LuaValue::Nil => Ok(String::new()),
-            other => Ok(format!("{other:?}")),
+            LuaValue::Nil => Ok(ToolOutput::text(String::new())),
+            other => Ok(ToolOutput::text(format!("{other:?}"))),
         }
     }
 }

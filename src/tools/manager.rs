@@ -8,12 +8,13 @@ use crate::providers::ToolDefinition;
 
 use super::context::ToolContext;
 use super::error::ToolError;
+use super::output::ToolOutput;
 
 #[async_trait]
 pub trait Tool: Send + Sync {
     fn name(&self) -> &str;
     fn schema(&self) -> ToolDefinition;
-    async fn execute(&self, params: Value, ctx: &ToolContext) -> Result<String, ToolError>;
+    async fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput, ToolError>;
 
     /// Whether calling this tool should end the agent's run immediately.
     /// Used by Lua-defined custom tools with `terminal = true`.
@@ -115,7 +116,7 @@ impl ToolManager {
         tool_name: &str,
         params: Value,
         ctx: &ToolContext,
-    ) -> Result<String, ToolError> {
+    ) -> Result<ToolOutput, ToolError> {
         let tool = self
             .tools
             .get(tool_name)
@@ -127,10 +128,10 @@ impl ToolManager {
 
         match &result {
             Ok(output) => {
-                let truncated: String = output.chars().take(2000).collect();
+                let truncated: String = output.text.chars().take(2000).collect();
                 logfire::info!(
                     "tool executed",
-                    output_len = output.len() as u64,
+                    output_len = output.text.len() as u64,
                     output = truncated,
                 );
             }

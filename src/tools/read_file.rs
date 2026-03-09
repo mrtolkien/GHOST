@@ -1,3 +1,4 @@
+use super::output::{ImageRef, ToolOutput};
 use async_trait::async_trait;
 use serde_json::{Value, json};
 
@@ -18,7 +19,9 @@ impl Tool for ReadFile {
     fn schema(&self) -> ToolDefinition {
         ToolDefinition {
             name: self.name().to_string(),
-            description: "Read a file from the workspace with line numbers.".to_string(),
+            description: "Read a file from the workspace with line numbers. Image files \
+                         (PNG, JPEG, GIF, WebP) are returned as viewable images."
+                .to_string(),
             input_schema: json!({
                 "type": "object",
                 "properties": {
@@ -34,12 +37,31 @@ impl Tool for ReadFile {
     }
 
     #[tracing::instrument(skip_all, fields(tool = "read_file"))]
-    async fn execute(&self, params: Value, ctx: &ToolContext) -> Result<String, ToolError> {
+    async fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput, ToolError> {
         let raw_path = params.get("path").and_then(Value::as_str).ok_or_else(|| {
             ToolError::InvalidParams("missing required parameter 'path'".to_string())
         })?;
 
         let path = resolve_path(raw_path, &ctx.cwd, &ctx.workspace)?;
+
+        // Image files: return as viewable image instead of text content
+        let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
+        if crate::images::is_image_extension(ext) {
+            let mime = crate::images::mime_type_from_extension(ext).to_string();
+            let filename = path
+                .file_name()
+                .and_then(|f| f.to_str())
+                .unwrap_or(raw_path)
+                .to_string();
+            return Ok(ToolOutput {
+                text: format!("Image file: {raw_path}"),
+                images: vec![ImageRef {
+                    path: path.to_string_lossy().to_string(),
+                    mime_type: mime,
+                    filename,
+                }],
+            });
+        }
 
         let content = tokio::fs::read_to_string(&path).await.map_err(|e| {
             ToolError::ExecutionFailed(format!("failed to read '{}': {e}", path.display()))
@@ -49,7 +71,7 @@ impl Tool for ReadFile {
         let total_lines = lines.len();
 
         if total_lines == 0 {
-            return Ok(format!("File: {raw_path}\n(empty file)"));
+            return Ok(ToolOutput::text(format!("File: {raw_path}\n(empty file)")));
         }
 
         let width = total_lines.to_string().len().max(3);
@@ -77,7 +99,7 @@ impl Tool for ReadFile {
             }
         }
 
-        Ok(result)
+        Ok(ToolOutput::text(result))
     }
 }
 
@@ -111,10 +133,10 @@ mod tests {
             .await
             .unwrap();
 
-        assert!(result.contains("test.txt"));
-        assert!(result.contains("  1 | line one"));
-        assert!(result.contains("  2 | line two"));
-        assert!(result.contains("  3 | line three"));
+        assert!(result.text.contains("test.txt"));
+        assert!(result.text.contains("  1 | line one"));
+        assert!(result.text.contains("  2 | line two"));
+        assert!(result.text.contains("  3 | line three"));
     }
 
     #[tokio::test]
@@ -147,10 +169,10 @@ mod tests {
             .await
             .unwrap();
 
-        assert!(result.contains("<extra-files>"));
-        assert!(result.contains("./reference.md"));
-        assert!(result.contains("./scripts/run.py"));
-        assert!(result.contains("</extra-files>"));
+        assert!(result.text.contains("<extra-files>"));
+        assert!(result.text.contains("./reference.md"));
+        assert!(result.text.contains("./scripts/run.py"));
+        assert!(result.text.contains("</extra-files>"));
     }
 
     #[tokio::test]
@@ -171,7 +193,7 @@ mod tests {
             .await
             .unwrap();
 
-        assert!(!result.contains("<extra-files>"));
+        assert!(!result.text.contains("<extra-files>"));
     }
 
     #[tokio::test]
@@ -194,9 +216,28 @@ mod tests {
             .await
             .unwrap();
 
-        assert!(!result.contains("<extra-files>"));
-        assert!(!result.contains("agent.lua"));
-        assert!(!result.contains("prompt.md"));
+        assert!(!result.text.contains("<extra-files>"));
+        assert!(!result.text.contains("agent.lua"));
+        assert!(!result.text.contains("prompt.md"));
+    }
+
+    #[tokio::test]
+    async fn read_image_file_returns_image_output() {
+        let workspace = TempDir::new().unwrap();
+        let img = image::RgbImage::new(1, 1);
+        let path = workspace.path().join("test.png");
+        img.save(&path).unwrap();
+
+        let ctx = test_ctx_in(workspace.path());
+        let output = ReadFile
+            .execute(json!({"path": "test.png"}), &ctx)
+            .await
+            .unwrap();
+
+        assert_eq!(output.images.len(), 1);
+        assert_eq!(output.images[0].mime_type, "image/png");
+        assert_eq!(output.images[0].filename, "test.png");
+        assert!(output.text.contains("test.png"));
     }
 
     #[tokio::test]
@@ -211,6 +252,6 @@ mod tests {
             .await
             .unwrap();
 
-        assert!(result.contains("empty file"));
+        assert!(result.text.contains("empty file"));
     }
 }

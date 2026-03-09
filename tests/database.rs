@@ -85,6 +85,7 @@ async fn message_tool_calls_round_trip() {
         Some(tool_calls.clone()),
         None,
         None,
+        None,
     )
     .await
     .expect("create assistant message with tool_calls");
@@ -102,6 +103,7 @@ async fn message_tool_calls_round_trip() {
         "",
         None,
         Some(tool_results.clone()),
+        None,
         None,
     )
     .await

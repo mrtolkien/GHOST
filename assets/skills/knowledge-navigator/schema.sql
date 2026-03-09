@@ -79,7 +79,7 @@ CREATE TABLE message (
     tool_results TEXT, -- JSON array
     raw_output TEXT,   -- JSON array
     created_at TEXT NOT NULL
-);
+, images TEXT);
 CREATE TABLE message_source (
     id TEXT PRIMARY KEY NOT NULL,
     message_id TEXT NOT NULL REFERENCES message(id) ON DELETE CASCADE,

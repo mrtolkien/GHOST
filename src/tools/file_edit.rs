@@ -1,3 +1,4 @@
+use super::output::ToolOutput;
 use async_trait::async_trait;
 use serde_json::{Value, json};
 
@@ -45,7 +46,7 @@ impl Tool for FileEdit {
     }
 
     #[tracing::instrument(skip_all, fields(tool = "file_edit"))]
-    async fn execute(&self, params: Value, ctx: &ToolContext) -> Result<String, ToolError> {
+    async fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput, ToolError> {
         let raw_path = params.get("path").and_then(Value::as_str).ok_or_else(|| {
             ToolError::InvalidParams("missing required parameter 'path'".to_string())
         })?;
@@ -99,9 +100,9 @@ impl Tool for FileEdit {
             .map(|(i, _)| i + 1)
             .unwrap_or(0);
 
-        Ok(format!(
+        Ok(ToolOutput::text(format!(
             "Edited {raw_path} at line {edit_line}: replaced 1 occurrence."
-        ))
+        )))
     }
 }
 
@@ -142,7 +143,7 @@ mod tests {
             .await
             .unwrap();
 
-        assert!(result.contains("Edited"));
+        assert!(result.text.contains("Edited"));
         let content = std::fs::read_to_string(&file).unwrap();
         assert!(content.contains("hello world"));
         assert!(!content.contains("\"hi\""));

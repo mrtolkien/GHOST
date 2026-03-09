@@ -1,3 +1,4 @@
+use super::output::ToolOutput;
 use std::sync::OnceLock;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -138,7 +139,7 @@ impl Tool for RunShellCommand {
     }
 
     #[tracing::instrument(skip_all, fields(tool = "run_shell_command"))]
-    async fn execute(&self, params: Value, ctx: &ToolContext) -> Result<String, ToolError> {
+    async fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput, ToolError> {
         let command = params
             .get("command")
             .and_then(Value::as_str)
@@ -216,9 +217,11 @@ impl Tool for RunShellCommand {
                 BACKGROUND_SHELL_COUNT.fetch_sub(1, Ordering::Relaxed);
             });
 
-            return Ok("Command started in background. You'll see the result as a \
+            return Ok(ToolOutput::text(
+                "Command started in background. You'll see the result as a \
                  system message when it completes."
-                .to_string());
+                    .to_string(),
+            ));
         }
 
         // Foreground path
@@ -247,14 +250,14 @@ impl Tool for RunShellCommand {
                 return Err(ToolError::ExecutionFailed(format!("command failed: {e}")));
             }
             Err(_) => {
-                return Ok(format!(
+                return Ok(ToolOutput::text(format!(
                     "Command timed out after {timeout_ms}ms.\n\
                      Hint: increase timeout_ms or break the command into smaller steps."
-                ));
+                )));
             }
         };
 
-        Ok(format_output(&output))
+        Ok(ToolOutput::text(format_output(&output)))
     }
 }
 
@@ -306,8 +309,8 @@ mod tests {
             .execute(json!({"command": "echo hello"}), &ctx)
             .await;
         let output = result.unwrap();
-        assert!(output.contains("Exit code: 0"));
-        assert!(output.contains("hello"));
+        assert!(output.text.contains("Exit code: 0"));
+        assert!(output.text.contains("hello"));
     }
 
     #[tokio::test]
@@ -317,7 +320,7 @@ mod tests {
             .execute(json!({"command": "exit 42"}), &ctx)
             .await;
         let output = result.unwrap();
-        assert!(output.contains("Exit code: 42"));
+        assert!(output.text.contains("Exit code: 42"));
     }
 
     #[tokio::test]
@@ -327,7 +330,7 @@ mod tests {
             .execute(json!({"command": "sleep 10", "timeout_ms": 100}), &ctx)
             .await;
         let output = result.unwrap();
-        assert!(output.contains("timed out"));
+        assert!(output.text.contains("timed out"));
     }
 
     #[tokio::test]
@@ -345,8 +348,8 @@ mod tests {
             .execute(json!({"command": "echo oops >&2"}), &ctx)
             .await;
         let output = result.unwrap();
-        assert!(output.contains("stderr"));
-        assert!(output.contains("oops"));
+        assert!(output.text.contains("stderr"));
+        assert!(output.text.contains("oops"));
     }
 
     #[test]
@@ -372,6 +375,6 @@ mod tests {
             .execute(json!({"command": "echo bg-test", "background": true}), &ctx)
             .await;
         let output = result.unwrap();
-        assert!(output.contains("background"));
+        assert!(output.text.contains("background"));
     }
 }

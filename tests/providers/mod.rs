@@ -12,4 +12,6 @@ mod openai_oauth_live;
 #[cfg(feature = "live-tests")]
 mod reasoning_live;
 #[cfg(feature = "live-tests")]
+mod image_live;
+#[cfg(feature = "live-tests")]
 mod tool_use_live;

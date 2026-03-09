@@ -16,8 +16,8 @@ use crate::scripting::types::{BuildResult, PreTurnState, TodoSummary};
 use crate::tools::{ToolContext, ToolManager, format_todo_injection};
 
 use super::convert::{
-    convert_stored_message_to_provider_message, parse_session_thing, render_tool_error,
-    tool_results_to_values,
+    convert_stored_message_to_provider_message, images_to_values, parse_session_thing,
+    render_tool_error, tool_results_to_values,
 };
 use super::tool_loop::{ToolLoopHandler, run_tool_loop};
 use super::types::{
@@ -137,10 +137,51 @@ impl SessionChat {
         channel_id: Option<String>,
         event_tx: Option<&EventSender>,
     ) -> Result<(ChatResult, RunMetadata), ChatError> {
+        self.chat_with_images(session_id, user_message, None, channel_id, event_tx)
+            .await
+    }
+
+    pub async fn chat_with_images(
+        &self,
+        session_id: &str,
+        user_message: &str,
+        images: Option<Vec<ContentBlock>>,
+        channel_id: Option<String>,
+        event_tx: Option<&EventSender>,
+    ) -> Result<(ChatResult, RunMetadata), ChatError> {
         let session_thing = parse_session_thing(session_id)?;
         db::sessions::get_session(&self.db, &session_thing).await?;
         db::sessions::update_activity(&self.db, &session_thing).await?;
-        db::sessions::create_message(&self.db, &session_thing, "user", user_message).await?;
+
+        let image_values = images.as_ref().and_then(|imgs| {
+            let vals: Vec<serde_json::Value> = imgs
+                .iter()
+                .filter_map(|b| match b {
+                    ContentBlock::Image {
+                        path,
+                        mime_type,
+                        filename,
+                    } => Some(serde_json::json!({
+                        "path": path,
+                        "mime_type": mime_type,
+                        "filename": filename,
+                    })),
+                    _ => None,
+                })
+                .collect();
+            if vals.is_empty() { None } else { Some(vals) }
+        });
+        db::sessions::create_message_with_metadata(
+            &self.db,
+            &session_thing,
+            "user",
+            user_message,
+            None,
+            None,
+            None,
+            image_values,
+        )
+        .await?;
 
         let (mut history, stored_ids) = self.load_provider_history(&session_thing).await?;
         self.compact_if_needed(&session_thing, &mut history, &stored_ids)
@@ -305,7 +346,11 @@ impl SessionChat {
             })
             .collect();
 
-        futures::future::join_all(futures).await
+        futures::future::join_all(futures)
+            .await
+            .into_iter()
+            .flatten()
+            .collect()
     }
 
     async fn execute_single_tool(
@@ -316,7 +361,7 @@ impl SessionChat {
         input: Value,
         cwd_override: Option<&std::path::Path>,
         channel_id: Option<&str>,
-    ) -> ContentBlock {
+    ) -> Vec<ContentBlock> {
         let cwd = cwd_override
             .map(|p| p.to_path_buf())
             .or_else(|| self.cwd_override.clone())
@@ -333,16 +378,26 @@ impl SessionChat {
         };
 
         match self.tool_manager.execute(name, input, &tool_ctx).await {
-            Ok(content) => ContentBlock::ToolResult {
-                tool_use_id: tool_use_id.to_string(),
-                content,
-                is_error: false,
-            },
-            Err(error) => ContentBlock::ToolResult {
+            Ok(output) => {
+                let mut blocks = vec![ContentBlock::ToolResult {
+                    tool_use_id: tool_use_id.to_string(),
+                    content: output.text,
+                    is_error: false,
+                }];
+                for img in output.images {
+                    blocks.push(ContentBlock::Image {
+                        path: img.path,
+                        mime_type: img.mime_type,
+                        filename: img.filename,
+                    });
+                }
+                blocks
+            }
+            Err(error) => vec![ContentBlock::ToolResult {
                 tool_use_id: tool_use_id.to_string(),
                 content: render_tool_error(error),
                 is_error: true,
-            },
+            }],
         }
     }
 
@@ -439,6 +494,7 @@ impl ToolLoopHandler for ChatHandler<'_> {
             Some(tool_uses.to_vec()),
             None,
             raw_output,
+            None,
         )
         .await?;
         Ok(())
@@ -453,6 +509,7 @@ impl ToolLoopHandler for ChatHandler<'_> {
             None,
             Some(tool_results_to_values(results)),
             None,
+            images_to_values(results),
         )
         .await?;
         Ok(())
@@ -473,6 +530,7 @@ impl ToolLoopHandler for ChatHandler<'_> {
             Some(tool_uses.to_vec()),
             None,
             raw_output,
+            None,
         )
         .await?;
 
@@ -588,6 +646,7 @@ impl ToolLoopHandler for CodingHandler<'_> {
             Some(tool_uses.to_vec()),
             None,
             raw_output,
+            None,
         )
         .await?;
         Ok(())
@@ -602,6 +661,7 @@ impl ToolLoopHandler for CodingHandler<'_> {
             None,
             Some(tool_results_to_values(results)),
             None,
+            images_to_values(results),
         )
         .await?;
         Ok(())
@@ -622,6 +682,7 @@ impl ToolLoopHandler for CodingHandler<'_> {
             Some(tool_uses.to_vec()),
             None,
             raw_output,
+            None,
         )
         .await?;
 
@@ -713,6 +774,7 @@ impl ToolLoopHandler for LuaAgentHandler<'_> {
             Some(tool_uses.to_vec()),
             None,
             raw_output,
+            None,
         )
         .await?;
         Ok(())
@@ -727,6 +789,7 @@ impl ToolLoopHandler for LuaAgentHandler<'_> {
             None,
             Some(tool_results_to_values(results)),
             None,
+            images_to_values(results),
         )
         .await?;
         Ok(())
@@ -747,6 +810,7 @@ impl ToolLoopHandler for LuaAgentHandler<'_> {
             Some(tool_uses.to_vec()),
             None,
             raw_output,
+            None,
         )
         .await?;
 

@@ -115,6 +115,13 @@ pub enum ContentBlock {
         content: String,
         is_error: bool,
     },
+    /// An image reference. `path` is the absolute filesystem path; base64
+    /// encoding happens at provider send time.
+    Image {
+        path: String,
+        mime_type: String,
+        filename: String,
+    },
     /// Opaque provider output item preserved for faithful echo-back.
     /// `original_type` is the item's native type (e.g. "reasoning").
     /// `value` is the complete raw JSON from the provider.

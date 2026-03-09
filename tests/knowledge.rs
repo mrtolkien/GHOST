@@ -302,8 +302,8 @@ async fn note_write_tool_creates_file_and_db_record() {
         .await
         .expect("note_write create");
 
-    assert!(result.contains("Created note 'Test Note'"));
-    assert!(result.contains("Edges: 1 created"));
+    assert!(result.text.contains("Created note 'Test Note'"));
+    assert!(result.text.contains("Edges: 1 created"));
 
     // Verify file on disk (tag "test" → subfolder "test/")
     let note_path = config.workspace.join("notes/test/test_note.md");

@@ -1,3 +1,4 @@
+use super::output::ToolOutput;
 use async_trait::async_trait;
 use serde_json::{Value, json};
 
@@ -62,7 +63,7 @@ impl Tool for KnowledgeSearch {
         }
     }
 
-    async fn execute(&self, params: Value, ctx: &ToolContext) -> Result<String, ToolError> {
+    async fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput, ToolError> {
         let query = params.get("query").and_then(Value::as_str).ok_or_else(|| {
             ToolError::InvalidParams("missing required parameter: query".to_string())
         })?;
@@ -190,7 +191,7 @@ impl Tool for KnowledgeSearch {
         }
 
         // Format output
-        format_results(&hits)
+        format_results(&hits).map(ToolOutput::text)
     }
 }
 

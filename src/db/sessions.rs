@@ -26,6 +26,7 @@ pub struct MessageRecord {
     pub tool_calls: Option<String>,   // JSON
     pub tool_results: Option<String>, // JSON
     pub raw_output: Option<String>,   // JSON
+    pub images: Option<String>,       // JSON
     pub created_at: String,
 }
 
@@ -44,6 +45,12 @@ impl MessageRecord {
 
     pub fn raw_output_parsed(&self) -> Option<Vec<serde_json::Value>> {
         self.raw_output
+            .as_deref()
+            .and_then(|s| serde_json::from_str(s).ok())
+    }
+
+    pub fn images_parsed(&self) -> Option<Vec<serde_json::Value>> {
+        self.images
             .as_deref()
             .and_then(|s| serde_json::from_str(s).ok())
     }
@@ -248,7 +255,7 @@ pub async fn create_message(
     role: &str,
     content: &str,
 ) -> Result<String, DatabaseError> {
-    create_message_with_metadata(db, session_id, role, content, None, None, None).await
+    create_message_with_metadata(db, session_id, role, content, None, None, None, None).await
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -261,12 +268,13 @@ pub async fn create_message_with_metadata(
     tool_calls: Option<Vec<serde_json::Value>>,
     tool_results: Option<Vec<serde_json::Value>>,
     raw_output: Option<Vec<serde_json::Value>>,
+    images: Option<Vec<serde_json::Value>>,
 ) -> Result<String, DatabaseError> {
     let id = new_id();
 
     sqlx::query(
-        "INSERT INTO message (id, session_id, role, content, tool_calls, tool_results, raw_output, created_at) \
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO message (id, session_id, role, content, tool_calls, tool_results, raw_output, images, created_at) \
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
     )
     .bind(&id)
     .bind(session_id)
@@ -275,6 +283,7 @@ pub async fn create_message_with_metadata(
     .bind(tool_calls.as_ref().map(|v| serde_json::to_string(v).unwrap_or_default()))
     .bind(tool_results.as_ref().map(|v| serde_json::to_string(v).unwrap_or_default()))
     .bind(raw_output.as_ref().map(|v| serde_json::to_string(v).unwrap_or_default()))
+    .bind(images.as_ref().map(|v| serde_json::to_string(v).unwrap_or_default()))
     .bind(now())
     .execute(db)
     .await

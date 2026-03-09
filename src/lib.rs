@@ -15,6 +15,7 @@ pub mod db;
 pub mod embeddings;
 pub mod error;
 pub mod events;
+pub mod images;
 pub mod interfaces;
 pub mod knowledge;
 pub mod observability;

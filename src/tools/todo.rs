@@ -1,3 +1,4 @@
+use super::output::ToolOutput;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -195,7 +196,7 @@ impl Tool for Todo {
     }
 
     #[tracing::instrument(skip_all, fields(tool = "todo"))]
-    async fn execute(&self, params: Value, ctx: &ToolContext) -> Result<String, ToolError> {
+    async fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput, ToolError> {
         let action = params
             .get("action")
             .and_then(Value::as_str)
@@ -216,6 +217,7 @@ impl Tool for Todo {
                  plan, add, update, batch_update, clear"
             ))),
         }
+        .map(ToolOutput::text)
     }
 }
 

@@ -97,8 +97,8 @@ async fn todo_round_trip_through_db() {
         .await
         .expect("todo plan");
 
-    assert!(result.contains("TODO [0/3]"));
-    assert!(result.contains("Research the problem"));
+    assert!(result.text.contains("TODO [0/3]"));
+    assert!(result.text.contains("Research the problem"));
 
     // Update one
     let result = manager
@@ -115,8 +115,8 @@ async fn todo_round_trip_through_db() {
         .await
         .expect("todo update");
 
-    assert!(result.contains("TODO [1/3]"));
-    assert!(result.contains("found the root cause"));
+    assert!(result.text.contains("TODO [1/3]"));
+    assert!(result.text.contains("found the root cause"));
 
     // Verify persistence
     let items = db::sessions::get_session_todo_list(&db, &session_id)
@@ -145,7 +145,7 @@ async fn todo_round_trip_through_db() {
         .await
         .expect("todo batch_update");
 
-    assert!(result.contains("TODO [2/3]"));
+    assert!(result.text.contains("TODO [2/3]"));
 
     // Add
     let result = manager
@@ -160,8 +160,8 @@ async fn todo_round_trip_through_db() {
         .await
         .expect("todo add");
 
-    assert!(result.contains("TODO [2/4]"));
-    assert!(result.contains("Deploy"));
+    assert!(result.text.contains("TODO [2/4]"));
+    assert!(result.text.contains("Deploy"));
 
     // Clear
     let result = manager
@@ -169,7 +169,7 @@ async fn todo_round_trip_through_db() {
         .await
         .expect("todo clear");
 
-    assert!(result.contains("cleared"));
+    assert!(result.text.contains("cleared"));
 
     let cleared = db::sessions::get_session_todo_list(&db, &session_id)
         .await
@@ -199,7 +199,7 @@ async fn chained_write_edit_read() {
         .await
         .expect("write_file");
 
-    assert!(result.contains("Created"));
+    assert!(result.text.contains("Created"));
 
     // Edit the file
     let result = manager
@@ -215,7 +215,7 @@ async fn chained_write_edit_read() {
         .await
         .expect("file_edit");
 
-    assert!(result.contains("Edited"));
+    assert!(result.text.contains("Edited"));
 
     // Read the file
     let result = manager
@@ -223,9 +223,9 @@ async fn chained_write_edit_read() {
         .await
         .expect("read_file");
 
-    assert!(result.contains("line two (edited)"));
-    assert!(result.contains("1 | line 1"));
-    assert!(result.contains("3 | line 3"));
+    assert!(result.text.contains("line two (edited)"));
+    assert!(result.text.contains("1 | line 1"));
+    assert!(result.text.contains("3 | line 3"));
 }
 
 #[tokio::test]
@@ -242,7 +242,7 @@ async fn shell_runs_in_workspace() {
         .await
         .expect("shell pwd");
 
-    assert!(result.contains("Exit code: 0"));
+    assert!(result.text.contains("Exit code: 0"));
 }
 
 #[tokio::test]
