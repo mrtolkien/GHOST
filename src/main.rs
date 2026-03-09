@@ -43,6 +43,10 @@ enum Commands {
         #[command(subcommand)]
         command: ghost::cli::project::ProjectCommand,
     },
+    Document {
+        #[command(subcommand)]
+        command: ghost::cli::document::DocumentCommand,
+    },
     Reference {
         #[command(subcommand)]
         command: ghost::cli::reference::ReferenceCommand,
@@ -95,6 +99,7 @@ async fn dispatch(command: Commands) -> Result<(), GhostError> {
         Commands::Session { command } => ghost::cli::session::execute(command).await,
         Commands::Knowledge { command } => ghost::cli::knowledge::execute(command).await,
         Commands::Project { command } => ghost::cli::project::execute(command).await,
+        Commands::Document { command } => ghost::cli::document::execute(command).await,
         Commands::Reference { command } => ghost::cli::reference::execute(command).await,
         Commands::Topics { command } => ghost::cli::topics::execute(command).await,
         Commands::Web { command } => ghost::cli::web::execute(command).await,
