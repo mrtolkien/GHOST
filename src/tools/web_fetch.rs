@@ -90,9 +90,9 @@ impl Tool for WebFetch {
                 return Err(ToolError::ExecutionFailed(format!(
                     "This URL returned {content_type} which web_fetch cannot read. \
                      Import it directly with: \
-                     `ghost reference import --source page --url '{url}' --topic <name>` \
+                     `ghost document import url --url '{url}' --topic <name>` \
                      (run with background: true). \
-                     Do NOT curl the file — page import handles PDFs and binary \
+                     Do NOT curl the file — document import handles PDFs and binary \
                      documents via docling automatically."
                 )));
             }

@@ -39,6 +39,38 @@ Tested, quality insufficient. Deferred to backlog:
 
 Split `ghost reference import --source <type>` into two commands with clap subcommands:
 
+| Configuration | Time | Notes |
+|---|---|---|
+| EasyOCR + accurate tables | 465s | Default docling settings — unusable |
+| **RapidOCR** + accurate tables | **75s** | **6x faster than EasyOCR on CPU** |
+| No OCR + accurate tables | 20s | Digital PDF only |
+| No OCR + fast tables | 19s | Fastest possible |
+| RapidOCR, pages 1-5 | 17s | Scales ~linearly with page count |
+
+**Key takeaways:**
+- **RapidOCR is 6x faster than EasyOCR on CPU.** This alone fixes the timeout problem.
+- OCR is the dominant cost (75s with vs 20s without). Table mode is negligible.
+- Must use the **async** API (`/v1/convert/source/async` + polling). The sync endpoint
+  is inexplicably 4-6x slower (confirmed with warm cache, no queue contention).
+- The async endpoint uses JSON with base64-encoded files, not multipart form-data.
+- `OMP_NUM_THREADS` / `MKL_NUM_THREADS` must match CPU count (halved time on first fix).
+
+### GPU Acceleration
+
+Not viable on current hardware. See `specs/backlog/3-vlm-image-descriptions.md` for
+VLM-specific notes. Revisit when hardware changes (Mac Mini M4 is the clean path).
+
+### VLM Image Descriptions
+
+Tested, quality insufficient. Deferred to backlog:
+`specs/backlog/3-vlm-image-descriptions.md`
+
+## Design
+
+### 1. CLI Restructure
+
+Split `ghost reference import --source <type>` into two commands with clap subcommands:
+
 ```
 ghost reference import <SUBCOMMAND>
   git    --url <url> --topic <name> [--paths dir1,dir2] [--extensions .md,.rs]
@@ -62,6 +94,13 @@ unless the OPERATOR explicitly requests otherwise. The skill must not guess at t
 
 **Not exposed** (hardcoded to good defaults):
 
+| Flag | Default | When an OPERATOR would use it |
+|---|---|---|
+| `--no-ocr` | OCR on | OPERATOR knows the PDF is digital and wants speed |
+| `--page-range "1-10"` | full doc | OPERATOR wants specific sections of a large document |
+| `--timeout` | 600s | OPERATOR needs more time for huge documents |
+
+**Not exposed** (hardcoded to good defaults):
 - OCR engine: always `rapidocr` (6x faster than easyocr, no reason to switch)
 - Table mode: always `accurate` (fast mode made no measurable difference)
 - Image export: always `placeholder` (VLM descriptions deferred to backlog)
@@ -97,6 +136,15 @@ async conversion function. Currently:
 Both are replaced by a unified async flow through `/v1/convert/source/async`:
 
 1. **Submit**: POST JSON to `/v1/convert/source/async`
+The `docling_url` stays in `[web]` as a deprecated alias during transition, resolving to
+`[docling].url`. Hardcoded defaults (rapidocr, accurate tables, etc.) are not in config
+— they're implementation details, not user choices.
+
+### 3. Async API Client Rewrite
+
+Replace the current sync `reqwest` calls in `src/web/docling.rs` with the async flow:
+
+1. **Submit**: POST JSON to `/v1/convert/source/async` with base64-encoded file/URL
 2. **Poll**: GET `/v1/status/poll/{task_id}?wait=5` until `task_status` is terminal
 3. **Fetch**: GET `/v1/result/{task_id}` for the conversion result
 4. **Timeout**: Cancel after configured timeout, return error
@@ -108,6 +156,10 @@ For **file** sources (base64-encoded):
 ```json
 {
   "sources": [{ "kind": "file", "base64_string": "...", "filename": "..." }],
+Request payload structure (for file):
+```json
+{
+  "sources": [{"kind": "file", "base64_string": "...", "filename": "..."}],
   "options": {
     "to_formats": ["md"],
     "image_export_mode": "placeholder",
@@ -115,6 +167,8 @@ For **file** sources (base64-encoded):
     "do_ocr": true,
     "ocr_engine": "rapidocr",
     "table_mode": "accurate"
+    "table_mode": "accurate",
+    "page_range": [1, 9223372036854775807]
   }
 }
 ```
@@ -170,6 +224,14 @@ variants and into `ConvertOptions` at the call site.
 
 **`reference-import`** (git/crawl — text-based batch imports):
 
+For URL sources: `{"kind": "http", "url": "..."}` instead of base64.
+
+`page_range` is a two-element integer array `[start, end]` (1-indexed, inclusive).
+Default end is max i64 (full document). `--page-range "1-10"` parses to `[1, 10]`.
+
+### 4. Skills
+
+**`reference-import`** (git/crawl — text-based batch imports):
 - Decision flow: search first → find git repo → choose paths/extensions → import
 - Git import: `gh search repos`, browse repo, `ghost reference import git ...`
 - Crawl import: fallback when no git source exists
@@ -177,6 +239,7 @@ variants and into `ConvertOptions` at the call site.
 
 **`document-import`** (url/file — docling-powered single documents):
 
+**`document-import`** (page/file — docling-powered single documents):
 - Decision flow: search first → determine source (URL or uploaded file) → import
 - **Use defaults.** Do not add `--no-ocr` or `--page-range` unless the OPERATOR
   explicitly asks. These are optimization knobs, not standard workflow.
@@ -199,6 +262,15 @@ The current `reference-import` skill's "page" and "file" source types move to
 5. **Skills**: Write `document-import` skill, trim `reference-import` skill
 
 ### 7. Recommended compose.yaml
+### 5. Implementation Order
+
+1. **Config**: Add `[docling]` section, keep `[web].docling_url` as deprecated alias
+2. **Async client**: Rewrite `src/web/docling.rs` to use async API + polling
+3. **Options plumbing**: Thread options (ocr, page_range, timeout) through conversion fns
+4. **CLI split**: Restructure `ghost reference import` and add `ghost document import`
+5. **Skills**: Write `document-import` skill, update `reference-import` skill
+
+### 6. Recommended compose.yaml
 
 ```yaml
 docling-serve:
@@ -209,6 +281,7 @@ docling-serve:
   environment:
     - DOCLING_SERVE_ENABLE_UI=1
     - OMP_NUM_THREADS=14 # match CPU count
+    - OMP_NUM_THREADS=14          # match CPU count
     - MKL_NUM_THREADS=14
   restart: unless-stopped
 ```

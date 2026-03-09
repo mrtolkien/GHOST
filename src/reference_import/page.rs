@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use crate::config::WebConfig;
+use crate::config::DoclingConfig;
 use crate::db;
 use crate::db::GhostDb;
 use crate::web;
@@ -18,10 +18,15 @@ use super::types::{ImportConfig, ImportError, ImportResult, ImportSource};
 pub async fn import_page(
     db: &GhostDb,
     workspace: &Path,
-    web_config: &WebConfig,
+    docling_config: &DoclingConfig,
     config: &ImportConfig,
 ) -> Result<ImportResult, ImportError> {
-    let ImportSource::Page { url } = &config.source else {
+    let ImportSource::Page {
+        url,
+        no_ocr,
+        page_range,
+    } = &config.source
+    else {
         return Err(ImportError::Fetch("expected page source".into()));
     };
 
@@ -56,15 +61,17 @@ pub async fn import_page(
     let text = match web::fetch(url, &web::FetchOptions::default(), None).await {
         Ok(extracted) => extracted.text,
         Err(web::WebError::UnsupportedContentType { .. }) => {
-            let docling_url = web_config.docling_url.as_deref().ok_or_else(|| {
-                ImportError::Fetch(
-                    "URL has non-text content type (e.g. PDF) but docling_url is not configured"
-                        .into(),
-                )
-            })?;
-            web::docling::convert_url(docling_url, url)
-                .await
-                .map_err(|e| ImportError::Fetch(e.to_string()))?
+            let convert_opts = web::docling::ConvertOptions {
+                ocr: !no_ocr,
+                page_range: *page_range,
+            };
+            web::docling::convert(
+                docling_config,
+                web::docling::DoclingSource::Url { url },
+                &convert_opts,
+            )
+            .await
+            .map_err(|e| ImportError::Fetch(e.to_string()))?
         }
         Err(e) => return Err(ImportError::Fetch(e.to_string())),
     };

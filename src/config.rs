@@ -78,6 +78,7 @@ pub struct Settings {
     pub timing: Option<TimingSettings>,
     pub compaction: Option<CompactionSettings>,
     pub web: Option<WebSettings>,
+    pub docling: Option<DoclingSettings>,
     pub coding: Option<CodingSettings>,
     pub debug: Option<DebugSettings>,
 }
@@ -145,8 +146,14 @@ pub struct CompactionSettings {
 pub struct WebSettings {
     pub search_max_results: Option<usize>,
     pub crawl4ai_url: Option<String>,
-    pub docling_url: Option<String>,
     pub search: Option<SearchProviderSettings>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct DoclingSettings {
+    pub url: Option<String>,
+    pub timeout: Option<u64>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -184,6 +191,7 @@ pub struct Config {
     pub timing: TimingConfig,
     pub compaction: CompactionConfig,
     pub web: WebConfig,
+    pub docling: DoclingConfig,
     pub coding: CodingConfig,
     pub debug: DebugConfig,
 }
@@ -240,8 +248,13 @@ pub struct CompactionConfig {
 pub struct WebConfig {
     pub search_max_results: usize,
     pub crawl4ai_url: Option<String>,
-    pub docling_url: Option<String>,
     pub search_provider: SearchProviderConfig,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct DoclingConfig {
+    pub url: Option<String>,
+    pub timeout: u64,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -415,12 +428,6 @@ impl Config {
                     .and_then(|w| w.crawl4ai_url.clone())
                     .or_else(|| env::var("CRAWL4AI_URL").ok());
 
-                let docling_url = settings
-                    .web
-                    .as_ref()
-                    .and_then(|w| w.docling_url.clone())
-                    .or_else(|| env::var("DOCLING_URL").ok());
-
                 let search_provider = match settings.web.as_ref().and_then(|w| w.search.as_ref()) {
                     Some(s) => match s.provider {
                         SearchProviderKind::Brave => SearchProviderConfig::Brave,
@@ -444,9 +451,21 @@ impl Config {
                         .and_then(|w| w.search_max_results)
                         .unwrap_or(5),
                     crawl4ai_url,
-                    docling_url,
                     search_provider,
                 }
+            },
+            docling: {
+                let url = settings
+                    .docling
+                    .as_ref()
+                    .and_then(|d| d.url.clone())
+                    .or_else(|| env::var("DOCLING_URL").ok());
+                let timeout = settings
+                    .docling
+                    .as_ref()
+                    .and_then(|d| d.timeout)
+                    .unwrap_or(600);
+                DoclingConfig { url, timeout }
             },
             coding: CodingConfig {
                 model: settings.coding.as_ref().and_then(|c| c.model.clone()),
@@ -517,6 +536,7 @@ fn empty_settings() -> Settings {
         timing: None,
         compaction: None,
         web: None,
+        docling: None,
         coding: None,
         debug: None,
     }
@@ -619,8 +639,11 @@ pub fn test_config(workspace: &std::path::Path) -> Config {
         web: WebConfig {
             search_max_results: 5,
             crawl4ai_url: None,
-            docling_url: None,
             search_provider: SearchProviderConfig::Brave,
+        },
+        docling: DoclingConfig {
+            url: None,
+            timeout: 600,
         },
         coding: CodingConfig { model: None },
         debug: DebugConfig {
