@@ -35,9 +35,11 @@ pub async fn run_home_manager_switch(workspace: &std::path::Path) -> Result<(), 
         return Ok(());
     }
 
-    tracing::info!("running home-manager switch");
+    let arch = std::env::consts::ARCH;
+    let flake_ref = format!("{}#ghost-{arch}", shell_dir.display());
+    tracing::info!(flake_ref, "running home-manager switch");
     let output = tokio::process::Command::new("home-manager")
-        .args(["switch", "--flake", shell_dir.to_str().unwrap_or(".")])
+        .args(["switch", "--flake", &flake_ref])
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
         .output()

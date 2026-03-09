@@ -38,8 +38,7 @@ RUN nix shell nixpkgs#patchelf --command sh -c '\
              --set-rpath "$GLIBC/lib" \
              /usr/local/bin/ghost'
 
-# Copy default flake and entrypoint
-COPY deploy/common/default-flake.nix /opt/ghost/default-flake.nix
+# Copy entrypoint
 COPY deploy/common/entrypoint.sh /opt/ghost/entrypoint.sh
 
 ENV GHOST_CONFIG_DIR=/config

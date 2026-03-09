@@ -1,21 +1,21 @@
 # Image Support Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement
-> this plan task-by-task.
+> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this
+> plan task-by-task.
 
 **Goal:** Enable GHOST to see images — both from Discord chat uploads and via the
 `read_file` tool reading image files from disk.
 
-**Architecture:** Add `ContentBlock::Image` variant and `ToolOutput` type. Images
-stored as workspace-relative paths in DB, base64-encoded at provider send time with
+**Architecture:** Add `ContentBlock::Image` variant and `ToolOutput` type. Images stored
+as workspace-relative paths in DB, base64-encoded at provider send time with
 resize/compression (max 1568px, JPEG q85). Discord classifies attachments by MIME type.
 Tool return type changes from `String` to `ToolOutput` (text + optional images).
 
 **Tech Stack:** `image` crate (resize/compress), `base64` (already dep), existing
 provider infrastructure.
 
-**Reference code:** `~/Development/t-koma` — predecessor had full image support.
-Key files: `t-koma-gateway/src/chat/history.rs` (load_image_base64, compress_image),
+**Reference code:** `~/Development/t-koma` — predecessor had full image support. Key
+files: `t-koma-gateway/src/chat/history.rs` (load_image_base64, compress_image),
 `t-koma-gateway/src/discord/bot.rs` (attachment classification).
 
 ---
@@ -23,19 +23,20 @@ Key files: `t-koma-gateway/src/chat/history.rs` (load_image_base64, compress_ima
 ### Task 1: Add `image` crate dependency
 
 **Files:**
+
 - Modify: `Cargo.toml`
 
 **Step 1: Add dependency**
 
 Add to `[dependencies]`:
+
 ```toml
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "gif", "webp"] }
 ```
 
 **Step 2: Verify it compiles**
 
-Run: `cargo check`
-Expected: PASS
+Run: `cargo check` Expected: PASS
 
 **Step 3: Commit**
 
@@ -48,6 +49,7 @@ feat: add image crate dependency for vision support
 ### Task 2: Create image utility module
 
 **Files:**
+
 - Create: `src/images.rs`
 - Modify: `src/main.rs` (add `mod images;`)
 
@@ -59,8 +61,7 @@ small synthetic image (create a 2x2 PNG in memory using the `image` crate).
 
 **Step 2: Run tests to verify they fail**
 
-Run: `cargo test images::tests`
-Expected: FAIL (module doesn't exist)
+Run: `cargo test images::tests` Expected: FAIL (module doesn't exist)
 
 **Step 3: Implement the module**
 
@@ -128,8 +129,7 @@ fn compress_image(bytes: &[u8]) -> Option<(Vec<u8>, String)> {
 
 **Step 4: Run tests to verify they pass**
 
-Run: `cargo test images::tests`
-Expected: PASS
+Run: `cargo test images::tests` Expected: PASS
 
 **Step 5: Commit**
 
@@ -142,6 +142,7 @@ feat: add image utility module (load, compress, mime detection)
 ### Task 3: Add `ContentBlock::Image` variant
 
 **Files:**
+
 - Modify: `src/providers/types.rs`
 - Modify: `src/chat/convert.rs`
 - Modify: `src/chat/compaction.rs`
@@ -162,8 +163,9 @@ pub enum ContentBlock {
 
 **Step 2: Handle Image in all existing match arms**
 
-Find every `match block { ContentBlock::... }` pattern and add `ContentBlock::Image { .. }`.
-Key locations:
+Find every `match block { ContentBlock::... }` pattern and add
+`ContentBlock::Image { .. }`. Key locations:
+
 - `src/chat/convert.rs`: `extract_text_content` — skip Image blocks
 - `src/chat/convert.rs`: `extract_tool_use_blocks` — skip Image blocks
 - `src/chat/convert.rs`: `raw_output_to_values` — skip Image blocks
@@ -172,8 +174,7 @@ Key locations:
 
 **Step 3: Verify it compiles and tests pass**
 
-Run: `just ci`
-Expected: PASS (no logic changes, just exhaustiveness)
+Run: `just ci` Expected: PASS (no logic changes, just exhaustiveness)
 
 **Step 4: Commit**
 
@@ -186,6 +187,7 @@ feat: add ContentBlock::Image variant
 ### Task 4: Add `ToolOutput` type and update `Tool` trait
 
 **Files:**
+
 - Create: `src/tools/output.rs`
 - Modify: `src/tools/mod.rs`
 - Modify: `src/tools/manager.rs` (Tool trait + ToolManager::execute)
@@ -271,6 +273,7 @@ Every tool's `execute` method: change return type to `Result<ToolOutput, ToolErr
 wrap existing `Ok(string)` returns in `Ok(ToolOutput::text(string))`.
 
 Affected files (wrap Ok(string) → Ok(ToolOutput::text(string)) mechanically):
+
 - `src/tools/shell.rs`
 - `src/tools/read_file.rs`
 - `src/tools/write_file.rs`
@@ -285,8 +288,7 @@ Affected files (wrap Ok(string) → Ok(ToolOutput::text(string)) mechanically):
 
 **Step 6: Run tests**
 
-Run: `just ci`
-Expected: PASS
+Run: `just ci` Expected: PASS
 
 **Step 7: Commit**
 
@@ -299,6 +301,7 @@ refactor: change Tool::execute return type to ToolOutput
 ### Task 5: Image support in `read_file`
 
 **Files:**
+
 - Modify: `src/tools/read_file.rs`
 
 **Step 1: Write test for image file reading**
@@ -324,8 +327,7 @@ async fn read_image_file_returns_image_output() {
 
 **Step 2: Run test to verify it fails**
 
-Run: `cargo test read_file::tests::read_image_file`
-Expected: FAIL
+Run: `cargo test read_file::tests::read_image_file` Expected: FAIL
 
 **Step 3: Implement image detection in read_file**
 
@@ -352,12 +354,12 @@ if crate::images::is_image_extension(ext) {
 
 **Step 4: Run tests**
 
-Run: `cargo test read_file::tests`
-Expected: PASS
+Run: `cargo test read_file::tests` Expected: PASS
 
 **Step 5: Update tool schema description**
 
 Update the description to mention image support:
+
 ```
 "Read a file from the workspace with line numbers. Image files (PNG, JPEG, GIF, WebP) are returned as viewable images."
 ```
@@ -373,6 +375,7 @@ feat: read_file returns images for image files
 ### Task 6: Provider image serialization — OpenAI compatible
 
 **Files:**
+
 - Modify: `src/providers/openai_compatible.rs`
 
 **Step 1: Write test for image content in user message**
@@ -441,8 +444,7 @@ Image blocks, include the images in the tool message content array.
 
 **Step 4: Run tests**
 
-Run: `cargo test openai_compatible::tests`
-Expected: PASS
+Run: `cargo test openai_compatible::tests` Expected: PASS
 
 **Step 5: Commit**
 
@@ -455,6 +457,7 @@ feat: OpenAI-compatible provider image support
 ### Task 7: Provider image serialization — Codex Responses API
 
 **Files:**
+
 - Modify: `src/providers/codex_responses.rs`
 
 **Step 1: Write test**
@@ -482,6 +485,7 @@ ContentBlock::Image { path, .. } => {
 ```
 
 The `CodexInputPart` enum needs extending to support image parts. Either:
+
 - Add a new variant: `InputImage { image_url: String }`
 - Or use `serde_json::Value` for the content array
 
@@ -489,13 +493,12 @@ Since `CodexInputPart` is currently `{ type, text }`, change `content` in the Me
 variant to `Vec<Value>` to support heterogeneous parts, OR add a separate
 `CodexImagePart` type.
 
-For tool results (Image blocks after ToolResult): emit a separate user message with
-the image after the `FunctionCallOutput` item.
+For tool results (Image blocks after ToolResult): emit a separate user message with the
+image after the `FunctionCallOutput` item.
 
 **Step 3: Run tests**
 
-Run: `cargo test codex_responses::tests`
-Expected: PASS
+Run: `cargo test codex_responses::tests` Expected: PASS
 
 **Step 4: Commit**
 
@@ -508,6 +511,7 @@ feat: Codex Responses API image support
 ### Task 8: DB storage for image content blocks
 
 **Files:**
+
 - Modify: `src/db/sessions.rs` (`create_message`, `create_message_with_metadata`)
 - Modify: `src/chat/convert.rs` (`convert_stored_message_to_provider_message`)
 - Modify: `src/chat/session.rs` (`chat()` signature)
@@ -539,8 +543,7 @@ message content. Store text + images separately in the DB call.
 
 **Step 6: Run tests**
 
-Run: `just ci`
-Expected: PASS
+Run: `just ci` Expected: PASS
 
 **Step 7: Commit**
 
@@ -553,6 +556,7 @@ feat: store and load image content blocks in DB
 ### Task 9: Discord image intake
 
 **Files:**
+
 - Modify: `src/interfaces/discord/bot.rs` (`process_attachments`, `handle_message`)
 
 **Step 1: Change process_attachments return type**
@@ -569,14 +573,15 @@ fn is_image_mime(mime: &str) -> bool {
 }
 ```
 
-For image attachments: return `ContentBlock::Image { path, mime_type, filename }`.
-For other files: return `ContentBlock::Text { text: "[File uploaded: ...]" }`.
+For image attachments: return `ContentBlock::Image { path, mime_type, filename }`. For
+other files: return `ContentBlock::Text { text: "[File uploaded: ...]" }`.
 
 Detect MIME type from Discord's `content_type` field, falling back to extension.
 
 **Step 2: Update handle_message**
 
 Instead of joining attachment text with message text, build a `Vec<ContentBlock>`:
+
 - `ContentBlock::Text { text: user_message }` (if non-empty)
 - Image/text blocks from `process_attachments`
 
@@ -584,8 +589,7 @@ Pass this `Vec<ContentBlock>` to `session_chat.chat()`.
 
 **Step 3: Run tests**
 
-Run: `just ci`
-Expected: PASS
+Run: `just ci` Expected: PASS
 
 **Step 4: Commit**
 
@@ -598,21 +602,21 @@ feat: Discord image attachments passed as image content blocks
 ### Task 10: Update compaction for images
 
 **Files:**
+
 - Modify: `src/chat/compaction.rs`
 
 **Step 1: Handle Image blocks in compaction**
 
 In Phase 1 (tool result masking), when masking old tool results, replace Image blocks
-with a text placeholder: `[image: filename]`. This avoids sending stale base64 data
-in compacted history.
+with a text placeholder: `[image: filename]`. This avoids sending stale base64 data in
+compacted history.
 
-In token estimation, count Image blocks as ~1000 tokens (rough estimate for a
-compressed image).
+In token estimation, count Image blocks as ~1000 tokens (rough estimate for a compressed
+image).
 
 **Step 2: Run tests**
 
-Run: `cargo test compaction::tests`
-Expected: PASS
+Run: `cargo test compaction::tests` Expected: PASS
 
 **Step 3: Commit**
 
@@ -626,8 +630,7 @@ feat: handle Image blocks in compaction (mask old images)
 
 **Step 1: Run full CI**
 
-Run: `just ci`
-Expected: PASS
+Run: `just ci` Expected: PASS
 
 **Step 2: Manual smoke test**
 
@@ -645,7 +648,7 @@ Expected: PASS
 - **No migration needed** — pre-alpha, workspace can be recreated
 - **Image paths are absolute on disk** — base64 encoding happens at provider send time,
   not at storage time. This avoids storing large blobs in SQLite.
-- **Compression is defensive** — only triggers for images > 1568px. Most Discord
-  uploads and workspace images are already reasonable size.
+- **Compression is defensive** — only triggers for images > 1568px. Most Discord uploads
+  and workspace images are already reasonable size.
 - **Graceful degradation** — if image loading fails (deleted file, corrupt), providers
   insert `[Image unavailable: error]` text placeholder instead of failing the request.

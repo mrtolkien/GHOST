@@ -1,12 +1,17 @@
 # Daemon-Level E2E Testing — Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this
+> plan task-by-task.
 
-**Goal:** Enable true e2e tests that boot the real daemon (minus Discord), send messages, wait for quiescence, and assert on workspace/DB state.
+**Goal:** Enable true e2e tests that boot the real daemon (minus Discord), send
+messages, wait for quiescence, and assert on workspace/DB state.
 
-**Architecture:** Make `boot()` return a `DaemonHandle` struct (replacing the tuple). Discord skips gracefully when no token is set. Scheduler gets a manual trigger channel for idle agents. `DaemonHandle::settle()` polls busy counters across all subsystems.
+**Architecture:** Make `boot()` return a `DaemonHandle` struct (replacing the tuple).
+Discord skips gracefully when no token is set. Scheduler gets a manual trigger channel
+for idle agents. `DaemonHandle::settle()` polls busy counters across all subsystems.
 
-**Tech Stack:** Rust, tokio, AtomicUsize counters, mpsc channels, existing LiveTestEnv harness.
+**Tech Stack:** Rust, tokio, AtomicUsize counters, mpsc channels, existing LiveTestEnv
+harness.
 
 **Design doc:** `docs/plans/2026-03-09-daemon-e2e-testing-design.md`
 
@@ -14,9 +19,13 @@
 
 ### Task 1: Make `start_discord()` return `Ok(None)` on missing token
 
-Currently `start_discord()` returns `Err(DiscordError::MissingToken)` when `DISCORD_BOT_TOKEN` is unset. This makes `boot()` fail in test environments. Change it to return `Ok(None)` with an info log, like the `!config.discord.enabled` path already does.
+Currently `start_discord()` returns `Err(DiscordError::MissingToken)` when
+`DISCORD_BOT_TOKEN` is unset. This makes `boot()` fail in test environments. Change it
+to return `Ok(None)` with an info log, like the `!config.discord.enabled` path already
+does.
 
 **Files:**
+
 - Modify: `src/interfaces/discord/start.rs:101-105`
 
 **Step 1: Change the MissingToken behavior**
@@ -55,9 +64,11 @@ git commit -m "feat: gracefully skip Discord when bot token is missing"
 
 ### Task 2: Replace `BootResult` tuple with `DaemonHandle` struct
 
-The current `boot()` returns a 6-element tuple. Replace with a named struct that exposes what tests (and future CLI) need.
+The current `boot()` returns a 6-element tuple. Replace with a named struct that exposes
+what tests (and future CLI) need.
 
 **Files:**
+
 - Modify: `src/daemon/run.rs`
 
 **Step 1: Define `DaemonHandle`**
@@ -93,7 +104,8 @@ impl DaemonHandle {
 
 **Step 2: Update `boot()` to return `DaemonHandle`**
 
-Change the return type and construct the struct at the end instead of the tuple. Keep all existing logic identical.
+Change the return type and construct the struct at the end instead of the tuple. Keep
+all existing logic identical.
 
 **Step 3: Update `run()` to use `DaemonHandle`**
 
@@ -116,7 +128,8 @@ pub async fn run() -> Result<(), GhostError> {
 }
 ```
 
-Note: `run()` currently waits on the Discord handle. With `DaemonHandle`, `shutdown()` handles all joins. The Ctrl+C select is still the main wait point.
+Note: `run()` currently waits on the Discord handle. With `DaemonHandle`, `shutdown()`
+handles all joins. The Ctrl+C select is still the main wait point.
 
 **Step 4: Run `just ci`**
 
@@ -133,11 +146,14 @@ git commit -m "refactor: replace BootResult tuple with DaemonHandle struct"
 
 ### Task 3: Add manual trigger channel to scheduler
 
-The scheduler currently only fires idle agents on its timer tick. Add an mpsc channel that, when poked, immediately runs `tick_idle()`.
+The scheduler currently only fires idle agents on its timer tick. Add an mpsc channel
+that, when poked, immediately runs `tick_idle()`.
 
 **Files:**
+
 - Modify: `src/agents/scheduler.rs:55-116`
-- Modify: `src/daemon/run.rs` (pass trigger_rx to scheduler, store trigger_tx in DaemonHandle)
+- Modify: `src/daemon/run.rs` (pass trigger_rx to scheduler, store trigger_tx in
+  DaemonHandle)
 
 **Step 1: Add trigger channel to `spawn_scheduler`**
 
@@ -216,11 +232,14 @@ git commit -m "feat: add manual trigger channel for idle agents"
 
 ### Task 4: Add busy counters to subsystems
 
-`settle()` needs to know when each subsystem is idle. Add `Arc<AtomicUsize>` counters to the subsystems that do background work.
+`settle()` needs to know when each subsystem is idle. Add `Arc<AtomicUsize>` counters to
+the subsystems that do background work.
 
 **Files:**
+
 - Modify: `src/agents/runner.rs` — add `active_count: Arc<AtomicUsize>`
-- Modify: `src/tools/shell.rs` — add `BACKGROUND_SHELL_COUNT: AtomicUsize` (module-level static) or pass via `ToolContext`
+- Modify: `src/tools/shell.rs` — add `BACKGROUND_SHELL_COUNT: AtomicUsize` (module-level
+  static) or pass via `ToolContext`
 - Modify: `src/daemon/watcher.rs` — add `watcher_busy: Arc<AtomicBool>` param
 - Modify: `src/daemon/run.rs` — wire counters into `DaemonHandle`
 
@@ -235,7 +254,8 @@ pub struct AgentRunner {
 }
 ```
 
-Increment in `run_in_background()` before spawning, decrement in the spawned task's completion (both success and error paths). Expose:
+Increment in `run_in_background()` before spawning, decrement in the spawned task's
+completion (both success and error paths). Expose:
 
 ```rust
 impl AgentRunner {
@@ -247,7 +267,8 @@ impl AgentRunner {
 
 **Step 2: Background shell counter**
 
-In `src/tools/shell.rs`, add a static or pass an `Arc<AtomicUsize>` through `ToolContext`. The static approach is simpler for now:
+In `src/tools/shell.rs`, add a static or pass an `Arc<AtomicUsize>` through
+`ToolContext`. The static approach is simpler for now:
 
 ```rust
 static BACKGROUND_SHELL_COUNT: AtomicUsize = AtomicUsize::new(0);
@@ -261,7 +282,8 @@ Increment before `tokio::spawn`, decrement at the end of the spawned future.
 
 **Step 3: File watcher busy flag**
 
-In `src/daemon/watcher.rs`, accept an `Arc<AtomicBool>` param in `spawn_watcher()`. Set to `true` before `process_batch()`, set to `false` after. Expose via `DaemonHandle`.
+In `src/daemon/watcher.rs`, accept an `Arc<AtomicBool>` param in `spawn_watcher()`. Set
+to `true` before `process_batch()`, set to `false` after. Expose via `DaemonHandle`.
 
 **Step 4: Wire into DaemonHandle**
 
@@ -297,6 +319,7 @@ git commit -m "feat: add busy counters to subsystems for settle() support"
 ### Task 5: Implement `settle()` on DaemonHandle
 
 **Files:**
+
 - Modify: `src/daemon/run.rs`
 
 **Step 1: Implement settle**
@@ -352,9 +375,11 @@ git commit -m "feat: implement DaemonHandle::settle() for quiescence waiting"
 
 ### Task 6: Add `boot()` to LiveTestEnv
 
-Wire `LiveTestEnv` to call the real `boot()` with a test config (no Discord token, temp workspace).
+Wire `LiveTestEnv` to call the real `boot()` with a test config (no Discord token, temp
+workspace).
 
 **Files:**
+
 - Modify: `tests/common.rs`
 
 **Step 1: Add boot method**
@@ -377,13 +402,21 @@ impl LiveTestEnv {
 }
 ```
 
-Note: `boot()` loads config internally via `config::load()`. We override `GHOST_CONFIG_DIR` so it picks up the test config. This is the same mechanism the production code uses. If `boot()` doesn't support this cleanly, we may need to add a `boot_with_config(config)` variant — but check first.
+Note: `boot()` loads config internally via `config::load()`. We override
+`GHOST_CONFIG_DIR` so it picks up the test config. This is the same mechanism the
+production code uses. If `boot()` doesn't support this cleanly, we may need to add a
+`boot_with_config(config)` variant — but check first.
 
-Actually, looking at `boot()`, it calls `crate::config::load()` which reads from the default config dir. For tests, we need either:
+Actually, looking at `boot()`, it calls `crate::config::load()` which reads from the
+default config dir. For tests, we need either:
+
 - (a) A `boot_with_config(config: Config)` variant, or
 - (b) Set `GHOST_CONFIG_DIR` env var before calling `boot()`
 
-Option (a) is cleaner — add `pub async fn boot_with_config(config: Config) -> Result<DaemonHandle, GhostError>` and have `boot()` call it after loading config. Then `LiveTestEnv::boot()` passes its pre-built test config directly.
+Option (a) is cleaner — add
+`pub async fn boot_with_config(config: Config) -> Result<DaemonHandle, GhostError>` and
+have `boot()` call it after loading config. Then `LiveTestEnv::boot()` passes its
+pre-built test config directly.
 
 **Step 2: Run `just ci`**
 
@@ -400,9 +433,11 @@ git commit -m "feat: add boot_with_config() and LiveTestEnv::boot()"
 
 ### Task 7: Write the Ark Nova e2e test
 
-The first real daemon-level test. Exercises: chat → tool use → document import → file watcher → chunking → embedding → semantic search.
+The first real daemon-level test. Exercises: chat → tool use → document import → file
+watcher → chunking → embedding → semantic search.
 
 **Files:**
+
 - Create: `tests/daemon_e2e.rs`
 
 **Step 1: Write the test**
@@ -503,7 +538,9 @@ async fn test_ark_nova_import() {
 }
 ```
 
-Note: The exact function signatures for `search_knowledge`, `list_all_embeddings`, etc. need to be verified against the actual DB module API. The test above is the intent — adjust field names and function signatures to match the real code during implementation.
+Note: The exact function signatures for `search_knowledge`, `list_all_embeddings`, etc.
+need to be verified against the actual DB module API. The test above is the intent —
+adjust field names and function signatures to match the real code during implementation.
 
 **Step 2: Run the test**
 
@@ -511,7 +548,8 @@ Note: The exact function signatures for `search_knowledge`, `list_all_embeddings
 cargo test --features live-tests test_ark_nova_import -- --nocapture
 ```
 
-Expected: The test should run but **ASSERT 3 is expected to fail** — this validates that we're catching the real snippet retrieval issue.
+Expected: The test should run but **ASSERT 3 is expected to fail** — this validates that
+we're catching the real snippet retrieval issue.
 
 **Step 3: Commit**
 
@@ -524,24 +562,29 @@ git commit -m "test: add first daemon-level e2e test (ark nova import)"
 
 ### Summary of changes
 
-| Task | Files | Purpose |
-|------|-------|---------|
-| 1 | `discord/start.rs` | Graceful skip on missing token |
-| 2 | `daemon/run.rs` | `DaemonHandle` struct |
-| 3 | `scheduler.rs`, `daemon/run.rs` | Manual idle trigger |
-| 4 | `runner.rs`, `shell.rs`, `watcher.rs`, `run.rs` | Busy counters |
-| 5 | `daemon/run.rs` | `settle()` implementation |
-| 6 | `common.rs`, `daemon/run.rs` | `boot_with_config()` + test harness |
-| 7 | `daemon_e2e.rs` | Ark Nova import test |
+| Task | Files                                           | Purpose                             |
+| ---- | ----------------------------------------------- | ----------------------------------- |
+| 1    | `discord/start.rs`                              | Graceful skip on missing token      |
+| 2    | `daemon/run.rs`                                 | `DaemonHandle` struct               |
+| 3    | `scheduler.rs`, `daemon/run.rs`                 | Manual idle trigger                 |
+| 4    | `runner.rs`, `shell.rs`, `watcher.rs`, `run.rs` | Busy counters                       |
+| 5    | `daemon/run.rs`                                 | `settle()` implementation           |
+| 6    | `common.rs`, `daemon/run.rs`                    | `boot_with_config()` + test harness |
+| 7    | `daemon_e2e.rs`                                 | Ark Nova import test                |
 
-Tasks 1–3 can be done in parallel. Task 4 depends on nothing. Task 5 depends on 4. Task 6 depends on 2+5. Task 7 depends on 6.
+Tasks 1–3 can be done in parallel. Task 4 depends on nothing. Task 5 depends on 4. Task
+6 depends on 2+5. Task 7 depends on 6.
 
 ### IMPORTANT: Live test configuration
 
-These tests run against real services (LLM providers, Ollama for embeddings, docling for PDF conversion). If any configuration, environment variable, or service connectivity issue arises during implementation or test runs, **STOP and ask the user**. Do NOT:
+These tests run against real services (LLM providers, Ollama for embeddings, docling for
+PDF conversion). If any configuration, environment variable, or service connectivity
+issue arises during implementation or test runs, **STOP and ask the user**. Do NOT:
+
 - Guess at config values or API keys
 - Skip failing subsystems to make the test pass
 - Stub out real services to work around config issues
 - Weaken assertions because a service didn't respond as expected
 
-The entire point of these tests is to exercise the real system. If something isn't configured right, the user needs to know.
+The entire point of these tests is to exercise the real system. If something isn't
+configured right, the user needs to know.
