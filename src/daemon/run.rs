@@ -165,7 +165,10 @@ pub async fn boot_with_config(config: Config) -> Result<DaemonHandle, GhostError
                 info!(discovered, "boot: discovered untracked files");
             }
             Err(e) => {
-                logfire::warn!("boot filesystem reconciliation failed", error = e.to_string());
+                logfire::warn!(
+                    "boot filesystem reconciliation failed",
+                    error = e.to_string()
+                );
             }
             _ => {}
         }

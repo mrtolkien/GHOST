@@ -131,8 +131,7 @@ mod tests {
 
     #[test]
     fn truncate_snippet_strips_section_prefix() {
-        let text =
-            "[section: Break Rules]\n## Break Rules\n\nDuring a break, players discard.";
+        let text = "[section: Break Rules]\n## Break Rules\n\nDuring a break, players discard.";
         let result = truncate_snippet(text, 150);
         assert!(
             result.contains("break") || result.contains("Break"),
