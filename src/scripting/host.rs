@@ -280,6 +280,7 @@ impl ScriptHost {
         let model: Option<String> = table.get("model")?;
         let reasoning_effort: Option<String> = table.get("reasoning_effort")?;
         let reasoning_effort = reasoning_effort.and_then(|s| match s.as_str() {
+            "xhigh" => Some(ReasoningEffort::Xhigh),
             "high" => Some(ReasoningEffort::High),
             "medium" => Some(ReasoningEffort::Medium),
             "low" => Some(ReasoningEffort::Low),

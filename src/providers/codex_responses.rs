@@ -22,6 +22,8 @@ pub(super) struct CodexResponsesRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reasoning: Option<CodexReasoning>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub text: Option<CodexText>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub prompt_cache_key: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub prompt_cache_retention: Option<String>,
@@ -31,6 +33,12 @@ pub(super) struct CodexResponsesRequest {
 #[derive(Debug, Serialize)]
 pub(super) struct CodexReasoning {
     pub effort: String,
+}
+
+/// Codex Responses API text output configuration.
+#[derive(Debug, Serialize)]
+pub(super) struct CodexText {
+    pub verbosity: String,
 }
 
 /// Responses API uses a flat tool format (no nested `function` object).
@@ -190,6 +198,9 @@ pub(super) fn build_codex_request_body(
         include: Some(vec!["reasoning.encrypted_content".to_string()]),
         reasoning: request.reasoning_effort.map(|e| CodexReasoning {
             effort: e.as_str().to_string(),
+        }),
+        text: Some(CodexText {
+            verbosity: "low".to_string(),
         }),
         prompt_cache_key: cache_key,
         prompt_cache_retention: None,

@@ -19,6 +19,7 @@ pub enum ReasoningEffort {
     #[default]
     Medium,
     High,
+    Xhigh,
 }
 
 impl ReasoningEffort {
@@ -29,6 +30,7 @@ impl ReasoningEffort {
             Self::Low => "low",
             Self::Medium => "medium",
             Self::High => "high",
+            Self::Xhigh => "xhigh",
         }
     }
 }
@@ -290,6 +292,7 @@ mod tests {
         assert_eq!(ReasoningEffort::Low.as_str(), "low");
         assert_eq!(ReasoningEffort::Medium.as_str(), "medium");
         assert_eq!(ReasoningEffort::High.as_str(), "high");
+        assert_eq!(ReasoningEffort::Xhigh.as_str(), "xhigh");
     }
 
     #[test]
