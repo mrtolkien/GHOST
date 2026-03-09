@@ -194,8 +194,7 @@ impl Handler {
                         }
 
                         if crate::images::is_image_extension(&ext) {
-                            let mime =
-                                crate::images::mime_type_from_extension(&ext).to_string();
+                            let mime = crate::images::mime_type_from_extension(&ext).to_string();
                             blocks.push(ContentBlock::Image {
                                 path: dest_path.to_string_lossy().to_string(),
                                 mime_type: mime,

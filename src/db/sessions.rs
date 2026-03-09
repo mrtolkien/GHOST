@@ -26,7 +26,7 @@ pub struct MessageRecord {
     pub tool_calls: Option<String>,   // JSON
     pub tool_results: Option<String>, // JSON
     pub raw_output: Option<String>,   // JSON
-    pub images: Option<String>,        // JSON
+    pub images: Option<String>,       // JSON
     pub created_at: String,
 }
 

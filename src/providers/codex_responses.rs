@@ -1,5 +1,5 @@
 use serde::Serialize;
-use serde_json::Value;
+use serde_json::{Value, json};
 
 use crate::providers::types::{
     ChatRequest, ChatResponse, ContentBlock, ProviderError, StopReason, Usage,
@@ -111,24 +111,42 @@ pub(super) fn build_codex_request_body(
             input.push(CodexInputItem::Raw(raw));
         }
 
-        // Collect text parts into a message item.
-        let text = message
-            .content
-            .iter()
-            .filter_map(|block| match block {
-                ContentBlock::Text { text } => Some(text.as_str()),
-                _ => None,
-            })
-            .collect::<Vec<_>>()
-            .join("\n\n");
-        if !text.trim().is_empty() {
-            input.push(CodexInputItem::Message {
-                role: role.to_string(),
-                content: vec![CodexInputPart {
-                    r#type: part_type.to_string(),
-                    text,
-                }],
-            });
+        // Collect text parts and image parts into a message item.
+        let mut content_parts: Vec<Value> = Vec::new();
+        for block in &message.content {
+            match block {
+                ContentBlock::Text { text } if !text.trim().is_empty() => {
+                    content_parts.push(json!({
+                        "type": part_type,
+                        "text": text,
+                    }));
+                }
+                ContentBlock::Image { path, .. } => {
+                    match crate::images::load_image_base64(std::path::Path::new(path)) {
+                        Ok((b64, mime)) => {
+                            content_parts.push(json!({
+                                "type": "input_image",
+                                "image_url": format!("data:{mime};base64,{b64}"),
+                            }));
+                        }
+                        Err(e) => {
+                            content_parts.push(json!({
+                                "type": part_type,
+                                "text": format!("[Image unavailable: {e}]"),
+                            }));
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+        if !content_parts.is_empty() {
+            // Use Raw variant to emit heterogeneous content parts
+            input.push(CodexInputItem::Raw(json!({
+                "type": "message",
+                "role": role,
+                "content": content_parts,
+            })));
         }
 
         // Tool use and tool result blocks become separate input items.

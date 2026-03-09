@@ -45,10 +45,7 @@ impl Tool for ReadFile {
         let path = resolve_path(raw_path, &ctx.cwd, &ctx.workspace)?;
 
         // Image files: return as viewable image instead of text content
-        let ext = path
-            .extension()
-            .and_then(|e| e.to_str())
-            .unwrap_or("");
+        let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
         if crate::images::is_image_extension(ext) {
             let mime = crate::images::mime_type_from_extension(ext).to_string();
             let filename = path
