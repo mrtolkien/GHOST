@@ -14,6 +14,7 @@ pub mod daemon;
 pub mod db;
 pub mod embeddings;
 pub mod error;
+pub mod images;
 pub mod events;
 pub mod interfaces;
 pub mod knowledge;
