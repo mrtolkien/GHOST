@@ -43,6 +43,7 @@ pub fn estimate_block_tokens(block: &ContentBlock) -> usize {
             content,
             ..
         } => estimate_tokens(tool_use_id) + estimate_tokens(content),
+        ContentBlock::Image { .. } => 1000, // rough estimate for a compressed image
         ContentBlock::RawOutput { value, .. } => estimate_tokens(&value.to_string()),
     }
 }
@@ -287,6 +288,9 @@ fn render_messages_for_summary(messages: &[ChatMessage], preview_chars: usize) -
                         content.clone()
                     };
                     out.push_str(&format!("[tool_result: {tool_name}{tag}] {preview}\n\n"));
+                }
+                ContentBlock::Image { filename, .. } => {
+                    out.push_str(&format!("[image: {filename}]\n\n"));
                 }
                 ContentBlock::RawOutput { original_type, .. } => {
                     out.push_str(&format!("[{role} raw:{original_type}]\n\n"));

@@ -157,7 +157,9 @@ pub(super) fn build_codex_request_body(
                         output: content.clone(),
                     });
                 }
-                ContentBlock::Text { .. } | ContentBlock::RawOutput { .. } => {}
+                ContentBlock::Text { .. }
+                | ContentBlock::Image { .. }
+                | ContentBlock::RawOutput { .. } => {}
             }
         }
     }

@@ -207,6 +207,9 @@ pub(crate) fn convert_messages(request: &ChatRequest) -> Vec<OpenAiMessage> {
                         tool_call_id: Some(tool_use_id.clone()),
                     });
                 }
+                ContentBlock::Image { .. } => {
+                    // Image serialization handled in Task 6
+                }
                 ContentBlock::RawOutput {
                     original_type,
                     value,

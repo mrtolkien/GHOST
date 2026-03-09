@@ -8,9 +8,9 @@ shutdown coordination. Real bugs only surface when the full system runs together
 
 ## Goal
 
-Tests that boot the real daemon (minus Discord), send messages through the real pipeline,
-wait for all background activity to complete, and assert on the final workspace/DB state.
-Real LLM calls, real embeddings, real agents.
+Tests that boot the real daemon (minus Discord), send messages through the real
+pipeline, wait for all background activity to complete, and assert on the final
+workspace/DB state. Real LLM calls, real embeddings, real agents.
 
 ## Design
 
@@ -63,8 +63,8 @@ Polls until the system is idle:
 - No in-flight embedding jobs
 - No background shell commands running
 
-Each subsystem exposes an "am I busy?" check (atomic counter or similar).
-Configurable timeout, default ~120s for live LLM calls.
+Each subsystem exposes an "am I busy?" check (atomic counter or similar). Configurable
+timeout, default ~120s for live LLM calls.
 
 ```rust
 impl DaemonHandle {
@@ -75,29 +75,30 @@ impl DaemonHandle {
 
 ### 5. `LiveTestEnv` integration
 
-`LiveTestEnv` gets a `boot()` method that calls the real `boot()` with a test config
-(no Discord token, temp workspace, test provider config). Returns the `DaemonHandle`.
+`LiveTestEnv` gets a `boot()` method that calls the real `boot()` with a test config (no
+Discord token, temp workspace, test provider config). Returns the `DaemonHandle`.
 
-Existing helpers (assertions, snapshots, polling, `collect_tool_calls`, etc.) remain
-and operate on the same DB instance.
+Existing helpers (assertions, snapshots, polling, `collect_tool_calls`, etc.) remain and
+operate on the same DB instance.
 
 ### Subsystem busy counters
 
 Each subsystem needs to expose whether it has in-flight work:
 
-| Subsystem | Mechanism |
-|-----------|-----------|
-| Active sessions | `active_sessions.len()` (already exists) |
-| Agent runner | `AtomicUsize` task counter, inc on spawn, dec on complete |
-| Event handler | Channel length or processed counter |
-| Embedding pipeline | `AtomicUsize` in-flight counter |
-| Background shell | `AtomicUsize` in-flight counter |
+| Subsystem          | Mechanism                                                 |
+| ------------------ | --------------------------------------------------------- |
+| Active sessions    | `active_sessions.len()` (already exists)                  |
+| Agent runner       | `AtomicUsize` task counter, inc on spawn, dec on complete |
+| Event handler      | Channel length or processed counter                       |
+| Embedding pipeline | `AtomicUsize` in-flight counter                           |
+| Background shell   | `AtomicUsize` in-flight counter                           |
 
 `settle()` polls all of these at ~500ms intervals.
 
 ### Shutdown
 
 `DaemonHandle` implements `Drop` (or an explicit `shutdown()`) that:
+
 1. Sends `true` on `shutdown_tx`
 2. Awaits all subsystem join handles
 
@@ -115,9 +116,8 @@ This test exercises the full pipeline: chat → tool use → document import →
 
 ### ASSERT
 
-1. **PDF imported and transformed**: A `.md` file exists under `references/` for the
-   Ark Nova rules (the daemon used `ghost document import` to convert the PDF via
-   docling)
+1. **PDF imported and transformed**: A `.md` file exists under `references/` for the Ark
+   Nova rules (the daemon used `ghost document import` to convert the PDF via docling)
 2. **Chunked and embedded**: The document produced 50+ chunks in the DB, each with an
    associated embedding vector
 3. **Semantic search works**: A knowledge search for "ark nova break rules" returns
