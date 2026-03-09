@@ -3,34 +3,24 @@
 ## Problem
 
 1. Every `run_shell_command` wraps in `nix develop` (~0.5s overhead per command)
-2. Ghost binary is baked into Docker image — updating requires image rebuild + container restart
-3. GHOST can't manage env vars or shell hooks declaratively
+2. GHOST can't manage env vars or shell hooks declaratively
 
 ## Solution
 
-Replace `nix develop` wrapping with **home-manager** as the system shell manager. Ghost
-binary becomes a Nix flake input fetched from GitHub releases.
+Replace `nix develop` wrapping with **home-manager** as the system shell manager.
+Ghost binary stays Docker-built — updates via new image pulls.
+
+## Out of Scope (for now)
+
+- CI binary releases / GitHub Release artifacts
+- Ghost Nix flake (fetching binary from releases)
+- Self-update / re-exec mechanism
+- Dockerfile simplification (keep current multi-stage build with ghost binary baked in)
+
+These will be revisited once we're happy with the project state and want clean
+nix-installable binary releases.
 
 ## Architecture
-
-### CI: Binary Releases
-
-Current flow builds the binary inside Docker. New flow (3 jobs):
-
-1. **`build-binary`** — native runners (x64 + arm), `cargo build --release && strip`,
-   upload binary as workflow artifact
-2. **`release`** — on `v*` tags: attach binaries to GitHub Release
-3. **`docker`** — build minimal image (no binary build stages, no ghost binary)
-
-### Ghost Nix Flake (this repo)
-
-Top-level `flake.nix` defines a package that fetches the pre-built ghost binary from
-GitHub releases by content hash, per architecture. Handles `patchelf` for glibc
-compatibility (currently done in Dockerfile).
-
-For dev/debug: users can override the flake input to `github:mrtolkien/ghost/main` and
-build from source via `rustPlatform.buildRustPackage` (documented in README, not a
-default path).
 
 ### Workspace Flake: home-manager
 
@@ -41,13 +31,15 @@ home-manager configuration:
 {
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    home-manager.url = "github:nix-community/home-manager";
-    ghost.url = "github:mrtolkien/ghost/v0.1.0";
+    home-manager = {
+      url = "github:nix-community/home-manager";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = { nixpkgs, home-manager, ghost, ... }:
+  outputs = { nixpkgs, home-manager, ... }:
     let
-      system = "x86_64-linux"; # or detect
+      system = builtins.currentSystem;
       pkgs = nixpkgs.legacyPackages.${system};
     in {
       homeConfigurations.ghost = home-manager.lib.homeManagerConfiguration {
@@ -56,14 +48,16 @@ home-manager configuration:
           home.username = "root";
           home.homeDirectory = "/root";
           home.stateVersion = "24.11";
+
           home.packages = with pkgs; [
             git gh curl wget jq ripgrep fd tree
             coreutils findutils bash gnugrep gnused gawk
             diffutils file less unzip gzip gnutar uv python314
             sqlite-interactive
-            ghost.packages.${system}.default
           ];
+
           home.sessionVariables = { };
+
           programs.home-manager.enable = true;
         }];
       };
@@ -72,6 +66,7 @@ home-manager configuration:
 ```
 
 GHOST edits this file to add/remove packages, set env vars, and add shell hooks.
+Ghost binary is NOT in the flake — it's baked into the Docker image.
 
 ### Daemon Behavior
 
@@ -88,28 +83,14 @@ GHOST edits this file to add/remove packages, set env vars, and add shell hooks.
 **No file watcher for flake.nix** — the GHOST runs `home-manager switch` explicitly via
 `run_shell_command` (guided by the nix-shell skill) so it sees errors and can fix them.
 
-**Self-update / re-exec:**
-- After any `run_shell_command` completes, daemon checks ghost binary hash (cheap stat)
-- If binary changed (new version installed via `home-manager switch`), graceful re-exec
-  with same args
-- Sessions are DB-backed, nothing lost on re-exec
-
 ### Docker Image
 
-Becomes minimal — no build stages, no ghost binary:
-
-```dockerfile
-FROM nixos/nix:latest
-RUN echo "experimental-features = nix-command flakes" >> /etc/nix/nix.conf
-COPY deploy/common/entrypoint.sh /opt/ghost/entrypoint.sh
-COPY deploy/common/default-flake.nix /opt/ghost/default-flake.nix
-ENTRYPOINT ["/opt/ghost/entrypoint.sh"]
-```
+Keeps the current multi-stage build. Ghost binary is still built and baked into the
+image. The only change is that the entrypoint runs `home-manager switch` on boot
+(after the ghost binary is already available in the image).
 
 First boot of a fresh deployment is slower (~30-60s downloading packages from nix cache).
-`/nix` docker volume caches the nix store across container restarts. Image upgrades no
-longer needed for ghost updates — just `nix flake update && home-manager switch` inside
-the container.
+`/nix` docker volume caches the nix store across container restarts.
 
 ### Skill Update
 
@@ -120,6 +101,7 @@ the container.
 - Running `nix flake update --flake $WORKSPACE/shell/` for input updates
 - Running `nix search nixpkgs <query>` to find packages
 - One-off tool use with `nix shell nixpkgs#<pkg> --command ...`
+- Where to find home-manager docs (context7 or NixOS wiki)
 
 ### System Prompt
 
@@ -136,9 +118,7 @@ on workspace bootstrap.
 
 - **home-manager over nix profile**: marginal complexity cost, but gives declarative
   env vars and shell hooks — a richer surface for the GHOST to manage
-- **Ghost binary via flake input**: self-update without image rebuild, version pinned
-  in flake (reproducible)
+- **Ghost binary stays in Docker**: simplicity — no flake-based binary distribution,
+  no self-update mechanism, no CI release pipeline changes needed
 - **No file watcher**: GHOST runs `home-manager switch` explicitly, sees errors
-- **Re-exec for self-update**: simpler than systemd, works on nixos/nix base image
-- **Build from source for main branch**: documented escape hatch for dev/debug, not
-  a default path (avoids CI hash-commit machinery)
+- **Binary releases deferred**: will revisit when project stabilizes
