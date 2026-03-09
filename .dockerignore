@@ -10,3 +10,7 @@ scripts/tmp/
 .env.*
 .claude/
 .github/
+.worktrees/
+e2e-output/
+node_modules/
+private-scripts/

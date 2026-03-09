@@ -25,7 +25,7 @@ Edit `$WORKSPACE/shell/flake.nix` and add to the `home.packages` list:
 
 Then apply the change:
 
-    home-manager switch --flake $WORKSPACE/shell/
+    home-manager switch --flake $WORKSPACE/shell/#ghost
 
 Check the output for errors. If the package name is wrong, find it with
 `nix search nixpkgs <query>`.
@@ -38,7 +38,7 @@ In `$WORKSPACE/shell/flake.nix`, add to `home.sessionVariables`:
       MY_VAR = "value";
     };
 
-Then apply: `home-manager switch --flake $WORKSPACE/shell/`
+Then apply: `home-manager switch --flake $WORKSPACE/shell/#ghost`
 
 ## Updating flake inputs
 

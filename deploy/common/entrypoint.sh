@@ -12,7 +12,7 @@ fi
 # Bootstrap home-manager environment (installs all packages).
 # Fast if already cached in /nix volume.
 echo "Running home-manager switch..."
-nix run home-manager -- switch --flake "$WORKSPACE/shell/"
+nix run home-manager -- switch --flake "$WORKSPACE/shell/#ghost"
 
 # Source home-manager profile for PATH
 export PATH="$HOME/.nix-profile/bin:$PATH"
