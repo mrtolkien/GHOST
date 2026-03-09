@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
@@ -66,6 +67,7 @@ pub struct AgentRunner {
     config: Config,
     handles: Arc<Mutex<HashMap<String, AgentHandle>>>,
     event_tx: Option<crate::events::SessionEventSender>,
+    active_count: Arc<AtomicUsize>,
 }
 
 // ---------------------------------------------------------------------------
@@ -84,7 +86,13 @@ impl AgentRunner {
             config,
             handles: Arc::new(Mutex::new(HashMap::new())),
             event_tx,
+            active_count: Arc::new(AtomicUsize::new(0)),
         }
+    }
+
+    /// Number of currently running background agent tasks.
+    pub fn active_count(&self) -> usize {
+        self.active_count.load(Ordering::Relaxed)
     }
 
     // --- Sync (caller awaits, caller decides about spawns) ----------------
@@ -208,6 +216,7 @@ impl AgentRunner {
                 cwd: cwd.clone(),
                 event_tx: self.event_tx.clone(),
                 handles: Arc::clone(&self.handles),
+                active_count: Arc::clone(&self.active_count),
             },
             prompt_args(prompt),
         );
@@ -275,6 +284,7 @@ impl AgentRunner {
                 cwd: cwd.clone(),
                 event_tx: self.event_tx.clone(),
                 handles: Arc::clone(&self.handles),
+                active_count: Arc::clone(&self.active_count),
             },
             prompt.to_string(),
         );
@@ -800,10 +810,13 @@ struct BackgroundTask {
     cwd: Option<PathBuf>,
     event_tx: Option<crate::events::SessionEventSender>,
     handles: Arc<Mutex<HashMap<String, AgentHandle>>>,
+    active_count: Arc<AtomicUsize>,
 }
 
 fn spawn_background_run(task: BackgroundTask, args: HashMap<String, String>) -> JoinHandle<()> {
     let span = tracing::Span::current();
+    task.active_count.fetch_add(1, Ordering::Relaxed);
+    let active_count = Arc::clone(&task.active_count);
     tokio::spawn(
         async move {
             let result = execute_agent(
@@ -819,6 +832,7 @@ fn spawn_background_run(task: BackgroundTask, args: HashMap<String, String>) -> 
             .await;
 
             finish_background(task, result).await;
+            active_count.fetch_sub(1, Ordering::Relaxed);
         }
         .instrument(span),
     )
@@ -826,6 +840,8 @@ fn spawn_background_run(task: BackgroundTask, args: HashMap<String, String>) -> 
 
 fn spawn_background_resume(task: BackgroundTask, prompt: String) -> JoinHandle<()> {
     let span = tracing::Span::current();
+    task.active_count.fetch_add(1, Ordering::Relaxed);
+    let active_count = Arc::clone(&task.active_count);
     tokio::spawn(
         async move {
             let result = execute_resume(
@@ -840,6 +856,7 @@ fn spawn_background_resume(task: BackgroundTask, prompt: String) -> JoinHandle<(
             .await;
 
             finish_background(task, result).await;
+            active_count.fetch_sub(1, Ordering::Relaxed);
         }
         .instrument(span),
     )

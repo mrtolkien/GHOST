@@ -1,9 +1,14 @@
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use serenity::model::id::ChannelId;
 use tokio::sync::watch;
 use tokio::task::JoinHandle;
 use tracing::info;
+
+#[derive(Debug, thiserror::Error)]
+#[error("system did not settle within {0:?}")]
+pub struct SettleTimeout(std::time::Duration);
 
 use crate::agents::AgentRunner;
 use crate::chat::{ActiveSessions, SessionChat};
@@ -25,12 +30,52 @@ pub struct DaemonHandle {
     handles: Vec<JoinHandle<()>>,
     discord: Option<(DiscordSender, JoinHandle<()>)>,
     idle_trigger_tx: tokio::sync::mpsc::Sender<()>,
+    watcher_busy: Arc<AtomicBool>,
 }
 
 impl DaemonHandle {
+    /// Returns true when all subsystems are idle.
+    pub fn is_idle(&self) -> bool {
+        self.active_sessions.is_empty()
+            && self.agent_runner.active_count() == 0
+            && !self.watcher_busy.load(Ordering::Relaxed)
+            && crate::tools::shell::background_shell_count() == 0
+    }
+
     /// Trigger idle agents immediately (reflection, etc.).
     pub async fn trigger_idle_agents(&self) {
         let _ = self.idle_trigger_tx.send(()).await;
+    }
+
+    /// Wait until all subsystems are idle, or timeout (default 180s).
+    pub async fn settle(&self) -> Result<(), SettleTimeout> {
+        self.settle_with_timeout(std::time::Duration::from_secs(180))
+            .await
+    }
+
+    /// Wait until all subsystems are idle, or timeout after `timeout`.
+    pub async fn settle_with_timeout(
+        &self,
+        timeout: std::time::Duration,
+    ) -> Result<(), SettleTimeout> {
+        let deadline = tokio::time::Instant::now() + timeout;
+        let poll = std::time::Duration::from_millis(500);
+
+        loop {
+            if self.is_idle() {
+                // Stay idle for one more poll to catch races
+                tokio::time::sleep(poll).await;
+                if self.is_idle() {
+                    return Ok(());
+                }
+            }
+
+            if tokio::time::Instant::now() >= deadline {
+                return Err(SettleTimeout(timeout));
+            }
+
+            tokio::time::sleep(poll).await;
+        }
     }
 
     /// Signal all subsystems to shut down and wait for them.
@@ -124,11 +169,13 @@ pub async fn boot() -> Result<DaemonHandle, GhostError> {
 
     // Spawn file watcher for automatic embedding on content changes
     let (shutdown_tx, shutdown_rx) = tokio::sync::watch::channel(false);
+    let watcher_busy = Arc::new(AtomicBool::new(false));
     let watcher_handle = super::watcher::spawn_watcher(
         db.clone(),
         config.workspace.clone(),
         config.embeddings.clone(),
         shutdown_rx.clone(),
+        Arc::clone(&watcher_busy),
     );
 
     // Spawn hourly embedding reconciliation
@@ -225,6 +272,7 @@ pub async fn boot() -> Result<DaemonHandle, GhostError> {
         ],
         discord: discord_result,
         idle_trigger_tx,
+        watcher_busy,
     })
 }
 

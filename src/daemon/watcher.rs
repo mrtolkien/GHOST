@@ -1,5 +1,7 @@
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
@@ -20,6 +22,7 @@ pub fn spawn_watcher(
     workspace: PathBuf,
     embeddings_config: EmbeddingsConfig,
     mut shutdown: tokio::sync::watch::Receiver<bool>,
+    watcher_busy: Arc<AtomicBool>,
 ) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
         let client = EmbeddingClient::new(&embeddings_config);
@@ -58,7 +61,9 @@ pub fn spawn_watcher(
                 changed_paths.insert(path);
             }
 
+            watcher_busy.store(true, Ordering::Relaxed);
             process_batch(&db, &workspace, &client, &changed_paths).await;
+            watcher_busy.store(false, Ordering::Relaxed);
         }
 
         info!("file watcher stopped");
