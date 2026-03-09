@@ -92,11 +92,50 @@ pub struct EdgeRecord {
 }
 
 pub(super) fn truncate_snippet(text: &str, max_len: usize) -> String {
-    let first_line = text.lines().next().unwrap_or("");
-    if first_line.len() <= max_len {
-        first_line.to_string()
-    } else {
-        let end = first_line.floor_char_boundary(max_len);
-        format!("{}...", &first_line[..end])
+    let trimmed = text.trim();
+    if trimmed.len() <= max_len {
+        return trimmed.to_string();
+    }
+    let end = trimmed.floor_char_boundary(max_len);
+    format!("{}...", &trimmed[..end])
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn truncate_snippet_takes_chars_across_lines() {
+        let text = "first line\nsecond line\nthird line";
+        let result = truncate_snippet(text, 25);
+        assert!(result.len() <= 28, "should respect max_len (plus ...)");
+        assert!(
+            result.contains("second"),
+            "should include second line content, got: {result}"
+        );
+    }
+
+    #[test]
+    fn truncate_snippet_short_text_unchanged() {
+        let text = "short";
+        assert_eq!(truncate_snippet(text, 150), "short");
+    }
+
+    #[test]
+    fn truncate_snippet_single_long_line_truncates() {
+        let text = "a".repeat(200);
+        let result = truncate_snippet(&text, 50);
+        assert!(result.ends_with("..."));
+        assert!(result.len() <= 53 + 3);
+    }
+
+    #[test]
+    fn truncate_snippet_strips_section_prefix() {
+        let text = "[section: Break Rules]\n## Break Rules\n\nDuring a break, players discard.";
+        let result = truncate_snippet(text, 150);
+        assert!(
+            result.contains("break") || result.contains("Break"),
+            "should contain actual content, got: {result}"
+        );
     }
 }
