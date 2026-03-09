@@ -203,7 +203,7 @@ fn collect_files_recursive(dir: &Path, out: &mut HashSet<PathBuf>) {
     }
 }
 
-async fn process_change(
+pub(crate) async fn process_change(
     db: &GhostDb,
     workspace: &Path,
     path: &Path,
