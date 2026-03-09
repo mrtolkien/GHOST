@@ -305,7 +305,11 @@ impl SessionChat {
             })
             .collect();
 
-        futures::future::join_all(futures).await
+        futures::future::join_all(futures)
+            .await
+            .into_iter()
+            .flatten()
+            .collect()
     }
 
     async fn execute_single_tool(
@@ -316,7 +320,7 @@ impl SessionChat {
         input: Value,
         cwd_override: Option<&std::path::Path>,
         channel_id: Option<&str>,
-    ) -> ContentBlock {
+    ) -> Vec<ContentBlock> {
         let cwd = cwd_override
             .map(|p| p.to_path_buf())
             .or_else(|| self.cwd_override.clone())
@@ -333,16 +337,26 @@ impl SessionChat {
         };
 
         match self.tool_manager.execute(name, input, &tool_ctx).await {
-            Ok(content) => ContentBlock::ToolResult {
-                tool_use_id: tool_use_id.to_string(),
-                content,
-                is_error: false,
-            },
-            Err(error) => ContentBlock::ToolResult {
+            Ok(output) => {
+                let mut blocks = vec![ContentBlock::ToolResult {
+                    tool_use_id: tool_use_id.to_string(),
+                    content: output.text,
+                    is_error: false,
+                }];
+                for img in output.images {
+                    blocks.push(ContentBlock::Image {
+                        path: img.path,
+                        mime_type: img.mime_type,
+                        filename: img.filename,
+                    });
+                }
+                blocks
+            }
+            Err(error) => vec![ContentBlock::ToolResult {
                 tool_use_id: tool_use_id.to_string(),
                 content: render_tool_error(error),
                 is_error: true,
-            },
+            }],
         }
     }
 

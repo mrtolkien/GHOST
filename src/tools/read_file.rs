@@ -1,3 +1,4 @@
+use super::output::ToolOutput;
 use async_trait::async_trait;
 use serde_json::{Value, json};
 
@@ -34,7 +35,7 @@ impl Tool for ReadFile {
     }
 
     #[tracing::instrument(skip_all, fields(tool = "read_file"))]
-    async fn execute(&self, params: Value, ctx: &ToolContext) -> Result<String, ToolError> {
+    async fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput, ToolError> {
         let raw_path = params.get("path").and_then(Value::as_str).ok_or_else(|| {
             ToolError::InvalidParams("missing required parameter 'path'".to_string())
         })?;
@@ -49,7 +50,7 @@ impl Tool for ReadFile {
         let total_lines = lines.len();
 
         if total_lines == 0 {
-            return Ok(format!("File: {raw_path}\n(empty file)"));
+            return Ok(ToolOutput::text(format!("File: {raw_path}\n(empty file)")));
         }
 
         let width = total_lines.to_string().len().max(3);
@@ -77,7 +78,7 @@ impl Tool for ReadFile {
             }
         }
 
-        Ok(result)
+        Ok(ToolOutput::text(result))
     }
 }
 
@@ -111,10 +112,10 @@ mod tests {
             .await
             .unwrap();
 
-        assert!(result.contains("test.txt"));
-        assert!(result.contains("  1 | line one"));
-        assert!(result.contains("  2 | line two"));
-        assert!(result.contains("  3 | line three"));
+        assert!(result.text.contains("test.txt"));
+        assert!(result.text.contains("  1 | line one"));
+        assert!(result.text.contains("  2 | line two"));
+        assert!(result.text.contains("  3 | line three"));
     }
 
     #[tokio::test]
@@ -147,10 +148,10 @@ mod tests {
             .await
             .unwrap();
 
-        assert!(result.contains("<extra-files>"));
-        assert!(result.contains("./reference.md"));
-        assert!(result.contains("./scripts/run.py"));
-        assert!(result.contains("</extra-files>"));
+        assert!(result.text.contains("<extra-files>"));
+        assert!(result.text.contains("./reference.md"));
+        assert!(result.text.contains("./scripts/run.py"));
+        assert!(result.text.contains("</extra-files>"));
     }
 
     #[tokio::test]
@@ -171,7 +172,7 @@ mod tests {
             .await
             .unwrap();
 
-        assert!(!result.contains("<extra-files>"));
+        assert!(!result.text.contains("<extra-files>"));
     }
 
     #[tokio::test]
@@ -194,9 +195,9 @@ mod tests {
             .await
             .unwrap();
 
-        assert!(!result.contains("<extra-files>"));
-        assert!(!result.contains("agent.lua"));
-        assert!(!result.contains("prompt.md"));
+        assert!(!result.text.contains("<extra-files>"));
+        assert!(!result.text.contains("agent.lua"));
+        assert!(!result.text.contains("prompt.md"));
     }
 
     #[tokio::test]
@@ -211,6 +212,6 @@ mod tests {
             .await
             .unwrap();
 
-        assert!(result.contains("empty file"));
+        assert!(result.text.contains("empty file"));
     }
 }

@@ -1181,12 +1181,12 @@ impl Tool for EchoTool {
         &self,
         params: serde_json::Value,
         _ctx: &ToolContext,
-    ) -> Result<String, ToolError> {
+    ) -> Result<ghost::tools::ToolOutput, ToolError> {
         let text = params
             .get("text")
             .and_then(serde_json::Value::as_str)
             .unwrap_or_default();
-        Ok(format!("echo:{text}"))
+        Ok(ghost::tools::ToolOutput::text(format!("echo:{text}")))
     }
 }
 

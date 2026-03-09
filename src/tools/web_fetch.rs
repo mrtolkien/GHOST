@@ -1,3 +1,4 @@
+use super::output::ToolOutput;
 use async_trait::async_trait;
 use serde_json::{Value, json};
 
@@ -63,7 +64,7 @@ impl Tool for WebFetch {
         }
     }
 
-    async fn execute(&self, params: Value, ctx: &ToolContext) -> Result<String, ToolError> {
+    async fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput, ToolError> {
         let url = params.get("url").and_then(Value::as_str).ok_or_else(|| {
             ToolError::InvalidParams("missing required parameter: url".to_string())
         })?;
@@ -114,6 +115,6 @@ impl Tool for WebFetch {
             output.push_str("\n\n[Content truncated]");
         }
 
-        Ok(output)
+        Ok(ToolOutput::text(output))
     }
 }

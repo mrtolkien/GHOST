@@ -1,3 +1,4 @@
+use super::output::ToolOutput;
 use async_trait::async_trait;
 use serde_json::{Value, json};
 
@@ -40,7 +41,7 @@ impl Tool for WriteFile {
     }
 
     #[tracing::instrument(skip_all, fields(tool = "write_file"))]
-    async fn execute(&self, params: Value, ctx: &ToolContext) -> Result<String, ToolError> {
+    async fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput, ToolError> {
         let raw_path = params.get("path").and_then(Value::as_str).ok_or_else(|| {
             ToolError::InvalidParams("missing required parameter 'path'".to_string())
         })?;
@@ -72,9 +73,9 @@ impl Tool for WriteFile {
 
         let action = if existed { "Updated" } else { "Created" };
         let lines = content.lines().count();
-        Ok(format!(
+        Ok(ToolOutput::text(format!(
             "{action} {raw_path} ({lines} lines, {bytes} bytes)"
-        ))
+        )))
     }
 }
 
@@ -106,7 +107,7 @@ mod tests {
             .await
             .unwrap();
 
-        assert!(result.contains("Created"));
+        assert!(result.text.contains("Created"));
         let content = std::fs::read_to_string(workspace.path().join("new.txt")).unwrap();
         assert_eq!(content, "hello world");
     }
@@ -124,7 +125,7 @@ mod tests {
             .await
             .unwrap();
 
-        assert!(result.contains("Created"));
+        assert!(result.text.contains("Created"));
         let content =
             std::fs::read_to_string(workspace.path().join("deep/nested/dir/file.txt")).unwrap();
         assert_eq!(content, "data");
@@ -145,7 +146,7 @@ mod tests {
             .await
             .unwrap();
 
-        assert!(result.contains("Updated"));
+        assert!(result.text.contains("Updated"));
         let content = std::fs::read_to_string(&file).unwrap();
         assert_eq!(content, "new content");
     }
