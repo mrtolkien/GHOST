@@ -19,6 +19,7 @@ use crate::coding;
 use crate::config::Config;
 use crate::db;
 use crate::db::GhostDb;
+use crate::providers::ContentBlock;
 
 use super::feedback;
 use super::send::{WARNING_EMBED_COLOR, send_assistant_v2, send_gateway_v2};
@@ -33,12 +34,6 @@ const TYPING_TIMEOUT: Duration = Duration::from_secs(300);
 
 /// Max file size for attachment downloads (25 MB).
 const MAX_ATTACHMENT_SIZE: usize = 25 * 1024 * 1024;
-
-/// File extensions treated as downloadable text files.
-const TEXT_EXTENSIONS: &[&str] = &[
-    "txt", "md", "rs", "py", "js", "ts", "json", "toml", "yaml", "yml", "sh", "css", "html", "xml",
-    "sql", "csv", "log",
-];
 
 // ---------------------------------------------------------------------------
 // TimedTyping — typing indicator with automatic timeout
@@ -145,28 +140,28 @@ impl Handler {
         Ok(new_session_str)
     }
 
-    /// Download attachments to workspace/uploads/. Returns content to
-    /// prepend to the user message.
+    /// Download attachments to workspace/uploads/. Returns content blocks:
+    /// image attachments become `ContentBlock::Image`, others become text.
     #[tracing::instrument(skip_all, level = "debug", fields(
         attachment_count = attachments.len()
     ))]
     async fn process_attachments(
         &self,
         attachments: &[serenity::model::channel::Attachment],
-    ) -> String {
+    ) -> Vec<ContentBlock> {
         if attachments.is_empty() {
-            return String::new();
+            return Vec::new();
         }
 
         let upload_dir = self.config.workspace.join("uploads");
         if let Err(e) = tokio::fs::create_dir_all(&upload_dir).await {
             error!("Failed to create uploads dir: {e}");
-            return String::new();
+            return Vec::new();
         }
 
         let timestamp = chrono::Utc::now().format("%s");
         let client = reqwest::Client::new();
-        let mut lines = Vec::new();
+        let mut blocks = Vec::new();
 
         for attachment in attachments {
             let ext = attachment
@@ -175,8 +170,6 @@ impl Handler {
                 .next()
                 .unwrap_or("")
                 .to_lowercase();
-
-            let _is_text = TEXT_EXTENSIONS.contains(&ext.as_str());
 
             let dest_name = format!("{timestamp}_{}", attachment.filename);
             let dest_path = upload_dir.join(&dest_name);
@@ -190,14 +183,29 @@ impl Handler {
                                 size = bytes.len(),
                                 "Attachment exceeds 25MB limit, skipping"
                             );
-                            lines.push(format!("[Attachment too large: {}]", attachment.filename));
+                            blocks.push(ContentBlock::Text {
+                                text: format!("[Attachment too large: {}]", attachment.filename),
+                            });
                             continue;
                         }
                         if let Err(e) = tokio::fs::write(&dest_path, &bytes).await {
                             error!("Failed to write attachment {dest_name}: {e}");
                             continue;
                         }
-                        lines.push(format!("[File uploaded: uploads/{dest_name}]"));
+
+                        if crate::images::is_image_extension(&ext) {
+                            let mime =
+                                crate::images::mime_type_from_extension(&ext).to_string();
+                            blocks.push(ContentBlock::Image {
+                                path: dest_path.to_string_lossy().to_string(),
+                                mime_type: mime,
+                                filename: attachment.filename.clone(),
+                            });
+                        } else {
+                            blocks.push(ContentBlock::Text {
+                                text: format!("[File uploaded: uploads/{dest_name}]"),
+                            });
+                        }
                     }
                     Err(e) => error!(
                         "Failed to download attachment body {}: {e}",
@@ -208,10 +216,7 @@ impl Handler {
             }
         }
 
-        if lines.is_empty() {
-            return String::new();
-        }
-        lines.join("\n")
+        blocks
     }
     /// Handle a validated incoming Discord message: resolve the session,
     /// process attachments, run the chat loop, and send the response.
@@ -248,16 +253,24 @@ impl Handler {
         }
 
         // Process attachments
-        let attachment_text = self.process_attachments(&msg.attachments).await;
-        let full_content = if attachment_text.is_empty() {
-            content.to_string()
-        } else if content.is_empty() {
-            attachment_text
-        } else {
-            format!("{content}\n\n{attachment_text}")
-        };
+        let attachment_blocks = self.process_attachments(&msg.attachments).await;
 
-        if full_content.trim().is_empty() {
+        // Separate image blocks from text blocks
+        let mut text_parts = Vec::new();
+        let mut image_blocks = Vec::new();
+        if !content.is_empty() {
+            text_parts.push(content.to_string());
+        }
+        for block in attachment_blocks {
+            match block {
+                ContentBlock::Text { text } => text_parts.push(text),
+                img @ ContentBlock::Image { .. } => image_blocks.push(img),
+                _ => {}
+            }
+        }
+        let full_content = text_parts.join("\n\n");
+
+        if full_content.trim().is_empty() && image_blocks.is_empty() {
             return;
         }
 
@@ -294,11 +307,17 @@ impl Handler {
         let renderer_handle = tokio::spawn(renderer.run());
 
         // Chat with GHOST
+        let images = if image_blocks.is_empty() {
+            None
+        } else {
+            Some(image_blocks)
+        };
         let chat_result = self
             .session_chat
-            .chat(
+            .chat_with_images(
                 &session_id,
                 &full_content,
+                images,
                 Some(msg.channel_id.to_string()),
                 Some(&event_tx),
             )
@@ -365,15 +384,22 @@ impl Handler {
     ) {
         let content = self.strip_bot_mention(&msg.content);
 
-        // Process attachments
-        let attachment_text = self.process_attachments(&msg.attachments).await;
-        let full_content = if attachment_text.is_empty() {
-            content.to_string()
-        } else if content.is_empty() {
-            attachment_text
-        } else {
-            format!("{content}\n\n{attachment_text}")
-        };
+        // Process attachments (coding sessions: images treated as text refs)
+        let attachment_blocks = self.process_attachments(&msg.attachments).await;
+        let mut text_parts = Vec::new();
+        if !content.is_empty() {
+            text_parts.push(content.to_string());
+        }
+        for block in attachment_blocks {
+            match block {
+                ContentBlock::Text { text } => text_parts.push(text),
+                ContentBlock::Image { filename, .. } => {
+                    text_parts.push(format!("[Image uploaded: {filename}]"));
+                }
+                _ => {}
+            }
+        }
+        let full_content = text_parts.join("\n\n");
 
         if full_content.trim().is_empty() {
             return;
