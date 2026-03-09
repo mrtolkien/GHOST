@@ -79,6 +79,38 @@ async fn search_references_scoped_by_topic() {
     assert!(hits.is_empty(), "sqlx topic should not have hooks");
 }
 
+// --- Snippet quality ---
+
+#[tokio::test]
+async fn reference_search_snippet_contains_matched_term() {
+    let (db, _config, _workspace, _config_dir) = common::test_database().await;
+
+    let topic_id = db::knowledge::find_or_create_topic(&db, "test-topic")
+        .await
+        .unwrap();
+    db::knowledge::create_reference(
+        &db,
+        &topic_id,
+        "test-topic/rules.md",
+        "## Introduction\n\nThis is a long preamble about the game.\n\n## Break Rules\n\nDuring a break, players must discard down to their hand limit.",
+        None,
+        None,
+    )
+    .await
+    .unwrap();
+
+    let results = db::knowledge::search_references(&db, "break", 10, None)
+        .await
+        .unwrap();
+
+    assert!(!results.is_empty(), "should find the reference");
+    let snippet = &results[0].snippet;
+    assert!(
+        snippet.to_lowercase().contains("break"),
+        "snippet should contain the matched term 'break', got: {snippet}"
+    );
+}
+
 // --- Prefix matching ---
 
 #[tokio::test]
