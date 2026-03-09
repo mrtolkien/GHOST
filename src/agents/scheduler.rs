@@ -57,6 +57,7 @@ pub fn spawn_scheduler(
     config: Config,
     db: GhostDb,
     mut shutdown: watch::Receiver<bool>,
+    mut idle_trigger_rx: mpsc::Receiver<()>,
 ) -> JoinHandle<()> {
     tokio::spawn(async move {
         let tick_secs = config.timing.scheduler_tick_seconds;
@@ -91,6 +92,10 @@ pub fn spawn_scheduler(
             tokio::select! {
                 _ = interval.tick() => {
                     tick_scheduled(&agent_runner, &db, &workspace, &mut scheduled).await;
+                    tick_idle(&agent_runner, &db, &workspace, &mut idle_agents).await;
+                }
+                Some(()) = idle_trigger_rx.recv() => {
+                    info!("manual idle trigger received");
                     tick_idle(&agent_runner, &db, &workspace, &mut idle_agents).await;
                 }
                 path = fs_rx.recv() => {
