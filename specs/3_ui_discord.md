@@ -1,0 +1,3 @@
+- Embeds looks like shit (too many embeds!)
+- No feedback on running agents/background commands
+- Generally not very good looking tool output
