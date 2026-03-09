@@ -8,6 +8,21 @@ description: >-
 
 # Fix Feedback
 
+## Getting Feedback
+
+Feedback is saved on the running GHOST instance, not locally. To retrieve it:
+
+```bash
+# SSH to the GHOST server and list available feedback
+ssh root@192.168.1.13 'ls ~/GHOST/feedback/'
+
+# Copy the feedback folder locally
+scp -r root@192.168.1.13:~/GHOST/feedback/<folder-name>/ /tmp/ghost-feedback/
+```
+
+The user will typically give you the folder name. Each folder contains `feedback.md`,
+`transcript.md`, and `ghost.db`.
+
 ## Process
 
 1. Read `feedback.md` in the feedback folder for the issue description and session ID
