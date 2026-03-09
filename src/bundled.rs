@@ -2,6 +2,7 @@
 ///
 /// Every file that gets installed to `$WORKSPACE/` must be listed here.
 /// This ensures all bundled files go through the same update-check code path.
+use std::path::Path;
 
 /// A file bundled into the ghost binary via `include_str!`.
 pub struct BundledFile {
@@ -15,7 +16,32 @@ pub struct BundledFile {
 ///
 /// Add new bundled files here — not in scattered install functions.
 pub fn bundled_files() -> &'static [BundledFile] {
-    &BUNDLED_FILES
+    BUNDLED_FILES
+}
+
+/// Install all bundled files to the workspace, always overwriting.
+/// Creates parent directories as needed.
+pub fn install_all(workspace: &Path) -> Result<(), std::io::Error> {
+    for file in bundled_files() {
+        let dest = workspace.join(file.path);
+        if let Some(parent) = dest.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        std::fs::write(&dest, file.content)?;
+    }
+    save_manifest(workspace)?;
+    Ok(())
+}
+
+/// Save the current bundled file paths as the manifest for future removal detection.
+pub fn save_manifest(workspace: &Path) -> Result<(), std::io::Error> {
+    let paths: Vec<&str> = bundled_files().iter().map(|f| f.path).collect();
+    let json = serde_json::to_string_pretty(&paths).unwrap_or_default();
+    let manifest_path = workspace.join(".cache/bundled-manifest.json");
+    if let Some(parent) = manifest_path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    std::fs::write(manifest_path, json)
 }
 
 const BUNDLED_FILES: &[BundledFile] = &[

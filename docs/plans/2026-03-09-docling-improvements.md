@@ -1,7 +1,7 @@
 # Docling Improvements Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement
-> this plan task-by-task.
+> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this
+> plan task-by-task.
 
 **Goal:** Switch docling client to async API (6x faster), add operator-facing options
 (no-ocr, page-range, timeout), split CLI into `ghost reference import git|crawl` and
@@ -21,6 +21,7 @@ groups with separate skills. All changes flow through `src/web/docling.rs` →
 ### Task 1: Config — Add `[docling]` section
 
 **Files:**
+
 - Modify: `src/config.rs`
 
 **Step 1: Add DoclingSettings and DoclingConfig structs**
@@ -54,8 +55,8 @@ pub struct DoclingConfig {
 
 **Step 3: Update `Config::from_settings`**
 
-Remove the `docling_url` resolution from the `web:` block (lines 418-422, 447).
-Add docling resolution:
+Remove the `docling_url` resolution from the `web:` block (lines 418-422, 447). Add
+docling resolution:
 
 ```rust
 docling: {
@@ -75,8 +76,8 @@ docling: {
 
 **Step 4: Update `test_config()`**
 
-Add `docling: DoclingConfig { url: None, timeout: 600 }` to the test config.
-Remove `docling_url: None` from the `web:` block.
+Add `docling: DoclingConfig { url: None, timeout: 600 }` to the test config. Remove
+`docling_url: None` from the `web:` block.
 
 **Step 5: Update `empty_settings()`**
 
@@ -84,9 +85,8 @@ Add `docling: None` to the `Settings` struct literal.
 
 **Step 6: Run `just ci` to find all compile errors**
 
-Run: `just ci`
-Expected: compile errors in files that reference `config.web.docling_url` — these are
-fixed in subsequent tasks.
+Run: `just ci` Expected: compile errors in files that reference `config.web.docling_url`
+— these are fixed in subsequent tasks.
 
 **Step 7: Commit**
 
@@ -99,6 +99,7 @@ feat: add [docling] config section, remove [web].docling_url
 ### Task 2: Async docling client
 
 **Files:**
+
 - Rewrite: `src/web/docling.rs`
 - Modify: `src/web/types.rs` (new error variants)
 
@@ -328,6 +329,7 @@ feat: rewrite docling client to use async API with polling
 ### Task 3: Update callers — import_page and import_file
 
 **Files:**
+
 - Modify: `src/reference_import/page.rs`
 - Modify: `src/reference_import/file.rs`
 - Modify: `src/reference_import/mod.rs`
@@ -353,9 +355,9 @@ Err(web::WebError::UnsupportedContentType { .. }) => {
 }
 ```
 
-Note: the `web::fetch` call on line 56 does NOT use web_config — it takes
-`crawl4ai_url` which is passed as `None` for page imports. So removing `&WebConfig`
-from the signature is clean.
+Note: the `web::fetch` call on line 56 does NOT use web_config — it takes `crawl4ai_url`
+which is passed as `None` for page imports. So removing `&WebConfig` from the signature
+is clean.
 
 **Step 2: Update `import_file` signature and body**
 
@@ -406,6 +408,7 @@ refactor: update import_page/import_file to use new docling client
 ### Task 4: Options plumbing — `--no-ocr`, `--page-range`, `--timeout`
 
 **Files:**
+
 - Modify: `src/reference_import/types.rs`
 - Modify: `src/reference_import/page.rs`
 - Modify: `src/reference_import/file.rs`
@@ -480,6 +483,7 @@ feat: plumb docling options (no_ocr, page_range) through import types
 ### Task 5: CLI split — `ghost reference import git|crawl` + `ghost document import url|file`
 
 **Files:**
+
 - Rewrite: `src/cli/reference.rs`
 - Create: `src/cli/document.rs`
 - Modify: `src/cli/mod.rs`
@@ -805,11 +809,13 @@ fn print_result(topic: &str, result: crate::reference_import::ImportResult) {
 **Step 3: Register the new module and command**
 
 In `src/cli/mod.rs`, add:
+
 ```rust
 pub mod document;
 ```
 
 In `src/main.rs`, add to `Commands` enum:
+
 ```rust
 Document {
     #[command(subcommand)]
@@ -818,6 +824,7 @@ Document {
 ```
 
 Add to `dispatch()`:
+
 ```rust
 Commands::Document { command } => ghost::cli::document::execute(command).await,
 ```
@@ -825,10 +832,13 @@ Commands::Document { command } => ghost::cli::document::execute(command).await,
 **Step 4: Update web_fetch error message**
 
 In `src/tools/web_fetch.rs` (around line 93), change:
+
 ```
 `ghost reference import --source page --url '{url}' --topic <name>`
 ```
+
 to:
+
 ```
 `ghost document import url --url '{url}' --topic <name>`
 ```
@@ -848,6 +858,7 @@ feat: split CLI into reference import (git/crawl) and document import (url/file)
 ### Task 6: Skills — write `document-import`, trim `reference-import`
 
 **Files:**
+
 - Create: `prompts/skills/document-import.md`
 - Modify: `prompts/skills/reference-import.md`
 
@@ -858,9 +869,9 @@ feat: split CLI into reference import (git/crawl) and document import (url/file)
 name: document-import
 description:
   Import documents (PDF, DOCX, XLSX, PPTX, images) into the knowledge base via
-  docling-serve. Use when the OPERATOR asks to import a document from a URL or
-  uploaded file, when web_fetch returns an unsupported content type, or when you
-  need to import non-HTML content as a searchable reference.
+  docling-serve. Use when the OPERATOR asks to import a document from a URL or uploaded
+  file, when web_fetch returns an unsupported content type, or when you need to import
+  non-HTML content as a searchable reference.
 ---
 
 # Document Import Skill
@@ -869,8 +880,8 @@ Import documents (PDF, DOCX, etc.) as topic-scoped references via docling-serve.
 
 ## Decision Flow
 
-1. **Search first**: `knowledge_search(query="<topic>", categories=["references"])`.
-   If results exist, use them. Done.
+1. **Search first**: `knowledge_search(query="<topic>", categories=["references"])`. If
+   results exist, use them. Done.
 2. **URL source**: use `ghost document import url --url <url> --topic <name>` with
    `background: true`.
 3. **File upload**: if the OPERATOR uploaded a file, import with
@@ -878,15 +889,16 @@ Import documents (PDF, DOCX, etc.) as topic-scoped references via docling-serve.
    `background: true`.
 4. **After starting the import**: tell the OPERATOR it's importing, include any other
    pending responses, then **end your turn**. A follow-up turn is triggered
-   automatically when the import completes — you'll see the
-   `[shell-command completed]` system message. Search the imported refs and answer.
+   automatically when the import completes — you'll see the `[shell-command completed]`
+   system message. Search the imported refs and answer.
 
 ## CLI Commands
+```
 
-```
-ghost document import url --url <url> --topic <name>
-ghost document import file --path <path> --topic <name>
-```
+ghost document import url --url <url> --topic <name> ghost document import file --path
+<path> --topic <name>
+
+````
 
 ### OPERATOR-facing options (use ONLY when explicitly requested)
 
@@ -910,7 +922,7 @@ Document imports can take 1-2 minutes for a typical PDF. **Always use background
   "command": "ghost document import url --url https://example.com/rulebook.pdf --topic boardgames/arknova",
   "background": true
 }
-```
+````
 
 Tell the OPERATOR: _"I'm importing the document in the background — I'll search it once
 the import finishes."_ Then **end your turn**.
@@ -952,6 +964,7 @@ knowledge_search(query="setup procedure", topic="boardgames/arknova", categories
 ```
 ghost reference delete --topic boardgames/arknova
 ```
+
 ```
 
 **Step 2: Trim `prompts/skills/reference-import.md`**
@@ -963,23 +976,29 @@ The skill should reference `document-import` for PDF/DOCX/file imports:
 
 Add near the top of the decision flow:
 ```
+
 2. **Document import** (PDF, DOCX, uploaded file): use the `document-import` skill
    instead. This skill covers git repos and web crawls only.
+
 ```
 
 Remove from CLI commands:
 ```
-ghost reference import --source page --url <url> --topic <name>
-ghost reference import --source file --path <path> --topic <name>
+
+ghost reference import --source page --url <url> --topic <name> ghost reference import
+--source file --path <path> --topic <name>
+
 ```
 
 Update remaining commands to new syntax:
 ```
+
 ghost reference import git --url <url> --topic <name> \
-    [--paths dir1,dir2] [--extensions .md,.rs]
+ [--paths dir1,dir2] [--extensions .md,.rs]
 
 ghost reference import crawl --url <url> --topic <name> \
-    [--max-depth 3] [--max-pages 50]
+ [--max-depth 3] [--max-pages 50]
+
 ```
 
 Remove the "File Import (Uploaded Files)" section entirely.
@@ -1001,7 +1020,9 @@ Expected: PASS (skills are just markdown, but verify no Rust broke).
 **Step 5: Commit**
 
 ```
+
 feat: add document-import skill, update reference-import for git/crawl only
+
 ```
 
 ---
@@ -1029,7 +1050,9 @@ Note: this test requires a running docling-serve instance. If not available, ver
 manually with:
 
 ```
+
 ghost document import url --url https://example.com/test.pdf --topic test/doc
+
 ```
 
 **Step 3: Run `just ci` one final time**
@@ -1039,5 +1062,9 @@ Expected: all green.
 **Step 4: Commit any remaining fixes**
 
 ```
+
 chore: update compose files and verify e2e compatibility
+
+```
+
 ```

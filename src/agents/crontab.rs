@@ -2,8 +2,6 @@ use std::path::Path;
 
 use mlua::prelude::*;
 
-const DEFAULT_CRONTAB: &str = include_str!("../../prompts/agents/crontab.lua");
-
 /// What kind of schedule a crontab entry uses.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CrontabTrigger {
@@ -24,14 +22,6 @@ pub fn load_crontab(workspace: &Path) -> Result<Vec<CrontabEntry>, String> {
     let source = std::fs::read_to_string(&crontab_path)
         .map_err(|e| format!("failed to read crontab.lua: {e}"))?;
     parse_crontab(&source)
-}
-
-/// Install the default `crontab.lua` into `$WORKSPACE/agents/`.
-pub fn install_default_crontab(workspace: &Path) -> Result<(), std::io::Error> {
-    let agents_dir = workspace.join("agents");
-    std::fs::create_dir_all(&agents_dir)?;
-    std::fs::write(agents_dir.join("crontab.lua"), DEFAULT_CRONTAB)?;
-    Ok(())
 }
 
 fn parse_crontab(source: &str) -> Result<Vec<CrontabEntry>, String> {
@@ -179,14 +169,19 @@ mod tests {
 
     #[test]
     fn default_crontab_parses() {
-        let entries = parse_crontab(DEFAULT_CRONTAB).unwrap();
+        let crontab_content = crate::bundled::bundled_files()
+            .iter()
+            .find(|f| f.path == "agents/crontab.lua")
+            .expect("crontab.lua should be in bundled files")
+            .content;
+        let entries = parse_crontab(crontab_content).unwrap();
         assert!(!entries.is_empty(), "default crontab should have entries");
     }
 
     #[test]
-    fn install_default_crontab_creates_file() {
+    fn bundled_install_creates_crontab() {
         let dir = tempfile::TempDir::new().unwrap();
-        install_default_crontab(dir.path()).unwrap();
+        crate::bundled::install_all(dir.path()).unwrap();
         assert!(dir.path().join("agents/crontab.lua").exists());
     }
 }

@@ -204,55 +204,6 @@ pub fn load_agent_with_host(
     Ok((config, host))
 }
 
-/// LuaLS type stubs for agent developers.
-const LUA_TYPE_STUBS: &str = include_str!("../../prompts/types/ghost.lua");
-
-/// Embedded default agent files for trigger/scheduled agents that live
-/// in `$WORKSPACE/agents/`. Skill-coupled agents are installed via
-/// `install_default_skills` instead.
-const DEFAULT_AGENTS: &[(&str, &[(&str, &str)])] = &[(
-    "chat-reflection",
-    &[
-        (
-            "agent.lua",
-            include_str!("../../prompts/agents/chat-reflection/agent.lua"),
-        ),
-        (
-            "prompt.md",
-            include_str!("../../prompts/agents/chat-reflection/prompt.md"),
-        ),
-        (
-            "user-message.md",
-            include_str!("../../prompts/agents/chat-reflection/user-message.md"),
-        ),
-    ],
-)];
-
-/// Install default agent folders into `$WORKSPACE/agents/`, always
-/// overwriting with the binary's built-in versions. Also installs
-/// the default `crontab.lua`.
-pub fn install_default_agents(workspace: &Path) -> Result<(), std::io::Error> {
-    let agents_dir = workspace.join("agents");
-    std::fs::create_dir_all(&agents_dir)?;
-
-    for (name, files) in DEFAULT_AGENTS {
-        let agent_dir = agents_dir.join(name);
-        std::fs::create_dir_all(&agent_dir)?;
-        for (filename, content) in *files {
-            std::fs::write(agent_dir.join(filename), content)?;
-        }
-    }
-
-    // Install LuaLS type stubs for agent developers
-    let types_dir = agents_dir.join(".types");
-    std::fs::create_dir_all(&types_dir)?;
-    std::fs::write(types_dir.join("ghost.lua"), LUA_TYPE_STUBS)?;
-
-    super::crontab::install_default_crontab(workspace)?;
-
-    Ok(())
-}
-
 /// Validate a single agent's Lua config. Returns errors as strings.
 /// Resolves agent by name from both `agents/` and `skills/`.
 pub fn validate_agent(workspace: &Path, name: &str) -> Vec<String> {

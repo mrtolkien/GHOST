@@ -3,9 +3,10 @@
 ## Problem
 
 Ghost bundles ~59 files (skills, agents, crontab, flake template, type stubs, etc.) that
-are written to the workspace on bootstrap. Currently, `install_default_*` functions always
-overwrite without consent. When a new image ships updated bundled files, the user has no
-visibility into what changed and no way to reject changes to files they've customized.
+are written to the workspace on bootstrap. Currently, `install_default_*` functions
+always overwrite without consent. When a new image ships updated bundled files, the user
+has no visibility into what changed and no way to reject changes to files they've
+customized.
 
 ## Solution
 
@@ -18,7 +19,8 @@ accept/reject changes before proceeding.
 ### Bundled File Registry
 
 A single central registry replaces the scattered `install_default_*` file lists. Every
-bundled file is a `BundledFile` with a workspace-relative path and `include_str!` content:
+bundled file is a `BundledFile` with a workspace-relative path and `include_str!`
+content:
 
 ```rust
 struct BundledFile {
@@ -54,27 +56,30 @@ exists today).
 
 **Initial message** (v2 Container with action row):
 
-> **Workspace Update Available**
-> N files modified, M files removed
+> **Workspace Update Available** N files modified, M files removed
 >
 > [Accept All] [Review] [Reject All]
 
 **Review mode** — for each changed file, a separate message:
 
 > **skills/nix-shell/skill.md**
+>
 > ```diff
 > - old line
 > + new line
 > ```
+>
 > [Accept] [Reject]
 
 After all files reviewed (or Accept All / Reject All clicked):
+
 - Apply accepted changes (overwrite workspace files)
 - Delete accepted removals
 - Skip rejected changes
 - Boot continues
 
 **Button interaction handling:**
+
 - Extend `interaction_create` in `bot.rs` to handle component interactions (currently
   returns early for non-slash-commands)
 - Use `custom_id` prefixes: `bundled_accept_all`, `bundled_review`,
@@ -83,18 +88,18 @@ After all files reviewed (or Accept All / Reject All clicked):
 
 ### Diff Generation
 
-Use the `similar` crate for unified diffs. Truncate output at ~3500 chars with
-"... and N more lines changed" to stay under Discord's 4000 char TextDisplay limit.
+Use the `similar` crate for unified diffs. Truncate output at ~3500 chars with "... and
+N more lines changed" to stay under Discord's 4000 char TextDisplay limit.
 
 For deleted bundled files, show "This file was removed from the default bundle" with no
 diff.
 
 ### Detecting Removed Bundled Files
 
-The registry defines the current set of bundled files. To detect files that *were*
+The registry defines the current set of bundled files. To detect files that _were_
 bundled but no longer are, store a manifest of previously installed bundled file paths
-(a simple text file or JSON in `$WORKSPACE/.cache/bundled-manifest.json`). On boot,
-any path in the old manifest but not in the current registry is a candidate for deletion
+(a simple text file or JSON in `$WORKSPACE/.cache/bundled-manifest.json`). On boot, any
+path in the old manifest but not in the current registry is a candidate for deletion
 review.
 
 ## What Changes

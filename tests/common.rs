@@ -789,7 +789,7 @@ impl LiveTestEnv {
     }
 
     /// Load a Lua agent config from the temp workspace (populated by
-    /// `install_default_agents()` during bootstrap).
+    /// `bundled::install_all()` during bootstrap).
     pub fn load_agent(&self, name: &str) -> ghost::scripting::types::AgentConfig {
         ghost::agents::load_agent(&self.config.workspace, name)
             .unwrap_or_else(|e| panic!("load agent '{name}': {e}"))
@@ -977,12 +977,10 @@ pub async fn live_test_database_from_snapshot(
                 snapshot_path.display()
             )
         });
-        // install_default_agents/skills always overwrite, so the restored
-        // snapshot gets the binary's current prompts, not stale fixture versions.
-        ghost::agents::install_default_agents(&config.workspace)
-            .expect("install agents after snapshot restore");
-        ghost::skills::install_default_skills(&config.workspace)
-            .expect("install skills after snapshot restore");
+        // Bundled files always overwrite, so the restored snapshot gets
+        // the binary's current prompts, not stale fixture versions.
+        ghost::bundled::install_all(&config.workspace)
+            .expect("install bundled files after snapshot restore");
     }
     let db = db::connect(&config.workspace, config.embeddings.dimension)
         .await

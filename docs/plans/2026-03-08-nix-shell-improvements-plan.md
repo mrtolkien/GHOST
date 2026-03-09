@@ -1,6 +1,7 @@
 # Nix Shell Improvements Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this
+> plan task-by-task.
 
 **Goal:** Replace per-command `nix develop` wrapping with home-manager as the system
 shell manager. Ghost binary stays Docker-built — no changes to CI or Dockerfile build.
@@ -21,6 +22,7 @@ wrapping — packages are in PATH via home-manager's profile.
 Rewrite the workspace flake template to use home-manager instead of `devShells`.
 
 **Files:**
+
 - Modify: `deploy/common/default-flake.nix`
 
 **Step 1: Rewrite the flake template**
@@ -88,6 +90,7 @@ wrapping from shell commands. Store the home-manager profile PATH so child proce
 inherit it.
 
 **Files:**
+
 - Modify: `src/tools/shell.rs` (replace `spawn_flake_warmup`, simplify `shell_command`)
 - Modify: `src/daemon/run.rs:65` (call new boot function)
 
@@ -203,10 +206,13 @@ Remove the function from `src/tools/shell.rs`.
 **Step 7: Update daemon boot**
 
 In `src/daemon/run.rs:65`, replace:
+
 ```rust
 crate::tools::shell::spawn_flake_warmup(config.workspace.clone());
 ```
+
 with:
+
 ```rust
 if let Err(e) = crate::tools::shell::run_home_manager_switch(&config.workspace).await {
     logfire::warn!("home-manager switch failed at boot", error = e);
@@ -215,8 +221,7 @@ if let Err(e) = crate::tools::shell::run_home_manager_switch(&config.workspace).
 
 **Step 8: Run all tests**
 
-Run: `cargo test -p ghost shell::tests`
-Run: `just ci`
+Run: `cargo test -p ghost shell::tests` Run: `just ci`
 
 **Step 9: Commit**
 
@@ -231,6 +236,7 @@ feat: replace nix develop wrapping with home-manager profile PATH
 Update the flake parser to read `home.packages` instead of `packages = with pkgs;`.
 
 **Files:**
+
 - Modify: `src/prompt/context.rs` (`parse_flake_packages`)
 
 **Step 1: Update the test**
@@ -302,10 +308,11 @@ feat: parse home-manager package list in system prompt
 
 ### Task 4: Skill — update nix-shell.md
 
-Update the GHOST-facing skill to document the home-manager workflow, including
-where to find documentation.
+Update the GHOST-facing skill to document the home-manager workflow, including where to
+find documentation.
 
 **Files:**
+
 - Modify: `prompts/skills/nix-shell.md`
 
 **Step 1: Rewrite the skill**
@@ -314,9 +321,9 @@ where to find documentation.
 ---
 name: nix-shell
 description:
-  Manage the workspace shell environment via Nix + home-manager. Use when you
-  need a CLI tool that isn't available, want to install a tool permanently,
-  set environment variables, or add shell hooks.
+  Manage the workspace shell environment via Nix + home-manager. Use when you need a CLI
+  tool that isn't available, want to install a tool permanently, set environment
+  variables, or add shell hooks.
 ---
 
 # Nix Shell Management
@@ -371,14 +378,14 @@ Run a tool without adding it to the flake:
 
     nix search nixpkgs <query>
 
-Package names in nixpkgs sometimes differ from the command name. Always check
-with `nix search` before editing the flake.
+Package names in nixpkgs sometimes differ from the command name. Always check with
+`nix search` before editing the flake.
 
 ## Documentation
 
-If you need home-manager docs (available options, programs.* modules, etc.),
-use the `context7` MCP to look up `home-manager` documentation. For nixpkgs
-package search, use `nix search nixpkgs <query>`.
+If you need home-manager docs (available options, programs.\* modules, etc.), use the
+`context7` MCP to look up `home-manager` documentation. For nixpkgs package search, use
+`nix search nixpkgs <query>`.
 ```
 
 **Step 2: Commit**
@@ -395,6 +402,7 @@ Update the Docker entrypoint to run `home-manager switch` before starting the da
 This ensures the nix environment is ready. The ghost binary is already in the image.
 
 **Files:**
+
 - Modify: `deploy/common/entrypoint.sh`
 
 **Step 1: Update entrypoint**
@@ -453,6 +461,7 @@ docker run --rm -v ghost-test-nix:/nix -v /tmp/ghost-workspace:/workspace \
 ```
 
 Verify:
+
 - Entrypoint copies default flake to workspace
 - `home-manager switch` runs and installs packages
 - Ghost daemon starts

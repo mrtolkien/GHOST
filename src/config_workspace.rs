@@ -2,11 +2,6 @@ use std::path::Path;
 
 use crate::config::{Config, ConfigError};
 
-const DEFAULT_BOOT_TEMPLATE: &str =
-    "# BOOT\n\nYou are a GHOST, a personal AI agent for your OPERATOR.\n";
-
-const DEFAULT_FLAKE: &str = include_str!("../deploy/common/default-flake.nix");
-
 #[tracing::instrument(skip_all, fields(workspace = %config.workspace.display()))]
 pub fn bootstrap_workspace(config: &Config) -> Result<(), ConfigError> {
     std::fs::create_dir_all(&config.workspace).map_err(|source| ConfigError::WriteFile {
@@ -29,23 +24,14 @@ pub fn bootstrap_workspace(config: &Config) -> Result<(), ConfigError> {
         std::fs::create_dir_all(&path).map_err(|source| ConfigError::WriteFile { path, source })?;
     }
 
-    create_file_if_missing(&config.workspace.join("BOOT.md"), DEFAULT_BOOT_TEMPLATE)?;
+    // User-only files (not bundled — never overwritten)
     create_file_if_missing(&config.workspace.join("SOUL.md"), "")?;
     create_file_if_missing(&config.workspace.join("OPERATOR.md"), "")?;
-    create_file_if_missing(&config.workspace.join("shell/flake.nix"), DEFAULT_FLAKE)?;
 
-    crate::skills::install_default_skills(&config.workspace).map_err(|source| {
-        ConfigError::WriteFile {
-            path: config.workspace.join("skills"),
-            source,
-        }
-    })?;
-
-    crate::agents::install_default_agents(&config.workspace).map_err(|source| {
-        ConfigError::WriteFile {
-            path: config.workspace.join("agents"),
-            source,
-        }
+    // All bundled files (skills, agents, flake, etc.)
+    crate::bundled::install_all(&config.workspace).map_err(|source| ConfigError::WriteFile {
+        path: config.workspace.clone(),
+        source,
     })?;
 
     Ok(())

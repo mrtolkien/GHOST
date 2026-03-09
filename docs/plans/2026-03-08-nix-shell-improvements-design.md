@@ -7,8 +7,8 @@
 
 ## Solution
 
-Replace `nix develop` wrapping with **home-manager** as the system shell manager.
-Ghost binary stays Docker-built — updates via new image pulls.
+Replace `nix develop` wrapping with **home-manager** as the system shell manager. Ghost
+binary stays Docker-built — updates via new image pulls.
 
 ## Out of Scope (for now)
 
@@ -65,17 +65,19 @@ home-manager configuration:
 }
 ```
 
-GHOST edits this file to add/remove packages, set env vars, and add shell hooks.
-Ghost binary is NOT in the flake — it's baked into the Docker image.
+GHOST edits this file to add/remove packages, set env vars, and add shell hooks. Ghost
+binary is NOT in the flake — it's baked into the Docker image.
 
 ### Daemon Behavior
 
 **On boot:**
+
 - Run `home-manager switch --flake $WORKSPACE/shell/` to ensure environment is set up
 - This replaces `spawn_flake_warmup()` — first boot downloads everything, subsequent
   boots are near-instant (nix store cached in `/nix` volume)
 
 **Shell commands:**
+
 - No more `nix develop` wrapping. `Command::new("sh")` directly — packages are in PATH
   via home-manager's profile
 - Daemon sets PATH from home-manager profile on spawned commands
@@ -86,11 +88,11 @@ Ghost binary is NOT in the flake — it's baked into the Docker image.
 ### Docker Image
 
 Keeps the current multi-stage build. Ghost binary is still built and baked into the
-image. The only change is that the entrypoint runs `home-manager switch` on boot
-(after the ghost binary is already available in the image).
+image. The only change is that the entrypoint runs `home-manager switch` on boot (after
+the ghost binary is already available in the image).
 
-First boot of a fresh deployment is slower (~30-60s downloading packages from nix cache).
-`/nix` docker volume caches the nix store across container restarts.
+First boot of a fresh deployment is slower (~30-60s downloading packages from nix
+cache). `/nix` docker volume caches the nix store across container restarts.
 
 ### Skill Update
 
@@ -116,9 +118,9 @@ on workspace bootstrap.
 
 ## Key Decisions
 
-- **home-manager over nix profile**: marginal complexity cost, but gives declarative
-  env vars and shell hooks — a richer surface for the GHOST to manage
-- **Ghost binary stays in Docker**: simplicity — no flake-based binary distribution,
-  no self-update mechanism, no CI release pipeline changes needed
+- **home-manager over nix profile**: marginal complexity cost, but gives declarative env
+  vars and shell hooks — a richer surface for the GHOST to manage
+- **Ghost binary stays in Docker**: simplicity — no flake-based binary distribution, no
+  self-update mechanism, no CI release pipeline changes needed
 - **No file watcher**: GHOST runs `home-manager switch` explicitly, sees errors
 - **Binary releases deferred**: will revisit when project stabilizes
