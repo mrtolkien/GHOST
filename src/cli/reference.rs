@@ -161,13 +161,13 @@ async fn cmd_import(
             crate::reference_import::import_git(db, workspace, &import_config).await?
         }
         ImportSource::Page { .. } => {
-            crate::reference_import::import_page(db, workspace, &config.web, &import_config).await?
+            crate::reference_import::import_page(db, workspace, &config.docling, &import_config).await?
         }
         ImportSource::Crawl { .. } => {
             crate::reference_import::import_crawl(db, workspace, &import_config).await?
         }
         ImportSource::File { .. } => {
-            crate::reference_import::import_file(db, workspace, &config.web, &import_config).await?
+            crate::reference_import::import_file(db, workspace, &config.docling, &import_config).await?
         }
     };
 

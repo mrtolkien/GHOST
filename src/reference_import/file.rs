@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use crate::config::WebConfig;
+use crate::config::DoclingConfig;
 use crate::db;
 use crate::db::GhostDb;
 
@@ -11,17 +11,12 @@ use super::types::{ImportConfig, ImportError, ImportResult, ImportSource};
 pub async fn import_file(
     db: &GhostDb,
     workspace: &Path,
-    web_config: &WebConfig,
+    docling_config: &DoclingConfig,
     config: &ImportConfig,
 ) -> Result<ImportResult, ImportError> {
     let ImportSource::File { path: file_path } = &config.source else {
         return Err(ImportError::Fetch("expected file source".into()));
     };
-
-    let docling_url = web_config
-        .docling_url
-        .as_deref()
-        .ok_or_else(|| ImportError::Fetch("docling_url not configured".into()))?;
 
     let source_path = if Path::new(file_path).is_absolute() {
         std::path::PathBuf::from(file_path)
@@ -71,9 +66,13 @@ pub async fn import_file(
         db::knowledge::upsert_import_batch(db, &topic_id, "file", file_path, None, 0).await?;
 
     // Convert via docling
-    let markdown = crate::web::docling::convert_file(docling_url, &source_path)
-        .await
-        .map_err(|e| ImportError::Fetch(e.to_string()))?;
+    let markdown = crate::web::docling::convert(
+        docling_config,
+        crate::web::docling::DoclingSource::File { path: &source_path },
+        &crate::web::docling::ConvertOptions::default(),
+    )
+    .await
+    .map_err(|e| ImportError::Fetch(e.to_string()))?;
 
     // Preserve original
     let originals_dir = workspace
