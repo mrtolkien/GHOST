@@ -58,10 +58,6 @@ pub(super) struct CodexToolDefinition {
 #[derive(Debug, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub(super) enum CodexInputItem {
-    Message {
-        role: String,
-        content: Vec<CodexInputPart>,
-    },
     FunctionCall {
         call_id: String,
         name: String,
@@ -75,12 +71,6 @@ pub(super) enum CodexInputItem {
     /// Serialized as raw JSON — the `type` tag comes from the value itself.
     #[serde(untagged)]
     Raw(Value),
-}
-
-#[derive(Debug, Serialize)]
-pub(super) struct CodexInputPart {
-    r#type: String,
-    text: String,
 }
 
 /// Convert a generic `ChatRequest` into the Codex Responses API wire format.
