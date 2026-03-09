@@ -156,10 +156,19 @@ pub async fn boot_with_config(config: Config) -> Result<DaemonHandle, GhostError
         references, diary, embeddings, "knowledge stats at boot"
     );
 
-    // Boot reconciliation: embed any knowledge that is missing or outdated
+    // Boot reconciliation: discover missed files, then embed
     let client = EmbeddingClient::new(&config.embeddings);
     if client.is_available().await {
-        info!("running embedding boot reconciliation");
+        info!("running boot reconciliation");
+        match crate::embeddings::pipeline::reconcile_filesystem(&db, &config.workspace).await {
+            Ok(discovered) if discovered > 0 => {
+                info!(discovered, "boot: discovered untracked files");
+            }
+            Err(e) => {
+                logfire::warn!("boot filesystem reconciliation failed", error = e.to_string());
+            }
+            _ => {}
+        }
         match crate::embeddings::pipeline::reconcile_embeddings(&client, &db).await {
             Ok((embedded, skipped)) => {
                 info!(embedded, skipped, "boot reconciliation complete");
@@ -186,6 +195,7 @@ pub async fn boot_with_config(config: Config) -> Result<DaemonHandle, GhostError
     // Spawn hourly embedding reconciliation
     let reconcile_handle = super::watcher::spawn_reconciliation_loop(
         db.clone(),
+        config.workspace.clone(),
         config.embeddings.clone(),
         shutdown_rx.clone(),
     );

@@ -758,3 +758,33 @@ fn content_hash_differs_for_different_content() {
     let hash_b = embeddings::pipeline::content_hash("world");
     assert_ne!(hash_a, hash_b);
 }
+
+#[tokio::test]
+async fn reconcile_filesystem_discovers_untracked_reference() {
+    let (db, _config, workspace, _config_dir) = common::test_database().await;
+
+    // Write a reference file to disk without creating a DB record
+    let refs_dir = workspace.path().join("references").join("test-topic");
+    std::fs::create_dir_all(&refs_dir).unwrap();
+    std::fs::write(
+        refs_dir.join("orphan.md"),
+        "## Orphan Reference\n\nThis file exists on disk but not in the DB.",
+    )
+    .unwrap();
+
+    // Verify it's not in the DB yet
+    let count_before = db::knowledge::count_references(&db).await.unwrap();
+    assert_eq!(count_before, 0);
+
+    // Run filesystem reconciliation
+    let discovered =
+        ghost::embeddings::pipeline::reconcile_filesystem(&db, workspace.path())
+            .await
+            .unwrap();
+
+    assert!(discovered > 0, "should discover the orphan file");
+
+    // Verify it's now in the DB
+    let count_after = db::knowledge::count_references(&db).await.unwrap();
+    assert!(count_after > 0, "orphan reference should now be in DB");
+}

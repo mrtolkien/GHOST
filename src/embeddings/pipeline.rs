@@ -264,6 +264,69 @@ pub async fn embed_sources(
     Ok(total_embedded)
 }
 
+/// Scan the filesystem for files that exist on disk but have no DB record.
+///
+/// Walks `notes/`, `references/`, `diary/` under the workspace and feeds
+/// each file through the watcher's `process_change` logic, which creates
+/// DB records and returns `EmbedRequest`s for any new files.
+///
+/// Returns the number of files discovered and synced.
+#[tracing::instrument(name = "reconcile filesystem", skip_all, fields(
+    discovered = tracing::field::Empty,
+))]
+pub async fn reconcile_filesystem(
+    db: &GhostDb,
+    workspace: &std::path::Path,
+) -> Result<usize, PipelineError> {
+    let mut discovered = 0usize;
+
+    for subdir in ["notes", "references", "diary"] {
+        let dir = workspace.join(subdir);
+        if !dir.exists() {
+            continue;
+        }
+        let files = walk_directory(&dir);
+        for file_path in files {
+            match crate::daemon::watcher::process_change(db, workspace, &file_path).await {
+                Ok(Some(_)) => {
+                    discovered += 1;
+                }
+                Ok(None) => {}
+                Err(e) => {
+                    tracing::warn!(
+                        path = file_path.display().to_string(),
+                        error = e.to_string(),
+                        "reconcile: failed to process file"
+                    );
+                }
+            }
+        }
+    }
+
+    tracing::Span::current().record("discovered", discovered as u64);
+    Ok(discovered)
+}
+
+fn walk_directory(dir: &std::path::Path) -> Vec<std::path::PathBuf> {
+    let mut files = Vec::new();
+    walk_directory_inner(dir, &mut files);
+    files
+}
+
+fn walk_directory_inner(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            walk_directory_inner(&path, out);
+        } else if path.is_file() {
+            out.push(path);
+        }
+    }
+}
+
 const RECONCILE_PAGE_SIZE: usize = 50;
 
 /// Run boot reconciliation: find sources that need embedding and embed them.

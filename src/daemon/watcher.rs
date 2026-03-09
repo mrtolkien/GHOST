@@ -486,6 +486,7 @@ const RECONCILE_INTERVAL: Duration = Duration::from_secs(60 * 60);
 #[tracing::instrument(name = "start reconciliation loop", skip_all)]
 pub fn spawn_reconciliation_loop(
     db: GhostDb,
+    workspace: PathBuf,
     embeddings_config: EmbeddingsConfig,
     mut shutdown: tokio::sync::watch::Receiver<bool>,
 ) -> tokio::task::JoinHandle<()> {
@@ -503,6 +504,18 @@ pub fn spawn_reconciliation_loop(
                 continue;
             }
 
+            // Phase 1: discover files on disk that the watcher missed
+            match crate::embeddings::pipeline::reconcile_filesystem(&db, &workspace).await {
+                Ok(discovered) if discovered > 0 => {
+                    info!(discovered, "filesystem reconciliation found new files");
+                }
+                Err(e) => {
+                    logfire::warn!("filesystem reconciliation failed", error = e.to_string());
+                }
+                _ => {}
+            }
+
+            // Phase 2: re-embed any sources with stale content hashes
             info!("running periodic embedding reconciliation");
             match crate::embeddings::pipeline::reconcile_embeddings(&client, &db).await {
                 Ok((embedded, skipped)) => {
