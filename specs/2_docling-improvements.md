@@ -1,44 +1,147 @@
-# Backlog — Docling Extraction Improvements
+# Spec — Docling Improvements
 
-## Performance
+## Status: Design Plan (awaiting review)
 
-Review performance: currently on my homelab (CPU-only) it can take over 10 minutes and
-time out.
+## Findings from Testing
 
-We need to review what affects docling perf and how we can improve it.
+### Performance (Ark Nova Rulebook, 20 pages, 9.1 MB, CPU-only)
 
-## VLM-Powered Image Descriptions
+| Configuration | Time | Notes |
+|---|---|---|
+| EasyOCR + accurate tables | 465s | Default docling settings — unusable |
+| **RapidOCR** + accurate tables | **75s** | **6x faster than EasyOCR on CPU** |
+| No OCR + accurate tables | 20s | Digital PDF only |
+| No OCR + fast tables | 19s | Fastest possible |
+| RapidOCR, pages 1-5 | 17s | Scales ~linearly with page count |
 
-Currently docling extracts images as placeholders (`image_export_mode: "placeholder"`).
-Images in documents (diagrams, charts, photos) carry information that is lost.
+**Key takeaways:**
+- **RapidOCR is 6x faster than EasyOCR on CPU.** This alone fixes the timeout problem.
+- OCR is the dominant cost (75s with vs 20s without). Table mode is negligible.
+- Must use the **async** API (`/v1/convert/source/async` + polling). The sync endpoint
+  is inexplicably 4-6x slower (confirmed with warm cache, no queue contention).
+- The async endpoint uses JSON with base64-encoded files, not multipart form-data.
+- `OMP_NUM_THREADS` / `MKL_NUM_THREADS` must match CPU count (halved time on first fix).
 
-Use a VLM (vision-language model) to generate descriptions for extracted images. Docling
-supports this natively via `do_picture_description: true` + a VLM pipeline config
-(`pipeline: "vlm"`). This requires either a local VLM or an API-compatible endpoint.
+### GPU Acceleration
 
-### Options
+Not viable on current hardware. See `specs/backlog/3-vlm-image-descriptions.md` for
+VLM-specific notes. Revisit when hardware changes (Mac Mini M4 is the clean path).
 
-- **Local VLM via docling**: Configure `VlmConvertOptions` with a local model
-  (transformers/mlx engine). Requires GPU for reasonable speed.
-- **External VLM API**: Point docling at an OpenAI-compatible vision endpoint. Could
-  reuse the GHOST's existing provider infrastructure.
-- **Post-processing**: Extract images separately, send to a vision model outside
-  docling, and inject descriptions back into the markdown. More flexible but more
-  complex.
+### VLM Image Descriptions
 
-## More Extraction Options
+Tested, quality insufficient. Deferred to backlog:
+`specs/backlog/3-vlm-image-descriptions.md`
 
-Expose docling conversion options through the CLI and config:
+## Design
 
-- `do_ocr` / `ocr_engine` — toggle OCR, choose between easyocr/tesseract
-- `table_mode` — accurate vs fast table extraction
-- `do_formula_enrichment` — LaTeX formula extraction
-- `do_code_enrichment` — code block detection
-- `page_range` — convert specific pages only (useful for large documents)
-- `document_timeout` — per-document timeout override
+### 1. CLI Restructure
 
-These could be exposed as:
+Split `ghost reference import --source <type>` into two commands with clap subcommands:
 
-- CLI flags on `ghost reference import --source file/page`
-- Config defaults in `[docling]` section of config.toml
-- Both, with CLI overriding config
+```
+ghost reference import <SUBCOMMAND>
+  git    --url <url> --topic <name> [--paths dir1,dir2] [--extensions .md,.rs]
+  crawl  --url <url> --topic <name> [--max-depth 3] [--max-pages 50]
+
+ghost document import <SUBCOMMAND>
+  url    --url <url> --topic <name> [options...]
+  file   --path <path> --topic <name> [options...]
+```
+
+#### Document import options
+
+These are **OPERATOR-facing overrides**, not GHOST decisions. The GHOST uses defaults
+unless the OPERATOR explicitly requests otherwise. The skill must not guess at these.
+
+| Flag | Default | When an OPERATOR would use it |
+|---|---|---|
+| `--no-ocr` | OCR on | OPERATOR knows the PDF is digital and wants speed |
+| `--page-range "1-10"` | full doc | OPERATOR wants specific sections of a large document |
+| `--timeout` | 600s | OPERATOR needs more time for huge documents |
+
+**Not exposed** (hardcoded to good defaults):
+- OCR engine: always `rapidocr` (6x faster than easyocr, no reason to switch)
+- Table mode: always `accurate` (fast mode made no measurable difference)
+- Image export: always `placeholder` (VLM descriptions deferred to backlog)
+
+### 2. Config Changes
+
+```toml
+[docling]
+url = "http://localhost:5001"      # moved from [web] section
+timeout = 600                       # seconds, per document
+```
+
+The `docling_url` stays in `[web]` as a deprecated alias during transition, resolving to
+`[docling].url`. Hardcoded defaults (rapidocr, accurate tables, etc.) are not in config
+— they're implementation details, not user choices.
+
+### 3. Async API Client Rewrite
+
+Replace the current sync `reqwest` calls in `src/web/docling.rs` with the async flow:
+
+1. **Submit**: POST JSON to `/v1/convert/source/async` with base64-encoded file/URL
+2. **Poll**: GET `/v1/status/poll/{task_id}?wait=5` until `task_status` is terminal
+3. **Fetch**: GET `/v1/result/{task_id}` for the conversion result
+4. **Timeout**: Cancel after configured timeout, return error
+
+Request payload structure (for file):
+```json
+{
+  "sources": [{"kind": "file", "base64_string": "...", "filename": "..."}],
+  "options": {
+    "to_formats": ["md"],
+    "image_export_mode": "placeholder",
+    "pipeline": "standard",
+    "do_ocr": true,
+    "ocr_engine": "rapidocr",
+    "table_mode": "accurate",
+    "page_range": [1, 9223372036854775807]
+  }
+}
+```
+
+For URL sources: `{"kind": "http", "url": "..."}` instead of base64.
+
+`page_range` is a two-element integer array `[start, end]` (1-indexed, inclusive).
+Default end is max i64 (full document). `--page-range "1-10"` parses to `[1, 10]`.
+
+### 4. Skills
+
+**`reference-import`** (git/crawl — text-based batch imports):
+- Decision flow: search first → find git repo → choose paths/extensions → import
+- Git import: `gh search repos`, browse repo, `ghost reference import git ...`
+- Crawl import: fallback when no git source exists
+- Post-import: enrich topic note, search imported refs
+
+**`document-import`** (page/file — docling-powered single documents):
+- Decision flow: search first → determine source (URL or uploaded file) → import
+- **Use defaults.** Do not add `--no-ocr` or `--page-range` unless the OPERATOR
+  explicitly asks. These are optimization knobs, not standard workflow.
+- Post-import: same topic note enrichment
+
+Both skills share the post-import guidance (search, topic notes, cleanup). Duplicated
+rather than split — the GHOST needs the full decision flow in one place.
+
+### 5. Implementation Order
+
+1. **Config**: Add `[docling]` section, keep `[web].docling_url` as deprecated alias
+2. **Async client**: Rewrite `src/web/docling.rs` to use async API + polling
+3. **Options plumbing**: Thread options (ocr, page_range, timeout) through conversion fns
+4. **CLI split**: Restructure `ghost reference import` and add `ghost document import`
+5. **Skills**: Write `document-import` skill, update `reference-import` skill
+
+### 6. Recommended compose.yaml
+
+```yaml
+docling-serve:
+  image: ghcr.io/docling-project/docling-serve:latest
+  container_name: docling-serve
+  ports:
+    - "5001:5001"
+  environment:
+    - DOCLING_SERVE_ENABLE_UI=1
+    - OMP_NUM_THREADS=14          # match CPU count
+    - MKL_NUM_THREADS=14
+  restart: unless-stopped
+```

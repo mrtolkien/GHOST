@@ -13,3 +13,8 @@ Even after parsing, the snippet is shown as:
 ```
 
 It only shows the beginning of the file, which is pointless.
+
+---
+
+Reconciliation should not destroy and remake everything, just check if there are files
+we missed with the watcher.
