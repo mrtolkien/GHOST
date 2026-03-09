@@ -29,11 +29,7 @@ pub async fn run_home_manager_switch(workspace: &std::path::Path) -> Result<(), 
 
     tracing::info!("running home-manager switch");
     let output = tokio::process::Command::new("home-manager")
-        .args([
-            "switch",
-            "--flake",
-            shell_dir.to_str().unwrap_or("."),
-        ])
+        .args(["switch", "--flake", shell_dir.to_str().unwrap_or(".")])
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
         .output()

@@ -1,9 +1,9 @@
 ---
 name: nix-shell
 description:
-  Manage the workspace shell environment via Nix + home-manager. Use when you
-  need a CLI tool that isn't available, want to install a tool permanently,
-  set environment variables, or add shell hooks.
+  Manage the workspace shell environment via Nix + home-manager. Use when you need a CLI
+  tool that isn't available, want to install a tool permanently, set environment
+  variables, or add shell hooks.
 ---
 
 # Nix Shell Management
@@ -58,11 +58,11 @@ Run a tool without adding it to the flake:
 
     nix search nixpkgs <query>
 
-Package names in nixpkgs sometimes differ from the command name. Always check
-with `nix search` before editing the flake.
+Package names in nixpkgs sometimes differ from the command name. Always check with
+`nix search` before editing the flake.
 
 ## Documentation
 
-If you need home-manager docs (available options, programs.* modules, etc.),
-use the `context7` MCP to look up `home-manager` documentation. For nixpkgs
-package search, use `nix search nixpkgs <query>`.
+If you need home-manager docs (available options, programs.\* modules, etc.), use the
+`context7` MCP to look up `home-manager` documentation. For nixpkgs package search, use
+`nix search nixpkgs <query>`.
