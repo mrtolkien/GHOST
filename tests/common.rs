@@ -320,6 +320,7 @@ impl LiveTestEnv {
                 tool_calls,
                 tool_results,
                 None,
+                None,
             )
             .await
             .expect("replay message");

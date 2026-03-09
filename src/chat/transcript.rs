@@ -103,6 +103,7 @@ mod tests {
             tool_calls: tool_calls.map(|v| serde_json::to_string(&v).unwrap()),
             tool_results: tool_results.map(|v| serde_json::to_string(&v).unwrap()),
             raw_output: None,
+            images: None,
             created_at: crate::db::now(),
         }
     }

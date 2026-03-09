@@ -40,12 +40,28 @@ pub(super) fn convert_stored_message_to_provider_message(
     let tool_calls = message.tool_calls_parsed();
     let tool_results = message.tool_results_parsed();
     let raw_output = message.raw_output_parsed();
+    let images = message.images_parsed();
 
     let mut content = Vec::new();
     if !message.content.trim().is_empty() {
         content.push(ContentBlock::Text {
             text: message.content,
         });
+    }
+    if let Some(images) = images {
+        for img in images {
+            if let (Some(path), Some(mime_type), Some(filename)) = (
+                img.get("path").and_then(Value::as_str),
+                img.get("mime_type").and_then(Value::as_str),
+                img.get("filename").and_then(Value::as_str),
+            ) {
+                content.push(ContentBlock::Image {
+                    path: path.to_string(),
+                    mime_type: mime_type.to_string(),
+                    filename: filename.to_string(),
+                });
+            }
+        }
     }
     if let Some(tool_calls) = tool_calls {
         for call in tool_calls {
@@ -169,6 +185,29 @@ pub(super) fn tool_results_to_values(results: &[ContentBlock]) -> Vec<Value> {
             _ => None,
         })
         .collect()
+}
+
+pub(super) fn images_to_values(content: &[ContentBlock]) -> Option<Vec<Value>> {
+    let values: Vec<Value> = content
+        .iter()
+        .filter_map(|block| match block {
+            ContentBlock::Image {
+                path,
+                mime_type,
+                filename,
+            } => Some(json!({
+                "path": path,
+                "mime_type": mime_type,
+                "filename": filename,
+            })),
+            _ => None,
+        })
+        .collect();
+    if values.is_empty() {
+        None
+    } else {
+        Some(values)
+    }
 }
 
 pub(super) fn render_tool_error(error: ToolError) -> String {
