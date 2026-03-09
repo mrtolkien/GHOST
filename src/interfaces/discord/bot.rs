@@ -77,6 +77,8 @@ pub(super) struct Handler {
     bot_user_id: OnceLock<String>,
     started_at: std::time::SystemTime,
     active_sessions: ActiveSessions,
+    /// Channel for bundled file update button responses.
+    bundled_update_tx: Option<tokio::sync::mpsc::UnboundedSender<String>>,
 }
 
 impl Handler {
@@ -86,6 +88,7 @@ impl Handler {
         config: Config,
         allowed_user_ids: Vec<String>,
         active_sessions: ActiveSessions,
+        bundled_update_tx: Option<tokio::sync::mpsc::UnboundedSender<String>>,
     ) -> Self {
         Self {
             session_chat,
@@ -95,6 +98,7 @@ impl Handler {
             bot_user_id: OnceLock::new(),
             started_at: std::time::SystemTime::now(),
             active_sessions,
+            bundled_update_tx,
         }
     }
 
@@ -472,6 +476,27 @@ impl EventHandler for Handler {
         ctx: Context,
         interaction: serenity::model::application::Interaction,
     ) {
+        // Handle component interactions (button clicks)
+        if let Some(component) = interaction.as_message_component() {
+            let custom_id = &component.data.custom_id;
+
+            // Acknowledge the interaction immediately
+            let _ = component
+                .create_response(
+                    &ctx.http,
+                    CreateInteractionResponse::Acknowledge,
+                )
+                .await;
+
+            // Forward bundled update responses
+            if custom_id.starts_with("bundled_") {
+                if let Some(tx) = &self.bundled_update_tx {
+                    let _ = tx.send(custom_id.clone());
+                }
+            }
+            return;
+        }
+
         let Some(command) = interaction.as_command() else {
             return;
         };

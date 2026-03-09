@@ -142,7 +142,8 @@ pub async fn boot() -> Result<BootResult, GhostError> {
     );
 
     let discord_result =
-        discord::start_discord(&config, session_chat.clone(), db.clone(), active_sessions).await?;
+        discord::start_discord(&config, session_chat.clone(), db.clone(), active_sessions, None)
+            .await?;
 
     let discord_sender_arc = discord_result
         .as_ref()
