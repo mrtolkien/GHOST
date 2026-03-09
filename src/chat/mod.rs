@@ -12,4 +12,5 @@ pub use session::SessionChat;
 pub use transcript::{extract_agent_findings, filter_transcript};
 pub use types::{
     ChatError, ChatResult, ChatStopReason, EventSender, RunMetadata, ToolCallInfo, ToolLoopEvent,
+    ToolResultInfo,
 };

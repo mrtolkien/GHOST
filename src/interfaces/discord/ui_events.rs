@@ -4,7 +4,7 @@ use serenity::http::Http;
 use serenity::model::id::{ChannelId, MessageId};
 use tokio::sync::mpsc::UnboundedReceiver;
 
-use crate::chat::{RunMetadata, ToolCallInfo, ToolLoopEvent};
+use crate::chat::{RunMetadata, ToolCallInfo, ToolLoopEvent, ToolResultInfo};
 use crate::tools::TodoItem;
 
 use super::components_v2::{container, edit_v2_message, send_v2_message, text_display};
@@ -24,6 +24,7 @@ pub struct DiscordUiRenderer {
     http: Arc<Http>,
     channel_id: ChannelId,
     todo_message_id: Option<MessageId>,
+    tool_call_message_id: Option<MessageId>,
 }
 
 impl DiscordUiRenderer {
@@ -37,6 +38,7 @@ impl DiscordUiRenderer {
             http,
             channel_id,
             todo_message_id: None,
+            tool_call_message_id: None,
         }
     }
 
@@ -46,8 +48,8 @@ impl DiscordUiRenderer {
                 ToolLoopEvent::ToolCalls { calls } => {
                     self.handle_tool_calls(&calls).await;
                 }
-                ToolLoopEvent::ToolResults { .. } => {
-                    // Handled in Task 3 — two-phase rendering
+                ToolLoopEvent::ToolResults { results } => {
+                    self.handle_tool_results(&results).await;
                 }
                 ToolLoopEvent::TodoUpdated { items } => {
                     self.handle_todo_updated(&items).await;
@@ -56,16 +58,52 @@ impl DiscordUiRenderer {
         }
     }
 
-    async fn handle_tool_calls(&self, calls: &[ToolCallInfo]) {
-        let display = format_tool_calls(calls);
+    async fn handle_tool_calls(&mut self, calls: &[ToolCallInfo]) {
+        let lines: Vec<&str> = calls
+            .iter()
+            .filter(|c| !c.display.is_empty())
+            .map(|c| c.display.as_str())
+            .collect();
+        if lines.is_empty() {
+            return;
+        }
+        let display = lines.join("\n");
+
         let components = vec![container(
             vec![text_display(&display)],
             Some(TOOL_CALL_COLOR),
         )];
 
-        if let Err(e) = send_v2_message(&self.http, self.channel_id, &components, Vec::new()).await
-        {
-            logfire::warn!("failed to send tool call message", error = e.to_string(),);
+        match send_v2_message(&self.http, self.channel_id, &components, Vec::new()).await {
+            Ok(msg) => self.tool_call_message_id = Some(msg.id),
+            Err(e) => {
+                logfire::warn!("failed to send tool call message", error = e.to_string())
+            }
+        }
+    }
+
+    async fn handle_tool_results(&mut self, results: &[ToolResultInfo]) {
+        let Some(msg_id) = self.tool_call_message_id.take() else {
+            return;
+        };
+
+        let lines: Vec<String> = results
+            .iter()
+            .filter(|r| !r.display_request.is_empty())
+            .map(|r| format!("{}  {}", r.display_request, r.display_result))
+            .collect();
+        if lines.is_empty() {
+            return;
+        }
+        let display = lines.join("\n");
+
+        let components = vec![container(
+            vec![text_display(&display)],
+            Some(TOOL_CALL_COLOR),
+        )];
+
+        if let Err(e) = edit_v2_message(&self.http, self.channel_id, msg_id, &components).await {
+            logfire::warn!("failed to edit tool result message", error = e.to_string());
         }
     }
 
@@ -91,21 +129,6 @@ impl DiscordUiRenderer {
             }
         }
     }
-}
-
-/// Format tool calls for display: each call on its own line with args.
-fn format_tool_calls(calls: &[ToolCallInfo]) -> String {
-    calls
-        .iter()
-        .map(|c| {
-            if c.args_summary.is_empty() {
-                format!("`{}`", c.name)
-            } else {
-                format!("`{}` {}", c.name, c.args_summary)
-            }
-        })
-        .collect::<Vec<_>>()
-        .join("\n")
 }
 
 /// Format a TODO list for Discord display.
@@ -326,38 +349,6 @@ mod tests {
         assert!(result.contains("1. ✓ Research API"));
         assert!(result.contains("2. ◉ Write code"));
         assert!(result.contains("3. ○ Add tests"));
-    }
-
-    #[test]
-    fn tool_calls_display() {
-        let calls = vec![
-            ToolCallInfo {
-                name: "web_search".to_string(),
-                args_summary: "query: latest rust news".to_string(),
-                display: String::new(),
-            },
-            ToolCallInfo {
-                name: "read_file".to_string(),
-                args_summary: "path: /src/main.rs".to_string(),
-                display: String::new(),
-            },
-        ];
-        let result = format_tool_calls(&calls);
-        assert_eq!(
-            result,
-            "`web_search` query: latest rust news\n`read_file` path: /src/main.rs"
-        );
-    }
-
-    #[test]
-    fn tool_calls_no_args() {
-        let calls = vec![ToolCallInfo {
-            name: "list_files".to_string(),
-            args_summary: String::new(),
-            display: String::new(),
-        }];
-        let result = format_tool_calls(&calls);
-        assert_eq!(result, "`list_files`");
     }
 
     #[test]
