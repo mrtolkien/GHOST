@@ -40,6 +40,12 @@ pub enum WebError {
 
     #[error("docling conversion failed: {0}")]
     Docling(String),
+
+    #[error("docling conversion timed out after {seconds}s")]
+    DoclingTimeout { seconds: u64 },
+
+    #[error("docling task failed: {detail}")]
+    DoclingTaskFailed { detail: String },
 }
 
 #[derive(Debug, Clone, Serialize)]
