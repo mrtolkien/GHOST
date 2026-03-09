@@ -3,6 +3,7 @@
 
 pub mod agents;
 pub mod auth;
+pub mod bundled;
 pub mod chat;
 pub mod cli;
 pub mod coding;
