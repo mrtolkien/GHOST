@@ -9,21 +9,22 @@ description:
 
 ## Workspace flake
 
-`$WORKSPACE/shell/flake.nix` defines the shell environment using `nix develop`. All
-installed packages are available in PATH for every `run_shell_command`.
+`$WORKSPACE/shell/flake.nix` defines the shell environment as a `buildEnv` package. At
+daemon boot, `nix build` creates a merged store path whose `bin/` is prepended to PATH
+for every `run_shell_command`.
 
 ## Adding packages permanently
 
-Edit `$WORKSPACE/shell/flake.nix` and add to the `packages` list:
+Edit `$WORKSPACE/shell/flake.nix` and add to the `paths` list:
 
-    packages = with pkgs; [
+    paths = with pkgs; [
       # ... existing packages ...
       nodejs
     ];
 
 Then **validate the change** by running:
 
-    nix develop $WORKSPACE/shell --command sh -c "echo ok"
+    nix build $WORKSPACE/shell --no-link
 
 Check the output for errors. If the package name is wrong, find it with
 `nix search nixpkgs <query>`.
@@ -36,7 +37,7 @@ Tell the OPERATOR that a restart is needed to pick up changes.
 To pull the latest nixpkgs:
 
     nix flake update --flake $WORKSPACE/shell/
-    nix develop $WORKSPACE/shell --command sh -c "echo ok"
+    nix build $WORKSPACE/shell --no-link
 
 ## One-off tool use
 

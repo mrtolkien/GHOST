@@ -27,12 +27,14 @@ pub fn build_system_info(workspace: &Path) -> String {
     info
 }
 
-/// Extract package names from a Nix flake's `packages = with pkgs; [ ... ];`
-/// block.
+/// Extract package names from a Nix flake's `paths = with pkgs; [ ... ];`
+/// or `packages = with pkgs; [ ... ];` block.
 fn parse_flake_packages(path: &Path) -> Option<String> {
     let content = std::fs::read_to_string(path).ok()?;
 
-    let marker = if content.contains("packages = with pkgs; [") {
+    let marker = if content.contains("paths = with pkgs; [") {
+        "paths = with pkgs; ["
+    } else if content.contains("packages = with pkgs; [") {
         "packages = with pkgs; ["
     } else {
         return None;
@@ -264,7 +266,7 @@ mod tests {
         fs::create_dir_all(&shell_dir).unwrap();
         fs::write(
             shell_dir.join("flake.nix"),
-            "home.packages = with pkgs; [\n  git\n  ripgrep\n  jq\n];\n",
+            "paths = with pkgs; [\n  git\n  ripgrep\n  jq\n];\n",
         )
         .unwrap();
 

@@ -24,12 +24,14 @@ pub fn background_shell_count() -> usize {
     BACKGROUND_SHELL_COUNT.load(Ordering::Relaxed)
 }
 
-/// PATH extracted from `nix develop` at boot, cached for the daemon lifetime.
-static NIX_SHELL_PATH: OnceLock<String> = OnceLock::new();
+/// `bin/` directory of the built nix shell environment, cached for the daemon
+/// lifetime.
+static NIX_SHELL_BIN: OnceLock<String> = OnceLock::new();
 
-/// Extract PATH from the workspace's `nix develop` shell.
-/// Called at daemon boot. Uses `nix develop shell/ --command sh -c 'echo $PATH'`
-/// to get the full PATH that includes all flake packages.
+/// Build the workspace's nix shell environment and cache its `bin/` path.
+/// Called at daemon boot. Uses `nix build --print-out-paths` to get the
+/// store path of the `buildEnv` derivation, then prepends `{path}/bin` to
+/// every shell command's PATH.
 pub async fn run_nix_shell_setup(workspace: &std::path::Path) -> Result<(), String> {
     let shell_dir = workspace.join("shell");
     if !shell_dir.join("flake.nix").exists() {
@@ -37,34 +39,27 @@ pub async fn run_nix_shell_setup(workspace: &std::path::Path) -> Result<(), Stri
     }
 
     let shell_dir_str = shell_dir.display().to_string();
-    tracing::info!(shell_dir = %shell_dir_str, "extracting PATH from nix develop");
+    tracing::info!(shell_dir = %shell_dir_str, "building nix shell environment");
     let output = tokio::process::Command::new("nix")
-        .args([
-            "develop",
-            &shell_dir_str,
-            "--command",
-            "sh",
-            "-c",
-            "echo $PATH",
-        ])
+        .args(["build", &shell_dir_str, "--no-link", "--print-out-paths"])
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
         .output()
         .await
-        .map_err(|e| format!("failed to run nix develop: {e}"))?;
+        .map_err(|e| format!("failed to run nix build: {e}"))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("nix develop failed: {stderr}"));
+        return Err(format!("nix build failed: {stderr}"));
     }
 
-    let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    if !path.is_empty() {
-        let _ = NIX_SHELL_PATH.set(path.clone());
-        tracing::info!(path_len = path.len(), "nix shell PATH cached");
+    let store_path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if !store_path.is_empty() {
+        let bin_path = format!("{store_path}/bin");
+        let _ = NIX_SHELL_BIN.set(bin_path.clone());
+        tracing::info!(bin_path, "nix shell environment built");
     }
 
-    tracing::info!("nix shell setup complete");
     Ok(())
 }
 
@@ -77,13 +72,13 @@ fn shell_command(
     channel_id: Option<&str>,
     session_id: Option<&str>,
 ) -> tokio::process::Command {
-    let mut cmd = tokio::process::Command::new("sh");
+    let mut cmd = tokio::process::Command::new("/bin/sh");
     cmd.args(["-c", command]);
 
-    // Build PATH: /usr/local/bin (ghost binary) + nix shell packages + system
+    // Build PATH: /usr/local/bin (ghost binary) + nix env + system
     let current_path = std::env::var("PATH").unwrap_or_default();
-    let path = match NIX_SHELL_PATH.get() {
-        Some(nix_path) => format!("/usr/local/bin:{nix_path}"),
+    let path = match NIX_SHELL_BIN.get() {
+        Some(nix_bin) => format!("/usr/local/bin:{nix_bin}:{current_path}"),
         None => format!("/usr/local/bin:{current_path}"),
     };
     cmd.env("PATH", path);

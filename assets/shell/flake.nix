@@ -3,10 +3,11 @@
 
   outputs = { nixpkgs, ... }:
     let
-      mkShell = system:
+      mkEnv = system:
         let pkgs = nixpkgs.legacyPackages.${system};
-        in pkgs.mkShellNoCC {
-          packages = with pkgs; [
+        in pkgs.buildEnv {
+          name = "ghost-shell";
+          paths = with pkgs; [
             # Dev tools
             git
             gh
@@ -40,7 +41,7 @@
           ];
         };
     in {
-      devShells.x86_64-linux.default = mkShell "x86_64-linux";
-      devShells.aarch64-linux.default = mkShell "aarch64-linux";
+      packages.x86_64-linux.default = mkEnv "x86_64-linux";
+      packages.aarch64-linux.default = mkEnv "aarch64-linux";
     };
 }
