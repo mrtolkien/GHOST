@@ -21,7 +21,12 @@ pub async fn import_page(
     docling_config: &DoclingConfig,
     config: &ImportConfig,
 ) -> Result<ImportResult, ImportError> {
-    let ImportSource::Page { url } = &config.source else {
+    let ImportSource::Page {
+        url,
+        no_ocr,
+        page_range,
+    } = &config.source
+    else {
         return Err(ImportError::Fetch("expected page source".into()));
     };
 
@@ -56,10 +61,14 @@ pub async fn import_page(
     let text = match web::fetch(url, &web::FetchOptions::default(), None).await {
         Ok(extracted) => extracted.text,
         Err(web::WebError::UnsupportedContentType { .. }) => {
+            let convert_opts = web::docling::ConvertOptions {
+                ocr: !no_ocr,
+                page_range: *page_range,
+            };
             web::docling::convert(
                 docling_config,
                 web::docling::DoclingSource::Url { url },
-                &web::docling::ConvertOptions::default(),
+                &convert_opts,
             )
             .await
             .map_err(|e| ImportError::Fetch(e.to_string()))?

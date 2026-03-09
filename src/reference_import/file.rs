@@ -14,7 +14,12 @@ pub async fn import_file(
     docling_config: &DoclingConfig,
     config: &ImportConfig,
 ) -> Result<ImportResult, ImportError> {
-    let ImportSource::File { path: file_path } = &config.source else {
+    let ImportSource::File {
+        path: file_path,
+        no_ocr,
+        page_range,
+    } = &config.source
+    else {
         return Err(ImportError::Fetch("expected file source".into()));
     };
 
@@ -66,10 +71,14 @@ pub async fn import_file(
         db::knowledge::upsert_import_batch(db, &topic_id, "file", file_path, None, 0).await?;
 
     // Convert via docling
+    let convert_opts = crate::web::docling::ConvertOptions {
+        ocr: !no_ocr,
+        page_range: *page_range,
+    };
     let markdown = crate::web::docling::convert(
         docling_config,
         crate::web::docling::DoclingSource::File { path: &source_path },
-        &crate::web::docling::ConvertOptions::default(),
+        &convert_opts,
     )
     .await
     .map_err(|e| ImportError::Fetch(e.to_string()))?;

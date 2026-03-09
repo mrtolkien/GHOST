@@ -15,6 +15,8 @@ pub enum ImportSource {
     },
     Page {
         url: String,
+        no_ocr: bool,
+        page_range: Option<(u32, u32)>,
     },
     Crawl {
         url: String,
@@ -23,6 +25,8 @@ pub enum ImportSource {
     },
     File {
         path: String,
+        no_ocr: bool,
+        page_range: Option<(u32, u32)>,
     },
 }
 

@@ -119,6 +119,8 @@ async fn cmd_import(
             },
             "page" => ImportSource::Page {
                 url: require_url()?.to_string(),
+                no_ocr: false,
+                page_range: None,
             },
             "crawl" => ImportSource::Crawl {
                 url: require_url()?.to_string(),
@@ -134,6 +136,8 @@ async fn cmd_import(
                 })?;
                 ImportSource::File {
                     path: path.to_string(),
+                    no_ocr: false,
+                    page_range: None,
                 }
             }
             other => {
@@ -151,7 +155,7 @@ async fn cmd_import(
     let workspace = std::path::Path::new(&config.workspace);
 
     match &import_config.source {
-        ImportSource::File { path } => println!("Importing file: {path}"),
+        ImportSource::File { path, .. } => println!("Importing file: {path}"),
         _ => println!("Importing from {source}: {}", url.unwrap_or("<no url>")),
     }
     println!("Topic: {topic}");
