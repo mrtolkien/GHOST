@@ -46,3 +46,259 @@ pub fn save_manifest(workspace: &Path) -> Result<(), std::io::Error> {
     }
     std::fs::write(manifest_path, json)
 }
+
+// ── Change detection ────────────────────────────────────────────────
+
+use similar::{ChangeTag, TextDiff};
+
+/// Result of comparing bundled files against the workspace.
+pub struct BundledChanges {
+    /// Files that exist in bundle but not in workspace.
+    pub new: Vec<&'static BundledFile>,
+    /// Files that differ between bundle and workspace.
+    pub changed: Vec<ChangedFile>,
+    /// Paths that were in the previous manifest but are no longer bundled
+    /// (and still exist in workspace).
+    pub removed: Vec<String>,
+}
+
+pub struct ChangedFile {
+    pub path: &'static str,
+    pub diff: String,
+    pub bundled_content: &'static str,
+}
+
+impl BundledChanges {
+    pub fn has_updates(&self) -> bool {
+        !self.changed.is_empty() || !self.removed.is_empty()
+    }
+}
+
+/// Compare bundled files against the workspace.
+pub fn compute_changes(workspace: &Path) -> BundledChanges {
+    let mut new = Vec::new();
+    let mut changed = Vec::new();
+
+    let current_paths: std::collections::HashSet<&str> =
+        bundled_files().iter().map(|f| f.path).collect();
+
+    for file in bundled_files() {
+        let dest = workspace.join(file.path);
+        match std::fs::read_to_string(&dest) {
+            Ok(existing) if existing == file.content => {
+                // Unchanged
+            }
+            Ok(existing) => {
+                let diff = generate_diff(&existing, file.content);
+                changed.push(ChangedFile {
+                    path: file.path,
+                    diff,
+                    bundled_content: file.content,
+                });
+            }
+            Err(_) => {
+                new.push(file);
+            }
+        }
+    }
+
+    // Detect removed bundled files
+    let removed = load_manifest(workspace)
+        .into_iter()
+        .filter(|p| !current_paths.contains(p.as_str()))
+        .filter(|p| workspace.join(p).exists())
+        .collect();
+
+    BundledChanges {
+        new,
+        changed,
+        removed,
+    }
+}
+
+/// Generate a unified diff between old (workspace) and new (bundled) content.
+pub fn generate_diff(old: &str, new: &str) -> String {
+    let diff = TextDiff::from_lines(old, new);
+    let mut output = String::new();
+    for change in diff.iter_all_changes() {
+        let sign = match change.tag() {
+            ChangeTag::Delete => "-",
+            ChangeTag::Insert => "+",
+            ChangeTag::Equal => " ",
+        };
+        output.push_str(sign);
+        output.push_str(change.as_str().unwrap_or(""));
+        if !change.as_str().unwrap_or("").ends_with('\n') {
+            output.push('\n');
+        }
+    }
+    output
+}
+
+fn load_manifest(workspace: &Path) -> Vec<String> {
+    let path = workspace.join(".cache/bundled-manifest.json");
+    match std::fs::read_to_string(&path) {
+        Ok(json) => serde_json::from_str(&json).unwrap_or_default(),
+        Err(_) => Vec::new(),
+    }
+}
+
+/// The user's decisions about which updates to apply.
+pub struct UpdateDecision {
+    pub accepted_paths: Vec<String>,
+    pub accepted_deletions: Vec<String>,
+}
+
+impl UpdateDecision {
+    pub fn accept_all(changes: &BundledChanges) -> Self {
+        Self {
+            accepted_paths: changes.changed.iter().map(|c| c.path.to_string()).collect(),
+            accepted_deletions: changes.removed.clone(),
+        }
+    }
+
+    pub fn reject_all() -> Self {
+        Self {
+            accepted_paths: Vec::new(),
+            accepted_deletions: Vec::new(),
+        }
+    }
+}
+
+/// Apply the user's update decisions to the workspace.
+pub fn apply_updates(
+    workspace: &Path,
+    changes: &BundledChanges,
+    decision: &UpdateDecision,
+) -> Result<(), std::io::Error> {
+    // Install new files (always)
+    for file in &changes.new {
+        let dest = workspace.join(file.path);
+        if let Some(parent) = dest.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        std::fs::write(&dest, file.content)?;
+    }
+
+    // Apply accepted changes
+    for file in &changes.changed {
+        if decision.accepted_paths.contains(&file.path.to_string()) {
+            let dest = workspace.join(file.path);
+            std::fs::write(&dest, file.bundled_content)?;
+        }
+    }
+
+    // Apply accepted deletions
+    for path in &decision.accepted_deletions {
+        let dest = workspace.join(path);
+        let _ = std::fs::remove_file(&dest);
+    }
+
+    // Save updated manifest
+    save_manifest(workspace)?;
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    #[test]
+    fn new_files_detected() {
+        let dir = TempDir::new().unwrap();
+        let changes = compute_changes(dir.path());
+        assert!(changes.changed.is_empty());
+        assert!(changes.removed.is_empty());
+        assert!(!changes.new.is_empty());
+    }
+
+    #[test]
+    fn unchanged_files_not_flagged() {
+        let dir = TempDir::new().unwrap();
+        install_all(dir.path()).unwrap();
+        let changes = compute_changes(dir.path());
+        assert!(changes.new.is_empty());
+        assert!(changes.changed.is_empty());
+        assert!(changes.removed.is_empty());
+    }
+
+    #[test]
+    fn modified_workspace_file_detected() {
+        let dir = TempDir::new().unwrap();
+        install_all(dir.path()).unwrap();
+        let first = &bundled_files()[0];
+        std::fs::write(dir.path().join(first.path), "user modified content").unwrap();
+        let changes = compute_changes(dir.path());
+        assert_eq!(changes.changed.len(), 1);
+        assert_eq!(changes.changed[0].path, first.path);
+    }
+
+    #[test]
+    fn removed_bundle_file_detected() {
+        let dir = TempDir::new().unwrap();
+        // Install first so all current files exist
+        install_all(dir.path()).unwrap();
+
+        // Now write a manifest that includes an extra path no longer bundled
+        let mut paths: Vec<&str> = bundled_files().iter().map(|f| f.path).collect();
+        paths.push("skills/old-skill/skill.md");
+        let json = serde_json::to_string(&paths).unwrap();
+        std::fs::write(dir.path().join(".cache/bundled-manifest.json"), json).unwrap();
+
+        // Create the file so it exists in workspace
+        std::fs::create_dir_all(dir.path().join("skills/old-skill")).unwrap();
+        std::fs::write(dir.path().join("skills/old-skill/skill.md"), "old").unwrap();
+
+        let changes = compute_changes(dir.path());
+        assert_eq!(changes.removed.len(), 1);
+        assert_eq!(changes.removed[0], "skills/old-skill/skill.md");
+    }
+
+    #[test]
+    fn diff_generation_works() {
+        let diff = generate_diff("old content\nline 2\n", "new content\nline 2\n");
+        assert!(diff.contains("-old content"));
+        assert!(diff.contains("+new content"));
+    }
+
+    #[test]
+    fn apply_updates_installs_new_files() {
+        let dir = TempDir::new().unwrap();
+        let changes = compute_changes(dir.path());
+        let decision = UpdateDecision::accept_all(&changes);
+        apply_updates(dir.path(), &changes, &decision).unwrap();
+
+        for file in bundled_files() {
+            assert!(dir.path().join(file.path).exists(), "Missing: {}", file.path);
+        }
+    }
+
+    #[test]
+    fn apply_updates_respects_rejection() {
+        let dir = TempDir::new().unwrap();
+        install_all(dir.path()).unwrap();
+
+        let first = &bundled_files()[0];
+        std::fs::write(dir.path().join(first.path), "user version").unwrap();
+
+        let changes = compute_changes(dir.path());
+        assert_eq!(changes.changed.len(), 1);
+
+        let decision = UpdateDecision::reject_all();
+        apply_updates(dir.path(), &changes, &decision).unwrap();
+
+        let content = std::fs::read_to_string(dir.path().join(first.path)).unwrap();
+        assert_eq!(content, "user version");
+    }
+
+    #[test]
+    fn manifest_roundtrip() {
+        let dir = TempDir::new().unwrap();
+        std::fs::create_dir_all(dir.path().join(".cache")).unwrap();
+        save_manifest(dir.path()).unwrap();
+        let loaded = load_manifest(dir.path());
+        let expected: Vec<&str> = bundled_files().iter().map(|f| f.path).collect();
+        assert_eq!(loaded, expected);
+    }
+}
