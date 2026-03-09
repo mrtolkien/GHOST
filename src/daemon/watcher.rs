@@ -77,10 +77,12 @@ async fn process_batch(
     client: &EmbeddingClient,
     paths: &HashSet<PathBuf>,
 ) {
+    let paths = expand_directories(paths);
+
     // Phase 1: process each file (DB upserts, deletions) and collect embed requests
     let mut embed_requests: Vec<EmbedRequest> = Vec::new();
 
-    for path in paths {
+    for path in &paths {
         let kind = classify_watcher_kind(workspace, path);
         let req = async {
             match process_change(db, workspace, path).await {
@@ -167,6 +169,37 @@ fn classify_watcher_kind(workspace: &Path, path: &Path) -> &'static str {
         "diary"
     } else {
         "unknown"
+    }
+}
+
+/// Expand directory paths into their contained files.
+///
+/// When inotify reports a directory creation, files written into it
+/// before the watch was established are missed. By expanding directory
+/// paths, we catch those files.
+fn expand_directories(paths: &HashSet<PathBuf>) -> HashSet<PathBuf> {
+    let mut result = HashSet::new();
+    for path in paths {
+        if path.is_dir() {
+            collect_files_recursive(path, &mut result);
+        } else {
+            result.insert(path.clone());
+        }
+    }
+    result
+}
+
+fn collect_files_recursive(dir: &Path, out: &mut HashSet<PathBuf>) {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            collect_files_recursive(&path, out);
+        } else if path.is_file() {
+            out.insert(path);
+        }
     }
 }
 
@@ -483,4 +516,43 @@ pub fn spawn_reconciliation_loop(
             }
         }
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn expand_directories_finds_nested_files() {
+        let dir = tempfile::tempdir().unwrap();
+        let sub = dir.path().join("topic").join("subtopic");
+        std::fs::create_dir_all(&sub).unwrap();
+        std::fs::write(sub.join("file.md"), "content").unwrap();
+        std::fs::write(sub.join("_import.toml"), "meta").unwrap();
+        std::fs::write(dir.path().join("root.md"), "root").unwrap();
+
+        let mut paths = HashSet::new();
+        paths.insert(dir.path().join("topic"));
+        paths.insert(dir.path().join("root.md"));
+
+        let expanded = expand_directories(&paths);
+
+        assert!(expanded.contains(&sub.join("file.md")));
+        assert!(expanded.contains(&sub.join("_import.toml")));
+        assert!(expanded.contains(&dir.path().join("root.md")));
+        assert!(!expanded.contains(&dir.path().join("topic")));
+    }
+
+    #[test]
+    fn expand_directories_handles_empty_dir() {
+        let dir = tempfile::tempdir().unwrap();
+        let empty = dir.path().join("empty");
+        std::fs::create_dir_all(&empty).unwrap();
+
+        let mut paths = HashSet::new();
+        paths.insert(empty.clone());
+
+        let expanded = expand_directories(&paths);
+        assert!(expanded.is_empty());
+    }
 }
