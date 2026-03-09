@@ -45,21 +45,12 @@ pub fn display_request(tool_name: &str, args: &Value) -> String {
         }
         "note_write" => {
             let title = str_arg(args, "title");
-            format!(
-                "\u{1F4DD}\u{FE0E} \"{}\"",
-                clip(&title, DISPLAY_VALUE_MAX)
-            )
+            format!("\u{1F4DD}\u{FE0E} \"{}\"", clip(&title, DISPLAY_VALUE_MAX))
         }
         "agent_control" => {
             let action = str_arg(args, "action");
-            let agent = args
-                .get("agent")
-                .and_then(Value::as_str)
-                .unwrap_or("");
-            let agent_id = args
-                .get("agent_id")
-                .and_then(Value::as_str)
-                .unwrap_or("");
+            let agent = args.get("agent").and_then(Value::as_str).unwrap_or("");
+            let agent_id = args.get("agent_id").and_then(Value::as_str).unwrap_or("");
             match action.as_str() {
                 "start" => format!("\u{1F916}\u{FE0E} {agent}"),
                 "status" => format!("\u{1F916}\u{FE0E} status {agent_id}"),
@@ -78,12 +69,7 @@ pub fn display_request(tool_name: &str, args: &Value) -> String {
 
 /// Compact result hint (after execution).
 #[must_use]
-pub fn display_result(
-    tool_name: &str,
-    _args: &Value,
-    result: &str,
-    is_error: bool,
-) -> String {
+pub fn display_result(tool_name: &str, _args: &Value, result: &str, is_error: bool) -> String {
     if is_error {
         return "\u{2717} error".to_string();
     }
@@ -91,9 +77,7 @@ pub fn display_result(
         "knowledge_search" => {
             if result.contains("No results") {
                 "\u{2192} 0 results".to_string()
-            } else if let Some(line) =
-                result.lines().rev().find(|l| l.contains("results total"))
-            {
+            } else if let Some(line) = result.lines().rev().find(|l| l.contains("results total")) {
                 let count = line.split_whitespace().next().unwrap_or("?");
                 format!("\u{2192} {count} results")
             } else {
@@ -117,10 +101,7 @@ pub fn display_result(
         }
         "run_shell_command" => {
             if let Some(line) = result.lines().find(|l| l.starts_with("Exit code:")) {
-                let code = line
-                    .strip_prefix("Exit code: ")
-                    .unwrap_or("?")
-                    .trim();
+                let code = line.strip_prefix("Exit code: ").unwrap_or("?").trim();
                 format!("# {code}")
             } else if result.contains("background") {
                 "\u{2192} bg".to_string()
@@ -235,8 +216,7 @@ mod tests {
 
     #[test]
     fn display_result_shell_exit_code() {
-        let result =
-            display_result("run_shell_command", &json!({}), "Exit code: 0\nok", false);
+        let result = display_result("run_shell_command", &json!({}), "Exit code: 0\nok", false);
         assert_eq!(result, "# 0");
     }
 
@@ -270,12 +250,7 @@ mod tests {
 
     #[test]
     fn display_result_knowledge_no_results() {
-        let result = display_result(
-            "knowledge_search",
-            &json!({}),
-            "No results found.",
-            false,
-        );
+        let result = display_result("knowledge_search", &json!({}), "No results found.", false);
         assert_eq!(result, "\u{2192} 0 results");
     }
 

@@ -30,16 +30,16 @@ pub trait ToolDisplay {
 
 Each tool gets an **emoji prefix** and a **human-readable format**:
 
-| Tool              | Request phase                              | After result          |
-|-------------------|--------------------------------------------|-----------------------|
-| knowledge_search  | `🔍 "weed barrier fabric..."`              | `→ 3 results`         |
-| web_search        | `🌐 "weed barrier trunk distance..."`      | `→ 5 results`         |
-| web_fetch         | `📄 ask.extension.org/kb/faq...`           | `→ 2.3k chars`        |
-| shell_command     | `$ ls -l /root/GHOST/uploads/...`          | `# 0`                 |
-| create_note       | `📝 "Garden Tips"`                         | `✓`                   |
-| read_file         | `📖 skills/research.md`                    | `→ 1.2k chars`        |
-| run_agent         | `🤖 deep_research`                         | `⟳ 3 turns · 5 calls` |
-| todo              | (existing rendering, unchanged)            |                       |
+| Tool             | Request phase                         | After result          |
+| ---------------- | ------------------------------------- | --------------------- |
+| knowledge_search | `🔍 "weed barrier fabric..."`         | `→ 3 results`         |
+| web_search       | `🌐 "weed barrier trunk distance..."` | `→ 5 results`         |
+| web_fetch        | `📄 ask.extension.org/kb/faq...`      | `→ 2.3k chars`        |
+| shell_command    | `$ ls -l /root/GHOST/uploads/...`     | `# 0`                 |
+| create_note      | `📝 "Garden Tips"`                    | `✓`                   |
+| read_file        | `📖 skills/research.md`               | `→ 1.2k chars`        |
+| run_agent        | `🤖 deep_research`                    | `⟳ 3 turns · 5 calls` |
+| todo             | (existing rendering, unchanged)       |                       |
 
 The trait lives in `src/tools/` and is interface-agnostic — Discord, TUI, or any future
 interface can consume it.
@@ -47,12 +47,14 @@ interface can consume it.
 ### 2. Two-Phase Container Rendering (Discord)
 
 Per tool-loop iteration:
+
 1. **Request phase**: send a compact container listing all tool calls for this iteration
 2. **Result phase**: edit the same message to append result hints
 
 Example — one iteration calling 3 web_search tools:
 
 **Phase 1 (sent):**
+
 ```
 🌐 "weed barrier fabric around tree trunk..."
 🌐 "landscape fabric shrubs trunk distance"
@@ -60,6 +62,7 @@ Example — one iteration calling 3 web_search tools:
 ```
 
 **Phase 2 (edited):**
+
 ```
 🌐 "weed barrier fabric around tree trunk..."   → 5 results
 🌐 "landscape fabric shrubs trunk distance"     → 4 results
@@ -90,6 +93,7 @@ This reuses the existing `ToolLoopEvent` channel — add a new variant
 
 Investigate whether Components v2 `TextDisplay` or `Container` wrappers cause the ~50%
 width issue on desktop. Likely fixes:
+
 - Send final response as a plain message (no v2 flag) if TextDisplay is the bottleneck
 - Or remove unnecessary container wrapping on the response body
 

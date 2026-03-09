@@ -62,6 +62,16 @@ pub struct RunMetadata {
 pub struct ToolCallInfo {
     pub name: String,
     pub args_summary: String,
+    /// Human-readable display string from `tools::display`.
+    pub display: String,
+}
+
+/// A single tool result with display strings for UI editing.
+#[derive(Debug, Clone)]
+pub struct ToolResultInfo {
+    pub name: String,
+    pub display_request: String,
+    pub display_result: String,
 }
 
 /// Events emitted by the tool loop for live UI updates.
@@ -71,6 +81,7 @@ pub struct ToolCallInfo {
 #[derive(Debug, Clone)]
 pub enum ToolLoopEvent {
     ToolCalls { calls: Vec<ToolCallInfo> },
+    ToolResults { results: Vec<ToolResultInfo> },
     TodoUpdated { items: Vec<TodoItem> },
 }
 

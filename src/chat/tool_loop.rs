@@ -16,7 +16,9 @@ use super::convert::{
 use super::session::SessionChat;
 use super::types::{
     ChatError, ChatResult, ChatStopReason, EventSender, RunMetadata, ToolCallInfo, ToolLoopEvent,
+    ToolResultInfo,
 };
+use crate::tools::display;
 
 /// Per-request timeout for provider API calls. Providers can hang indefinitely
 /// (observed in live tests). This wraps each `Provider::chat()` call.
@@ -280,6 +282,7 @@ pub(super) async fn run_tool_loop(
                                 input,
                                 &session_chat.config().workspace,
                             ),
+                            display: display::display_request(name, input),
                         })
                     })
                     .collect();
@@ -315,6 +318,42 @@ pub(super) async fn run_tool_loop(
                     )
                     .await;
                 handler.on_tool_results(&tool_results).await?;
+
+                // Emit tool result event for UI editing.
+                // Results are flattened (Image blocks interleaved), so match
+                // back to tool_uses by tool_use_id rather than zipping.
+                if let Some(tx) = event_tx {
+                    let result_infos: Vec<ToolResultInfo> = tool_results
+                        .iter()
+                        .filter_map(|block| {
+                            let ContentBlock::ToolResult {
+                                tool_use_id,
+                                content,
+                                is_error,
+                            } = block
+                            else {
+                                return None;
+                            };
+                            let call = tool_uses.iter().find(|t| {
+                                t.get("id").and_then(Value::as_str) == Some(tool_use_id)
+                            })?;
+                            let name = call.get("name").and_then(Value::as_str)?;
+                            let input = call.get("input").unwrap_or(&Value::Null);
+                            Some(ToolResultInfo {
+                                name: name.to_string(),
+                                display_request: display::display_request(name, input),
+                                display_result: display::display_result(
+                                    name, input, content, *is_error,
+                                ),
+                            })
+                        })
+                        .collect();
+                    if !result_infos.is_empty() {
+                        let _ = tx.send(ToolLoopEvent::ToolResults {
+                            results: result_infos,
+                        });
+                    }
+                }
 
                 // Check for terminal tool calls — end the agent run immediately
                 let any_terminal = tool_uses.iter().any(|call| {

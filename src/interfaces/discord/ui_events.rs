@@ -46,6 +46,9 @@ impl DiscordUiRenderer {
                 ToolLoopEvent::ToolCalls { calls } => {
                     self.handle_tool_calls(&calls).await;
                 }
+                ToolLoopEvent::ToolResults { .. } => {
+                    // Handled in Task 3 — two-phase rendering
+                }
                 ToolLoopEvent::TodoUpdated { items } => {
                     self.handle_todo_updated(&items).await;
                 }
@@ -331,10 +334,12 @@ mod tests {
             ToolCallInfo {
                 name: "web_search".to_string(),
                 args_summary: "query: latest rust news".to_string(),
+                display: String::new(),
             },
             ToolCallInfo {
                 name: "read_file".to_string(),
                 args_summary: "path: /src/main.rs".to_string(),
+                display: String::new(),
             },
         ];
         let result = format_tool_calls(&calls);
@@ -349,6 +354,7 @@ mod tests {
         let calls = vec![ToolCallInfo {
             name: "list_files".to_string(),
             args_summary: String::new(),
+            display: String::new(),
         }];
         let result = format_tool_calls(&calls);
         assert_eq!(result, "`list_files`");

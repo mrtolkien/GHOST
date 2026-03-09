@@ -1,10 +1,21 @@
 # Working Embeddings Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this
+> plan task-by-task.
 
-**Goal:** Fix the embedding pipeline so imported references actually get chunked and embedded, and search snippets show relevant content instead of the first line of the file.
+**Goal:** Fix the embedding pipeline so imported references actually get chunked and
+embedded, and search snippets show relevant content instead of the first line of the
+file.
 
-**Architecture:** Two independent bugs. (1) The file watcher misses reference files due to an inotify race: `create_dir_all` creates a new directory, `std::fs::write` writes a file into it immediately, but the `notify` crate hasn't set up a watch on the new directory yet — the file event is silently lost. Fix: when the watcher's batch contains directory paths, expand them into their file contents before processing. (2) `search_references` can't use FTS5 `snippet()` because `reference_fts` has a synthetic `topic_name` column that doesn't exist in the `reference` table. Fix: drop `topic_name` from `reference_fts` (topic search is already handled separately) so `snippet()` works, then use it.
+**Architecture:** Two independent bugs. (1) The file watcher misses reference files due
+to an inotify race: `create_dir_all` creates a new directory, `std::fs::write` writes a
+file into it immediately, but the `notify` crate hasn't set up a watch on the new
+directory yet — the file event is silently lost. Fix: when the watcher's batch contains
+directory paths, expand them into their file contents before processing. (2)
+`search_references` can't use FTS5 `snippet()` because `reference_fts` has a synthetic
+`topic_name` column that doesn't exist in the `reference` table. Fix: drop `topic_name`
+from `reference_fts` (topic search is already handled separately) so `snippet()` works,
+then use it.
 
 **Tech Stack:** Rust, notify (inotify), SQLite FTS5, tree-sitter-md
 
@@ -14,7 +25,9 @@
 
 ### Root cause
 
-The import runs as a CLI subprocess (`ghost document import` via `run_shell_command`). It writes reference files to disk. The daemon's file watcher is supposed to pick them up. But:
+The import runs as a CLI subprocess (`ghost document import` via `run_shell_command`).
+It writes reference files to disk. The daemon's file watcher is supposed to pick them
+up. But:
 
 ```
 create_dir_all("references/boardgames/arknova/")   // inotify CREATE on parent
@@ -22,16 +35,20 @@ std::fs::write("references/.../file.md")            // BEFORE notify adds watch 
                                                      // → event LOST
 ```
 
-The watcher batch contains directory paths (from inotify CREATE events on the parent), but `process_change` calls `read_to_string(directory_path)` which fails silently → `Ok(None)`.
+The watcher batch contains directory paths (from inotify CREATE events on the parent),
+but `process_change` calls `read_to_string(directory_path)` which fails silently →
+`Ok(None)`.
 
 ### Task 1: Expand directory paths in watcher batch
 
 **Files:**
+
 - Modify: `src/daemon/watcher.rs:73-125` (the `process_batch` function)
 
 **Step 1: Write the test**
 
-There's no good way to unit-test the inotify race directly, but we can test the expansion helper. Add to `src/daemon/watcher.rs` at the bottom:
+There's no good way to unit-test the inotify race directly, but we can test the
+expansion helper. Add to `src/daemon/watcher.rs` at the bottom:
 
 ```rust
 #[cfg(test)]
@@ -78,8 +95,8 @@ mod tests {
 
 **Step 2: Run test to verify it fails**
 
-Run: `cargo test --lib "watcher::tests" -- --nocapture`
-Expected: FAIL — `expand_directories` doesn't exist yet.
+Run: `cargo test --lib "watcher::tests" -- --nocapture` Expected: FAIL —
+`expand_directories` doesn't exist yet.
 
 **Step 3: Implement `expand_directories`**
 
@@ -120,7 +137,8 @@ fn collect_files_recursive(dir: &Path, out: &mut HashSet<PathBuf>) {
 
 **Step 4: Wire it into `process_batch`**
 
-In `process_batch`, add the expansion as the first line of the function body, and use the expanded paths instead of the raw ones:
+In `process_batch`, add the expansion as the first line of the function body, and use
+the expanded paths instead of the raw ones:
 
 ```rust
 async fn process_batch(
@@ -135,19 +153,22 @@ async fn process_batch(
     // (rest of function unchanged, but now iterates over expanded `paths`)
 ```
 
-Note: the `for path in paths` loop on line 83 needs no change — it already iterates the set. The shadowed `paths` binding replaces the original.
+Note: the `for path in paths` loop on line 83 needs no change — it already iterates the
+set. The shadowed `paths` binding replaces the original.
 
 **Step 5: Run tests**
 
-Run: `cargo test --lib "watcher::tests" -- --nocapture`
-Expected: PASS
+Run: `cargo test --lib "watcher::tests" -- --nocapture` Expected: PASS
 
 **Step 6: Run the e2e test**
 
-Run: `cargo test --features live-tests test_ark_nova_import -- --nocapture`
-Expected: ASSERT 2 should now pass (50+ embedding chunks). ASSERT 3 may still fail (snippet quality — addressed in Bug 2).
+Run: `cargo test --features live-tests test_ark_nova_import -- --nocapture` Expected:
+ASSERT 2 should now pass (50+ embedding chunks). ASSERT 3 may still fail (snippet
+quality — addressed in Bug 2).
 
-Note: this test takes ~2 minutes (real LLM + docling calls). If ASSERT 2 passes, the watcher fix works. If ASSERT 3 fails on snippet content, that's expected and addressed next.
+Note: this test takes ~2 minutes (real LLM + docling calls). If ASSERT 2 passes, the
+watcher fix works. If ASSERT 3 fails on snippet content, that's expected and addressed
+next.
 
 **Step 7: Commit**
 
@@ -167,22 +188,31 @@ before processing.
 
 ### Root cause
 
-`reference_fts` has columns `(topic_name, content)` with `content=reference`. FTS5's `snippet()` requires the content table to have columns matching the FTS table's column names. The `reference` table has no `topic_name` column (it's synthesized from a JOIN in the trigger), so `snippet()` fails. The code falls back to `truncate_snippet(&r.content, 150)`, which takes only the **first line** of the content.
+`reference_fts` has columns `(topic_name, content)` with `content=reference`. FTS5's
+`snippet()` requires the content table to have columns matching the FTS table's column
+names. The `reference` table has no `topic_name` column (it's synthesized from a JOIN in
+the trigger), so `snippet()` fails. The code falls back to
+`truncate_snippet(&r.content, 150)`, which takes only the **first line** of the content.
 
 ### Fix approach
 
-Drop `topic_name` from `reference_fts`. Topic search is already handled by `topic_fts`. This lets `snippet()` work for the `content` column. Then use `snippet()` in the search query, matching how `note_fts` and `diary_fts` already work.
+Drop `topic_name` from `reference_fts`. Topic search is already handled by `topic_fts`.
+This lets `snippet()` work for the `content` column. Then use `snippet()` in the search
+query, matching how `note_fts` and `diary_fts` already work.
 
 ### Task 2: Migration to fix reference_fts
 
 **Files:**
-- Create: `migrations/NNN_fix_reference_fts.sql` (use the next migration number — check `ls migrations/`)
+
+- Create: `migrations/NNN_fix_reference_fts.sql` (use the next migration number — check
+  `ls migrations/`)
 
 **Step 1: Write the migration**
 
 Check existing migration numbers with `ls migrations/` and create the next one.
 
-The migration drops and recreates `reference_fts` with only the `content` column, and rebuilds triggers:
+The migration drops and recreates `reference_fts` with only the `content` column, and
+rebuilds triggers:
 
 ```sql
 -- Drop old triggers
@@ -221,8 +251,8 @@ INSERT INTO reference_fts(reference_fts) VALUES ('rebuild');
 
 **Step 2: Verify migration applies**
 
-Run: `cargo test --test database -- --nocapture` (if there are DB tests) or just `cargo test --lib`
-Expected: No errors.
+Run: `cargo test --test database -- --nocapture` (if there are DB tests) or just
+`cargo test --lib` Expected: No errors.
 
 **Step 3: Commit**
 
@@ -237,11 +267,13 @@ is handled separately by topic_fts, so topic_name is not needed.
 ### Task 3: Use snippet() in search_references
 
 **Files:**
+
 - Modify: `src/db/knowledge/search.rs:74-147`
 
 **Step 1: Write a test**
 
-Add to `tests/embeddings.rs` (or `tests/database.rs`, whichever has reference search tests):
+Add to `tests/embeddings.rs` (or `tests/database.rs`, whichever has reference search
+tests):
 
 ```rust
 #[tokio::test]
@@ -361,7 +393,9 @@ pub async fn search_references(
 ```
 
 Key changes:
-- `bm25(reference_fts, 1.0)` — only 1 weight now (was `2.0, 1.0` for topic_name, content)
+
+- `bm25(reference_fts, 1.0)` — only 1 weight now (was `2.0, 1.0` for topic_name,
+  content)
 - `snippet(reference_fts, 0, '', '', '...', 24)` — column 0 is now `content`
 - `RefSearchRow` has `snippet` instead of `content`
 - Remove the comment about snippet() not working
@@ -373,8 +407,7 @@ Expected: PASS
 
 **Step 5: Run all tests**
 
-Run: `just ci`
-Expected: All pass.
+Run: `just ci` Expected: All pass.
 
 **Step 6: Commit**
 
@@ -390,8 +423,9 @@ of the first line of the document.
 
 **Step 1: Run the e2e test**
 
-Run: `cargo test --features live-tests test_ark_nova_import -- --nocapture`
-Expected: All 3 assertions pass:
+Run: `cargo test --features live-tests test_ark_nova_import -- --nocapture` Expected:
+All 3 assertions pass:
+
 1. References created ✓
 2. 50+ embedding chunks ✓
 3. Search snippet contains "break" ✓
@@ -404,6 +438,11 @@ Expected: All 3 assertions pass:
 
 ### Task 5: Remove diagnostic test artifacts
 
-The `tests/fixtures/ark_nova_docling.md` file was already removed. The three edge-case chunker tests added during investigation (`large_plain_text_no_headers_produces_multiple_chunks`, `single_very_long_line_produces_multiple_chunks`, `html_comments_only_content_chunks_properly`) are legitimate regression tests and should stay.
+The `tests/fixtures/ark_nova_docling.md` file was already removed. The three edge-case
+chunker tests added during investigation
+(`large_plain_text_no_headers_produces_multiple_chunks`,
+`single_very_long_line_produces_multiple_chunks`,
+`html_comments_only_content_chunks_properly`) are legitimate regression tests and should
+stay.
 
 Run `just ci` one final time to confirm everything is green.
