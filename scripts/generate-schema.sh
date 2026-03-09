@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Generates prompts/skills/knowledge-navigator/schema.sql from migrations.
+# Generates assets/skills/knowledge-navigator/schema.sql from migrations.
 # Called by `just generate-schema` and checked by `just ci`.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-OUT="$ROOT/prompts/skills/knowledge-navigator/schema.sql"
+OUT="$ROOT/assets/skills/knowledge-navigator/schema.sql"
 
 tmpdb=$(mktemp /tmp/ghost-schema-XXXX.db)
 trap 'rm -f "$tmpdb"' EXIT
