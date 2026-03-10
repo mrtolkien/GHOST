@@ -358,8 +358,9 @@ async fn review_files(
 
         // Truncate diff for Discord's 4000 char limit
         let diff_display = if changed.diff.len() > 3400 {
-            let truncated = &changed.diff[..3400];
-            let remaining_lines = changed.diff[3400..].lines().count();
+            let end = changed.diff.floor_char_boundary(3400);
+            let truncated = &changed.diff[..end];
+            let remaining_lines = changed.diff[end..].lines().count();
             format!("{truncated}\n... and {remaining_lines} more lines")
         } else {
             changed.diff.clone()

@@ -130,6 +130,7 @@ fn truncate(s: &str, max: usize) -> String {
     if s.len() <= max {
         s.to_string()
     } else {
-        format!("{}…(truncated)", &s[..max])
+        let end = s.floor_char_boundary(max);
+        format!("{}…(truncated)", &s[..end])
     }
 }

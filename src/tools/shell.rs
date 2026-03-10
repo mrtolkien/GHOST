@@ -185,7 +185,8 @@ impl Tool for RunShellCommand {
 
                 let mut truncated = output_text;
                 if truncated.len() > MAX_OUTPUT_CHARS {
-                    truncated.truncate(MAX_OUTPUT_CHARS);
+                    let end = truncated.floor_char_boundary(MAX_OUTPUT_CHARS);
+                    truncated.truncate(end);
                     truncated.push_str("\n...[truncated]");
                 }
 

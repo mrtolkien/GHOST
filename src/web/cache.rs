@@ -231,7 +231,12 @@ fn sanitize_slug(input: &str) -> String {
 
     let trimmed = result.trim_end_matches('-');
     if trimmed.len() > 60 {
-        trimmed[..60].trim_end_matches('-').to_string()
+        // Find a char boundary at or before byte 60
+        let mut end = 60;
+        while !trimmed.is_char_boundary(end) {
+            end -= 1;
+        }
+        trimmed[..end].trim_end_matches('-').to_string()
     } else {
         trimmed.to_string()
     }
@@ -327,6 +332,13 @@ mod tests {
         let long_url = format!("https://example.com/{}", "a".repeat(100));
         let slug = slug_from_url(&long_url);
         assert!(slug.len() <= 60);
+    }
+
+    #[test]
+    fn slug_truncates_multibyte_without_panic() {
+        let slug = slug_from_query("井の頭公園-花見-場所取り-何時-レジャーシート-サイズ-大人数");
+        assert!(slug.len() <= 63); // may be up to 62 (last full char before 60)
+        assert!(slug.is_char_boundary(slug.len()));
     }
 
     #[test]
