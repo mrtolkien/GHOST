@@ -10,7 +10,7 @@ chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4", features = ["derive"] }
 cron = "0.15"
 dashmap = "6"
-dom_smoothie = "0.15"
+dom_smoothie = "0.16"
 futures = "0.3"
 dotenvy = "0.15"
 gethostname = "1"
@@ -35,7 +35,7 @@ reqwest = { version = "0.13", default-features = false, features = [
   "multipart",
 ] }
 resvg = "0.47"
-scraper = "0.22"
+scraper = "0.25"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_yaml = "0.9"
@@ -58,17 +58,17 @@ toml = "1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tempfile = "3"
-tree-sitter = "0.24"
-tree-sitter-bash = "0.23"
-tree-sitter-go = "0.23"
-tree-sitter-javascript = "0.23"
+tree-sitter = "0.26"
+tree-sitter-bash = "0.25"
+tree-sitter-go = "0.25"
+tree-sitter-javascript = "0.25"
 tree-sitter-json = "0.24"
-tree-sitter-python = "0.23"
-tree-sitter-rust = "0.23"
+tree-sitter-python = "0.25"
+tree-sitter-rust = "0.24"
 tree-sitter-typescript = "0.23"
 tree-sitter-toml-ng = "0.7"
 url = "2"
-tree-sitter-md = "0.2"
+tree-sitter-md = "0.5"
 
 [features]
 live-tests = []

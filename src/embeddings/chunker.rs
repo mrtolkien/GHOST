@@ -48,7 +48,10 @@ pub fn chunk_content(content: &str, tags: &[String], file_path: Option<&str>) ->
 /// their child nodes. Each chunk is prefixed with its heading path for context.
 fn chunk_markdown(content: &str, tag_prefix: &str) -> Vec<Chunk> {
     let mut parser = Parser::new();
-    if parser.set_language(&tree_sitter_md::language()).is_err() {
+    if parser
+        .set_language(&tree_sitter_md::LANGUAGE.into())
+        .is_err()
+    {
         return fallback_single_chunk(content, tag_prefix);
     }
     let Some(tree) = parser.parse(content, None) else {
@@ -59,7 +62,7 @@ fn chunk_markdown(content: &str, tag_prefix: &str) -> Vec<Chunk> {
     let root = tree.root_node();
 
     // Walk top-level children of document (which are sections)
-    for i in 0..root.child_count() {
+    for i in 0..root.child_count() as u32 {
         if let Some(child) = root.child(i) {
             collect_markdown_sections(child, content, &[], &mut raw_chunks);
         }
@@ -120,7 +123,7 @@ fn collect_markdown_sections(
     // Section is too large — split into its direct children.
     // Non-section children (paragraphs, lists, etc.) are emitted individually.
     // Child sections recurse with the updated heading path.
-    for i in 0..node.child_count() {
+    for i in 0..node.child_count() as u32 {
         let Some(child) = node.child(i) else {
             continue;
         };
@@ -166,11 +169,11 @@ fn section_prefix(path: &[String]) -> String {
 
 /// Extract the inline text from an atx_heading or setext_heading node.
 fn extract_heading_text(section: Node, source: &str) -> Option<String> {
-    for i in 0..section.child_count() {
+    for i in 0..section.child_count() as u32 {
         let child = section.child(i)?;
         if child.kind() == "atx_heading" || child.kind() == "setext_heading" {
             // The heading text is in the `inline` child
-            for j in 0..child.child_count() {
+            for j in 0..child.child_count() as u32 {
                 if let Some(inline) = child.child(j)
                     && (inline.kind() == "inline" || inline.kind() == "paragraph")
                 {
@@ -293,7 +296,7 @@ fn collect_code_chunks(node: Node, source: &str, out: &mut Vec<String>) {
         return;
     }
 
-    let child_count = node.child_count();
+    let child_count = node.child_count() as u32;
     if child_count == 0 {
         let trimmed = text.trim();
         if !trimmed.is_empty() {
