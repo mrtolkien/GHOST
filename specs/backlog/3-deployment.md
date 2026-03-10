@@ -7,5 +7,8 @@ Review deployment:
       embeddings and doclings should be configurable as remote services OR local
       services if perfs are acceptable (need to review docling RAM usage)
   - Needs implementation: could it work 100% in Docker?
+- [ ] Third target should be small VPSs without a GPU and low RAM: in that case, there
+      should be fallback for the services we run - Firecrawl for crawling, Brave API for
+      web search (or still just run searxng, it's small), embeddings, docling, ...
 
-Should also add portainer to the stack maybe? Or Grafana?
+Should also add portainer to the stack maybe? Or Grafana? Or Signoz?
