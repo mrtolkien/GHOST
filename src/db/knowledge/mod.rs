@@ -22,8 +22,8 @@ pub use import_batch::{
     delete_import_batch, get_import_batch_by_topic, list_import_batches, upsert_import_batch,
 };
 pub use records::{
-    DiaryRecord, EdgeRecord, ImportBatchRecord, NoteRecord, RecentItem, ReferenceRecord, SearchHit,
-    TopicRecord,
+    DiaryRecord, EdgeRecord, ImportBatchRecord, NoteRecord, RecentItem, ReferenceRecord, ScriptRecord,
+    SearchHit, TopicRecord,
 };
 pub use search::{hybrid_merge, search_diary, search_notes, search_references, search_topics};
 pub use stats::{

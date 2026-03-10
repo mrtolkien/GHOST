@@ -63,6 +63,15 @@ pub struct DiaryRecord {
     pub updated_at: String,
 }
 
+#[derive(Debug, Clone, Deserialize, Serialize, sqlx::FromRow)]
+pub struct ScriptRecord {
+    pub id: String,
+    pub path: String,
+    pub content: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct SearchHit {
     pub id: String,
