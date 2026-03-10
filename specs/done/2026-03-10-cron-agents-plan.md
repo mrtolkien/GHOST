@@ -9,8 +9,8 @@ agent-creator skill to cover scheduled agents, and write an e2e test that verifi
 can create a cron agent from a chat message.
 
 **Architecture:** Add `Config` + `Arc<ToolManager>` to `AgentContext` so Lua hooks can
-execute tools. The `ToolManager` is constructed with `all_available()` (unrestricted).
-A `ToolContext` is built on the fly from AgentContext fields.
+execute tools. The `ToolManager` is constructed with `all_available()` (unrestricted). A
+`ToolContext` is built on the fly from AgentContext fields.
 
 **Tech Stack:** Rust (mlua async methods, serde_json), Lua agent definitions, live e2e
 tests with `--features live-tests`.
@@ -22,6 +22,7 @@ tests with `--features live-tests`.
 ### Task 1: Extend AgentContext with tool execution capability
 
 **Files:**
+
 - Modify: `src/scripting/bindings.rs` (AgentContext struct + methods)
 - Modify: `src/tools/manager.rs:82` (make `all_available()` public)
 - Modify: `src/agents/runner.rs:460, 558, 630` (AgentContext construction — 3 sites)
@@ -206,8 +207,8 @@ pub struct BuildMessage {
 }
 ```
 
-Update the `build()` return parsing in `src/scripting/host.rs` (`call_build`) to
-extract these optional fields from message tables using mlua serde.
+Update the `build()` return parsing in `src/scripting/host.rs` (`call_build`) to extract
+these optional fields from message tables using mlua serde.
 
 Update `run_agent` in `src/chat/session.rs` (~line 978) to persist build messages with
 `create_message_with_metadata` when `tool_calls` or `tool_results` are present (instead
@@ -225,6 +226,7 @@ There are **three** places in `src/agents/runner.rs` that create `AgentContext` 
 need tool support:
 
 **a) `setup_agent` (line 460)** — the `build()` hook context:
+
 ```rust
 let hook_tool_manager = Arc::new(ToolManager::all_available());
 
@@ -239,12 +241,14 @@ ctx = ctx.with_tool_support(config.clone(), Arc::clone(&hook_tool_manager));
 ```
 
 **b) `setup_resume` (line 558)** — the `on_resume` hook context:
+
 ```rust
 let mut resume_ctx = AgentContext::new(...);
 resume_ctx = resume_ctx.with_tool_support(config.clone(), Arc::new(ToolManager::all_available()));
 ```
 
 **c) `run_post_completion` (line 630)** — the `post_completion` hook context:
+
 ```rust
 let mut ctx = AgentContext::new(...);
 ctx = ctx.with_tool_support(config.clone(), Arc::new(ToolManager::all_available()));
@@ -255,9 +259,8 @@ The `Arc<ToolManager>` is cheap to construct (just registers tool structs).
 
 - [ ] **Step 8: Run `just ci` to verify compilation**
 
-Run: `just ci`
-Expected: All checks pass. No existing tests break since new fields are `Option<_>`
-defaulting to `None`.
+Run: `just ci` Expected: All checks pass. No existing tests break since new fields are
+`Option<_>` defaulting to `None`.
 
 - [ ] **Step 9: Commit**
 
@@ -268,6 +271,7 @@ feat: add ctx:call_tool() and ctx:call_tools() for Lua agent hooks
 ### Task 2: Unit test for `call_tool`
 
 **Files:**
+
 - Create: `tests/call_tool_unit.rs` (or add to existing agent test file)
 
 - [ ] **Step 1: Write a test that calls `web_fetch` from a build hook**
@@ -276,17 +280,16 @@ This needs a small integration test — create a Lua agent whose `build()` calls
 `ctx:call_tool("read_file", { path = "test.txt" })` and verify the content is returned
 in the build result messages.
 
-Use a tempdir workspace, write a file, load the agent, call `build()`, check the
-message content includes the file contents.
+Use a tempdir workspace, write a file, load the agent, call `build()`, check the message
+content includes the file contents.
 
-Check the @testing skill for the right test harness patterns. This should be a unit
-test in `src/scripting/bindings.rs` `#[cfg(test)]` module, or an integration test if it
-needs full tool infra.
+Check the @testing skill for the right test harness patterns. This should be a unit test
+in `src/scripting/bindings.rs` `#[cfg(test)]` module, or an integration test if it needs
+full tool infra.
 
 - [ ] **Step 2: Run the test**
 
-Run: `cargo test call_tool -- --nocapture`
-Expected: PASS
+Run: `cargo test call_tool -- --nocapture` Expected: PASS
 
 - [ ] **Step 3: Commit**
 
@@ -299,6 +302,7 @@ test: unit test for ctx:call_tool in build hook
 ### Task 3: Add scheduled agents section to agent-creator skill
 
 **Files:**
+
 - Modify: `assets/skills/agent-creator/skill.md`
 
 - [ ] **Step 1: Add "Scheduled Agents" section**
@@ -315,10 +319,11 @@ content to cover:
 7. Emphasize: `tools = {}` when the LLM should only synthesize pre-fetched data
 8. Show a complete example agent that fetches URLs and produces a digest
 
-The section should include a full working example of `agent.lua` + `prompt.md` +
-crontab entry for a daily digest agent, so GHOST has a concrete template to follow.
+The section should include a full working example of `agent.lua` + `prompt.md` + crontab
+entry for a daily digest agent, so GHOST has a concrete template to follow.
 
 Example crontab.lua snippet:
+
 ```lua
 return {
     { idle_minutes = 30, run = "chat-reflection" },
@@ -327,6 +332,7 @@ return {
 ```
 
 Example agent.lua (complete):
+
 ```lua
 local template = require("ghost.template")
 
@@ -406,8 +412,8 @@ function AgentContext:call_tools(calls) end
 
 - [ ] **Step 3: Verify the skill reads correctly**
 
-Read the updated file and check it flows naturally from the existing spawn-agent
-content into the new scheduled-agent content.
+Read the updated file and check it flows naturally from the existing spawn-agent content
+into the new scheduled-agent content.
 
 - [ ] **Step 4: Commit**
 
@@ -420,6 +426,7 @@ docs: add scheduled agents section to agent-creator skill
 ### Task 4: Write the daemon e2e test
 
 **Files:**
+
 - Create: `tests/daemon/cron_agent.rs`
 - Modify: `tests/daemon.rs` (add module declaration)
 
@@ -558,8 +565,8 @@ async fn test_cron_agent_creation() {
 
 - [ ] **Step 3: Verify the test compiles**
 
-Run: `cargo test --features live-tests test_cron_agent_creation --no-run`
-Expected: Compiles without errors.
+Run: `cargo test --features live-tests test_cron_agent_creation --no-run` Expected:
+Compiles without errors.
 
 - [ ] **Step 4: Run the test**
 
@@ -568,6 +575,7 @@ Expected: PASS. Check `e2e-output/` for diagnostic artifacts.
 
 This test will likely need iteration — the LLM may not create the exact file structure
 on the first try. If it fails:
+
 - Check `e2e-output/` diagnostic.json for the chat transcript
 - Check what files GHOST actually created in the workspace snapshot
 - Adjust assertions or the prompt if needed
@@ -583,10 +591,9 @@ test: e2e test for cron agent creation from chat
 
 - [ ] **Step 1: Run `just ci`**
 
-Run: `just ci`
-Expected: All format, check, clippy, and test steps pass.
+Run: `just ci` Expected: All format, check, clippy, and test steps pass.
 
 - [ ] **Step 2: Run the full live test suite**
 
-Run: `cargo test --features live-tests -- --nocapture`
-Expected: All live tests pass, including the new one.
+Run: `cargo test --features live-tests -- --nocapture` Expected: All live tests pass,
+including the new one.
