@@ -99,6 +99,8 @@ pub struct BuildResult {
 pub struct BuildMessage {
     pub role: String,
     pub content: String,
+    pub tool_calls: Option<Vec<serde_json::Value>>,
+    pub tool_results: Option<Vec<serde_json::Value>>,
 }
 
 /// Structured result from a composed Lua nudge function.

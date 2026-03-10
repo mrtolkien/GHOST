@@ -975,18 +975,72 @@ impl SessionChat {
         // Persist initial messages to DB and build provider history
         let mut history = Vec::new();
         for msg in &build_result.messages {
-            db::sessions::create_message(&self.db, &session_thing, &msg.role, &msg.content).await?;
+            let has_tool_metadata = msg.tool_calls.is_some() || msg.tool_results.is_some();
+
+            if has_tool_metadata {
+                db::sessions::create_message_with_metadata(
+                    &self.db,
+                    &session_thing,
+                    &msg.role,
+                    &msg.content,
+                    msg.tool_calls.clone(),
+                    msg.tool_results.clone(),
+                    None,
+                    None,
+                )
+                .await?;
+            } else {
+                db::sessions::create_message(&self.db, &session_thing, &msg.role, &msg.content)
+                    .await?;
+            }
+
             let role = match msg.role.as_str() {
                 "assistant" => Role::Assistant,
                 "system" => Role::System,
                 _ => Role::User,
             };
-            history.push(ChatMessage {
-                role,
-                content: vec![ContentBlock::Text {
+
+            // Build content blocks — include tool_use/tool_result blocks when present
+            let mut content = Vec::new();
+            if !msg.content.is_empty() {
+                content.push(ContentBlock::Text {
                     text: msg.content.clone(),
-                }],
-            });
+                });
+            }
+            if let Some(ref tool_calls) = msg.tool_calls {
+                for tc in tool_calls {
+                    if let (Some(id), Some(name)) = (
+                        tc.get("id").and_then(|v| v.as_str()),
+                        tc.get("name").and_then(|v| v.as_str()),
+                    ) {
+                        content.push(ContentBlock::ToolUse {
+                            id: id.to_string(),
+                            name: name.to_string(),
+                            input: tc.get("input").cloned().unwrap_or(serde_json::Value::Null),
+                        });
+                    }
+                }
+            }
+            if let Some(ref tool_results) = msg.tool_results {
+                for tr in tool_results {
+                    if let Some(tool_use_id) = tr.get("tool_use_id").and_then(|v| v.as_str()) {
+                        content.push(ContentBlock::ToolResult {
+                            tool_use_id: tool_use_id.to_string(),
+                            content: tr
+                                .get("content")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("")
+                                .to_string(),
+                            is_error: tr
+                                .get("is_error")
+                                .and_then(|v| v.as_bool())
+                                .unwrap_or(false),
+                        });
+                    }
+                }
+            }
+
+            history.push(ChatMessage { role, content });
         }
 
         let model = self.default_model_name()?;

@@ -192,7 +192,24 @@ impl ScriptHost {
                         let msg = pair?;
                         let role: String = msg.get("role")?;
                         let content: String = msg.get("content")?;
-                        messages.push(BuildMessage { role, content });
+
+                        let tool_calls: Option<Vec<serde_json::Value>> =
+                            match msg.get::<LuaValue>("tool_calls")? {
+                                LuaValue::Nil => None,
+                                val => Some(self.lua.from_value(val)?),
+                            };
+                        let tool_results: Option<Vec<serde_json::Value>> =
+                            match msg.get::<LuaValue>("tool_results")? {
+                                LuaValue::Nil => None,
+                                val => Some(self.lua.from_value(val)?),
+                            };
+
+                        messages.push(BuildMessage {
+                            role,
+                            content,
+                            tool_calls,
+                            tool_results,
+                        });
                     }
                 }
 

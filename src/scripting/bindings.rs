@@ -4,7 +4,9 @@ use std::sync::{Arc, Mutex};
 
 use mlua::prelude::*;
 
+use crate::config::Config;
 use crate::db::GhostDb;
+use crate::tools::manager::ToolManager;
 
 /// A request to spawn a child agent, accumulated during post_completion.
 #[derive(Debug, Clone)]
@@ -35,6 +37,10 @@ pub struct AgentContext {
     pub system_prompt: Arc<Mutex<Option<String>>>,
     /// Editable message history for `on_resume` hook.
     pub resume_messages: Arc<Mutex<Option<Vec<LuaMessage>>>>,
+    /// Config for tool execution via `ctx:call_tool()`.
+    pub config: Option<Config>,
+    /// Tool manager for `ctx:call_tool()` / `ctx:call_tools()`.
+    pub tool_manager: Option<Arc<ToolManager>>,
 }
 
 impl AgentContext {
@@ -48,7 +54,16 @@ impl AgentContext {
             spawn_requests: Arc::new(Mutex::new(Vec::new())),
             system_prompt: Arc::new(Mutex::new(None)),
             resume_messages: Arc::new(Mutex::new(None)),
+            config: None,
+            tool_manager: None,
         }
+    }
+
+    /// Enable `ctx:call_tool()` / `ctx:call_tools()` by attaching config and tool manager.
+    pub fn with_tool_support(mut self, config: Config, tool_manager: Arc<ToolManager>) -> Self {
+        self.config = Some(config);
+        self.tool_manager = Some(tool_manager);
+        self
     }
 }
 
@@ -225,6 +240,120 @@ impl LuaUserData for AgentContext {
                 Ok(result)
             },
         );
+
+        // ctx:call_tool(name, args_table) -> string
+        methods.add_async_method(
+            "call_tool",
+            |lua, this, (name, args): (String, LuaValue)| async move {
+                let config = this.config.as_ref().ok_or_else(|| {
+                    LuaError::external("call_tool not available: agent context has no tool support")
+                })?;
+                let tool_manager = this.tool_manager.as_ref().ok_or_else(|| {
+                    LuaError::external("call_tool not available: agent context has no tool manager")
+                })?;
+
+                let params: serde_json::Value = lua.from_value(args)?;
+
+                let tool_ctx = crate::tools::context::ToolContext {
+                    workspace: this.workspace.clone(),
+                    cwd: this.workspace.clone(),
+                    db: this.db.clone(),
+                    config: config.clone(),
+                    session_id: this.session_id.clone(),
+                    agent_runner: None,
+                    event_tx: None,
+                    channel_id: None,
+                };
+
+                let output = tool_manager
+                    .execute(&name, params, &tool_ctx)
+                    .await
+                    .map_err(|e| LuaError::external(format!("call_tool({name}) failed: {e}")))?;
+
+                Ok(output.text)
+            },
+        );
+
+        // ctx:call_tools({{name, args}, ...}) -> list of message tables
+        methods.add_async_method("call_tools", |lua, this, calls: LuaTable| async move {
+            let config = this
+                .config
+                .as_ref()
+                .ok_or_else(|| LuaError::external("call_tools not available: no tool support"))?;
+            let tool_manager = this
+                .tool_manager
+                .as_ref()
+                .ok_or_else(|| LuaError::external("call_tools not available: no tool manager"))?;
+
+            // Extract call data from Lua table before any await points
+            // (LuaTable is not Send)
+            let mut parsed_calls: Vec<(String, serde_json::Value)> = Vec::new();
+            for pair in calls.sequence_values::<LuaTable>() {
+                let entry = pair?;
+                let name: String = entry.get(1)?;
+                let args: LuaValue = entry.get(2)?;
+                let params: serde_json::Value = lua.from_value(args)?;
+                parsed_calls.push((name, params));
+            }
+
+            let tool_ctx = crate::tools::context::ToolContext {
+                workspace: this.workspace.clone(),
+                cwd: this.workspace.clone(),
+                db: this.db.clone(),
+                config: config.clone(),
+                session_id: this.session_id.clone(),
+                agent_runner: None,
+                event_tx: None,
+                channel_id: None,
+            };
+
+            let mut tool_calls_json = Vec::new();
+            let mut tool_results_json = Vec::new();
+
+            for (i, (name, params)) in parsed_calls.into_iter().enumerate() {
+                let call_id = format!("build_{i}");
+
+                tool_calls_json.push(serde_json::json!({
+                    "id": call_id,
+                    "name": name,
+                    "input": params,
+                }));
+
+                match tool_manager.execute(&name, params.clone(), &tool_ctx).await {
+                    Ok(output) => {
+                        tool_results_json.push(serde_json::json!({
+                            "tool_use_id": call_id,
+                            "content": output.text,
+                            "is_error": false,
+                        }));
+                    }
+                    Err(e) => {
+                        tool_results_json.push(serde_json::json!({
+                            "tool_use_id": call_id,
+                            "content": format!("Error: {e}"),
+                            "is_error": true,
+                        }));
+                    }
+                }
+            }
+
+            // Build two Lua table messages
+            let messages = lua.create_table()?;
+
+            let assistant_msg = lua.create_table()?;
+            assistant_msg.set("role", "assistant")?;
+            assistant_msg.set("content", "")?;
+            assistant_msg.set("tool_calls", lua.to_value(&tool_calls_json)?)?;
+            messages.raw_set(1, assistant_msg)?;
+
+            let results_msg = lua.create_table()?;
+            results_msg.set("role", "user")?;
+            results_msg.set("content", "")?;
+            results_msg.set("tool_results", lua.to_value(&tool_results_json)?)?;
+            messages.raw_set(2, results_msg)?;
+
+            Ok(messages)
+        });
 
         // ctx:spawn_agent(name, args_table)
         methods.add_method(
