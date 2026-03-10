@@ -1,4 +1,4 @@
-#![cfg(feature = "live-tests")]
+#![cfg(feature = "live-tests-llms")]
 
 mod common;
 

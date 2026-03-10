@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use crate::common;
-use crate::e2e::harness;
+use crate::stepwise::harness;
 
 /// Step 01: GHOST receives a coding request, reads the coding skill, and
 /// spawns a coding session via `ghost hack start`.

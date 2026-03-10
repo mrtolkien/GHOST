@@ -1,28 +1,29 @@
 use std::time::Duration;
 
 use crate::common;
-use crate::e2e::harness;
+use crate::stepwise::harness;
 
-/// Single-message autonomous test: user asks about Dioxus → GHOST imports docs
-/// in the background → completion watcher auto-triggers continuation → GHOST
-/// searches refs and answers.
+/// User asks about Ark Nova rules → GHOST finds the PDF rulebook online,
+/// imports it via docling (page import with PDF fallback), and answers
+/// the question using the imported reference.
 ///
-/// Phase 1: Chat → GHOST reads skill, finds repo, starts background import, ends turn
-/// Phase 2: Completion watcher triggers follow-up → GHOST searches imported refs, answers
+/// Phase 1: Chat → GHOST reads skill, finds PDF URL, starts background import
+/// Phase 2: Completion watcher triggers follow-up → GHOST searches refs, answers
 #[tokio::test]
-async fn reference_import_step_01_autonomous_import() {
-    let env = common::live_test_database("reference_import_step_01").await;
+async fn ark_nova_step_01_pdf_rules_import() {
+    let env = common::live_test_database("ark_nova_step_01").await;
     let session = env.create_session().await;
     let (chat, _watcher_handle) = env.chat_with_event_handler();
 
-    // --- Phase 1: Single user message (5 min timeout) ---
-    env.log("Phase 1: single user message about Dioxus");
+    // --- Phase 1: User asks about Ark Nova setup (5 min timeout) ---
+    env.log("Phase 1: user asks about Ark Nova game rules");
 
     let (phase1_result, _metadata) = tokio::time::timeout(
         Duration::from_secs(300),
         chat.chat(
             &session,
-            "I want to learn about Dioxus — what is it, and how do hooks work?",
+            "How do you set up a game of Ark Nova? I need the full setup procedure \
+             from the official rules. The rulebook is a PDF available online.",
             None,
             None,
         ),
@@ -37,33 +38,14 @@ async fn reference_import_step_01_autonomous_import() {
     ));
     env.log_session_json("phase1_chat", &session).await;
 
-    // Phase 1 assertions: GHOST should have called run_shell_command with background=true
+    // Phase 1 assertions: GHOST should have started a background import
     let tool_calls = env.collect_tool_calls(&session).await;
     env.log(format!("Phase 1 tool calls: {tool_calls:?}"));
 
     assert!(
         tool_calls.iter().any(|name| name == "run_shell_command"),
-        "Phase 1: GHOST should have called run_shell_command to start the import, \
+        "Phase 1: GHOST should have called run_shell_command to import the PDF, \
          tool calls: {tool_calls:?}",
-    );
-
-    let messages = ghost::db::sessions::list_messages_by_session(&env.db, &session)
-        .await
-        .expect("list messages");
-    let has_bg_ack = messages.iter().any(|msg| {
-        msg.tool_results_parsed()
-            .map(|results| {
-                results.iter().any(|r| {
-                    r.get("content")
-                        .and_then(|v| v.as_str())
-                        .is_some_and(|c| c.contains("background"))
-                })
-            })
-            .unwrap_or(false)
-    });
-    assert!(
-        has_bg_ack,
-        "Phase 1: GHOST should have used background=true for the import"
     );
 
     assert!(
@@ -71,13 +53,16 @@ async fn reference_import_step_01_autonomous_import() {
         "Phase 1: response should be a non-empty acknowledgment"
     );
 
+    let messages = ghost::db::sessions::list_messages_by_session(&env.db, &session)
+        .await
+        .expect("list messages");
     let phase1_message_count = messages.len();
 
-    // --- Phase 2: Wait for completion watcher to trigger continuation (40 min) ---
-    env.log("Phase 2: waiting for autonomous continuation");
+    // --- Phase 2: Wait for completion watcher continuation (20 min) ---
+    env.log("Phase 2: waiting for PDF import completion and continuation");
 
     let continuation = env
-        .wait_for_continuation_response(&session, phase1_message_count, 2400)
+        .wait_for_continuation_response(&session, phase1_message_count, 1200)
         .await;
 
     let continuation_text = continuation
@@ -90,14 +75,19 @@ async fn reference_import_step_01_autonomous_import() {
     env.log_session_json_since("phase2_continuation", &session)
         .await;
 
-    // Phase 2 assertions: continuation mentions Dioxus concepts
+    // Phase 2 assertions: continuation should mention setup concepts from the rules
     let response_lower = continuation_text.to_lowercase();
-    let relevant_terms = ["hook", "signal", "use_signal", "use_effect", "dioxus"];
+    let setup_terms = [
+        "zoo map",
+        "action card",
+        "association",
+        "conservation",
+        "enclosure",
+        "setup",
+    ];
     assert!(
-        relevant_terms
-            .iter()
-            .any(|term| response_lower.contains(term)),
-        "Phase 2: continuation should mention Dioxus concepts, got: {}",
+        setup_terms.iter().any(|term| response_lower.contains(term)),
+        "Phase 2: continuation should mention Ark Nova setup concepts, got: {}",
         truncate_preview(&continuation_text),
     );
 
@@ -108,13 +98,21 @@ async fn reference_import_step_01_autonomous_import() {
     env.log(format!("reference count in DB: {ref_count}"));
     assert!(
         ref_count > 0,
-        "GHOST should have imported references into the database"
+        "GHOST should have imported the PDF rules as a reference"
+    );
+
+    // References should be on disk
+    let refs = env.list_references();
+    env.log(format!("reference files on disk: {refs:?}"));
+    assert!(
+        !refs.is_empty(),
+        "Reference files should exist in the workspace"
     );
 
     // --- Save snapshot ---
     let state = harness::fresh_step_state(
-        harness::SCENARIO_REFERENCE_IMPORT,
-        harness::STEP_RI_01,
+        harness::SCENARIO_ARK_NOVA,
+        harness::STEP_AN_01,
         None,
         session,
     );

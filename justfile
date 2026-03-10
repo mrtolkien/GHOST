@@ -35,9 +35,9 @@ test:
 e2e-refresh models="primary":
     uv run scripts/e2e refresh --models {{models}}
 
-# Compile step-based e2e tests without executing them
-e2e-check:
-    rtk cargo test --features e2e-tests --test e2e_steps --no-run
+# Compile step-based tests without executing them
+stepwise-check:
+    rtk cargo test --features live-tests-llms --test stepwise --no-run
 
 # Generate schema.sql from migrations
 generate-schema:

@@ -1,40 +1,53 @@
 ---
 name: e2e-testing
 description: >-
-  Step-based e2e test design, implementation, and iteration for Ghost. Use this skill
-  when creating, rewriting, reviewing, or debugging end-to-end tests that chain fixtures
-  across steps, use LiveTestEnv snapshots, run sequentially, or compare behavior across
-  model aliases. Covers: tests/e2e harness layout, hard-fail predecessor fixtures,
-  transcript/metrics artifacts, interactive scripts/e2e tooling, and the iteration
-  workflow when tests fail.
+  Step-based stepwise test design, implementation, and iteration for Ghost. Use this
+  skill when creating, rewriting, reviewing, or debugging stepwise tests that chain
+  fixtures across steps, use LiveTestEnv snapshots, run sequentially, or compare
+  behavior across model aliases. Also covers daemon-boot e2e tests. Covers:
+  tests/stepwise harness layout, hard-fail predecessor fixtures, transcript/metrics
+  artifacts, interactive scripts/e2e tooling, and the iteration workflow when tests
+  fail.
 ---
 
-# E2E Testing (Step-Based)
+# Testing: Stepwise & E2E
+
+Ghost has two kinds of live integration tests that hit real LLM providers:
+
+| Kind         | Entrypoint                              | Feature flag      | What it does                                             |
+| ------------ | --------------------------------------- | ----------------- | -------------------------------------------------------- |
+| **Stepwise** | `tests/stepwise.rs` → `tests/stepwise/` | `live-tests-llms` | Snapshot-and-restore fixture chains across ordered steps |
+| **E2E**      | `tests/e2e.rs` → `tests/e2e/`           | `live-tests-llms` | Boot the real daemon, send messages, assert on state     |
+
+Both require `--features live-tests-llms`. The base `live-tests` feature covers only
+local-service tests (Ollama, SearXNG, crawl4ai) that don't call paid LLM APIs.
 
 ## When To Read This Skill
 
 Read this skill before making changes if the task mentions any of:
 
-- e2e tests, live integration tests, or scenario tests
+- stepwise tests, e2e tests, live integration tests, or scenario tests
 - splitting one flow into multiple steps
 - fixture chaining or snapshot restore between tests
 - multi-model e2e runs (`GHOST_E2E_MODEL`)
 - transcript/log rendering or fixture diffs
-- a failing e2e test that needs debugging or iteration
+- a failing stepwise or e2e test that needs debugging or iteration
 
-If the task is only unit tests or basic integration tests that do not use the e2e
+If the task is only unit tests or basic integration tests that do not use either
 harness, use the `testing` skill only.
 
-## Current E2E System
+## Stepwise Tests
+
+### Current System
 
 Entrypoint and modules:
 
-- `tests/e2e_steps.rs`
-- `tests/e2e/mod.rs`
-- `tests/e2e/harness.rs`
-- `tests/e2e/scenarios/mod.rs`
-- `tests/e2e/scenarios/<scenario>/mod.rs`
-- `tests/e2e/scenarios/<scenario>/step_XX_*.rs`
+- `tests/stepwise.rs`
+- `tests/stepwise/mod.rs`
+- `tests/stepwise/harness.rs`
+- `tests/stepwise/scenarios/mod.rs`
+- `tests/stepwise/scenarios/<scenario>/mod.rs`
+- `tests/stepwise/scenarios/<scenario>/step_XX_*.rs`
 
 Scenarios currently implemented:
 
@@ -49,8 +62,14 @@ Scenarios currently implemented:
   - `step_02_confirm_and_create`
 - `reference_import`
   - `step_01_autonomous_import`
+- `ark_nova`
+  - `step_01_pdf_rules_import`
+  - `step_02_card_data_import`
+- `coding_agent`
+  - `step_01_spawn_coding_session`
+  - `step_02_coding_agent_edits`
 
-## Non-Negotiable Rules
+### Non-Negotiable Rules
 
 - One test per action boundary (one step = one responsibility)
 - Steps after step 01 must load predecessor snapshot
@@ -58,7 +77,7 @@ Scenarios currently implemented:
 - Sequential execution only (`--test-threads=1`)
 - Full workspace snapshot is persisted as `workspace.tar.zst`
 
-## Fixture Contract
+### Fixture Contract
 
 Fixture path:
 
@@ -81,18 +100,18 @@ Required artifacts per step:
 - optional `agent_id` and `agent_session_id`
 - `assertion_markers` with step outputs needed later
 
-## Creating A New E2E Scenario
+### Creating A New Stepwise Scenario
 
-1. Add `tests/e2e/scenarios/<scenario>/mod.rs` and step files.
+1. Add `tests/stepwise/scenarios/<scenario>/mod.rs` and step files.
 2. Keep each step readable: setup -> action -> assertions -> save snapshot.
 3. Use `harness::load_previous_step_or_fail(...)` for steps 02+.
 4. Build new state via `harness::fresh_step_state(...)`.
 5. Persist with `harness::save_step_snapshot(...)`.
 6. Ensure assertions are structural and robust across model variance.
 
-## Running And Refreshing
+### Running And Refreshing
 
-### Model Alias Resolution
+#### Model Alias Resolution
 
 The harness resolves the model alias in this order:
 
@@ -104,21 +123,35 @@ Check which model aliases have fixtures: `ls tests/fixtures/e2e/<scenario>/`. If
 `GHOST_E2E_MODEL` doesn't match an existing fixture directory, predecessor steps will
 hard-fail. When running manually, always set the env var to match available fixtures.
 
-### Running A Single Step
+#### Running A Single Step
 
 ```sh
-GHOST_E2E_MODEL=gpt53 cargo test --features e2e-tests \
-  --test e2e_steps printer_3d_step_01 -- --nocapture --test-threads=1
+GHOST_E2E_MODEL=gpt53 cargo test --features live-tests-llms \
+  --test stepwise printer_3d_step_01 -- --nocapture --test-threads=1
 ```
 
-### Refreshing Fixtures (Interactive Or Explicit)
+#### Refreshing Fixtures (Interactive Or Explicit)
 
 ```sh
 uv run scripts/e2e
 uv run scripts/e2e refresh --models primary,openai
 ```
 
-### Debugging Test Output (NON-NEGOTIABLE)
+## E2E Tests (Daemon-Boot)
+
+These tests boot the full Ghost daemon and exercise the real stack end-to-end.
+
+Entrypoint: `tests/e2e.rs` → `tests/e2e/`
+
+Modules: `ark_nova`, `helpers`, `scripting`
+
+Run with:
+
+```sh
+cargo test --features live-tests-llms --test e2e -- --nocapture
+```
+
+## Debugging Test Output (NON-NEGOTIABLE)
 
 **Never debug from cargo test stdout/stderr.** Test runs produce verbose logs (often
 1MB+) that get truncated by terminal buffers and log filters. Instead:
@@ -145,10 +178,10 @@ uv run scripts/e2e refresh --models primary,openai
    Python script to extract what you need (e.g., list tool calls, find dangling function
    calls, count tokens). Never try to grep through 1MB logs.
 
-## Iterating On Failing E2E Tests (NON-NEGOTIABLE)
+## Iterating On Failing Tests (NON-NEGOTIABLE)
 
-When an e2e test fails, follow this workflow strictly. The goal is to fix the _agent
-behavior_, never the test.
+When a stepwise or e2e test fails, follow this workflow strictly. The goal is to fix the
+_agent behavior_, never the test.
 
 ### Rule 1: Never Change Test Assertions
 
@@ -218,8 +251,8 @@ prompt engineering alone cannot fix the failure after multiple attempts. When yo
 
 ```sh
 # 1. Run the failing step
-GHOST_E2E_MODEL=primary cargo test --features e2e-tests \
-  --test e2e_steps printer_3d_step_02 -- --nocapture --test-threads=1
+GHOST_E2E_MODEL=primary cargo test --features live-tests-llms \
+  --test stepwise printer_3d_step_02 -- --nocapture --test-threads=1
 
 # 2. Read the transcript
 uv run scripts/e2e render-log
@@ -236,8 +269,8 @@ uv run scripts/e2e refresh --models primary
 
 ## Debugging Methodology (Systematic)
 
-When an agent-driven e2e test fails, follow this structured diagnostic process. Do NOT
-guess or make random prompt changes — diagnose first, then fix.
+When an agent-driven test fails, follow this structured diagnostic process. Do NOT guess
+or make random prompt changes — diagnose first, then fix.
 
 ### Step 1: Identify the Failing Assertion
 
@@ -303,8 +336,8 @@ uv run scripts/e2e analyze-request   # Inspect raw request payloads
 ### Iteration Journal
 
 Save root-cause analyses and fixes to `e2e-output/iteration_journal.md`. One row per
-resolved issue, newest first. Always update the journal when closing an e2e debugging
-session so future runs start with context.
+resolved issue, newest first. Always update the journal when closing a debugging session
+so future runs start with context.
 
 ## Review Checklist
 

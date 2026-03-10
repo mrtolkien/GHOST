@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use crate::e2e::harness;
+use crate::stepwise::harness;
 
 /// Step 02: User confirms project creation. GHOST should create the project
 /// and set up initial tasks via `ghost project init` and `ghost project task create`.

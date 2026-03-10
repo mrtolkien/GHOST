@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use crate::e2e::harness;
+use crate::stepwise::harness;
 
 /// User asks about a specific Ark Nova card (Baboon Rock) → GHOST searches,
 /// finds the GitHub TypeScript data repo, imports it via reference_import,

@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use crate::e2e::harness;
+use crate::stepwise::harness;
 
 #[tokio::test]
 async fn printer_3d_step_04_finalize_chat_and_reflect() {

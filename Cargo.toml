@@ -72,7 +72,7 @@ tree-sitter-md = "0.5"
 
 [features]
 live-tests = []
-e2e-tests = ["live-tests"]
+live-tests-llms = ["live-tests"]
 
 [dev-dependencies]
 chrono = "0.4"

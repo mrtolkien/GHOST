@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use crate::e2e::harness;
+use crate::stepwise::harness;
 
 /// Step 02: The coding agent receives a message and edits code in the repo.
 ///

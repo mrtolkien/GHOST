@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use crate::e2e::harness;
+use crate::stepwise::harness;
 
 /// Continue the deep-research agent with a follow-up prompt. Loads from
 /// step_04 so the workspace includes structured notes and references created

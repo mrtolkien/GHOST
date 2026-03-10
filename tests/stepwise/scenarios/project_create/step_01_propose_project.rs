@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use crate::common;
-use crate::e2e::harness;
+use crate::stepwise::harness;
 
 /// Step 01: User asks about building a keyboard with ergogen.
 /// GHOST should read the project-manager skill, respond with a plan, and ask
