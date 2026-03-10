@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@astrojs/starlight": "^0.34.0",
+    "@fontsource/dm-serif-display": "^5.2.8",
     "@fontsource/monaspace-krypton": "^5.2.5",
     "@fontsource/oxanium": "^5.2.8",
     "astro": "^5.7.0",

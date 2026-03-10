@@ -6,6 +6,9 @@ export default defineConfig({
     starlight({
       title: "GHOST",
       description: "Personal AI agent platform",
+      components: {
+        SiteTitle: "./src/components/SiteTitle.astro",
+      },
       customCss: ["./src/styles/starlight-overrides.css"],
       social: [
         {

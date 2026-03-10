@@ -1,0 +1,25 @@
+---
+/**
+ * Custom site title replacing Starlight's default.
+ * Renders the GHOST logo: GH + equilateral triangle with O inside + ST.
+ */
+---
+
+<a href="/" class="site-title ghost-logo-link">
+  <span class="ghost-logo">
+    <span class="ghost-logo-letters">GH</span>
+    <span class="ghost-logo-o-slot">
+      <svg viewBox="0 0 116 100" class="ghost-logo-triangle" aria-hidden="true">
+        <polygon
+          points="58,0 116,100 0,100"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="8"
+          stroke-linejoin="round"
+        />
+      </svg>
+      <span class="ghost-logo-o-inside">O</span>
+    </span>
+    <span class="ghost-logo-letters">ST</span>
+  </span>
+</a>

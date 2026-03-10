@@ -1,3 +1,3 @@
 - [ ] Test coding agent on live env
-- [ ] Project creation
+- [ ] Project creation and usage w/ coding agent
 - [ ] List features that need to get tested

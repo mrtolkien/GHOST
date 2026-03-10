@@ -1,5 +1,6 @@
 @import "@fontsource/oxanium/600.css";
 @import "@fontsource/oxanium/700.css";
+@import "@fontsource/dm-serif-display/400.css";
 @import "@fontsource/monaspace-krypton/500.css";
 
 :root {
@@ -235,37 +236,61 @@ main[data-pagefind-body] > .content-panel:first-child .sl-container > h1#_top,
     0 0 24px hsla(350, 100%, 60%, 0.18);
 }
 
-.title-wrapper .site-title {
+/* ── GHOST logo (shared between header + hero) ── */
+.ghost-logo {
   display: inline-flex;
-  width: fit-content;
-  max-width: max-content;
-  flex: 0 0 auto;
-  align-self: center;
-  font-family: "Oxanium", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
-  border: 0;
-  padding: 0 0.15em;
-  margin-left: -0.15em;
-  animation:
-    ghost-glow 5s linear forwards,
-    ghost-glitch 5s steps(1, end) forwards;
+  align-items: baseline;
+  line-height: 1;
+  white-space: nowrap;
+  color: #fff;
 }
 
-.title-wrapper .site-title span {
-  font-family: "Oxanium", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+:root[data-theme="light"] .ghost-logo {
+  color: hsl(234, 16%, 20%);
 }
 
-.hero h1 {
-  font-family: "Oxanium", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+.ghost-logo-letters {
+  font-family: "DM Serif Display", serif;
+  font-weight: 400;
+  color: currentColor;
+  text-transform: uppercase;
   letter-spacing: 0.04em;
-  animation:
-    ghost-glow 5s linear forwards,
-    ghost-glitch 5s steps(1, end) forwards;
 }
 
-/* Let the GHOST glow bleed out of the header's clipping boundaries. */
-.title-wrapper,
-.title-wrapper .site-title span {
-  overflow: visible !important;
+.ghost-logo-o-slot {
+  position: relative;
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: center;
+}
+
+.ghost-logo-triangle {
+  height: 0.71em;
+  width: 0.82em;
+  vertical-align: baseline;
+}
+
+.ghost-logo-o-inside {
+  position: absolute;
+  font-family: "DM Serif Display", serif;
+  font-weight: 400;
+  color: currentColor;
+  text-transform: uppercase;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: -0.08em;
+  font-size: 0.58em;
+}
+
+/* ── Header logo ── */
+.ghost-logo-link {
+  text-decoration: none;
+  font-size: 1.5rem;
+}
+
+/* ── Hero logo ── */
+.hero .ghost-logo {
+  font-size: clamp(3rem, 8vw, 5rem);
 }
 
 /* User preference: no borders/dividers in the header area. */
@@ -384,10 +409,6 @@ main[data-pagefind-body] > .content-panel:first-child .sl-container > h1#_top,
   }
 }
 
-:root[data-theme="light"] .title-wrapper .site-title,
-:root[data-theme="light"] .hero h1 {
-  animation-name: ghost-glow-light, ghost-glitch-light;
-}
 
 .sl-markdown-content code,
 .sl-markdown-content pre code,
@@ -398,7 +419,7 @@ main[data-pagefind-body] > .content-panel:first-child .sl-container > h1#_top,
 .sl-markdown-content :is(h1, h2, h3, h4),
 .sl-markdown-content .sl-heading-wrapper > :first-child,
 .hero h1,
-.site-title,
+.ghost-logo-link,
 .sidebar-content .large,
 .sidebar-content summary .group-label span,
 .right-sidebar-panel h2 {
