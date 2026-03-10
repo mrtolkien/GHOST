@@ -32,11 +32,14 @@ COPY --from=builder /build/target/release/ghost /usr/local/bin/ghost
 
 # Patch the binary to use Nix's glibc (Debian-built ELF expects
 # /lib64/ld-linux-x86-64.so.2 which doesn't exist in NixOS)
-RUN nix shell nixpkgs#patchelf --command sh -c '\
-    GLIBC=$(nix eval --raw nixpkgs#glibc.out) && \
-    patchelf --set-interpreter "$GLIBC/lib/ld-linux-x86-64.so.2" \
-             --set-rpath "$GLIBC/lib" \
-             /usr/local/bin/ghost'
+# Use tarball URL to avoid GitHub API rate limits in CI (github: flake refs
+# resolve branches via api.github.com which gets 403 without a token)
+ARG NIXPKGS="https://github.com/NixOS/nixpkgs/archive/nixos-24.11.tar.gz"
+RUN nix shell "${NIXPKGS}#patchelf" --command sh -c "\
+    GLIBC=\$(nix eval --raw \"${NIXPKGS}#glibc.out\") && \
+    patchelf --set-interpreter \"\$GLIBC/lib/ld-linux-x86-64.so.2\" \
+             --set-rpath \"\$GLIBC/lib\" \
+             /usr/local/bin/ghost"
 
 # Copy entrypoint
 COPY deploy/common/entrypoint.sh /opt/ghost/entrypoint.sh
