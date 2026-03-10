@@ -194,6 +194,10 @@ pub struct Config {
     pub docling: DoclingConfig,
     pub coding: CodingConfig,
     pub debug: DebugConfig,
+    /// Whether to install bundled docs to references/ghost/docs/ on boot.
+    /// Defaults to true; set to false in tests to avoid embedding overhead.
+    #[serde(skip)]
+    pub install_bundled_docs: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -477,6 +481,7 @@ impl Config {
                     .and_then(|d| d.save_requests)
                     .unwrap_or(false),
             },
+            install_bundled_docs: true,
         })
     }
 }
@@ -649,5 +654,6 @@ pub fn test_config(workspace: &std::path::Path) -> Config {
         debug: DebugConfig {
             save_requests: false,
         },
+        install_bundled_docs: false,
     }
 }
