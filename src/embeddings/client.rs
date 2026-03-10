@@ -44,8 +44,8 @@ impl EmbeddingClient {
             return Ok(Vec::new());
         }
 
-        let url = format!("{}/api/embed", self.url);
-        let body = OllamaEmbedRequest {
+        let url = format!("{}/v1/embeddings", self.url);
+        let body = EmbedRequest {
             model: self.model.clone(),
             input: inputs.to_vec(),
             dimensions: Some(self.dimension),
@@ -62,15 +62,13 @@ impl EmbeddingClient {
             });
         }
 
-        let payload: OllamaEmbedResponse = response.json().await?;
+        let payload: EmbedResponse = response.json().await?;
 
-        let vectors = if let Some(embeddings) = payload.embeddings {
-            embeddings
-        } else if let Some(embedding) = payload.embedding {
-            vec![embedding]
-        } else {
+        if payload.data.is_empty() {
             return Err(EmbeddingError::EmptyResponse);
-        };
+        }
+
+        let vectors: Vec<Vec<f32>> = payload.data.into_iter().map(|d| d.embedding).collect();
 
         for v in &vectors {
             if v.len() != self.dimension {
@@ -85,7 +83,7 @@ impl EmbeddingClient {
     }
 
     pub async fn is_available(&self) -> bool {
-        let url = format!("{}/api/tags", self.url);
+        let url = format!("{}/v1/models", self.url);
         self.client
             .get(&url)
             .timeout(std::time::Duration::from_secs(3))
@@ -95,10 +93,10 @@ impl EmbeddingClient {
     }
 }
 
-// -- Ollama wire types --
+// -- OpenAI-compatible wire types --
 
 #[derive(Debug, serde::Serialize)]
-struct OllamaEmbedRequest {
+struct EmbedRequest {
     model: String,
     input: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -106,7 +104,11 @@ struct OllamaEmbedRequest {
 }
 
 #[derive(Debug, Deserialize)]
-struct OllamaEmbedResponse {
-    embeddings: Option<Vec<Vec<f32>>>,
-    embedding: Option<Vec<f32>>,
+struct EmbedResponse {
+    data: Vec<EmbedObject>,
+}
+
+#[derive(Debug, Deserialize)]
+struct EmbedObject {
+    embedding: Vec<f32>,
 }

@@ -78,8 +78,31 @@ async fn crawl_import_small_site() {
         "re-crawl should skip existing references"
     );
 
-    // --- Phase 3: Vector search returns hits ---
+    // --- Phase 3: Generate embeddings (normally handled by file watcher) ---
     let client = ghost::embeddings::EmbeddingClient::new(&env.config.embeddings);
+    {
+        let refs = db::knowledge::list_references_by_topic(&env.db, Some(&topic.id), 50)
+            .await
+            .expect("list refs for embedding");
+        let embed_requests: Vec<ghost::embeddings::pipeline::EmbedRequest> = refs
+            .into_iter()
+            .map(|r| ghost::embeddings::pipeline::EmbedRequest {
+                source_table: "reference".into(),
+                source_id: r.id,
+                content: r.content,
+                tags: vec![],
+                topic_id: Some(topic.id.clone()),
+                path: Some(r.path),
+            })
+            .collect();
+        let embedded =
+            ghost::embeddings::pipeline::embed_sources(&client, &env.db, embed_requests)
+                .await
+                .expect("embed references");
+        assert!(embedded > 0, "should generate embeddings");
+    }
+
+    // --- Phase 4: Vector search returns hits ---
     let query_vectors = client
         .embed_batch(&["ghost configuration workspace".to_string()])
         .await
