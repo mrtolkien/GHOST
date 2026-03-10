@@ -504,29 +504,32 @@ pub fn spawn_reconciliation_loop(
                 continue;
             }
 
-            // Phase 1: discover files on disk that the watcher missed
-            match crate::embeddings::pipeline::reconcile_filesystem(&db, &workspace).await {
-                Ok(discovered) if discovered > 0 => {
-                    info!(discovered, "filesystem reconciliation found new files");
+            async {
+                // Phase 1: discover files on disk that the watcher missed
+                match crate::embeddings::pipeline::reconcile_filesystem(&db, &workspace).await {
+                    Ok(discovered) if discovered > 0 => {
+                        info!(discovered, "filesystem reconciliation found new files");
+                    }
+                    Err(e) => {
+                        logfire::warn!("filesystem reconciliation failed", error = e.to_string());
+                    }
+                    _ => {}
                 }
-                Err(e) => {
-                    logfire::warn!("filesystem reconciliation failed", error = e.to_string());
-                }
-                _ => {}
-            }
 
-            // Phase 2: re-embed any sources with stale content hashes
-            info!("running periodic embedding reconciliation");
-            match crate::embeddings::pipeline::reconcile_embeddings(&client, &db).await {
-                Ok((embedded, skipped)) => {
-                    if embedded > 0 {
-                        info!(embedded, skipped, "periodic reconciliation complete");
+                // Phase 2: re-embed any sources with stale content hashes
+                match crate::embeddings::pipeline::reconcile_embeddings(&client, &db).await {
+                    Ok((embedded, skipped)) => {
+                        if embedded > 0 {
+                            info!(embedded, skipped, "periodic reconciliation complete");
+                        }
+                    }
+                    Err(e) => {
+                        logfire::warn!("periodic reconciliation failed", error = e.to_string(),);
                     }
                 }
-                Err(e) => {
-                    logfire::warn!("periodic reconciliation failed", error = e.to_string(),);
-                }
             }
+            .instrument(tracing::info_span!("reconcile periodic"))
+            .await;
         }
     })
 }

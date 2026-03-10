@@ -117,7 +117,7 @@ fn set_default_rust_log_filter() {
     unsafe {
         std::env::set_var(
             "RUST_LOG",
-            "warn,ghost=info,usvg=off,resvg=off,html5ever=off",
+            "warn,ghost=info,usvg=off,resvg=off,fontdb=off,html5ever=off",
         );
     }
 }
@@ -139,7 +139,7 @@ fn set_default_rust_log_filter_for_tests() {
     unsafe {
         std::env::set_var(
             "RUST_LOG",
-            "warn,ghost=info,ghost::providers=warn,usvg=off,resvg=off,html5ever=off",
+            "warn,ghost=info,ghost::providers=warn,usvg=off,resvg=off,fontdb=off,html5ever=off",
         );
     }
 }

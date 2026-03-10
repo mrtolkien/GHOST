@@ -12,7 +12,7 @@ use serenity::model::gateway::Ready;
 use serenity::model::id::ChannelId;
 use serenity::prelude::*;
 use tokio::task::JoinHandle;
-use tracing::{error, info, warn};
+use tracing::{Instrument, error, info, warn};
 
 use crate::chat::{ActiveSessions, ChatStopReason, SessionChat};
 use crate::coding;
@@ -517,21 +517,31 @@ impl EventHandler for Handler {
     ) {
         // Handle component interactions (button clicks)
         if let Some(component) = interaction.as_message_component() {
-            let custom_id = &component.data.custom_id;
+            let custom_id = component.data.custom_id.clone();
 
-            // Acknowledge the interaction immediately
-            let _ = component
-                .create_response(&ctx.http, CreateInteractionResponse::Acknowledge)
-                .await;
+            async {
+                if let Err(e) = component
+                    .create_response(&ctx.http, CreateInteractionResponse::Acknowledge)
+                    .await
+                {
+                    error!(
+                        custom_id,
+                        "failed to acknowledge component interaction: {e}"
+                    );
+                }
 
-            // Forward bundled update responses
-            if let Some(tx) = custom_id
-                .starts_with("bundled_")
-                .then_some(())
-                .and(self.bundled_update_tx.as_ref())
-            {
-                let _ = tx.send(custom_id.clone());
+                // Forward bundled update responses
+                if custom_id.starts_with("bundled_") {
+                    if let Some(tx) = self.bundled_update_tx.as_ref() {
+                        let _ = tx.send(custom_id);
+                    } else {
+                        warn!("bundled interaction received but no handler");
+                    }
+                }
             }
+            .instrument(tracing::info_span!("handle component interaction"))
+            .await;
+
             return;
         }
 
