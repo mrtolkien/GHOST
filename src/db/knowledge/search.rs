@@ -244,6 +244,58 @@ pub async fn search_topics(
         .collect())
 }
 
+#[tracing::instrument(skip_all, level = "debug", fields(query = %query))]
+pub async fn search_scripts(
+    db: &SqlitePool,
+    query: &str,
+    limit: usize,
+) -> Result<Vec<SearchHit>, DatabaseError> {
+    #[derive(sqlx::FromRow)]
+    struct ScriptSearchRow {
+        id: String,
+        path: String,
+        content: String,
+        score: f64,
+    }
+
+    let fts_query = sanitize_fts_query(query);
+
+    let rows = sqlx::query_as::<_, ScriptSearchRow>(
+        "SELECT s.id, s.path, \
+         snippet(script_fts, 1, '', '', '...', 80) AS content, \
+         -bm25(script_fts, 1.0, 1.0) AS score \
+         FROM script_fts \
+         JOIN script s ON s.rowid = script_fts.rowid \
+         WHERE script_fts MATCH ? \
+         ORDER BY score DESC \
+         LIMIT ?",
+    )
+    .bind(&fts_query)
+    .bind(limit as i64)
+    .fetch_all(db)
+    .await
+    .map_err(|source| DatabaseError::Query {
+        table: "script",
+        operation: "search",
+        source,
+    })?;
+
+    Ok(rows
+        .into_iter()
+        .map(|r| {
+            let snippet = truncate_snippet(&r.content, 500);
+            SearchHit {
+                id: r.id,
+                title: r.path.clone(),
+                snippet,
+                score: r.score,
+                kind: "script".to_string(),
+                path: Some(format!("scripts/{}", r.path)),
+            }
+        })
+        .collect())
+}
+
 /// Merge BM25 results with vector search results using score fusion.
 ///
 /// BM25 weight: 0.4, embedding weight: 0.6.

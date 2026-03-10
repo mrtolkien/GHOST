@@ -18,6 +18,11 @@ pub async fn count_diary(db: &SqlitePool) -> Result<i64, DatabaseError> {
 }
 
 #[tracing::instrument(skip_all, level = "debug")]
+pub async fn count_scripts(db: &SqlitePool) -> Result<i64, DatabaseError> {
+    count_table(db, "script").await
+}
+
+#[tracing::instrument(skip_all, level = "debug")]
 pub async fn count_edges(db: &SqlitePool) -> Result<i64, DatabaseError> {
     count_table(db, "relates_to").await
 }
