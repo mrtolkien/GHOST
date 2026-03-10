@@ -110,12 +110,116 @@ methods.add_async_method(
 
 Note: the method takes `LuaValue` (not `LuaTable`) to handle all input types.
 
-- [ ] **Step 4: Make `ToolManager::all_available()` public**
+- [ ] **Step 4: Add the `call_tools` method**
+
+`call_tools` takes a list of `{name, args}` pairs, executes each sequentially, and
+returns two pre-formatted Lua table messages (assistant with tool_calls, user with
+tool_results). The agent author splices these directly into the build return.
+
+```rust
+// ctx:call_tools({{name, args}, ...}) -> list of message tables
+methods.add_async_method(
+    "call_tools",
+    |lua, this, calls: LuaTable| async move {
+        let config = this.config.as_ref().ok_or_else(|| {
+            LuaError::external("call_tools not available: no tool support")
+        })?;
+        let tool_manager = this.tool_manager.as_ref().ok_or_else(|| {
+            LuaError::external("call_tools not available: no tool manager")
+        })?;
+
+        let tool_ctx = crate::tools::context::ToolContext {
+            workspace: this.workspace.clone(),
+            cwd: this.workspace.clone(),
+            db: this.db.clone(),
+            config: config.clone(),
+            session_id: this.session_id.clone(),
+            agent_runner: None,
+            event_tx: None,
+            channel_id: None,
+        };
+
+        let mut tool_calls_json = Vec::new();
+        let mut tool_results_json = Vec::new();
+
+        for (i, pair) in calls.sequence_values::<LuaTable>().enumerate() {
+            let entry = pair?;
+            let name: String = entry.get(1)?;
+            let args: LuaValue = entry.get(2)?;
+            let params: serde_json::Value = lua.from_value(args)?;
+            let call_id = format!("build_{i}");
+
+            tool_calls_json.push(serde_json::json!({
+                "id": call_id,
+                "name": name,
+                "input": params,
+            }));
+
+            match tool_manager.execute(&name, params.clone(), &tool_ctx).await {
+                Ok(output) => {
+                    tool_results_json.push(serde_json::json!({
+                        "tool_use_id": call_id,
+                        "content": output.text,
+                        "is_error": false,
+                    }));
+                }
+                Err(e) => {
+                    tool_results_json.push(serde_json::json!({
+                        "tool_use_id": call_id,
+                        "content": format!("Error: {e}"),
+                        "is_error": true,
+                    }));
+                }
+            }
+        }
+
+        // Build two Lua table messages
+        let messages = lua.create_table()?;
+
+        let assistant_msg = lua.create_table()?;
+        assistant_msg.set("role", "assistant")?;
+        assistant_msg.set("content", "")?;
+        assistant_msg.set("tool_calls", lua.to_value(&tool_calls_json)?)?;
+        messages.raw_set(1, assistant_msg)?;
+
+        let results_msg = lua.create_table()?;
+        results_msg.set("role", "user")?;
+        results_msg.set("content", "")?;
+        results_msg.set("tool_results", lua.to_value(&tool_results_json)?)?;
+        messages.raw_set(2, results_msg)?;
+
+        Ok(messages)
+    },
+);
+```
+
+- [ ] **Step 5: Extend BuildMessage with tool_calls/tool_results**
+
+In `src/scripting/types.rs`, add optional fields to `BuildMessage`:
+
+```rust
+pub struct BuildMessage {
+    pub role: String,
+    pub content: String,
+    pub tool_calls: Option<Vec<serde_json::Value>>,
+    pub tool_results: Option<Vec<serde_json::Value>>,
+}
+```
+
+Update the `build()` return parsing in `src/scripting/host.rs` (`call_build`) to
+extract these optional fields from message tables using mlua serde.
+
+Update `run_agent` in `src/chat/session.rs` (~line 978) to persist build messages with
+`create_message_with_metadata` when `tool_calls` or `tool_results` are present (instead
+of `create_message`). Also update the inline history building (~line 984) to construct
+`ContentBlock::ToolUse`/`ContentBlock::ToolResult` blocks.
+
+- [ ] **Step 6: Make `ToolManager::all_available()` public**
 
 In `src/tools/manager.rs:82`, change `fn all_available()` to `pub fn all_available()`.
 It's currently private but we need it from `src/agents/runner.rs`.
 
-- [ ] **Step 5: Wire tool support into all AgentContext creation sites**
+- [ ] **Step 7: Wire tool support into all AgentContext creation sites**
 
 There are **three** places in `src/agents/runner.rs` that create `AgentContext` and all
 need tool support:
@@ -149,16 +253,16 @@ ctx = ctx.with_tool_support(config.clone(), Arc::new(ToolManager::all_available(
 `run_post_completion` already receives `config: &Config`, so just add the tool manager.
 The `Arc<ToolManager>` is cheap to construct (just registers tool structs).
 
-- [ ] **Step 7: Run `just ci` to verify compilation**
+- [ ] **Step 8: Run `just ci` to verify compilation**
 
 Run: `just ci`
 Expected: All checks pass. No existing tests break since new fields are `Option<_>`
 defaulting to `None`.
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 9: Commit**
 
 ```
-feat: add ctx:call_tool() for Lua agent hooks
+feat: add ctx:call_tool() and ctx:call_tools() for Lua agent hooks
 ```
 
 ### Task 2: Unit test for `call_tool`
@@ -238,28 +342,30 @@ return {
             "https://example.com/feed.xml",
             "https://other.com/news",
         }
-        local fetched = {}
-        for _, url in ipairs(urls) do
-            local ok, result = pcall(function()
-                return ctx:call_tool("web_fetch", { url = url })
-            end)
-            if ok then
-                table.insert(fetched, "## " .. url .. "\n\n" .. result)
-            else
-                table.insert(fetched, "## " .. url .. "\n\n[fetch failed: " .. tostring(result) .. "]")
-            end
-        end
 
+        -- call_tools returns pre-formatted messages:
+        -- [1] = { role = "assistant", tool_calls = [...] }
+        -- [2] = { role = "user", tool_results = [...] }
+        local calls = {}
+        for _, url in ipairs(urls) do
+            table.insert(calls, { "web_fetch", { url = url } })
+        end
+        local messages = ctx:call_tools(calls)
+
+        -- Append the instruction with previous digest context
         local previous = ctx:get("last_digest") or "No previous digest."
+        table.insert(messages, {
+            role = "user",
+            content = "# Previous digest\n\n" .. previous
+                .. "\n\nSummarize the fetched feeds into a concise daily recap. "
+                .. "Skip anything already covered in the previous digest.",
+        })
 
         return {
             system_prompt = template.render(read_file("prompt.md"), {
                 date = os.date("%Y-%m-%d"),
             }),
-            messages = {
-                { role = "user", content = "# Previous digest\n\n" .. previous
-                    .. "\n\n# Today's feeds\n\n" .. table.concat(fetched, "\n\n") },
-            },
+            messages = messages,
         }
     end,
 
@@ -291,6 +397,11 @@ authors get IDE completion:
 ---@param args table Tool arguments as key-value pairs
 ---@return string result The tool's output text
 function AgentContext:call_tool(name, args) end
+
+---@async
+---@param calls table List of {name, args} pairs, e.g. {{"web_fetch", {url = "..."}}}
+---@return table messages Two pre-formatted messages (assistant tool_calls + user tool_results)
+function AgentContext:call_tools(calls) end
 ```
 
 - [ ] **Step 3: Verify the skill reads correctly**
@@ -390,7 +501,7 @@ async fn test_cron_agent_creation() {
     let lua_content = std::fs::read_to_string(&agent_lua).expect("read agent.lua");
     assert!(
         lua_content.contains("call_tool"),
-        "agent.lua should use ctx:call_tool for pre-fetching"
+        "agent.lua should use ctx:call_tool or ctx:call_tools for pre-fetching"
     );
     assert!(
         lua_content.contains("web_fetch"),

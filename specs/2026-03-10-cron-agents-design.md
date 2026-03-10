@@ -9,30 +9,94 @@ agent-creator skill doesn't cover scheduled/cron agents.
 
 ## Changes
 
-### 1. `ctx:call_tool(name, args)` on AgentContext
+### 1. Tool execution from Lua hooks
 
-New async method in `src/scripting/bindings.rs`. Lets any Lua hook call any tool.
+Two new async methods on `AgentContext` in `src/scripting/bindings.rs`. Both route
+through the tool execution layer (`Arc<ToolManager>` on `AgentContext`).
 
-- Routes through the tool execution layer (needs `Arc<ToolManager>` or equivalent on
-  `AgentContext`)
 - **Unrestricted**: not gated by the agent's `tools` whitelist. The whitelist controls
-  what the LLM sees; `call_tool` is for the Lua author, a different trust boundary.
-- Returns the tool result string on success, raises Lua error on failure
+  what the LLM sees; hook-level tool calls are for the Lua author, a different trust
+  boundary.
 - Available in all hooks: `build`, `should_trigger`, `post_completion`, custom tool
-  handlers
+  handlers.
 
-Example:
+#### `ctx:call_tool(name, args) -> string`
+
+Simple single-tool call. Returns the tool result text on success, raises Lua error on
+failure. Use for one-off calls in `should_trigger`, `post_completion`, etc.
+
+```lua
+should_trigger = function(ctx)
+    local status = ctx:call_tool("read_file", { path = "status.json" })
+    return status:find("needs_update")
+end
+```
+
+#### `ctx:call_tools(list) -> messages`
+
+Batch call that returns **pre-formatted messages** ready to splice into `build()`'s
+return value. The agent author never touches tool call IDs or message structure.
+
 ```lua
 build = function(ctx, args)
-    local feed = ctx:call_tool("web_fetch", { url = "https://example.com/feed.xml" })
+    local previous = ctx:get("last_digest") or "No previous digest."
+
+    -- Returns ready-to-use messages:
+    -- [1] = { role = "assistant", tool_calls = [{id, name, input}, ...] }
+    -- [2] = { role = "user", tool_results = [{tool_use_id, content}, ...] }
+    local tool_msgs = ctx:call_tools({
+        { "web_fetch", { url = url1 } },
+        { "web_fetch", { url = url2 } },
+        { "web_fetch", { url = url3 } },
+    })
+
+    table.insert(tool_msgs, {
+        role = "user",
+        content = "Previous digest:\n" .. previous .. "\n\nSummarize these feeds.",
+    })
+
     return {
-        system_prompt = "Summarize this feed.",
-        messages = {
-            { role = "user", content = feed },
-        },
+        system_prompt = template.render(read_file("prompt.md"), {
+            date = os.date("%Y-%m-%d"),
+        }),
+        messages = tool_msgs,
     }
 end
 ```
+
+Under the hood, `call_tools`:
+1. Generates unique IDs (e.g. `"build_1"`, `"build_2"`, ...) for each call
+2. Executes tools sequentially (latency is not a concern for build hooks)
+3. Returns two Lua table messages: one `assistant` message with all `tool_calls`, one
+   `user` message with all `tool_results` (failed calls get `is_error = true`)
+
+### 1b. Extend BuildMessage to support tool call format
+
+`BuildMessage` (`src/scripting/types.rs`) currently only has `{role, content}`. Extend
+it with optional `tool_calls` and `tool_results`:
+
+```rust
+pub struct BuildMessage {
+    pub role: String,
+    pub content: String,
+    pub tool_calls: Option<Vec<serde_json::Value>>,
+    pub tool_results: Option<Vec<serde_json::Value>>,
+}
+```
+
+The Lua parsing of `build()` return value must extract these optional fields from
+message tables (they're already Lua tables from `call_tools`, so just read them through).
+
+**Persistence** — update `run_agent` in `session.rs` (~line 978) to use
+`create_message_with_metadata` instead of `create_message` when tool_calls or
+tool_results are present. The existing `convert_stored_message_to_provider_message`
+in `convert.rs` already reconstructs `ToolUse`/`ToolResult` ContentBlocks from the
+JSON columns, so provider history will be correct automatically.
+
+**Provider history building** — update the history construction (~line 984) to build
+proper `ContentBlock::ToolUse` and `ContentBlock::ToolResult` blocks instead of only
+`ContentBlock::Text`. Or: just persist to DB and let `load_provider_history` handle it
+(simpler — persist first, then load, instead of building history inline).
 
 ### 2. Update agent-creator skill
 
@@ -86,6 +150,6 @@ Test flow:
 
 ## Non-goals
 
-- Parallel `ctx:call_tools()` batch variant (can add later if needed)
+- Parallel execution inside `call_tools` (sequential is fine for build hooks)
 - Bundling the daily-recap agent in `assets/` (it's a test fixture)
 - Scheduler-level testing (already covered by unit tests in `crontab.rs`)
