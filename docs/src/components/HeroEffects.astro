@@ -1,0 +1,78 @@
+---
+/**
+ * Matrix rain + CRT effects for the splash hero page.
+ * Injected via client-side JS targeting Starlight's .hero container.
+ */
+---
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const hero = document.querySelector('.hero');
+    if (!hero) return;
+
+    hero.style.position = 'relative';
+    hero.style.overflow = 'hidden';
+
+    // Scanlines overlay
+    const scanlines = document.createElement('div');
+    scanlines.style.cssText = `
+      position:absolute;inset:0;z-index:1;pointer-events:none;
+      background:repeating-linear-gradient(0deg,transparent,transparent 2px,
+        rgba(0,255,65,0.015) 2px,rgba(0,255,65,0.015) 4px);
+    `;
+    hero.prepend(scanlines);
+
+    // CRT vignette
+    const vignette = document.createElement('div');
+    vignette.style.cssText = `
+      position:absolute;inset:0;z-index:2;pointer-events:none;
+      background:radial-gradient(ellipse at center,transparent 50%,rgba(0,0,0,0.6) 100%);
+    `;
+    hero.prepend(vignette);
+
+    // Matrix rain canvas
+    const canvas = document.createElement('canvas');
+    canvas.style.cssText = 'position:absolute;inset:0;z-index:0;opacity:0.1;';
+    hero.prepend(canvas);
+
+    const ctx = canvas.getContext('2d');
+    function resize() {
+      canvas.width = hero.offsetWidth;
+      canvas.height = hero.offsetHeight;
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    const chars = 'ゴーストシェルアイデンティティ記憶知識01';
+    const fontSize = 14;
+    let columns = Math.floor(canvas.width / fontSize);
+    let drops = Array(columns).fill(0).map(() => Math.random() * -100);
+
+    function draw() {
+      ctx.fillStyle = 'rgba(10, 10, 10, 0.08)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#1abc9c';
+      ctx.font = fontSize + 'px monospace';
+
+      for (let i = 0; i < drops.length; i++) {
+        const char = chars[Math.floor(Math.random() * chars.length)];
+        const x = i * fontSize;
+        const y = drops[i] * fontSize;
+        if (y > 0) {
+          ctx.globalAlpha = Math.random() * 0.5 + 0.1;
+          ctx.fillText(char, x, y);
+        }
+        if (y > canvas.height && Math.random() > 0.98) drops[i] = 0;
+        drops[i] += 0.4 + Math.random() * 0.3;
+      }
+      ctx.globalAlpha = 1;
+      requestAnimationFrame(draw);
+    }
+    draw();
+
+    // Ensure hero content is above overlays
+    const heroContent = hero.querySelector(':scope > div');
+    if (heroContent) heroContent.style.position = 'relative';
+    if (heroContent) heroContent.style.zIndex = '10';
+  });
+</script>
