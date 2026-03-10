@@ -24,6 +24,7 @@ Ollama (qwen3-embedding:8b), uv (PEP 723 scripts), typer (CLI args).
 ### Task 1: Migration — `script` table + FTS5 + triggers
 
 **Files:**
+
 - Create: `migrations/NNN_scripts.sql` (use next sequence number after existing)
 
 - [ ] **Step 1: Check existing migration numbering**
@@ -93,6 +94,7 @@ git commit -m "feat: add script table, FTS5 index, and sync triggers"
 ### Task 2: ScriptRecord type
 
 **Files:**
+
 - Modify: `src/db/knowledge/records.rs` (add `ScriptRecord`)
 
 - [ ] **Step 1: Add ScriptRecord struct**
@@ -138,6 +140,7 @@ git commit -m "feat: add ScriptRecord type"
 ### Task 3: Script CRUD functions
 
 **Files:**
+
 - Modify: `src/db/knowledge/crud.rs` (add script CRUD)
 - Modify: `src/db/knowledge/mod.rs` (export new functions)
 
@@ -317,6 +320,7 @@ git commit -m "feat: script CRUD functions"
 ### Task 4: Script BM25 search + stats
 
 **Files:**
+
 - Modify: `src/db/knowledge/search.rs` (add `search_scripts`)
 - Modify: `src/db/knowledge/stats.rs` (add `count_scripts`)
 - Modify: `src/db/knowledge/mod.rs` (export)
@@ -379,8 +383,8 @@ pub async fn search_scripts(
 }
 ```
 
-Note: BM25 weights are `1.0, 1.0` (path and content equally weighted). The `title`
-field of `SearchHit` is set to the script path since scripts don't have separate titles.
+Note: BM25 weights are `1.0, 1.0` (path and content equally weighted). The `title` field
+of `SearchHit` is set to the script path since scripts don't have separate titles.
 
 - [ ] **Step 2: Add `count_scripts` to `stats.rs`**
 
@@ -420,6 +424,7 @@ git commit -m "feat: script BM25 search and count"
 ### Task 5: Create `scripts/` directory on workspace bootstrap
 
 **Files:**
+
 - Modify: `src/config_workspace.rs`
 
 This must be done BEFORE the watcher task — `setup_watcher` only watches directories
@@ -457,6 +462,7 @@ git commit -m "feat: create scripts/ directory on workspace bootstrap"
 ### Task 6: Filesystem watcher — script support
 
 **Files:**
+
 - Modify: `src/daemon/watcher.rs`
 
 Three changes needed in this file:
@@ -565,8 +571,8 @@ async fn process_script_change(
 ```
 
 Note: `path` in `EmbedRequest` is set to the full filesystem-relative path (e.g.
-`scripts/finance/spending.py`) so the code chunker can detect the language from the
-file extension.
+`scripts/finance/spending.py`) so the code chunker can detect the language from the file
+extension.
 
 - [ ] **Step 5: Verify compilation**
 
@@ -584,6 +590,7 @@ git commit -m "feat: filesystem watcher support for scripts/"
 ### Task 7: Embedding reconciliation — script support
 
 **Files:**
+
 - Modify: `src/embeddings/pipeline.rs`
 
 Two changes: `reconcile_filesystem` and `reconcile_embeddings`.
@@ -635,8 +642,8 @@ async fn embed_source_inner(
 
 Do the same for `embed_source_forced`.
 
-Update all existing callers (notes, references, diary reconciliation) to pass `None`
-for `path` — their behavior is unchanged.
+Update all existing callers (notes, references, diary reconciliation) to pass `None` for
+`path` — their behavior is unchanged.
 
 - [ ] **Step 3: Add script reconciliation to `reconcile_embeddings`**
 
@@ -692,6 +699,7 @@ git commit -m "feat: embedding reconciliation for scripts"
 ### Task 8: `knowledge_search` tool — scripts category
 
 **Files:**
+
 - Modify: `src/tools/knowledge_search.rs`
 
 - [ ] **Step 1: Add `"scripts"` to the schema enum**
@@ -786,6 +794,7 @@ git commit -m "feat: knowledge_search supports scripts category"
 ### Task 9: Create the scripting skill
 
 **Files:**
+
 - Create: `assets/skills/scripting/skill.md`
 
 - [ ] **Step 1: Write the skill file**
@@ -808,10 +817,11 @@ a throwaway command. This makes your work reproducible and discoverable.
 ## Before Writing
 
 Check if you already have a script for this:
+```
 
-```
 knowledge_search query="<what you need>" categories=["scripts"]
-```
+
+````
 
 If found, read it with `read_file` and run it. Update it if the OPERATOR's request is a
 variation.
@@ -855,7 +865,7 @@ def main(
 
 if __name__ == "__main__":
     typer.run(main)
-```
+````
 
 ### Template (no arguments)
 
@@ -926,7 +936,8 @@ Then search your references:
 ```
 knowledge_search query="typer argument" categories=["references"] topic="typer"
 ```
-```
+
+````
 
 - [ ] **Step 2: Verify the skill is installed on workspace bootstrap**
 
@@ -946,7 +957,7 @@ Run: `cargo check`
 ```bash
 git add assets/skills/scripting/skill.md
 git commit -m "feat: bundled scripting skill for GHOST"
-```
+````
 
 ---
 
@@ -955,6 +966,7 @@ git commit -m "feat: bundled scripting skill for GHOST"
 ### Task 10: Reorganize daemon e2e tests into folder
 
 **Files:**
+
 - Create: `tests/daemon.rs` (feature-gated entry point)
 - Create: `tests/daemon/helpers.rs` (extracted helpers)
 - Create: `tests/daemon/ark_nova.rs` (existing test, renamed)
@@ -1064,7 +1076,8 @@ Remove the file entirely (its content has been moved).
 
 - [ ] **Step 6: Verify the moved test still works**
 
-Run: `cargo test --features live-tests test_ark_nova_import -- --nocapture 2>&1 | tail -5`
+Run:
+`cargo test --features live-tests test_ark_nova_import -- --nocapture 2>&1 | tail -5`
 
 Should compile and find the test (may skip actually running if no Ollama/provider).
 
@@ -1081,6 +1094,7 @@ git commit -m "refactor: reorganize daemon e2e tests into tests/daemon/ folder"
 ### Task 11: Create mock CSV fixture
 
 **Files:**
+
 - Create: `tests/fixtures/mock_bank_statement.csv`
 
 - [ ] **Step 1: Write the fixture**
@@ -1118,6 +1132,7 @@ git commit -m "test: add mock bank statement CSV fixture for scripting tests"
 ### Task 12: Scripting e2e tests
 
 **Files:**
+
 - Create: `tests/daemon/scripting.rs`
 
 - [ ] **Step 1: Write the scripting test module**
@@ -1322,8 +1337,8 @@ async fn test_script_weather_forecast() {
 
 - [ ] **Step 2: Check if `workspace_path()` exists on `LiveTestEnv`**
 
-The test uses `env.workspace_path()`. Check `tests/common.rs` — if it doesn't exist,
-add a simple getter:
+The test uses `env.workspace_path()`. Check `tests/common.rs` — if it doesn't exist, add
+a simple getter:
 
 ```rust
 pub fn workspace_path(&self) -> &Path {
@@ -1394,6 +1409,6 @@ rm -rf /tmp/ghost-test-scripts
 - **Skill installation**: The `assets/skills/` directory should be auto-installed by
   `install_bundled_files`. Verify by checking how `assets/skills/coding/skill.md` gets
   installed.
-- **`list_recent`**: The plan does not add scripts to `list_recent()` in `crud.rs`.
-  This is intentional — scripts are utility code, not knowledge the GHOST browses
+- **`list_recent`**: The plan does not add scripts to `list_recent()` in `crud.rs`. This
+  is intentional — scripts are utility code, not knowledge the GHOST browses
   chronologically. Can be added later if needed.

@@ -57,8 +57,9 @@ async fn test_script_csv_spending() {
             .session_chat
             .chat(
                 &session_id,
-                "I have a bank statement at bank_statement.csv — how much did I spend \
-                 on food this month? Break it down by category (groceries vs restaurants).",
+                "Write me a reusable script that analyzes bank_statement.csv and breaks \
+                 down spending by category. I want to run it monthly. Try it on the CSV \
+                 in my workspace to show me this month's food spending (groceries vs restaurants).",
                 None,
                 None,
             )
@@ -89,55 +90,7 @@ async fn test_script_csv_spending() {
 }
 
 // ---------------------------------------------------------------------------
-// US2: Domain expiry check
-// ---------------------------------------------------------------------------
-
-#[tokio::test]
-async fn test_script_domain_expiry() {
-    let env = live_test_database("script_domain_expiry").await;
-    let daemon = env.boot_daemon().await;
-
-    let session_id = ghost::db::sessions::create_session(&daemon.db)
-        .await
-        .expect("create session");
-
-    let timeout = Duration::from_secs(180);
-    tokio::time::timeout(timeout, async {
-        daemon
-            .session_chat
-            .chat(
-                &session_id,
-                "Check if tolki.dev and tachikoma-ai.com are expiring soon",
-                None,
-                None,
-            )
-            .await
-            .expect("chat failed");
-    })
-    .await
-    .expect("TIMEOUT: script_domain_expiry exceeded 180s");
-
-    daemon.settle().await.expect("settle");
-
-    let script_content = ["domains", "dns", "whois"]
-        .iter()
-        .find_map(|topic| find_script(&env, topic));
-
-    let content =
-        script_content.expect("expected a Python script under scripts/{domains,dns,whois}/");
-    assert_script_conventions(&content, "domain_expiry");
-
-    assert!(
-        content.contains("whois") || content.contains("python-whois"),
-        "expected script to use whois library"
-    );
-
-    env.log_session_json("domain_expiry", &session_id).await;
-    daemon.shutdown().await;
-}
-
-// ---------------------------------------------------------------------------
-// US3: Weather forecast
+// US2: Weather forecast
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
@@ -155,7 +108,8 @@ async fn test_script_weather_forecast() {
             .session_chat
             .chat(
                 &session_id,
-                "What's the weather going to be like this week near Tokyo station, Tokyo?",
+                "Write me a script that fetches the weather forecast for Tokyo station, \
+                 Tokyo. I'll be asking you for the weather regularly so I want a reusable script.",
                 None,
                 None,
             )

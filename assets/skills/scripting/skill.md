@@ -1,8 +1,10 @@
 ---
 name: scripting
 description:
-  Write reusable scripts. Use when the OPERATOR asks a question that requires running
-  code, data processing, API calls, or anything beyond a single coreutils command.
+  Use when the OPERATOR asks a question that needs code to answer — data processing,
+  CSV/JSON parsing, API calls, domain lookups, web scraping, calculations, or anything
+  beyond a single coreutils command. MUST READ before writing any Python or running
+  python/python3 commands.
 ---
 
 # Scripting

@@ -982,6 +982,7 @@ pub async fn live_test_database_from_snapshot(
     // Load config from temp dir + bootstrap + connect
     let mut config = config::load_from_dir(config_dir.path()).expect("load config from temp dir");
     config.debug.save_requests = true;
+    config.install_bundled_docs = false;
     ghost::config_workspace::bootstrap_workspace(&config).expect("bootstrap temp workspace");
     if let Some(snapshot_path) = snapshot {
         restore_workspace_archive(&config.workspace, snapshot_path).unwrap_or_else(|e| {

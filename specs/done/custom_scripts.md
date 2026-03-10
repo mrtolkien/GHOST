@@ -17,10 +17,10 @@ This feature has three parts:
 ## Design Philosophy
 
 Scripts are **executable artifacts**, not reference material. The GHOST doesn't just
-*read* them for information — it *runs* them to produce results. This is fundamentally
+_read_ them for information — it _runs_ them to produce results. This is fundamentally
 different from references (source material you consult) or notes (interpretations you
 reason from). Scripts deserve their own knowledge category because the GHOST's intent
-when searching for them is different: "can I *do* this?" vs "what do I *know* about
+when searching for them is different: "can I _do_ this?" vs "what do I _know_ about
 this?"
 
 ## 1. Scripting Skill
@@ -82,8 +82,8 @@ ecosystem covers most tasks. Use a different language when:
 Guidelines for non-Python scripts:
 
 - **Bash**: `scripts/{topic}/{name}.sh`. Add a shebang (`#!/usr/bin/env bash`), set
-  `set -euo pipefail`. Use for orchestrating existing CLI tools. No complex logic —
-  if you need conditionals or loops over data, use Python instead.
+  `set -euo pipefail`. Use for orchestrating existing CLI tools. No complex logic — if
+  you need conditionals or loops over data, use Python instead.
 - **Other compiled languages** (Go, Rust, etc.): Add required toolchains to the
   workspace nix shell (`shell/`) so the script can be built and run. Document the build
   step in the script's header comment.
@@ -159,8 +159,8 @@ retrieval.
 The code chunker (`src/embeddings/chunker.rs`) uses tree-sitter with a 2000-char target:
 
 1. Parse the file into an AST (Python, Bash, etc.)
-2. If the root module node is <= 2000 chars → **single chunk** (whole file). This is
-   the common case for well-focused scripts.
+2. If the root module node is <= 2000 chars → **single chunk** (whole file). This is the
+   common case for well-focused scripts.
 3. If > 2000 chars → recurse into top-level AST children (imports, docstring, function
    definitions, class definitions)
 4. `greedy_merge` recombines consecutive small nodes back up to 2000 chars
@@ -228,5 +228,6 @@ Every scripting test asserts:
 4. GHOST ran the script (check for `run_shell_command` tool use with `uv run`)
 
 US1 additionally asserts:
+
 - Script uses typer (has CLI arguments)
 - Script output contains numeric spending data when run against the fixture CSV
