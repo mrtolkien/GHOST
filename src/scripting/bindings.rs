@@ -275,6 +275,7 @@ impl LuaUserData for AgentContext {
         );
 
         // ctx:call_tools({{name, args}, ...}) -> list of message tables
+        // Tools are executed in parallel for performance.
         methods.add_async_method("call_tools", |lua, this, calls: LuaTable| async move {
             let config = this
                 .config
@@ -307,35 +308,44 @@ impl LuaUserData for AgentContext {
                 channel_id: None,
             };
 
-            let mut tool_calls_json = Vec::new();
-            let mut tool_results_json = Vec::new();
+            // Build tool_calls_json upfront (just metadata, no execution)
+            let tool_calls_json: Vec<serde_json::Value> = parsed_calls
+                .iter()
+                .enumerate()
+                .map(|(i, (name, params))| {
+                    serde_json::json!({
+                        "id": format!("build_{i}"),
+                        "name": name,
+                        "input": params,
+                    })
+                })
+                .collect();
 
-            for (i, (name, params)) in parsed_calls.into_iter().enumerate() {
-                let call_id = format!("build_{i}");
-
-                tool_calls_json.push(serde_json::json!({
-                    "id": call_id,
-                    "name": name,
-                    "input": params,
-                }));
-
-                match tool_manager.execute(&name, params.clone(), &tool_ctx).await {
-                    Ok(output) => {
-                        tool_results_json.push(serde_json::json!({
-                            "tool_use_id": call_id,
-                            "content": output.text,
-                            "is_error": false,
-                        }));
+            // Execute all tools in parallel
+            let futures: Vec<_> = parsed_calls
+                .into_iter()
+                .enumerate()
+                .map(|(i, (name, params))| {
+                    let call_id = format!("build_{i}");
+                    let tm = Arc::clone(tool_manager);
+                    let ctx = tool_ctx.clone();
+                    async move {
+                        match tm.execute(&name, params, &ctx).await {
+                            Ok(output) => serde_json::json!({
+                                "tool_use_id": call_id,
+                                "content": output.text,
+                                "is_error": false,
+                            }),
+                            Err(e) => serde_json::json!({
+                                "tool_use_id": call_id,
+                                "content": format!("Error: {e}"),
+                                "is_error": true,
+                            }),
+                        }
                     }
-                    Err(e) => {
-                        tool_results_json.push(serde_json::json!({
-                            "tool_use_id": call_id,
-                            "content": format!("Error: {e}"),
-                            "is_error": true,
-                        }));
-                    }
-                }
-            }
+                })
+                .collect();
+            let tool_results_json = futures::future::join_all(futures).await;
 
             // Build two Lua table messages
             let messages = lua.create_table()?;
