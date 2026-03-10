@@ -5,6 +5,7 @@ export default defineConfig({
   integrations: [
     starlight({
       title: "GHOST",
+      favicon: "/favicon.svg",
       description: "Personal AI agent platform",
       components: {
         SiteTitle: "./src/components/SiteTitle.astro",

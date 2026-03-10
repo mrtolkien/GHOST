@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <rect width="128" height="128" rx="16" fill="#1a1a2e"/>
+  <polygon
+    points="64,8 122,108 6,108"
+    fill="none"
+    stroke="white"
+    stroke-width="10"
+    stroke-linejoin="round"
+  />
+  <text
+    x="64"
+    y="100"
+    text-anchor="middle"
+    font-family="system-ui, serif"
+    font-weight="700"
+    font-size="70"
+    fill="white"
+  >O</text>
+</svg>
