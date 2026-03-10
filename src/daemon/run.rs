@@ -121,6 +121,13 @@ pub async fn boot_with_config(config: Config) -> Result<DaemonHandle, GhostError
     crate::config_workspace::bootstrap_workspace_dirs(&config)?;
     info!(workspace = %config.workspace.display(), "config loaded");
 
+    // Install bundled docs to references/ghost/docs/ (silently, content-hash checked)
+    match crate::bundled::install_docs(&config.workspace) {
+        Ok(0) => {}
+        Ok(n) => info!(n, "updated bundled docs"),
+        Err(e) => logfire::warn!("failed to install bundled docs", error = e.to_string()),
+    }
+
     // Check for bundled file changes BEFORE installing
     let changes = crate::bundled::compute_changes(&config.workspace);
     let has_updates = changes.has_updates();

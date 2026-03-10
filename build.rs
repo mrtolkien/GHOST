@@ -6,8 +6,9 @@ use std::path::Path;
 fn main() {
     let out_dir = env::var("OUT_DIR").unwrap();
     let dest = Path::new(&out_dir).join("bundled_files.rs");
-    let assets_dir = Path::new("assets");
 
+    // Bundle assets/
+    let assets_dir = Path::new("assets");
     println!("cargo::rerun-if-changed=assets");
 
     let mut entries = Vec::new();
@@ -15,12 +16,29 @@ fn main() {
     entries.sort();
 
     let mut f = fs::File::create(&dest).unwrap();
+    write_array(&mut f, "BUNDLED_FILES", &entries);
 
-    writeln!(f, "const BUNDLED_FILES: &[BundledFile] = &[").unwrap();
-    for (workspace_path, source_path) in &entries {
+    // Bundle docs/src/content/ (self-documentation for references/)
+    let docs_dir = Path::new("docs/src/content");
+    println!("cargo::rerun-if-changed=docs/src/content");
+
+    let mut doc_entries = Vec::new();
+    walk_dir(docs_dir, docs_dir, &mut doc_entries);
+    doc_entries.sort();
+
+    write_array(&mut f, "BUNDLED_DOCS", &doc_entries);
+}
+
+fn write_array(f: &mut fs::File, name: &str, entries: &[(String, String)]) {
+    writeln!(f, "const {name}: &[BundledFile] = &[").unwrap();
+    for (workspace_path, source_path) in entries {
         writeln!(f, "    BundledFile {{").unwrap();
         writeln!(f, "        path: {workspace_path:?},").unwrap();
-        writeln!(f, "        content: include_str!(concat!(env!(\"CARGO_MANIFEST_DIR\"), \"/{source_path}\")),").unwrap();
+        writeln!(
+            f,
+            "        content: include_str!(concat!(env!(\"CARGO_MANIFEST_DIR\"), \"/{source_path}\")),",
+        )
+        .unwrap();
         writeln!(f, "    }},").unwrap();
     }
     writeln!(f, "];").unwrap();
