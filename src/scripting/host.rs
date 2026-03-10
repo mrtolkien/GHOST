@@ -192,7 +192,24 @@ impl ScriptHost {
                         let msg = pair?;
                         let role: String = msg.get("role")?;
                         let content: String = msg.get("content")?;
-                        messages.push(BuildMessage { role, content });
+
+                        let tool_calls: Option<Vec<serde_json::Value>> =
+                            match msg.get::<LuaValue>("tool_calls")? {
+                                LuaValue::Nil => None,
+                                val => Some(self.lua.from_value(val)?),
+                            };
+                        let tool_results: Option<Vec<serde_json::Value>> =
+                            match msg.get::<LuaValue>("tool_results")? {
+                                LuaValue::Nil => None,
+                                val => Some(self.lua.from_value(val)?),
+                            };
+
+                        messages.push(BuildMessage {
+                            role,
+                            content,
+                            tool_calls,
+                            tool_results,
+                        });
                     }
                 }
 
@@ -1328,5 +1345,168 @@ mod tests {
         // The handler will error because we passed a string instead of table for ctx,
         // but that's fine — we verified it's callable.
         let _ = result;
+    }
+
+    /// Create a minimal Config pointing at the given workspace.
+    fn test_config(workspace: &Path) -> crate::config::Config {
+        let config_dir = tempfile::TempDir::new().unwrap();
+        let config_file = config_dir.path().join("config.toml");
+        std::fs::write(
+            &config_file,
+            format!(
+                "workspace = \"{}\"\n\
+                 [models]\ndefault = \"primary\"\n\
+                 [models.primary]\nprovider = \"openrouter\"\n\
+                 model = \"anthropic/claude-sonnet-4-5-20250929\"\n\
+                 context_window = 200000\n",
+                workspace.display()
+            ),
+        )
+        .unwrap();
+        crate::config::load_from_dir(config_dir.path()).unwrap()
+    }
+
+    #[tokio::test]
+    async fn call_tool_in_build_reads_file() {
+        let dir = test_workspace();
+        // Write a file the agent will read via ctx:call_tool
+        std::fs::write(dir.path().join("hello.txt"), "Hello from tool!").unwrap();
+
+        write_agent_lua(
+            dir.path(),
+            r#"
+            return {
+                name = "test-agent",
+                description = "Tests call_tool",
+                tools = {},
+                build = function(ctx, args)
+                    local content = ctx:call_tool("read_file", {
+                        path = ctx.workspace .. "/hello.txt",
+                    })
+                    return {
+                        system_prompt = "You are a test agent.",
+                        messages = {
+                            { role = "user", content = content },
+                        },
+                    }
+                end,
+            }
+            "#,
+        );
+
+        let agent_dir = dir.path().join("agents").join("test-agent");
+        let mut host = ScriptHost::new(&agent_dir, dir.path()).unwrap();
+        host.load_config().unwrap();
+
+        let db = test_db(dir.path()).await;
+        let config = test_config(dir.path());
+        let ctx = test_ctx(db, dir.path()).with_tool_support(
+            config,
+            std::sync::Arc::new(crate::tools::ToolManager::all_available()),
+        );
+
+        let result = host
+            .call_build(ctx, std::collections::HashMap::new())
+            .await
+            .unwrap();
+
+        assert_eq!(result.messages.len(), 1);
+        assert_eq!(result.messages[0].role, "user");
+        assert!(
+            result.messages[0].content.contains("Hello from tool!"),
+            "expected file content in message, got: {}",
+            result.messages[0].content
+        );
+    }
+
+    #[tokio::test]
+    async fn call_tools_returns_formatted_messages() {
+        let dir = test_workspace();
+        std::fs::write(dir.path().join("a.txt"), "File A content").unwrap();
+        std::fs::write(dir.path().join("b.txt"), "File B content").unwrap();
+
+        write_agent_lua(
+            dir.path(),
+            r#"
+            return {
+                name = "test-agent",
+                description = "Tests call_tools",
+                tools = {},
+                build = function(ctx, args)
+                    local tool_msgs = ctx:call_tools({
+                        { "read_file", { path = ctx.workspace .. "/a.txt" } },
+                        { "read_file", { path = ctx.workspace .. "/b.txt" } },
+                    })
+                    -- tool_msgs is {assistant_msg, user_msg}
+                    -- Append a final instruction
+                    table.insert(tool_msgs, {
+                        role = "user",
+                        content = "Summarize the files.",
+                    })
+                    return {
+                        system_prompt = "You are a test agent.",
+                        messages = tool_msgs,
+                    }
+                end,
+            }
+            "#,
+        );
+
+        let agent_dir = dir.path().join("agents").join("test-agent");
+        let mut host = ScriptHost::new(&agent_dir, dir.path()).unwrap();
+        host.load_config().unwrap();
+
+        let db = test_db(dir.path()).await;
+        let config = test_config(dir.path());
+        let ctx = test_ctx(db, dir.path()).with_tool_support(
+            config,
+            std::sync::Arc::new(crate::tools::ToolManager::all_available()),
+        );
+
+        let result = host
+            .call_build(ctx, std::collections::HashMap::new())
+            .await
+            .unwrap();
+
+        // Should have 3 messages: assistant (tool_calls), user (tool_results), user (instruction)
+        assert_eq!(result.messages.len(), 3);
+
+        // First message: assistant with tool_calls
+        assert_eq!(result.messages[0].role, "assistant");
+        let tool_calls = result.messages[0]
+            .tool_calls
+            .as_ref()
+            .expect("should have tool_calls");
+        assert_eq!(tool_calls.len(), 2);
+        assert_eq!(tool_calls[0]["name"], "read_file");
+        assert_eq!(tool_calls[1]["name"], "read_file");
+
+        // Second message: user with tool_results
+        assert_eq!(result.messages[1].role, "user");
+        let tool_results = result.messages[1]
+            .tool_results
+            .as_ref()
+            .expect("should have tool_results");
+        assert_eq!(tool_results.len(), 2);
+        assert!(
+            tool_results[0]["content"]
+                .as_str()
+                .unwrap()
+                .contains("File A content"),
+            "first result should contain file A"
+        );
+        assert!(
+            tool_results[1]["content"]
+                .as_str()
+                .unwrap()
+                .contains("File B content"),
+            "second result should contain file B"
+        );
+
+        // Third message: plain user instruction
+        assert_eq!(result.messages[2].role, "user");
+        assert_eq!(result.messages[2].content, "Summarize the files.");
+        assert!(result.messages[2].tool_calls.is_none());
+        assert!(result.messages[2].tool_results.is_none());
     }
 }

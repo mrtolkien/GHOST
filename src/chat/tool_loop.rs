@@ -168,7 +168,10 @@ pub(super) async fn run_tool_loop(
         let request = ChatRequest {
             model: model.to_string(),
             messages: history.clone(),
-            tools: Some(session_chat.tool_manager().all_tool_schemas()),
+            tools: {
+                let schemas = session_chat.tool_manager().all_tool_schemas();
+                if schemas.is_empty() { None } else { Some(schemas) }
+            },
             max_tokens: None,
             temperature: None,
             system: Some(prompt),

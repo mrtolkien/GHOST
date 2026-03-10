@@ -464,6 +464,7 @@ async fn setup_agent(
         agent_session_id.to_string(),
     );
     ctx.trigger_session_id = parent_session_id.map(String::from);
+    ctx = ctx.with_tool_support(config.clone(), Arc::new(ToolManager::all_available()));
     // Keep a handle so spawn_requests from tool handlers aren't lost
     // when post_completion creates a fresh ctx.
     let build_spawn_requests = ctx.spawn_requests.clone();
@@ -560,7 +561,8 @@ async fn setup_resume(
             config.workspace.clone(),
             agent_name.to_string(),
             session_id.to_string(),
-        );
+        )
+        .with_tool_support(config.clone(), Arc::new(ToolManager::all_available()));
         // Pre-populate editable fields
         *ctx.system_prompt.lock().expect("lock") = Some(system_prompt.clone());
         *ctx.resume_messages.lock().expect("lock") = Some(messages.clone());
@@ -632,7 +634,8 @@ async fn run_post_completion(
             config.workspace.clone(),
             agent_name.to_string(),
             agent_session_id.to_string(),
-        );
+        )
+        .with_tool_support(config.clone(), Arc::new(ToolManager::all_available()));
         ctx.trigger_session_id = parent_session_id.map(String::from);
         let spawn_requests = ctx.spawn_requests.clone();
         if let Err(e) = script_host.call_post_completion(ctx).await {

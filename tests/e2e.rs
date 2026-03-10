@@ -7,5 +7,7 @@ mod common;
 mod ark_nova;
 #[path = "e2e/helpers.rs"]
 mod helpers;
+#[path = "e2e/cron_agent.rs"]
+mod cron_agent;
 #[path = "e2e/scripting.rs"]
 mod scripting;

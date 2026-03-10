@@ -119,6 +119,22 @@ function ctx:curate_web_cache() end
 ---@field deleted integer
 ---@field edges integer
 
+--- Execute a single tool and return its output text.
+--- Only available when AgentContext has tool support (build, on_resume, post_completion).
+---@param name string  Tool name (e.g. "web_fetch", "read_file")
+---@param args table  Tool arguments as key-value pairs
+---@return string result  The tool's output text
+---@async
+function ctx:call_tool(name, args) end
+
+--- Execute multiple tools sequentially and return pre-formatted messages.
+--- Returns two messages: [1] assistant with tool_calls, [2] user with tool_results.
+--- Splice these directly into a build() return's messages list.
+---@param calls table  List of {name, args} pairs, e.g. {{"web_fetch", {url = "..."}}}
+---@return BuildMessage[] messages  Two pre-formatted messages (assistant + user)
+---@async
+function ctx:call_tools(calls) end
+
 --- Spawn a child agent (queued, executed after post_completion returns).
 ---@param name string  Agent name to spawn
 ---@param args table<string, string>  Arguments passed to the child's build(ctx, args)
@@ -182,6 +198,8 @@ function ctx:spawn_agent(name, args) end
 ---@class BuildMessage
 ---@field role string
 ---@field content string
+---@field tool_calls? table[]  Tool call descriptors (set by ctx:call_tools)
+---@field tool_results? table[]  Tool result descriptors (set by ctx:call_tools)
 
 ---@class CustomToolDef
 ---@field name string

@@ -79,7 +79,7 @@ impl ToolManager {
     }
 
     /// Build a registry containing every tool the system knows about.
-    fn all_available() -> Self {
+    pub fn all_available() -> Self {
         let mut manager = Self::default();
         manager.register(Arc::new(super::shell::RunShellCommand));
         manager.register(Arc::new(super::read_file::ReadFile));
