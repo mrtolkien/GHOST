@@ -146,8 +146,9 @@ fn setup_watcher(
     let notes_dir = workspace.join("notes");
     let refs_dir = workspace.join("references");
     let diary_dir = workspace.join("diary");
+    let scripts_dir = workspace.join("scripts");
 
-    for dir in [&notes_dir, &refs_dir, &diary_dir] {
+    for dir in [&notes_dir, &refs_dir, &diary_dir, &scripts_dir] {
         if dir.exists() {
             watcher.watch(dir, RecursiveMode::Recursive)?;
         }
@@ -167,6 +168,8 @@ fn classify_watcher_kind(workspace: &Path, path: &Path) -> &'static str {
         "reference"
     } else if rel.starts_with("diary/") {
         "diary"
+    } else if rel.starts_with("scripts/") {
+        "script"
     } else {
         "unknown"
     }
@@ -221,6 +224,8 @@ pub(crate) async fn process_change(
         process_reference_change(db, workspace, path).await
     } else if rel_str.starts_with("diary/") {
         process_diary_change(db, path).await
+    } else if rel_str.starts_with("scripts/") {
+        process_script_change(db, workspace, path).await
     } else {
         Ok(None)
     }
@@ -474,6 +479,66 @@ async fn process_diary_change(
         tags: vec![],
         topic_id: None,
         path: None,
+    }))
+}
+
+/// Sync a changed script file to the database.
+///
+/// Scripts are simpler than notes: no frontmatter, no wiki links.
+/// The file content IS the script. Path is relative to workspace
+/// (e.g. `scripts/finance/spending.py`).
+async fn process_script_change(
+    db: &GhostDb,
+    workspace: &Path,
+    path: &Path,
+) -> Result<Option<EmbedRequest>, PipelineError> {
+    let fs_rel = path
+        .strip_prefix(workspace)
+        .unwrap_or(path)
+        .to_string_lossy()
+        .to_string();
+
+    // DB stores path without the leading "scripts/" prefix
+    let script_path = fs_rel
+        .strip_prefix("scripts/")
+        .unwrap_or(&fs_rel)
+        .to_string();
+
+    // Deletion
+    if !path.exists() {
+        if let Ok(Some(script)) =
+            crate::db::knowledge::find_script_by_path(db, &script_path).await
+        {
+            crate::db::embeddings::delete_embeddings_for_source(db, &script.id).await?;
+            crate::db::knowledge::delete_script(db, &script.id).await?;
+            logfire::info!("watcher: deleted script", path = script_path);
+        }
+        return Ok(None);
+    }
+
+    let content = match std::fs::read_to_string(path) {
+        Ok(c) => c,
+        Err(_) => return Ok(None),
+    };
+
+    let script_id = match crate::db::knowledge::find_script_by_path(db, &script_path).await {
+        Ok(Some(s)) => {
+            let _ = crate::db::knowledge::update_script(db, &s.id, &content).await;
+            s.id
+        }
+        _ => match crate::db::knowledge::create_script(db, &script_path, &content).await {
+            Ok(id) => id,
+            Err(_) => return Ok(None),
+        },
+    };
+
+    Ok(Some(EmbedRequest {
+        source_table: "script".into(),
+        source_id: script_id,
+        content,
+        tags: vec![],
+        topic_id: None,
+        path: Some(fs_rel),
     }))
 }
 
