@@ -28,39 +28,78 @@ hero:
       variant: minimal
 ---
 
-import { CardGrid, Card } from "@astrojs/starlight/components";
 import HeroEffects from "../../components/HeroEffects.astro";
 
 <HeroEffects />
 
-## PHILOSOPHY
+<p class="ghost-intro">The AI that actually does things *well*</p>
 
-<CardGrid>
-  <Card title="Text-first">
-    Workspace files are the source of truth. <br /> Knowledge, agents, skill,
-    and memory all live as editable files.
-  </Card>
-  <Card title="CLI-first">
-    Every feature is accessible through direct commands. <br />
-    Usable both by the OPERATOR and the GHOST themself.
-  </Card>
-  <Card title="Skills over tools">
-    Prefer reusable workflow files over adding new tool APIs.
-  </Card>
-  <Card title="Local-first">
-    Embedded database, local embeddings, important data stays on your machine.
-  </Card>
-</CardGrid>
+<div class="ghost-features">
+<div>
 
-## ARCHITECTURE
+### Knowledge graph
 
-<pre class="ghost-status">{`> ghost status
+`[[from>wiki links]]` typed edges between notes.
 
-DAEMON      single binary - extra services live in containers
-SHELL       nix-managed - deterministic, declarative
-HACK        dedicated coding agent included
-STORAGE     SQLite + FTS5 + sqlite-vec embeddings
-TRANSPORT   Discord (more interfaces planned)
-PROVIDERS   OpenRouter · Kimi Code · Codex
-KNOWLEDGE   persistent memory with typed edges
-WORKSPACE   ~/GHOST/ — editable text files`}</pre>
+Archived web sources with typed citations.
+
+Daily diary.
+
+Hybrid BM25 + embedding search.
+
+Reflection agents extract knowledge from idle conversations — your GHOST learns
+while you sleep.
+
+</div>
+<div>
+
+### Plain text workspace
+
+Identity, skills, agents, knowledge — editable files in `~/GHOST/`.
+
+Edit markdown to change behavior.
+
+Drop a file to add a workflow.
+
+`git diff` your GHOST.
+
+</div>
+<div>
+
+### Lua agents
+
+Background workers — cron, idle triggers, or spawned by other agents.
+
+Restricted tools, own system prompts, discovered through skills.
+
+Run tools automatically before hitting a model for deterministic behavior.
+
+Ships with **deep-research** and **chat-reflection**.
+
+Write yours — it's a file in `agents/`.
+
+</div>
+<div>
+
+### GHOST HACK
+
+Just ask and the Puppet Master takes over your channel, bound to a repository.
+
+Loads project rules, repo-local skills, and agents automatically.
+
+Reads code, asks questions, runs tests, commits.
+
+`/kill` when done.
+
+</div>
+</div>
+
+<pre class="ghost-status">{`> ghost search "error handling patterns"
+
+NOTES       3 hits (BM25 + cosine)
+REFERENCES  12 sources, 4 domains
+DIARY       2 entries
+
+  error-handling.md
+  ── links: [[with>rust-style]], [[used_in>ghost-codebase]]
+  ── cites: references/rust/blog.burntsushi.net/unwrap.md`}</pre>

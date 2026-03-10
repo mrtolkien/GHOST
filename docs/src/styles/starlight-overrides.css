@@ -9,7 +9,9 @@
 :root {
   --sl-sidebar-width: 17.5rem;
   --sl-font: "IBM Plex Sans", system-ui, sans-serif;
-  --sl-font-mono: "Monaspace Krypton", "IBM Plex Mono", "JetBrains Mono", "Fira Code", monospace;
+  --sl-font-mono:
+    "Monaspace Krypton", "IBM Plex Mono", "JetBrains Mono", "Fira Code",
+    monospace;
   --ghost-font-heading: "DM Serif Display", serif;
   --ghost-font-ui: "IBM Plex Mono", monospace;
   --sl-color-black: #0a0a0a;
@@ -60,7 +62,14 @@ body {
   border-bottom: 1px solid #1a1b26 !important;
 }
 
-.header :is(.site-title, site-search button, site-search dialog, starlight-theme-select label, .social-icons::after) {
+.header
+  :is(
+    .site-title,
+    site-search button,
+    site-search dialog,
+    starlight-theme-select label,
+    .social-icons::after
+  ) {
   border: 0 !important;
   box-shadow: none !important;
 }
@@ -126,8 +135,12 @@ body {
   color: var(--ghost-h4);
 }
 
-.sl-markdown-content h5 { color: var(--ghost-h5); }
-.sl-markdown-content h6 { color: var(--ghost-h6); }
+.sl-markdown-content h5 {
+  color: var(--ghost-h5);
+}
+.sl-markdown-content h6 {
+  color: var(--ghost-h6);
+}
 
 h1#starlight__overview,
 h1[data-page-title],
@@ -299,31 +312,60 @@ mobile-starlight-toc a {
 }
 
 @keyframes ghost-glitch-top {
-  0%, 92% { transform: translate(0); }
-  93% { transform: translate(-3px, -1px); }
-  94% { transform: translate(2px, 1px); }
-  95% { transform: translate(0); }
+  0%,
+  92% {
+    transform: translate(0);
+  }
+  93% {
+    transform: translate(-3px, -1px);
+  }
+  94% {
+    transform: translate(2px, 1px);
+  }
+  95% {
+    transform: translate(0);
+  }
 }
 
 @keyframes ghost-glitch-bottom {
-  0%, 94% { transform: translate(0); }
-  95% { transform: translate(3px, 1px); }
-  96% { transform: translate(-2px, -1px); }
-  97% { transform: translate(0); }
+  0%,
+  94% {
+    transform: translate(0);
+  }
+  95% {
+    transform: translate(3px, 1px);
+  }
+  96% {
+    transform: translate(-2px, -1px);
+  }
+  97% {
+    transform: translate(0);
+  }
 }
 
 @keyframes ghost-typing {
-  from { width: 0; }
-  to { width: 15ch; }
+  from {
+    width: 0;
+  }
+  to {
+    width: 15ch;
+  }
 }
 
 @keyframes ghost-blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
 }
 
 @keyframes ghost-fade-in {
-  to { opacity: 1; }
+  to {
+    opacity: 1;
+  }
 }
 
 /* Starlight cards — strip colored icons, match theme */
@@ -354,6 +396,49 @@ mobile-starlight-toc a {
   padding: 1.2rem 1.6rem;
   overflow-x: auto;
   margin: 1.5rem 0;
+}
+
+/* Landing page intro */
+.ghost-intro {
+  font-family: var(--ghost-font-heading);
+  font-size: clamp(1.25rem, 2.5vw, 1.5rem);
+  color: var(--ghost-h1);
+  line-height: 1.6;
+  max-width: 38rem;
+  margin: 0 auto 1.5rem;
+  text-align: center;
+}
+
+/* 2×2 feature grid */
+.ghost-features {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem 2.5rem;
+  margin: 1.5rem 0 2rem;
+}
+
+.ghost-features > div {
+  border-left: 2px solid #292e42;
+  padding-left: 1.2rem;
+}
+
+.ghost-features h3 {
+  color: var(--ghost-accent);
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.ghost-features p {
+  line-height: 1.6;
+  color: #a9b1d6;
+}
+
+@media (max-width: 50rem) {
+  .ghost-features {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (min-width: 90rem) {
