@@ -1,6 +1,8 @@
 target/
 .git/
-docs/
+docs/node_modules/
+docs/dist/
+docs/.astro/
 tests/
 specs/
 scripts/tmp/
