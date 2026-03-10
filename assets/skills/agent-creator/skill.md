@@ -15,9 +15,9 @@ Use this skill when the OPERATOR wants to create a new background agent.
 **Every spawnable agent must live inside a skill.** Skills provide discoverability —
 without a skill, an agent is invisible. This skill always creates a skill+agent pair.
 
-For scheduled/cron agents (e.g., periodic digests, idle reflections), those live in
-`$WORKSPACE/agents/` and are triggered by `crontab.lua` — that's a different workflow,
-not covered here.
+For scheduled/cron agents (e.g., periodic digests, idle reflections), see the
+**Scheduled Agents** section below — those live in `$WORKSPACE/agents/` and use
+`crontab.lua` instead of skills.
 
 ## File Layout
 
@@ -200,3 +200,141 @@ custom_tools = {
     },
 },
 ```
+
+---
+
+## Scheduled Agents
+
+Scheduled agents run on a timer (cron expression or idle timeout) rather than being
+spawned by a skill. They live directly in `$WORKSPACE/agents/<name>/` and are registered
+in `$WORKSPACE/agents/crontab.lua`.
+
+### File Layout
+
+```
+agents/
+├── crontab.lua               # Schedule registry (required)
+├── <agent-name>/
+│   ├── agent.lua              # Agent configuration and hooks
+│   └── prompt.md              # System prompt template
+```
+
+### Crontab Format
+
+`crontab.lua` returns a list of entries. Each entry has a trigger and a `run` field:
+
+```lua
+return {
+    { idle_minutes = 30, run = "chat-reflection" },
+    { cron = "0 7 * * *", run = "daily-digest" },
+}
+```
+
+- `cron`: Standard 5-field cron expression (`minute hour day month dow`)
+- `idle_minutes`: Run after N minutes of user inactivity
+- `run`: Agent directory name under `agents/`
+
+### Pre-Fetching with `ctx:call_tool()` and `ctx:call_tools()`
+
+Scheduled agents typically pre-fetch data in `build()` so the LLM only needs to
+synthesize — no tools required at runtime. Use `ctx:call_tool(name, args)` for a single
+tool call, or `ctx:call_tools({{name, args}, ...})` for batch calls.
+
+- `ctx:call_tool(name, args)` → returns the tool output as a string
+- `ctx:call_tools(calls)` → returns two pre-formatted messages:
+  - `[1]` = `{ role = "assistant", tool_calls = [...] }`
+  - `[2]` = `{ role = "user", tool_results = [...] }`
+
+These messages splice directly into the build return's `messages` list. The LLM sees
+them as a natural tool-use conversation.
+
+### Cross-Run State with `ctx:get/set`
+
+Use `ctx:get(key)` and `ctx:set(key, value)` to persist state between runs. This is
+useful for deduplication — save a digest summary so the next run can skip
+already-reported items.
+
+### Complete Example: Daily Digest Agent
+
+**`agents/daily-digest/agent.lua`:**
+
+```lua
+local template = require("ghost.template")
+
+return {
+    name = "daily-digest",
+    description = "Fetches RSS feeds and produces a daily recap",
+
+    tools = {},          -- LLM has no tools, just synthesizes
+    max_iterations = 1,  -- one turn only
+
+    build = function(ctx, args)
+        local urls = {
+            "https://example.com/feed.xml",
+            "https://other.com/news",
+        }
+
+        -- call_tools returns pre-formatted messages:
+        -- [1] = { role = "assistant", tool_calls = [...] }
+        -- [2] = { role = "user", tool_results = [...] }
+        local calls = {}
+        for _, url in ipairs(urls) do
+            table.insert(calls, { "web_fetch", { url = url } })
+        end
+        local messages = ctx:call_tools(calls)
+
+        -- Append the instruction with previous digest context
+        local previous = ctx:get("last_digest") or "No previous digest."
+        table.insert(messages, {
+            role = "user",
+            content = "# Previous digest\n\n" .. previous
+                .. "\n\nSummarize the fetched feeds into a concise daily recap. "
+                .. "Skip anything already covered in the previous digest.",
+        })
+
+        return {
+            system_prompt = template.render(read_file("prompt.md"), {
+                date = os.date("%Y-%m-%d"),
+            }),
+            messages = messages,
+        }
+    end,
+
+    post_completion = function(ctx)
+        -- Save the digest so the next run can skip already-reported items.
+        local messages = ctx:list_messages(ctx.session_id)
+        local last_msg = messages[#messages]
+        if last_msg and last_msg.role == "assistant" then
+            ctx:set("last_digest", last_msg.content)
+        end
+    end,
+}
+```
+
+**`agents/daily-digest/prompt.md`:**
+
+```markdown
+# Daily Digest — {{date}}
+
+You are a digest agent. Summarize the fetched web content into a concise daily recap.
+Focus on what's new and interesting. Skip anything already covered in the previous
+digest provided below.
+```
+
+**`agents/crontab.lua` entry:**
+
+```lua
+return {
+    { cron = "0 7 * * *", run = "daily-digest" },
+}
+```
+
+### Key Patterns for Scheduled Agents
+
+1. **`tools = {}`** — When the LLM only synthesizes pre-fetched data, give it no tools.
+   This prevents unnecessary tool calls and keeps the run to one turn.
+2. **`max_iterations = 1`** — Digest agents should produce output in a single turn.
+3. **`ctx:call_tools()` in `build()`** — Pre-fetch all data before the LLM runs.
+4. **`ctx:get/set` for state** — Persist summaries or timestamps for deduplication.
+5. **`post_completion` reads back output** — Use `ctx:list_messages(ctx.session_id)` to
+   extract the agent's response and save it for next run.
