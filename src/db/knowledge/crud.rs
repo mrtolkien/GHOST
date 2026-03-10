@@ -3,7 +3,7 @@ use sqlx::SqlitePool;
 use crate::db::error::DatabaseError;
 use crate::db::{new_id, now};
 
-use super::records::{DiaryRecord, NoteRecord, RecentItem, ReferenceRecord};
+use super::records::{DiaryRecord, NoteRecord, RecentItem, ReferenceRecord, ScriptRecord};
 
 // --- Create / Update ---
 
@@ -544,4 +544,139 @@ pub async fn list_diary_page(
             operation: "list_page",
             source,
         })
+}
+
+// ---------------------------------------------------------------------------
+// Scripts
+// ---------------------------------------------------------------------------
+
+#[tracing::instrument(skip_all, level = "debug", fields(path = %path))]
+pub async fn create_script(
+    db: &SqlitePool,
+    path: &str,
+    content: &str,
+) -> Result<String, DatabaseError> {
+    let id = new_id();
+    let ts = now();
+
+    sqlx::query(
+        "INSERT INTO script (id, path, content, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+    )
+    .bind(&id)
+    .bind(path)
+    .bind(content)
+    .bind(&ts)
+    .bind(&ts)
+    .execute(db)
+    .await
+    .map_err(|source| DatabaseError::Query {
+        table: "script",
+        operation: "create",
+        source,
+    })?;
+
+    Ok(id)
+}
+
+#[tracing::instrument(skip_all, level = "debug", fields(script_id = %script_id))]
+pub async fn update_script(
+    db: &SqlitePool,
+    script_id: &str,
+    content: &str,
+) -> Result<(), DatabaseError> {
+    sqlx::query("UPDATE script SET content = ?, updated_at = ? WHERE id = ?")
+        .bind(content)
+        .bind(now())
+        .bind(script_id)
+        .execute(db)
+        .await
+        .map_err(|source| DatabaseError::Query {
+            table: "script",
+            operation: "update",
+            source,
+        })?;
+    Ok(())
+}
+
+#[tracing::instrument(skip_all, level = "debug", fields(script_id = %script_id))]
+pub async fn get_script(
+    db: &SqlitePool,
+    script_id: &str,
+) -> Result<ScriptRecord, DatabaseError> {
+    sqlx::query_as::<_, ScriptRecord>("SELECT * FROM script WHERE id = ?")
+        .bind(script_id)
+        .fetch_optional(db)
+        .await
+        .map_err(|source| DatabaseError::Query {
+            table: "script",
+            operation: "get",
+            source,
+        })?
+        .ok_or(DatabaseError::MissingRow {
+            table: "script",
+            operation: "get",
+        })
+}
+
+#[tracing::instrument(skip_all, level = "debug", fields(path = %path))]
+pub async fn find_script_by_path(
+    db: &SqlitePool,
+    path: &str,
+) -> Result<Option<ScriptRecord>, DatabaseError> {
+    sqlx::query_as::<_, ScriptRecord>("SELECT * FROM script WHERE path = ? LIMIT 1")
+        .bind(path)
+        .fetch_optional(db)
+        .await
+        .map_err(|source| DatabaseError::Query {
+            table: "script",
+            operation: "find_by_path",
+            source,
+        })
+}
+
+#[tracing::instrument(skip_all, level = "debug", fields(script_id = %script_id))]
+pub async fn delete_script(
+    db: &SqlitePool,
+    script_id: &str,
+) -> Result<(), DatabaseError> {
+    sqlx::query("DELETE FROM script WHERE id = ?")
+        .bind(script_id)
+        .execute(db)
+        .await
+        .map_err(|source| DatabaseError::Query {
+            table: "script",
+            operation: "delete",
+            source,
+        })?;
+    Ok(())
+}
+
+pub async fn list_all_scripts(db: &SqlitePool) -> Result<Vec<ScriptRecord>, DatabaseError> {
+    sqlx::query_as::<_, ScriptRecord>("SELECT * FROM script")
+        .fetch_all(db)
+        .await
+        .map_err(|source| DatabaseError::Query {
+            table: "script",
+            operation: "list_all",
+            source,
+        })
+}
+
+pub async fn list_scripts_page(
+    db: &SqlitePool,
+    offset: usize,
+    limit: usize,
+) -> Result<Vec<ScriptRecord>, DatabaseError> {
+    sqlx::query_as::<_, ScriptRecord>(
+        "SELECT * FROM script ORDER BY id LIMIT ? OFFSET ?",
+    )
+    .bind(limit as i64)
+    .bind(offset as i64)
+    .fetch_all(db)
+    .await
+    .map_err(|source| DatabaseError::Query {
+        table: "script",
+        operation: "list_page",
+        source,
+    })
 }
