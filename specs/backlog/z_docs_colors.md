@@ -1,7 +1,6 @@
 # Docs Redesign: Ghost in the Shell Aesthetic
 
-**Date**: 2026-03-10
-**Status**: Approved
+**Date**: 2026-03-10 **Status**: Approved
 
 ## Summary
 
@@ -22,20 +21,20 @@ Tagline: **"Enter the shell"**
 
 ### Color Palette (Tokyo Night base)
 
-| Token             | Hex       | Usage                              |
-|-------------------|-----------|------------------------------------|
-| bg-base           | `#0a0a0a` | Page background                    |
-| bg-surface        | `#0d0d0d` | Content area, cards                |
-| bg-code           | `#16161e` | Code blocks, inline code           |
-| border            | `#1a1b26` | Borders, dividers                  |
-| border-highlight  | `#292e42` | Hover borders, active states       |
-| text-muted        | `#565f89` | Labels, metadata, comments         |
-| text-body         | `#a9b1d6` | Body text                          |
-| text-heading-2    | `#c0caf5` | H2+ headings                       |
-| text-heading-1    | `#e0e0e0` | H1 headings, logo                  |
-| accent            | `#1abc9c` | Links, active nav, CTA, borders    |
-| terminal-green    | `#9ece6a` | Terminal prompt text, hero tagline  |
-| warning           | `#e0af68` | Warning callouts                   |
+| Token            | Hex       | Usage                              |
+| ---------------- | --------- | ---------------------------------- |
+| bg-base          | `#0a0a0a` | Page background                    |
+| bg-surface       | `#0d0d0d` | Content area, cards                |
+| bg-code          | `#16161e` | Code blocks, inline code           |
+| border           | `#1a1b26` | Borders, dividers                  |
+| border-highlight | `#292e42` | Hover borders, active states       |
+| text-muted       | `#565f89` | Labels, metadata, comments         |
+| text-body        | `#a9b1d6` | Body text                          |
+| text-heading-2   | `#c0caf5` | H2+ headings                       |
+| text-heading-1   | `#e0e0e0` | H1 headings, logo                  |
+| accent           | `#1abc9c` | Links, active nav, CTA, borders    |
+| terminal-green   | `#9ece6a` | Terminal prompt text, hero tagline |
+| warning          | `#e0af68` | Warning callouts                   |
 
 Syntax highlighting uses full Tokyo Night: purple (`#bb9af7`) keywords, blue (`#7aa2f7`)
 functions, cyan (`#2ac3de`) types, green (`#9ece6a`) strings, orange (`#ff9e64`)
@@ -43,12 +42,12 @@ constants, gray (`#565f89`) comments.
 
 ### Typography
 
-| Role     | Font              | Notes                              |
-|----------|-------------------|------------------------------------|
+| Role     | Font              | Notes                                                                    |
+| -------- | ----------------- | ------------------------------------------------------------------------ |
 | Headings | DM Serif Display  | Already in use for logo, extend to all headings. No uppercase transform. |
-| Body     | IBM Plex Sans     | Weights 400, 500, 600. Replaces system font. |
-| Code     | Monaspace Krypton | Kept from current design.          |
-| UI/Nav   | IBM Plex Mono     | Labels, nav items, metadata, terminal elements. |
+| Body     | IBM Plex Sans     | Weights 400, 500, 600. Replaces system font.                             |
+| Code     | Monaspace Krypton | Kept from current design.                                                |
+| UI/Nav   | IBM Plex Mono     | Labels, nav items, metadata, terminal elements.                          |
 
 ### Hero / Landing Page
 
@@ -89,8 +88,8 @@ No structural changes to Starlight layout. Purely CSS reskin:
 
 ### Light Mode
 
-Deferred to future pass. Dark-only for this iteration. Starlight's toggle
-infrastructure remains — just needs a second set of CSS variables later.
+Deferred to future pass. Dark-only for this iteration. Starlight's toggle infrastructure
+remains — just needs a second set of CSS variables later.
 
 ## Fonts to Install (npm @fontsource)
 

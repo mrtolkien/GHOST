@@ -1,44 +1,21 @@
 ---
 /**
- * Matrix rain + CRT effects for the splash hero page.
- * Injected via client-side JS targeting Starlight's .hero container.
+ * Matrix rain + CRT effects for the splash landing page.
+ * Rain, scanlines, and vignette cover the full page.
  */
 ---
 
 <script>
   document.addEventListener('DOMContentLoaded', () => {
-    const hero = document.querySelector('.hero');
-    if (!hero) return;
-
-    hero.style.position = 'relative';
-    hero.style.overflow = 'hidden';
-
-    // Scanlines overlay
-    const scanlines = document.createElement('div');
-    scanlines.style.cssText = `
-      position:absolute;inset:0;z-index:1;pointer-events:none;
-      background:repeating-linear-gradient(0deg,transparent,transparent 2px,
-        rgba(0,255,65,0.015) 2px,rgba(0,255,65,0.015) 4px);
-    `;
-    hero.prepend(scanlines);
-
-    // CRT vignette
-    const vignette = document.createElement('div');
-    vignette.style.cssText = `
-      position:absolute;inset:0;z-index:2;pointer-events:none;
-      background:radial-gradient(ellipse at center,transparent 50%,rgba(0,0,0,0.6) 100%);
-    `;
-    hero.prepend(vignette);
-
-    // Matrix rain canvas
+    // Matrix rain canvas — covers the full page
     const canvas = document.createElement('canvas');
-    canvas.style.cssText = 'position:absolute;inset:0;z-index:0;opacity:0.1;';
-    hero.prepend(canvas);
+    canvas.style.cssText = 'position:fixed;inset:0;z-index:0;opacity:0.08;pointer-events:none;';
+    document.body.prepend(canvas);
 
     const ctx = canvas.getContext('2d');
     function resize() {
-      canvas.width = hero.offsetWidth;
-      canvas.height = hero.offsetHeight;
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
     }
     resize();
     window.addEventListener('resize', resize);
@@ -49,7 +26,7 @@
     let drops = Array(columns).fill(0).map(() => Math.random() * -100);
 
     function draw() {
-      ctx.fillStyle = 'rgba(10, 10, 10, 0.08)';
+      ctx.fillStyle = 'rgba(10, 10, 10, 0.06)';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.fillStyle = '#1abc9c';
       ctx.font = fontSize + 'px monospace';
@@ -70,9 +47,52 @@
     }
     draw();
 
-    // Ensure hero content is above overlays
-    const heroContent = hero.querySelector(':scope > div');
-    if (heroContent) heroContent.style.position = 'relative';
-    if (heroContent) heroContent.style.zIndex = '10';
+    // Full-page scanlines + vignette
+    const scanlines = document.createElement('div');
+    scanlines.style.cssText = `
+      position:fixed;inset:0;z-index:1;pointer-events:none;
+      background:repeating-linear-gradient(0deg,transparent,transparent 2px,
+        rgba(0,255,65,0.015) 2px,rgba(0,255,65,0.015) 4px);
+    `;
+    document.body.prepend(scanlines);
+
+    const vignette = document.createElement('div');
+    vignette.style.cssText = `
+      position:fixed;inset:0;z-index:1;pointer-events:none;
+      background:radial-gradient(ellipse at center,transparent 50%,rgba(0,0,0,0.6) 100%);
+    `;
+    document.body.prepend(vignette);
+
+    // Typing animation on tagline
+    const hero = document.querySelector('.hero');
+    if (hero) {
+      const tagline = hero.querySelector('.tagline');
+      if (tagline) {
+        const text = tagline.textContent || '';
+        // Keep original text invisible to reserve space (no layout jump)
+        tagline.style.position = 'relative';
+        tagline.style.display = 'inline-block';
+        const placeholder = document.createElement('span');
+        placeholder.textContent = text;
+        placeholder.style.cssText = 'visibility:hidden;display:inline;';
+        const typed = document.createElement('span');
+        typed.style.cssText = 'position:absolute;left:0;top:0;white-space:nowrap;';
+        typed.style.borderRight = '2px solid #9ece6a';
+        tagline.textContent = '';
+        tagline.appendChild(placeholder);
+        tagline.appendChild(typed);
+        let i = 0;
+        function type() {
+          if (i < text.length) {
+            typed.textContent += text[i];
+            i++;
+            setTimeout(type, 80 + Math.random() * 40);
+          } else {
+            setTimeout(() => { typed.style.borderRight = '2px solid transparent'; }, 2000);
+          }
+        }
+        setTimeout(type, 600);
+      }
+    }
   });
 </script>

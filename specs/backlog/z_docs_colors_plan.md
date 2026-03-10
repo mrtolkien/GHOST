@@ -21,20 +21,21 @@ rain), @fontsource packages.
 
 ## File Map
 
-| File | Action | Responsibility |
-|------|--------|----------------|
-| `docs/package.json` | Modify | Swap font deps (remove oxanium, add ibm-plex-sans/mono) |
-| `docs/src/styles/starlight-overrides.css` | Rewrite | All CSS variables + overrides |
-| `docs/src/content/docs/index.mdx` | Modify | New hero with matrix rain, glitch, typing |
-| `docs/src/components/SiteTitle.astro` | Keep | No changes needed (logo stays) |
-| `docs/public/favicon.svg` | Modify | Update background color to match new palette |
-| `docs/astro.config.mjs` | Keep | No changes needed |
+| File                                      | Action  | Responsibility                                          |
+| ----------------------------------------- | ------- | ------------------------------------------------------- |
+| `docs/package.json`                       | Modify  | Swap font deps (remove oxanium, add ibm-plex-sans/mono) |
+| `docs/src/styles/starlight-overrides.css` | Rewrite | All CSS variables + overrides                           |
+| `docs/src/content/docs/index.mdx`         | Modify  | New hero with matrix rain, glitch, typing               |
+| `docs/src/components/SiteTitle.astro`     | Keep    | No changes needed (logo stays)                          |
+| `docs/public/favicon.svg`                 | Modify  | Update background color to match new palette            |
+| `docs/astro.config.mjs`                   | Keep    | No changes needed                                       |
 
 ---
 
 ## Task 1: Swap Font Dependencies
 
 **Files:**
+
 - Modify: `docs/package.json`
 
 - [ ] **Step 1: Remove oxanium, add IBM Plex Sans and IBM Plex Mono**
@@ -46,6 +47,7 @@ cd docs && npm uninstall @fontsource/oxanium && npm install @fontsource/ibm-plex
 - [ ] **Step 2: Verify package.json has correct deps**
 
 `package.json` should list:
+
 - `@fontsource/dm-serif-display` (existing)
 - `@fontsource/monaspace-krypton` (existing)
 - `@fontsource/ibm-plex-sans` (new)
@@ -64,6 +66,7 @@ git commit -m "chore(docs): swap fonts — remove oxanium, add IBM Plex Sans/Mon
 ## Task 2: Rewrite CSS — Variables and Base Styles
 
 **Files:**
+
 - Rewrite: `docs/src/styles/starlight-overrides.css`
 
 This is the core task. The entire file gets rewritten. Split into logical sections.
@@ -90,8 +93,8 @@ Replace the file header. New font imports:
 
   /* Fonts */
   --sl-font: "IBM Plex Sans", system-ui, sans-serif;
-  --sl-font-mono: "Monaspace Krypton", "IBM Plex Mono", "JetBrains Mono",
-    "Fira Code", monospace;
+  --sl-font-mono:
+    "Monaspace Krypton", "IBM Plex Mono", "JetBrains Mono", "Fira Code", monospace;
   --ghost-font-heading: "DM Serif Display", serif;
   --ghost-font-ui: "IBM Plex Mono", monospace;
 
@@ -160,8 +163,14 @@ body {
   border-bottom: 1px solid #1a1b26 !important;
 }
 
-.header :is(.site-title, site-search button, site-search dialog,
-    starlight-theme-select label, .social-icons::after) {
+.header
+  :is(
+    .site-title,
+    site-search button,
+    site-search dialog,
+    starlight-theme-select label,
+    .social-icons::after
+  ) {
   border: 0 !important;
   box-shadow: none !important;
 }
@@ -233,8 +242,12 @@ body {
   color: var(--ghost-h4);
 }
 
-.sl-markdown-content h5 { color: var(--ghost-h5); }
-.sl-markdown-content h6 { color: var(--ghost-h6); }
+.sl-markdown-content h5 {
+  color: var(--ghost-h5);
+}
+.sl-markdown-content h6 {
+  color: var(--ghost-h6);
+}
 
 /* Page title — same treatment, no uppercase */
 h1#starlight__overview,
@@ -399,31 +412,60 @@ mobile-starlight-toc a {
 
 /* Hero glitch effect on title */
 @keyframes ghost-glitch-top {
-  0%, 92% { transform: translate(0); }
-  93% { transform: translate(-3px, -1px); }
-  94% { transform: translate(2px, 1px); }
-  95% { transform: translate(0); }
+  0%,
+  92% {
+    transform: translate(0);
+  }
+  93% {
+    transform: translate(-3px, -1px);
+  }
+  94% {
+    transform: translate(2px, 1px);
+  }
+  95% {
+    transform: translate(0);
+  }
 }
 
 @keyframes ghost-glitch-bottom {
-  0%, 94% { transform: translate(0); }
-  95% { transform: translate(3px, 1px); }
-  96% { transform: translate(-2px, -1px); }
-  97% { transform: translate(0); }
+  0%,
+  94% {
+    transform: translate(0);
+  }
+  95% {
+    transform: translate(3px, 1px);
+  }
+  96% {
+    transform: translate(-2px, -1px);
+  }
+  97% {
+    transform: translate(0);
+  }
 }
 
 @keyframes ghost-typing {
-  from { width: 0; }
-  to { width: 15ch; }
+  from {
+    width: 0;
+  }
+  to {
+    width: 15ch;
+  }
 }
 
 @keyframes ghost-blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
 }
 
 @keyframes ghost-fade-in {
-  to { opacity: 1; }
+  to {
+    opacity: 1;
+  }
 }
 ```
 
@@ -468,6 +510,7 @@ git commit -m "feat(docs): rewrite CSS to Cold Terminal / Tokyo Night aesthetic"
 ## Task 3: Update Hero / Landing Page
 
 **Files:**
+
 - Modify: `docs/src/content/docs/index.mdx`
 
 The hero needs to switch from the static Starlight splash to a custom hero with matrix
@@ -476,9 +519,9 @@ rain canvas, glitch title, typing tagline, and CRT effects. The below-fold conte
 
 - [ ] **Step 1: Replace the frontmatter hero section**
 
-Change the tagline and keep the logo + CTAs. The new tagline is "Enter the shell."
-Since Starlight's `splash` template renders the hero from frontmatter, we keep using it
-but update the tagline:
+Change the tagline and keep the logo + CTAs. The new tagline is "Enter the shell." Since
+Starlight's `splash` template renders the hero from frontmatter, we keep using it but
+update the tagline:
 
 ```yaml
 ---
@@ -514,23 +557,23 @@ hero:
 
 - [ ] **Step 2: Add matrix rain canvas and CRT effects via inline script**
 
-After the frontmatter and import, before the Philosophy section, add a `<script>`
-block and supporting markup for the hero effects. Since Starlight renders the hero from
+After the frontmatter and import, before the Philosophy section, add a `<script>` block
+and supporting markup for the hero effects. Since Starlight renders the hero from
 frontmatter, we'll inject the canvas and overlays via client-side JS that targets the
 `.hero` container:
 
 ```html
 <script>
   // Matrix rain + CRT effects — runs on page load for splash page only
-  document.addEventListener('DOMContentLoaded', () => {
-    const hero = document.querySelector('.hero');
+  document.addEventListener("DOMContentLoaded", () => {
+    const hero = document.querySelector(".hero");
     if (!hero) return;
 
-    hero.style.position = 'relative';
-    hero.style.overflow = 'hidden';
+    hero.style.position = "relative";
+    hero.style.overflow = "hidden";
 
     // Scanlines overlay
-    const scanlines = document.createElement('div');
+    const scanlines = document.createElement("div");
     scanlines.style.cssText = `
       position:absolute;inset:0;z-index:1;pointer-events:none;
       background:repeating-linear-gradient(0deg,transparent,transparent 2px,
@@ -539,7 +582,7 @@ frontmatter, we'll inject the canvas and overlays via client-side JS that target
     hero.prepend(scanlines);
 
     // CRT vignette
-    const vignette = document.createElement('div');
+    const vignette = document.createElement("div");
     vignette.style.cssText = `
       position:absolute;inset:0;z-index:2;pointer-events:none;
       background:radial-gradient(ellipse at center,transparent 50%,rgba(0,0,0,0.6) 100%);
@@ -547,28 +590,30 @@ frontmatter, we'll inject the canvas and overlays via client-side JS that target
     hero.prepend(vignette);
 
     // Matrix rain canvas
-    const canvas = document.createElement('canvas');
-    canvas.style.cssText = 'position:absolute;inset:0;z-index:0;opacity:0.1;';
+    const canvas = document.createElement("canvas");
+    canvas.style.cssText = "position:absolute;inset:0;z-index:0;opacity:0.1;";
     hero.prepend(canvas);
 
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext("2d");
     function resize() {
       canvas.width = hero.offsetWidth;
       canvas.height = hero.offsetHeight;
     }
     resize();
-    window.addEventListener('resize', resize);
+    window.addEventListener("resize", resize);
 
-    const chars = 'ゴーストシェルアイデンティティ記憶知識01';
+    const chars = "ゴーストシェルアイデンティティ記憶知識01";
     const fontSize = 14;
     let columns = Math.floor(canvas.width / fontSize);
-    let drops = Array(columns).fill(0).map(() => Math.random() * -100);
+    let drops = Array(columns)
+      .fill(0)
+      .map(() => Math.random() * -100);
 
     function draw() {
-      ctx.fillStyle = 'rgba(10, 10, 10, 0.08)';
+      ctx.fillStyle = "rgba(10, 10, 10, 0.08)";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = '#1abc9c';
-      ctx.font = fontSize + 'px monospace';
+      ctx.fillStyle = "#1abc9c";
+      ctx.font = fontSize + "px monospace";
 
       for (let i = 0; i < drops.length; i++) {
         const char = chars[Math.floor(Math.random() * chars.length)];
@@ -587,9 +632,9 @@ frontmatter, we'll inject the canvas and overlays via client-side JS that target
     draw();
 
     // Ensure hero content is above overlays
-    const heroContent = hero.querySelector(':scope > div');
-    if (heroContent) heroContent.style.position = 'relative';
-    if (heroContent) heroContent.style.zIndex = '10';
+    const heroContent = hero.querySelector(":scope > div");
+    if (heroContent) heroContent.style.position = "relative";
+    if (heroContent) heroContent.style.zIndex = "10";
   });
 </script>
 ```
@@ -611,6 +656,7 @@ git commit -m "feat(docs): add matrix rain hero with glitch + CRT effects"
 ## Task 4: Update Favicon
 
 **Files:**
+
 - Modify: `docs/public/favicon.svg`
 
 - [ ] **Step 1: Update the background color from `#1a1a2e` to `#0a0a0a`**
@@ -663,6 +709,7 @@ cd docs && npm run preview
 ```
 
 Open `http://localhost:4321` and verify:
+
 - Hero: matrix rain, glitch on logo, "Enter the shell." tagline
 - Dark background throughout
 - DM Serif Display headings, IBM Plex Sans body text
@@ -675,6 +722,7 @@ Open `http://localhost:4321` and verify:
 - [ ] **Step 3: Check a content page**
 
 Navigate to any content page (e.g., Knowledge Base). Verify:
+
 - Headings are DM Serif Display, normal case (not uppercase)
 - H2 has bottom border divider
 - Body text is readable `#a9b1d6` on `#0d0d0d`

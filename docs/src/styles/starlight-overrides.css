@@ -176,15 +176,36 @@ h1[data-page-title],
   font-family: var(--__sl-font-mono);
 }
 
+/* CTA buttons — flat, angular, terminal-style */
+.sl-link-button {
+  border-radius: 0;
+  font-family: var(--ghost-font-ui);
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  padding: 0.6rem 1.4rem;
+}
+
 .sl-link-button.primary {
   box-shadow: none;
   background: var(--ghost-accent);
   border-color: var(--ghost-accent);
+  color: #0a0a0a;
 }
 
 .sl-link-button.primary:hover {
   background: var(--sl-color-accent-high);
   border-color: var(--sl-color-accent-high);
+  color: #0a0a0a;
+}
+
+.sl-link-button.minimal {
+  border: 1px solid #292e42;
+  color: #a9b1d6;
+}
+
+.sl-link-button.minimal:hover {
+  border-color: #565f89;
+  color: #c0caf5;
 }
 
 .pagination-links a {
@@ -269,6 +290,14 @@ mobile-starlight-toc a {
   font-size: clamp(3rem, 8vw, 5rem);
 }
 
+.hero .tagline {
+  font-family: var(--ghost-font-ui);
+  color: #9ece6a;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-size: 0.9rem;
+}
+
 @keyframes ghost-glitch-top {
   0%, 92% { transform: translate(0); }
   93% { transform: translate(-3px, -1px); }
@@ -295,6 +324,36 @@ mobile-starlight-toc a {
 
 @keyframes ghost-fade-in {
   to { opacity: 1; }
+}
+
+/* Starlight cards — strip colored icons, match theme */
+.card-grid .card {
+  border-color: #292e42;
+  background: rgba(22, 22, 30, 0.5);
+}
+
+.card-grid .card .title {
+  font-family: var(--ghost-font-heading);
+  font-weight: 400;
+  color: var(--ghost-accent);
+}
+
+.card-grid .card .card-icon {
+  display: none;
+}
+
+/* Terminal status block */
+.ghost-status {
+  font-family: var(--sl-font-mono);
+  font-size: 0.82rem;
+  line-height: 1.7;
+  color: #737aa2;
+  background: rgba(22, 22, 30, 0.4);
+  border: 1px solid #292e42;
+  border-left: 3px solid var(--ghost-accent);
+  padding: 1.2rem 1.6rem;
+  overflow-x: auto;
+  margin: 1.5rem 0;
 }
 
 @media (min-width: 90rem) {

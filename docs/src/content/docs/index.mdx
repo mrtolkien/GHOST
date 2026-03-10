@@ -16,7 +16,7 @@ hero:
       </span>
       <span class="ghost-logo-letters">ST</span>
     </span>
-  tagline: Enter the shell.
+  tagline: Enter the shell
   actions:
     - text: Get Started
       link: /getting-started/installation/
@@ -33,49 +33,34 @@ import HeroEffects from "../../components/HeroEffects.astro";
 
 <HeroEffects />
 
-## Philosophy
+## PHILOSOPHY
 
 <CardGrid>
-  <Card title="Text-first" icon="document">
-    Workspace files (markdown, TOML) are the primary feature surface. Identity, skills,
-    jobs, and knowledge all live as editable files.
+  <Card title="Text-first">
+    Workspace files are the source of truth. <br /> Knowledge, agents, skill,
+    and memory all live as editable files.
   </Card>
-  <Card title="CLI-first" icon="forward-slash">
-    Every feature is accessible through direct commands.
+  <Card title="CLI-first">
+    Every feature is accessible through direct commands. <br />
+    Usable both by the OPERATOR and the GHOST themself.
   </Card>
-  <Card title="Skills over tools" icon="puzzle">
+  <Card title="Skills over tools">
     Prefer reusable workflow files over adding new tool APIs.
   </Card>
-  <Card title="Local-first" icon="laptop">
-    Embedded database, local embeddings, your data stays on your machine.
+  <Card title="Local-first">
+    Embedded database, local embeddings, important data stays on your machine.
   </Card>
 </CardGrid>
 
-## Architecture
+## ARCHITECTURE
 
-<table>
-  <thead>
-    <tr>
-      <th colspan="3" style="text-align: center;">ghost daemon</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>Discord Bot</td>
-      <td>Job Scheduler</td>
-      <td>Chat Orchestration</td>
-    </tr>
-    <tr>
-      <td colspan="3" style="text-align: center;">Provider Layer (OpenRouter, Kimi, Codex)</td>
-    </tr>
-    <tr>
-      <td colspan="2">SQLite + sqlite-vec</td>
-      <td>Workspace Files</td>
-    </tr>
-  </tbody>
-</table>
+<pre class="ghost-status">{`> ghost status
 
-- **Single binary** — no external services required (except Ollama for embeddings)
-- **Embedded SQLite** — knowledge storage with FTS5, sqlite-vec embeddings, and typed edges
-- **Discord transport** — primary interface for the PoC (more planned)
-- **Multiple LLM providers** — OpenRouter, Kimi Code, OpenAI OAuth (Codex)
+DAEMON      single binary - extra services live in containers
+SHELL       nix-managed - deterministic, declarative
+HACK        dedicated coding agent included
+STORAGE     SQLite + FTS5 + sqlite-vec embeddings
+TRANSPORT   Discord (more interfaces planned)
+PROVIDERS   OpenRouter · Kimi Code · Codex
+KNOWLEDGE   persistent memory with typed edges
+WORKSPACE   ~/GHOST/ — editable text files`}</pre>
