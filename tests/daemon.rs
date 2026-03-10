@@ -5,6 +5,8 @@ mod common;
 
 #[path = "daemon/ark_nova.rs"]
 mod ark_nova;
+#[path = "daemon/cron_agent.rs"]
+mod cron_agent;
 #[path = "daemon/helpers.rs"]
 mod helpers;
 #[path = "daemon/scripting.rs"]
