@@ -9,6 +9,7 @@ export default defineConfig({
       description: "Personal AI agent platform",
       components: {
         SiteTitle: "./src/components/SiteTitle.astro",
+        ThemeSelect: "./src/components/ThemeSelect.astro",
       },
       customCss: ["./src/styles/starlight-overrides.css"],
       social: [

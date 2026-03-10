@@ -74,6 +74,11 @@ body {
   box-shadow: none !important;
 }
 
+site-search button[data-open-modal] {
+  border: 0 !important;
+  background-color: transparent !important;
+}
+
 .sidebar-pane,
 .right-sidebar-panel {
   box-shadow: none;
@@ -223,7 +228,10 @@ h1[data-page-title],
 
 .pagination-links a {
   border-color: #1a1b26;
+  border-radius: 0;
   box-shadow: none;
+  font-family: var(--ghost-font-heading);
+  font-weight: 400;
 }
 
 .pagination-links a:hover {
