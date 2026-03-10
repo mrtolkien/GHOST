@@ -75,9 +75,8 @@ async fn test_script_csv_spending() {
         .iter()
         .find_map(|topic| find_script(&env, topic));
 
-    let content = script_content.expect(
-        "expected a Python script under scripts/{finance,spending,budget,bank}/",
-    );
+    let content = script_content
+        .expect("expected a Python script under scripts/{finance,spending,budget,bank}/");
     assert_script_conventions(&content, "csv_spending");
 
     assert!(
@@ -124,9 +123,8 @@ async fn test_script_domain_expiry() {
         .iter()
         .find_map(|topic| find_script(&env, topic));
 
-    let content = script_content.expect(
-        "expected a Python script under scripts/{domains,dns,whois}/",
-    );
+    let content =
+        script_content.expect("expected a Python script under scripts/{domains,dns,whois}/");
     assert_script_conventions(&content, "domain_expiry");
 
     assert!(
@@ -173,9 +171,8 @@ async fn test_script_weather_forecast() {
         .iter()
         .find_map(|topic| find_script(&env, topic));
 
-    let content = script_content.expect(
-        "expected a Python script under scripts/{weather,forecast,meteo}/",
-    );
+    let content =
+        script_content.expect("expected a Python script under scripts/{weather,forecast,meteo}/");
     assert_script_conventions(&content, "weather_forecast");
 
     assert!(

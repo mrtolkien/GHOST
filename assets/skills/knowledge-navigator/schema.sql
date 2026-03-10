@@ -117,6 +117,13 @@ CREATE TABLE relates_to (
     label TEXT NOT NULL DEFAULT 'relates_to',
     created_at TEXT NOT NULL
 );
+CREATE TABLE script (
+    id         TEXT PRIMARY KEY NOT NULL,
+    path       TEXT NOT NULL UNIQUE,  -- relative to workspace: scripts/finance/spending.py
+    content    TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
 CREATE TABLE session (
     id TEXT PRIMARY KEY NOT NULL,
     created_at TEXT NOT NULL,

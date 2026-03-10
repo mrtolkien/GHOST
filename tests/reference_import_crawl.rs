@@ -95,10 +95,9 @@ async fn crawl_import_small_site() {
                 path: Some(r.path),
             })
             .collect();
-        let embedded =
-            ghost::embeddings::pipeline::embed_sources(&client, &env.db, embed_requests)
-                .await
-                .expect("embed references");
+        let embedded = ghost::embeddings::pipeline::embed_sources(&client, &env.db, embed_requests)
+            .await
+            .expect("embed references");
         assert!(embedded > 0, "should generate embeddings");
     }
 

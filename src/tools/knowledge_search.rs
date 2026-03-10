@@ -95,8 +95,7 @@ impl Tool for KnowledgeSearch {
             topic.is_some() || (!use_defaults && categories.iter().any(|c| c == "references"));
         let search_diary_flag = use_defaults || categories.iter().any(|c| c == "diary");
         let search_topics_flag = categories.iter().any(|c| c == "topics");
-        let search_scripts_flag =
-            !use_defaults && categories.iter().any(|c| c == "scripts");
+        let search_scripts_flag = !use_defaults && categories.iter().any(|c| c == "scripts");
 
         // Resolve topic name to topic IDs for scoped search
         let resolved_topic_ids = if let Some(topic_name) = topic {

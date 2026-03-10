@@ -30,8 +30,9 @@ Scripts live in the workspace under `scripts/{topic}/{name}.py`:
 
 ## Python Scripts (Default)
 
-Use Python with [uv inline metadata (PEP 723)](https://docs.astral.sh/uv/guides/scripts/).
-Every script MUST have:
+Use Python with
+[uv inline metadata (PEP 723)](https://docs.astral.sh/uv/guides/scripts/). Every script
+MUST have:
 
 1. **PEP 723 metadata block** — declares dependencies inline
 2. **Module docstring** — what it does, when to use it (this powers search)

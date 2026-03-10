@@ -3,9 +3,9 @@
 
 mod common;
 
-#[path = "daemon/helpers.rs"]
-mod helpers;
 #[path = "daemon/ark_nova.rs"]
 mod ark_nova;
+#[path = "daemon/helpers.rs"]
+mod helpers;
 #[path = "daemon/scripting.rs"]
 mod scripting;

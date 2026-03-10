@@ -599,10 +599,7 @@ pub async fn update_script(
 }
 
 #[tracing::instrument(skip_all, level = "debug", fields(script_id = %script_id))]
-pub async fn get_script(
-    db: &SqlitePool,
-    script_id: &str,
-) -> Result<ScriptRecord, DatabaseError> {
+pub async fn get_script(db: &SqlitePool, script_id: &str) -> Result<ScriptRecord, DatabaseError> {
     sqlx::query_as::<_, ScriptRecord>("SELECT * FROM script WHERE id = ?")
         .bind(script_id)
         .fetch_optional(db)
@@ -635,10 +632,7 @@ pub async fn find_script_by_path(
 }
 
 #[tracing::instrument(skip_all, level = "debug", fields(script_id = %script_id))]
-pub async fn delete_script(
-    db: &SqlitePool,
-    script_id: &str,
-) -> Result<(), DatabaseError> {
+pub async fn delete_script(db: &SqlitePool, script_id: &str) -> Result<(), DatabaseError> {
     sqlx::query("DELETE FROM script WHERE id = ?")
         .bind(script_id)
         .execute(db)
@@ -667,16 +661,14 @@ pub async fn list_scripts_page(
     offset: usize,
     limit: usize,
 ) -> Result<Vec<ScriptRecord>, DatabaseError> {
-    sqlx::query_as::<_, ScriptRecord>(
-        "SELECT * FROM script ORDER BY id LIMIT ? OFFSET ?",
-    )
-    .bind(limit as i64)
-    .bind(offset as i64)
-    .fetch_all(db)
-    .await
-    .map_err(|source| DatabaseError::Query {
-        table: "script",
-        operation: "list_page",
-        source,
-    })
+    sqlx::query_as::<_, ScriptRecord>("SELECT * FROM script ORDER BY id LIMIT ? OFFSET ?")
+        .bind(limit as i64)
+        .bind(offset as i64)
+        .fetch_all(db)
+        .await
+        .map_err(|source| DatabaseError::Query {
+            table: "script",
+            operation: "list_page",
+            source,
+        })
 }

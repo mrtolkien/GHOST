@@ -506,8 +506,7 @@ async fn process_script_change(
 
     // Deletion
     if !path.exists() {
-        if let Ok(Some(script)) =
-            crate::db::knowledge::find_script_by_path(db, &script_path).await
+        if let Ok(Some(script)) = crate::db::knowledge::find_script_by_path(db, &script_path).await
         {
             crate::db::embeddings::delete_embeddings_for_source(db, &script.id).await?;
             crate::db::knowledge::delete_script(db, &script.id).await?;

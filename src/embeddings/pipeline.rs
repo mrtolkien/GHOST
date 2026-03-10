@@ -436,8 +436,7 @@ pub async fn reconcile_embeddings(
     let t = std::time::Instant::now();
     let mut offset = 0;
     loop {
-        let scripts =
-            db::knowledge::list_scripts_page(db, offset, RECONCILE_PAGE_SIZE).await?;
+        let scripts = db::knowledge::list_scripts_page(db, offset, RECONCILE_PAGE_SIZE).await?;
         let batch_len = scripts.len();
         for script in &scripts {
             let count = embed_source(
