@@ -20,9 +20,10 @@ primary for PoC).
 **Predecessor**: Reboot of `../t-koma`. Consult it for patterns; spec files link to
 relevant old code. Validate with user before carrying over behavior.
 
-**State**: We are currently in pre-alpha. The software is moving extremely fast. There
-is NO NEED FOR BACKWARDS COMPATIBILITY AT THE MOMENT. You are allowed to make breaking
-changes requiring re-creating the full GHOST workspace. Never care about migrations.
+**State**: We are currently in pre-alpha. The software is moving extremely fast. You are
+allowed to make breaking changes requiring re-creating the full GHOST workspace if
+implementing migrations would be too complicated, but communicate it clearly to the
+user.
 
 ### Architecture
 
