@@ -65,6 +65,7 @@ end
 ```
 
 Under the hood, `call_tools`:
+
 1. Generates unique IDs (e.g. `"build_1"`, `"build_2"`, ...) for each call
 2. Executes tools sequentially (latency is not a concern for build hooks)
 3. Returns two Lua table messages: one `assistant` message with all `tool_calls`, one
@@ -85,13 +86,14 @@ pub struct BuildMessage {
 ```
 
 The Lua parsing of `build()` return value must extract these optional fields from
-message tables (they're already Lua tables from `call_tools`, so just read them through).
+message tables (they're already Lua tables from `call_tools`, so just read them
+through).
 
 **Persistence** — update `run_agent` in `session.rs` (~line 978) to use
 `create_message_with_metadata` instead of `create_message` when tool_calls or
-tool_results are present. The existing `convert_stored_message_to_provider_message`
-in `convert.rs` already reconstructs `ToolUse`/`ToolResult` ContentBlocks from the
-JSON columns, so provider history will be correct automatically.
+tool_results are present. The existing `convert_stored_message_to_provider_message` in
+`convert.rs` already reconstructs `ToolUse`/`ToolResult` ContentBlocks from the JSON
+columns, so provider history will be correct automatically.
 
 **Provider history building** — update the history construction (~line 984) to build
 proper `ContentBlock::ToolUse` and `ContentBlock::ToolResult` blocks instead of only
@@ -115,6 +117,7 @@ Hand-written agent in the test workspace (not bundled). Validates the pattern wo
 before the e2e test verifies GHOST can create one.
 
 **`agents/daily-recap/agent.lua`:**
+
 - `build()` calls `ctx:call_tool("web_fetch", ...)` for each URL
 - Loads `ctx:get("last_digest")` to know what was already reported
 - Injects all fetched content + prior digest into messages
@@ -123,12 +126,14 @@ before the e2e test verifies GHOST can create one.
 - `post_completion` saves digest summary via `ctx:set("last_digest", ...)`
 
 **`agents/daily-recap/prompt.md`:**
+
 - "Summarize the following feeds into a concise daily recap"
 - Skip items covered in the previous digest
 
 **Crontab entry:** `{ cron = "0 7 * * *", run = "daily-recap" }`
 
 **URLs:**
+
 - `https://all3dp.com/3d-printing-news/` (Cloudflare-protected, tests crawl4ai path)
 - `https://www.dpreview.com/feeds/news.xml` (RSS 2.0)
 - `http://www.gsmarena.com/rss-news-reviews.php3` (RSS 2.0)
@@ -138,9 +143,10 @@ before the e2e test verifies GHOST can create one.
 New test module `tests/daemon/cron_agent.rs`, added to `tests/daemon.rs`.
 
 Test flow:
+
 1. Boot daemon
-2. Create session, send: "Please make me a recap of what's new from these websites
-   every day: [3 URLs]"
+2. Create session, send: "Please make me a recap of what's new from these websites every
+   day: [3 URLs]"
 3. GHOST reads agent-creator skill, creates agent files + crontab entry
 4. Assert: `agents/{name}/agent.lua` exists with `call_tool("web_fetch", ...)`
 5. Assert: `agents/{name}/prompt.md` exists
