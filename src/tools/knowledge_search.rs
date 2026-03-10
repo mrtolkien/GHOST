@@ -5,6 +5,7 @@ use serde_json::{Value, json};
 use crate::db;
 use crate::db::knowledge::{
     SearchHit, find_topics_by_prefix, hybrid_merge, search_diary, search_notes, search_references,
+    search_scripts,
 };
 use crate::embeddings::EmbeddingClient;
 use crate::providers::ToolDefinition;
@@ -28,11 +29,11 @@ impl Tool for KnowledgeSearch {
         ToolDefinition {
             name: self.name().to_string(),
             description: "Search your knowledge base using hybrid BM25 + semantic \
-                          search across notes, references, and diary entries. Use \
-                          this FIRST before web search to check if you already have \
+                          search across notes, references, diary entries, and scripts. \
+                          Use this FIRST before web search to check if you already have \
                           relevant information. Defaults to notes and diary; pass \
-                          categories to include references. Returns ranked results \
-                          with snippets."
+                          categories to include references or scripts. Returns ranked \
+                          results with snippets."
                 .to_string(),
             input_schema: json!({
                 "type": "object",
@@ -45,7 +46,7 @@ impl Tool for KnowledgeSearch {
                         "type": "array",
                         "items": {
                             "type": "string",
-                            "enum": ["notes", "references", "diary", "topics"]
+                            "enum": ["notes", "references", "diary", "topics", "scripts"]
                         },
                         "description": "Categories to search. Defaults to [\"notes\", \"diary\"]. Include \"references\" explicitly to search reference material. Use \"topics\" to search topic collections."
                     },
@@ -94,6 +95,8 @@ impl Tool for KnowledgeSearch {
             topic.is_some() || (!use_defaults && categories.iter().any(|c| c == "references"));
         let search_diary_flag = use_defaults || categories.iter().any(|c| c == "diary");
         let search_topics_flag = categories.iter().any(|c| c == "topics");
+        let search_scripts_flag =
+            !use_defaults && categories.iter().any(|c| c == "scripts");
 
         // Resolve topic name to topic IDs for scoped search
         let resolved_topic_ids = if let Some(topic_name) = topic {
@@ -152,6 +155,14 @@ impl Tool for KnowledgeSearch {
             );
         }
 
+        if search_scripts_flag {
+            bm25_hits.extend(
+                search_scripts(&ctx.db, query, limit)
+                    .await
+                    .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?,
+            );
+        }
+
         // Build effective categories from computed flags so the vector filter
         // respects topic-triggered auto-include of references.
         let mut effective_categories = Vec::new();
@@ -166,6 +177,9 @@ impl Tool for KnowledgeSearch {
         }
         if search_topics_flag {
             effective_categories.push("topics".to_string());
+        }
+        if search_scripts_flag {
+            effective_categories.push("scripts".to_string());
         }
 
         // Try hybrid search: embed query and merge with BM25
@@ -265,6 +279,7 @@ fn filter_embedding_hits(
             "notes" => "note",
             "references" => "reference",
             "diary" => "diary",
+            "scripts" => "script",
             other => other,
         })
         .collect();
@@ -307,6 +322,7 @@ fn format_results(hits: &[SearchHit]) -> Result<String, ToolError> {
             "note" => "Notes",
             "reference" => "References",
             "diary" => "Diary",
+            "script" => "Scripts",
             other => other,
         };
 
