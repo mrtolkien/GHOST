@@ -1,256 +1,232 @@
-@import "@fontsource/oxanium/600.css";
-@import "@fontsource/oxanium/700.css";
 @import "@fontsource/dm-serif-display/400.css";
+@import "@fontsource/ibm-plex-sans/400.css";
+@import "@fontsource/ibm-plex-sans/500.css";
+@import "@fontsource/ibm-plex-sans/600.css";
+@import "@fontsource/ibm-plex-mono/400.css";
+@import "@fontsource/ibm-plex-mono/500.css";
 @import "@fontsource/monaspace-krypton/500.css";
 
 :root {
   --sl-sidebar-width: 17.5rem;
-  --sl-font-mono:
-    "Monaspace Krypton", "JetBrains Mono", "IBM Plex Mono", "Fira Code",
-    "SFMono-Regular", Menlo, Consolas, monospace;
-
-  /* Neon Catpuccin Mocha — base tones */
-  --sl-color-black: hsl(240, 23%, 9%); /* Crust */
-  --sl-color-white: hsl(226, 64%, 88%); /* Text */
-
-  --sl-color-gray-1: hsl(226, 64%, 88%); /* Text */
-  --sl-color-gray-2: hsl(227, 35%, 80%); /* Subtext 1 */
-  --sl-color-gray-3: hsl(228, 17%, 64%); /* Overlay 2 */
-  --sl-color-gray-4: hsl(230, 13%, 55%); /* Overlay 1 */
-  --sl-color-gray-5: hsl(237, 16%, 23%); /* Surface 0 */
-  --sl-color-gray-6: hsl(240, 21%, 12%); /* Mantle */
-
-  --sl-color-accent-low: hsl(350, 80%, 18%); /* Maroon dark */
-  --sl-color-accent: hsl(350, 100%, 68%); /* Neon Maroon */
-  --sl-color-accent-high: hsl(350, 90%, 85%); /* Maroon light */
-
+  --sl-font: "IBM Plex Sans", system-ui, sans-serif;
+  --sl-font-mono: "Monaspace Krypton", "IBM Plex Mono", "JetBrains Mono", "Fira Code", monospace;
+  --ghost-font-heading: "DM Serif Display", serif;
+  --ghost-font-ui: "IBM Plex Mono", monospace;
+  --sl-color-black: #0a0a0a;
+  --sl-color-bg: #0a0a0a;
+  --sl-color-bg-nav: #0a0a0a;
+  --sl-color-bg-sidebar: #0a0a0a;
+  --sl-color-bg-inline-code: #16161e;
+  --sl-color-white: #c0caf5;
+  --sl-color-gray-1: #c0caf5;
+  --sl-color-gray-2: #a9b1d6;
+  --sl-color-gray-3: #737aa2;
+  --sl-color-gray-4: #565f89;
+  --sl-color-gray-5: #292e42;
+  --sl-color-gray-6: #16161e;
+  --sl-color-accent-low: rgba(26, 188, 156, 0.1);
+  --sl-color-accent: #1abc9c;
+  --sl-color-accent-high: #73daca;
   --sl-color-text: var(--sl-color-gray-2);
   --sl-color-text-accent: var(--sl-color-accent);
-  --sl-color-text-invert: hsl(240, 23%, 9%); /* Crust */
-  --sl-color-bg: hsl(240, 23%, 9%); /* Crust */
-  --sl-color-bg-nav: hsl(240, 21%, 12%); /* Mantle */
-  --sl-color-bg-sidebar: hsl(240, 21%, 15%); /* Base */
-  --sl-color-bg-inline-code: hsl(237, 16%, 23%); /* Surface 0 */
-  --sl-color-bg-accent: var(--sl-color-accent);
-  --sl-color-hairline-light: hsl(234, 13%, 31%); /* Surface 1 */
-  --sl-color-hairline: hsl(233, 16%, 26%); /* Surface 0-1 blend */
-  --sl-color-hairline-shade: hsl(240, 23%, 9%); /* Crust */
-
-  /* Neon accent headings — Yellow → Peach → Maroon warm descent */
-  --ghost-h1: hsl(41, 100%, 70%); /* Yellow neon */
-  --ghost-h2: hsl(23, 100%, 66%); /* Peach neon */
-  --ghost-h3: hsl(350, 100%, 68%); /* Maroon neon */
-  --ghost-h4: hsl(316, 100%, 72%); /* Pink neon */
-  --ghost-h5: hsl(343, 100%, 64%); /* Red neon */
-  --ghost-h6: hsl(0, 100%, 76%); /* Flamingo neon */
-
-  /* Glow layers — Yellow / Peach / Teal (cool counterpoint) */
-  --ghost-bg-layer-1: linear-gradient(
-    145deg,
-    hsl(240, 23%, 9%) 0%,
-    hsl(240, 21%, 11%) 48%,
-    hsl(240, 22%, 9%) 100%
-  );
-  --ghost-bg-layer-2: radial-gradient(
-    70rem 42rem at 10% -6%,
-    hsla(41, 100%, 70%, 0.16) 0%,
-    transparent 55%
-  );
-  --ghost-bg-layer-3: radial-gradient(
-    62rem 38rem at 110% 0%,
-    hsla(23, 100%, 66%, 0.14) 0%,
-    transparent 52%
-  );
-  --ghost-bg-layer-4: radial-gradient(
-    56rem 34rem at 50% 115%,
-    hsla(170, 100%, 58%, 0.08) 0%,
-    transparent 60%
-  );
-}
-
-:root[data-theme="light"] {
-  /* Catpuccin Latte base tones */
-  --sl-color-black: hsl(220, 23%, 95%); /* Latte Base */
-  --sl-color-white: hsl(234, 16%, 35%); /* Latte Text */
-
-  --sl-color-gray-1: hsl(234, 16%, 35%); /* Latte Text */
-  --sl-color-gray-2: hsl(233, 10%, 47%); /* Latte Subtext 1 */
-  --sl-color-gray-3: hsl(232, 10%, 53%); /* Latte Overlay 2 */
-  --sl-color-gray-4: hsl(233, 10%, 57%); /* Latte Overlay 1 */
-  --sl-color-gray-5: hsl(225, 14%, 77%); /* Latte Surface 2 */
-  --sl-color-gray-6: hsl(220, 22%, 92%); /* Latte Mantle */
-
-  --sl-color-accent-low: hsl(350, 80%, 92%); /* Maroon light */
-  --sl-color-accent: hsl(350, 90%, 42%); /* Latte Maroon boosted */
-  --sl-color-accent-high: hsl(350, 100%, 30%); /* Maroon dark */
-
-  --sl-color-text: var(--sl-color-gray-2);
-  --sl-color-text-accent: var(--sl-color-accent);
-  --sl-color-text-invert: hsl(220, 23%, 95%); /* Latte Base */
-  --sl-color-bg: hsl(220, 23%, 95%); /* Latte Base */
-  --sl-color-bg-nav: hsl(220, 22%, 92%); /* Latte Mantle */
-  --sl-color-bg-sidebar: hsl(220, 21%, 89%); /* Latte Crust */
-  --sl-color-bg-inline-code: hsl(225, 14%, 85%); /* Latte Surface 0 */
-  --sl-color-bg-accent: var(--sl-color-accent);
-  --sl-color-hairline-light: hsl(227, 12%, 71%); /* Latte Surface 1 */
-  --sl-color-hairline: hsl(225, 14%, 77%); /* Latte Surface 2 */
-  --sl-color-hairline-shade: hsl(220, 22%, 92%); /* Latte Mantle */
-
-  /* Latte heading hues — warm descent */
-  --ghost-h1: hsl(41, 82%, 36%); /* Yellow */
-  --ghost-h2: hsl(23, 90%, 38%); /* Peach */
-  --ghost-h3: hsl(350, 72%, 40%); /* Maroon */
-  --ghost-h4: hsl(316, 72%, 40%); /* Pink */
-  --ghost-h5: hsl(343, 68%, 38%); /* Red */
-  --ghost-h6: hsl(0, 56%, 44%); /* Flamingo */
-
-  --ghost-bg-layer-1: linear-gradient(
-    145deg,
-    hsl(220, 23%, 95%) 0%,
-    hsl(220, 22%, 94%) 52%,
-    hsl(220, 24%, 96%) 100%
-  );
-  --ghost-bg-layer-2: radial-gradient(
-    70rem 42rem at 10% -6%,
-    hsla(41, 100%, 50%, 0.08) 0%,
-    transparent 58%
-  );
-  --ghost-bg-layer-3: radial-gradient(
-    62rem 38rem at 110% 0%,
-    hsla(23, 80%, 52%, 0.06) 0%,
-    transparent 55%
-  );
-  --ghost-bg-layer-4: radial-gradient(
-    56rem 34rem at 50% 115%,
-    hsla(170, 60%, 44%, 0.06) 0%,
-    transparent 62%
-  );
+  --sl-color-text-invert: #0a0a0a;
+  --sl-color-hairline-light: #292e42;
+  --sl-color-hairline: #1a1b26;
+  --sl-color-hairline-shade: #0a0a0a;
+  --ghost-h1: #e0e0e0;
+  --ghost-h2: #c0caf5;
+  --ghost-h3: #c0caf5;
+  --ghost-h4: #a9b1d6;
+  --ghost-h5: #a9b1d6;
+  --ghost-h6: #a9b1d6;
+  --ghost-accent: #1abc9c;
+  --ghost-green: #9ece6a;
+  --ghost-warning: #e0af68;
+  --ghost-error: #f7768e;
+  --ghost-info: #7dcfff;
 }
 
 body {
   background-color: var(--sl-color-bg);
-  background-image:
-    var(--ghost-bg-layer-1), var(--ghost-bg-layer-2), var(--ghost-bg-layer-3),
-    var(--ghost-bg-layer-4);
-  background-attachment: fixed;
 }
 
 .header {
-  background: var(--sl-color-bg-nav) !important;
+  background: rgba(10, 10, 10, 0.95) !important;
   background-image: none !important;
   border: 0 !important;
   box-shadow: none !important;
   backdrop-filter: none !important;
   overflow: visible !important;
+  border-bottom: 1px solid #1a1b26 !important;
+}
+
+.header :is(.site-title, site-search button, site-search dialog, starlight-theme-select label, .social-icons::after) {
+  border: 0 !important;
+  box-shadow: none !important;
 }
 
 .sidebar-pane,
 .right-sidebar-panel {
-  box-shadow: inset 0 0 0 1px hsla(350, 100%, 68%, 0.08);
+  box-shadow: none;
 }
 
-.sl-markdown-content :is(h1, h2, h3, h4) {
-  letter-spacing: 0.015em;
-  font-weight: 700;
-  text-shadow:
-    0 0 10px hsla(41, 100%, 70%, 0.28),
-    0 0 20px hsla(23, 100%, 66%, 0.16),
-    0 0 28px hsla(350, 100%, 68%, 0.12);
-}
-
-.sl-markdown-content h1 {
+.sidebar-content :is(a, summary, .large, .group-label span) {
+  font-weight: 400;
   letter-spacing: 0.02em;
 }
 
-.sl-markdown-content .sl-heading-wrapper.level-h1 > :first-child,
-.sl-markdown-content h1 {
+.sidebar-content .group-label span {
+  font-family: var(--ghost-font-ui);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #565f89;
+}
+
+.sidebar-content a[aria-current="page"] {
+  color: var(--sl-color-white);
+  border-inline-start: 2px solid var(--ghost-accent);
+  background: rgba(26, 188, 156, 0.05);
+  box-shadow: none;
+}
+
+.right-sidebar-panel a[aria-current="true"] {
+  color: var(--sl-color-white);
+  box-shadow: none;
+}
+
+.sl-markdown-content :is(h1, h2, h3, h4, h5, h6),
+.sl-markdown-content .sl-heading-wrapper > :first-child {
+  font-family: var(--ghost-font-heading);
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  text-shadow: none;
+}
+
+.sl-markdown-content h1,
+.sl-markdown-content .sl-heading-wrapper.level-h1 > :first-child {
   color: var(--ghost-h1);
 }
 
-.sl-markdown-content .sl-heading-wrapper.level-h2 > :first-child,
-.sl-markdown-content h2 {
+.sl-markdown-content h2,
+.sl-markdown-content .sl-heading-wrapper.level-h2 > :first-child {
   color: var(--ghost-h2);
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid #1a1b26;
 }
 
-.sl-markdown-content .sl-heading-wrapper.level-h3 > :first-child,
-.sl-markdown-content h3 {
+.sl-markdown-content h3,
+.sl-markdown-content .sl-heading-wrapper.level-h3 > :first-child {
   color: var(--ghost-h3);
 }
 
-.sl-markdown-content .sl-heading-wrapper.level-h4 > :first-child,
-.sl-markdown-content h4 {
+.sl-markdown-content h4,
+.sl-markdown-content .sl-heading-wrapper.level-h4 > :first-child {
   color: var(--ghost-h4);
 }
 
-.sl-markdown-content h5 {
-  color: var(--ghost-h5);
-}
-
-.sl-markdown-content h6 {
-  color: var(--ghost-h6);
-}
-
-.sidebar-content a[aria-current="page"],
-.right-sidebar-panel a[aria-current="true"] {
-  box-shadow:
-    0 0 0 1px hsla(350, 100%, 68%, 0.75),
-    0 0 18px hsla(350, 100%, 60%, 0.35);
-}
-
-.sl-markdown-content a:hover,
-.sidebar-content a:hover,
-.right-sidebar-panel a:hover {
-  color: var(--sl-color-accent-high);
-  text-shadow: 0 0 8px hsla(350, 100%, 68%, 0.28);
-}
-
-.sl-link-button.primary {
-  box-shadow:
-    0 0 0 1px hsla(350, 100%, 80%, 0.5),
-    0 0 22px hsla(350, 100%, 60%, 0.45);
-}
-
-.pagination-links a {
-  border-color: hsla(350, 100%, 68%, 0.35);
-  box-shadow:
-    0 0 0 1px hsla(350, 100%, 68%, 0.25),
-    0 0 20px hsla(23, 100%, 66%, 0.12);
-}
-
-#starlight__main h1,
-.sidebar-content :is(a, summary, .large, .group-label span) {
-  font-weight: 600;
-  letter-spacing: 0.04em;
-}
+.sl-markdown-content h5 { color: var(--ghost-h5); }
+.sl-markdown-content h6 { color: var(--ghost-h6); }
 
 h1#starlight__overview,
 h1[data-page-title],
 .main-pane > h1,
-main[data-pagefind-body] > .content-panel:first-child .sl-container > h1#_top,
 .content-panel .sl-container > h1#_top {
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  font-family: var(--ghost-font-heading);
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0.02em;
   color: var(--ghost-h1);
-  text-shadow:
-    0 0 12px hsla(41, 100%, 70%, 0.3),
-    0 0 24px hsla(350, 100%, 60%, 0.18);
+  text-shadow: none;
 }
 
-/* ── GHOST logo (shared between header + hero) ── */
+.sl-markdown-content a {
+  color: var(--ghost-accent);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(26, 188, 156, 0.3);
+  transition: border-color 0.15s;
+}
+
+.sl-markdown-content a:hover {
+  border-bottom-color: var(--ghost-accent);
+  text-shadow: none;
+}
+
+.sidebar-content a:hover,
+.right-sidebar-panel a:hover {
+  color: var(--sl-color-white);
+  text-shadow: none;
+}
+
+.sl-markdown-content code {
+  font-family: var(--__sl-font-mono);
+  color: var(--ghost-info);
+  background: var(--sl-color-bg-inline-code);
+}
+
+.sl-markdown-content pre,
+.expressive-code pre {
+  border-left: 3px solid var(--ghost-accent);
+}
+
+.sl-markdown-content code,
+.sl-markdown-content pre code,
+.expressive-code code {
+  font-family: var(--__sl-font-mono);
+}
+
+.sl-link-button.primary {
+  box-shadow: none;
+  background: var(--ghost-accent);
+  border-color: var(--ghost-accent);
+}
+
+.sl-link-button.primary:hover {
+  background: var(--sl-color-accent-high);
+  border-color: var(--sl-color-accent-high);
+}
+
+.pagination-links a {
+  border-color: #1a1b26;
+  box-shadow: none;
+}
+
+.pagination-links a:hover {
+  border-color: #292e42;
+}
+
+.right-sidebar-panel h2 {
+  font-family: var(--ghost-font-ui);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #565f89;
+}
+
+.right-sidebar-panel starlight-toc a {
+  color: #737aa2;
+  transition: color 0.15s;
+}
+
+.right-sidebar-panel starlight-toc a:hover {
+  color: var(--sl-color-white);
+}
+
+mobile-starlight-toc a {
+  color: #737aa2;
+}
+
 .ghost-logo {
   display: inline-flex;
   align-items: baseline;
   line-height: 1;
   white-space: nowrap;
-  color: #fff;
-}
-
-:root[data-theme="light"] .ghost-logo {
-  color: hsl(234, 16%, 20%);
+  color: #e0e0e0;
 }
 
 .ghost-logo-letters {
-  font-family: "DM Serif Display", serif;
+  font-family: var(--ghost-font-heading);
   font-weight: 400;
   color: currentColor;
   text-transform: uppercase;
@@ -272,7 +248,7 @@ main[data-pagefind-body] > .content-panel:first-child .sl-container > h1#_top,
 
 .ghost-logo-o-inside {
   position: absolute;
-  font-family: "DM Serif Display", serif;
+  font-family: var(--ghost-font-heading);
   font-weight: 400;
   color: currentColor;
   text-transform: uppercase;
@@ -282,186 +258,43 @@ main[data-pagefind-body] > .content-panel:first-child .sl-container > h1#_top,
   font-size: 0.58em;
 }
 
-/* ── Header logo ── */
 .ghost-logo-link {
   text-decoration: none;
   font-size: 1.5rem;
+  text-transform: none;
+  letter-spacing: normal;
 }
 
-/* ── Hero logo ── */
 .hero .ghost-logo {
   font-size: clamp(3rem, 8vw, 5rem);
 }
 
-/* User preference: no borders/dividers in the header area. */
-.header
-  :is(
-    .site-title,
-    site-search button,
-    site-search dialog,
-    starlight-theme-select label,
-    .social-icons::after
-  ) {
-  border: 0 !important;
-  box-shadow: none !important;
+@keyframes ghost-glitch-top {
+  0%, 92% { transform: translate(0); }
+  93% { transform: translate(-3px, -1px); }
+  94% { transform: translate(2px, 1px); }
+  95% { transform: translate(0); }
 }
 
-:root[data-theme="light"] .header {
-  background: var(--sl-color-bg-nav) !important;
-  background-image: none !important;
-  border: 0 !important;
-  box-shadow: none !important;
-  backdrop-filter: none !important;
+@keyframes ghost-glitch-bottom {
+  0%, 94% { transform: translate(0); }
+  95% { transform: translate(3px, 1px); }
+  96% { transform: translate(-2px, -1px); }
+  97% { transform: translate(0); }
 }
 
-:root[data-theme="light"] :is(.sidebar-pane, .right-sidebar-panel) {
-  box-shadow: inset 0 0 0 1px hsla(350, 45%, 56%, 0.2);
+@keyframes ghost-typing {
+  from { width: 0; }
+  to { width: 15ch; }
 }
 
-:root[data-theme="light"] .sl-markdown-content :is(h1, h2, h3, h4) {
-  text-shadow:
-    0 0 4px hsla(41, 100%, 50%, 0.12),
-    0 0 8px hsla(350, 68%, 52%, 0.06);
+@keyframes ghost-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
 }
 
-@keyframes ghost-glow {
-  0% {
-    text-shadow:
-      0 0 8px hsla(41, 100%, 70%, 0),
-      0 0 16px hsla(350, 100%, 68%, 0);
-  }
-  100% {
-    text-shadow:
-      0 0 16px hsla(41, 100%, 70%, 0.6),
-      0 0 32px hsla(23, 100%, 66%, 0.4),
-      0 0 48px hsla(350, 100%, 60%, 0.22),
-      0 0 56px hsla(350, 100%, 68%, 0.15);
-  }
-}
-
-@keyframes ghost-glitch {
-  0% {
-    opacity: 1;
-  }
-  /* first blink ~0.75s */
-  14% {
-    opacity: 1;
-  }
-  15% {
-    opacity: 0.65;
-  }
-  17% {
-    opacity: 1;
-  }
-  /* second blink ~2.75s */
-  54% {
-    opacity: 1;
-  }
-  55% {
-    opacity: 0.75;
-  }
-  57% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 1;
-  }
-}
-
-@keyframes ghost-glitch-light {
-  0% {
-    opacity: 1;
-  }
-  14% {
-    opacity: 1;
-  }
-  15% {
-    opacity: 0.75;
-  }
-  17% {
-    opacity: 1;
-  }
-  54% {
-    opacity: 1;
-  }
-  55% {
-    opacity: 0.82;
-  }
-  57% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 1;
-  }
-}
-
-@keyframes ghost-glow-light {
-  0% {
-    text-shadow:
-      0 0 3px hsla(41, 100%, 50%, 0),
-      0 0 6px hsla(41, 100%, 50%, 0);
-  }
-  100% {
-    text-shadow:
-      0 0 8px hsla(41, 100%, 50%, 0.35),
-      0 0 16px hsla(23, 100%, 50%, 0.2),
-      0 0 24px hsla(350, 100%, 44%, 0.1);
-  }
-}
-
-.sl-markdown-content code,
-.sl-markdown-content pre code,
-.expressive-code code {
-  font-family: var(--__sl-font-mono);
-}
-
-.sl-markdown-content :is(h1, h2, h3, h4),
-.sl-markdown-content .sl-heading-wrapper > :first-child,
-.hero h1,
-.ghost-logo-link,
-.sidebar-content .large,
-.sidebar-content summary .group-label span,
-.right-sidebar-panel h2 {
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
-.right-sidebar-panel h2 {
-  color: var(--ghost-h2);
-}
-
-.right-sidebar-panel .sl-container > starlight-toc > nav > ul > li > a {
-  color: var(--ghost-h2);
-}
-
-.right-sidebar-panel .sl-container > starlight-toc > nav > ul > li > ul > li > a {
-  color: var(--ghost-h3);
-}
-
-.right-sidebar-panel
-  .sl-container
-  > starlight-toc
-  > nav
-  > ul
-  > li
-  > ul
-  > li
-  > ul
-  > li
-  > a {
-  color: var(--ghost-h4);
-}
-
-mobile-starlight-toc .isMobile > li > a {
-  color: var(--ghost-h2);
-}
-
-mobile-starlight-toc .isMobile > li > ul > li > a {
-  color: var(--ghost-h3);
-}
-
-mobile-starlight-toc .isMobile > li > ul > li > ul > li > a {
-  color: var(--ghost-h4);
+@keyframes ghost-fade-in {
+  to { opacity: 1; }
 }
 
 @media (min-width: 90rem) {
