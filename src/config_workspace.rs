@@ -21,6 +21,7 @@ pub fn bootstrap_workspace_dirs(config: &Config) -> Result<(), ConfigError> {
         "projects",
         "shell",
         "feedback",
+        "scripts",
     ] {
         let path = config.workspace.join(dir);
         std::fs::create_dir_all(&path).map_err(|source| ConfigError::WriteFile { path, source })?;
