@@ -37,6 +37,7 @@ pub async fn embed_source(
     content: &str,
     tags: &[String],
     topic_id: Option<&str>,
+    path: Option<&str>,
 ) -> Result<usize, PipelineError> {
     let hash = content_hash(content);
 
@@ -55,6 +56,7 @@ pub async fn embed_source(
         tags,
         &hash,
         topic_id,
+        path,
     )
     .await
 }
@@ -73,6 +75,7 @@ pub async fn embed_source_forced(
     content: &str,
     tags: &[String],
     topic_id: Option<&str>,
+    path: Option<&str>,
 ) -> Result<usize, PipelineError> {
     let hash = content_hash(content);
     embed_source_inner(
@@ -84,6 +87,7 @@ pub async fn embed_source_forced(
         tags,
         &hash,
         topic_id,
+        path,
     )
     .await
 }
@@ -97,8 +101,9 @@ async fn embed_source_inner(
     tags: &[String],
     hash: &str,
     topic_id: Option<&str>,
+    path: Option<&str>,
 ) -> Result<usize, PipelineError> {
-    let chunks = chunk_content(content, tags, None);
+    let chunks = chunk_content(content, tags, path);
     if chunks.is_empty() {
         return Ok(0);
     }
@@ -280,7 +285,7 @@ pub async fn reconcile_filesystem(
 ) -> Result<usize, PipelineError> {
     let mut discovered = 0usize;
 
-    for subdir in ["notes", "references", "diary"] {
+    for subdir in ["notes", "references", "diary", "scripts"] {
         let dir = workspace.join(subdir);
         if !dir.exists() {
             continue;
@@ -358,6 +363,7 @@ pub async fn reconcile_embeddings(
                 &note.body,
                 &tags,
                 note.topic_id.as_deref(),
+                None,
             )
             .await?;
             if count > 0 {
@@ -388,6 +394,7 @@ pub async fn reconcile_embeddings(
                 &reference.content,
                 &[],
                 Some(&reference.topic_id),
+                None,
             )
             .await?;
             if count > 0 {
@@ -411,7 +418,7 @@ pub async fn reconcile_embeddings(
         let batch_len = entries.len();
         for entry in &entries {
             let count =
-                embed_source(client, db, "diary", &entry.id, &entry.body, &[], None).await?;
+                embed_source(client, db, "diary", &entry.id, &entry.body, &[], None, None).await?;
             if count > 0 {
                 embedded += count;
             } else {
@@ -424,6 +431,38 @@ pub async fn reconcile_embeddings(
         offset += batch_len;
     }
     tracing::info!(ms = t.elapsed().as_millis() as u64, "reconciled diary");
+
+    // Reconcile scripts (paginated)
+    let t = std::time::Instant::now();
+    let mut offset = 0;
+    loop {
+        let scripts =
+            db::knowledge::list_scripts_page(db, offset, RECONCILE_PAGE_SIZE).await?;
+        let batch_len = scripts.len();
+        for script in &scripts {
+            let count = embed_source(
+                client,
+                db,
+                "script",
+                &script.id,
+                &script.content,
+                &[],
+                None,
+                Some(&format!("scripts/{}", script.path)),
+            )
+            .await?;
+            if count > 0 {
+                embedded += count;
+            } else {
+                skipped += 1;
+            }
+        }
+        if batch_len < RECONCILE_PAGE_SIZE {
+            break;
+        }
+        offset += batch_len;
+    }
+    tracing::info!(ms = t.elapsed().as_millis() as u64, "reconciled scripts");
 
     tracing::Span::current().record("embedded", embedded as u64);
     tracing::Span::current().record("skipped", skipped as u64);
