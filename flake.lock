@@ -3,8 +3,8 @@
     "ghost-bin": {
       "flake": false,
       "locked": {
-        "lastModified": 1773194917,
-        "narHash": "sha256-6KrT/XpWqTWU2Ehl0G+2moj1A55h0/goNQysHFdymi0=",
+        "lastModified": 1773208910,
+        "narHash": "sha256-TWvBJ3CRB5UKwLeE1Vf1/WTT/50OvXOMxkmY6NrRdRw=",
         "type": "tarball",
         "url": "https://github.com/mrtolkien/GHOST/releases/latest/download/ghost-bin.tar.gz"
       },
