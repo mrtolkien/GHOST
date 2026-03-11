@@ -84,16 +84,26 @@ impl Tool for ReadFile {
             result.push_str(&format!("{line_num:>width$} | {line}\n"));
         }
 
-        // Append extra-files block for skill.md files
+        // Skill.md files: resolve {{skill_dir}} and append extra-files block
         if raw_path.ends_with("skill.md")
             && path.components().any(|c| c.as_os_str() == "skills")
             && let Some(skill_dir) = path.parent()
         {
+            // Resolve {{skill_dir}} to workspace-relative path
+            let skill_dir_rel = skill_dir
+                .strip_prefix(&ctx.workspace)
+                .unwrap_or(skill_dir)
+                .to_string_lossy();
+            result = result.replace("{{skill_dir}}", &skill_dir_rel);
+
             let extras = crate::skills::collect_extras(skill_dir);
             if !extras.is_empty() {
                 result.push_str("\n<extra-files>\n");
                 for extra in &extras {
-                    result.push_str(&format!("  <file path=\"{}\" />\n", extra.display()));
+                    // Show workspace-relative paths so the GHOST can use them directly
+                    let full = skill_dir.join(extra.strip_prefix("./").unwrap_or(extra));
+                    let ws_rel = full.strip_prefix(&ctx.workspace).unwrap_or(&full);
+                    result.push_str(&format!("  <file path=\"{}\" />\n", ws_rel.display()));
                 }
                 result.push_str("</extra-files>\n");
             }
@@ -157,7 +167,7 @@ mod tests {
 
         std::fs::write(
             skill_dir.join("skill.md"),
-            "---\nname: test-skill\ndescription: Test.\n---\n\n# Test Skill\n",
+            "---\nname: test-skill\ndescription: Test.\n---\n\n# Test Skill\nRun: {{skill_dir}}/scripts/run.py\n",
         )
         .unwrap();
         std::fs::write(skill_dir.join("reference.md"), "ref content").unwrap();
@@ -169,9 +179,13 @@ mod tests {
             .await
             .unwrap();
 
+        // {{skill_dir}} is resolved to workspace-relative path
+        assert!(result.text.contains("skills/test-skill/scripts/run.py"));
+        assert!(!result.text.contains("{{skill_dir}}"));
+        // Extra files use workspace-relative paths
         assert!(result.text.contains("<extra-files>"));
-        assert!(result.text.contains("./reference.md"));
-        assert!(result.text.contains("./scripts/run.py"));
+        assert!(result.text.contains("skills/test-skill/reference.md"));
+        assert!(result.text.contains("skills/test-skill/scripts/run.py"));
         assert!(result.text.contains("</extra-files>"));
     }
 
