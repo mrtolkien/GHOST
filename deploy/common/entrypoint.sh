@@ -1,25 +1,18 @@
 #!/usr/bin/env sh
 set -eu
 
-FLAKE_DIR="/opt/ghost-flake"
-STORE_CACHE="/opt/ghost/store-path"
+ROOT_FLAKE="/opt/ghost-flake"
+LIVE_FLAKE="${GHOST_WORKSPACE:-/workspace}/shell"
 
-# Fast path: cached store path has a working ghost binary
-if [ -f "$STORE_CACHE" ]; then
-    CACHED=$(cat "$STORE_CACHE")
-    if [ -x "${CACHED}/bin/ghost" ]; then
-        export PATH="${CACHED}/bin:${PATH}"
-        echo "[ghost] ready (cached): $(ghost --version)"
-        exec ghost daemon "$@"
-    fi
+# Prefer live flake if it has been locked (includes ghost binary + shell tools)
+if [ -f "${LIVE_FLAKE}/flake.nix" ] && [ -f "${LIVE_FLAKE}/flake.lock" ]; then
+    FLAKE_DIR="$LIVE_FLAKE"
+else
+    FLAKE_DIR="$ROOT_FLAKE"
 fi
 
-# Slow path: build from flake (first boot or after image update)
-echo "[ghost] building from flake..."
+echo "[ghost] building from flake (${FLAKE_DIR})..."
 STORE_PATH=$(nix build "$FLAKE_DIR" --no-link --print-out-paths)
-
-mkdir -p "$(dirname "$STORE_CACHE")"
-echo "$STORE_PATH" > "$STORE_CACHE"
 export PATH="${STORE_PATH}/bin:${PATH}"
 echo "[ghost] ready: $(ghost --version)"
 exec ghost daemon "$@"
