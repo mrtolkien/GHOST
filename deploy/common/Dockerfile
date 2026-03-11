@@ -30,15 +30,18 @@ RUN echo "experimental-features = nix-command flakes" >> /etc/nix/nix.conf
 # Copy the Ghost binary
 COPY --from=builder /build/target/release/ghost /usr/local/bin/ghost
 
-# Patch the binary to use Nix's glibc (Debian-built ELF expects
-# /lib64/ld-linux-x86-64.so.2 which doesn't exist in NixOS)
+# Patch the binary to use glibc at a fixed path outside /nix — the Debian-built
+# ELF expects /lib64/ld-linux-x86-64.so.2 which doesn't exist in NixOS, and we
+# can't point into /nix/store because the nix-store volume may shadow it.
 # Use tarball URL to avoid GitHub API rate limits in CI (github: flake refs
 # resolve branches via api.github.com which gets 403 without a token)
 ARG NIXPKGS="https://github.com/NixOS/nixpkgs/archive/nixos-24.11.tar.gz"
 RUN nix shell "${NIXPKGS}#patchelf" --command sh -c "\
     GLIBC=\$(nix eval --raw \"${NIXPKGS}#glibc.out\") && \
-    patchelf --set-interpreter \"\$GLIBC/lib/ld-linux-x86-64.so.2\" \
-             --set-rpath \"\$GLIBC/lib\" \
+    mkdir -p /opt/glibc/lib && \
+    cp -a \"\$GLIBC/lib/\"* /opt/glibc/lib/ && \
+    patchelf --set-interpreter /opt/glibc/lib/ld-linux-x86-64.so.2 \
+             --set-rpath /opt/glibc/lib \
              /usr/local/bin/ghost"
 
 # Copy entrypoint

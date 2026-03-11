@@ -7,11 +7,41 @@ GHOST can search the web and fetch page content for research tasks.
 
 ## Web Search
 
-Uses the [Brave Search API](https://brave.com/search/api/) for web queries.
+GHOST supports two search backends:
+
+- **[SearXNG](https://docs.searxng.org/)** (default) — self-hosted
+  meta-search engine. Aggregates results from multiple engines and returns
+  rich metadata (source engines, relevance scores, ranking positions).
+- **[Brave Search](https://brave.com/search/api/)** — API-based fallback.
+  Requires a subscription key.
+
+### Configuring SearXNG
+
+Point GHOST at your SearXNG instance via config or environment variable:
+
+```toml title="~/.config/ghost/config.toml"
+[web.search]
+provider = "searxng"
+url = "http://localhost:8888"
+```
+
+Or set the `SEARXNG_URL` environment variable — GHOST will pick it up
+automatically without any TOML config.
+
+### Configuring Brave (fallback)
+
+If you don't run a SearXNG instance, set a Brave API key instead:
+
+```toml title="~/.config/ghost/config.toml"
+[web.search]
+provider = "brave"
+```
 
 :::caution
-Requires `BRAVE_API_KEY` environment variable.
+Requires the `BRAVE_API_KEY` environment variable.
 :::
+
+### CLI
 
 ```bash
 ghost web search "rust error handling best practices"
