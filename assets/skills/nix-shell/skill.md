@@ -34,10 +34,26 @@ Tell the OPERATOR that a restart is needed to pick up changes.
 
 ## Updating flake inputs
 
-To pull the latest nixpkgs:
+To pull the latest nixpkgs (and ghost binary if using pre-built releases):
 
     nix flake update --flake $WORKSPACE/shell/
     nix build $WORKSPACE/shell --no-link
+
+## Self-updating ghost
+
+The live flake can include the ghost binary itself. When `nix flake update` pulls a
+newer version, the daemon must restart to use it. To trigger a restart:
+
+    nix flake update --flake $WORKSPACE/shell/
+    nix build $WORKSPACE/shell --no-link
+    kill 1
+
+Ghost is PID 1 in the container. `kill 1` sends SIGTERM, Docker restarts the container,
+and the entrypoint runs `nix build` against the updated live flake — picking up the new
+ghost binary.
+
+Tell the OPERATOR before running `kill 1` — there will be a brief downtime while the
+container restarts.
 
 ## One-off tool use
 
