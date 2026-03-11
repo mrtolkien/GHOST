@@ -1,1 +1,0 @@
-Garbage collector? Daemon?

@@ -170,7 +170,11 @@ pub(super) async fn run_tool_loop(
             messages: history.clone(),
             tools: {
                 let schemas = session_chat.tool_manager().all_tool_schemas();
-                if schemas.is_empty() { None } else { Some(schemas) }
+                if schemas.is_empty() {
+                    None
+                } else {
+                    Some(schemas)
+                }
             },
             max_tokens: None,
             temperature: None,

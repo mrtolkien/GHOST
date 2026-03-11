@@ -1,3 +1,0 @@
-Create a systemic way to look for high quality skills
-
-Reddit, claude plugins, clawdhub, ...

@@ -34,6 +34,7 @@ __pycache__
 
 # Astro Starlight build output
 /docs/dist/
+/docs/specs/done
 /docs/.astro/
 
 # Nix

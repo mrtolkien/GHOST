@@ -4,10 +4,10 @@ on:
   push:
     branches: [main]
     paths:
-      - 'flake.nix'
-      - 'flake.lock'
-      - 'deploy/common/**'
-    tags: ['v*']
+      - "flake.nix"
+      - "flake.lock"
+      - "deploy/common/**"
+    tags: ["v*"]
   workflow_dispatch:
 
 jobs:

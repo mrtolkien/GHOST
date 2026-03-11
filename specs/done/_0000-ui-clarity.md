@@ -1,3 +1,0 @@
-- Add verbose mode where tool calls turns appear in the chat
-- Add statusline w/ model, tokens, ...
-- Add UI feedback when the GHOST starts a TODO or updates it

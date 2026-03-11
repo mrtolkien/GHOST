@@ -10,8 +10,7 @@
   --sl-sidebar-width: 17.5rem;
   --sl-font: "IBM Plex Sans", system-ui, sans-serif;
   --sl-font-mono:
-    "Monaspace Krypton", "IBM Plex Mono", "JetBrains Mono", "Fira Code",
-    monospace;
+    "Monaspace Krypton", "IBM Plex Mono", "JetBrains Mono", "Fira Code", monospace;
   --ghost-font-heading: "DM Serif Display", serif;
   --ghost-font-ui: "IBM Plex Mono", monospace;
   --sl-color-black: #0a0a0a;

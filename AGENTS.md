@@ -147,5 +147,7 @@ src/
 ## Documentation & Specs
 
 - User-facing docs: `docs/` (Astro Starlight). Read `/docs` skill before changes.
-- `specs/TODO.md`: Ordered PoC task list. `specs/*.md`: Per-feature specs.
-- `specs/backlog/*.md`: Future features not in PoC path.
+- Human-written specs: `docs/specs`
+- Design plans: `docs/design`
+- Implementation plans: `docs/plans`
+- Finished specs, designs, and implementation plans: `/docs/specs/done`
