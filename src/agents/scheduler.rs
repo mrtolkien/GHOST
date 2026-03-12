@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::Arc;
@@ -13,10 +12,8 @@ use tracing::info;
 use crate::config::Config;
 use crate::db;
 use crate::db::GhostDb;
-use crate::scripting::AgentContext;
 
 use super::crontab::{CrontabTrigger, load_crontab};
-use super::loader::{load_agent, load_agent_with_host};
 use super::runner::AgentRunner;
 
 /// A scheduled Lua agent.
@@ -24,8 +21,6 @@ use super::runner::AgentRunner;
 struct ScheduleEntry {
     name: String,
     cron: cron::Schedule,
-    #[allow(dead_code)]
-    has_should_trigger: bool,
 }
 
 /// Tracked state for a scheduled agent.
@@ -33,20 +28,14 @@ struct ScheduleEntry {
 struct TrackedEntry {
     entry: ScheduleEntry,
     next_run: Option<DateTime<Utc>>,
-    #[allow(dead_code)]
     last_run: Option<DateTime<Utc>>,
 }
 
 /// Idle agent entry — Lua agent with trigger=after_idle.
 #[derive(Debug)]
-#[allow(dead_code)]
 struct IdleAgent {
     name: String,
     idle_minutes: u64,
-    has_should_trigger: bool,
-    /// Tracks when we last triggered this agent per session.
-    /// Only re-triggers if session has new activity after this timestamp.
-    last_triggered: HashMap<String, DateTime<Utc>>,
 }
 
 /// Spawn the unified agent scheduler. Handles both cron-scheduled agents
@@ -91,12 +80,12 @@ pub fn spawn_scheduler(
         loop {
             tokio::select! {
                 _ = interval.tick() => {
-                    tick_scheduled(&agent_runner, &db, &workspace, &mut scheduled).await;
-                    tick_idle(&agent_runner, &db, &workspace, &mut idle_agents).await;
+                    tick_scheduled(&agent_runner, &db, &mut scheduled).await;
+                    tick_idle(&agent_runner, &db, &idle_agents).await;
                 }
                 Some(()) = idle_trigger_rx.recv() => {
                     info!("manual idle trigger received");
-                    tick_idle(&agent_runner, &db, &workspace, &mut idle_agents).await;
+                    tick_idle(&agent_runner, &db, &idle_agents).await;
                 }
                 path = fs_rx.recv() => {
                     if let Some(_path) = path {
@@ -135,19 +124,6 @@ fn build_entries(workspace: &Path) -> (Vec<TrackedEntry>, Vec<IdleAgent>) {
     };
 
     for entry in entries {
-        // Load the agent config to check has_should_trigger
-        let has_should_trigger = match load_agent(workspace, &entry.run) {
-            Ok(config) => config.has_should_trigger,
-            Err(e) => {
-                logfire::warn!(
-                    "scheduler: crontab references unknown agent",
-                    agent = entry.run.clone(),
-                    error = e.to_string(),
-                );
-                continue;
-            }
-        };
-
         match entry.kind {
             CrontabTrigger::Cron { ref expr } => {
                 let cron_expr = format!("0 {expr}");
@@ -158,7 +134,6 @@ fn build_entries(workspace: &Path) -> (Vec<TrackedEntry>, Vec<IdleAgent>) {
                             entry: ScheduleEntry {
                                 name: entry.run.clone(),
                                 cron: schedule,
-                                has_should_trigger,
                             },
                             next_run,
                             last_run: None,
@@ -178,8 +153,6 @@ fn build_entries(workspace: &Path) -> (Vec<TrackedEntry>, Vec<IdleAgent>) {
                 idle_agents.push(IdleAgent {
                     name: entry.run.clone(),
                     idle_minutes: minutes,
-                    has_should_trigger,
-                    last_triggered: HashMap::new(),
                 });
             }
         }
@@ -189,12 +162,7 @@ fn build_entries(workspace: &Path) -> (Vec<TrackedEntry>, Vec<IdleAgent>) {
 }
 
 /// Check and execute due scheduled entries.
-async fn tick_scheduled(
-    agent_runner: &AgentRunner,
-    db: &GhostDb,
-    workspace: &Path,
-    entries: &mut [TrackedEntry],
-) {
+async fn tick_scheduled(agent_runner: &AgentRunner, _db: &GhostDb, entries: &mut [TrackedEntry]) {
     let now = Utc::now();
 
     for entry in entries.iter_mut() {
@@ -206,49 +174,6 @@ async fn tick_scheduled(
         }
 
         let name = &entry.entry.name;
-
-        // Check should_trigger hook
-        if entry.entry.has_should_trigger {
-            match load_agent_with_host(workspace, name) {
-                Ok((_config, host)) => {
-                    let ctx = AgentContext::new(
-                        db.clone(),
-                        workspace.to_path_buf(),
-                        name.clone(),
-                        String::new(),
-                    );
-                    match host.call_should_trigger(ctx).await {
-                        Ok(false) => {
-                            logfire::debug!(
-                                "scheduled agent skipped by should_trigger",
-                                agent_name = name.clone(),
-                            );
-                            entry.last_run = Some(now);
-                            entry.next_run = entry.entry.cron.after(&now).next();
-                            continue;
-                        }
-                        Err(e) => {
-                            logfire::warn!(
-                                "should_trigger hook error, skipping agent",
-                                agent_name = name.clone(),
-                                error = e.to_string(),
-                            );
-                            entry.last_run = Some(now);
-                            entry.next_run = entry.entry.cron.after(&now).next();
-                            continue;
-                        }
-                        Ok(true) => {}
-                    }
-                }
-                Err(e) => {
-                    logfire::warn!(
-                        "failed to load agent for should_trigger check",
-                        agent_name = name.clone(),
-                        error = e.to_string(),
-                    );
-                }
-            }
-        }
 
         logfire::info!("executing scheduled agent", agent_name = name.clone());
 
@@ -275,12 +200,7 @@ async fn tick_scheduled(
 }
 
 /// Check idle sessions and trigger after_idle agents.
-async fn tick_idle(
-    agent_runner: &AgentRunner,
-    db: &GhostDb,
-    workspace: &Path,
-    idle_agents: &mut [IdleAgent],
-) {
+async fn tick_idle(agent_runner: &AgentRunner, db: &GhostDb, idle_agents: &[IdleAgent]) {
     if idle_agents.is_empty() {
         return;
     }
@@ -298,75 +218,55 @@ async fn tick_idle(
 
     let now = Utc::now();
 
-    for agent in idle_agents.iter_mut() {
+    for agent in idle_agents {
         let idle_threshold = chrono::Duration::minutes(agent.idle_minutes as i64);
 
-        // Check should_trigger hook once per agent (not per session)
-        if agent.has_should_trigger {
-            match load_agent_with_host(workspace, &agent.name) {
-                Ok((_config, host)) => {
-                    let ctx = AgentContext::new(
-                        db.clone(),
-                        workspace.to_path_buf(),
-                        agent.name.clone(),
-                        String::new(),
-                    );
-                    match host.call_should_trigger(ctx).await {
-                        Ok(false) => {
-                            logfire::debug!(
-                                "idle agent skipped by should_trigger",
-                                agent_name = agent.name.clone(),
-                            );
-                            continue;
-                        }
-                        Err(e) => {
-                            logfire::warn!(
-                                "should_trigger hook error, skipping agent",
-                                agent_name = agent.name.clone(),
-                                error = e.to_string(),
-                            );
-                            continue;
-                        }
-                        Ok(true) => {}
-                    }
-                }
+        for record in &sessions {
+            // Only check active sessions
+            match db::sessions::get_session(db, &record.session_id).await {
+                Ok(s) if s.status == "active" => {}
+                _ => continue,
+            }
+
+            // Step 1: get last message timestamp
+            let last_msg_at = match db::sessions::last_message_at(db, &record.session_id).await {
+                Ok(Some(ts)) => ts,
+                Ok(None) => continue,
                 Err(e) => {
                     logfire::warn!(
-                        "failed to load agent for should_trigger check",
-                        agent_name = agent.name.clone(),
+                        "scheduler: failed to get last message time",
+                        session_id = record.session_id.clone(),
                         error = e.to_string(),
                     );
+                    continue;
                 }
-            }
-        }
+            };
 
-        for record in &sessions {
-            let session = match db::sessions::get_session(db, &record.session_id).await {
-                Ok(s) => s,
+            let last_msg_dt = match chrono::DateTime::parse_from_rfc3339(&last_msg_at) {
+                Ok(dt) => dt.with_timezone(&Utc),
                 Err(_) => continue,
             };
 
-            if session.status != "active" {
-                continue;
+            if now - last_msg_dt < idle_threshold {
+                continue; // not idle yet
             }
 
-            let last_activity = chrono::DateTime::parse_from_rfc3339(&session.last_activity_at)
-                .map(|dt| dt.with_timezone(&Utc))
-                .unwrap_or_else(|_| Utc::now());
-
-            if now - last_activity < idle_threshold {
-                continue;
-            }
-
-            // Skip if no new activity since we last triggered for this session
-            if let Some(&triggered_at) = agent.last_triggered.get(&record.session_id)
-                && last_activity <= triggered_at
+            // Step 2: check if agent already ran for this idle period
+            match db::agent_runs::has_run_since(db, &agent.name, &record.session_id, &last_msg_at)
+                .await
             {
-                continue;
+                Ok(true) => continue, // already handled
+                Ok(false) => {}
+                Err(e) => {
+                    logfire::warn!(
+                        "scheduler: failed to check agent run history",
+                        agent_name = agent.name.clone(),
+                        session_id = record.session_id.clone(),
+                        error = e.to_string(),
+                    );
+                    continue;
+                }
             }
-
-            // Mark as triggered BEFORE running — prevents re-trigger on next tick
-            agent.last_triggered.insert(record.session_id.clone(), now);
 
             logfire::info!(
                 "idle threshold reached, triggering agent",
