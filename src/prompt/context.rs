@@ -104,10 +104,15 @@ pub fn build_ghost_skills(workspace: &Path) -> String {
         .iter()
         .map(|s| {
             let rel = s.path.strip_prefix(workspace).unwrap_or(&s.path).display();
+            let source_tag = s
+                .source
+                .as_ref()
+                .map(|src| format!("\n    <source>{src}</source>"))
+                .unwrap_or_default();
             format!(
                 "  <skill>\n    <name>{}</name>\n    \
                  <description>{}</description>\n    \
-                 <location>{rel}</location>\n  </skill>",
+                 <location>{rel}</location>{source_tag}\n  </skill>",
                 s.name, s.description,
             )
         })
@@ -337,6 +342,38 @@ mod tests {
         let result = build_ghost_skills(dir.path());
         assert!(result.contains("general-skill"));
         assert!(!result.contains("coding-skill"));
+    }
+
+    #[test]
+    fn skills_includes_source_when_present() {
+        let dir = TempDir::new().unwrap();
+        let skills = dir.path().join("skills");
+        let s = skills.join("remote-skill");
+        fs::create_dir_all(&s).unwrap();
+        fs::write(
+            s.join("skill.md"),
+            "---\nname: remote-skill\ndescription: Remote.\nsource: https://example.com/skill\n---\n",
+        )
+        .unwrap();
+
+        let result = build_ghost_skills(dir.path());
+        assert!(result.contains("<source>https://example.com/skill</source>"));
+    }
+
+    #[test]
+    fn skills_omits_source_when_absent() {
+        let dir = TempDir::new().unwrap();
+        let skills = dir.path().join("skills");
+        let s = skills.join("local-skill");
+        fs::create_dir_all(&s).unwrap();
+        fs::write(
+            s.join("skill.md"),
+            "---\nname: local-skill\ndescription: Local.\n---\n",
+        )
+        .unwrap();
+
+        let result = build_ghost_skills(dir.path());
+        assert!(!result.contains("<source>"));
     }
 
     #[test]

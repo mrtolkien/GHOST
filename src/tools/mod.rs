@@ -1,4 +1,5 @@
 pub mod agent_control;
+pub mod confirmation;
 pub mod context;
 pub mod display;
 pub mod error;
@@ -14,6 +15,7 @@ pub mod web_fetch;
 pub mod web_search;
 pub mod write_file;
 
+pub use confirmation::{ConfirmationReceiver, ConfirmationSender};
 pub use context::ToolContext;
 pub use error::ToolError;
 pub use manager::{Tool, ToolManager};

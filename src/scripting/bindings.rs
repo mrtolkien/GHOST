@@ -263,6 +263,7 @@ impl LuaUserData for AgentContext {
                     agent_runner: None,
                     event_tx: None,
                     channel_id: None,
+                    confirmation_tx: None,
                 };
 
                 let output = tool_manager
@@ -306,6 +307,7 @@ impl LuaUserData for AgentContext {
                 agent_runner: None,
                 event_tx: None,
                 channel_id: None,
+                confirmation_tx: None,
             };
 
             // Build tool_calls_json upfront (just metadata, no execution)

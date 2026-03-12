@@ -37,6 +37,7 @@ pub struct SessionChat {
     event_tx: Option<crate::events::SessionEventSender>,
     cwd_override: Option<std::path::PathBuf>,
     active_sessions: super::interrupt::ActiveSessions,
+    confirmation_tx: Option<crate::tools::confirmation::ConfirmationSender>,
 }
 
 impl std::fmt::Debug for SessionChat {
@@ -76,6 +77,7 @@ impl SessionChat {
             event_tx: None,
             cwd_override: None,
             active_sessions: std::sync::Arc::new(dashmap::DashMap::new()),
+            confirmation_tx: None,
         }
     }
 
@@ -106,6 +108,15 @@ impl SessionChat {
     #[must_use]
     pub fn with_cwd_override(mut self, cwd: std::path::PathBuf) -> Self {
         self.cwd_override = Some(cwd);
+        self
+    }
+
+    #[must_use]
+    pub fn with_confirmation_tx(
+        mut self,
+        tx: crate::tools::confirmation::ConfirmationSender,
+    ) -> Self {
+        self.confirmation_tx = Some(tx);
         self
     }
 
@@ -375,6 +386,7 @@ impl SessionChat {
             agent_runner: self.agent_runner.clone(),
             event_tx: self.event_tx.clone(),
             channel_id: channel_id.map(String::from),
+            confirmation_tx: self.confirmation_tx.clone(),
         };
 
         match self.tool_manager.execute(name, input, &tool_ctx).await {

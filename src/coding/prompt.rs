@@ -49,10 +49,15 @@ fn build_coding_skills(workspace: &Path, working_dir: &Path) -> String {
     let entries: Vec<String> = all_skills
         .iter()
         .map(|s| {
+            let source_tag = s
+                .source
+                .as_ref()
+                .map(|src| format!("\n    <source>{src}</source>"))
+                .unwrap_or_default();
             format!(
                 "  <skill>\n    <name>{}</name>\n    \
                  <description>{}</description>\n    \
-                 <location>{}</location>\n  </skill>",
+                 <location>{}</location>{source_tag}\n  </skill>",
                 s.name,
                 s.description,
                 s.path.display(),
@@ -83,11 +88,12 @@ fn discover_repo_skills(skills_dir: &Path) -> Vec<skills::Skill> {
             Ok(c) => c,
             Err(_) => continue,
         };
-        if let Some((name, description, available)) = skills::parse_frontmatter(&content) {
+        if let Some(fm) = skills::parse_frontmatter(&content) {
             found.push(skills::Skill {
-                name,
-                description,
-                available,
+                name: fm.name,
+                description: fm.description,
+                available: fm.available,
+                source: fm.source,
                 path: skill_path,
             });
         }

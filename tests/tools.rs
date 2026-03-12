@@ -18,6 +18,7 @@ fn tool_ctx(
         agent_runner: None,
         event_tx: None,
         channel_id: None,
+        confirmation_tx: None,
     }
 }
 
@@ -295,6 +296,7 @@ async fn unknown_tool_returns_not_found() {
         agent_runner: None,
         event_tx: None,
         channel_id: None,
+        confirmation_tx: None,
     };
 
     let result = manager.execute("nonexistent_tool", json!({}), &ctx).await;

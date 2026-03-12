@@ -284,6 +284,7 @@ async fn note_write_tool_creates_file_and_db_record() {
         agent_runner: None,
         event_tx: None,
         channel_id: None,
+        confirmation_tx: None,
     };
     let manager = ToolManager::for_agent(&reflection_tools());
 

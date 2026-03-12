@@ -7,6 +7,7 @@ use crate::db::GhostDb;
 use crate::events::SessionEventSender;
 
 use super::ToolError;
+use super::confirmation::ConfirmationSender;
 
 #[derive(Debug, Clone)]
 pub struct ToolContext {
@@ -18,6 +19,7 @@ pub struct ToolContext {
     pub agent_runner: Option<Arc<AgentRunner>>,
     pub event_tx: Option<SessionEventSender>,
     pub channel_id: Option<String>,
+    pub confirmation_tx: Option<ConfirmationSender>,
 }
 
 /// Resolve a path relative to a base directory and enforce that the result

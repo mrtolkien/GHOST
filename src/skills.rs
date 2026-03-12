@@ -6,14 +6,24 @@ pub struct Skill {
     pub name: String,
     pub description: String,
     pub available: Option<String>,
+    pub source: Option<String>,
     pub path: PathBuf,
+}
+
+/// Parsed frontmatter from a skill file.
+#[derive(Debug)]
+pub struct SkillFrontmatter {
+    pub name: String,
+    pub description: String,
+    pub available: Option<String>,
+    pub source: Option<String>,
 }
 
 /// Parse YAML frontmatter from a skill file. Extracts `name` and
 /// `description` per the agentskills.io spec. Returns `None` for
 /// malformed frontmatter. Unknown fields (triggers, metadata, etc.)
 /// are silently ignored.
-pub fn parse_frontmatter(content: &str) -> Option<(String, String, Option<String>)> {
+pub fn parse_frontmatter(content: &str) -> Option<SkillFrontmatter> {
     let content = content.trim_start();
     if !content.starts_with("---") {
         return None;
@@ -25,6 +35,7 @@ pub fn parse_frontmatter(content: &str) -> Option<(String, String, Option<String
 
     let mut name = None;
     let mut available = None;
+    let mut source = None;
     let mut description_parts: Vec<String> = Vec::new();
     let mut in_description = false;
 
@@ -49,6 +60,12 @@ pub fn parse_frontmatter(content: &str) -> Option<(String, String, Option<String
                 available = Some(value.to_string());
             }
             in_description = false;
+        } else if let Some(value) = trimmed.strip_prefix("source:") {
+            let value = value.trim();
+            if !value.is_empty() {
+                source = Some(value.to_string());
+            }
+            in_description = false;
         } else if trimmed.starts_with("description:") {
             in_description = true;
             let value = trimmed.strip_prefix("description:").unwrap_or("").trim();
@@ -70,7 +87,12 @@ pub fn parse_frontmatter(content: &str) -> Option<(String, String, Option<String
         return None;
     }
 
-    Some((name, description, available))
+    Some(SkillFrontmatter {
+        name,
+        description,
+        available,
+        source,
+    })
 }
 
 /// Scan `$WORKSPACE/skills/` for subdirectories containing `skill.md`,
@@ -115,11 +137,12 @@ pub(crate) fn walk_skills_dir(dir: &Path, skills: &mut Vec<Skill>) {
             };
 
             match parse_frontmatter(&content) {
-                Some((name, description, available)) => {
+                Some(fm) => {
                     skills.push(Skill {
-                        name,
-                        description,
-                        available,
+                        name: fm.name,
+                        description: fm.description,
+                        available: fm.available,
+                        source: fm.source,
                         path: skill_path,
                     });
                 }
@@ -196,10 +219,10 @@ description: A test skill for testing.
 
 # Body
 ";
-        let (name, desc, available) = parse_frontmatter(content).unwrap();
-        assert_eq!(name, "test-skill");
-        assert_eq!(desc, "A test skill for testing.");
-        assert!(available.is_none());
+        let fm = parse_frontmatter(content).unwrap();
+        assert_eq!(fm.name, "test-skill");
+        assert_eq!(fm.description, "A test skill for testing.");
+        assert!(fm.available.is_none());
     }
 
     #[test]
@@ -214,10 +237,10 @@ description:
 
 # Body
 ";
-        let (name, desc, _) = parse_frontmatter(content).unwrap();
-        assert_eq!(name, "multi-line");
+        let fm = parse_frontmatter(content).unwrap();
+        assert_eq!(fm.name, "multi-line");
         assert_eq!(
-            desc,
+            fm.description,
             "This is a multiline description that spans several lines."
         );
     }
@@ -237,9 +260,9 @@ metadata:
 
 # Body
 ";
-        let (name, desc, _) = parse_frontmatter(content).unwrap();
-        assert_eq!(name, "with-extras");
-        assert_eq!(desc, "Has extra fields.");
+        let fm = parse_frontmatter(content).unwrap();
+        assert_eq!(fm.name, "with-extras");
+        assert_eq!(fm.description, "Has extra fields.");
     }
 
     #[test]
@@ -253,10 +276,10 @@ available: coding
 
 # Body
 ";
-        let (name, desc, available) = parse_frontmatter(content).unwrap();
-        assert_eq!(name, "coding-only");
-        assert_eq!(desc, "Only for coding agent.");
-        assert_eq!(available.as_deref(), Some("coding"));
+        let fm = parse_frontmatter(content).unwrap();
+        assert_eq!(fm.name, "coding-only");
+        assert_eq!(fm.description, "Only for coding agent.");
+        assert_eq!(fm.available.as_deref(), Some("coding"));
     }
 
     #[test]
@@ -269,8 +292,8 @@ description: Available everywhere.
 
 # Body
 ";
-        let (_, _, available) = parse_frontmatter(content).unwrap();
-        assert!(available.is_none());
+        let fm = parse_frontmatter(content).unwrap();
+        assert!(fm.available.is_none());
     }
 
     #[test]
@@ -500,6 +523,39 @@ name: no-desc
 
         let extras = collect_extras(&skill_dir);
         assert!(extras.is_empty());
+    }
+
+    #[test]
+    fn parse_frontmatter_extracts_source() {
+        let content = "\
+---
+name: imported-skill
+description: An imported skill.
+source: https://agentskills.io/skills/imported
+---
+
+# Body
+";
+        let fm = parse_frontmatter(content).unwrap();
+        assert_eq!(fm.name, "imported-skill");
+        assert_eq!(
+            fm.source.as_deref(),
+            Some("https://agentskills.io/skills/imported")
+        );
+    }
+
+    #[test]
+    fn parse_frontmatter_defaults_source_to_none() {
+        let content = "\
+---
+name: local
+description: A local skill.
+---
+
+# Body
+";
+        let fm = parse_frontmatter(content).unwrap();
+        assert!(fm.source.is_none());
     }
 
     #[test]

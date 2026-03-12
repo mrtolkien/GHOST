@@ -7,6 +7,7 @@ pub mod hack;
 pub mod init;
 pub mod knowledge;
 pub mod project;
+pub mod reboot;
 pub mod reference;
 pub mod send;
 pub mod session;

@@ -1,4 +1,5 @@
 pub mod event_handler;
+pub mod pidfile;
 mod run;
 pub mod watcher;
 

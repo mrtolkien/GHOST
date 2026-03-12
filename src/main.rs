@@ -75,6 +75,8 @@ enum Commands {
         #[arg(long)]
         caption: Option<String>,
     },
+    /// Gracefully restart the running daemon
+    Reboot,
     Version,
 }
 
@@ -107,6 +109,7 @@ async fn dispatch(command: Commands) -> Result<(), GhostError> {
             ghost::cli::send::execute_send_image(path, caption).await
         }
         Commands::Attach { path, caption } => ghost::cli::send::execute_attach(path, caption).await,
+        Commands::Reboot => ghost::cli::reboot::execute(),
         Commands::Version => {
             println!("{}", env!("CARGO_PKG_VERSION"));
             Ok(())
