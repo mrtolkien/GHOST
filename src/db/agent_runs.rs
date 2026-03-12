@@ -153,3 +153,88 @@ pub async fn get_agent_name_for_session(
 
     Ok(row.map(|r| r.agent_name))
 }
+
+/// Check if an agent run exists for the given agent + parent session
+/// that started after the given timestamp.
+#[tracing::instrument(skip_all, level = "debug", fields(
+    agent_name = agent_name,
+    session_id = session_id,
+))]
+pub async fn has_run_since(
+    db: &SqlitePool,
+    agent_name: &str,
+    session_id: &str,
+    since: &str,
+) -> Result<bool, DatabaseError> {
+    let row: Option<(String,)> = sqlx::query_as(
+        "SELECT id FROM agent_run \
+         WHERE agent_name = ? AND session_id = ? AND started_at > ? \
+         LIMIT 1",
+    )
+    .bind(agent_name)
+    .bind(session_id)
+    .bind(since)
+    .fetch_optional(db)
+    .await
+    .map_err(|source| DatabaseError::Query {
+        table: "agent_run",
+        operation: "has_run_since",
+        source,
+    })?;
+    Ok(row.is_some())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn has_run_since_false_when_no_runs() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let db = crate::db::connect(dir.path(), 384).await.unwrap();
+        assert!(!has_run_since(&db, "my-agent", "session-1", "2026-01-01T00:00:00Z")
+            .await
+            .unwrap());
+    }
+
+    #[tokio::test]
+    async fn has_run_since_true_when_run_exists_after() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let db = crate::db::connect(dir.path(), 384).await.unwrap();
+        let sid = crate::db::sessions::create_session(&db).await.unwrap();
+        let agent_sid = crate::db::sessions::create_agent_session(&db).await.unwrap();
+        let _run_id = create_agent_run(&db, "my-agent", Some(&sid), &agent_sid)
+            .await
+            .unwrap();
+        assert!(has_run_since(&db, "my-agent", &sid, "2026-01-01T00:00:00Z")
+            .await
+            .unwrap());
+    }
+
+    #[tokio::test]
+    async fn has_run_since_ignores_runs_with_null_session() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let db = crate::db::connect(dir.path(), 384).await.unwrap();
+        let agent_sid = crate::db::sessions::create_agent_session(&db).await.unwrap();
+        let _run_id = create_agent_run(&db, "my-agent", None, &agent_sid)
+            .await
+            .unwrap();
+        assert!(!has_run_since(&db, "my-agent", "some-session", "2026-01-01T00:00:00Z")
+            .await
+            .unwrap());
+    }
+
+    #[tokio::test]
+    async fn has_run_since_false_when_run_before_threshold() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let db = crate::db::connect(dir.path(), 384).await.unwrap();
+        let sid = crate::db::sessions::create_session(&db).await.unwrap();
+        let agent_sid = crate::db::sessions::create_agent_session(&db).await.unwrap();
+        let _run_id = create_agent_run(&db, "my-agent", Some(&sid), &agent_sid)
+            .await
+            .unwrap();
+        assert!(!has_run_since(&db, "my-agent", &sid, "2099-01-01T00:00:00Z")
+            .await
+            .unwrap());
+    }
+}
