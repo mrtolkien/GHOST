@@ -49,10 +49,15 @@ fn build_coding_skills(workspace: &Path, working_dir: &Path) -> String {
     let entries: Vec<String> = all_skills
         .iter()
         .map(|s| {
+            let source_tag = s
+                .source
+                .as_ref()
+                .map(|src| format!("\n    <source>{src}</source>"))
+                .unwrap_or_default();
             format!(
                 "  <skill>\n    <name>{}</name>\n    \
                  <description>{}</description>\n    \
-                 <location>{}</location>\n  </skill>",
+                 <location>{}</location>{source_tag}\n  </skill>",
                 s.name,
                 s.description,
                 s.path.display(),
