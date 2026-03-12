@@ -4,6 +4,10 @@
 /// `assets/` directory. The workspace-relative path of each file equals
 /// its path relative to `assets/`. To add a new bundled file, just drop
 /// it in `assets/` — no Rust changes needed.
+///
+/// Shadow copies live in `.bundled/{path}` inside the workspace. On each
+/// boot, `compute_changes` compares the old shadow against the new bundle
+/// to detect real upstream changes and three-way merges user modifications.
 use std::path::Path;
 
 /// A file bundled into the ghost binary via `include_str!`.
@@ -90,6 +94,7 @@ fn remove_stale_files(
 }
 
 /// Install all bundled files to the workspace, always overwriting.
+/// Also writes shadow copies to `.bundled/` for future change detection.
 /// Creates parent directories as needed.
 pub fn install_all(workspace: &Path) -> Result<(), std::io::Error> {
     for file in bundled_files() {
@@ -98,88 +103,177 @@ pub fn install_all(workspace: &Path) -> Result<(), std::io::Error> {
             std::fs::create_dir_all(parent)?;
         }
         std::fs::write(&dest, file.content)?;
+
+        // Write shadow copy
+        let shadow = workspace.join(".bundled").join(file.path);
+        if let Some(parent) = shadow.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        std::fs::write(&shadow, file.content)?;
     }
-    save_manifest(workspace)?;
     Ok(())
 }
 
-/// Save the current bundled file paths as the manifest for future removal detection.
-pub fn save_manifest(workspace: &Path) -> Result<(), std::io::Error> {
-    let paths: Vec<&str> = bundled_files().iter().map(|f| f.path).collect();
-    let json = serde_json::to_string_pretty(&paths).unwrap_or_default();
-    let manifest_path = workspace.join(".cache/bundled-manifest.json");
-    if let Some(parent) = manifest_path.parent() {
+/// Write a shadow copy for a single file path.
+fn write_shadow(workspace: &Path, path: &str, content: &str) -> Result<(), std::io::Error> {
+    let shadow = workspace.join(".bundled").join(path);
+    if let Some(parent) = shadow.parent() {
         std::fs::create_dir_all(parent)?;
     }
-    std::fs::write(manifest_path, json)
+    std::fs::write(&shadow, content)
 }
 
 // ── Change detection ────────────────────────────────────────────────
 
 use similar::{ChangeTag, TextDiff};
 
+use crate::merge3::{MergeResult, merge3};
+
 /// Result of comparing bundled files against the workspace.
 pub struct BundledChanges {
-    /// Files that exist in bundle but not in workspace.
+    /// Files that exist in bundle but not in workspace (and have no shadow).
     pub new: Vec<&'static BundledFile>,
-    /// Files that differ between bundle and workspace.
-    pub changed: Vec<ChangedFile>,
-    /// Paths that were in the previous manifest but are no longer bundled
-    /// (and still exist in workspace).
+    /// Bundle changed but user didn't touch workspace — safe to overwrite.
+    pub auto_updates: Vec<AutoUpdate>,
+    /// Both sides changed, merge succeeded without conflicts.
+    pub clean_merges: Vec<CleanMerge>,
+    /// Both sides changed, merge has conflict markers.
+    pub conflicts: Vec<ConflictedMerge>,
+    /// Paths in `.bundled/` that are no longer in the current bundle.
     pub removed: Vec<String>,
 }
 
-pub struct ChangedFile {
+/// Bundle changed, workspace matches old shadow — safe auto-update.
+pub struct AutoUpdate {
     pub path: &'static str,
+    pub bundled_content: &'static str,
+}
+
+/// Both sides changed, three-way merge produced a clean result.
+pub struct CleanMerge {
+    pub path: &'static str,
+    pub merged_content: String,
     pub diff: String,
+    pub bundled_content: &'static str,
+}
+
+/// Both sides changed, three-way merge produced conflict markers.
+pub struct ConflictedMerge {
+    pub path: &'static str,
+    pub conflict_content: String,
     pub bundled_content: &'static str,
 }
 
 impl BundledChanges {
     pub fn has_updates(&self) -> bool {
-        !self.changed.is_empty() || !self.removed.is_empty()
+        !self.clean_merges.is_empty() || !self.conflicts.is_empty() || !self.removed.is_empty()
     }
 }
 
-/// Compare bundled files against the workspace.
+/// Compare bundled files against the workspace using `.bundled/` shadows.
 pub fn compute_changes(workspace: &Path) -> BundledChanges {
     let mut new = Vec::new();
-    let mut changed = Vec::new();
+    let mut auto_updates = Vec::new();
+    let mut clean_merges = Vec::new();
+    let mut conflicts = Vec::new();
 
     let current_paths: std::collections::HashSet<&str> =
         bundled_files().iter().map(|f| f.path).collect();
 
     for file in bundled_files() {
-        let dest = workspace.join(file.path);
-        match std::fs::read_to_string(&dest) {
-            Ok(existing) if existing == file.content => {
-                // Unchanged
+        let shadow_path = workspace.join(".bundled").join(file.path);
+        let workspace_path = workspace.join(file.path);
+
+        let shadow = std::fs::read_to_string(&shadow_path).ok();
+        let ws_content = std::fs::read_to_string(&workspace_path).ok();
+
+        match (shadow, ws_content) {
+            // No shadow: first time seeing this file
+            (None, None) => {
+                new.push(file);
             }
-            Ok(existing) => {
-                let diff = generate_diff(&existing, file.content);
-                changed.push(ChangedFile {
+            // No shadow but workspace file exists: treat as new if bundle
+            // differs from workspace, otherwise skip
+            (None, Some(ref ws)) if ws == file.content => {
+                // Workspace already has exact bundle content, skip
+            }
+            (None, Some(_)) => {
+                // Workspace has something but no shadow — new bundled file
+                new.push(file);
+            }
+            // Shadow exists and matches new bundle → no upstream change, skip
+            (Some(ref s), _) if s == file.content => {
+                // Bundle hasn't changed since last install — skip
+            }
+            // Shadow != bundle, workspace == shadow → user didn't touch it
+            (Some(ref s), Some(ref ws)) if ws == s => {
+                auto_updates.push(AutoUpdate {
                     path: file.path,
-                    diff,
                     bundled_content: file.content,
                 });
             }
-            Err(_) => {
+            // Shadow != bundle, workspace missing → treat as new
+            (Some(_), None) => {
                 new.push(file);
             }
+            // Shadow != bundle, workspace != shadow → three-way merge
+            (Some(ref s), Some(ref ws)) => match merge3(s, ws, file.content) {
+                MergeResult::Clean(merged) => {
+                    let diff = generate_diff(ws, &merged);
+                    clean_merges.push(CleanMerge {
+                        path: file.path,
+                        merged_content: merged,
+                        diff,
+                        bundled_content: file.content,
+                    });
+                }
+                MergeResult::Conflict(conflict) => {
+                    conflicts.push(ConflictedMerge {
+                        path: file.path,
+                        conflict_content: conflict,
+                        bundled_content: file.content,
+                    });
+                }
+            },
         }
     }
 
-    // Detect removed bundled files
-    let removed = load_manifest(workspace)
+    // Detect removed: scan `.bundled/` for paths not in current bundle
+    let removed = scan_shadow_dir(workspace)
         .into_iter()
         .filter(|p| !current_paths.contains(p.as_str()))
-        .filter(|p| workspace.join(p).exists())
         .collect();
 
     BundledChanges {
         new,
-        changed,
+        auto_updates,
+        clean_merges,
+        conflicts,
         removed,
+    }
+}
+
+/// Recursively scan `.bundled/` and return workspace-relative paths.
+fn scan_shadow_dir(workspace: &Path) -> Vec<String> {
+    let bundled_dir = workspace.join(".bundled");
+    let mut paths = Vec::new();
+    if bundled_dir.is_dir() {
+        collect_files_recursive(&bundled_dir, &bundled_dir, &mut paths);
+    }
+    paths
+}
+
+fn collect_files_recursive(base: &Path, dir: &Path, paths: &mut Vec<String>) {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.filter_map(|e| e.ok()) {
+        let path = entry.path();
+        if path.is_dir() {
+            collect_files_recursive(base, &path, paths);
+        } else if let Some(s) = path.strip_prefix(base).ok().and_then(|r| r.to_str()) {
+            paths.push(s.to_string());
+        }
     }
 }
 
@@ -202,14 +296,6 @@ pub fn generate_diff(old: &str, new: &str) -> String {
     output
 }
 
-fn load_manifest(workspace: &Path) -> Vec<String> {
-    let path = workspace.join(".cache/bundled-manifest.json");
-    match std::fs::read_to_string(&path) {
-        Ok(json) => serde_json::from_str(&json).unwrap_or_default(),
-        Err(_) => Vec::new(),
-    }
-}
-
 /// The user's decisions about which updates to apply.
 pub struct UpdateDecision {
     pub accepted_paths: Vec<String>,
@@ -219,7 +305,11 @@ pub struct UpdateDecision {
 impl UpdateDecision {
     pub fn accept_all(changes: &BundledChanges) -> Self {
         Self {
-            accepted_paths: changes.changed.iter().map(|c| c.path.to_string()).collect(),
+            accepted_paths: changes
+                .clean_merges
+                .iter()
+                .map(|c| c.path.to_string())
+                .collect(),
             accepted_deletions: changes.removed.clone(),
         }
     }
@@ -238,31 +328,60 @@ pub fn apply_updates(
     changes: &BundledChanges,
     decision: &UpdateDecision,
 ) -> Result<(), std::io::Error> {
-    // Install new files (always)
+    // Install new files: write workspace + shadow
     for file in &changes.new {
         let dest = workspace.join(file.path);
         if let Some(parent) = dest.parent() {
             std::fs::create_dir_all(parent)?;
         }
         std::fs::write(&dest, file.content)?;
+        write_shadow(workspace, file.path, file.content)?;
     }
 
-    // Apply accepted changes
-    for file in &changes.changed {
-        if decision.accepted_paths.contains(&file.path.to_string()) {
-            let dest = workspace.join(file.path);
-            std::fs::write(&dest, file.bundled_content)?;
+    // Auto-updates: write workspace + shadow
+    for update in &changes.auto_updates {
+        let dest = workspace.join(update.path);
+        if let Some(parent) = dest.parent() {
+            std::fs::create_dir_all(parent)?;
         }
+        std::fs::write(&dest, update.bundled_content)?;
+        write_shadow(workspace, update.path, update.bundled_content)?;
     }
 
-    // Apply accepted deletions
+    // Clean merges: accepted → write merged_content to workspace,
+    // bundled_content to shadow. Rejected → still update shadow.
+    for merge in &changes.clean_merges {
+        if decision.accepted_paths.contains(&merge.path.to_string()) {
+            let dest = workspace.join(merge.path);
+            std::fs::write(&dest, &merge.merged_content)?;
+        }
+        // Always update shadow to new bundle content
+        write_shadow(workspace, merge.path, merge.bundled_content)?;
+    }
+
+    // Conflicts: write conflict_content to workspace, bundled_content to shadow
+    for conflict in &changes.conflicts {
+        let dest = workspace.join(conflict.path);
+        std::fs::write(&dest, &conflict.conflict_content)?;
+        write_shadow(workspace, conflict.path, conflict.bundled_content)?;
+    }
+
+    // Accepted deletions: delete workspace + shadow
     for path in &decision.accepted_deletions {
         let dest = workspace.join(path);
         let _ = std::fs::remove_file(&dest);
+        let shadow = workspace.join(".bundled").join(path);
+        let _ = std::fs::remove_file(&shadow);
     }
 
-    // Save updated manifest
-    save_manifest(workspace)?;
+    // Rejected deletions: still remove shadow (file no longer bundled)
+    for path in &changes.removed {
+        if !decision.accepted_deletions.contains(path) {
+            let shadow = workspace.join(".bundled").join(path);
+            let _ = std::fs::remove_file(&shadow);
+        }
+    }
+
     Ok(())
 }
 
@@ -280,11 +399,17 @@ pub async fn prompt_updates_via_discord(
     channel_id: ChannelId,
     rx: &mut tokio::sync::mpsc::UnboundedReceiver<String>,
 ) -> UpdateDecision {
-    let summary = format!(
-        "**Workspace Update Available**\n{} files modified, {} files removed",
-        changes.changed.len(),
-        changes.removed.len(),
-    );
+    let mut parts = Vec::new();
+    if !changes.clean_merges.is_empty() {
+        parts.push(format!("{} files merged", changes.clean_merges.len()));
+    }
+    if !changes.conflicts.is_empty() {
+        parts.push(format!("{} files with conflicts", changes.conflicts.len()));
+    }
+    if !changes.removed.is_empty() {
+        parts.push(format!("{} files removed", changes.removed.len()));
+    }
+    let summary = format!("**Workspace Update Available**\n{}", parts.join(", "),);
 
     let components = vec![container(
         vec![
@@ -350,28 +475,28 @@ async fn review_files(
 ) -> UpdateDecision {
     let mut accepted_paths: Vec<String> = Vec::new();
     let mut accepted_deletions: Vec<String> = Vec::new();
-    let total = changes.changed.len() + changes.removed.len();
+    let total = changes.clean_merges.len() + changes.removed.len();
 
-    // Review changed files
-    for (i, changed) in changes.changed.iter().enumerate() {
+    // Review clean merges
+    for (i, merge) in changes.clean_merges.iter().enumerate() {
         let counter = format!("[{}/{}]", i + 1, total);
 
         // Truncate diff for Discord's 4000 char limit
-        let diff_display = if changed.diff.len() > 3400 {
-            let end = changed.diff.floor_char_boundary(3400);
-            let truncated = &changed.diff[..end];
-            let remaining_lines = changed.diff[end..].lines().count();
+        let diff_display = if merge.diff.len() > 3400 {
+            let end = merge.diff.floor_char_boundary(3400);
+            let truncated = &merge.diff[..end];
+            let remaining_lines = merge.diff[end..].lines().count();
             format!("{truncated}\n... and {remaining_lines} more lines")
         } else {
-            changed.diff.clone()
+            merge.diff.clone()
         };
 
         let content = format!(
             "{counter} **{}**\n```diff\n{}\n```",
-            changed.path, diff_display
+            merge.path, diff_display
         );
 
-        let file_id = changed.path.replace('/', "_");
+        let file_id = merge.path.replace('/', "_");
         let components = vec![container(
             vec![
                 text_display(&content),
@@ -387,7 +512,7 @@ async fn review_files(
             Ok(m) => m,
             Err(e) => {
                 tracing::error!("Failed to send file review: {e}");
-                accepted_paths.push(changed.path.to_string());
+                accepted_paths.push(merge.path.to_string());
                 continue;
             }
         };
@@ -397,16 +522,16 @@ async fn review_files(
                 break;
             };
             if custom_id.starts_with("bundled_file_accept:") {
-                accepted_paths.push(changed.path.to_string());
+                accepted_paths.push(merge.path.to_string());
                 let done = vec![container(
-                    vec![text_display(&format!("**{}** — accepted", changed.path))],
+                    vec![text_display(&format!("**{}** — accepted", merge.path))],
                     Some(0x57F287),
                 )];
                 let _ = edit_v2_message(http, channel_id, file_msg.id, &done).await;
                 break;
             } else if custom_id.starts_with("bundled_file_reject:") {
                 let done = vec![container(
-                    vec![text_display(&format!("**{}** — rejected", changed.path))],
+                    vec![text_display(&format!("**{}** — rejected", merge.path))],
                     Some(0xED4245),
                 )];
                 let _ = edit_v2_message(http, channel_id, file_msg.id, &done).await;
@@ -417,7 +542,7 @@ async fn review_files(
 
     // Review removed files
     for (i, path) in changes.removed.iter().enumerate() {
-        let counter = format!("[{}/{}]", changes.changed.len() + i + 1, total);
+        let counter = format!("[{}/{}]", changes.clean_merges.len() + i + 1, total);
         let content =
             format!("{counter} **{path}**\nThis file was removed from the default bundle.",);
 
@@ -479,7 +604,9 @@ mod tests {
     fn new_files_detected() {
         let dir = TempDir::new().unwrap();
         let changes = compute_changes(dir.path());
-        assert!(changes.changed.is_empty());
+        assert!(changes.auto_updates.is_empty());
+        assert!(changes.clean_merges.is_empty());
+        assert!(changes.conflicts.is_empty());
         assert!(changes.removed.is_empty());
         assert!(!changes.new.is_empty());
     }
@@ -490,36 +617,41 @@ mod tests {
         install_all(dir.path()).unwrap();
         let changes = compute_changes(dir.path());
         assert!(changes.new.is_empty());
-        assert!(changes.changed.is_empty());
+        assert!(changes.auto_updates.is_empty());
+        assert!(changes.clean_merges.is_empty());
+        assert!(changes.conflicts.is_empty());
         assert!(changes.removed.is_empty());
     }
 
     #[test]
-    fn modified_workspace_file_detected() {
+    fn modified_workspace_file_not_flagged_without_bundle_change() {
+        // User modified a file but bundle hasn't changed — should NOT
+        // be flagged (shadow == bundle means no upstream change).
         let dir = TempDir::new().unwrap();
         install_all(dir.path()).unwrap();
         let first = &bundled_files()[0];
         std::fs::write(dir.path().join(first.path), "user modified content").unwrap();
         let changes = compute_changes(dir.path());
-        assert_eq!(changes.changed.len(), 1);
-        assert_eq!(changes.changed[0].path, first.path);
+        // Shadow == bundle, so no change detected regardless of workspace
+        assert!(changes.auto_updates.is_empty());
+        assert!(changes.clean_merges.is_empty());
+        assert!(changes.conflicts.is_empty());
     }
 
     #[test]
     fn removed_bundle_file_detected() {
         let dir = TempDir::new().unwrap();
-        // Install first so all current files exist
         install_all(dir.path()).unwrap();
 
-        // Now write a manifest that includes an extra path no longer bundled
-        let mut paths: Vec<&str> = bundled_files().iter().map(|f| f.path).collect();
-        paths.push("skills/old-skill/skill.md");
-        let json = serde_json::to_string(&paths).unwrap();
-        std::fs::write(dir.path().join(".cache/bundled-manifest.json"), json).unwrap();
+        // Write a shadow for a file no longer in the bundle
+        let shadow_dir = dir.path().join(".bundled/skills/old-skill");
+        std::fs::create_dir_all(&shadow_dir).unwrap();
+        std::fs::write(shadow_dir.join("skill.md"), "old").unwrap();
 
-        // Create the file so it exists in workspace
-        std::fs::create_dir_all(dir.path().join("skills/old-skill")).unwrap();
-        std::fs::write(dir.path().join("skills/old-skill/skill.md"), "old").unwrap();
+        // Create the file in workspace too
+        let ws_dir = dir.path().join("skills/old-skill");
+        std::fs::create_dir_all(&ws_dir).unwrap();
+        std::fs::write(ws_dir.join("skill.md"), "old").unwrap();
 
         let changes = compute_changes(dir.path());
         assert_eq!(changes.removed.len(), 1);
@@ -543,7 +675,12 @@ mod tests {
         for file in bundled_files() {
             assert!(
                 dir.path().join(file.path).exists(),
-                "Missing: {}",
+                "Missing workspace file: {}",
+                file.path
+            );
+            assert!(
+                dir.path().join(".bundled").join(file.path).exists(),
+                "Missing shadow file: {}",
                 file.path
             );
         }
@@ -555,26 +692,83 @@ mod tests {
         install_all(dir.path()).unwrap();
 
         let first = &bundled_files()[0];
-        std::fs::write(dir.path().join(first.path), "user version").unwrap();
+
+        // Set up a clean-merge scenario using multi-line content:
+        // base (shadow) has lines A-B-C, user changed A, bundle
+        // changes C — non-overlapping so merge is clean.
+        let base = "line A\nline B\nline C\n";
+        let user_version = "user A\nline B\nline C\n";
+        // Simulate the new bundle having changed line C
+        // Since we can't change the actual bundle, we use a
+        // different approach: set up so shadow != bundle and
+        // workspace != shadow, with changes in different regions
+        // to produce a clean merge.
+        write_shadow(dir.path(), first.path, base).unwrap();
+        std::fs::write(dir.path().join(first.path), user_version).unwrap();
 
         let changes = compute_changes(dir.path());
-        assert_eq!(changes.changed.len(), 1);
+        // Shadow ("line A\nline B\nline C\n") != bundle (actual content),
+        // workspace ("user A\nline B\nline C\n") != shadow → merge3
+        // The merge may be clean or conflict depending on content
+        // overlap. Either way, rejecting should not overwrite workspace
+        // for clean merges.
 
-        let decision = UpdateDecision::reject_all();
-        apply_updates(dir.path(), &changes, &decision).unwrap();
+        if !changes.clean_merges.is_empty() {
+            let decision = UpdateDecision::reject_all();
+            apply_updates(dir.path(), &changes, &decision).unwrap();
 
-        let content = std::fs::read_to_string(dir.path().join(first.path)).unwrap();
-        assert_eq!(content, "user version");
+            // Rejected clean merge: workspace keeps user's content
+            let content = std::fs::read_to_string(dir.path().join(first.path)).unwrap();
+            assert_eq!(content, user_version);
+
+            // But shadow is updated to new bundle content
+            let shadow =
+                std::fs::read_to_string(dir.path().join(".bundled").join(first.path)).unwrap();
+            assert_eq!(shadow, first.content);
+        } else {
+            // If it's a conflict, apply_updates always writes conflict
+            // content. Verify shadow still gets updated.
+            assert!(!changes.conflicts.is_empty());
+            let decision = UpdateDecision::reject_all();
+            apply_updates(dir.path(), &changes, &decision).unwrap();
+
+            let shadow =
+                std::fs::read_to_string(dir.path().join(".bundled").join(first.path)).unwrap();
+            assert_eq!(shadow, first.content);
+        }
     }
 
     #[test]
-    fn manifest_roundtrip() {
+    fn install_all_writes_shadows() {
         let dir = TempDir::new().unwrap();
-        std::fs::create_dir_all(dir.path().join(".cache")).unwrap();
-        save_manifest(dir.path()).unwrap();
-        let loaded = load_manifest(dir.path());
-        let expected: Vec<&str> = bundled_files().iter().map(|f| f.path).collect();
-        assert_eq!(loaded, expected);
+        install_all(dir.path()).unwrap();
+
+        for file in bundled_files() {
+            let shadow = dir.path().join(".bundled").join(file.path);
+            assert!(shadow.exists(), "Missing shadow: {}", file.path);
+            let content = std::fs::read_to_string(&shadow).unwrap();
+            assert_eq!(
+                content, file.content,
+                "Shadow content mismatch: {}",
+                file.path
+            );
+        }
+    }
+
+    #[test]
+    fn auto_update_when_user_didnt_modify() {
+        let dir = TempDir::new().unwrap();
+        install_all(dir.path()).unwrap();
+
+        let first = &bundled_files()[0];
+        // Simulate old shadow (different from current bundle)
+        let old = "old bundle content";
+        std::fs::write(dir.path().join(first.path), old).unwrap();
+        write_shadow(dir.path(), first.path, old).unwrap();
+
+        let changes = compute_changes(dir.path());
+        assert_eq!(changes.auto_updates.len(), 1);
+        assert_eq!(changes.auto_updates[0].path, first.path);
     }
 
     #[test]
