@@ -293,6 +293,7 @@ mod tests {
             agent_runner: None,
             event_tx: None,
             channel_id: None,
+            confirmation_tx: None,
         };
         (ctx, workspace)
     }
