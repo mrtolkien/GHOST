@@ -44,7 +44,6 @@ pub struct AgentConfig {
     pub has_pre_turn: bool,
     pub has_on_end_turn: bool,
     pub has_post_completion: bool,
-    pub has_should_trigger: bool,
     pub has_on_resume: bool,
 }
 
@@ -64,7 +63,6 @@ impl Default for AgentConfig {
             has_pre_turn: false,
             has_on_end_turn: false,
             has_post_completion: false,
-            has_should_trigger: false,
             has_on_resume: false,
         }
     }

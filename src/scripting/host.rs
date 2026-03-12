@@ -136,32 +136,6 @@ impl ScriptHost {
         }
     }
 
-    /// Call the `should_trigger(ctx)` hook. Returns whether the agent should run.
-    pub async fn call_should_trigger(&self, ctx: AgentContext) -> LuaResult<bool> {
-        register_ctx(&self.lua, ctx)?;
-
-        let globals = self.lua.globals();
-        let agent_table: LuaTable = globals.get("__ghost_agent")?;
-        let hook: LuaValue = agent_table.get("should_trigger")?;
-
-        match hook {
-            LuaValue::Function(f) => {
-                let globals = self.lua.globals();
-                let ctx_val: LuaValue = globals.get("ctx")?;
-                let result: LuaValue = f.call_async(ctx_val).await?;
-                match result {
-                    LuaValue::Boolean(b) => Ok(b),
-                    LuaValue::Nil => Ok(true),
-                    other => Err(LuaError::external(format!(
-                        "should_trigger must return boolean or nil, got {other:?}"
-                    ))),
-                }
-            }
-            LuaValue::Nil => Ok(true),
-            _ => Err(LuaError::external("should_trigger must be a function")),
-        }
-    }
-
     /// Call the `build(ctx, args)` hook. Returns the system prompt and initial messages.
     pub async fn call_build(
         &self,
@@ -362,10 +336,16 @@ impl ScriptHost {
             table.get::<LuaValue>("post_completion")?,
             LuaValue::Function(_)
         );
-        let has_should_trigger = matches!(
+        if matches!(
             table.get::<LuaValue>("should_trigger")?,
             LuaValue::Function(_)
-        );
+        ) {
+            logfire::warn!(
+                "agent defines should_trigger which is no longer supported",
+                agent_name = name.clone(),
+            );
+        }
+
         let has_on_resume = matches!(table.get::<LuaValue>("on_resume")?, LuaValue::Function(_));
 
         Ok(AgentConfig {
@@ -382,7 +362,6 @@ impl ScriptHost {
             has_pre_turn,
             has_on_end_turn,
             has_post_completion,
-            has_should_trigger,
             has_on_resume,
         })
     }
@@ -716,7 +695,6 @@ mod tests {
         assert!(config.has_pre_turn);
         assert!(config.has_on_end_turn);
         assert!(config.has_post_completion);
-        assert!(!config.has_should_trigger);
     }
 
     #[test]
@@ -1059,126 +1037,6 @@ mod tests {
             "test-agent".to_string(),
             "test-session".to_string(),
         )
-    }
-
-    #[tokio::test]
-    async fn should_trigger_returns_true_by_default() {
-        let dir = test_workspace();
-        write_agent_lua(
-            dir.path(),
-            r#"
-            return {
-                name = "test",
-                description = "test",
-                tools = {},
-            }
-            "#,
-        );
-
-        let agent_dir = dir.path().join("agents").join("test-agent");
-        let mut host = ScriptHost::new(&agent_dir, dir.path()).unwrap();
-        host.load_config().unwrap();
-
-        let db = test_db(dir.path()).await;
-        let ctx = test_ctx(db, dir.path());
-        assert!(host.call_should_trigger(ctx).await.unwrap());
-    }
-
-    #[tokio::test]
-    async fn should_trigger_returns_false() {
-        let dir = test_workspace();
-        write_agent_lua(
-            dir.path(),
-            r#"
-            return {
-                name = "test",
-                description = "test",
-                tools = {},
-                should_trigger = function(ctx)
-                    return ctx.agent_slug == "other-agent"
-                end,
-            }
-            "#,
-        );
-
-        let agent_dir = dir.path().join("agents").join("test-agent");
-        let mut host = ScriptHost::new(&agent_dir, dir.path()).unwrap();
-        host.load_config().unwrap();
-
-        let db = test_db(dir.path()).await;
-        let ctx = test_ctx(db, dir.path());
-        // agent_slug is "test-agent", not "other-agent"
-        assert!(!host.call_should_trigger(ctx).await.unwrap());
-    }
-
-    #[tokio::test]
-    async fn should_trigger_with_async_ctx_methods() {
-        let dir = test_workspace();
-        write_agent_lua(
-            dir.path(),
-            r#"
-            return {
-                name = "test",
-                description = "test",
-                tools = {},
-                should_trigger = function(ctx)
-                    -- This calls an async method; must not error
-                    local sessions = ctx:list_interface_sessions()
-                    return #sessions > 0
-                end,
-            }
-            "#,
-        );
-
-        let agent_dir = dir.path().join("agents").join("test-agent");
-        let mut host = ScriptHost::new(&agent_dir, dir.path()).unwrap();
-        host.load_config().unwrap();
-
-        let db = test_db(dir.path()).await;
-        let ctx = test_ctx(db, dir.path());
-        // No interface sessions in test DB → should return false
-        let result = host.call_should_trigger(ctx).await.unwrap();
-        assert!(!result);
-    }
-
-    #[tokio::test]
-    async fn should_trigger_with_async_state_methods() {
-        let dir = test_workspace();
-        write_agent_lua(
-            dir.path(),
-            r#"
-            return {
-                name = "test",
-                description = "test",
-                tools = {},
-                should_trigger = function(ctx)
-                    local val = ctx:get("last_run")
-                    if val then
-                        return false
-                    end
-                    return true
-                end,
-            }
-            "#,
-        );
-
-        let agent_dir = dir.path().join("agents").join("test-agent");
-        let mut host = ScriptHost::new(&agent_dir, dir.path()).unwrap();
-        host.load_config().unwrap();
-
-        let db = test_db(dir.path()).await;
-
-        // First call: no state set → should trigger
-        let ctx = test_ctx(db.clone(), dir.path());
-        assert!(host.call_should_trigger(ctx).await.unwrap());
-
-        // Set state, then check again → should NOT trigger
-        crate::db::agent_state::set_state(&db, "test-agent", "last_run", "2026-01-01T00:00:00Z")
-            .await
-            .unwrap();
-
-        let ctx2 = test_ctx(db, dir.path());
-        assert!(!host.call_should_trigger(ctx2).await.unwrap());
     }
 
     #[tokio::test]
