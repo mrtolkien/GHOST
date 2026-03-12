@@ -115,7 +115,7 @@ Registered via `register_ctx()` when an agent has a database connection. Availab
 - `skills` — string array of skill names to inject
 - `custom_tools` — array of tool definition tables (see custom_tools.rs)
 - Hook presence: `has_build`, `has_pre_turn`, `has_on_end_turn`, `has_post_completion`,
-  `has_should_trigger`, `has_on_resume` — set by checking if the function exists
+  `has_on_resume` — set by checking if the function exists
 - `compaction` — optional `AgentCompactionOverrides` table (fields: `threshold`,
   `keep_window`, `mask_preview_chars`, `instructions`)
 
