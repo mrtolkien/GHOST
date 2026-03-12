@@ -497,7 +497,9 @@ mod tests {
         let db = crate::db::connect(dir.path(), 384).await.unwrap();
         let sid = create_session(&db).await.unwrap();
         create_message(&db, &sid, "user", "first").await.unwrap();
-        create_message(&db, &sid, "assistant", "second").await.unwrap();
+        create_message(&db, &sid, "assistant", "second")
+            .await
+            .unwrap();
         let ts = last_message_at(&db, &sid).await.unwrap().unwrap();
         let msgs = list_messages_by_session(&db, &sid).await.unwrap();
         assert_eq!(ts, msgs.last().unwrap().created_at);

@@ -192,9 +192,11 @@ mod tests {
     async fn has_run_since_false_when_no_runs() {
         let dir = tempfile::TempDir::new().unwrap();
         let db = crate::db::connect(dir.path(), 384).await.unwrap();
-        assert!(!has_run_since(&db, "my-agent", "session-1", "2026-01-01T00:00:00Z")
-            .await
-            .unwrap());
+        assert!(
+            !has_run_since(&db, "my-agent", "session-1", "2026-01-01T00:00:00Z")
+                .await
+                .unwrap()
+        );
     }
 
     #[tokio::test]
@@ -202,26 +204,34 @@ mod tests {
         let dir = tempfile::TempDir::new().unwrap();
         let db = crate::db::connect(dir.path(), 384).await.unwrap();
         let sid = crate::db::sessions::create_session(&db).await.unwrap();
-        let agent_sid = crate::db::sessions::create_agent_session(&db).await.unwrap();
+        let agent_sid = crate::db::sessions::create_agent_session(&db)
+            .await
+            .unwrap();
         let _run_id = create_agent_run(&db, "my-agent", Some(&sid), &agent_sid)
             .await
             .unwrap();
-        assert!(has_run_since(&db, "my-agent", &sid, "2026-01-01T00:00:00Z")
-            .await
-            .unwrap());
+        assert!(
+            has_run_since(&db, "my-agent", &sid, "2026-01-01T00:00:00Z")
+                .await
+                .unwrap()
+        );
     }
 
     #[tokio::test]
     async fn has_run_since_ignores_runs_with_null_session() {
         let dir = tempfile::TempDir::new().unwrap();
         let db = crate::db::connect(dir.path(), 384).await.unwrap();
-        let agent_sid = crate::db::sessions::create_agent_session(&db).await.unwrap();
+        let agent_sid = crate::db::sessions::create_agent_session(&db)
+            .await
+            .unwrap();
         let _run_id = create_agent_run(&db, "my-agent", None, &agent_sid)
             .await
             .unwrap();
-        assert!(!has_run_since(&db, "my-agent", "some-session", "2026-01-01T00:00:00Z")
-            .await
-            .unwrap());
+        assert!(
+            !has_run_since(&db, "my-agent", "some-session", "2026-01-01T00:00:00Z")
+                .await
+                .unwrap()
+        );
     }
 
     #[tokio::test]
@@ -229,12 +239,16 @@ mod tests {
         let dir = tempfile::TempDir::new().unwrap();
         let db = crate::db::connect(dir.path(), 384).await.unwrap();
         let sid = crate::db::sessions::create_session(&db).await.unwrap();
-        let agent_sid = crate::db::sessions::create_agent_session(&db).await.unwrap();
+        let agent_sid = crate::db::sessions::create_agent_session(&db)
+            .await
+            .unwrap();
         let _run_id = create_agent_run(&db, "my-agent", Some(&sid), &agent_sid)
             .await
             .unwrap();
-        assert!(!has_run_since(&db, "my-agent", &sid, "2099-01-01T00:00:00Z")
-            .await
-            .unwrap());
+        assert!(
+            !has_run_since(&db, "my-agent", &sid, "2099-01-01T00:00:00Z")
+                .await
+                .unwrap()
+        );
     }
 }
