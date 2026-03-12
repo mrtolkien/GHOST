@@ -109,59 +109,56 @@ impl Tool for FileEdit {
             .and_then(Value::as_bool)
             .unwrap_or(false);
 
-        if ask {
-            if let Some(tx) = &ctx.confirmation_tx {
-                use super::confirmation::{
-                    Confirmation, ConfirmationOption, ConfirmationRequest, OptionStyle,
-                };
+        if ask && let Some(tx) = &ctx.confirmation_tx {
+            use super::confirmation::{
+                Confirmation, ConfirmationOption, ConfirmationRequest, OptionStyle,
+            };
 
-                let diff =
-                    format!("--- {raw_path}\n+++ {raw_path}\n- {old_string}\n+ {new_string}");
-                let confirmation = Confirmation {
-                    prompt: format!("Apply this edit to {raw_path}?"),
-                    context: Some(diff),
-                    options: vec![
-                        ConfirmationOption {
-                            id: "accept".into(),
-                            label: "Accept".into(),
-                            style: OptionStyle::Primary,
-                        },
-                        ConfirmationOption {
-                            id: "reject".into(),
-                            label: "Reject".into(),
-                            style: OptionStyle::Danger,
-                        },
-                    ],
-                };
+            let diff = format!("--- {raw_path}\n+++ {raw_path}\n- {old_string}\n+ {new_string}");
+            let confirmation = Confirmation {
+                prompt: format!("Apply this edit to {raw_path}?"),
+                context: Some(diff),
+                options: vec![
+                    ConfirmationOption {
+                        id: "accept".into(),
+                        label: "Accept".into(),
+                        style: OptionStyle::Primary,
+                    },
+                    ConfirmationOption {
+                        id: "reject".into(),
+                        label: "Reject".into(),
+                        style: OptionStyle::Danger,
+                    },
+                ],
+            };
 
-                let (resp_tx, resp_rx) = tokio::sync::oneshot::channel();
-                let _ = tx.send(ConfirmationRequest {
-                    confirmation,
-                    response_tx: resp_tx,
-                    channel_id: ctx.channel_id.clone(),
-                });
-                match resp_rx.await {
-                    Ok(choice) if choice == "accept" => {
-                        tokio::fs::write(&path, &new_content).await.map_err(|e| {
-                            ToolError::ExecutionFailed(format!(
-                                "failed to write '{}': {e}",
-                                path.display()
-                            ))
-                        })?;
-                        return Ok(ToolOutput::text(format!(
-                            "Edited {raw_path} at line {edit_line}: replaced 1 occurrence \
-                             (approved by OPERATOR)."
-                        )));
-                    }
-                    _ => {
-                        return Ok(ToolOutput::text(format!(
-                            "Edit to {raw_path} was rejected by the OPERATOR."
-                        )));
-                    }
+            let (resp_tx, resp_rx) = tokio::sync::oneshot::channel();
+            let _ = tx.send(ConfirmationRequest {
+                confirmation,
+                response_tx: resp_tx,
+                channel_id: ctx.channel_id.clone(),
+            });
+            match resp_rx.await {
+                Ok(choice) if choice == "accept" => {
+                    tokio::fs::write(&path, &new_content).await.map_err(|e| {
+                        ToolError::ExecutionFailed(format!(
+                            "failed to write '{}': {e}",
+                            path.display()
+                        ))
+                    })?;
+                    return Ok(ToolOutput::text(format!(
+                        "Edited {raw_path} at line {edit_line}: replaced 1 occurrence \
+                         (approved by OPERATOR)."
+                    )));
+                }
+                _ => {
+                    return Ok(ToolOutput::text(format!(
+                        "Edit to {raw_path} was rejected by the OPERATOR."
+                    )));
                 }
             }
-            // No confirmation channel — fall through to normal write below
         }
+        // No confirmation channel or ask_for_validation=false — normal write
 
         tokio::fs::write(&path, &new_content).await.map_err(|e| {
             ToolError::ExecutionFailed(format!("failed to write '{}': {e}", path.display()))
