@@ -456,3 +456,50 @@ pub async fn get_interface_for_session(
 
     Ok(row.map(|r| r.interface))
 }
+
+/// Returns the `created_at` of the most recent message in a session, or None.
+#[tracing::instrument(skip_all, level = "debug", fields(session_id = %session_id))]
+pub async fn last_message_at(
+    db: &SqlitePool,
+    session_id: &str,
+) -> Result<Option<String>, DatabaseError> {
+    let row: Option<(String,)> = sqlx::query_as(
+        "SELECT created_at FROM message \
+         WHERE session_id = ? \
+         ORDER BY created_at DESC LIMIT 1",
+    )
+    .bind(session_id)
+    .fetch_optional(db)
+    .await
+    .map_err(|source| DatabaseError::Query {
+        table: "message",
+        operation: "last_message_at",
+        source,
+    })?;
+    Ok(row.map(|r| r.0))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn last_message_at_returns_none_for_empty_session() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let db = crate::db::connect(dir.path(), 384).await.unwrap();
+        let sid = create_session(&db).await.unwrap();
+        assert!(last_message_at(&db, &sid).await.unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn last_message_at_returns_latest() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let db = crate::db::connect(dir.path(), 384).await.unwrap();
+        let sid = create_session(&db).await.unwrap();
+        create_message(&db, &sid, "user", "first").await.unwrap();
+        create_message(&db, &sid, "assistant", "second").await.unwrap();
+        let ts = last_message_at(&db, &sid).await.unwrap().unwrap();
+        let msgs = list_messages_by_session(&db, &sid).await.unwrap();
+        assert_eq!(ts, msgs.last().unwrap().created_at);
+    }
+}
