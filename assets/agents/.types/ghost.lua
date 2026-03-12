@@ -188,7 +188,6 @@ function ctx:spawn_agent(name, args) end
 ---@field pre_turn? fun(state: PreTurnState): string|NudgeResult|nil
 ---@field on_end_turn? fun(state: PreTurnState): string|nil
 ---@field post_completion? fun(ctx: AgentContext)
----@field should_trigger? fun(ctx: AgentContext): boolean
 ---@field on_resume? fun(ctx: AgentContext)
 
 ---@class BuildResult
