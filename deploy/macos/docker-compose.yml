@@ -1,6 +1,7 @@
 services:
   ghost:
     image: mrtolkien/ghost:latest
+    init: true
     volumes:
       - ${GHOST_WORKSPACE:-~/GHOST}:/workspace
       - ${GHOST_CONFIG:-~/.config/ghost}:/config

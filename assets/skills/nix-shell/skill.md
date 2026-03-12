@@ -15,14 +15,14 @@ update or you need a newer version of ghost, run these commands:
 
     nix flake update --flake $WORKSPACE/shell/
     nix build $WORKSPACE/shell --no-link
-    kill 1
+    ghost reboot
 
 How this works: the workspace flake includes the ghost binary. `nix flake update` pulls
-the latest version. `kill 1` sends SIGTERM to the ghost process (PID 1 in the
-container), Docker restarts the container — you come back as the new version.
+the latest version. `ghost reboot` sends SIGTERM to the running daemon via its PID file,
+Docker restarts the container — you come back as the new version.
 
-**Before running `kill 1`**, tell the OPERATOR there will be a brief downtime while you
-restart. Always get confirmation before rebooting yourself.
+**Before running `ghost reboot`**, tell the OPERATOR there will be a brief downtime
+while you restart. Always get confirmation before rebooting yourself.
 
 ## Workspace flake
 

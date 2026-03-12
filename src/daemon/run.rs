@@ -91,7 +91,18 @@ impl DaemonHandle {
 }
 
 pub async fn run() -> Result<(), GhostError> {
-    let handle = boot().await?;
+    let config = crate::config::load()?;
+    let workspace = config.workspace.clone();
+
+    // Race boot against shutdown signals so SIGTERM during boot works
+    let handle = tokio::select! {
+        result = boot_with_config(config) => result?,
+        _ = shutdown_signal() => {
+            info!("signal received during boot, exiting...");
+            super::pidfile::remove_pidfile(&workspace);
+            return Ok(());
+        }
+    };
 
     if handle.discord.is_some() {
         info!("GHOST daemon running — press Ctrl+C to stop");
@@ -99,12 +110,24 @@ pub async fn run() -> Result<(), GhostError> {
         info!("No interfaces enabled. Waiting for Ctrl+C...");
     }
 
-    tokio::signal::ctrl_c().await.ok();
-    info!("Ctrl+C received, shutting down...");
+    shutdown_signal().await;
+    info!("shutting down...");
+
+    super::pidfile::remove_pidfile(&workspace);
     handle.shutdown().await;
 
     info!("GHOST daemon stopped");
     Ok(())
+}
+
+/// Wait for either SIGINT (Ctrl+C) or SIGTERM (`ghost reboot` / `docker stop`).
+async fn shutdown_signal() {
+    let mut sigterm = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+        .expect("failed to register SIGTERM handler");
+    tokio::select! {
+        _ = tokio::signal::ctrl_c() => {}
+        _ = sigterm.recv() => {}
+    }
 }
 
 #[tracing::instrument(name = "boot ghost", skip_all)]
@@ -119,6 +142,12 @@ pub async fn boot() -> Result<DaemonHandle, GhostError> {
 pub async fn boot_with_config(config: Config) -> Result<DaemonHandle, GhostError> {
     // Phase 1: create directories + user-only files
     crate::config_workspace::bootstrap_workspace_dirs(&config)?;
+
+    // Write PID file early so `ghost reboot` works even during long boots
+    if let Err(e) = super::pidfile::write_pidfile(&config.workspace) {
+        logfire::warn!("failed to write PID file", error = e.to_string());
+    }
+
     info!(workspace = %config.workspace.display(), "config loaded");
 
     // Install bundled docs to references/ghost/docs/ (silently, content-hash checked)
