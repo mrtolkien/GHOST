@@ -31,6 +31,8 @@ pub struct Confirmation {
 pub struct ConfirmationRequest {
     pub confirmation: Confirmation,
     pub response_tx: oneshot::Sender<String>,
+    /// Which interface channel originated the request (e.g. Discord channel ID).
+    pub channel_id: Option<String>,
 }
 
 /// Sender half — stored in `ToolContext` so tools can send confirmation requests.

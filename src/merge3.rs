@@ -92,8 +92,10 @@ fn diff_regions(base: &str, modified: &str) -> Vec<EditRegion> {
             }
             DiffTag::Insert | DiffTag::Replace => {
                 let modified_lines: Vec<&str> = split_lines(modified);
-                let new_lines: Vec<String> =
-                    modified_lines[new_range].iter().map(|s| (*s).to_string()).collect();
+                let new_lines: Vec<String> = modified_lines[new_range]
+                    .iter()
+                    .map(|s| (*s).to_string())
+                    .collect();
                 regions.push(EditRegion {
                     base_range: old_range,
                     new_lines,
@@ -147,23 +149,13 @@ fn merge_edits(
                     ti += 1;
                 } else if ours.base_range.start <= theirs.base_range.start {
                     // Ours comes first, no overlap
-                    append_base_lines(
-                        &mut result,
-                        base_lines,
-                        base_pos,
-                        ours.base_range.start,
-                    );
+                    append_base_lines(&mut result, base_lines, base_pos, ours.base_range.start);
                     append_edit(&mut result, ours);
                     base_pos = ours.base_range.end;
                     oi += 1;
                 } else {
                     // Theirs comes first, no overlap
-                    append_base_lines(
-                        &mut result,
-                        base_lines,
-                        base_pos,
-                        theirs.base_range.start,
-                    );
+                    append_base_lines(&mut result, base_lines, base_pos, theirs.base_range.start);
                     append_edit(&mut result, theirs);
                     base_pos = theirs.base_range.end;
                     ti += 1;
@@ -176,12 +168,7 @@ fn merge_edits(
                 oi += 1;
             }
             (None, Some(theirs)) => {
-                append_base_lines(
-                    &mut result,
-                    base_lines,
-                    base_pos,
-                    theirs.base_range.start,
-                );
+                append_base_lines(&mut result, base_lines, base_pos, theirs.base_range.start);
                 append_edit(&mut result, theirs);
                 base_pos = theirs.base_range.end;
                 ti += 1;
@@ -247,7 +234,10 @@ mod tests {
     #[test]
     fn no_changes() {
         let base = "line1\nline2\nline3\n";
-        assert_eq!(merge3(base, base, base), MergeResult::Clean(base.to_string()));
+        assert_eq!(
+            merge3(base, base, base),
+            MergeResult::Clean(base.to_string())
+        );
     }
 
     #[test]

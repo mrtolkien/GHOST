@@ -263,11 +263,15 @@ pub async fn boot_with_config(config: Config) -> Result<DaemonHandle, GhostError
 
     let active_sessions: ActiveSessions = std::sync::Arc::new(dashmap::DashMap::new());
 
+    // Create confirmation channel for file edit validation
+    let (confirmation_tx, confirmation_rx) = crate::tools::confirmation::channel();
+
     let session_chat = Arc::new(
         SessionChat::from_config(db.clone(), config.clone())?
             .with_agent_runner(Arc::clone(&agent_runner))
             .with_event_sender(event_tx)
-            .with_active_sessions(active_sessions.clone()),
+            .with_active_sessions(active_sessions.clone())
+            .with_confirmation_tx(confirmation_tx),
     );
 
     // Create bundled update channel if there are updates to review
@@ -284,6 +288,7 @@ pub async fn boot_with_config(config: Config) -> Result<DaemonHandle, GhostError
         db.clone(),
         active_sessions.clone(),
         bundled_tx,
+        Some(confirmation_rx),
     )
     .await?;
 
