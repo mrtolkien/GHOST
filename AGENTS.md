@@ -147,7 +147,11 @@ src/
 ## Documentation & Specs
 
 - User-facing docs: `docs/` (Astro Starlight). Read `/docs` skill before changes.
-- Human-written specs: `docs/specs`
-- Design plans: `docs/design`
-- Implementation plans: `docs/plans`
-- Finished specs, designs, and implementation plans: `/docs/specs/done`
+
+The following are relevant to the superpowers skills (brainstorm, writing plan, ...):
+
+- Human-written specs: `backlog/tasks/{milestone}/*.md`
+- Design plans: Append to the associated task. Do not create a new file for a design
+  plan: add a markdown separator then write it there.
+- Implementation plans: `backlog/plans`
+- Finished specs, designs, and implementation plans: `backlog/completed`
