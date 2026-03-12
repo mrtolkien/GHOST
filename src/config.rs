@@ -402,7 +402,7 @@ impl Config {
                     .timing
                     .as_ref()
                     .and_then(|t| t.scheduler_tick_seconds)
-                    .unwrap_or(10),
+                    .unwrap_or(60),
             },
             compaction: CompactionConfig {
                 threshold: settings
@@ -633,7 +633,7 @@ pub fn test_config(workspace: &std::path::Path) -> Config {
         },
         timing: TimingConfig {
             reflection_idle_minutes: 10,
-            scheduler_tick_seconds: 10,
+            scheduler_tick_seconds: 60,
         },
         compaction: CompactionConfig {
             threshold: 0.90,
