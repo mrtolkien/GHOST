@@ -1,8 +1,8 @@
 ---
 title: Cron Jobs
 description:
-  Centralized scheduling via crontab.lua — cron expressions,
-  idle triggers, and how scheduling interacts with should_trigger.
+  Centralized scheduling via crontab.lua — cron expressions
+  and idle triggers.
 ---
 
 Agent scheduling is centralized in a single file:
@@ -42,30 +42,13 @@ Missed runs are skipped when the system is down.
 
 ## Idle Entries
 
-The scheduler polls at `scheduler_tick_seconds` (default 60) and
-triggers the agent when any active interface session has been idle
-for the configured duration:
+The scheduler polls once per minute and triggers the agent when an
+active interface session has been idle (no new messages) for the
+configured duration. Each idle period triggers at most one run per
+agent per session — dedup is handled via the `agent_run` table.
 
 ```lua
 { idle_minutes = 30, run = "chat-reflection" }
-```
-
-## `should_trigger` Interaction
-
-If a scheduled or idle agent defines a `should_trigger(ctx)` hook in
-its `agent.lua`, the scheduler calls it before running. Return
-`false` to skip execution for this cycle:
-
-```lua
--- In agents/chat-reflection/agent.lua
-should_trigger = function(ctx)
-    -- Only run if there are recent messages to reflect on
-    local count = ctx:count_messages_since(
-        ctx.trigger_session_id,
-        os.date("!%Y-%m-%dT%H:%M:%SZ", os.time() - 86400)
-    )
-    return count > 5
-end,
 ```
 
 ## Configuration

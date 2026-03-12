@@ -30,7 +30,6 @@ return {
     pre_turn = nudges.compose(...),            -- before each turn
     on_end_turn = nudges.progress_gate(...),   -- gate final response
     post_completion = function(ctx) end,       -- after agent finishes
-    should_trigger = function(ctx) return true end, -- for scheduled
 }
 ```
 
@@ -82,7 +81,6 @@ custom_tools = {
 | `pre_turn` | Before each model call | Nudge message or nil |
 | `on_end_turn` | After model's final response | Rejection message or nil |
 | `post_completion` | After agent finishes | — (may call `ctx:spawn_agent`) |
-| `should_trigger` | Before scheduled/idle execution | Boolean |
 
 ### `build(ctx, args)`
 
