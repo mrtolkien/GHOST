@@ -17,26 +17,6 @@ return {
 
     skills = { "note-writer", "knowledge-navigator" },
 
-    --- Guard: skip if nothing new since last reflection.
-    should_trigger = function(ctx)
-        local sessions = ctx:list_interface_sessions()
-        if #sessions == 0 then
-            return false
-        end
-
-        local since = ctx:get("last_reflected_at")
-        if not since then
-            return true
-        end -- never reflected, always run
-
-        for _, s in ipairs(sessions) do
-            if ctx:count_messages_since(s.session_id, since) > 0 then
-                return true
-            end
-        end
-        return false
-    end,
-
     build = function(ctx, args)
         local session_id = ctx.trigger_session_id
         assert(
