@@ -115,9 +115,8 @@ impl Tool for FileEdit {
                     Confirmation, ConfirmationOption, ConfirmationRequest, OptionStyle,
                 };
 
-                let diff = format!(
-                    "--- {raw_path}\n+++ {raw_path}\n- {old_string}\n+ {new_string}"
-                );
+                let diff =
+                    format!("--- {raw_path}\n+++ {raw_path}\n- {old_string}\n+ {new_string}");
                 let confirmation = Confirmation {
                     prompt: format!("Apply this edit to {raw_path}?"),
                     context: Some(diff),
@@ -139,6 +138,7 @@ impl Tool for FileEdit {
                 let _ = tx.send(ConfirmationRequest {
                     confirmation,
                     response_tx: resp_tx,
+                    channel_id: ctx.channel_id.clone(),
                 });
                 match resp_rx.await {
                     Ok(choice) if choice == "accept" => {
@@ -284,7 +284,10 @@ mod tests {
             .unwrap();
 
         let content = std::fs::read_to_string(&file).unwrap();
-        assert!(content.contains("production.db"), "should auto-accept without channel");
+        assert!(
+            content.contains("production.db"),
+            "should auto-accept without channel"
+        );
         assert!(result.text.contains("Edited"));
     }
 
@@ -323,7 +326,10 @@ mod tests {
         handle.await.unwrap();
 
         let content = std::fs::read_to_string(&file).unwrap();
-        assert!(content.contains("production.db"), "should apply after approval");
+        assert!(
+            content.contains("production.db"),
+            "should apply after approval"
+        );
         assert!(result.text.contains("approved"));
     }
 
@@ -360,7 +366,10 @@ mod tests {
         handle.await.unwrap();
 
         let content = std::fs::read_to_string(&file).unwrap();
-        assert!(content.contains("localhost"), "should NOT apply after rejection");
+        assert!(
+            content.contains("localhost"),
+            "should NOT apply after rejection"
+        );
         assert!(result.text.contains("rejected"));
     }
 }

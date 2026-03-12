@@ -74,6 +74,8 @@ pub(super) struct Handler {
     active_sessions: ActiveSessions,
     /// Channel for bundled file update button responses.
     bundled_update_tx: Option<tokio::sync::mpsc::UnboundedSender<String>>,
+    /// Pending confirmation response senders, keyed by UUID.
+    pending_confirmations: Arc<dashmap::DashMap<String, tokio::sync::oneshot::Sender<String>>>,
 }
 
 impl Handler {
@@ -84,6 +86,7 @@ impl Handler {
         allowed_user_ids: Vec<String>,
         active_sessions: ActiveSessions,
         bundled_update_tx: Option<tokio::sync::mpsc::UnboundedSender<String>>,
+        pending_confirmations: Arc<dashmap::DashMap<String, tokio::sync::oneshot::Sender<String>>>,
     ) -> Self {
         Self {
             session_chat,
@@ -94,6 +97,7 @@ impl Handler {
             started_at: std::time::SystemTime::now(),
             active_sessions,
             bundled_update_tx,
+            pending_confirmations,
         }
     }
 
@@ -536,6 +540,13 @@ impl EventHandler for Handler {
                         let _ = tx.send(custom_id);
                     } else {
                         warn!("bundled interaction received but no handler");
+                    }
+                } else if let Some(rest) = custom_id.strip_prefix("confirm_")
+                    && let Some((choice, uuid)) = rest.split_once('_')
+                {
+                    // Forward confirmation responses (confirm_{choice}_{uuid})
+                    if let Some((_, sender)) = self.pending_confirmations.remove(uuid) {
+                        let _ = sender.send(choice.to_string());
                     }
                 }
             }

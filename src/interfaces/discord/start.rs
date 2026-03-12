@@ -10,11 +10,12 @@ use crate::chat::{ActiveSessions, SessionChat};
 use crate::config::Config;
 use crate::db::GhostDb;
 
-use super::components_v2::{container, send_v2_message, text_display};
+use super::components_v2::{action_row, button, container, send_v2_message, text_display};
 use super::send::{
     GATEWAY_EMBED_COLOR, send_assistant_v2, send_assistant_v2_with_suffix, send_gateway_v2,
 };
 use super::table_image;
+use crate::tools::confirmation::{ConfirmationReceiver, OptionStyle};
 
 #[derive(Debug, thiserror::Error)]
 pub enum DiscordError {
@@ -92,6 +93,9 @@ impl DiscordSender {
     }
 }
 
+/// Peach accent color for confirmation containers.
+const CONFIRMATION_ACCENT: u32 = 0xFA_B3_87;
+
 /// Start the Discord bot if configured. Returns `None` if Discord is
 /// disabled or unconfigured.
 #[tracing::instrument(skip_all)]
@@ -101,6 +105,7 @@ pub async fn start_discord(
     db: GhostDb,
     active_sessions: ActiveSessions,
     bundled_update_tx: Option<tokio::sync::mpsc::UnboundedSender<String>>,
+    confirmation_rx: Option<ConfirmationReceiver>,
 ) -> Result<Option<(DiscordSender, JoinHandle<()>)>, DiscordError> {
     if !config.discord.enabled {
         info!("Discord is disabled in config");
@@ -130,6 +135,8 @@ pub async fn start_discord(
         | GatewayIntents::DIRECT_MESSAGES
         | GatewayIntents::MESSAGE_CONTENT;
 
+    let pending_confirmations = Arc::new(dashmap::DashMap::new());
+
     let handler = super::bot::Handler::new(
         session_chat,
         db,
@@ -137,6 +144,7 @@ pub async fn start_discord(
         config.discord.allowed_user_ids.clone(),
         active_sessions,
         bundled_update_tx,
+        Arc::clone(&pending_confirmations),
     );
 
     let mut client = Client::builder(&token, intents)
@@ -148,6 +156,11 @@ pub async fn start_discord(
         http: client.http.clone(),
     };
 
+    // Spawn confirmation renderer (reads ConfirmationRequests, sends v2 messages)
+    if let Some(confirmation_rx) = confirmation_rx {
+        spawn_confirmation_renderer(client.http.clone(), pending_confirmations, confirmation_rx);
+    }
+
     let handle = tokio::spawn(async move {
         if let Err(e) = client.start().await {
             tracing::error!("Discord client error: {e}");
@@ -155,4 +168,67 @@ pub async fn start_discord(
     });
 
     Ok(Some((sender, handle)))
+}
+
+/// Spawn a background task that receives `ConfirmationRequest`s and renders
+/// them as v2 button messages in the appropriate Discord channel.
+fn spawn_confirmation_renderer(
+    http: Arc<Http>,
+    pending: Arc<dashmap::DashMap<String, tokio::sync::oneshot::Sender<String>>>,
+    mut rx: ConfirmationReceiver,
+) {
+    tokio::spawn(async move {
+        while let Some(req) = rx.recv().await {
+            let Some(channel_str) = req.channel_id.as_deref() else {
+                tracing::warn!("confirmation request has no channel_id, dropping");
+                continue;
+            };
+            let Ok(channel_num) = channel_str.parse::<u64>() else {
+                tracing::warn!(
+                    channel_id = channel_str,
+                    "invalid channel_id in confirmation request"
+                );
+                continue;
+            };
+            let channel_id = ChannelId::new(channel_num);
+
+            let uuid = ulid::Ulid::new().to_string().to_lowercase();
+
+            // Store the response sender so interaction_create can resolve it
+            pending.insert(uuid.clone(), req.response_tx);
+
+            // Build display text
+            let mut parts = vec![req.confirmation.prompt.clone()];
+            if let Some(ctx) = &req.confirmation.context {
+                parts.push(format!("```diff\n{ctx}\n```"));
+            }
+            let display = parts.join("\n");
+
+            let buttons: Vec<serde_json::Value> = req
+                .confirmation
+                .options
+                .iter()
+                .map(|opt| {
+                    let style = match opt.style {
+                        OptionStyle::Primary => 1u8,
+                        OptionStyle::Secondary => 2,
+                        OptionStyle::Danger => 4,
+                    };
+                    button(&opt.label, &format!("confirm_{}_{}", opt.id, uuid), style)
+                })
+                .collect();
+
+            let components = vec![container(
+                vec![text_display(&display), action_row(buttons)],
+                Some(CONFIRMATION_ACCENT),
+            )];
+
+            if let Err(e) = send_v2_message(&http, channel_id, &components, Vec::new()).await {
+                tracing::error!(
+                    channel_id = %channel_id,
+                    "failed to send confirmation message: {e}"
+                );
+            }
+        }
+    });
 }

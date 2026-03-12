@@ -135,12 +135,32 @@ pub async fn boot_with_config(config: Config) -> Result<DaemonHandle, GhostError
     let has_updates = changes.has_updates();
 
     // Auto-install new files immediately (no conflict possible)
+    let bundled_shadow_dir = config.workspace.join(".bundled");
     for file in &changes.new {
         let dest = config.workspace.join(file.path);
         if let Some(parent) = dest.parent() {
             std::fs::create_dir_all(parent)?;
         }
         std::fs::write(&dest, file.content)?;
+        let shadow = bundled_shadow_dir.join(file.path);
+        if let Some(parent) = shadow.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        std::fs::write(&shadow, file.content)?;
+    }
+
+    // Auto-apply updates where user didn't modify the file
+    for update in &changes.auto_updates {
+        let dest = config.workspace.join(update.path);
+        if let Some(parent) = dest.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        std::fs::write(&dest, update.bundled_content)?;
+        let shadow = bundled_shadow_dir.join(update.path);
+        if let Some(parent) = shadow.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        std::fs::write(&shadow, update.bundled_content)?;
     }
 
     if let Err(e) = crate::tools::shell::run_nix_shell_setup(&config.workspace).await {
@@ -234,11 +254,15 @@ pub async fn boot_with_config(config: Config) -> Result<DaemonHandle, GhostError
 
     let active_sessions: ActiveSessions = std::sync::Arc::new(dashmap::DashMap::new());
 
+    // Create confirmation channel for file edit validation
+    let (confirmation_tx, confirmation_rx) = crate::tools::confirmation::channel();
+
     let session_chat = Arc::new(
         SessionChat::from_config(db.clone(), config.clone())?
             .with_agent_runner(Arc::clone(&agent_runner))
             .with_event_sender(event_tx)
-            .with_active_sessions(active_sessions.clone()),
+            .with_active_sessions(active_sessions.clone())
+            .with_confirmation_tx(confirmation_tx),
     );
 
     // Create bundled update channel if there are updates to review
@@ -255,20 +279,13 @@ pub async fn boot_with_config(config: Config) -> Result<DaemonHandle, GhostError
         db.clone(),
         active_sessions.clone(),
         bundled_tx,
+        Some(confirmation_rx),
     )
     .await?;
 
     // If there are updates, prompt the user or auto-accept
     if has_updates {
         handle_bundled_updates(&config, &changes, &db, &discord_result, bundled_rx).await?;
-    } else {
-        // No updates, just save manifest
-        crate::bundled::save_manifest(&config.workspace).map_err(|source| {
-            crate::config::ConfigError::WriteFile {
-                path: config.workspace.clone(),
-                source,
-            }
-        })?;
     }
 
     let discord_sender_arc = discord_result
@@ -313,7 +330,8 @@ async fn handle_bundled_updates(
     let decision = if let (Some(rx), Some((sender, _))) = (&mut bundled_rx, discord_result) {
         if let Some(channel_id) = resolve_update_channel(db).await {
             info!(
-                changed = changes.changed.len(),
+                clean_merges = changes.clean_merges.len(),
+                conflicts = changes.conflicts.len(),
                 removed = changes.removed.len(),
                 "prompting user for bundled file updates"
             );

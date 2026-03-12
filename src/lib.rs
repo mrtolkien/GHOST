@@ -18,6 +18,7 @@ pub mod events;
 pub mod images;
 pub mod interfaces;
 pub mod knowledge;
+pub mod merge3;
 pub mod observability;
 pub mod projects;
 pub mod prompt;
