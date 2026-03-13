@@ -8,27 +8,28 @@ description:
 
 # Nix Shell Management
 
-## Self-update (you can reboot yourself)
+## Self-update
 
-**You have the ability to update and restart yourself.** When the OPERATOR asks you to
-update or you need a newer version of ghost, run these commands:
+**You have the ability to update and restart yourself.**
 
-    nix flake update --flake $WORKSPACE/shell/
-    nix build $WORKSPACE/shell --no-link
-    ghost reboot
+    ghost update                     # latest release
+    ghost update --from-source       # build from main
+    ghost update --version v0.3.0    # specific tag
 
-How this works: the workspace flake includes the ghost binary. `nix flake update` pulls
-the latest version. `ghost reboot` sends SIGTERM to the running daemon via its PID file,
-Docker restarts the container — you come back as the new version.
+This swaps the ghost binary in the nix profile and reboots the daemon. The shell
+tools (git, python, etc.) are NOT affected — they come from the workspace flake.
 
-**Before running `ghost reboot`**, tell the OPERATOR there will be a brief downtime
-while you restart. Always get confirmation before rebooting yourself.
+**Before running `ghost update`**, tell the OPERATOR there will be a brief downtime
+while you restart. Always get confirmation before updating.
 
 ## Workspace flake
 
-`$WORKSPACE/shell/flake.nix` defines the shell environment as a `buildEnv` package. At
+`$WORKSPACE/shell/flake.nix` defines the shell tools as a `buildEnv` package. At
 daemon boot, `nix build` creates a merged store path whose `bin/` is prepended to PATH
 for every `run_shell_command`.
+
+The ghost binary is NOT in this flake. Ghost is installed system-wide via
+`nix profile install` and is available on PATH via `~/.nix-profile/bin/`.
 
 ## Adding packages permanently
 
@@ -49,9 +50,9 @@ Check the output for errors. If the package name is wrong, find it with
 **Important**: After validating, new packages take effect on the next daemon restart.
 Tell the OPERATOR that a restart is needed to pick up changes.
 
-## Updating flake inputs
+## Updating shell tools
 
-To pull the latest nixpkgs (and ghost binary if using pre-built releases):
+To pull the latest nixpkgs (updates git, python, etc. — NOT ghost):
 
     nix flake update --flake $WORKSPACE/shell/
     nix build $WORKSPACE/shell --no-link
