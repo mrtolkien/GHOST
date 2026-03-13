@@ -1,18 +1,15 @@
 {
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    ghost.url = "github:mrtolkien/GHOST";
   };
 
-  outputs = { nixpkgs, ghost, ... }:
+  outputs = { nixpkgs, ... }:
     let
       mkEnv = system:
         let pkgs = nixpkgs.legacyPackages.${system};
         in pkgs.buildEnv {
           name = "ghost-shell";
-          paths = [
-            ghost.packages.${system}.default
-          ] ++ (with pkgs; [
+          paths = with pkgs; [
             # Dev tools
             git gh curl wget jq ripgrep fd tree
 
@@ -25,10 +22,11 @@
 
             # Database
             sqlite-interactive
-          ]);
+          ];
         };
     in {
       packages.x86_64-linux.default = mkEnv "x86_64-linux";
       packages.aarch64-linux.default = mkEnv "aarch64-linux";
+      packages.aarch64-darwin.default = mkEnv "aarch64-darwin";
     };
 }
