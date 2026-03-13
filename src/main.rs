@@ -80,7 +80,7 @@ enum Commands {
     /// Update ghost binary via nix profile
     Update {
         /// Build from main branch instead of latest release
-        #[arg(long)]
+        #[arg(long, conflicts_with = "version")]
         from_source: bool,
         /// Install a specific version tag (e.g. v0.3.0)
         #[arg(long)]
