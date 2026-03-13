@@ -46,6 +46,51 @@ pub async fn execute() -> Result<(), GhostError> {
     Ok(())
 }
 
+/// Check if `loginctl enable-linger` is set for the current user.
+/// Without linger, systemd kills all user services when the last login session ends,
+/// which causes the daemon to die whenever an SSH session disconnects.
+fn ensure_linger_enabled() {
+    let user = std::env::var("USER").unwrap_or_default();
+    if user.is_empty() {
+        return;
+    }
+
+    // Check current linger status
+    let output = std::process::Command::new("loginctl")
+        .args(["show-user", &user, "--property=Linger"])
+        .output();
+
+    let already_enabled = output
+        .as_ref()
+        .ok()
+        .and_then(|o| String::from_utf8(o.stdout.clone()).ok())
+        .is_some_and(|s| s.trim() == "Linger=yes");
+
+    if already_enabled {
+        return;
+    }
+
+    // Try to enable it
+    println!();
+    println!("enabling loginctl linger for user '{user}'...");
+    let result = std::process::Command::new("loginctl")
+        .args(["enable-linger", &user])
+        .status();
+
+    match result {
+        Ok(s) if s.success() => {
+            println!("linger enabled — daemon will persist after logout");
+        }
+        _ => {
+            println!(
+                "warning: could not enable linger. Run manually:\n  \
+                 sudo loginctl enable-linger {user}\n\n\
+                 Without linger, the daemon will stop when you log out."
+            );
+        }
+    }
+}
+
 fn install_service_file(config: &crate::config::Config) -> Result<(), GhostError> {
     let exe = std::env::current_exe()
         .map_err(|e| std::io::Error::new(e.kind(), format!("cannot find own binary: {e}")))?
@@ -94,6 +139,8 @@ fn install_service_file(config: &crate::config::Config) -> Result<(), GhostError
         println!();
         println!("start the daemon with:");
         println!("  systemctl --user enable --now ghost-daemon");
+
+        ensure_linger_enabled();
     }
 
     Ok(())
