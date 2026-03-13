@@ -27,6 +27,28 @@ fn main() {
     doc_entries.sort();
 
     write_array(&mut f, "BUNDLED_DOCS", &doc_entries);
+
+    // --- Git commit hash for `ghost version` ---
+    // In Nix builds, .git is absent — the flake passes GIT_COMMIT_HASH via env.
+    // In dev builds, we read it from git directly.
+    let git_hash = std::env::var("GIT_COMMIT_HASH").ok().unwrap_or_else(|| {
+        // Track git state for rebuild triggers (dev builds only)
+        println!("cargo:rerun-if-changed=.git/HEAD");
+        if let Ok(head) = std::fs::read_to_string(".git/HEAD") {
+            if let Some(ref_path) = head.strip_prefix("ref: ") {
+                println!("cargo:rerun-if-changed=.git/{}", ref_path.trim());
+            }
+        }
+
+        std::process::Command::new("git")
+            .args(["rev-parse", "--short", "HEAD"])
+            .output()
+            .ok()
+            .filter(|o| o.status.success())
+            .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+            .unwrap_or_else(|| "unknown".into())
+    });
+    println!("cargo:rustc-env=GIT_COMMIT_HASH={git_hash}");
 }
 
 fn write_array(f: &mut fs::File, name: &str, entries: &[(String, String)]) {
