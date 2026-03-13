@@ -77,6 +77,15 @@ enum Commands {
     },
     /// Gracefully restart the running daemon
     Reboot,
+    /// Update ghost binary via nix profile
+    Update {
+        /// Build from main branch instead of latest release
+        #[arg(long)]
+        from_source: bool,
+        /// Install a specific version tag (e.g. v0.3.0)
+        #[arg(long)]
+        version: Option<String>,
+    },
     Version,
 }
 
@@ -110,6 +119,10 @@ async fn dispatch(command: Commands) -> Result<(), GhostError> {
         }
         Commands::Attach { path, caption } => ghost::cli::send::execute_attach(path, caption).await,
         Commands::Reboot => ghost::cli::reboot::execute(),
+        Commands::Update {
+            from_source,
+            version,
+        } => ghost::cli::update::execute(from_source, version).await,
         Commands::Version => {
             println!(
                 "ghost {} ({})",

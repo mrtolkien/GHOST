@@ -12,4 +12,5 @@ pub mod reference;
 pub mod send;
 pub mod session;
 pub mod topics;
+pub mod update;
 pub mod web;
