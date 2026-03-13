@@ -9,7 +9,7 @@ use serenity::http::Http;
 use serenity::model::application::Command;
 use serenity::model::channel::Message;
 use serenity::model::gateway::Ready;
-use serenity::model::id::ChannelId;
+use serenity::model::id::{ChannelId, UserId};
 use serenity::prelude::*;
 use tokio::task::JoinHandle;
 use tracing::{Instrument, error, info, warn};
@@ -21,11 +21,15 @@ use crate::db;
 use crate::db::GhostDb;
 use crate::providers::ContentBlock;
 
+use super::components_v2::{container, send_v2_message, text_display};
 use super::feedback;
 use super::send::{WARNING_EMBED_COLOR, send_assistant_v2_with_suffix, send_gateway_v2};
 
 /// Teal embed color for coding session messages.
 const CODING_EMBED_COLOR: u32 = 0x29_FF_D9;
+
+/// Neon green — accent for boot sequence complete message.
+const BOOT_COLOR: u32 = 0x2D_FF_73;
 use super::ui_events::DiscordUiRenderer;
 use super::ui_events::format_statusline;
 
@@ -819,6 +823,32 @@ impl EventHandler for Handler {
 
         if let Err(e) = Command::set_global_commands(&ctx.http, commands).await {
             error!("Failed to register slash commands: {e}");
+        }
+
+        // Send boot notification to allowed users via DM
+        let version = env!("CARGO_PKG_VERSION");
+        let commit = env!("GIT_COMMIT_HASH");
+        let content = format!("### BOOT SEQUENCE COMPLETE\nghost v{version} ({commit})");
+        for user_id_str in &self.allowed_user_ids {
+            let Ok(uid) = user_id_str.parse::<u64>() else {
+                warn!(user_id = user_id_str, "invalid allowed_user_id, skipping boot DM");
+                continue;
+            };
+            let user_id = UserId::new(uid);
+            match user_id.create_dm_channel(&ctx.http).await {
+                Ok(channel) => {
+                    let components =
+                        vec![container(vec![text_display(&content)], Some(BOOT_COLOR))];
+                    if let Err(e) =
+                        send_v2_message(&ctx.http, channel.id, &components, Vec::new()).await
+                    {
+                        error!(%user_id, "failed to send boot DM: {e}");
+                    }
+                }
+                Err(e) => {
+                    error!(%user_id, "failed to create DM channel: {e}");
+                }
+            }
         }
     }
 }
