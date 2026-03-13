@@ -111,7 +111,11 @@ async fn dispatch(command: Commands) -> Result<(), GhostError> {
         Commands::Attach { path, caption } => ghost::cli::send::execute_attach(path, caption).await,
         Commands::Reboot => ghost::cli::reboot::execute(),
         Commands::Version => {
-            println!("{}", env!("CARGO_PKG_VERSION"));
+            println!(
+                "ghost {} ({})",
+                env!("CARGO_PKG_VERSION"),
+                env!("GIT_COMMIT_HASH")
+            );
             Ok(())
         }
     }
