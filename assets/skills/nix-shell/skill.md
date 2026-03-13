@@ -44,8 +44,8 @@ Then rebuild the shell environment:
 
     ghost shell rebuild
 
-This validates the flake and makes the new tool available immediately — no restart
-needed. If the package name is wrong, find it with `nix search nixpkgs <query>`.
+This validates the flake and makes the new tool available immediately. If the package
+name is wrong, find it with `nix search nixpkgs <query>`.
 
 ## Updating shell tools
 
