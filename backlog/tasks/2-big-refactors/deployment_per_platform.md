@@ -29,3 +29,9 @@ Notes:
 
 - Containers should use podman rootless
 - Nix should setup garbage collection
+- **`loginctl enable-linger <user>` is REQUIRED** on Linux for systemd user services.
+  Without it, systemd kills all user services (including ghost-daemon) when the last
+  login session ends. `ghost init` should run this automatically or at least warn.
+- The daemon currently does not shut down gracefully within systemd's 90s timeout —
+  SIGTERM is received but something blocks (likely Discord/serenity or SQLite workers).
+  Need to add `TimeoutStopSec=` to the unit file and/or fix the shutdown path.
