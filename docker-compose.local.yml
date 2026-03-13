@@ -1,6 +1,0 @@
-services:
-  ghost:
-    build:
-      context: .
-      dockerfile: deploy/common/Dockerfile
-    image: ghost:local
