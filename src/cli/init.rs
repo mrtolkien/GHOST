@@ -7,6 +7,7 @@ After=network-online.target
 [Service]
 ExecStart={exe} daemon
 WorkingDirectory={workspace}
+Environment=PATH=/nix/var/nix/profiles/default/bin:%h/.nix-profile/bin:/usr/local/bin:/usr/bin:/bin
 Restart=always
 RestartSec=2
 
