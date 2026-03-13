@@ -1,1 +1,2 @@
 - Discord interactions are randomly failing, but I don't understand why/how
+- .cache sometimes does not end up empty
