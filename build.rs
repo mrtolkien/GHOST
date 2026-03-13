@@ -34,10 +34,10 @@ fn main() {
     let git_hash = std::env::var("GIT_COMMIT_HASH").ok().unwrap_or_else(|| {
         // Track git state for rebuild triggers (dev builds only)
         println!("cargo::rerun-if-changed=.git/HEAD");
-        if let Ok(head) = std::fs::read_to_string(".git/HEAD") {
-            if let Some(ref_path) = head.strip_prefix("ref: ") {
-                println!("cargo::rerun-if-changed=.git/{}", ref_path.trim());
-            }
+        if let Ok(head) = std::fs::read_to_string(".git/HEAD")
+            && let Some(ref_path) = head.strip_prefix("ref: ")
+        {
+            println!("cargo::rerun-if-changed=.git/{}", ref_path.trim());
         }
 
         std::process::Command::new("git")

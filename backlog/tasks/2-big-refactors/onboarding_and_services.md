@@ -5,8 +5,8 @@ is solid.
 
 - LLM provider selection (OpenRouter, Kimi, OpenAI OAuth) + API key
 - Discord token + user ID
-- For each service (embeddings, search, crawl, docling): ask "local Docker / remote URL /
-  skip?"
+- For each service (embeddings, search, crawl, docling): ask "local Docker / remote URL
+  / skip?"
 - Generate `config.toml` + `.env` + `docker-compose.yml` from answers
 - Replace `deploy/common/onboard.py` with native Rust implementation
 

@@ -50,9 +50,9 @@ The deliverable is a way to update the stack on my homelab, currently deployed w
 
 Ghost runs inside Docker with Nix. This is broken:
 
-- The root `flake.nix` downloads a pre-built tarball from GitHub Releases. Nix locks
-  the hash in `flake.lock`, so `latest` doesn't actually update — you must `nix flake
-  update` and rebuild the Docker image.
+- The root `flake.nix` downloads a pre-built tarball from GitHub Releases. Nix locks the
+  hash in `flake.lock`, so `latest` doesn't actually update — you must
+  `nix flake update` and rebuild the Docker image.
 - Ghost can't manage sibling containers from inside Docker.
 - Nix-in-Docker is slow (builds on every container start) and fragile.
 - The shell flake references the root flake to get the ghost binary — two-flake
@@ -95,10 +95,10 @@ Host
 3. system PATH    → everything else
 ```
 
-The daemon calls `run_nix_shell_setup()` at boot, which runs `nix build
-$WORKSPACE/shell` and caches the store path. Every `run_shell_command` prepends
-`${store_path}/bin` to PATH. Ghost comes from `~/.nix-profile/bin/` further down PATH.
-One binary, guaranteed same version.
+The daemon calls `run_nix_shell_setup()` at boot, which runs
+`nix build $WORKSPACE/shell` and caches the store path. Every `run_shell_command`
+prepends `${store_path}/bin` to PATH. Ghost comes from `~/.nix-profile/bin/` further
+down PATH. One binary, guaranteed same version.
 
 ### Component 1: Root Flake (`flake.nix`)
 
@@ -208,9 +208,8 @@ WantedBy=default.target
 </plist>
 ```
 
-Uses `std::env::current_exe()` to get the binary path — always correct, no
-substitution needed. Templates live as string constants in Rust code, not external
-files.
+Uses `std::env::current_exe()` to get the binary path — always correct, no substitution
+needed. Templates live as string constants in Rust code, not external files.
 
 Prints next steps after writing:
 
@@ -234,10 +233,10 @@ Implementation:
 2. Run the appropriate `nix profile` command to swap the binary:
    - Default: `nix profile upgrade` matching the ghost entry
    - `--from-source`: remove + `nix profile add github:mrtolkien/GHOST/main`
-   - `--version`: remove + `nix profile add github:mrtolkien/GHOST/v0.3.0`
-   Note: exact `nix profile` sub-command syntax (add/install, upgrade pattern matching)
-   depends on Nix version and must be verified during implementation. The concept is:
-   atomically replace the ghost entry in the profile.
+   - `--version`: remove + `nix profile add github:mrtolkien/GHOST/v0.3.0` Note: exact
+     `nix profile` sub-command syntax (add/install, upgrade pattern matching) depends on
+     Nix version and must be verified during implementation. The concept is: atomically
+     replace the ghost entry in the profile.
 3. Print old → new version.
 4. Run `ghost reboot` (SIGTERM → systemd/launchd restarts with new binary).
 
@@ -300,18 +299,18 @@ Commands::Version => {
 
 ### Code Changes Summary
 
-| File | Change |
-|------|--------|
-| `flake.nix` | Rewrite: `buildRustPackage` from source, delete `ghost-bin` input |
-| `flake.lock` | Regenerated (only nixpkgs, no ghost-bin) |
-| `assets/shell/flake.nix` | Remove ghost input, tools only |
-| `build.rs` | Add git commit hash embedding |
-| `src/main.rs` | Update `Commands::Version` to print commit hash |
-| `src/cli/mod.rs` | Add `update` module |
-| `src/cli/update.rs` | New: wraps `nix profile upgrade` + reboot |
-| `src/cli/init.rs` | Add service file generation (systemd/launchd) |
-| `src/tools/shell.rs:81` | Delete `/usr/local/bin:` from PATH construction (ghost is on PATH via nix profile; no replacement needed) |
-| `assets/skills/nix-shell/skill.md` | Rewrite for new architecture |
+| File                               | Change                                                                                                    |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `flake.nix`                        | Rewrite: `buildRustPackage` from source, delete `ghost-bin` input                                         |
+| `flake.lock`                       | Regenerated (only nixpkgs, no ghost-bin)                                                                  |
+| `assets/shell/flake.nix`           | Remove ghost input, tools only                                                                            |
+| `build.rs`                         | Add git commit hash embedding                                                                             |
+| `src/main.rs`                      | Update `Commands::Version` to print commit hash                                                           |
+| `src/cli/mod.rs`                   | Add `update` module                                                                                       |
+| `src/cli/update.rs`                | New: wraps `nix profile upgrade` + reboot                                                                 |
+| `src/cli/init.rs`                  | Add service file generation (systemd/launchd)                                                             |
+| `src/tools/shell.rs:81`            | Delete `/usr/local/bin:` from PATH construction (ghost is on PATH via nix profile; no replacement needed) |
+| `assets/skills/nix-shell/skill.md` | Rewrite for new architecture                                                                              |
 
 ### What Gets Deleted
 

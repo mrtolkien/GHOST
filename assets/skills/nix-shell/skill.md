@@ -16,17 +16,17 @@ description:
     ghost update --from-source       # build from main
     ghost update --version v0.3.0    # specific tag
 
-This swaps the ghost binary in the nix profile and reboots the daemon. The shell
-tools (git, python, etc.) are NOT affected — they come from the workspace flake.
+This swaps the ghost binary in the nix profile and reboots the daemon. The shell tools
+(git, python, etc.) are NOT affected — they come from the workspace flake.
 
 **Before running `ghost update`**, tell the OPERATOR there will be a brief downtime
 while you restart. Always get confirmation before updating.
 
 ## Workspace flake
 
-`$WORKSPACE/shell/flake.nix` defines the shell tools as a `buildEnv` package. At
-daemon boot, `nix build` creates a merged store path whose `bin/` is prepended to PATH
-for every `run_shell_command`.
+`$WORKSPACE/shell/flake.nix` defines the shell tools as a `buildEnv` package. At daemon
+boot, `nix build` creates a merged store path whose `bin/` is prepended to PATH for
+every `run_shell_command`.
 
 The ghost binary is NOT in this flake. Ghost is installed system-wide via
 `nix profile install` and is available on PATH via `~/.nix-profile/bin/`.

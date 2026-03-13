@@ -9,10 +9,7 @@ const FLAKE_REF: &str = "github:mrtolkien/GHOST";
 /// --from-source: remove + re-install from main.
 /// --version: remove + re-install from a specific tag.
 #[tracing::instrument(skip_all)]
-pub async fn execute(
-    from_source: bool,
-    version: Option<String>,
-) -> Result<(), GhostError> {
+pub async fn execute(from_source: bool, version: Option<String>) -> Result<(), GhostError> {
     let old_version = format!(
         "{} ({})",
         env!("CARGO_PKG_VERSION"),
@@ -46,15 +43,10 @@ pub async fn execute(
     let status = std::process::Command::new("nix")
         .args(["profile", "add", &flake_ref])
         .status()
-        .map_err(|e| {
-            std::io::Error::new(e.kind(), format!("failed to run nix: {e}"))
-        })?;
+        .map_err(|e| std::io::Error::new(e.kind(), format!("failed to run nix: {e}")))?;
 
     if !status.success() {
-        return Err(std::io::Error::other(
-            "nix profile add failed — check output above",
-        )
-        .into());
+        return Err(std::io::Error::other("nix profile add failed — check output above").into());
     }
 
     // Read new version from the freshly installed binary
