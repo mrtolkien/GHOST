@@ -1,0 +1,1 @@
+- Discord interactions are randomly failing, but I don't understand why/how

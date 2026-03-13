@@ -155,3 +155,11 @@ The following are relevant to the superpowers skills (brainstorm, writing plan, 
   plan: add a markdown separator then write it there.
 - Implementation plans: `backlog/plans`
 - Finished specs, designs, and implementation plans: `backlog/completed`
+
+## Similar projects
+
+When asked to implement new features, analyze how similar projects do it:
+
+- ZeroClaw, great Rust implementation with tons of providers, interfaces, and clean
+  traits: https://github.com/zeroclaw-labs/zeroclaw
+- OpenClaw, the OG: https://github.com/openclaw/openclaw
