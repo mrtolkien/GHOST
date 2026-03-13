@@ -33,7 +33,7 @@ pub fn init() -> Result<DaemonObservability, ObservabilityError> {
         return Ok(DaemonObservability::disabled());
     }
 
-    let _ = dotenvy::dotenv();
+    crate::config::load_dotenv_from_config_dir();
     set_default_rust_log_filter();
     set_default_logfire_environment();
     let logfire = logfire::configure()
@@ -54,7 +54,7 @@ pub fn init_for_live_tests() -> Result<DaemonObservability, ObservabilityError> 
 
     let mut result: Option<ObservabilityError> = None;
     INIT.call_once(|| {
-        let _ = dotenvy::dotenv();
+        crate::config::load_dotenv_from_config_dir();
         set_default_rust_log_filter_for_tests();
         match logfire::configure()
             .with_service_name("GHOST")

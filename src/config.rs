@@ -500,8 +500,24 @@ pub fn load_from_dir(config_dir: &Path) -> Result<Config, ConfigError> {
 
 fn load_dotenv() {
     DOTENV_INIT.call_once(|| {
-        let _ = dotenvy::dotenv();
+        load_dotenv_from_config_dir();
     });
+}
+
+/// Load `.env` from the config directory (`~/.config/ghost/.env`).
+///
+/// Falls back to CWD-based `.env` (the `dotenvy` default) if the
+/// config directory cannot be resolved.
+pub(crate) fn load_dotenv_from_config_dir() {
+    if let Ok(dir) = config_dir() {
+        let env_path = dir.join(".env");
+        if env_path.exists() {
+            let _ = dotenvy::from_path(&env_path);
+            return;
+        }
+    }
+    // Fallback: CWD-based .env (original behaviour)
+    let _ = dotenvy::dotenv();
 }
 
 #[tracing::instrument(skip_all)]
