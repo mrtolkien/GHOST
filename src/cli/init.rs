@@ -6,7 +6,7 @@ After=network-online.target
 
 [Service]
 ExecStart={exe} daemon
-WorkingDirectory={config_dir}
+WorkingDirectory={workspace}
 Restart=always
 RestartSec=2
 
@@ -45,7 +45,7 @@ pub async fn execute() -> Result<(), GhostError> {
     Ok(())
 }
 
-fn install_service_file(_config: &crate::config::Config) -> Result<(), GhostError> {
+fn install_service_file(config: &crate::config::Config) -> Result<(), GhostError> {
     let exe = std::env::current_exe()
         .map_err(|e| std::io::Error::new(e.kind(), format!("cannot find own binary: {e}")))?
         .display()
@@ -83,10 +83,9 @@ fn install_service_file(_config: &crate::config::Config) -> Result<(), GhostErro
             .join("systemd/user");
         std::fs::create_dir_all(&unit_dir)?;
 
-        let config_dir = crate::config::config_dir()?;
         let content = SYSTEMD_UNIT
             .replace("{exe}", &exe)
-            .replace("{config_dir}", &config_dir.display().to_string());
+            .replace("{workspace}", &config.workspace.display().to_string());
         let unit_path = unit_dir.join("ghost-daemon.service");
         std::fs::write(&unit_path, content)?;
 

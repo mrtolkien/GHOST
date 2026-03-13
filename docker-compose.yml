@@ -3,7 +3,7 @@ services:
   crawl4ai:
     image: unclecode/crawl4ai:latest
     ports:
-      - "11235:11235"
+      - "127.0.0.1:11235:11235"
     restart: unless-stopped
 
   searxng:
@@ -11,11 +11,11 @@ services:
     volumes:
       - ./deploy/common/searxng-settings.yml:/etc/searxng/settings.yml:ro
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     restart: unless-stopped
 
   docling-serve:
     image: quay.io/docling-project/docling-serve:latest
     ports:
-      - "5001:5001"
+      - "127.0.0.1:5001:5001"
     restart: unless-stopped

@@ -4,10 +4,9 @@ const FLAKE_REF: &str = "github:mrtolkien/GHOST";
 
 /// Update ghost binary via `nix profile`, then reboot the daemon.
 ///
-/// Default: upgrade the existing profile entry (pulls latest from the
-/// flake's default branch or locked ref).
-/// --from-source: remove + re-install from main.
-/// --version: remove + re-install from a specific tag.
+/// All modes (default, --from-source, --version) remove the existing
+/// profile entry by regex and re-install. This is more robust than
+/// `nix profile upgrade` which requires fragile index/attribute matching.
 #[tracing::instrument(skip_all)]
 pub async fn execute(from_source: bool, version: Option<String>) -> Result<(), GhostError> {
     let old_version = format!(
