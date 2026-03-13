@@ -75,11 +75,11 @@ fn shell_command(
     let mut cmd = tokio::process::Command::new("/bin/sh");
     cmd.args(["-c", command]);
 
-    // Build PATH: /usr/local/bin (ghost binary) + nix env + system
+    // Build PATH: nix buildEnv + system (ghost is on PATH via nix profile)
     let current_path = std::env::var("PATH").unwrap_or_default();
     let path = match NIX_SHELL_BIN.get() {
-        Some(nix_bin) => format!("/usr/local/bin:{nix_bin}:{current_path}"),
-        None => format!("/usr/local/bin:{current_path}"),
+        Some(nix_bin) => format!("{nix_bin}:{current_path}"),
+        None => current_path,
     };
     cmd.env("PATH", path);
 
