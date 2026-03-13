@@ -92,14 +92,12 @@ impl DaemonHandle {
 
 pub async fn run() -> Result<(), GhostError> {
     let config = crate::config::load()?;
-    let workspace = config.workspace.clone();
 
     // Race boot against shutdown signals so SIGTERM during boot works
     let handle = tokio::select! {
         result = boot_with_config(config) => result?,
         _ = shutdown_signal() => {
             info!("signal received during boot, exiting...");
-            super::pidfile::remove_pidfile(&workspace);
             return Ok(());
         }
     };
@@ -113,7 +111,6 @@ pub async fn run() -> Result<(), GhostError> {
     shutdown_signal().await;
     info!("shutting down...");
 
-    super::pidfile::remove_pidfile(&workspace);
     handle.shutdown().await;
 
     info!("GHOST daemon stopped");
@@ -142,11 +139,6 @@ pub async fn boot() -> Result<DaemonHandle, GhostError> {
 pub async fn boot_with_config(config: Config) -> Result<DaemonHandle, GhostError> {
     // Phase 1: create directories + user-only files
     crate::config_workspace::bootstrap_workspace_dirs(&config)?;
-
-    // Write PID file early so `ghost reboot` works even during long boots
-    if let Err(e) = super::pidfile::write_pidfile(&config.workspace) {
-        logfire::warn!("failed to write PID file", error = e.to_string());
-    }
 
     info!(workspace = %config.workspace.display(), "config loaded");
 
