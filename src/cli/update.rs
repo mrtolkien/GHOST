@@ -40,7 +40,7 @@ pub async fn execute(from_source: bool, version: Option<String>) -> Result<(), G
 
     println!("installing ghost from {flake_ref}...");
     let status = std::process::Command::new("nix")
-        .args(["profile", "add", &flake_ref])
+        .args(["profile", "add", "--refresh", &flake_ref])
         .status()
         .map_err(|e| std::io::Error::new(e.kind(), format!("failed to run nix: {e}")))?;
 
