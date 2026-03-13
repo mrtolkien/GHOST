@@ -172,7 +172,7 @@ pub async fn boot_with_config(config: Config) -> Result<DaemonHandle, GhostError
         std::fs::write(&dest, file.content)?;
     }
 
-    if let Err(e) = crate::tools::shell::run_nix_shell_setup(&config.workspace).await {
+    if let Err(e) = crate::tools::shell::rebuild_shell_env(&config.workspace).await {
         logfire::warn!("nix shell setup failed at boot", error = e.to_string());
     }
 

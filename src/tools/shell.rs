@@ -1,5 +1,4 @@
 use super::output::ToolOutput;
-use std::sync::OnceLock;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use async_trait::async_trait;
@@ -16,6 +15,7 @@ pub struct RunShellCommand;
 
 const DEFAULT_TIMEOUT_MS: u64 = 30_000;
 const MAX_OUTPUT_CHARS: usize = 50_000;
+const SHELL_BIN_FILE: &str = ".shell-bin";
 
 static BACKGROUND_SHELL_COUNT: AtomicUsize = AtomicUsize::new(0);
 
@@ -24,15 +24,22 @@ pub fn background_shell_count() -> usize {
     BACKGROUND_SHELL_COUNT.load(Ordering::Relaxed)
 }
 
-/// `bin/` directory of the built nix shell environment, cached for the daemon
-/// lifetime.
-static NIX_SHELL_BIN: OnceLock<String> = OnceLock::new();
+/// Read the cached nix shell `bin/` path from `$WORKSPACE/.shell-bin`.
+fn read_shell_bin(workspace: &std::path::Path) -> Option<String> {
+    let path = workspace.join(SHELL_BIN_FILE);
+    std::fs::read_to_string(path).ok().and_then(|s| {
+        let trimmed = s.trim().to_string();
+        if trimmed.is_empty() {
+            None
+        } else {
+            Some(trimmed)
+        }
+    })
+}
 
-/// Build the workspace's nix shell environment and cache its `bin/` path.
-/// Called at daemon boot. Uses `nix build --print-out-paths` to get the
-/// store path of the `buildEnv` derivation, then prepends `{path}/bin` to
-/// every shell command's PATH.
-pub async fn run_nix_shell_setup(workspace: &std::path::Path) -> Result<(), String> {
+/// Build the workspace's nix shell environment and write its `bin/` path
+/// to `$WORKSPACE/.shell-bin`. Called at daemon boot and by `ghost shell rebuild`.
+pub async fn rebuild_shell_env(workspace: &std::path::Path) -> Result<(), String> {
     let shell_dir = workspace.join("shell");
     if !shell_dir.join("flake.nix").exists() {
         return Ok(());
@@ -56,7 +63,8 @@ pub async fn run_nix_shell_setup(workspace: &std::path::Path) -> Result<(), Stri
     let store_path = String::from_utf8_lossy(&output.stdout).trim().to_string();
     if !store_path.is_empty() {
         let bin_path = format!("{store_path}/bin");
-        let _ = NIX_SHELL_BIN.set(bin_path.clone());
+        std::fs::write(workspace.join(SHELL_BIN_FILE), &bin_path)
+            .map_err(|e| format!("failed to write {SHELL_BIN_FILE}: {e}"))?;
         tracing::info!(bin_path, "nix shell environment built");
     }
 
@@ -68,16 +76,16 @@ pub async fn run_nix_shell_setup(workspace: &std::path::Path) -> Result<(), Stri
 /// so child processes can auto-detect the calling context.
 fn shell_command(
     command: &str,
-    _workspace: &std::path::Path,
+    workspace: &std::path::Path,
     channel_id: Option<&str>,
     session_id: Option<&str>,
 ) -> tokio::process::Command {
     let mut cmd = tokio::process::Command::new("/bin/sh");
     cmd.args(["-c", command]);
 
-    // Build PATH: nix buildEnv + system (ghost is on PATH via nix profile)
+    // Build PATH: nix buildEnv (from .shell-bin) + system
     let current_path = std::env::var("PATH").unwrap_or_default();
-    let path = match NIX_SHELL_BIN.get() {
+    let path = match read_shell_bin(workspace) {
         Some(nix_bin) => format!("{nix_bin}:{current_path}"),
         None => current_path,
     };

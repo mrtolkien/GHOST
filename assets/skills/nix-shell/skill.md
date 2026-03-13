@@ -20,7 +20,7 @@ This swaps the ghost binary in the nix profile and reboots the daemon. The shell
 (git, python, etc.) are NOT affected — they come from the workspace flake.
 
 **Before running `ghost update`**, tell the OPERATOR there will be a brief downtime
-while you restart. Always get confirmation before updating.
+while you restart.
 
 ## Workspace flake
 
@@ -40,22 +40,19 @@ Edit `$WORKSPACE/shell/flake.nix` and add to the `paths` list:
       nodejs
     ];
 
-Then **validate the change** by running:
+Then rebuild the shell environment:
 
-    nix build $WORKSPACE/shell --no-link
+    ghost shell rebuild
 
-Check the output for errors. If the package name is wrong, find it with
-`nix search nixpkgs <query>`.
-
-**Important**: After validating, new packages take effect on the next daemon restart.
-Tell the OPERATOR that a restart is needed to pick up changes.
+This validates the flake and makes the new tool available immediately — no restart
+needed. If the package name is wrong, find it with `nix search nixpkgs <query>`.
 
 ## Updating shell tools
 
 To pull the latest nixpkgs (updates git, python, etc. — NOT ghost):
 
     nix flake update --flake $WORKSPACE/shell/
-    nix build $WORKSPACE/shell --no-link
+    ghost shell rebuild
 
 ## One-off tool use
 

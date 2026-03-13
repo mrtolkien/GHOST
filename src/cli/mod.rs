@@ -11,6 +11,7 @@ pub mod reboot;
 pub mod reference;
 pub mod send;
 pub mod session;
+pub mod shell;
 pub mod topics;
 pub mod update;
 pub mod web;

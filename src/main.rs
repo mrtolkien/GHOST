@@ -77,6 +77,11 @@ enum Commands {
     },
     /// Gracefully restart the running daemon
     Reboot,
+    /// Manage the nix shell environment
+    Shell {
+        #[command(subcommand)]
+        command: ghost::cli::shell::ShellCommand,
+    },
     /// Update ghost binary via nix profile
     Update {
         /// Build from main branch instead of latest release
@@ -119,6 +124,7 @@ async fn dispatch(command: Commands) -> Result<(), GhostError> {
         }
         Commands::Attach { path, caption } => ghost::cli::send::execute_attach(path, caption).await,
         Commands::Reboot => ghost::cli::reboot::execute(),
+        Commands::Shell { command } => ghost::cli::shell::execute(command).await,
         Commands::Update {
             from_source,
             version,
