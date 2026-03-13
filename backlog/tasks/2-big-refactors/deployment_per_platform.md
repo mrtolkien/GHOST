@@ -1,3 +1,15 @@
+Should also add Signoz to the stack for observability.
+
+---
+
+In the standard deployment path, I want the ghost to be able to manage the extra
+services: it should likely be a SKILL that:
+
+- Explains the stack and how to manage it
+- Has an extra with a list of important files and services running?
+
+---
+
 Review deployment:
 
 - [ ] Installing and running on a Mac should be extremely easy, with GPU acceleration
@@ -13,12 +25,7 @@ Review deployment:
 
 ---
 
-Should also add portainer to the stack maybe? Or Grafana? Or Signoz?
+Notes:
 
----
-
-In the standard deployment path, I want the ghost to be able to manage the extra
-services: it should likely be a SKILL that:
-
-- Explains the stack and how to manage it
-- Has an extra with a list of important files and services running?
+- Containers should use podman rootless
+- Nix should setup garbage collection
