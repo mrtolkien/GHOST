@@ -1,3 +1,11 @@
+Dropped on 2026-03-14:
+
+- Too much work for little gain
+- Decoupling can be done through traits
+- Logging and observability suffers
+
+---
+
 Create a robust message passing system:
 
 - Agents -> GHOST
