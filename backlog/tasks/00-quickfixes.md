@@ -1,6 +1,6 @@
 - Discord interactions are randomly failing, but I don't understand why/how
-- .cache sometimes does not end up empty
 - Like claude, forbid file edit without a read?
+- .cache sometimes does not end up empty
 
 ---
 

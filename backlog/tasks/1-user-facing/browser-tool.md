@@ -10,10 +10,15 @@ I have a few more things I want to add:
 
 - We need to be able to show web pages to the OPERATOR: PNG export to start?
 - We should be able to connect to a long lived browser that the OPERATOR can see and use
-  - Could be a _PC_ on different host from GHOST if that's possible through CDP or stg
-  - Could be accessing the headless browser through HTTP if that's possible?
   - Does not need to be the _true_ user's web browser, but a long lived browser that can
     store cookies, auth, ...
+  - Could be a _PC_ on different host from GHOST if that's possible through CDP or
+    something similar? Could share the port via tailscale?
+  - Could we access the headless browser through HTTP if that's possible? So it'd be an
+    HTTP server _on the ghost_ re-serving the pages it sees to the OPERATOR (so they can
+    login for example)
+
+---
 
 ## Motivation
 
