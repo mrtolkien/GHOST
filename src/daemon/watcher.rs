@@ -85,7 +85,20 @@ async fn process_batch(
     for path in &paths {
         let kind = classify_watcher_kind(workspace, path);
         let req = async {
-            match process_change(db, workspace, path, None, None).await {
+            // Read file and compute hash upfront so it's stored with the DB record
+            let (content, hash) = if path.exists() {
+                match tokio::fs::read_to_string(path).await {
+                    Ok(raw) => {
+                        let h = crate::embeddings::pipeline::content_hash(&raw);
+                        (Some(raw), Some(h))
+                    }
+                    Err(_) => (None, None),
+                }
+            } else {
+                (None, None)
+            };
+
+            match process_change(db, workspace, path, content.as_deref(), hash.as_deref()).await {
                 Ok(req) => req,
                 Err(e) => {
                     logfire::warn!(
