@@ -87,6 +87,7 @@ pub async fn import_page(
     std::fs::write(&disk_path, &text)?;
 
     // Store as reference
+    let hash = crate::embeddings::pipeline::content_hash(&text);
     db::knowledge::create_reference(
         db,
         &topic_id,
@@ -94,7 +95,7 @@ pub async fn import_page(
         &text,
         Some(url),
         Some(&batch_id),
-        None,
+        Some(&hash),
     )
     .await?;
 

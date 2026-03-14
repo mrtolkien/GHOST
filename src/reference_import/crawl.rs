@@ -122,6 +122,7 @@ pub async fn import_crawl(
         std::fs::write(&disk_path, &extracted.text)?;
 
         // Store as reference
+        let hash = crate::embeddings::pipeline::content_hash(&extracted.text);
         db::knowledge::create_reference(
             db,
             &topic_id,
@@ -129,7 +130,7 @@ pub async fn import_crawl(
             &extracted.text,
             Some(url.as_str()),
             Some(&batch_id),
-            None,
+            Some(&hash),
         )
         .await?;
 

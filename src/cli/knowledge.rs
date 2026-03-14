@@ -437,6 +437,7 @@ async fn cmd_reindex(
 
     for path in &note_files {
         let raw = std::fs::read_to_string(path).map_err(std::io::Error::other)?;
+        let hash = crate::embeddings::pipeline::content_hash(&raw);
         let parsed = match knowledge::parse_note(&raw) {
             Ok(p) => p,
             Err(e) => {
@@ -462,7 +463,7 @@ async fn cmd_reindex(
                     parsed.front.trust,
                     None,
                     rel_path.as_deref(),
-                    None,
+                    Some(&hash),
                 )
                 .await?;
                 let _result = knowledge::reconcile::reconcile_edges(
@@ -490,7 +491,7 @@ async fn cmd_reindex(
                     parsed.front.trust,
                     None,
                     rel_path.as_deref(),
-                    None,
+                    Some(&hash),
                 )
                 .await?;
                 let _result = knowledge::reconcile::reconcile_edges(
@@ -528,16 +529,24 @@ async fn cmd_reindex(
             .map(|(parent, _)| parent)
             .unwrap_or("unknown");
 
-        if db::knowledge::find_reference_by_path(db, &ref_path)
-            .await?
-            .is_none()
-        {
+        let content = std::fs::read_to_string(path).map_err(std::io::Error::other)?;
+        let hash = crate::embeddings::pipeline::content_hash(&content);
+        if let Some(existing) = db::knowledge::find_reference_by_path(db, &ref_path).await? {
+            db::knowledge::update_reference(db, &existing.id, &content, Some(&hash)).await?;
+        } else {
             let topic_id = db::knowledge::find_or_create_topic(db, topic_name).await?;
-            let content = std::fs::read_to_string(path).map_err(std::io::Error::other)?;
-            db::knowledge::create_reference(db, &topic_id, &ref_path, &content, None, None, None)
-                .await?;
-            ref_synced += 1;
+            db::knowledge::create_reference(
+                db,
+                &topic_id,
+                &ref_path,
+                &content,
+                None,
+                None,
+                Some(&hash),
+            )
+            .await?;
         }
+        ref_synced += 1;
     }
 
     // Sync diary entries
@@ -550,11 +559,14 @@ async fn cmd_reindex(
             .file_stem()
             .and_then(|f| f.to_str())
             .unwrap_or("unknown");
-        if db::knowledge::get_diary_by_date(db, date).await?.is_none() {
-            let body = std::fs::read_to_string(path).map_err(std::io::Error::other)?;
-            db::knowledge::create_diary(db, date, &body, None).await?;
-            diary_synced += 1;
+        let body = std::fs::read_to_string(path).map_err(std::io::Error::other)?;
+        let hash = crate::embeddings::pipeline::content_hash(&body);
+        if let Some(existing) = db::knowledge::get_diary_by_date(db, date).await? {
+            db::knowledge::update_diary(db, &existing.id, &body, Some(&hash)).await?;
+        } else {
+            db::knowledge::create_diary(db, date, &body, Some(&hash)).await?;
         }
+        diary_synced += 1;
     }
 
     // Embeddings

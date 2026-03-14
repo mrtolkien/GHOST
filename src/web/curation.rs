@@ -268,6 +268,7 @@ pub async fn link_cited_edges(
                         let ref_file = workspace.join("references").join(&rel_path);
                         let content = std::fs::read_to_string(&ref_file).unwrap_or_default();
                         let preview: String = content.chars().take(2000).collect();
+                        let hash = crate::embeddings::pipeline::content_hash(&preview);
                         match db::knowledge::create_reference(
                             db,
                             &topic_id,
@@ -275,7 +276,7 @@ pub async fn link_cited_edges(
                             &preview,
                             Some(&file.url),
                             None,
-                            None,
+                            Some(&hash),
                         )
                         .await
                         {

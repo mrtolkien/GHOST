@@ -102,6 +102,7 @@ pub async fn import_file(
     std::fs::write(&disk_path, &markdown)?;
 
     // DB record
+    let hash = crate::embeddings::pipeline::content_hash(&markdown);
     db::knowledge::create_reference(
         db,
         &topic_id,
@@ -109,7 +110,7 @@ pub async fn import_file(
         &markdown,
         None,
         Some(&batch_id),
-        None,
+        Some(&hash),
     )
     .await?;
 

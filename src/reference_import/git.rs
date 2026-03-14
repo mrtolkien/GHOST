@@ -122,6 +122,7 @@ pub async fn import_git(
         }
         std::fs::write(&disk_path, &content)?;
 
+        let hash = crate::embeddings::pipeline::content_hash(&content);
         db::knowledge::create_reference(
             db,
             &topic_id,
@@ -129,7 +130,7 @@ pub async fn import_git(
             &content,
             Some(url),
             Some(&batch_id),
-            None,
+            Some(&hash),
         )
         .await?;
 
