@@ -48,7 +48,6 @@ CREATE TABLE embedding (
     source_id TEXT NOT NULL,
     chunk_index INTEGER NOT NULL,
     chunk_text TEXT NOT NULL,
-    content_hash TEXT NOT NULL,
     topic_id TEXT,
     created_at TEXT NOT NULL,
     UNIQUE(source_id, chunk_index)

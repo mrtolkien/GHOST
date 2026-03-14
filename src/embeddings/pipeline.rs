@@ -25,8 +25,7 @@ pub fn content_hash(content: &str) -> String {
     hex::encode(hasher.finalize())
 }
 
-/// Embed a single knowledge source. Skips if content hash is unchanged.
-/// Returns the number of chunks embedded (0 if skipped).
+/// Embed a single knowledge source. Returns the number of chunks embedded.
 #[tracing::instrument(name = "embed source", skip_all, fields(
     source_table = %source_table,
     source_id = ?source_id,
@@ -38,70 +37,6 @@ pub async fn embed_source(
     source_id: &str,
     content: &str,
     tags: &[String],
-    topic_id: Option<&str>,
-    path: Option<&str>,
-) -> Result<usize, PipelineError> {
-    let hash = content_hash(content);
-
-    if let Some(stored) = db::embeddings::get_content_hash(db, source_id).await?
-        && stored == hash
-    {
-        return Ok(0);
-    }
-
-    embed_source_inner(
-        client,
-        db,
-        source_table,
-        source_id,
-        content,
-        tags,
-        &hash,
-        topic_id,
-        path,
-    )
-    .await
-}
-
-/// Embed a single source, ignoring any stored hash (for --force reindex).
-#[tracing::instrument(skip_all, fields(
-    source_table = %source_table,
-    source_id = ?source_id,
-), level = "debug"
-)]
-pub async fn embed_source_forced(
-    client: &EmbeddingClient,
-    db: &GhostDb,
-    source_table: &str,
-    source_id: &str,
-    content: &str,
-    tags: &[String],
-    topic_id: Option<&str>,
-    path: Option<&str>,
-) -> Result<usize, PipelineError> {
-    let hash = content_hash(content);
-    embed_source_inner(
-        client,
-        db,
-        source_table,
-        source_id,
-        content,
-        tags,
-        &hash,
-        topic_id,
-        path,
-    )
-    .await
-}
-
-async fn embed_source_inner(
-    client: &EmbeddingClient,
-    db: &GhostDb,
-    source_table: &str,
-    source_id: &str,
-    content: &str,
-    tags: &[String],
-    hash: &str,
     topic_id: Option<&str>,
     path: Option<&str>,
 ) -> Result<usize, PipelineError> {
@@ -123,7 +58,6 @@ async fn embed_source_inner(
         source_table,
         source_id,
         &chunk_data,
-        hash,
         topic_id,
     )
     .await?;
@@ -180,11 +114,10 @@ pub async fn embed_sources(
         return Ok(0);
     }
 
-    // Phase 1: filter unchanged sources and chunk the rest
+    // Phase 1: chunk all sources
     struct PreparedSource {
         table: String,
         id: String,
-        hash: String,
         chunks: Vec<Chunk>,
         topic_id: Option<String>,
     }
@@ -193,13 +126,6 @@ pub async fn embed_sources(
     let mut skipped = 0usize;
 
     for req in &requests {
-        let hash = content_hash(&req.content);
-        if let Some(stored) = db::embeddings::get_content_hash(db, &req.source_id).await?
-            && stored == hash
-        {
-            skipped += 1;
-            continue;
-        }
         let chunks = chunk_content(&req.content, &req.tags, req.path.as_deref());
         if chunks.is_empty() {
             skipped += 1;
@@ -208,7 +134,6 @@ pub async fn embed_sources(
         prepared.push(PreparedSource {
             table: req.source_table.clone(),
             id: req.source_id.clone(),
-            hash,
             chunks,
             topic_id: req.topic_id.clone(),
         });
@@ -258,7 +183,6 @@ pub async fn embed_sources(
             &src.table,
             &src.id,
             &chunk_data,
-            &src.hash,
             src.topic_id.as_deref(),
         )
         .await?;

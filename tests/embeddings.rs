@@ -32,18 +32,9 @@ async fn upsert_and_count_embeddings() {
             .expect("create note");
 
     let vector = vec![0.1_f32; 1024];
-    db::embeddings::upsert_embedding(
-        &db,
-        "note",
-        &note_id,
-        0,
-        "chunk text",
-        "abc123",
-        &vector,
-        None,
-    )
-    .await
-    .expect("upsert embedding");
+    db::embeddings::upsert_embedding(&db, "note", &note_id, 0, "chunk text", &vector, None)
+        .await
+        .expect("upsert embedding");
 
     let count = db::embeddings::count_embeddings(&db).await.expect("count");
     assert_eq!(count, 1);
@@ -61,68 +52,15 @@ async fn upsert_overwrites_on_duplicate_source_and_chunk() {
     let vector_a = vec![0.1_f32; 1024];
     let vector_b = vec![0.9_f32; 1024];
 
-    db::embeddings::upsert_embedding(
-        &db, "note", &note_id, 0, "old text", "hash_a", &vector_a, None,
-    )
-    .await
-    .expect("first upsert");
-    db::embeddings::upsert_embedding(
-        &db, "note", &note_id, 0, "new text", "hash_b", &vector_b, None,
-    )
-    .await
-    .expect("second upsert");
+    db::embeddings::upsert_embedding(&db, "note", &note_id, 0, "old text", &vector_a, None)
+        .await
+        .expect("first upsert");
+    db::embeddings::upsert_embedding(&db, "note", &note_id, 0, "new text", &vector_b, None)
+        .await
+        .expect("second upsert");
 
     let count = db::embeddings::count_embeddings(&db).await.expect("count");
     assert_eq!(count, 1, "duplicate upsert should not create a second row");
-
-    let hash = db::embeddings::get_content_hash(&db, &note_id)
-        .await
-        .expect("get hash");
-    assert_eq!(
-        hash.as_deref(),
-        Some("hash_b"),
-        "hash should reflect latest upsert"
-    );
-}
-
-#[tokio::test]
-async fn get_content_hash_returns_none_for_missing_source() {
-    let (db, _config, _workspace, _config_dir) = common::test_database().await;
-
-    let fake_id = "nonexistent";
-    let hash = db::embeddings::get_content_hash(&db, fake_id)
-        .await
-        .expect("get hash");
-    assert!(hash.is_none());
-}
-
-#[tokio::test]
-async fn get_content_hash_returns_stored_hash() {
-    let (db, _config, _workspace, _config_dir) = common::test_database().await;
-
-    let note_id =
-        db::knowledge::create_note_full(&db, "Hash Note", "body", &[], &[], 5, None, None, None)
-            .await
-            .expect("create note");
-
-    let vector = vec![0.5_f32; 1024];
-    db::embeddings::upsert_embedding(
-        &db,
-        "note",
-        &note_id,
-        0,
-        "text",
-        "my_hash_42",
-        &vector,
-        None,
-    )
-    .await
-    .expect("upsert");
-
-    let hash = db::embeddings::get_content_hash(&db, &note_id)
-        .await
-        .expect("get hash");
-    assert_eq!(hash.as_deref(), Some("my_hash_42"));
 }
 
 #[tokio::test]
@@ -142,7 +80,6 @@ async fn delete_embeddings_for_source_removes_all_chunks() {
             &note_id,
             i,
             &format!("chunk {i}"),
-            "hash",
             &vector,
             None,
         )
@@ -173,10 +110,10 @@ async fn delete_all_embeddings_clears_table() {
             .expect("create b");
 
     let vector = vec![0.1_f32; 1024];
-    db::embeddings::upsert_embedding(&db, "note", &note_a, 0, "a", "h1", &vector, None)
+    db::embeddings::upsert_embedding(&db, "note", &note_a, 0, "a", &vector, None)
         .await
         .unwrap();
-    db::embeddings::upsert_embedding(&db, "note", &note_b, 0, "b", "h2", &vector, None)
+    db::embeddings::upsert_embedding(&db, "note", &note_b, 0, "b", &vector, None)
         .await
         .unwrap();
 
@@ -200,18 +137,9 @@ async fn vector_search_returns_results() {
 
     // Insert a known vector
     let vector = vec![1.0_f32; 1024];
-    db::embeddings::upsert_embedding(
-        &db,
-        "note",
-        &note_id,
-        0,
-        "searchable chunk",
-        "h",
-        &vector,
-        None,
-    )
-    .await
-    .expect("upsert");
+    db::embeddings::upsert_embedding(&db, "note", &note_id, 0, "searchable chunk", &vector, None)
+        .await
+        .expect("upsert");
 
     // Search with an identical vector — should get a perfect match
     let hits = db::embeddings::vector_search(&db, &vector, 5, &[])
@@ -247,10 +175,10 @@ async fn vector_search_ranks_similar_higher() {
     let mut far_vec = vec![0.0_f32; 1024];
     far_vec[0] = 1.0;
 
-    db::embeddings::upsert_embedding(&db, "note", &close_id, 0, "close", "h1", &close_vec, None)
+    db::embeddings::upsert_embedding(&db, "note", &close_id, 0, "close", &close_vec, None)
         .await
         .unwrap();
-    db::embeddings::upsert_embedding(&db, "note", &far_id, 0, "far", "h2", &far_vec, None)
+    db::embeddings::upsert_embedding(&db, "note", &far_id, 0, "far", &far_vec, None)
         .await
         .unwrap();
 
@@ -286,7 +214,7 @@ async fn vector_search_respects_limit() {
         )
         .await
         .unwrap();
-        db::embeddings::upsert_embedding(&db, "note", &id, 0, &format!("c{i}"), "h", &vector, None)
+        db::embeddings::upsert_embedding(&db, "note", &id, 0, &format!("c{i}"), &vector, None)
             .await
             .unwrap();
     }
@@ -436,7 +364,6 @@ async fn vector_insert_memory_stays_bounded() {
                 &note_id,
                 chunk,
                 &format!("{large_chunk_text} note {i} chunk {chunk}"),
-                &format!("hash_{i}_{chunk}"),
                 &vector,
                 None,
             )
@@ -462,7 +389,6 @@ async fn vector_insert_memory_stays_bounded() {
                 note_id,
                 chunk,
                 &format!("{large_chunk_text} note {i} chunk {chunk} v2"),
-                &format!("hash_{i}_{chunk}_v2"),
                 &vector,
                 None,
             )
@@ -551,7 +477,6 @@ async fn vector_insert_concurrent_stays_bounded() {
                         &note_id,
                         chunk,
                         &format!("{chunk_text} note {idx} chunk {chunk}"),
-                        &format!("hash_{idx}_{chunk}"),
                         &vector,
                         None,
                     )
@@ -606,7 +531,6 @@ async fn vector_insert_concurrent_stays_bounded() {
                 &note.id,
                 chunk,
                 &format!("{large_chunk_text} note {i} chunk {chunk} v2"),
-                &format!("hash_{i}_{chunk}_v2"),
                 &vector,
                 None,
             )
@@ -666,7 +590,6 @@ async fn vector_insert_large_scale_memory() {
                 &note_id,
                 chunk,
                 &format!("{large_chunk_text} note {i} chunk {chunk}"),
-                &format!("hash_{i}_{chunk}"),
                 &vector,
                 None,
             )
@@ -720,7 +643,6 @@ async fn replace_embeddings_atomically_swaps_all_chunks() {
             &note_id,
             i,
             &format!("old chunk {i}"),
-            "old_hash",
             &old_vec,
             None,
         )
@@ -735,18 +657,12 @@ async fn replace_embeddings_atomically_swaps_all_chunks() {
         .map(|i| (i, format!("new chunk {i}"), new_vec.clone()))
         .collect();
 
-    db::embeddings::replace_embeddings_for_source(&db, "note", &note_id, &chunks, "new_hash", None)
+    db::embeddings::replace_embeddings_for_source(&db, "note", &note_id, &chunks, None)
         .await
         .expect("replace");
 
     // Should have exactly 3 chunks now
     assert_eq!(db::embeddings::count_embeddings(&db).await.unwrap(), 3);
-
-    // Hash should be the new one
-    let hash = db::embeddings::get_content_hash(&db, &note_id)
-        .await
-        .unwrap();
-    assert_eq!(hash.as_deref(), Some("new_hash"));
 }
 
 // --- Chunker ---
