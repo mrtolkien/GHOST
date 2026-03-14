@@ -41,7 +41,7 @@ CREATE TABLE diary (
     date TEXT NOT NULL UNIQUE,
     body TEXT NOT NULL,
     updated_at TEXT NOT NULL
-);
+, file_hash TEXT);
 CREATE TABLE embedding (
     id TEXT PRIMARY KEY NOT NULL,
     source_table TEXT NOT NULL,
@@ -99,7 +99,7 @@ CREATE TABLE note (
     path TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
-);
+, file_hash TEXT);
 CREATE TABLE reference (
     id TEXT PRIMARY KEY NOT NULL,
     topic_id TEXT NOT NULL REFERENCES topic(id),
@@ -107,7 +107,7 @@ CREATE TABLE reference (
     content TEXT NOT NULL,
     source_url TEXT,
     import_batch_id TEXT REFERENCES import_batch(id) ON DELETE SET NULL,
-    created_at TEXT NOT NULL,
+    created_at TEXT NOT NULL, file_hash TEXT,
     UNIQUE(topic_id, path)
 );
 CREATE TABLE relates_to (
@@ -123,7 +123,7 @@ CREATE TABLE script (
     content    TEXT NOT NULL,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
-);
+, file_hash TEXT);
 CREATE TABLE session (
     id TEXT PRIMARY KEY NOT NULL,
     created_at TEXT NOT NULL,

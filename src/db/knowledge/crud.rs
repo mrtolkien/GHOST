@@ -13,7 +13,7 @@ pub async fn create_note(
     title: &str,
     body: &str,
 ) -> Result<String, DatabaseError> {
-    create_note_full(db, title, body, &[], &[], 5, None, None).await
+    create_note_full(db, title, body, &[], &[], 5, None, None, None).await
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -27,6 +27,7 @@ pub async fn create_note_full(
     trust: i64,
     topic_id: Option<&str>,
     path: Option<&str>,
+    file_hash: Option<&str>,
 ) -> Result<String, DatabaseError> {
     let id = new_id();
     let ts = now();
@@ -35,8 +36,8 @@ pub async fn create_note_full(
 
     sqlx::query(
         "INSERT INTO note \
-         (id, title, body, tags, sources, trust, topic_id, path, created_at, updated_at) \
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+         (id, title, body, tags, sources, trust, topic_id, path, file_hash, created_at, updated_at) \
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
     )
     .bind(&id)
     .bind(title)
@@ -46,6 +47,7 @@ pub async fn create_note_full(
     .bind(trust)
     .bind(topic_id)
     .bind(path)
+    .bind(file_hash)
     .bind(&ts)
     .bind(&ts)
     .execute(db)
@@ -70,13 +72,15 @@ pub async fn update_note(
     trust: i64,
     topic_id: Option<&str>,
     path: Option<&str>,
+    file_hash: Option<&str>,
 ) -> Result<(), DatabaseError> {
     let tags_json = serde_json::to_string(tags).unwrap_or_default();
     let sources_json = serde_json::to_string(sources).unwrap_or_default();
 
     sqlx::query(
         "UPDATE note SET body = ?, tags = ?, sources = ?, \
-         trust = ?, topic_id = COALESCE(?, topic_id), path = ?, updated_at = ? WHERE id = ?",
+         trust = ?, topic_id = COALESCE(?, topic_id), path = ?, file_hash = ?, \
+         updated_at = ? WHERE id = ?",
     )
     .bind(body)
     .bind(&tags_json)
@@ -84,6 +88,7 @@ pub async fn update_note(
     .bind(trust)
     .bind(topic_id)
     .bind(path)
+    .bind(file_hash)
     .bind(now())
     .bind(note_id)
     .execute(db)
@@ -101,13 +106,15 @@ pub async fn create_diary(
     db: &SqlitePool,
     date: &str,
     body: &str,
+    file_hash: Option<&str>,
 ) -> Result<String, DatabaseError> {
     let id = new_id();
 
-    sqlx::query("INSERT INTO diary (id, date, body, updated_at) VALUES (?, ?, ?, ?)")
+    sqlx::query("INSERT INTO diary (id, date, body, file_hash, updated_at) VALUES (?, ?, ?, ?, ?)")
         .bind(&id)
         .bind(date)
         .bind(body)
+        .bind(file_hash)
         .bind(now())
         .execute(db)
         .await
@@ -144,6 +151,7 @@ pub async fn create_reference(
     content: &str,
     source_url: Option<&str>,
     import_batch_id: Option<&str>,
+    file_hash: Option<&str>,
 ) -> Result<String, DatabaseError> {
     let id = new_id();
     let ts = now();
@@ -152,12 +160,13 @@ pub async fn create_reference(
     // update its content in place. This handles re-imports gracefully — e.g.
     // when a long-running PDF import is retried after a timeout.
     let row = sqlx::query_as::<_, (String,)>(
-        "INSERT INTO reference (id, topic_id, path, content, source_url, import_batch_id, created_at) \
-         VALUES (?, ?, ?, ?, ?, ?, ?) \
+        "INSERT INTO reference (id, topic_id, path, content, source_url, import_batch_id, file_hash, created_at) \
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?) \
          ON CONFLICT(topic_id, path) DO UPDATE SET \
            content = excluded.content, \
            source_url = excluded.source_url, \
-           import_batch_id = excluded.import_batch_id \
+           import_batch_id = excluded.import_batch_id, \
+           file_hash = excluded.file_hash \
          RETURNING id",
     )
     .bind(&id)
@@ -166,6 +175,7 @@ pub async fn create_reference(
     .bind(content)
     .bind(source_url)
     .bind(import_batch_id)
+    .bind(file_hash)
     .bind(&ts)
     .fetch_one(db)
     .await
@@ -555,16 +565,19 @@ pub async fn create_script(
     db: &SqlitePool,
     path: &str,
     content: &str,
+    file_hash: Option<&str>,
 ) -> Result<String, DatabaseError> {
     let id = new_id();
     let ts = now();
 
     sqlx::query(
-        "INSERT INTO script (id, path, content, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+        "INSERT INTO script (id, path, content, file_hash, created_at, updated_at) \
+         VALUES (?, ?, ?, ?, ?, ?)",
     )
     .bind(&id)
     .bind(path)
     .bind(content)
+    .bind(file_hash)
     .bind(&ts)
     .bind(&ts)
     .execute(db)
@@ -583,9 +596,11 @@ pub async fn update_script(
     db: &SqlitePool,
     script_id: &str,
     content: &str,
+    file_hash: Option<&str>,
 ) -> Result<(), DatabaseError> {
-    sqlx::query("UPDATE script SET content = ?, updated_at = ? WHERE id = ?")
+    sqlx::query("UPDATE script SET content = ?, file_hash = ?, updated_at = ? WHERE id = ?")
         .bind(content)
+        .bind(file_hash)
         .bind(now())
         .bind(script_id)
         .execute(db)

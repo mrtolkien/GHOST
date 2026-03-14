@@ -129,6 +129,7 @@ pub async fn import_git(
             &content,
             Some(url),
             Some(&batch_id),
+            None,
         )
         .await?;
 

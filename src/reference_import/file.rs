@@ -102,8 +102,16 @@ pub async fn import_file(
     std::fs::write(&disk_path, &markdown)?;
 
     // DB record
-    db::knowledge::create_reference(db, &topic_id, &ref_path, &markdown, None, Some(&batch_id))
-        .await?;
+    db::knowledge::create_reference(
+        db,
+        &topic_id,
+        &ref_path,
+        &markdown,
+        None,
+        Some(&batch_id),
+        None,
+    )
+    .await?;
 
     // Update batch
     let total_refs = db::knowledge::count_references_by_topic(db, &topic_id).await? as usize;

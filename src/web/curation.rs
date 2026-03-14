@@ -275,6 +275,7 @@ pub async fn link_cited_edges(
                             &preview,
                             Some(&file.url),
                             None,
+                            None,
                         )
                         .await
                         {

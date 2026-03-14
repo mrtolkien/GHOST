@@ -123,6 +123,7 @@ async fn create_note(
         trust,
         None,
         Some(&rel_path),
+        None,
     )
     .await
     .map_err(|e| GhostError::Database(Box::new(e)))?;
@@ -206,6 +207,7 @@ async fn update_note(
         trust,
         None,
         Some(&rel_path),
+        None,
     )
     .await
     .map_err(|e| GhostError::Database(Box::new(e)))?;

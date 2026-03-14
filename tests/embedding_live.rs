@@ -68,6 +68,7 @@ async fn hash_check_after_bulk_reference_insert() {
             &content,
             None,
             None,
+            None,
         )
         .await
         .expect("create ref");
@@ -105,6 +106,7 @@ async fn embed_source_pipeline_stores_and_searches() {
         &["dioxus".to_string()],
         &[],
         5,
+        None,
         None,
         None,
     )

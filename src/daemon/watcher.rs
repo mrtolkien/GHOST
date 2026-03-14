@@ -300,6 +300,7 @@ async fn process_note_change(
                 parsed.front.trust,
                 topic_id.as_deref(),
                 Some(&rel_path),
+                None,
             )
             .await;
             let _ = knowledge::reconcile::reconcile_edges(
@@ -321,6 +322,7 @@ async fn process_note_change(
                 parsed.front.trust,
                 topic_id.as_deref(),
                 Some(&rel_path),
+                None,
             )
             .await
             {
@@ -411,7 +413,7 @@ async fn process_reference_change(
                     Err(_) => return Ok(None),
                 };
                 match crate::db::knowledge::create_reference(
-                    db, &tid, &ref_path, &content, None, None,
+                    db, &tid, &ref_path, &content, None, None, None,
                 )
                 .await
                 {
@@ -466,7 +468,7 @@ async fn process_diary_change(
 
     let diary_id = match crate::db::knowledge::get_diary_by_date(db, &date).await {
         Ok(Some(d)) => d.id,
-        _ => match crate::db::knowledge::create_diary(db, &date, &body).await {
+        _ => match crate::db::knowledge::create_diary(db, &date, &body, None).await {
             Ok(id) => id,
             Err(_) => return Ok(None),
         },
@@ -522,10 +524,10 @@ async fn process_script_change(
 
     let script_id = match crate::db::knowledge::find_script_by_path(db, &script_path).await {
         Ok(Some(s)) => {
-            let _ = crate::db::knowledge::update_script(db, &s.id, &content).await;
+            let _ = crate::db::knowledge::update_script(db, &s.id, &content, None).await;
             s.id
         }
-        _ => match crate::db::knowledge::create_script(db, &script_path, &content).await {
+        _ => match crate::db::knowledge::create_script(db, &script_path, &content, None).await {
             Ok(id) => id,
             Err(_) => return Ok(None),
         },
