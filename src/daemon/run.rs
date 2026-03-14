@@ -16,7 +16,7 @@ use crate::config::Config;
 use crate::db::{self, GhostDb};
 use crate::embeddings::EmbeddingClient;
 use crate::error::GhostError;
-use crate::interfaces::discord::{self, DiscordSender};
+use crate::interfaces::discord::{self, DiscordHandle};
 
 /// Handle to a running GHOST daemon. Returned by `boot()`.
 #[allow(dead_code)]
@@ -28,7 +28,7 @@ pub struct DaemonHandle {
     pub active_sessions: ActiveSessions,
     shutdown_tx: watch::Sender<bool>,
     handles: Vec<JoinHandle<()>>,
-    discord: Option<(DiscordSender, JoinHandle<()>)>,
+    discord: Option<DiscordHandle>,
     idle_trigger_tx: tokio::sync::mpsc::Sender<()>,
     watcher_busy: Arc<AtomicBool>,
 }
@@ -84,8 +84,8 @@ impl DaemonHandle {
         for h in self.handles {
             let _ = h.await;
         }
-        if let Some((_, h)) = self.discord {
-            let _ = h.await;
+        if let Some(discord) = self.discord {
+            discord.shutdown().await;
         }
     }
 }
@@ -291,7 +291,7 @@ pub async fn boot_with_config(config: Config) -> Result<DaemonHandle, GhostError
 
     let discord_sender_arc = discord_result
         .as_ref()
-        .map(|(sender, _)| Arc::new(sender.clone()));
+        .map(|d| Arc::new(d.sender.clone()));
 
     // Spawn unified event handler (replaces agent_watcher + completion_watcher)
     let event_handler_handle = super::event_handler::spawn_event_handler(
@@ -325,10 +325,10 @@ async fn handle_bundled_updates(
     config: &crate::config::Config,
     changes: &crate::bundled::BundledChanges,
     db: &GhostDb,
-    discord_result: &Option<(DiscordSender, JoinHandle<()>)>,
+    discord_result: &Option<DiscordHandle>,
     mut bundled_rx: Option<tokio::sync::mpsc::UnboundedReceiver<String>>,
 ) -> Result<(), GhostError> {
-    let decision = if let (Some(rx), Some((sender, _))) = (&mut bundled_rx, discord_result) {
+    let decision = if let (Some(rx), Some(discord)) = (&mut bundled_rx, discord_result) {
         if let Some(channel_id) = resolve_update_channel(db).await {
             info!(
                 merges = changes.clean_merges.len(),
@@ -336,7 +336,7 @@ async fn handle_bundled_updates(
                 removed = changes.removed.len(),
                 "prompting user for bundled file updates"
             );
-            crate::bundled::prompt_updates_via_discord(changes, sender.http(), channel_id, rx).await
+            crate::bundled::prompt_updates_via_discord(changes, discord.sender.http(), channel_id, rx).await
         } else {
             info!("no Discord channel found, auto-accepting bundled updates");
             crate::bundled::UpdateDecision::accept_all(changes)

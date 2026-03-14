@@ -7,4 +7,4 @@ mod start;
 mod table_image;
 pub(crate) mod ui_events;
 
-pub use start::{DiscordError, DiscordSender, start_discord};
+pub use start::{DiscordError, DiscordHandle, DiscordSender, start_discord};

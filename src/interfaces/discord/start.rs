@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use serenity::gateway::ShardManager;
 use serenity::http::Http;
 use serenity::model::id::ChannelId;
 use serenity::prelude::*;
@@ -93,6 +94,21 @@ impl DiscordSender {
     }
 }
 
+/// Running Discord connection — sender, shard manager, and background task.
+pub struct DiscordHandle {
+    pub sender: DiscordSender,
+    shard_manager: Arc<ShardManager>,
+    handle: JoinHandle<()>,
+}
+
+impl DiscordHandle {
+    /// Gracefully close all shards and wait for the client task to exit.
+    pub async fn shutdown(self) {
+        self.shard_manager.shutdown_all().await;
+        let _ = self.handle.await;
+    }
+}
+
 /// Peach accent color for confirmation containers.
 const CONFIRMATION_ACCENT: u32 = 0xFA_B3_87;
 
@@ -106,7 +122,7 @@ pub async fn start_discord(
     active_sessions: ActiveSessions,
     bundled_update_tx: Option<tokio::sync::mpsc::UnboundedSender<String>>,
     confirmation_rx: Option<ConfirmationReceiver>,
-) -> Result<Option<(DiscordSender, JoinHandle<()>)>, DiscordError> {
+) -> Result<Option<DiscordHandle>, DiscordError> {
     if !config.discord.enabled {
         info!("Discord is disabled in config");
         return Ok(None);
@@ -155,6 +171,7 @@ pub async fn start_discord(
     let sender = DiscordSender {
         http: client.http.clone(),
     };
+    let shard_manager = client.shard_manager.clone();
 
     // Spawn confirmation renderer (reads ConfirmationRequests, sends v2 messages)
     if let Some(confirmation_rx) = confirmation_rx {
@@ -167,7 +184,11 @@ pub async fn start_discord(
         }
     });
 
-    Ok(Some((sender, handle)))
+    Ok(Some(DiscordHandle {
+        sender,
+        shard_manager,
+        handle,
+    }))
 }
 
 /// Spawn a background task that receives `ConfirmationRequest`s and renders
