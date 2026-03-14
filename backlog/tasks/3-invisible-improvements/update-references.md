@@ -1,4 +1,4 @@
-We need to update references:
+We need a way to update references:
 
 - Git repos = update to latest or tag
 - Others = re-trigger crawl and save if different
