@@ -1,9 +1,11 @@
-# GHOST — CLAUDE.md
+# GHOST - AI assistant agents guidelines
 
 Baseline for all agent runs. `AGENTS.md` is symlinked here. Feature specs in `specs/`.
 Update this file when project-wide rules change or info becomes stale.
 
 ## HOW TO WORK
+
+### Code Design
 
 ASK QUESTIONS ABOUT DESIGN. DON'T JUST START WRITING CODE.
 
@@ -11,14 +13,24 @@ You are _great_ at writing code, but _horrendous_ at designing systems and produ
 Make extremely few assumptions. Regularly ask if your approach and understanding are
 right. DO NOT MAKE ASSUMPTIONS ABOUT WHAT THE USER WANTS: ASK THEM.
 
+### Maintainability Over Expedience
+
+You have a strong bias toward short-term fixes. You will instinctively reach for the
+quick patch — hard-coded values, special-case branches, copy-pasted blocks, brittle
+workarounds that pass the immediate test but make the codebase worse. **Resist this.**
+When fixing a bug or adding a feature, find the _right_ solution: the one that makes the
+next change easier, not harder. If the correct fix requires refactoring surrounding
+code, moving responsibilities, or rethinking an abstraction — do that work. A clean fix
+that takes longer is always preferable to a dirty fix that ships faster. Never introduce
+a hack "for now" without explicitly flagging it and getting user approval. Causing
+regressions in existing behavior through careless, rushed changes is worse than slower
+delivery.
+
 ## Project Overview
 
 GHOST is a personal AI agent platform. A single binary (`ghost`) runs one GHOST for one
 OPERATOR — persistent memory, background agents, multi-interface communication (Discord
 primary for PoC).
-
-**Predecessor**: Reboot of `../t-koma`. Consult it for patterns; spec files link to
-relevant old code. Validate with user before carrying over behavior.
 
 **State**: We are currently in pre-alpha. The software is moving extremely fast. You are
 allowed to make breaking changes requiring re-creating the full GHOST workspace if
@@ -29,7 +41,7 @@ user.
 
 - Single binary, single crate, CLI-first
 - One GHOST, one OPERATOR — identity in workspace files, not DB tables
-- SQLite (sqlx) + sqlite-vec (KNN) + FTS5 — Logfire for observability
+- SQLite (sqlx) + sqlite-vec (KNN) + FTS5 — OpenTelemetry for observability
 - Skills over tools — prefer agentskills.io skills + file reads over new tool APIs
 
 ### Core Concepts
