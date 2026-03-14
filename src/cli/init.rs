@@ -41,9 +41,36 @@ pub async fn execute() -> Result<(), GhostError> {
     let config = crate::config::load()?;
     crate::config_workspace::bootstrap_workspace(&config)?;
 
-    install_service_file(&config)?;
+    install_service_file(&config, false)?;
 
     Ok(())
+}
+
+/// Resolve the ghost binary path for service files.
+///
+/// Prefers the first PATH entry for the binary name over the fully-resolved
+/// `current_exe()`. On nix, `current_exe()` resolves through profile symlinks to
+/// a volatile `/nix/store/<hash>/bin/ghost` path — using the PATH entry
+/// (e.g. `~/.nix-profile/bin/ghost`) ensures the service file survives upgrades.
+fn stable_exe_path() -> Result<String, GhostError> {
+    let resolved = std::env::current_exe()
+        .map_err(|e| std::io::Error::new(e.kind(), format!("cannot find own binary: {e}")))?;
+
+    let exe_name = resolved
+        .file_name()
+        .ok_or_else(|| std::io::Error::other("cannot determine binary name"))?;
+
+    // Find the binary in PATH without resolving symlinks
+    if let Some(path_var) = std::env::var_os("PATH") {
+        for dir in std::env::split_paths(&path_var) {
+            let candidate = dir.join(exe_name);
+            if candidate.exists() {
+                return Ok(candidate.display().to_string());
+            }
+        }
+    }
+
+    Ok(resolved.display().to_string())
 }
 
 /// Check if `loginctl enable-linger` is set for the current user.
@@ -91,11 +118,14 @@ fn ensure_linger_enabled() {
     }
 }
 
-fn install_service_file(config: &crate::config::Config) -> Result<(), GhostError> {
-    let exe = std::env::current_exe()
-        .map_err(|e| std::io::Error::new(e.kind(), format!("cannot find own binary: {e}")))?
-        .display()
-        .to_string();
+/// Write the daemon service file (systemd unit or launchd plist).
+///
+/// `quiet`: skip printing start instructions (used during `ghost update`).
+pub(crate) fn install_service_file(
+    config: &crate::config::Config,
+    quiet: bool,
+) -> Result<(), GhostError> {
+    let exe = stable_exe_path()?;
 
     if cfg!(target_os = "macos") {
         let plist_dir = dirs::home_dir()
@@ -115,13 +145,15 @@ fn install_service_file(config: &crate::config::Config) -> Result<(), GhostError
         let plist_path = plist_dir.join("com.ghost.daemon.plist");
         std::fs::write(&plist_path, content)?;
 
-        println!("service file written to {}", plist_path.display());
-        println!();
-        println!("start the daemon with:");
-        println!(
-            "  launchctl bootstrap gui/$(id -u) {}",
-            plist_path.display()
-        );
+        if !quiet {
+            println!("service file written to {}", plist_path.display());
+            println!();
+            println!("start the daemon with:");
+            println!(
+                "  launchctl bootstrap gui/$(id -u) {}",
+                plist_path.display()
+            );
+        }
     } else {
         // Linux — systemd user unit
         let unit_dir = dirs::config_dir()
@@ -135,12 +167,14 @@ fn install_service_file(config: &crate::config::Config) -> Result<(), GhostError
         let unit_path = unit_dir.join("ghost-daemon.service");
         std::fs::write(&unit_path, content)?;
 
-        println!("service file written to {}", unit_path.display());
-        println!();
-        println!("start the daemon with:");
-        println!("  systemctl --user enable --now ghost-daemon");
+        if !quiet {
+            println!("service file written to {}", unit_path.display());
+            println!();
+            println!("start the daemon with:");
+            println!("  systemctl --user enable --now ghost-daemon");
 
-        ensure_linger_enabled();
+            ensure_linger_enabled();
+        }
     }
 
     Ok(())

@@ -19,6 +19,11 @@ pub fn execute() -> Result<(), GhostError> {
         }
         println!("restarting ghost daemon via launchctl");
     } else {
+        // Reload unit files in case the service file was regenerated
+        let _ = std::process::Command::new("systemctl")
+            .args(["--user", "daemon-reload"])
+            .status();
+
         let status = std::process::Command::new("systemctl")
             .args(["--user", "restart", "ghost-daemon"])
             .status()

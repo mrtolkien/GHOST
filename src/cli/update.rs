@@ -77,8 +77,12 @@ pub async fn execute(from_source: bool, version: Option<String>) -> Result<(), G
         .unwrap_or_else(|| "unknown".into());
 
     println!("updated: {new_version}");
-    println!("rebooting daemon...");
 
+    // Regenerate service file so it points to the current binary path
+    let config = crate::config::load()?;
+    crate::cli::init::install_service_file(&config, true)?;
+
+    println!("rebooting daemon...");
     crate::cli::reboot::execute()?;
     Ok(())
 }
