@@ -682,6 +682,106 @@ fn content_hash_differs_for_different_content() {
 }
 
 #[tokio::test]
+async fn reconcile_filesystem_skips_unchanged_files() {
+    let (db, _config, workspace, _config_dir) = common::test_database().await;
+
+    // Write a note file to disk
+    common::write_test_note(workspace.path(), "Hash Test", "initial content");
+
+    // First reconciliation: file is new, should be processed
+    let (discovered_1, _) =
+        ghost::embeddings::pipeline::reconcile_filesystem(&db, workspace.path())
+            .await
+            .unwrap();
+    assert!(discovered_1 > 0, "first run should discover the new file");
+
+    // Second reconciliation: file unchanged, hash matches but no embeddings yet
+    // → should NOT re-discover but SHOULD queue embed request
+    let (discovered_2, embed_reqs_2) =
+        ghost::embeddings::pipeline::reconcile_filesystem(&db, workspace.path())
+            .await
+            .unwrap();
+    assert_eq!(
+        discovered_2, 0,
+        "second run should not re-discover unchanged file"
+    );
+    assert!(
+        !embed_reqs_2.is_empty(),
+        "should queue embed request for file without embeddings"
+    );
+
+    // Simulate embedding by inserting a dummy embedding for the note
+    let note = db::knowledge::find_note_by_title(&db, "Hash Test")
+        .await
+        .unwrap()
+        .expect("note should exist");
+    let dummy_vec = vec![0.1_f32; 1024];
+    db::embeddings::upsert_embedding(&db, "note", &note.id, 0, "chunk", &dummy_vec, None)
+        .await
+        .unwrap();
+
+    // Third reconciliation: hash matches AND has embeddings → should skip entirely
+    let (discovered_3, embed_reqs_3) =
+        ghost::embeddings::pipeline::reconcile_filesystem(&db, workspace.path())
+            .await
+            .unwrap();
+    assert_eq!(discovered_3, 0, "third run should skip unchanged file");
+    assert!(
+        embed_reqs_3.is_empty(),
+        "no embed requests when hash matches and embeddings exist"
+    );
+
+    // Modify the file
+    common::write_test_note(workspace.path(), "Hash Test", "modified content");
+
+    // Fourth reconciliation: file changed, hash differs → should be re-processed
+    let (discovered_4, _) =
+        ghost::embeddings::pipeline::reconcile_filesystem(&db, workspace.path())
+            .await
+            .unwrap();
+    assert!(
+        discovered_4 > 0,
+        "fourth run should re-process the modified file"
+    );
+}
+
+#[tokio::test]
+async fn reconcile_filesystem_queues_embed_for_unembedded_files() {
+    let (db, _config, workspace, _config_dir) = common::test_database().await;
+
+    // Write a note file and reconcile to create the DB record with file_hash
+    common::write_test_note(workspace.path(), "Embed Gap", "embed me please");
+    let (discovered, _) = ghost::embeddings::pipeline::reconcile_filesystem(&db, workspace.path())
+        .await
+        .unwrap();
+    assert!(discovered > 0);
+
+    // Delete embeddings to simulate Ollama-was-down scenario
+    let note = db::knowledge::find_note_by_title(&db, "Embed Gap")
+        .await
+        .unwrap()
+        .expect("note should exist");
+    db::embeddings::delete_embeddings_for_source(&db, &note.id)
+        .await
+        .unwrap();
+
+    // Re-reconcile: hash matches but embeddings missing → should return EmbedRequest
+    let (discovered_2, embed_reqs) =
+        ghost::embeddings::pipeline::reconcile_filesystem(&db, workspace.path())
+            .await
+            .unwrap();
+    assert_eq!(
+        discovered_2, 0,
+        "file unchanged, should not count as discovered"
+    );
+    assert!(
+        !embed_reqs.is_empty(),
+        "should queue embed request for file with missing embeddings"
+    );
+    assert_eq!(embed_reqs[0].source_table, "note");
+}
+
+#[tokio::test]
 async fn reconcile_filesystem_discovers_untracked_reference() {
     let (db, _config, workspace, _config_dir) = common::test_database().await;
 
