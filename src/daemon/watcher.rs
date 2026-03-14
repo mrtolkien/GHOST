@@ -439,7 +439,10 @@ async fn process_reference_change(
 
     let (ref_id, resolved_topic_id) =
         match crate::db::knowledge::find_reference_by_path(db, &ref_path).await {
-            Ok(Some(r)) => (r.id.clone(), r.topic_id.clone()),
+            Ok(Some(r)) => {
+                let _ = crate::db::knowledge::update_reference(db, &r.id, content, file_hash).await;
+                (r.id, r.topic_id)
+            }
             _ => {
                 let tid = match crate::db::knowledge::find_or_create_topic(db, &topic_name).await {
                     Ok(id) => id,
@@ -509,7 +512,10 @@ async fn process_diary_change(
     logfire::info!("watcher: processing diary change", date = date.clone(),);
 
     let diary_id = match crate::db::knowledge::get_diary_by_date(db, &date).await {
-        Ok(Some(d)) => d.id,
+        Ok(Some(d)) => {
+            let _ = crate::db::knowledge::update_diary(db, &d.id, body, file_hash).await;
+            d.id
+        }
         _ => match crate::db::knowledge::create_diary(db, &date, body, file_hash).await {
             Ok(id) => id,
             Err(_) => return Ok(None),

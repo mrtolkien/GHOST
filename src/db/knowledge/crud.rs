@@ -127,6 +127,28 @@ pub async fn create_diary(
     Ok(id)
 }
 
+#[tracing::instrument(skip_all, level = "debug", fields(diary_id = %diary_id))]
+pub async fn update_diary(
+    db: &SqlitePool,
+    diary_id: &str,
+    body: &str,
+    file_hash: Option<&str>,
+) -> Result<(), DatabaseError> {
+    sqlx::query("UPDATE diary SET body = ?, file_hash = ?, updated_at = ? WHERE id = ?")
+        .bind(body)
+        .bind(file_hash)
+        .bind(now())
+        .bind(diary_id)
+        .execute(db)
+        .await
+        .map_err(|source| DatabaseError::Query {
+            table: "diary",
+            operation: "update",
+            source,
+        })?;
+    Ok(())
+}
+
 #[tracing::instrument(skip_all, level = "debug", fields(date = %date))]
 pub async fn append_diary(db: &SqlitePool, date: &str, line: &str) -> Result<(), DatabaseError> {
     sqlx::query("UPDATE diary SET body = body || char(10) || ?, updated_at = ? WHERE date = ?")
@@ -377,6 +399,27 @@ pub async fn delete_diary(db: &SqlitePool, diary_id: &str) -> Result<(), Databas
 }
 
 // --- Reference updates ---
+
+#[tracing::instrument(skip_all, level = "debug", fields(ref_id = %ref_id))]
+pub async fn update_reference(
+    db: &SqlitePool,
+    ref_id: &str,
+    content: &str,
+    file_hash: Option<&str>,
+) -> Result<(), DatabaseError> {
+    sqlx::query("UPDATE reference SET content = ?, file_hash = ? WHERE id = ?")
+        .bind(content)
+        .bind(file_hash)
+        .bind(ref_id)
+        .execute(db)
+        .await
+        .map_err(|source| DatabaseError::Query {
+            table: "reference",
+            operation: "update",
+            source,
+        })?;
+    Ok(())
+}
 
 #[tracing::instrument(skip_all, level = "debug", fields(ref_id = %ref_id))]
 pub async fn update_reference_path(

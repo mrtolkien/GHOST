@@ -13,7 +13,8 @@ pub use crud::{
     get_diary_by_date, get_note, get_reference, get_script, list_all_diary, list_all_notes,
     list_all_references, list_all_scripts, list_recent, list_references_by_topic,
     load_diary_file_hashes, load_note_file_hashes, load_reference_file_hashes,
-    load_script_file_hashes, update_note, update_reference_path, update_script,
+    load_script_file_hashes, update_diary, update_note, update_reference, update_reference_path,
+    update_script,
 };
 pub use graph::{
     backfill_message_source_references, create_cited_edge, create_edge, create_message_source,

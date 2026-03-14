@@ -7,12 +7,13 @@
 **Goal:** Reduce boot reconciliation from ~3s (150 files) to <200ms by adding file-level
 hashing, skipping unchanged files, and removing redundant per-chunk hash checks.
 
-**Architecture:** Add a `file_hash TEXT` column to `note`, `reference`, `diary`, `script`
-tables. On boot, bulk-load `(path, file_hash, has_embeddings)` into memory via LEFT JOIN,
-walk the filesystem, skip unchanged files, and only process/embed changed ones. Remove the
-now-redundant `content_hash` column from the `embedding` table.
+**Architecture:** Add a `file_hash TEXT` column to `note`, `reference`, `diary`,
+`script` tables. On boot, bulk-load `(path, file_hash, has_embeddings)` into memory via
+LEFT JOIN, walk the filesystem, skip unchanged files, and only process/embed changed
+ones. Remove the now-redundant `content_hash` column from the `embedding` table.
 
-**Tech Stack:** SQLite (sqlx migrations), tokio::fs, SHA-256 (sha2 crate, already a dependency)
+**Tech Stack:** SQLite (sqlx migrations), tokio::fs, SHA-256 (sha2 crate, already a
+dependency)
 
 **Pre-existing bug (out of scope but noted):** `process_diary_change` in `watcher.rs`
 never updates an existing diary's body — it finds by date and returns the old ID without
@@ -26,6 +27,7 @@ follow-up should add `update_diary` logic, but this plan doesn't address it.
 ### Task 1: Add `file_hash` column to knowledge tables
 
 **Files:**
+
 - Create: `migrations/009_file_hash.sql`
 
 - [ ] **Step 1: Write the migration**
@@ -37,12 +39,13 @@ ALTER TABLE diary ADD COLUMN file_hash TEXT;
 ALTER TABLE script ADD COLUMN file_hash TEXT;
 ```
 
-Nullable — existing rows get NULL, which means "needs processing" (same as hash mismatch).
+Nullable — existing rows get NULL, which means "needs processing" (same as hash
+mismatch).
 
 - [ ] **Step 2: Verify migration applies**
 
-Run: `cargo build`
-Expected: compiles (sqlx offline mode, so we need to update sqlx-data too)
+Run: `cargo build` Expected: compiles (sqlx offline mode, so we need to update sqlx-data
+too)
 
 - [ ] **Step 3: Commit**
 
@@ -55,8 +58,12 @@ feat: add file_hash column to knowledge tables
 ### Task 2: Update struct definitions and CRUD to include `file_hash`
 
 **Files:**
-- Modify: `src/db/knowledge/records.rs` — add `file_hash: Option<String>` to all 4 record structs
-- Modify: `src/db/knowledge/crud.rs` — update `create_note_full`, `update_note`, `create_reference`, `create_script`, `update_script`, diary create/update to accept and store `file_hash`; update all SELECT queries to include `file_hash`
+
+- Modify: `src/db/knowledge/records.rs` — add `file_hash: Option<String>` to all 4
+  record structs
+- Modify: `src/db/knowledge/crud.rs` — update `create_note_full`, `update_note`,
+  `create_reference`, `create_script`, `update_script`, diary create/update to accept
+  and store `file_hash`; update all SELECT queries to include `file_hash`
 
 - [ ] **Step 1: Add `file_hash` field to record structs**
 
@@ -66,8 +73,8 @@ Add `pub file_hash: Option<String>` to `NoteRecord`, `ReferenceRecord`, `DiaryRe
 - [ ] **Step 2: Verify SELECT queries work automatically**
 
 All existing queries use `SELECT * FROM note ...` etc. with `sqlx::FromRow` derivation.
-Adding the field to the struct is sufficient — `FromRow` maps by column name, so `SELECT
-*` picks up the new column automatically. **No query changes needed.**
+Adding the field to the struct is sufficient — `FromRow` maps by column name, so
+`SELECT *` picks up the new column automatically. **No query changes needed.**
 
 - [ ] **Step 3: Update write functions to accept and store `file_hash`**
 
@@ -80,7 +87,8 @@ Same for `create_reference`, `update_reference` (if exists), `create_diary`/upda
 - [ ] **Step 4: Run `just ci`**
 
 Fix all compilation errors from callers that now need the new parameter. Pass `None` at
-all existing call sites for now — the reconciliation code will pass real hashes in Task 4.
+all existing call sites for now — the reconciliation code will pass real hashes in
+Task 4.
 
 - [ ] **Step 5: Commit**
 
@@ -93,10 +101,11 @@ feat: plumb file_hash through knowledge CRUD layer
 ### Task 3: Add bulk hash-loading query
 
 **Files:**
+
 - Modify: `src/db/knowledge/crud.rs` — add `load_file_hashes` function
 
-This is the key query for the batch approach. One query per table, LEFT JOIN on embedding
-to detect missing embeddings.
+This is the key query for the batch approach. One query per table, LEFT JOIN on
+embedding to detect missing embeddings.
 
 - [ ] **Step 1: Define the return type and function**
 
@@ -161,6 +170,7 @@ feat: add bulk file hash loading queries for boot reconciliation
 ### Task 4: Rewrite `reconcile_filesystem` with batch hash checking
 
 **Files:**
+
 - Modify: `src/embeddings/pipeline.rs` — rewrite `reconcile_filesystem`
 - Modify: `src/daemon/watcher.rs` — update `process_note_change` and siblings to accept
   and return `file_hash`, use `tokio::fs::read` instead of `std::fs::read_to_string`
@@ -184,8 +194,8 @@ Replace `std::fs::read_to_string(path)` (line 258 of watcher.rs) with
 
 - [ ] **Step 2: Update `process_note_change` to accept and store `file_hash`**
 
-Add a `file_hash: &str` parameter. Pass it through to `create_note_full` / `update_note`.
-Do the same for all 4 `process_*_change` functions.
+Add a `file_hash: &str` parameter. Pass it through to `create_note_full` /
+`update_note`. Do the same for all 4 `process_*_change` functions.
 
 - [ ] **Step 3: Rewrite `reconcile_filesystem`**
 
@@ -265,12 +275,13 @@ pub async fn reconcile_filesystem(
 
 Note: the "hash matches, no embeddings" branch needs the source_id and content to build
 an `EmbedRequest`. Two options:
+
 - (a) Also load `id` and `body`/`content` in the bulk query — more memory but no extra
   DB hit
 - (b) Do a single DB lookup for just that record — rare case, acceptable
 
-Option (b) is simpler since this path is uncommon (only when Ollama was previously down).
-Use the existing `find_note_by_path` etc.
+Option (b) is simpler since this path is uncommon (only when Ollama was previously
+down). Use the existing `find_note_by_path` etc.
 
 - [ ] **Step 4: Update `process_change` to accept pre-read content**
 
@@ -304,26 +315,32 @@ feat: batch hash-check in reconcile_filesystem, skip unchanged files
 ### Task 5: Merge `reconcile_embeddings` into `reconcile_filesystem`
 
 **Files:**
+
 - Modify: `src/embeddings/pipeline.rs` — remove standalone `reconcile_embeddings`, fold
   its purpose into the new flow
 - Modify: `src/daemon/run.rs` — update boot sequence
 
 The old flow was:
+
 1. `reconcile_filesystem` → sync orphan files to DB (no embedding)
 2. `reconcile_embeddings` → page through all DB records, hash-check, embed stale ones
 
 The new flow is:
+
 1. `reconcile_filesystem` → returns `Vec<EmbedRequest>` for changed/unembedded files
 2. Call `embed_sources` on that Vec (already exists, handles batching)
 
 - [ ] **Step 1: Update boot sequence in `src/daemon/run.rs`**
 
 Replace:
+
 ```rust
 reconcile_filesystem(&db, &config.workspace).await;
 reconcile_embeddings(&client, &db).await;
 ```
+
 With:
+
 ```rust
 let (discovered, embed_requests) = reconcile_filesystem(&db, &config.workspace).await?;
 if !embed_requests.is_empty() {
@@ -357,6 +374,7 @@ refactor: merge reconcile_embeddings into reconcile_filesystem flow
 ### Task 6: Remove `content_hash` from embedding table
 
 **Files:**
+
 - Create: `migrations/010_drop_embedding_content_hash.sql`
 - Modify: `src/db/embeddings.rs` — remove `content_hash` from all queries
 - Modify: `src/embeddings/pipeline.rs` — remove `content_hash` parameter threading
@@ -371,13 +389,15 @@ sqlite3 --version
 ```
 
 If ≥3.35.0:
+
 ```sql
 ALTER TABLE embedding DROP COLUMN content_hash;
 ```
 
 Otherwise, use the create-copy-drop-rename dance.
 
-- [ ] **Step 2: Remove `content_hash` from `upsert_embedding` and `replace_embeddings_for_source`**
+- [ ] **Step 2: Remove `content_hash` from `upsert_embedding` and
+      `replace_embeddings_for_source`**
 
 Remove the `content_hash` parameter and its bind from both functions.
 
@@ -388,10 +408,10 @@ zero after Task 5 removed `reconcile_embeddings` and `embed_source`'s hash check
 
 - [ ] **Step 4: Simplify `embed_source`, `embed_source_forced`, and `embed_sources`**
 
-Remove the hash-check logic from `embed_source`. It no longer checks
-`get_content_hash` — if called, it always embeds. `embed_source_forced` can be collapsed
-into `embed_source` since they now do the same thing (always embed). Same for
-`embed_sources` (remove Phase 1 hash filtering).
+Remove the hash-check logic from `embed_source`. It no longer checks `get_content_hash`
+— if called, it always embeds. `embed_source_forced` can be collapsed into
+`embed_source` since they now do the same thing (always embed). Same for `embed_sources`
+(remove Phase 1 hash filtering).
 
 The `content_hash` function in `pipeline.rs` is still used for `file_hash` computation,
 so keep it (maybe rename to `file_hash` for clarity).
@@ -422,6 +442,7 @@ refactor: remove content_hash from embedding table (superseded by file_hash)
 ### Task 7: Update real-time watcher to store `file_hash`
 
 **Files:**
+
 - Modify: `src/daemon/watcher.rs` — `process_batch` and `process_*_change` functions
 
 The real-time watcher (triggered by filesystem events, not boot) also needs to compute
@@ -445,13 +466,14 @@ feat: store file_hash on real-time file change events
 
 ## Chunk 5: Tests and Verification
 
-**Note:** Each prior task's `just ci` step includes fixing test compilation errors caused
-by that task's changes (e.g. adding `file_hash: None` to test call sites, updating
-struct constructions). Test fixes are incremental, not batched.
+**Note:** Each prior task's `just ci` step includes fixing test compilation errors
+caused by that task's changes (e.g. adding `file_hash: None` to test call sites,
+updating struct constructions). Test fixes are incremental, not batched.
 
 ### Task 8: Add reconciliation performance test
 
 **Files:**
+
 - Modify: `tests/embeddings.rs` — add test for the new reconciliation path
 
 - [ ] **Step 1: Write test for hash-skip behavior**
@@ -492,6 +514,7 @@ test: add reconciliation hash-skip and missing-embedding tests
 ### Task 9: Update sqlx offline data
 
 **Files:**
+
 - Modify: `.sqlx/` cached query data
 
 - [ ] **Step 1: Regenerate sqlx offline data**
@@ -512,10 +535,10 @@ chore: regenerate sqlx offline query data
 
 ## Summary of Changes
 
-| What | Before | After |
-|------|--------|-------|
-| Boot reconciliation | Read + upsert every file, then re-hash-check every DB record for embeddings | Bulk load hashes, skip unchanged files entirely |
-| Hash storage | `content_hash` on embedding chunks | `file_hash` on knowledge tables |
-| File I/O | `std::fs::read_to_string` (blocking) | `tokio::fs::read_to_string` (async) |
-| DB queries per boot | ~300+ (2-5 per file × 150 files) | 4 bulk SELECTs + writes only for changed files |
-| Expected boot time | ~3s for 150 files | <200ms (steady state: ~50ms for hash comparison only) |
+| What                | Before                                                                      | After                                                 |
+| ------------------- | --------------------------------------------------------------------------- | ----------------------------------------------------- |
+| Boot reconciliation | Read + upsert every file, then re-hash-check every DB record for embeddings | Bulk load hashes, skip unchanged files entirely       |
+| Hash storage        | `content_hash` on embedding chunks                                          | `file_hash` on knowledge tables                       |
+| File I/O            | `std::fs::read_to_string` (blocking)                                        | `tokio::fs::read_to_string` (async)                   |
+| DB queries per boot | ~300+ (2-5 per file × 150 files)                                            | 4 bulk SELECTs + writes only for changed files        |
+| Expected boot time  | ~3s for 150 files                                                           | <200ms (steady state: ~50ms for hash comparison only) |
