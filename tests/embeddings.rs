@@ -593,9 +593,7 @@ async fn vector_insert_concurrent_stays_bounded() {
     });
 
     // Re-embed all notes (delete + reinsert)
-    let notes_page = db::knowledge::list_notes_page(&db_re, 0, 100)
-        .await
-        .unwrap();
+    let notes_page = db::knowledge::list_all_notes(&db_re).await.unwrap();
     for (i, note) in notes_page.iter().enumerate() {
         db::embeddings::delete_embeddings_for_source(&db_re, &note.id)
             .await

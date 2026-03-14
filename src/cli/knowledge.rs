@@ -578,7 +578,18 @@ async fn cmd_reindex(
     }
 
     db::embeddings::delete_all_embeddings(db).await?;
-    let (embedded, _skipped) = crate::embeddings::pipeline::reconcile_embeddings(&client, db)
+    let (_discovered, embed_requests) =
+        crate::embeddings::pipeline::reconcile_filesystem(db, workspace)
+            .await
+            .map_err(|e| match e {
+                crate::embeddings::pipeline::PipelineError::Embedding(e) => {
+                    GhostError::Embedding(e)
+                }
+                crate::embeddings::pipeline::PipelineError::Database(e) => {
+                    GhostError::Database(Box::new(e))
+                }
+            })?;
+    let embedded = crate::embeddings::pipeline::embed_sources(&client, db, embed_requests)
         .await
         .map_err(|e| match e {
             crate::embeddings::pipeline::PipelineError::Embedding(e) => GhostError::Embedding(e),

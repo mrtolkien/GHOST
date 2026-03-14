@@ -602,59 +602,6 @@ pub async fn list_all_diary(db: &SqlitePool) -> Result<Vec<DiaryRecord>, Databas
         })
 }
 
-// --- Paginated listing for boot reconciliation ---
-
-pub async fn list_notes_page(
-    db: &SqlitePool,
-    offset: usize,
-    limit: usize,
-) -> Result<Vec<NoteRecord>, DatabaseError> {
-    sqlx::query_as::<_, NoteRecord>("SELECT * FROM note ORDER BY id LIMIT ? OFFSET ?")
-        .bind(limit as i64)
-        .bind(offset as i64)
-        .fetch_all(db)
-        .await
-        .map_err(|source| DatabaseError::Query {
-            table: "note",
-            operation: "list_page",
-            source,
-        })
-}
-
-pub async fn list_references_page(
-    db: &SqlitePool,
-    offset: usize,
-    limit: usize,
-) -> Result<Vec<ReferenceRecord>, DatabaseError> {
-    sqlx::query_as::<_, ReferenceRecord>("SELECT * FROM reference ORDER BY id LIMIT ? OFFSET ?")
-        .bind(limit as i64)
-        .bind(offset as i64)
-        .fetch_all(db)
-        .await
-        .map_err(|source| DatabaseError::Query {
-            table: "reference",
-            operation: "list_page",
-            source,
-        })
-}
-
-pub async fn list_diary_page(
-    db: &SqlitePool,
-    offset: usize,
-    limit: usize,
-) -> Result<Vec<DiaryRecord>, DatabaseError> {
-    sqlx::query_as::<_, DiaryRecord>("SELECT * FROM diary ORDER BY id LIMIT ? OFFSET ?")
-        .bind(limit as i64)
-        .bind(offset as i64)
-        .fetch_all(db)
-        .await
-        .map_err(|source| DatabaseError::Query {
-            table: "diary",
-            operation: "list_page",
-            source,
-        })
-}
-
 // ---------------------------------------------------------------------------
 // Scripts
 // ---------------------------------------------------------------------------
@@ -766,23 +713,6 @@ pub async fn list_all_scripts(db: &SqlitePool) -> Result<Vec<ScriptRecord>, Data
         .map_err(|source| DatabaseError::Query {
             table: "script",
             operation: "list_all",
-            source,
-        })
-}
-
-pub async fn list_scripts_page(
-    db: &SqlitePool,
-    offset: usize,
-    limit: usize,
-) -> Result<Vec<ScriptRecord>, DatabaseError> {
-    sqlx::query_as::<_, ScriptRecord>("SELECT * FROM script ORDER BY id LIMIT ? OFFSET ?")
-        .bind(limit as i64)
-        .bind(offset as i64)
-        .fetch_all(db)
-        .await
-        .map_err(|source| DatabaseError::Query {
-            table: "script",
-            operation: "list_page",
             source,
         })
 }

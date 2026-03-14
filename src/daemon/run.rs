@@ -191,23 +191,25 @@ pub async fn boot_with_config(config: Config) -> Result<DaemonHandle, GhostError
     if client.is_available().await {
         info!("running boot reconciliation");
         match crate::embeddings::pipeline::reconcile_filesystem(&db, &config.workspace).await {
-            Ok((discovered, _embed_reqs)) if discovered > 0 => {
-                info!(discovered, "boot: discovered untracked files");
+            Ok((discovered, embed_requests)) => {
+                if discovered > 0 {
+                    info!(discovered, "boot: discovered untracked files");
+                }
+                if !embed_requests.is_empty() {
+                    match crate::embeddings::pipeline::embed_sources(&client, &db, embed_requests)
+                        .await
+                    {
+                        Ok(embedded) => {
+                            info!(embedded, "boot reconciliation complete");
+                        }
+                        Err(e) => {
+                            logfire::warn!("boot embedding failed", error = e.to_string(),);
+                        }
+                    }
+                }
             }
             Err(e) => {
-                logfire::warn!(
-                    "boot filesystem reconciliation failed",
-                    error = e.to_string()
-                );
-            }
-            _ => {}
-        }
-        match crate::embeddings::pipeline::reconcile_embeddings(&client, &db).await {
-            Ok((embedded, skipped)) => {
-                info!(embedded, skipped, "boot reconciliation complete");
-            }
-            Err(e) => {
-                logfire::warn!("boot reconciliation failed", error = e.to_string(),);
+                logfire::warn!("boot reconciliation failed", error = e.to_string());
             }
         }
     } else {

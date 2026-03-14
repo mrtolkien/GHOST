@@ -585,10 +585,10 @@ async fn process_script_change(
 
 const RECONCILE_INTERVAL: Duration = Duration::from_secs(60 * 60);
 
-/// Periodically reconcile embeddings to catch missed file changes.
+/// Periodically reconcile filesystem and embeddings to catch missed changes.
 ///
-/// Runs `reconcile_embeddings` once per hour. Skips if Ollama is unavailable.
-/// The hash check inside `reconcile_embeddings` makes this cheap when nothing changed.
+/// Runs once per hour. Skips if Ollama is unavailable.
+/// The file-hash check makes this cheap when nothing changed.
 #[tracing::instrument(name = "start reconciliation loop", skip_all)]
 pub fn spawn_reconciliation_loop(
     db: GhostDb,
@@ -611,22 +611,30 @@ pub fn spawn_reconciliation_loop(
             }
 
             async {
-                // Phase 1: discover files on disk that the watcher missed
                 match crate::embeddings::pipeline::reconcile_filesystem(&db, &workspace).await {
-                    Ok((discovered, _embed_reqs)) if discovered > 0 => {
-                        info!(discovered, "filesystem reconciliation found new files");
-                    }
-                    Err(e) => {
-                        logfire::warn!("filesystem reconciliation failed", error = e.to_string());
-                    }
-                    _ => {}
-                }
-
-                // Phase 2: re-embed any sources with stale content hashes
-                match crate::embeddings::pipeline::reconcile_embeddings(&client, &db).await {
-                    Ok((embedded, skipped)) => {
-                        if embedded > 0 {
-                            info!(embedded, skipped, "periodic reconciliation complete");
+                    Ok((discovered, embed_requests)) => {
+                        if discovered > 0 {
+                            info!(discovered, "periodic reconciliation found new files");
+                        }
+                        if !embed_requests.is_empty() {
+                            match crate::embeddings::pipeline::embed_sources(
+                                &client,
+                                &db,
+                                embed_requests,
+                            )
+                            .await
+                            {
+                                Ok(embedded) if embedded > 0 => {
+                                    info!(embedded, "periodic reconciliation complete");
+                                }
+                                Err(e) => {
+                                    logfire::warn!(
+                                        "periodic embedding failed",
+                                        error = e.to_string(),
+                                    );
+                                }
+                                _ => {}
+                            }
                         }
                     }
                     Err(e) => {

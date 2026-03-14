@@ -11,10 +11,9 @@ pub use crud::{
     create_script, delete_diary, delete_note, delete_reference, delete_script, find_note_by_path,
     find_note_by_title, find_reference_by_path, find_reference_by_url, find_script_by_path,
     get_diary_by_date, get_note, get_reference, get_script, list_all_diary, list_all_notes,
-    list_all_references, list_all_scripts, list_diary_page, list_notes_page, list_recent,
-    list_references_by_topic, list_references_page, list_scripts_page, load_diary_file_hashes,
-    load_note_file_hashes, load_reference_file_hashes, load_script_file_hashes, update_note,
-    update_reference_path, update_script,
+    list_all_references, list_all_scripts, list_recent, list_references_by_topic,
+    load_diary_file_hashes, load_note_file_hashes, load_reference_file_hashes,
+    load_script_file_hashes, update_note, update_reference_path, update_script,
 };
 pub use graph::{
     backfill_message_source_references, create_cited_edge, create_edge, create_message_source,
