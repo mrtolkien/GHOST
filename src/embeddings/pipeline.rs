@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use sha2::{Digest, Sha256};
 
 use crate::db;
@@ -269,21 +271,54 @@ pub async fn embed_sources(
     Ok(total_embedded)
 }
 
-/// Scan the filesystem for files that exist on disk but have no DB record.
+/// Scan the filesystem and reconcile with DB using batch hash checking.
 ///
-/// Walks `notes/`, `references/`, `diary/` under the workspace and feeds
-/// each file through the watcher's `process_change` logic, which creates
-/// DB records and returns `EmbedRequest`s for any new files.
+/// Walks `notes/`, `references/`, `diary/`, `scripts/` under the workspace.
+/// For each file, computes SHA-256 and compares against stored file_hash:
+/// - Hash matches + has embeddings: skip entirely
+/// - Hash matches + no embeddings: queue embed request only (no DB upsert)
+/// - Hash differs or path missing: full `process_change` + store hash
 ///
-/// Returns the number of files discovered and synced.
+/// Returns (files_discovered, embed_requests).
 #[tracing::instrument(name = "reconcile filesystem", skip_all, fields(
     discovered = tracing::field::Empty,
 ))]
 pub async fn reconcile_filesystem(
     db: &GhostDb,
     workspace: &std::path::Path,
-) -> Result<usize, PipelineError> {
+) -> Result<(usize, Vec<EmbedRequest>), PipelineError> {
+    // Phase 1: Load existing hashes from DB
+    let note_hashes = db::knowledge::load_note_file_hashes(db).await?;
+    let ref_hashes = db::knowledge::load_reference_file_hashes(db).await?;
+    let diary_hashes = db::knowledge::load_diary_file_hashes(db).await?;
+    let script_hashes = db::knowledge::load_script_file_hashes(db).await?;
+
+    let mut known: HashMap<String, (Option<String>, bool)> = HashMap::new();
+    for r in note_hashes {
+        known.insert(r.path, (r.file_hash, r.has_embeddings));
+    }
+    for r in ref_hashes {
+        known.insert(
+            format!("references/{}", r.path),
+            (r.file_hash, r.has_embeddings),
+        );
+    }
+    for r in diary_hashes {
+        known.insert(
+            format!("diary/{}.md", r.path),
+            (r.file_hash, r.has_embeddings),
+        );
+    }
+    for r in script_hashes {
+        known.insert(
+            format!("scripts/{}", r.path),
+            (r.file_hash, r.has_embeddings),
+        );
+    }
+
+    // Phase 2: Walk filesystem, check hashes, process changed files
     let mut discovered = 0usize;
+    let mut embed_requests = Vec::new();
 
     for subdir in ["notes", "references", "diary", "scripts"] {
         let dir = workspace.join(subdir);
@@ -292,24 +327,123 @@ pub async fn reconcile_filesystem(
         }
         let files = walk_directory(&dir);
         for file_path in files {
-            match crate::daemon::watcher::process_change(db, workspace, &file_path).await {
-                Ok(Some(_)) => {
-                    discovered += 1;
+            let rel = file_path.strip_prefix(workspace).unwrap_or(&file_path);
+            let rel_str = rel.to_string_lossy().to_string();
+
+            // Read file and compute hash
+            let raw = match tokio::fs::read_to_string(&file_path).await {
+                Ok(r) => r,
+                Err(_) => continue,
+            };
+            let hash = content_hash(&raw);
+
+            match known.get(&rel_str) {
+                // Hash matches and has embeddings -> skip entirely
+                Some((Some(stored_hash), true)) if *stored_hash == hash => continue,
+                // Hash matches but missing embeddings -> re-embed only (no DB upsert)
+                Some((Some(stored_hash), false)) if *stored_hash == hash => {
+                    if let Some(req) =
+                        build_embed_request_from_db(db, workspace, &file_path, &raw).await
+                    {
+                        embed_requests.push(req);
+                    }
                 }
-                Ok(None) => {}
-                Err(e) => {
-                    tracing::warn!(
-                        path = file_path.display().to_string(),
-                        error = e.to_string(),
-                        "reconcile: failed to process file"
-                    );
+                // Hash differs or missing -> full process
+                _ => {
+                    match crate::daemon::watcher::process_change(
+                        db,
+                        workspace,
+                        &file_path,
+                        Some(&raw),
+                        Some(&hash),
+                    )
+                    .await
+                    {
+                        Ok(Some(req)) => {
+                            embed_requests.push(req);
+                            discovered += 1;
+                        }
+                        Ok(None) => {}
+                        Err(e) => {
+                            tracing::warn!(
+                                path = file_path.display().to_string(),
+                                error = e.to_string(),
+                                "reconcile: failed to process file"
+                            );
+                        }
+                    }
                 }
             }
         }
     }
 
     tracing::Span::current().record("discovered", discovered as u64);
-    Ok(discovered)
+    Ok((discovered, embed_requests))
+}
+
+/// Build an EmbedRequest for a file that exists in DB but lacks embeddings.
+async fn build_embed_request_from_db(
+    db: &GhostDb,
+    workspace: &std::path::Path,
+    file_path: &std::path::Path,
+    content: &str,
+) -> Option<EmbedRequest> {
+    let rel = file_path.strip_prefix(workspace).ok()?;
+    let rel_str = rel.to_string_lossy();
+
+    if rel_str.starts_with("notes/") {
+        let note = db::knowledge::find_note_by_path(db, &rel_str)
+            .await
+            .ok()??;
+        let tags = note.tags_parsed();
+        Some(EmbedRequest {
+            source_table: "note".into(),
+            source_id: note.id,
+            content: content.to_string(),
+            tags,
+            topic_id: note.topic_id,
+            path: None,
+        })
+    } else if rel_str.starts_with("references/") {
+        let ref_path = rel_str.strip_prefix("references/").unwrap_or(&rel_str);
+        let reference = db::knowledge::find_reference_by_path(db, ref_path)
+            .await
+            .ok()??;
+        Some(EmbedRequest {
+            source_table: "reference".into(),
+            source_id: reference.id,
+            content: content.to_string(),
+            tags: vec![],
+            topic_id: Some(reference.topic_id),
+            path: Some(rel_str.to_string()),
+        })
+    } else if rel_str.starts_with("diary/") {
+        let date = file_path.file_stem()?.to_str()?;
+        let diary = db::knowledge::get_diary_by_date(db, date).await.ok()??;
+        Some(EmbedRequest {
+            source_table: "diary".into(),
+            source_id: diary.id,
+            content: content.to_string(),
+            tags: vec![],
+            topic_id: None,
+            path: None,
+        })
+    } else if rel_str.starts_with("scripts/") {
+        let script_path = rel_str.strip_prefix("scripts/").unwrap_or(&rel_str);
+        let script = db::knowledge::find_script_by_path(db, script_path)
+            .await
+            .ok()??;
+        Some(EmbedRequest {
+            source_table: "script".into(),
+            source_id: script.id,
+            content: content.to_string(),
+            tags: vec![],
+            topic_id: None,
+            path: Some(rel_str.to_string()),
+        })
+    } else {
+        None
+    }
 }
 
 fn walk_directory(dir: &std::path::Path) -> Vec<std::path::PathBuf> {

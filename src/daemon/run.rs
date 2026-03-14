@@ -191,7 +191,7 @@ pub async fn boot_with_config(config: Config) -> Result<DaemonHandle, GhostError
     if client.is_available().await {
         info!("running boot reconciliation");
         match crate::embeddings::pipeline::reconcile_filesystem(&db, &config.workspace).await {
-            Ok(discovered) if discovered > 0 => {
+            Ok((discovered, _embed_reqs)) if discovered > 0 => {
                 info!(discovered, "boot: discovered untracked files");
             }
             Err(e) => {

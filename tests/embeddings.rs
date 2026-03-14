@@ -785,9 +785,10 @@ async fn reconcile_filesystem_discovers_untracked_reference() {
     assert_eq!(count_before, 0);
 
     // Run filesystem reconciliation
-    let discovered = ghost::embeddings::pipeline::reconcile_filesystem(&db, workspace.path())
-        .await
-        .unwrap();
+    let (discovered, _embed_reqs) =
+        ghost::embeddings::pipeline::reconcile_filesystem(&db, workspace.path())
+            .await
+            .unwrap();
 
     assert!(discovered > 0, "should discover the orphan file");
 
