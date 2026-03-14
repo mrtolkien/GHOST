@@ -468,6 +468,105 @@ pub async fn list_references_by_topic(
     })
 }
 
+// --- Bulk hash loading for boot reconciliation ---
+
+/// Lightweight record for boot reconciliation: just path + hash + embedding status.
+#[derive(Debug, sqlx::FromRow)]
+pub struct FileHashRecord {
+    pub path: String,
+    pub file_hash: Option<String>,
+    pub has_embeddings: bool,
+}
+
+/// Load all (path, file_hash, has_embeddings) for notes.
+pub async fn load_note_file_hashes(db: &SqlitePool) -> Result<Vec<FileHashRecord>, DatabaseError> {
+    sqlx::query_as::<_, FileHashRecord>(
+        "SELECT \
+            n.path AS path, \
+            n.file_hash, \
+            (e.source_id IS NOT NULL) AS has_embeddings \
+         FROM note n \
+         LEFT JOIN ( \
+            SELECT DISTINCT source_id FROM embedding WHERE source_table = 'note' \
+         ) e ON e.source_id = n.id \
+         WHERE n.path IS NOT NULL",
+    )
+    .fetch_all(db)
+    .await
+    .map_err(|source| DatabaseError::Query {
+        table: "note",
+        operation: "load_file_hashes",
+        source,
+    })
+}
+
+/// Load all (path, file_hash, has_embeddings) for references.
+pub async fn load_reference_file_hashes(
+    db: &SqlitePool,
+) -> Result<Vec<FileHashRecord>, DatabaseError> {
+    sqlx::query_as::<_, FileHashRecord>(
+        "SELECT \
+            r.path AS path, \
+            r.file_hash, \
+            (e.source_id IS NOT NULL) AS has_embeddings \
+         FROM reference r \
+         LEFT JOIN ( \
+            SELECT DISTINCT source_id FROM embedding WHERE source_table = 'reference' \
+         ) e ON e.source_id = r.id",
+    )
+    .fetch_all(db)
+    .await
+    .map_err(|source| DatabaseError::Query {
+        table: "reference",
+        operation: "load_file_hashes",
+        source,
+    })
+}
+
+/// Load all (date as path, file_hash, has_embeddings) for diary entries.
+pub async fn load_diary_file_hashes(db: &SqlitePool) -> Result<Vec<FileHashRecord>, DatabaseError> {
+    sqlx::query_as::<_, FileHashRecord>(
+        "SELECT \
+            d.date AS path, \
+            d.file_hash, \
+            (e.source_id IS NOT NULL) AS has_embeddings \
+         FROM diary d \
+         LEFT JOIN ( \
+            SELECT DISTINCT source_id FROM embedding WHERE source_table = 'diary' \
+         ) e ON e.source_id = d.id",
+    )
+    .fetch_all(db)
+    .await
+    .map_err(|source| DatabaseError::Query {
+        table: "diary",
+        operation: "load_file_hashes",
+        source,
+    })
+}
+
+/// Load all (path, file_hash, has_embeddings) for scripts.
+pub async fn load_script_file_hashes(
+    db: &SqlitePool,
+) -> Result<Vec<FileHashRecord>, DatabaseError> {
+    sqlx::query_as::<_, FileHashRecord>(
+        "SELECT \
+            s.path AS path, \
+            s.file_hash, \
+            (e.source_id IS NOT NULL) AS has_embeddings \
+         FROM script s \
+         LEFT JOIN ( \
+            SELECT DISTINCT source_id FROM embedding WHERE source_table = 'script' \
+         ) e ON e.source_id = s.id",
+    )
+    .fetch_all(db)
+    .await
+    .map_err(|source| DatabaseError::Query {
+        table: "script",
+        operation: "load_file_hashes",
+        source,
+    })
+}
+
 // --- Bulk listing for embeddings pipeline ---
 
 pub async fn list_all_notes(db: &SqlitePool) -> Result<Vec<NoteRecord>, DatabaseError> {
