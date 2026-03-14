@@ -129,6 +129,7 @@ pub async fn import_crawl(
             &extracted.text,
             Some(url.as_str()),
             Some(&batch_id),
+            None,
         )
         .await?;
 

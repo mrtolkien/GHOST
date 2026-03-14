@@ -87,8 +87,16 @@ pub async fn import_page(
     std::fs::write(&disk_path, &text)?;
 
     // Store as reference
-    db::knowledge::create_reference(db, &topic_id, &ref_path, &text, Some(url), Some(&batch_id))
-        .await?;
+    db::knowledge::create_reference(
+        db,
+        &topic_id,
+        &ref_path,
+        &text,
+        Some(url),
+        Some(&batch_id),
+        None,
+    )
+    .await?;
 
     // Update import batch with final ref count
     let total_refs = db::knowledge::count_references_by_topic(db, &topic_id).await? as usize;

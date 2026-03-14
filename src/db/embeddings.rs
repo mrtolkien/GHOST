@@ -19,7 +19,6 @@ pub async fn upsert_embedding(
     source_id: &str,
     chunk_index: usize,
     chunk_text: &str,
-    content_hash: &str,
     vector: &[f32],
     topic_id: Option<&str>,
 ) -> Result<(), DatabaseError> {
@@ -74,15 +73,14 @@ pub async fn upsert_embedding(
     let id = new_id();
     sqlx::query(
         "INSERT INTO embedding \
-         (id, source_table, source_id, chunk_index, chunk_text, content_hash, topic_id, created_at) \
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+         (id, source_table, source_id, chunk_index, chunk_text, topic_id, created_at) \
+         VALUES (?, ?, ?, ?, ?, ?, ?)",
     )
     .bind(&id)
     .bind(source_table)
     .bind(source_id)
     .bind(chunk_index as i64)
     .bind(chunk_text)
-    .bind(content_hash)
     .bind(topic_id)
     .bind(now())
     .execute(&mut *tx)
@@ -122,31 +120,6 @@ pub async fn upsert_embedding(
     })?;
 
     Ok(())
-}
-
-#[tracing::instrument(skip_all, fields(source_id = %source_id))]
-pub async fn get_content_hash(
-    db: &SqlitePool,
-    source_id: &str,
-) -> Result<Option<String>, DatabaseError> {
-    #[derive(sqlx::FromRow)]
-    struct HashRow {
-        content_hash: String,
-    }
-
-    let row = sqlx::query_as::<_, HashRow>(
-        "SELECT content_hash FROM embedding WHERE source_id = ? LIMIT 1",
-    )
-    .bind(source_id)
-    .fetch_optional(db)
-    .await
-    .map_err(|source| DatabaseError::Query {
-        table: "embedding",
-        operation: "get_content_hash",
-        source,
-    })?;
-
-    Ok(row.map(|r| r.content_hash))
 }
 
 #[tracing::instrument(skip_all, fields(source_id = %source_id))]
@@ -300,7 +273,6 @@ pub async fn replace_embeddings_for_source(
     source_table: &str,
     source_id: &str,
     chunks: &[(usize, String, Vec<f32>)],
-    content_hash: &str,
     topic_id: Option<&str>,
 ) -> Result<(), DatabaseError> {
     let mut tx = db.begin().await.map_err(|source| DatabaseError::Query {
@@ -339,15 +311,14 @@ pub async fn replace_embeddings_for_source(
         let id = new_id();
         sqlx::query(
             "INSERT INTO embedding \
-             (id, source_table, source_id, chunk_index, chunk_text, content_hash, topic_id, created_at) \
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+             (id, source_table, source_id, chunk_index, chunk_text, topic_id, created_at) \
+             VALUES (?, ?, ?, ?, ?, ?, ?)",
         )
         .bind(&id)
         .bind(source_table)
         .bind(source_id)
         .bind(*chunk_index as i64)
         .bind(chunk_text)
-        .bind(content_hash)
         .bind(topic_id)
         .bind(now())
         .execute(&mut *tx)

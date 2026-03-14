@@ -85,7 +85,20 @@ async fn process_batch(
     for path in &paths {
         let kind = classify_watcher_kind(workspace, path);
         let req = async {
-            match process_change(db, workspace, path).await {
+            // Read file and compute hash upfront so it's stored with the DB record
+            let (content, hash) = if path.exists() {
+                match tokio::fs::read_to_string(path).await {
+                    Ok(raw) => {
+                        let h = crate::embeddings::pipeline::content_hash(&raw);
+                        (Some(raw), Some(h))
+                    }
+                    Err(_) => (None, None),
+                }
+            } else {
+                (None, None)
+            };
+
+            match process_change(db, workspace, path, content.as_deref(), hash.as_deref()).await {
                 Ok(req) => req,
                 Err(e) => {
                     logfire::warn!(
@@ -210,6 +223,8 @@ pub(crate) async fn process_change(
     db: &GhostDb,
     workspace: &Path,
     path: &Path,
+    raw_content: Option<&str>,
+    file_hash: Option<&str>,
 ) -> Result<Option<EmbedRequest>, PipelineError> {
     let rel = match path.strip_prefix(workspace) {
         Ok(r) => r,
@@ -219,13 +234,13 @@ pub(crate) async fn process_change(
     let rel_str = rel.to_string_lossy();
 
     if rel_str.starts_with("notes/") {
-        process_note_change(db, workspace, path).await
+        process_note_change(db, workspace, path, raw_content, file_hash).await
     } else if rel_str.starts_with("references/") {
-        process_reference_change(db, workspace, path).await
+        process_reference_change(db, workspace, path, raw_content, file_hash).await
     } else if rel_str.starts_with("diary/") {
-        process_diary_change(db, path).await
+        process_diary_change(db, path, raw_content, file_hash).await
     } else if rel_str.starts_with("scripts/") {
-        process_script_change(db, workspace, path).await
+        process_script_change(db, workspace, path, raw_content, file_hash).await
     } else {
         Ok(None)
     }
@@ -239,6 +254,8 @@ async fn process_note_change(
     db: &GhostDb,
     workspace: &Path,
     path: &Path,
+    raw_content: Option<&str>,
+    file_hash: Option<&str>,
 ) -> Result<Option<EmbedRequest>, PipelineError> {
     let rel_path = path
         .strip_prefix(workspace)
@@ -255,12 +272,19 @@ async fn process_note_change(
         return Ok(None);
     }
 
-    let raw = match std::fs::read_to_string(path) {
-        Ok(r) => r,
-        Err(_) => return Ok(None),
+    let owned;
+    let raw = match raw_content {
+        Some(c) => c,
+        None => {
+            owned = match tokio::fs::read_to_string(path).await {
+                Ok(r) => r,
+                Err(_) => return Ok(None),
+            };
+            &owned
+        }
     };
 
-    let parsed = match knowledge::parse_note(&raw) {
+    let parsed = match knowledge::parse_note(raw) {
         Ok(p) => p,
         Err(_) => return Ok(None),
     };
@@ -300,6 +324,7 @@ async fn process_note_change(
                 parsed.front.trust,
                 topic_id.as_deref(),
                 Some(&rel_path),
+                file_hash,
             )
             .await;
             let _ = knowledge::reconcile::reconcile_edges(
@@ -321,6 +346,7 @@ async fn process_note_change(
                 parsed.front.trust,
                 topic_id.as_deref(),
                 Some(&rel_path),
+                file_hash,
             )
             .await
             {
@@ -357,6 +383,8 @@ async fn process_reference_change(
     db: &GhostDb,
     workspace: &Path,
     path: &Path,
+    raw_content: Option<&str>,
+    file_hash: Option<&str>,
 ) -> Result<Option<EmbedRequest>, PipelineError> {
     let fs_rel = path
         .strip_prefix(workspace)
@@ -385,9 +413,16 @@ async fn process_reference_change(
         return Ok(None);
     }
 
-    let content = match std::fs::read_to_string(path) {
-        Ok(c) => c,
-        Err(_) => return Ok(None),
+    let owned;
+    let content = match raw_content {
+        Some(c) => c,
+        None => {
+            owned = match tokio::fs::read_to_string(path).await {
+                Ok(c) => c,
+                Err(_) => return Ok(None),
+            };
+            &owned
+        }
     };
 
     // Extract full topic path: everything before the filename
@@ -411,7 +446,7 @@ async fn process_reference_change(
                     Err(_) => return Ok(None),
                 };
                 match crate::db::knowledge::create_reference(
-                    db, &tid, &ref_path, &content, None, None,
+                    db, &tid, &ref_path, content, None, None, file_hash,
                 )
                 .await
                 {
@@ -427,7 +462,7 @@ async fn process_reference_change(
     Ok(Some(EmbedRequest {
         source_table: "reference".into(),
         source_id: ref_id,
-        content,
+        content: content.to_string(),
         tags: vec![],
         topic_id: Some(resolved_topic_id),
         path: Some(embed_path),
@@ -441,6 +476,8 @@ async fn process_reference_change(
 async fn process_diary_change(
     db: &GhostDb,
     path: &Path,
+    raw_content: Option<&str>,
+    file_hash: Option<&str>,
 ) -> Result<Option<EmbedRequest>, PipelineError> {
     let date = path
         .file_stem()
@@ -457,16 +494,23 @@ async fn process_diary_change(
         return Ok(None);
     }
 
-    let body = match std::fs::read_to_string(path) {
-        Ok(b) => b,
-        Err(_) => return Ok(None),
+    let owned;
+    let body = match raw_content {
+        Some(c) => c,
+        None => {
+            owned = match tokio::fs::read_to_string(path).await {
+                Ok(b) => b,
+                Err(_) => return Ok(None),
+            };
+            &owned
+        }
     };
 
     logfire::info!("watcher: processing diary change", date = date.clone(),);
 
     let diary_id = match crate::db::knowledge::get_diary_by_date(db, &date).await {
         Ok(Some(d)) => d.id,
-        _ => match crate::db::knowledge::create_diary(db, &date, &body).await {
+        _ => match crate::db::knowledge::create_diary(db, &date, body, file_hash).await {
             Ok(id) => id,
             Err(_) => return Ok(None),
         },
@@ -475,7 +519,7 @@ async fn process_diary_change(
     Ok(Some(EmbedRequest {
         source_table: "diary".into(),
         source_id: diary_id,
-        content: body,
+        content: body.to_string(),
         tags: vec![],
         topic_id: None,
         path: None,
@@ -491,6 +535,8 @@ async fn process_script_change(
     db: &GhostDb,
     workspace: &Path,
     path: &Path,
+    raw_content: Option<&str>,
+    file_hash: Option<&str>,
 ) -> Result<Option<EmbedRequest>, PipelineError> {
     let fs_rel = path
         .strip_prefix(workspace)
@@ -515,26 +561,35 @@ async fn process_script_change(
         return Ok(None);
     }
 
-    let content = match std::fs::read_to_string(path) {
-        Ok(c) => c,
-        Err(_) => return Ok(None),
+    let owned;
+    let content = match raw_content {
+        Some(c) => c,
+        None => {
+            owned = match tokio::fs::read_to_string(path).await {
+                Ok(c) => c,
+                Err(_) => return Ok(None),
+            };
+            &owned
+        }
     };
 
     let script_id = match crate::db::knowledge::find_script_by_path(db, &script_path).await {
         Ok(Some(s)) => {
-            let _ = crate::db::knowledge::update_script(db, &s.id, &content).await;
+            let _ = crate::db::knowledge::update_script(db, &s.id, content, file_hash).await;
             s.id
         }
-        _ => match crate::db::knowledge::create_script(db, &script_path, &content).await {
-            Ok(id) => id,
-            Err(_) => return Ok(None),
-        },
+        _ => {
+            match crate::db::knowledge::create_script(db, &script_path, content, file_hash).await {
+                Ok(id) => id,
+                Err(_) => return Ok(None),
+            }
+        }
     };
 
     Ok(Some(EmbedRequest {
         source_table: "script".into(),
         source_id: script_id,
-        content,
+        content: content.to_string(),
         tags: vec![],
         topic_id: None,
         path: Some(fs_rel),
@@ -543,10 +598,10 @@ async fn process_script_change(
 
 const RECONCILE_INTERVAL: Duration = Duration::from_secs(60 * 60);
 
-/// Periodically reconcile embeddings to catch missed file changes.
+/// Periodically reconcile filesystem and embeddings to catch missed changes.
 ///
-/// Runs `reconcile_embeddings` once per hour. Skips if Ollama is unavailable.
-/// The hash check inside `reconcile_embeddings` makes this cheap when nothing changed.
+/// Runs once per hour. Skips if Ollama is unavailable.
+/// The file-hash check makes this cheap when nothing changed.
 #[tracing::instrument(name = "start reconciliation loop", skip_all)]
 pub fn spawn_reconciliation_loop(
     db: GhostDb,
@@ -569,22 +624,30 @@ pub fn spawn_reconciliation_loop(
             }
 
             async {
-                // Phase 1: discover files on disk that the watcher missed
                 match crate::embeddings::pipeline::reconcile_filesystem(&db, &workspace).await {
-                    Ok(discovered) if discovered > 0 => {
-                        info!(discovered, "filesystem reconciliation found new files");
-                    }
-                    Err(e) => {
-                        logfire::warn!("filesystem reconciliation failed", error = e.to_string());
-                    }
-                    _ => {}
-                }
-
-                // Phase 2: re-embed any sources with stale content hashes
-                match crate::embeddings::pipeline::reconcile_embeddings(&client, &db).await {
-                    Ok((embedded, skipped)) => {
-                        if embedded > 0 {
-                            info!(embedded, skipped, "periodic reconciliation complete");
+                    Ok((discovered, embed_requests)) => {
+                        if discovered > 0 {
+                            info!(discovered, "periodic reconciliation found new files");
+                        }
+                        if !embed_requests.is_empty() {
+                            match crate::embeddings::pipeline::embed_sources(
+                                &client,
+                                &db,
+                                embed_requests,
+                            )
+                            .await
+                            {
+                                Ok(embedded) if embedded > 0 => {
+                                    info!(embedded, "periodic reconciliation complete");
+                                }
+                                Err(e) => {
+                                    logfire::warn!(
+                                        "periodic embedding failed",
+                                        error = e.to_string(),
+                                    );
+                                }
+                                _ => {}
+                            }
                         }
                     }
                     Err(e) => {

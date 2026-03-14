@@ -10,6 +10,7 @@ pub struct NoteRecord {
     pub trust: i64,
     pub topic_id: Option<String>,
     pub path: Option<String>,
+    pub file_hash: Option<String>,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -32,6 +33,7 @@ pub struct ReferenceRecord {
     pub content: String,
     pub source_url: Option<String>,
     pub import_batch_id: Option<String>,
+    pub file_hash: Option<String>,
     pub created_at: String,
 }
 
@@ -60,6 +62,7 @@ pub struct DiaryRecord {
     pub id: String,
     pub date: String,
     pub body: String,
+    pub file_hash: Option<String>,
     pub updated_at: String,
 }
 
@@ -68,6 +71,7 @@ pub struct ScriptRecord {
     pub id: String,
     pub path: String,
     pub content: String,
+    pub file_hash: Option<String>,
     pub created_at: String,
     pub updated_at: String,
 }

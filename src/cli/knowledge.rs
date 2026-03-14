@@ -462,6 +462,7 @@ async fn cmd_reindex(
                     parsed.front.trust,
                     None,
                     rel_path.as_deref(),
+                    None,
                 )
                 .await?;
                 let _result = knowledge::reconcile::reconcile_edges(
@@ -489,6 +490,7 @@ async fn cmd_reindex(
                     parsed.front.trust,
                     None,
                     rel_path.as_deref(),
+                    None,
                 )
                 .await?;
                 let _result = knowledge::reconcile::reconcile_edges(
@@ -532,7 +534,8 @@ async fn cmd_reindex(
         {
             let topic_id = db::knowledge::find_or_create_topic(db, topic_name).await?;
             let content = std::fs::read_to_string(path).map_err(std::io::Error::other)?;
-            db::knowledge::create_reference(db, &topic_id, &ref_path, &content, None, None).await?;
+            db::knowledge::create_reference(db, &topic_id, &ref_path, &content, None, None, None)
+                .await?;
             ref_synced += 1;
         }
     }
@@ -549,7 +552,7 @@ async fn cmd_reindex(
             .unwrap_or("unknown");
         if db::knowledge::get_diary_by_date(db, date).await?.is_none() {
             let body = std::fs::read_to_string(path).map_err(std::io::Error::other)?;
-            db::knowledge::create_diary(db, date, &body).await?;
+            db::knowledge::create_diary(db, date, &body, None).await?;
             diary_synced += 1;
         }
     }
@@ -575,7 +578,18 @@ async fn cmd_reindex(
     }
 
     db::embeddings::delete_all_embeddings(db).await?;
-    let (embedded, _skipped) = crate::embeddings::pipeline::reconcile_embeddings(&client, db)
+    let (_discovered, embed_requests) =
+        crate::embeddings::pipeline::reconcile_filesystem(db, workspace)
+            .await
+            .map_err(|e| match e {
+                crate::embeddings::pipeline::PipelineError::Embedding(e) => {
+                    GhostError::Embedding(e)
+                }
+                crate::embeddings::pipeline::PipelineError::Database(e) => {
+                    GhostError::Database(Box::new(e))
+                }
+            })?;
+    let embedded = crate::embeddings::pipeline::embed_sources(&client, db, embed_requests)
         .await
         .map_err(|e| match e {
             crate::embeddings::pipeline::PipelineError::Embedding(e) => GhostError::Embedding(e),

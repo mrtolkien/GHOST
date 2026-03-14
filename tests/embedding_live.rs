@@ -50,49 +50,6 @@ async fn embed_batch_multiple() {
 }
 
 #[tokio::test]
-async fn hash_check_after_bulk_reference_insert() {
-    let (db, _config, _workspace, _config_dir) = common::test_database().await;
-
-    // Create a topic + 15 references (mimicking import_git)
-    let tid = db::knowledge::find_or_create_topic(&db, "test-topic")
-        .await
-        .expect("topic");
-
-    let mut ref_ids = Vec::new();
-    for i in 0..15 {
-        let content = format!("Reference content for file {i} with enough text to chunk");
-        let id = db::knowledge::create_reference(
-            &db,
-            &tid,
-            &format!("test-topic/file{i}.md"),
-            &content,
-            None,
-            None,
-        )
-        .await
-        .expect("create ref");
-        ref_ids.push(id);
-    }
-    eprintln!("created 15 references");
-
-    // Now try to read content hashes (should be fast — no embeddings exist yet)
-    let start = std::time::Instant::now();
-    for id in &ref_ids {
-        let hash = db::embeddings::get_content_hash(&db, id)
-            .await
-            .expect("hash check");
-        assert!(hash.is_none(), "no embedding exists yet");
-    }
-    let elapsed = start.elapsed();
-    eprintln!("15 hash checks took {:?}", elapsed);
-    assert!(
-        elapsed.as_secs() < 5,
-        "15 hash checks took {:?} — should be instant",
-        elapsed
-    );
-}
-
-#[tokio::test]
 async fn embed_source_pipeline_stores_and_searches() {
     let (db, config, _workspace, _config_dir) = common::test_database().await;
     let client = EmbeddingClient::new(&config.embeddings);
@@ -105,6 +62,7 @@ async fn embed_source_pipeline_stores_and_searches() {
         &["dioxus".to_string()],
         &[],
         5,
+        None,
         None,
         None,
     )

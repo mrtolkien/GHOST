@@ -27,23 +27,14 @@ async fn upsert_and_count_embeddings() {
     let (db, _config, _workspace, _config_dir) = common::test_database().await;
 
     let note_id =
-        db::knowledge::create_note_full(&db, "Test Note", "body", &[], &[], 5, None, None)
+        db::knowledge::create_note_full(&db, "Test Note", "body", &[], &[], 5, None, None, None)
             .await
             .expect("create note");
 
     let vector = vec![0.1_f32; 1024];
-    db::embeddings::upsert_embedding(
-        &db,
-        "note",
-        &note_id,
-        0,
-        "chunk text",
-        "abc123",
-        &vector,
-        None,
-    )
-    .await
-    .expect("upsert embedding");
+    db::embeddings::upsert_embedding(&db, "note", &note_id, 0, "chunk text", &vector, None)
+        .await
+        .expect("upsert embedding");
 
     let count = db::embeddings::count_embeddings(&db).await.expect("count");
     assert_eq!(count, 1);
@@ -53,75 +44,23 @@ async fn upsert_and_count_embeddings() {
 async fn upsert_overwrites_on_duplicate_source_and_chunk() {
     let (db, _config, _workspace, _config_dir) = common::test_database().await;
 
-    let note_id = db::knowledge::create_note_full(&db, "Dup Note", "body", &[], &[], 5, None, None)
-        .await
-        .expect("create note");
+    let note_id =
+        db::knowledge::create_note_full(&db, "Dup Note", "body", &[], &[], 5, None, None, None)
+            .await
+            .expect("create note");
 
     let vector_a = vec![0.1_f32; 1024];
     let vector_b = vec![0.9_f32; 1024];
 
-    db::embeddings::upsert_embedding(
-        &db, "note", &note_id, 0, "old text", "hash_a", &vector_a, None,
-    )
-    .await
-    .expect("first upsert");
-    db::embeddings::upsert_embedding(
-        &db, "note", &note_id, 0, "new text", "hash_b", &vector_b, None,
-    )
-    .await
-    .expect("second upsert");
+    db::embeddings::upsert_embedding(&db, "note", &note_id, 0, "old text", &vector_a, None)
+        .await
+        .expect("first upsert");
+    db::embeddings::upsert_embedding(&db, "note", &note_id, 0, "new text", &vector_b, None)
+        .await
+        .expect("second upsert");
 
     let count = db::embeddings::count_embeddings(&db).await.expect("count");
     assert_eq!(count, 1, "duplicate upsert should not create a second row");
-
-    let hash = db::embeddings::get_content_hash(&db, &note_id)
-        .await
-        .expect("get hash");
-    assert_eq!(
-        hash.as_deref(),
-        Some("hash_b"),
-        "hash should reflect latest upsert"
-    );
-}
-
-#[tokio::test]
-async fn get_content_hash_returns_none_for_missing_source() {
-    let (db, _config, _workspace, _config_dir) = common::test_database().await;
-
-    let fake_id = "nonexistent";
-    let hash = db::embeddings::get_content_hash(&db, fake_id)
-        .await
-        .expect("get hash");
-    assert!(hash.is_none());
-}
-
-#[tokio::test]
-async fn get_content_hash_returns_stored_hash() {
-    let (db, _config, _workspace, _config_dir) = common::test_database().await;
-
-    let note_id =
-        db::knowledge::create_note_full(&db, "Hash Note", "body", &[], &[], 5, None, None)
-            .await
-            .expect("create note");
-
-    let vector = vec![0.5_f32; 1024];
-    db::embeddings::upsert_embedding(
-        &db,
-        "note",
-        &note_id,
-        0,
-        "text",
-        "my_hash_42",
-        &vector,
-        None,
-    )
-    .await
-    .expect("upsert");
-
-    let hash = db::embeddings::get_content_hash(&db, &note_id)
-        .await
-        .expect("get hash");
-    assert_eq!(hash.as_deref(), Some("my_hash_42"));
 }
 
 #[tokio::test]
@@ -129,7 +68,7 @@ async fn delete_embeddings_for_source_removes_all_chunks() {
     let (db, _config, _workspace, _config_dir) = common::test_database().await;
 
     let note_id =
-        db::knowledge::create_note_full(&db, "Multi Chunk", "body", &[], &[], 5, None, None)
+        db::knowledge::create_note_full(&db, "Multi Chunk", "body", &[], &[], 5, None, None, None)
             .await
             .expect("create note");
 
@@ -141,7 +80,6 @@ async fn delete_embeddings_for_source_removes_all_chunks() {
             &note_id,
             i,
             &format!("chunk {i}"),
-            "hash",
             &vector,
             None,
         )
@@ -162,18 +100,20 @@ async fn delete_embeddings_for_source_removes_all_chunks() {
 async fn delete_all_embeddings_clears_table() {
     let (db, _config, _workspace, _config_dir) = common::test_database().await;
 
-    let note_a = db::knowledge::create_note_full(&db, "Note A", "body", &[], &[], 5, None, None)
-        .await
-        .expect("create a");
-    let note_b = db::knowledge::create_note_full(&db, "Note B", "body", &[], &[], 5, None, None)
-        .await
-        .expect("create b");
+    let note_a =
+        db::knowledge::create_note_full(&db, "Note A", "body", &[], &[], 5, None, None, None)
+            .await
+            .expect("create a");
+    let note_b =
+        db::knowledge::create_note_full(&db, "Note B", "body", &[], &[], 5, None, None, None)
+            .await
+            .expect("create b");
 
     let vector = vec![0.1_f32; 1024];
-    db::embeddings::upsert_embedding(&db, "note", &note_a, 0, "a", "h1", &vector, None)
+    db::embeddings::upsert_embedding(&db, "note", &note_a, 0, "a", &vector, None)
         .await
         .unwrap();
-    db::embeddings::upsert_embedding(&db, "note", &note_b, 0, "b", "h2", &vector, None)
+    db::embeddings::upsert_embedding(&db, "note", &note_b, 0, "b", &vector, None)
         .await
         .unwrap();
 
@@ -191,24 +131,15 @@ async fn vector_search_returns_results() {
     let (db, _config, _workspace, _config_dir) = common::test_database().await;
 
     let note_id =
-        db::knowledge::create_note_full(&db, "Search Me", "body", &[], &[], 5, None, None)
+        db::knowledge::create_note_full(&db, "Search Me", "body", &[], &[], 5, None, None, None)
             .await
             .expect("create note");
 
     // Insert a known vector
     let vector = vec![1.0_f32; 1024];
-    db::embeddings::upsert_embedding(
-        &db,
-        "note",
-        &note_id,
-        0,
-        "searchable chunk",
-        "h",
-        &vector,
-        None,
-    )
-    .await
-    .expect("upsert");
+    db::embeddings::upsert_embedding(&db, "note", &note_id, 0, "searchable chunk", &vector, None)
+        .await
+        .expect("upsert");
 
     // Search with an identical vector — should get a perfect match
     let hits = db::embeddings::vector_search(&db, &vector, 5, &[])
@@ -229,10 +160,11 @@ async fn vector_search_returns_results() {
 async fn vector_search_ranks_similar_higher() {
     let (db, _config, _workspace, _config_dir) = common::test_database().await;
 
-    let close_id = db::knowledge::create_note_full(&db, "Close", "body", &[], &[], 5, None, None)
-        .await
-        .unwrap();
-    let far_id = db::knowledge::create_note_full(&db, "Far", "body", &[], &[], 5, None, None)
+    let close_id =
+        db::knowledge::create_note_full(&db, "Close", "body", &[], &[], 5, None, None, None)
+            .await
+            .unwrap();
+    let far_id = db::knowledge::create_note_full(&db, "Far", "body", &[], &[], 5, None, None, None)
         .await
         .unwrap();
 
@@ -243,10 +175,10 @@ async fn vector_search_ranks_similar_higher() {
     let mut far_vec = vec![0.0_f32; 1024];
     far_vec[0] = 1.0;
 
-    db::embeddings::upsert_embedding(&db, "note", &close_id, 0, "close", "h1", &close_vec, None)
+    db::embeddings::upsert_embedding(&db, "note", &close_id, 0, "close", &close_vec, None)
         .await
         .unwrap();
-    db::embeddings::upsert_embedding(&db, "note", &far_id, 0, "far", "h2", &far_vec, None)
+    db::embeddings::upsert_embedding(&db, "note", &far_id, 0, "far", &far_vec, None)
         .await
         .unwrap();
 
@@ -278,10 +210,11 @@ async fn vector_search_respects_limit() {
             5,
             None,
             None,
+            None,
         )
         .await
         .unwrap();
-        db::embeddings::upsert_embedding(&db, "note", &id, 0, &format!("c{i}"), "h", &vector, None)
+        db::embeddings::upsert_embedding(&db, "note", &id, 0, &format!("c{i}"), &vector, None)
             .await
             .unwrap();
     }
@@ -418,6 +351,7 @@ async fn vector_insert_memory_stays_bounded() {
             5,
             None,
             None,
+            None,
         )
         .await
         .expect("create note");
@@ -430,7 +364,6 @@ async fn vector_insert_memory_stays_bounded() {
                 &note_id,
                 chunk,
                 &format!("{large_chunk_text} note {i} chunk {chunk}"),
-                &format!("hash_{i}_{chunk}"),
                 &vector,
                 None,
             )
@@ -456,7 +389,6 @@ async fn vector_insert_memory_stays_bounded() {
                 note_id,
                 chunk,
                 &format!("{large_chunk_text} note {i} chunk {chunk} v2"),
-                &format!("hash_{i}_{chunk}_v2"),
                 &vector,
                 None,
             )
@@ -531,6 +463,7 @@ async fn vector_insert_concurrent_stays_bounded() {
                     5,
                     None,
                     None,
+                    None,
                 )
                 .await
                 .expect("create note");
@@ -544,7 +477,6 @@ async fn vector_insert_concurrent_stays_bounded() {
                         &note_id,
                         chunk,
                         &format!("{chunk_text} note {idx} chunk {chunk}"),
-                        &format!("hash_{idx}_{chunk}"),
                         &vector,
                         None,
                     )
@@ -586,9 +518,7 @@ async fn vector_insert_concurrent_stays_bounded() {
     });
 
     // Re-embed all notes (delete + reinsert)
-    let notes_page = db::knowledge::list_notes_page(&db_re, 0, 100)
-        .await
-        .unwrap();
+    let notes_page = db::knowledge::list_all_notes(&db_re).await.unwrap();
     for (i, note) in notes_page.iter().enumerate() {
         db::embeddings::delete_embeddings_for_source(&db_re, &note.id)
             .await
@@ -601,7 +531,6 @@ async fn vector_insert_concurrent_stays_bounded() {
                 &note.id,
                 chunk,
                 &format!("{large_chunk_text} note {i} chunk {chunk} v2"),
-                &format!("hash_{i}_{chunk}_v2"),
                 &vector,
                 None,
             )
@@ -648,6 +577,7 @@ async fn vector_insert_large_scale_memory() {
             5,
             None,
             None,
+            None,
         )
         .await
         .expect("create note");
@@ -660,7 +590,6 @@ async fn vector_insert_large_scale_memory() {
                 &note_id,
                 chunk,
                 &format!("{large_chunk_text} note {i} chunk {chunk}"),
-                &format!("hash_{i}_{chunk}"),
                 &vector,
                 None,
             )
@@ -701,7 +630,7 @@ async fn replace_embeddings_atomically_swaps_all_chunks() {
     let (db, _config, _workspace, _config_dir) = common::test_database().await;
 
     let note_id =
-        db::knowledge::create_note_full(&db, "Atomic Note", "body", &[], &[], 5, None, None)
+        db::knowledge::create_note_full(&db, "Atomic Note", "body", &[], &[], 5, None, None, None)
             .await
             .expect("create note");
 
@@ -714,7 +643,6 @@ async fn replace_embeddings_atomically_swaps_all_chunks() {
             &note_id,
             i,
             &format!("old chunk {i}"),
-            "old_hash",
             &old_vec,
             None,
         )
@@ -729,18 +657,12 @@ async fn replace_embeddings_atomically_swaps_all_chunks() {
         .map(|i| (i, format!("new chunk {i}"), new_vec.clone()))
         .collect();
 
-    db::embeddings::replace_embeddings_for_source(&db, "note", &note_id, &chunks, "new_hash", None)
+    db::embeddings::replace_embeddings_for_source(&db, "note", &note_id, &chunks, None)
         .await
         .expect("replace");
 
     // Should have exactly 3 chunks now
     assert_eq!(db::embeddings::count_embeddings(&db).await.unwrap(), 3);
-
-    // Hash should be the new one
-    let hash = db::embeddings::get_content_hash(&db, &note_id)
-        .await
-        .unwrap();
-    assert_eq!(hash.as_deref(), Some("new_hash"));
 }
 
 // --- Chunker ---
@@ -757,6 +679,106 @@ fn content_hash_differs_for_different_content() {
     let hash_a = embeddings::pipeline::content_hash("hello");
     let hash_b = embeddings::pipeline::content_hash("world");
     assert_ne!(hash_a, hash_b);
+}
+
+#[tokio::test]
+async fn reconcile_filesystem_skips_unchanged_files() {
+    let (db, _config, workspace, _config_dir) = common::test_database().await;
+
+    // Write a note file to disk
+    common::write_test_note(workspace.path(), "Hash Test", "initial content");
+
+    // First reconciliation: file is new, should be processed
+    let (discovered_1, _) =
+        ghost::embeddings::pipeline::reconcile_filesystem(&db, workspace.path())
+            .await
+            .unwrap();
+    assert!(discovered_1 > 0, "first run should discover the new file");
+
+    // Second reconciliation: file unchanged, hash matches but no embeddings yet
+    // → should NOT re-discover but SHOULD queue embed request
+    let (discovered_2, embed_reqs_2) =
+        ghost::embeddings::pipeline::reconcile_filesystem(&db, workspace.path())
+            .await
+            .unwrap();
+    assert_eq!(
+        discovered_2, 0,
+        "second run should not re-discover unchanged file"
+    );
+    assert!(
+        !embed_reqs_2.is_empty(),
+        "should queue embed request for file without embeddings"
+    );
+
+    // Simulate embedding by inserting a dummy embedding for the note
+    let note = db::knowledge::find_note_by_title(&db, "Hash Test")
+        .await
+        .unwrap()
+        .expect("note should exist");
+    let dummy_vec = vec![0.1_f32; 1024];
+    db::embeddings::upsert_embedding(&db, "note", &note.id, 0, "chunk", &dummy_vec, None)
+        .await
+        .unwrap();
+
+    // Third reconciliation: hash matches AND has embeddings → should skip entirely
+    let (discovered_3, embed_reqs_3) =
+        ghost::embeddings::pipeline::reconcile_filesystem(&db, workspace.path())
+            .await
+            .unwrap();
+    assert_eq!(discovered_3, 0, "third run should skip unchanged file");
+    assert!(
+        embed_reqs_3.is_empty(),
+        "no embed requests when hash matches and embeddings exist"
+    );
+
+    // Modify the file
+    common::write_test_note(workspace.path(), "Hash Test", "modified content");
+
+    // Fourth reconciliation: file changed, hash differs → should be re-processed
+    let (discovered_4, _) =
+        ghost::embeddings::pipeline::reconcile_filesystem(&db, workspace.path())
+            .await
+            .unwrap();
+    assert!(
+        discovered_4 > 0,
+        "fourth run should re-process the modified file"
+    );
+}
+
+#[tokio::test]
+async fn reconcile_filesystem_queues_embed_for_unembedded_files() {
+    let (db, _config, workspace, _config_dir) = common::test_database().await;
+
+    // Write a note file and reconcile to create the DB record with file_hash
+    common::write_test_note(workspace.path(), "Embed Gap", "embed me please");
+    let (discovered, _) = ghost::embeddings::pipeline::reconcile_filesystem(&db, workspace.path())
+        .await
+        .unwrap();
+    assert!(discovered > 0);
+
+    // Delete embeddings to simulate Ollama-was-down scenario
+    let note = db::knowledge::find_note_by_title(&db, "Embed Gap")
+        .await
+        .unwrap()
+        .expect("note should exist");
+    db::embeddings::delete_embeddings_for_source(&db, &note.id)
+        .await
+        .unwrap();
+
+    // Re-reconcile: hash matches but embeddings missing → should return EmbedRequest
+    let (discovered_2, embed_reqs) =
+        ghost::embeddings::pipeline::reconcile_filesystem(&db, workspace.path())
+            .await
+            .unwrap();
+    assert_eq!(
+        discovered_2, 0,
+        "file unchanged, should not count as discovered"
+    );
+    assert!(
+        !embed_reqs.is_empty(),
+        "should queue embed request for file with missing embeddings"
+    );
+    assert_eq!(embed_reqs[0].source_table, "note");
 }
 
 #[tokio::test]
@@ -777,9 +799,10 @@ async fn reconcile_filesystem_discovers_untracked_reference() {
     assert_eq!(count_before, 0);
 
     // Run filesystem reconciliation
-    let discovered = ghost::embeddings::pipeline::reconcile_filesystem(&db, workspace.path())
-        .await
-        .unwrap();
+    let (discovered, _embed_reqs) =
+        ghost::embeddings::pipeline::reconcile_filesystem(&db, workspace.path())
+            .await
+            .unwrap();
 
     assert!(discovered > 0, "should discover the orphan file");
 

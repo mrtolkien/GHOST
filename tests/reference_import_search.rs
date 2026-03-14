@@ -48,6 +48,7 @@ async fn search_references_scoped_by_topic() {
         "Hooks are reactive",
         None,
         None,
+        None,
     )
     .await
     .expect("ref1");
@@ -56,6 +57,7 @@ async fn search_references_scoped_by_topic() {
         &t2,
         "sqlx/api/pool.md",
         "Connection pool management",
+        None,
         None,
         None,
     )
@@ -93,6 +95,7 @@ async fn reference_search_snippet_contains_matched_term() {
         &topic_id,
         "test-topic/rules.md",
         "## Introduction\n\nThis is a long preamble about the game.\n\n## Break Rules\n\nDuring a break, players must discard down to their hand limit.",
+        None,
         None,
         None,
     )
@@ -149,10 +152,10 @@ async fn list_topics_returns_ref_counts() {
         .await
         .expect("topic");
 
-    db::knowledge::create_reference(&db, &tid, "test-topic/a.md", "content a", None, None)
+    db::knowledge::create_reference(&db, &tid, "test-topic/a.md", "content a", None, None, None)
         .await
         .expect("ref a");
-    db::knowledge::create_reference(&db, &tid, "test-topic/b.md", "content b", None, None)
+    db::knowledge::create_reference(&db, &tid, "test-topic/b.md", "content b", None, None, None)
         .await
         .expect("ref b");
 
@@ -174,7 +177,7 @@ async fn delete_references_by_topic_cascades() {
         .await
         .expect("topic");
 
-    db::knowledge::create_reference(&db, &tid, "ephemeral/x.md", "x content", None, None)
+    db::knowledge::create_reference(&db, &tid, "ephemeral/x.md", "x content", None, None, None)
         .await
         .expect("ref");
 
