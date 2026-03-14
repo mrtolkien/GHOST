@@ -12,9 +12,7 @@ pub fn execute() -> Result<(), GhostError> {
         let status = std::process::Command::new("launchctl")
             .args(["kickstart", "-k", &format!("gui/{uid}/com.ghost.daemon")])
             .status()
-            .map_err(|e| {
-                std::io::Error::new(e.kind(), format!("failed to run launchctl: {e}"))
-            })?;
+            .map_err(|e| std::io::Error::new(e.kind(), format!("failed to run launchctl: {e}")))?;
 
         if !status.success() {
             return Err(std::io::Error::other("launchctl kickstart failed").into());
@@ -24,14 +22,10 @@ pub fn execute() -> Result<(), GhostError> {
         let status = std::process::Command::new("systemctl")
             .args(["--user", "restart", "ghost-daemon"])
             .status()
-            .map_err(|e| {
-                std::io::Error::new(e.kind(), format!("failed to run systemctl: {e}"))
-            })?;
+            .map_err(|e| std::io::Error::new(e.kind(), format!("failed to run systemctl: {e}")))?;
 
         if !status.success() {
-            return Err(
-                std::io::Error::other("systemctl restart ghost-daemon failed").into(),
-            );
+            return Err(std::io::Error::other("systemctl restart ghost-daemon failed").into());
         }
         println!("restarting ghost daemon via systemctl");
     }

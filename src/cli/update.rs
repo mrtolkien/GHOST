@@ -38,9 +38,7 @@ pub async fn execute(from_source: bool, version: Option<String>) -> Result<(), G
             .map_err(|e| std::io::Error::new(e.kind(), format!("failed to run nix: {e}")))?;
 
         if !status.success() {
-            return Err(
-                std::io::Error::other("nix build failed — old version preserved").into(),
-            );
+            return Err(std::io::Error::other("nix build failed — old version preserved").into());
         }
 
         println!("swapping ghost in nix profile...");

@@ -317,19 +317,148 @@ impl SessionChat {
             ids.push(String::new());
         }
 
+        // Collect cursor-filtered records before conversion so we can
+        // repair orphaned tool calls at the DB level first.
         let cursor = session.compaction_cursor_id;
         let mut include = cursor.is_none();
+        let mut filtered: Vec<db::sessions::MessageRecord> = Vec::new();
         for msg in all_messages {
             if !include {
                 include = Some(msg.id.clone()) == cursor;
                 continue;
             }
+            filtered.push(msg);
+        }
+
+        self.repair_orphaned_tool_calls(session_id, &mut filtered)
+            .await?;
+
+        for msg in filtered {
             let msg_id = msg.id.clone();
             messages.push(convert_stored_message_to_provider_message(msg));
             ids.push(msg_id);
         }
 
         Ok((messages, ids))
+    }
+
+    /// Find assistant messages whose tool calls lack corresponding tool
+    /// results in the following message. For each orphan, persist an error
+    /// tool-result message to the DB and insert it right after the
+    /// assistant message.
+    ///
+    /// Handles both fully missing results (crash before any results were
+    /// written) and partially missing results (crash mid-execution where
+    /// some results were written but not all).
+    async fn repair_orphaned_tool_calls(
+        &self,
+        session_id: &str,
+        messages: &mut Vec<db::sessions::MessageRecord>,
+    ) -> Result<(), ChatError> {
+        // (insert_at_index, record_to_insert)
+        let mut insertions: Vec<(usize, db::sessions::MessageRecord)> = Vec::new();
+
+        for i in 0..messages.len() {
+            if messages[i].role != "assistant" {
+                continue;
+            }
+            let tool_calls = match messages[i].tool_calls_parsed() {
+                Some(tc) if !tc.is_empty() => tc,
+                _ => continue,
+            };
+
+            let call_ids: Vec<String> = tool_calls
+                .iter()
+                .filter_map(|c| c.get("id").and_then(Value::as_str).map(String::from))
+                .collect();
+
+            // Collect tool-result IDs from the immediately following message.
+            let answered_ids: std::collections::HashSet<String> = if i + 1 < messages.len() {
+                messages[i + 1]
+                    .tool_results_parsed()
+                    .unwrap_or_default()
+                    .iter()
+                    .filter_map(|r| {
+                        r.get("tool_use_id")
+                            .and_then(Value::as_str)
+                            .map(String::from)
+                    })
+                    .collect()
+            } else {
+                std::collections::HashSet::new()
+            };
+
+            let orphaned_ids: Vec<&str> = call_ids
+                .iter()
+                .filter(|id| !answered_ids.contains(id.as_str()))
+                .map(String::as_str)
+                .collect();
+
+            if orphaned_ids.is_empty() {
+                continue;
+            }
+
+            let error_results: Vec<Value> = orphaned_ids
+                .iter()
+                .map(|id| {
+                    json!({
+                        "tool_use_id": id,
+                        "content": "Tool execution was interrupted \
+                            (host crashed or restarted before the tool \
+                            could return a result). You may retry.",
+                        "is_error": true,
+                    })
+                })
+                .collect();
+
+            let msg_id = db::sessions::create_message_with_metadata(
+                &self.db,
+                session_id,
+                "user",
+                "",
+                None,
+                Some(error_results.clone()),
+                None,
+                None,
+            )
+            .await?;
+
+            let repair_record = db::sessions::MessageRecord {
+                id: msg_id,
+                session_id: session_id.to_string(),
+                role: "user".to_string(),
+                content: String::new(),
+                tool_calls: None,
+                tool_results: Some(serde_json::to_string(&error_results).unwrap_or_default()),
+                raw_output: None,
+                images: None,
+                created_at: crate::db::now(),
+            };
+
+            // If there were partial results, insert after them (i+2);
+            // otherwise insert right after the assistant message (i+1).
+            let insert_at = if answered_ids.is_empty() {
+                i + 1
+            } else {
+                i + 2
+            };
+            insertions.push((insert_at, repair_record));
+
+            let sid = session_id.to_string();
+            logfire::warn!(
+                "repaired orphaned tool calls",
+                session_id = sid,
+                orphaned_count = orphaned_ids.len(),
+                message_index = i,
+            );
+        }
+
+        // Insert in reverse order so earlier indices remain valid.
+        for (idx, record) in insertions.into_iter().rev() {
+            messages.insert(idx, record);
+        }
+
+        Ok(())
     }
 
     #[tracing::instrument(name = "run tools", skip_all)]

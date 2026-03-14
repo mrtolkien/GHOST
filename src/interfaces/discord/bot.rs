@@ -831,7 +831,10 @@ impl EventHandler for Handler {
         let content = format!("### BOOT SEQUENCE COMPLETE\nghost v{version} ({commit})");
         for user_id_str in &self.allowed_user_ids {
             let Ok(uid) = user_id_str.parse::<u64>() else {
-                warn!(user_id = user_id_str, "invalid allowed_user_id, skipping boot DM");
+                warn!(
+                    user_id = user_id_str,
+                    "invalid allowed_user_id, skipping boot DM"
+                );
                 continue;
             };
             let user_id = UserId::new(uid);

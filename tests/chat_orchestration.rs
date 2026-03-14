@@ -216,6 +216,242 @@ async fn main_chat_does_not_inject_todo() {
 }
 
 // ---------------------------------------------------------------------------
+// Orphaned tool-call repair tests
+// ---------------------------------------------------------------------------
+
+/// Simulate a crash: assistant message has tool_calls but no following
+/// tool_results. On the next chat(), the history should contain a
+/// synthetic error tool result.
+#[tokio::test]
+async fn orphaned_tool_calls_get_error_results() {
+    let (db, config, _workspace, _config_dir) = common::test_database().await;
+    let session_id = ghost::db::sessions::create_session(&db)
+        .await
+        .expect("create session");
+
+    // Simulate: user message, then assistant with tool_calls, then crash
+    // (no tool_results message).
+    ghost::db::sessions::create_message(&db, &session_id, "user", "do something")
+        .await
+        .unwrap();
+    ghost::db::sessions::create_message_with_metadata(
+        &db,
+        &session_id,
+        "assistant",
+        "",
+        Some(vec![
+            json!({"id": "call_orphan", "name": "echo_tool", "input": {"text": "x"}}),
+        ]),
+        None,
+        None,
+        None,
+    )
+    .await
+    .unwrap();
+
+    // Now chat again — the repair should inject an error result.
+    let provider = Arc::new(MockProvider::new(vec![respond_response(
+        "recovered",
+        vec![],
+    )]));
+    let requests = provider.requests();
+    let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config);
+    let result = chat
+        .chat(&session_id, "continue", None, None)
+        .await
+        .expect("chat result");
+    assert_eq!(result.0.message, "recovered");
+
+    // The provider request should contain a ToolResult with is_error=true
+    // for the orphaned call, positioned *before* the new user message.
+    {
+        let recorded = requests.lock().expect("lock");
+        let req = &recorded[0];
+        let error_result = req
+            .messages
+            .iter()
+            .flat_map(|m| m.content.iter())
+            .find(|b| {
+                matches!(
+                    b,
+                    ContentBlock::ToolResult {
+                        tool_use_id,
+                        is_error: true,
+                        ..
+                    } if tool_use_id == "call_orphan"
+                )
+            });
+        assert!(
+            error_result.is_some(),
+            "expected error tool result for orphaned call"
+        );
+    }
+
+    // The error result should also be persisted in the DB.
+    let messages = ghost::db::sessions::list_messages_by_session(&db, &session_id)
+        .await
+        .unwrap();
+    let repair_msg = messages.iter().find(|m| {
+        m.tool_results
+            .as_deref()
+            .is_some_and(|r| r.contains("call_orphan"))
+    });
+    assert!(
+        repair_msg.is_some(),
+        "repair message should be persisted in DB"
+    );
+}
+
+/// Partial crash: assistant called 3 tools, only 2 results were written.
+/// The repair should only synthesize the missing one.
+#[tokio::test]
+async fn partial_tool_results_get_remaining_errors() {
+    let (db, config, _workspace, _config_dir) = common::test_database().await;
+    let session_id = ghost::db::sessions::create_session(&db)
+        .await
+        .expect("create session");
+
+    ghost::db::sessions::create_message(&db, &session_id, "user", "run three tools")
+        .await
+        .unwrap();
+    ghost::db::sessions::create_message_with_metadata(
+        &db,
+        &session_id,
+        "assistant",
+        "",
+        Some(vec![
+            json!({"id": "call_a", "name": "t", "input": {}}),
+            json!({"id": "call_b", "name": "t", "input": {}}),
+            json!({"id": "call_c", "name": "t", "input": {}}),
+        ]),
+        None,
+        None,
+        None,
+    )
+    .await
+    .unwrap();
+    // Only results for A and B were written before crash.
+    ghost::db::sessions::create_message_with_metadata(
+        &db,
+        &session_id,
+        "user",
+        "",
+        None,
+        Some(vec![
+            json!({"tool_use_id": "call_a", "content": "ok", "is_error": false}),
+            json!({"tool_use_id": "call_b", "content": "ok", "is_error": false}),
+        ]),
+        None,
+        None,
+    )
+    .await
+    .unwrap();
+
+    let provider = Arc::new(MockProvider::new(vec![respond_response("ok", vec![])]));
+    let requests = provider.requests();
+    let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config);
+    let _ = chat
+        .chat(&session_id, "continue", None, None)
+        .await
+        .expect("chat result");
+
+    let recorded = requests.lock().expect("lock");
+    let req = &recorded[0];
+
+    // Should have error result for call_c only.
+    let error_results: Vec<_> = req
+        .messages
+        .iter()
+        .flat_map(|m| m.content.iter())
+        .filter(|b| matches!(b, ContentBlock::ToolResult { is_error: true, .. }))
+        .collect();
+    assert_eq!(
+        error_results.len(),
+        1,
+        "only call_c should get error result"
+    );
+    assert!(matches!(
+        error_results[0],
+        ContentBlock::ToolResult { tool_use_id, .. } if tool_use_id == "call_c"
+    ));
+
+    // Normal results for A and B should still be present.
+    let ok_results: Vec<_> = req
+        .messages
+        .iter()
+        .flat_map(|m| m.content.iter())
+        .filter(|b| {
+            matches!(
+                b,
+                ContentBlock::ToolResult {
+                    is_error: false,
+                    content,
+                    ..
+                } if content == "ok"
+            )
+        })
+        .collect();
+    assert_eq!(
+        ok_results.len(),
+        2,
+        "call_a and call_b results should be present"
+    );
+}
+
+/// When all tool results are present, no repair should happen.
+#[tokio::test]
+async fn complete_tool_results_not_repaired() {
+    let (db, config, _workspace, _config_dir) = common::test_database().await;
+    let session_id = ghost::db::sessions::create_session(&db)
+        .await
+        .expect("create session");
+
+    ghost::db::sessions::create_message(&db, &session_id, "user", "run tool")
+        .await
+        .unwrap();
+    ghost::db::sessions::create_message_with_metadata(
+        &db,
+        &session_id,
+        "assistant",
+        "calling tool",
+        Some(vec![json!({"id": "call_ok", "name": "t", "input": {}})]),
+        None,
+        None,
+        None,
+    )
+    .await
+    .unwrap();
+    ghost::db::sessions::create_message_with_metadata(
+        &db,
+        &session_id,
+        "user",
+        "",
+        None,
+        Some(vec![
+            json!({"tool_use_id": "call_ok", "content": "result", "is_error": false}),
+        ]),
+        None,
+        None,
+    )
+    .await
+    .unwrap();
+
+    let provider = Arc::new(MockProvider::new(vec![respond_response("ok", vec![])]));
+    let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config);
+    let _ = chat
+        .chat(&session_id, "continue", None, None)
+        .await
+        .expect("chat result");
+
+    // DB should have exactly 5 messages: user, assistant+tool, user+result,
+    // user "continue", assistant "ok". No repair message.
+    let messages = ghost::db::sessions::list_messages_by_session(&db, &session_id)
+        .await
+        .unwrap();
+    assert_eq!(messages.len(), 5, "no repair message should be inserted");
+}
+
+// ---------------------------------------------------------------------------
 // Compaction tests
 // ---------------------------------------------------------------------------
 

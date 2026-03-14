@@ -289,9 +289,7 @@ pub async fn boot_with_config(config: Config) -> Result<DaemonHandle, GhostError
         handle_bundled_updates(&config, &changes, &db, &discord_result, bundled_rx).await?;
     }
 
-    let discord_sender_arc = discord_result
-        .as_ref()
-        .map(|d| Arc::new(d.sender.clone()));
+    let discord_sender_arc = discord_result.as_ref().map(|d| Arc::new(d.sender.clone()));
 
     // Spawn unified event handler (replaces agent_watcher + completion_watcher)
     let event_handler_handle = super::event_handler::spawn_event_handler(
@@ -336,7 +334,13 @@ async fn handle_bundled_updates(
                 removed = changes.removed.len(),
                 "prompting user for bundled file updates"
             );
-            crate::bundled::prompt_updates_via_discord(changes, discord.sender.http(), channel_id, rx).await
+            crate::bundled::prompt_updates_via_discord(
+                changes,
+                discord.sender.http(),
+                channel_id,
+                rx,
+            )
+            .await
         } else {
             info!("no Discord channel found, auto-accepting bundled updates");
             crate::bundled::UpdateDecision::accept_all(changes)
