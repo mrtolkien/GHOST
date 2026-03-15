@@ -52,7 +52,9 @@ impl BrowserSession {
     pub async fn snapshot(&mut self, offset: usize) -> Result<String, BrowserError> {
         self.refs.reset();
         let raw_nodes = cdp::get_accessibility_tree(&self.page).await?;
+        tracing::debug!(node_count = raw_nodes.len(), "raw AX tree fetched");
         let tree = parse_ax_tree(&raw_nodes);
+        tracing::debug!(tree_size = tree.len(), "parsed AX tree");
         let xml = render_xml(
             &tree,
             &mut self.refs,

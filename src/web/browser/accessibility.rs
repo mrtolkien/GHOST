@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::fmt::Write;
 
-use chromiumoxide::cdp::browser_protocol::accessibility::{AxNode as CdpAxNode, AxPropertyName};
+use serde_json::Value as JsonValue;
 
 /// A node in the parsed accessibility tree.
 #[derive(Debug, Clone)]
@@ -21,123 +21,137 @@ pub struct AxProperties {
     pub expanded: Option<bool>,
 }
 
-/// Parse Chrome's flat AXNode array into a tree of our `AxNode`.
+/// Parse Chrome's raw AX tree JSON into our `AxNode` tree.
 ///
-/// Chrome returns nodes in a flat array with `child_ids` references.
-/// We build a lookup from `AxNodeId` to index, then reconstruct the tree
-/// recursively. Ignored nodes are skipped. The root node itself (usually
-/// `RootWebArea`) is omitted — its children become the returned top-level
-/// nodes.
-pub fn parse_ax_tree(raw_nodes: &[CdpAxNode]) -> Vec<AxNode> {
-    // Map AxNodeId → index in the flat array.
+/// Accepts raw `serde_json::Value` nodes instead of typed chromiumoxide types
+/// to avoid deserialization failures with newer Chrome versions that include
+/// `AxPropertyName` variants (e.g. "uninteresting") missing from
+/// chromiumoxide_cdp 0.7.0.
+pub fn parse_ax_tree(raw_nodes: &[JsonValue]) -> Vec<AxNode> {
+    if raw_nodes.is_empty() {
+        return Vec::new();
+    }
+
     let id_to_idx: HashMap<&str, usize> = raw_nodes
         .iter()
         .enumerate()
-        .map(|(i, n)| (n.node_id.as_ref(), i))
+        .filter_map(|(i, n)| Some((n.get("nodeId")?.as_str()?, i)))
         .collect();
 
-    // Find the root: first non-ignored node.
-    let root_idx = match raw_nodes.iter().position(|n| !n.ignored) {
+    let root_idx = match raw_nodes
+        .iter()
+        .position(|n| !n.get("ignored").and_then(|v| v.as_bool()).unwrap_or(false))
+    {
         Some(idx) => idx,
         None => return Vec::new(),
     };
 
-    // Build the tree starting from the root, then return its children
+    // Build tree from the root, returning its children
     // (skipping the RootWebArea wrapper).
-    let root = build_node(raw_nodes, root_idx, &id_to_idx);
-    match root {
-        Some(n) => n.children,
-        None => Vec::new(),
-    }
+    build_children(raw_nodes, root_idx, &id_to_idx)
 }
 
-/// Recursively build an `AxNode` from the flat array.
-fn build_node(raw: &[CdpAxNode], idx: usize, id_map: &HashMap<&str, usize>) -> Option<AxNode> {
-    let cdp = &raw[idx];
-
-    if cdp.ignored {
-        return None;
-    }
-
-    let role = extract_ax_str(&cdp.role);
-    let name = extract_ax_str(&cdp.name);
-    let backend_node_id = cdp.backend_dom_node_id.as_ref().map(|id| *id.inner());
-    let properties = extract_properties(cdp);
-
-    let children: Vec<AxNode> = cdp
-        .child_ids
-        .as_ref()
-        .map(|ids| {
-            ids.iter()
-                .filter_map(|child_id| {
-                    let child_idx = id_map.get(child_id.as_ref())?;
-                    build_node(raw, *child_idx, id_map)
-                })
-                .collect()
-        })
+/// Recursively build `AxNode`s from raw JSON.
+///
+/// Ignored nodes are skipped but their children are still traversed —
+/// Chrome marks wrapper `<div>`s as ignored with role "none" but their
+/// children (headings, links, etc.) are meaningful.
+fn build_children(
+    raw: &[JsonValue],
+    parent_idx: usize,
+    id_map: &HashMap<&str, usize>,
+) -> Vec<AxNode> {
+    let node = &raw[parent_idx];
+    let child_ids = node
+        .get("childIds")
+        .and_then(|v| v.as_array())
+        .cloned()
         .unwrap_or_default();
 
-    Some(AxNode {
-        role,
-        name,
-        backend_node_id,
-        properties,
-        children,
-    })
+    let mut result = Vec::new();
+    for child_id in &child_ids {
+        let Some(child_id_str) = child_id.as_str() else {
+            continue;
+        };
+        let Some(&child_idx) = id_map.get(child_id_str) else {
+            continue;
+        };
+        let child_node = &raw[child_idx];
+        let ignored = child_node
+            .get("ignored")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+
+        if ignored {
+            // Skip this node but recurse into its children.
+            result.extend(build_children(raw, child_idx, id_map));
+        } else {
+            let role = extract_ax_str(child_node, "role");
+            let name = extract_ax_str(child_node, "name");
+            let backend_node_id = child_node.get("backendDOMNodeId").and_then(|v| v.as_i64());
+            let properties = extract_properties(child_node);
+            let children = build_children(raw, child_idx, id_map);
+
+            result.push(AxNode {
+                role,
+                name,
+                backend_node_id,
+                properties,
+                children,
+            });
+        }
+    }
+    result
 }
 
-/// Extract a string value from an optional `AXValue`.
-fn extract_ax_str(
-    ax_val: &Option<chromiumoxide::cdp::browser_protocol::accessibility::AxValue>,
-) -> String {
-    ax_val
-        .as_ref()
-        .and_then(|v| v.value.as_ref())
+/// Extract a string from an AXValue field (role, name, etc).
+/// CDP AXValue structure: `{"type": "...", "value": "the string"}`
+fn extract_ax_str(node: &JsonValue, field: &str) -> String {
+    node.get(field)
+        .and_then(|v| v.get("value"))
         .and_then(|v| v.as_str())
         .unwrap_or("")
         .to_string()
 }
 
-/// Extract our `AxProperties` from a CDP node's properties list.
-fn extract_properties(cdp: &CdpAxNode) -> AxProperties {
+/// Extract `AxProperties` from a raw CDP node's properties list.
+fn extract_properties(node: &JsonValue) -> AxProperties {
     let mut props = AxProperties::default();
 
-    // The CDP node also has a top-level `value` field.
-    if let Some(ref ax_val) = cdp.value
-        && let Some(ref v) = ax_val.value
+    // Top-level value field.
+    if let Some(s) = node
+        .get("value")
+        .and_then(|v| v.get("value"))
+        .and_then(|v| v.as_str())
     {
-        props.value = v.as_str().map(String::from);
+        props.value = Some(s.to_string());
     }
 
-    let Some(ref prop_list) = cdp.properties else {
+    let Some(prop_list) = node.get("properties").and_then(|v| v.as_array()) else {
         return props;
     };
 
     for prop in prop_list {
-        match prop.name {
-            AxPropertyName::Level => {
-                if let Some(ref v) = prop.value.value {
-                    props.level = v.as_u64().map(|n| n as u32);
-                }
+        let name = prop.get("name").and_then(|v| v.as_str()).unwrap_or("");
+        let value = prop.get("value").and_then(|v| v.get("value"));
+
+        match name {
+            "level" => {
+                props.level = value.and_then(|v| v.as_u64()).map(|n| n as u32);
             }
-            AxPropertyName::Checked => {
-                if let Some(ref v) = prop.value.value {
-                    // CDP sends checked as "true"/"false" strings or booleans.
-                    props.checked = match v {
-                        serde_json::Value::Bool(b) => Some(*b),
-                        serde_json::Value::String(s) => Some(s == "true"),
-                        _ => None,
-                    };
-                }
+            "checked" => {
+                props.checked = value.and_then(|v| match v {
+                    JsonValue::Bool(b) => Some(*b),
+                    JsonValue::String(s) => Some(s == "true"),
+                    _ => None,
+                });
             }
-            AxPropertyName::Expanded => {
-                if let Some(ref v) = prop.value.value {
-                    props.expanded = match v {
-                        serde_json::Value::Bool(b) => Some(*b),
-                        serde_json::Value::String(s) => Some(s == "true"),
-                        _ => None,
-                    };
-                }
+            "expanded" => {
+                props.expanded = value.and_then(|v| match v {
+                    JsonValue::Bool(b) => Some(*b),
+                    JsonValue::String(s) => Some(s == "true"),
+                    _ => None,
+                });
             }
             _ => {}
         }

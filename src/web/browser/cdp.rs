@@ -1,5 +1,5 @@
 use chromiumoxide::cdp::browser_protocol::{
-    accessibility::{AxNode as CdpAxNode, GetFullAxTreeParams},
+    accessibility::EnableParams as AxEnableParams,
     dom::{BackendNodeId, FocusParams, GetBoxModelParams, ScrollIntoViewIfNeededParams},
     emulation::SetDeviceMetricsOverrideParams,
     input::{DispatchMouseEventParams, DispatchMouseEventType, InsertTextParams, MouseButton},
@@ -28,21 +28,70 @@ pub enum ScrollDirection {
 
 /// Connect to a running Chrome instance via its CDP WebSocket URL.
 ///
+/// Accepts either a full WebSocket URL (e.g.
+/// `ws://localhost:9222/devtools/browser/...`) or a base URL (e.g.
+/// `ws://localhost:9222`). When a base URL is given, queries
+/// `/json/version` to discover the `webSocketDebuggerUrl`.
+///
 /// Returns the browser handle and a spawned handler task that must remain
 /// alive for the connection to work.
 pub async fn connect(cdp_url: &str) -> Result<(Browser, JoinHandle<()>), BrowserError> {
+    let ws_url = resolve_ws_url(cdp_url).await?;
+
     let (browser, mut handler) =
-        Browser::connect(cdp_url)
+        Browser::connect(&ws_url)
             .await
             .map_err(|e| BrowserError::ConnectionFailed {
-                url: cdp_url.to_owned(),
+                url: ws_url.clone(),
                 source: Box::new(e),
             })?;
 
     let handle = tokio::spawn(async move { while handler.next().await.is_some() {} });
 
-    debug!(url = cdp_url, "connected to Chrome via CDP");
+    debug!(url = ws_url, "connected to Chrome via CDP");
     Ok((browser, handle))
+}
+
+/// If `cdp_url` is a base URL (no path or just `/`), query Chrome's
+/// `/json/version` endpoint to discover the actual WebSocket URL.
+async fn resolve_ws_url(cdp_url: &str) -> Result<String, BrowserError> {
+    let parsed = url::Url::parse(cdp_url).map_err(|e| BrowserError::ConnectionFailed {
+        url: cdp_url.to_owned(),
+        source: Box::new(e),
+    })?;
+
+    // If the URL has a non-trivial path, assume it's already a full WS URL.
+    let path = parsed.path();
+    if !path.is_empty() && path != "/" {
+        return Ok(cdp_url.to_string());
+    }
+
+    // Query /json/version for the webSocketDebuggerUrl
+    let http_url = format!(
+        "http://{}:{}/json/version",
+        parsed.host_str().unwrap_or("localhost"),
+        parsed.port().unwrap_or(9222)
+    );
+    let resp: serde_json::Value = reqwest::get(&http_url)
+        .await
+        .map_err(|e| BrowserError::ConnectionFailed {
+            url: cdp_url.to_owned(),
+            source: Box::new(e),
+        })?
+        .json()
+        .await
+        .map_err(|e| BrowserError::ConnectionFailed {
+            url: cdp_url.to_owned(),
+            source: Box::new(e),
+        })?;
+
+    resp.get("webSocketDebuggerUrl")
+        .and_then(|v| v.as_str())
+        .map(String::from)
+        .ok_or_else(|| BrowserError::ConnectionFailed {
+            url: cdp_url.to_owned(),
+            source: "no webSocketDebuggerUrl in /json/version response".into(),
+        })
 }
 
 /// Open a new blank tab and configure the viewport.
@@ -104,18 +153,59 @@ pub async fn navigate(page: &Page, url: &str) -> Result<(String, String), Browse
         .into_value()
         .unwrap_or_default();
 
+    // Brief pause to ensure the accessibility tree is populated. Chrome's
+    // load event fires before the AX tree is fully built for some pages.
+    tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+
     debug!(url = %final_url, title = %title, "navigation complete");
     Ok((final_url, title))
 }
 
-/// Fetch the full accessibility tree for the current page.
-pub async fn get_accessibility_tree(page: &Page) -> Result<Vec<CdpAxNode>, BrowserError> {
+/// Raw CDP command for `Accessibility.getFullAXTree` that returns JSON
+/// instead of typed `AxNode`. This avoids deserialization failures when Chrome
+/// includes `AxPropertyName` variants (e.g. "uninteresting") that
+/// chromiumoxide_cdp 0.7.0 doesn't recognize.
+#[derive(Debug, serde::Serialize)]
+struct RawGetFullAxTree {}
+
+/// Raw response for `Accessibility.getFullAXTree`.
+#[derive(Debug, serde::Deserialize)]
+struct RawAxTreeResponse {
+    nodes: Vec<serde_json::Value>,
+}
+
+impl chromiumoxide::types::Method for RawGetFullAxTree {
+    fn identifier(&self) -> chromiumoxide::types::MethodId {
+        "Accessibility.getFullAXTree".into()
+    }
+}
+
+impl chromiumoxide::Command for RawGetFullAxTree {
+    type Response = RawAxTreeResponse;
+}
+
+/// Fetch the full accessibility tree for the current page as raw JSON nodes.
+///
+/// Returns `Vec<serde_json::Value>` instead of typed `CdpAxNode` because
+/// chromiumoxide_cdp 0.7.0 lacks some `AxPropertyName` variants (e.g.
+/// "uninteresting") that Chrome 146+ includes in `ignoredReasons`, causing
+/// deserialization failures. Our `parse_ax_tree` handles the raw JSON.
+pub async fn get_accessibility_tree(page: &Page) -> Result<Vec<serde_json::Value>, BrowserError> {
+    // Enable the accessibility domain.
+    page.execute(AxEnableParams::default())
+        .await
+        .map_err(|e| BrowserError::CdpError {
+            message: format!("failed to enable accessibility: {e}"),
+        })?;
+
     let resp = page
-        .execute(GetFullAxTreeParams::default())
+        .execute(RawGetFullAxTree {})
         .await
         .map_err(|e| BrowserError::CdpError {
             message: format!("failed to get accessibility tree: {e}"),
         })?;
+
+    debug!(node_count = resp.result.nodes.len(), "AX tree fetched");
 
     Ok(resp.result.nodes)
 }
