@@ -59,6 +59,49 @@ pub fn display_request(tool_name: &str, args: &Value) -> String {
                 _ => format!("\u{1F916}\u{FE0E} {action}"),
             }
         }
+        "browser" => {
+            let action = str_arg(args, "action");
+            match action.as_str() {
+                "navigate" => {
+                    let url = str_arg(args, "url");
+                    let short = url
+                        .strip_prefix("https://")
+                        .or_else(|| url.strip_prefix("http://"))
+                        .unwrap_or(&url);
+                    format!("\u{1F9ED}\u{FE0E} {}", clip(short, DISPLAY_VALUE_MAX))
+                }
+                "snapshot" => "\u{1F9ED}\u{FE0E} snapshot".to_string(),
+                "screenshot" => "\u{1F9ED}\u{FE0E} screenshot".to_string(),
+                "click" => {
+                    let r = str_arg(args, "ref");
+                    format!("\u{1F9ED}\u{FE0E} click {r}")
+                }
+                "type" => {
+                    let r = str_arg(args, "ref");
+                    let text = str_arg(args, "text");
+                    format!("\u{1F9ED}\u{FE0E} type {r} \"{}\"", clip(&text, 30))
+                }
+                "press" => {
+                    let key = str_arg(args, "key");
+                    format!("\u{1F9ED}\u{FE0E} press {key}")
+                }
+                "fill" => {
+                    let n = args
+                        .get("fields")
+                        .and_then(Value::as_array)
+                        .map_or(0, |a| a.len());
+                    format!("\u{1F9ED}\u{FE0E} fill {n} fields")
+                }
+                "scroll" => {
+                    let dir = args
+                        .get("direction")
+                        .and_then(Value::as_str)
+                        .unwrap_or("down");
+                    format!("\u{1F9ED}\u{FE0E} scroll {dir}")
+                }
+                _ => format!("\u{1F9ED}\u{FE0E} {action}"),
+            }
+        }
         "todo" => {
             // TODO tool display is handled separately by the TodoUpdated event.
             String::new()
@@ -126,6 +169,37 @@ pub fn display_result(tool_name: &str, _args: &Value, result: &str, is_error: bo
                 "\u{2713}".to_string()
             }
         }
+        "browser" => {
+            let action = str_arg(_args, "action");
+            match action.as_str() {
+                "snapshot" => {
+                    let refs = result.matches("ref=").count();
+                    format!("\u{2192} {refs} refs")
+                }
+                "screenshot" => {
+                    // Extract path from JSON result.
+                    if let Ok(v) = serde_json::from_str::<Value>(result) {
+                        let path = v["path"].as_str().unwrap_or("?");
+                        format!("\u{2192} {path}")
+                    } else {
+                        "\u{2713}".to_string()
+                    }
+                }
+                "navigate" => {
+                    if let Ok(v) = serde_json::from_str::<Value>(result) {
+                        let title = v["title"].as_str().unwrap_or("");
+                        if title.is_empty() {
+                            "\u{2713}".to_string()
+                        } else {
+                            format!("\u{2192} {}", clip(title, 50))
+                        }
+                    } else {
+                        "\u{2713}".to_string()
+                    }
+                }
+                _ => "\u{2713}".to_string(),
+            }
+        }
         _ => "\u{2713}".to_string(),
     }
 }
@@ -142,6 +216,7 @@ pub fn tool_emoji(tool_name: &str) -> &'static str {
         "write_file" | "file_edit" => "\u{270F}\u{FE0E}",
         "note_write" => "\u{1F4DD}\u{FE0E}",
         "agent_control" => "\u{1F916}\u{FE0E}",
+        "browser" => "\u{1F9ED}\u{FE0E}",
         "todo" => "\u{2713}",
         _ => "\u{2022}",
     }
