@@ -1,4 +1,5 @@
 pub mod agent_control;
+pub mod browser;
 pub mod confirmation;
 pub mod context;
 pub mod display;

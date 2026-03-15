@@ -1,15 +1,18 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+use tokio::sync::Mutex as TokioMutex;
+
 use crate::agents::AgentRunner;
 use crate::config::Config;
 use crate::db::GhostDb;
 use crate::events::SessionEventSender;
+use crate::web::browser::BrowserSession;
 
 use super::ToolError;
 use super::confirmation::ConfirmationSender;
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct ToolContext {
     pub workspace: PathBuf,
     pub cwd: PathBuf,
@@ -20,6 +23,17 @@ pub struct ToolContext {
     pub event_tx: Option<SessionEventSender>,
     pub channel_id: Option<String>,
     pub confirmation_tx: Option<ConfirmationSender>,
+    pub browser_session: Arc<TokioMutex<Option<BrowserSession>>>,
+}
+
+impl std::fmt::Debug for ToolContext {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ToolContext")
+            .field("workspace", &self.workspace)
+            .field("session_id", &self.session_id)
+            .field("browser_session", &"<browser>")
+            .finish_non_exhaustive()
+    }
 }
 
 /// Resolve a path relative to a base directory and enforce that the result

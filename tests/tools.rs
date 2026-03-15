@@ -19,6 +19,7 @@ fn tool_ctx(
         event_tx: None,
         channel_id: None,
         confirmation_tx: None,
+        browser_session: std::sync::Arc::new(tokio::sync::Mutex::new(None)),
     }
 }
 
@@ -297,6 +298,7 @@ async fn unknown_tool_returns_not_found() {
         event_tx: None,
         channel_id: None,
         confirmation_tx: None,
+        browser_session: std::sync::Arc::new(tokio::sync::Mutex::new(None)),
     };
 
     let result = manager.execute("nonexistent_tool", json!({}), &ctx).await;

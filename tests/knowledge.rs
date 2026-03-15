@@ -311,6 +311,7 @@ async fn note_write_tool_creates_file_and_db_record() {
         event_tx: None,
         channel_id: None,
         confirmation_tx: None,
+        browser_session: std::sync::Arc::new(tokio::sync::Mutex::new(None)),
     };
     let manager = ToolManager::for_agent(&reflection_tools());
 

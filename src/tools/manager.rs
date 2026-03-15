@@ -4,6 +4,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use serde_json::Value;
 
+use crate::config::Config;
 use crate::providers::ToolDefinition;
 
 use super::context::ToolContext;
@@ -78,7 +79,16 @@ impl ToolManager {
         manager
     }
 
+    /// Conditionally register the browser tool if Chrome CDP is configured.
+    pub fn with_browser_if_configured(&mut self, config: &Config) {
+        if config.web.chrome_cdp_url.is_some() {
+            self.register(Arc::new(super::browser::BrowserTool));
+        }
+    }
+
     /// Build a registry containing every tool the system knows about.
+    /// Used for agent tool whitelisting — the browser tool is included
+    /// unconditionally here because it checks config at runtime.
     pub fn all_available() -> Self {
         let mut manager = Self::default();
         manager.register(Arc::new(super::shell::RunShellCommand));
@@ -91,6 +101,7 @@ impl ToolManager {
         manager.register(Arc::new(super::web_fetch::WebFetch));
         manager.register(Arc::new(super::note_write::NoteWrite));
         manager.register(Arc::new(super::agent_control::AgentControl));
+        manager.register(Arc::new(super::browser::BrowserTool));
         manager
     }
 

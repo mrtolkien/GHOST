@@ -95,6 +95,7 @@ mod tests {
             event_tx: None,
             channel_id: None,
             confirmation_tx: None,
+            browser_session: std::sync::Arc::new(tokio::sync::Mutex::new(None)),
         }
     }
 

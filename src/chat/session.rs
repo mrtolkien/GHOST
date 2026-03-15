@@ -53,8 +53,10 @@ impl SessionChat {
     #[tracing::instrument(name = "create session_chat", skip_all)]
     pub fn from_config(db: GhostDb, config: Config) -> Result<Self, ChatError> {
         let provider = provider_for_alias(&config, None)?;
+        let mut tool_manager = ToolManager::for_chat();
+        tool_manager.with_browser_if_configured(&config);
 
-        Ok(Self::new(db, provider, ToolManager::for_chat(), config))
+        Ok(Self::new(db, provider, tool_manager, config))
     }
 
     #[must_use]
@@ -516,6 +518,7 @@ impl SessionChat {
             event_tx: self.event_tx.clone(),
             channel_id: channel_id.map(String::from),
             confirmation_tx: self.confirmation_tx.clone(),
+            browser_session: Arc::new(tokio::sync::Mutex::new(None)),
         };
 
         match self.tool_manager.execute(name, input, &tool_ctx).await {
