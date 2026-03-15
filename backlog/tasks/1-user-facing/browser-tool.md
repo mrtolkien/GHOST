@@ -1,6 +1,6 @@
 # Browser Tool — Headless Chrome via CDP
 
-## Status: RESEARCH COMPLETE, NEEDS DECISION
+## Status: DESIGN COMPLETE, READY FOR IMPLEMENTATION PLAN
 
 ## HUMAN NOTES
 
@@ -111,12 +111,10 @@ services:
       - "9222:9222"
     shm_size: "2gb" # Chrome crashes with default 64MB /dev/shm
     init: true # Prevents zombie helper processes
-    security_opt:
-      - seccomp=chrome.json # Custom profile for Chrome sandbox
     deploy:
       resources:
         limits:
-          memory: 1g
+          memory: 2g
           cpus: "1.0"
 ```
 
@@ -124,7 +122,8 @@ Critical requirements:
 
 - `shm_size: 2gb` — mandatory, Chrome crashes without it
 - `init: true` — mandatory, Chrome spawns helper processes that become zombies
-- Security: custom seccomp profile > `SYS_ADMIN` capability > `--no-sandbox`
+- `memory: 2g` — shared between browser tool and crawl4ai clients
+- Security: seccomp profile is recommended for production but not required for MVP
 
 ### Sharing Chrome with crawl4ai
 
@@ -216,3 +215,526 @@ NOT in scope for MVP:
 - Should the GHOST be able to decide when to use browser vs web_fetch, or should
   web_fetch auto-escalate?
 - Should we wait until there's a concrete use case that crawl4ai can't handle?
+
+---
+
+# Design Spec — Browser Tool MVP
+
+## Decisions Made
+
+The open questions from the research phase are resolved:
+
+- **Yes, worth it.** The Chrome sidecar is shared with crawl4ai (one instance, two
+  clients), so the operational overhead is near-zero — we need Chrome anyway.
+- **GHOST decides.** `browser` and `web_fetch` are separate tools. The GHOST uses
+  `browser` for interaction (login, forms, JS-heavy pages) and `web_fetch` for reading.
+  The key integration: after logging in via `browser`, `web_fetch` can access
+  authenticated content because crawl4ai shares the same Chrome cookie jar.
+- **Not waiting.** Login-gated content is a concrete, common use case.
+
+## 1. Tool Schema
+
+Single `browser` tool with action discriminator. One tab per session (navigate replaces
+the current page).
+
+```json
+{
+  "name": "browser",
+  "description": "Control a headless browser for pages requiring interaction (login walls, forms, JS-heavy content). Use web_fetch for simple page reads.",
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "action": {
+        "type": "string",
+        "enum": ["navigate", "snapshot", "click", "type", "scroll", "screenshot"],
+        "description": "navigate: open URL (replaces current page). snapshot: get accessibility tree with ref IDs. click: click element by ref. type: enter text into element by ref. scroll: scroll page or element. screenshot: capture page as PNG image."
+      },
+      "url": {
+        "type": "string",
+        "description": "URL to navigate to. Required for 'navigate'."
+      },
+      "ref": {
+        "type": "string",
+        "description": "Element ref ID (e.g. 'e5'). Required for 'click' and 'type'. Optional for 'scroll' (scrolls element into view)."
+      },
+      "text": {
+        "type": "string",
+        "description": "Text to type. Required for 'type'."
+      },
+      "direction": {
+        "type": "string",
+        "enum": ["up", "down"],
+        "description": "Scroll direction. Defaults to 'down'. Only for 'scroll'."
+      },
+      "offset": {
+        "type": "integer",
+        "description": "Skip first N nodes in snapshot. For paginating large accessibility trees. Only for 'snapshot'."
+      }
+    },
+    "required": ["action"]
+  }
+}
+```
+
+## 2. Return Format
+
+Following OpenClaw's pattern: minimal JSON for actions, XML accessibility tree for
+snapshots.
+
+### Actions (navigate, click, type, scroll)
+
+Return JSON:
+
+```json
+{"ok": true, "url": "https://example.com/dashboard", "title": "Dashboard - Acme"}
+```
+
+For interactions, add a `description` field:
+
+```json
+{"ok": true, "url": "https://example.com/form", "description": "Clicked 'Submit' [button]"}
+```
+
+```json
+{"ok": true, "url": "https://example.com/form", "description": "Typed into 'Email' [textbox]"}
+```
+
+```json
+{"ok": true, "url": "https://example.com/results", "description": "Scrolled down"}
+```
+
+### Snapshot
+
+Returns the accessibility tree as XML, wrapped in prompt-injection security boundaries:
+
+```
+<<<EXTERNAL_UNTRUSTED_CONTENT>>>
+Source: Browser (https://example.com/dashboard)
+---
+<heading level="1" ref="e1">Dashboard</heading>
+<navigation name="Main">
+  <link ref="e2">Home</link>
+  <link ref="e3">Settings</link>
+</navigation>
+<main>
+  <form name="Search">
+    <textbox ref="e4" name="Query" />
+    <button ref="e5">Search</button>
+  </form>
+  <heading level="2" ref="e6">Recent Items</heading>
+  <list>
+    <listitem>
+      <link ref="e7">Project Alpha</link>
+      <text>Updated 2 hours ago</text>
+    </listitem>
+    <listitem>
+      <link ref="e8">Project Beta</link>
+      <text>Updated yesterday</text>
+    </listitem>
+  </list>
+</main>
+<<<END_EXTERNAL_UNTRUSTED_CONTENT>>>
+```
+
+Truncation: maximum 500 nodes rendered. When truncated, a comment is appended:
+
+```xml
+<!-- Snapshot truncated: showing 500 of 1,247 nodes. Use offset=500 to see more. -->
+```
+
+The `snapshot` action accepts an optional `offset` parameter (integer) for pagination
+through large trees.
+
+### Screenshot
+
+Screenshot is saved to disk at `$WORKSPACE/.cache/browser/screenshot-<timestamp>.png`.
+NOT sent inline as an image (avoids context pollution). The GHOST can use `read_file`
+on the path if it needs vision analysis.
+
+```json
+{"ok": true, "url": "https://example.com/dashboard", "path": ".cache/browser/screenshot-2026-03-15-143022.png", "description": "Screenshot captured (1280x720)"}
+```
+
+Default viewport: 1280x720. This balances readability with file size (~200-500KB PNG
+per screenshot). Not configurable in MVP.
+
+### Errors
+
+Same JSON shape, `ok: false`, with actionable messages:
+
+```json
+{"ok": false, "error": "element [ref=e5] not found — page may have changed, try 'snapshot'"}
+```
+
+## 3. Accessibility Tree
+
+The GHOST "sees" pages through Chrome's accessibility tree — the same semantic structure
+a screen reader uses. This is 5-20KB per page vs 500KB+ for raw HTML. Rendered as XML
+because the tree is naturally hierarchical with typed attributes (role, ref, level,
+value, checked, expanded).
+
+### Data source
+
+Chrome's `Accessibility.getFullAXTree` CDP command returns a flat array of AX nodes.
+We reconstruct the tree from `childIds`, skip `ignored` nodes, and render to XML.
+
+### Node struct
+
+```rust
+pub struct AxNode {
+    pub role: AxRole,
+    pub name: String,
+    pub backend_node_id: Option<i64>,
+    pub properties: AxProperties,   // level, value, checked, expanded, ...
+    pub children: Vec<AxNode>,
+}
+```
+
+### Role classification
+
+Roles determine whether a node gets a ref (and thus can be targeted by the GHOST).
+
+**Interactive** — always assigned a ref. Elements the GHOST can act on:
+
+`button`, `checkbox`, `combobox`, `link`, `listbox`, `menuitem`,
+`menuitemcheckbox`, `menuitemradio`, `option`, `radio`, `searchbox`, `slider`,
+`spinbutton`, `switch`, `tab`, `textbox`, `treeitem`
+
+**Content** — assigned a ref only when they have a non-empty name. Carry meaningful
+text but are not directly interactive:
+
+`cell`, `columnheader`, `heading`, `img`, `listitem`, `rowheader`
+
+**Structural** — never assigned a ref. Provide hierarchy and grouping. Rendered as
+containers so the GHOST understands page layout:
+
+`application`, `banner`, `complementary`, `contentinfo`, `dialog`, `document`,
+`form`, `grid`, `group`, `list`, `main`, `menu`, `menubar`, `navigation`,
+`region`, `row`, `table`, `tablist`, `toolbar`, `tree`
+
+Roles not in any list are treated as structural.
+
+### Ref assignment
+
+Refs are sequential (`e1`, `e2`, ...) assigned in depth-first tree order. The ref map
+is **invalidated on every `snapshot()` call** — a new snapshot rebuilds the tree and
+reassigns all refs from `e1`.
+
+Between snapshots, refs are stable: `e5` always points to the same DOM node. If the
+page mutates (navigation, JS updates) without a new snapshot, refs may point to stale
+or removed nodes. Actions on stale refs return `BrowserError::RefNotFound` with a
+message suggesting the GHOST call `snapshot` to get fresh refs.
+
+```rust
+pub struct RefMap {
+    refs: HashMap<String, i64>,   // "e5" → BackendDOMNodeId
+    counter: u32,
+}
+```
+
+### XML rendering rules
+
+- Each node becomes an XML element named after its role (`<button>`, `<link>`, `<heading>`)
+- Ref is an attribute: `<button ref="e5">`
+- Name is the text content: `<button ref="e5">Submit</button>`
+- Special properties become attributes:
+  - `level` on headings: `<heading level="2" ref="e3">Features</heading>`
+  - `value` on inputs: `<textbox ref="e4" name="Email" value="john@..." />`
+  - `checked` on checkboxes: `<checkbox ref="e6" checked="true">Remember me</checkbox>`
+  - `expanded` on expandable: `<treeitem ref="e7" expanded="false">Section</treeitem>`
+- Nodes with children render as open/close pairs with 2-space indentation
+- Leaf nodes with only a name: `<role ref="eN">name</role>`
+- Empty nameless leaf nodes are omitted (noise reduction)
+- Text content is XML-escaped (`&lt;` `&gt;` `&amp;` `&quot;`)
+- `StaticText` AX nodes render as `<text>content</text>` (no ref — not interactive)
+- Maximum tree depth: 15 levels (deeper nodes omitted with XML comment)
+- Maximum node count: 500 (remaining nodes omitted with XML comment, `offset` for pagination)
+
+### Content rendering
+
+`StaticText` nodes (paragraphs, labels, inline text) render in full — no truncation of
+text content within nodes. For content-heavy pages (articles, documentation), the GHOST
+should use `web_fetch` instead, which returns clean markdown. The browser tool's
+snapshot shows enough content for the GHOST to understand what page it's on and find
+elements to interact with.
+
+Example — a blog article would render as:
+
+```xml
+<main>
+  <heading level="1" ref="e4">Homelab — Starting from scratch</heading>
+  <paragraph>
+    <text>I've mass-migrated my services from rented servers to a homelab.
+    Here's a write-up of the full setup.</text>
+  </paragraph>
+  <heading level="2" ref="e5">Hardware</heading>
+  <paragraph>
+    <text>I picked up a Dell OptiPlex 7050 Micro on eBay for about 150€.</text>
+  </paragraph>
+  <img ref="e6" name="Photo of the Dell OptiPlex on a shelf" />
+  <heading level="2" ref="e7">Proxmox</heading>
+  <paragraph>
+    <text>For the hypervisor I went with </text>
+    <link ref="e8">Proxmox VE</link>
+    <text>. Debian-based, free, solid web UI.</text>
+  </paragraph>
+</main>
+```
+
+## 4. Module Architecture
+
+### Rename
+
+`src/web/browser.rs` → `src/web/crawl4ai.rs` (it is a crawl4ai client, the name should
+say so). The `browser` name belongs to this feature. This is a mechanical rename:
+update `src/web/mod.rs` re-exports and `src/web/fetch.rs` references
+(`super::browser::` → `super::crawl4ai::`). Do this rename first, before adding the
+new `browser/` module, to avoid confusion.
+
+### New module: `src/web/browser/`
+
+```
+src/web/
+├── mod.rs
+├── crawl4ai.rs            ← renamed from browser.rs
+├── fetch.rs               ← existing
+├── search.rs              ← existing
+├── browser/
+│   ├── mod.rs             ← BrowserSession: public API, connect/disconnect
+│   ├── cdp.rs             ← CDP connection, raw commands, page actions
+│   ├── accessibility.rs   ← AX tree fetch, AxNode, ref assignment, XML render
+│   └── error.rs           ← BrowserError enum
+```
+
+**`browser/mod.rs`** (~150-200 LoC) — `BrowserSession` struct with public methods:
+`connect`, `navigate`, `snapshot`, `click`, `type_text`, `scroll`, `screenshot`, `close`.
+Delegates to `cdp.rs` and `accessibility.rs`.
+
+**`browser/cdp.rs`** (~200-300 LoC) — `chromiumoxide` connection management, page
+creation, raw CDP commands (click node, type into node, scroll, capture screenshot
+bytes). Handles reconnection on disconnect.
+
+**`browser/accessibility.rs`** (~300-400 LoC) — `AxNode` struct, `AxRole` enum, role
+classification, ref assignment via `RefMap`, XML rendering. All rendering rules
+documented in the docstrings (see section 3).
+
+**`browser/error.rs`** (~50 LoC) — `BrowserError` enum with actionable messages.
+
+### Tool wrapper: `src/tools/browser.rs`
+
+Thin layer (~150-200 LoC): implements `Tool` trait, parses action + parameters,
+dispatches to `BrowserSession`, formats JSON/XML results, wraps snapshots in security
+boundaries, manages screenshot file paths.
+
+### Key struct
+
+```rust
+pub struct BrowserSession {
+    browser: Browser,                         // chromiumoxide CDP connection
+    page: Page,                               // single active tab
+    refs: RefMap,                             // "e1" → BackendDOMNodeId
+    cdp_url: String,                          // for error messages, reconnection
+}
+```
+
+**Session lifecycle**: `BrowserSession` is stored as
+`Option<Arc<tokio::sync::Mutex<BrowserSession>>>` on `ToolContext`. Starts as `None`.
+Created lazily on first `browser` tool call — the tool checks `ToolContext`, if `None`
+it connects and stores the session. Held for the duration of the chat session. Dropped
+when the session ends (the `Arc` is dropped with the `ToolContext`). On drop, the
+Chrome tab is closed via CDP.
+
+This requires adding a field to `ToolContext`:
+
+```rust
+pub browser_session: Option<Arc<tokio::sync::Mutex<BrowserSession>>>,
+```
+
+`ToolManager::for_chat()` needs a `&Config` parameter (or the browser tool is
+registered separately after construction) to conditionally include the browser tool
+only when `chrome_cdp_url` is configured. The tool registers based on config
+presence, not on Chrome connectivity — if Chrome is down, the tool exists but returns
+a clear error on first call.
+
+**CDP abstraction**: `BrowserSession` takes a `ws://` URL. No assumptions about Chrome
+being local or headless. This enables future remote CDP (OPERATOR's browser via
+Tailscale) without code changes — see `browser-operator-relay.md`.
+
+**Graceful disconnection**: if the CDP socket drops, actions return a clear
+`BrowserError::ConnectionFailed` error. Reconnect is attempted on the next tool call.
+
+## 5. Shared Chrome with crawl4ai
+
+The browser tool and crawl4ai share a single Chrome sidecar. This is the critical
+integration that makes login → fetch workflows work:
+
+1. GHOST uses `browser` tool to log in (navigate to login page, type credentials, click
+   submit)
+2. Chrome now has session cookies for that domain
+3. GHOST calls `web_fetch` → crawl4ai connects to the same Chrome instance
+4. crawl4ai navigates in its own tab, same cookie jar → authenticated content
+5. Returns clean markdown — much better than reading articles via `snapshot`
+
+```
+┌─────────────────────────────────────────────────┐
+│  chrome-headless-shell (one instance)           │
+│                                                 │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐      │
+│  │ tab: ghost│  │ tab: c4ai│  │ tab: c4ai│      │
+│  │ (logged  │  │ (fetch 1)│  │ (fetch 2)│      │
+│  │  in)     │  │          │  │          │      │
+│  └──────────┘  └──────────┘  └──────────┘      │
+│                                                 │
+│  cookies: shared across all tabs                │
+└────────┬──────────────────┬─────────────────────┘
+         │ CDP              │ CDP
+    ┌────┴────┐      ┌─────┴──────┐
+    │ ghost   │      │ crawl4ai   │
+    │ browser │      │ server     │
+    │ tool    │      │            │
+    └─────────┘      └────────────┘
+```
+
+**Implementation**: pass `chrome_cdp_url` in crawl4ai's `BrowserConfig` params:
+
+```json
+{
+  "browser_config": {
+    "type": "BrowserConfig",
+    "params": { "headless": true, "cdp_url": "ws://chrome:9222" }
+  }
+}
+```
+
+This is ~5 lines changed in `crawl4ai.rs`. Risks and fallbacks tracked in
+`browser-crawl4ai-shared-chrome.md`.
+
+**Cookie-sharing caveat**: crawl4ai uses Playwright internally, and Playwright's
+`BrowserContext` can isolate cookies. Whether crawl4ai's `cdp_url` mode shares the
+default browser context's cookie jar or creates an isolated one is **unverified**.
+This must be tested early in implementation. If Playwright isolates cookies, the
+fallback is extracting cookies from the browser tool's Chrome via
+`Network.getAllCookies()` and injecting them into crawl4ai requests — see
+`browser-crawl4ai-shared-chrome.md` risk #1.
+
+## 6. Config & Docker
+
+### Config
+
+Add `chrome_cdp_url` to `WebSettings`:
+
+```toml
+[web]
+crawl4ai_url = "http://localhost:11235"    # existing
+chrome_cdp_url = "ws://localhost:9222"     # new — env fallback: CHROME_CDP_URL
+```
+
+When `chrome_cdp_url` is not set, the `browser` tool is not registered in
+`ToolManager` — the GHOST doesn't see it. When set, crawl4ai also receives the URL to
+share the same Chrome instance.
+
+### Docker
+
+Add Chrome sidecar to `docker-compose.yml`:
+
+```yaml
+services:
+  chrome:
+    image: chromedp/headless-shell:stable
+    ports:
+      - "9222:9222"
+    shm_size: "2gb"
+    init: true
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+          cpus: "1.0"
+```
+
+crawl4ai no longer needs its own embedded browser — it connects to the shared sidecar.
+
+## 7. Error Handling
+
+```rust
+#[derive(Debug, Error)]
+pub enum BrowserError {
+    #[error("browser not connected — is Chrome running at {url}?")]
+    ConnectionFailed { url: String, #[source] source: ... },
+
+    #[error("navigation to {url} failed: {reason}")]
+    NavigationFailed { url: String, reason: String },
+
+    #[error("navigation to {url} timed out after {timeout_secs}s")]
+    NavigationTimeout { url: String, timeout_secs: u64 },  // default: 30s
+
+    #[error("element [ref={ref_id}] not found — page may have changed, try 'snapshot'")]
+    RefNotFound { ref_id: String },
+
+    #[error("element [ref={ref_id}] is not interactable: {reason}")]
+    NotInteractable { ref_id: String, reason: String },
+
+    #[error("screenshot failed: {reason}")]
+    ScreenshotFailed { reason: String },
+
+    #[error("CDP error: {message}")]
+    CdpError { message: String },
+
+    #[error("URL not allowed: {reason}")]
+    UrlBlocked { reason: String },
+}
+```
+
+Every error message is actionable by the GHOST — it tells the GHOST what went wrong and
+what to do about it.
+
+## 8. Security
+
+### Prompt injection
+
+Web pages can contain adversarial text ("Ignore previous instructions..."). Snapshot
+content is wrapped in security boundaries:
+
+```
+<<<EXTERNAL_UNTRUSTED_CONTENT>>>
+Source: Browser (https://example.com)
+---
+<snapshot XML>
+<<<END_EXTERNAL_UNTRUSTED_CONTENT>>>
+```
+
+Same pattern as OpenClaw. Same threat model as `web_fetch` (which already handles
+untrusted web content).
+
+### SSRF protection
+
+URL validation before `navigate`:
+
+- Only `http:` and `https:` schemes (block `file:`, `javascript:`, `data:`)
+- Block private/reserved IP ranges: `127.0.0.0/8`, `10.0.0.0/8`, `172.16.0.0/12`,
+  `192.168.0.0/16`, `169.254.0.0/16`, `::1`
+- Block the Chrome CDP port itself
+- Resolve DNS before connecting to catch DNS rebinding to private IPs
+
+## 9. Crate Dependency
+
+Add `chromiumoxide` to `Cargo.toml`:
+
+```toml
+chromiumoxide = { version = "0.7", features = ["tokio-runtime"], default-features = false }
+```
+
+Matches our stack: tokio, async, thiserror. Supports arbitrary CDP command execution
+including `Accessibility.getFullAXTree`. Actively maintained.
+
+## 10. NOT in MVP scope
+
+These are tracked in separate backlog entries:
+
+- **Remote CDP / OPERATOR relay** → `browser-operator-relay.md`
+- **Multi-tab support** → `browser-multi-tab.md`
+- **crawl4ai shared Chrome risks** → `browser-crawl4ai-shared-chrome.md`
+- Chrome process management (require external sidecar)
+- Multiple browser profiles
+- File upload, drag-and-drop, PDF generation
+- Auto-snapshot toggle on actions
