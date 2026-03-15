@@ -79,7 +79,12 @@ async fn resolve_ws_url(cdp_url: &str) -> Result<String, BrowserError> {
         parsed.host_str().unwrap_or("localhost"),
         parsed.port().unwrap_or(9222)
     );
-    let resp: serde_json::Value = reqwest::get(&http_url)
+    let resp: serde_json::Value = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(5))
+        .build()
+        .expect("reqwest client")
+        .get(&http_url)
+        .send()
         .await
         .map_err(|e| BrowserError::ConnectionFailed {
             url: cdp_url.to_owned(),

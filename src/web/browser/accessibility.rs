@@ -338,8 +338,10 @@ fn render_node(
     *counter += 1;
 
     // Assign ref if needed (always, even for skipped/offset nodes).
-    let ref_id = if should_assign_ref(node) {
-        Some(refs.assign(node.backend_node_id.unwrap()))
+    let ref_id = if should_assign_ref(node)
+        && let Some(id) = node.backend_node_id
+    {
+        Some(refs.assign(id))
     } else {
         None
     };
@@ -501,8 +503,10 @@ fn render_node(
 
 /// Recursively assign refs without rendering (for skipped/truncated subtrees).
 fn assign_refs_only(node: &AxNode, refs: &mut RefMap) {
-    if should_assign_ref(node) {
-        refs.assign(node.backend_node_id.unwrap());
+    if should_assign_ref(node)
+        && let Some(id) = node.backend_node_id
+    {
+        refs.assign(id);
     }
     for child in &node.children {
         assign_refs_only(child, refs);

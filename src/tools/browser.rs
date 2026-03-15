@@ -154,7 +154,9 @@ impl Tool for BrowserTool {
                 .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
             *guard = Some(session);
         }
-        let session = guard.as_mut().unwrap();
+        let session = guard
+            .as_mut()
+            .ok_or_else(|| ToolError::ExecutionFailed("browser session unavailable".into()))?;
 
         match action {
             "navigate" => execute_navigate(session, &params).await,

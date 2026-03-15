@@ -21,7 +21,9 @@ const MAX_SNAPSHOT_DEPTH: usize = 15;
 pub struct BrowserSession {
     page: chromiumoxide::Page,
     refs: RefMap,
+    /// Kept alive to maintain the CDP connection. Dropping disconnects.
     _browser: chromiumoxide::Browser,
+    /// CDP event loop task. Aborted on Drop.
     _handler: JoinHandle<()>,
     viewport_width: u32,
     viewport_height: u32,
