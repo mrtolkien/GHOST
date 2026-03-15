@@ -77,6 +77,7 @@ tree-sitter-md = "0.5"
 [features]
 live-tests = []
 live-tests-llms = ["live-tests"]
+live-tests-browser = ["live-tests"]
 
 [dev-dependencies]
 chrono = "0.4"

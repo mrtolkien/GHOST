@@ -3,9 +3,9 @@
 //! Requires Chrome headless-shell running at ws://localhost:9222:
 //!   docker compose up -d chrome
 //!
-//! Run with: cargo test --features live-tests -p ghost --test browser_live
+//! Run with: cargo test --features live-tests-browser -p ghost --test browser_live
 
-#![cfg(feature = "live-tests")]
+#![cfg(feature = "live-tests-browser")]
 
 use ghost::web::browser::BrowserSession;
 
