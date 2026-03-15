@@ -6,6 +6,7 @@ mod fetch;
 mod search;
 mod searxng;
 mod types;
+pub mod browser;
 
 pub use crawl4ai::{Crawl4aiOptions, fetch_with_crawl4ai};
 pub use cache::{
