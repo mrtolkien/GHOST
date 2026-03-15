@@ -13,7 +13,7 @@ end.
 New `upload` action on the `browser` tool:
 
 ```json
-{"action": "upload", "ref": "e7", "path": "documents/report.pdf"}
+{ "action": "upload", "ref": "e7", "path": "documents/report.pdf" }
 ```
 
 CDP command: `DOM.setFileInputFiles` — takes a backend node ID and a list of file paths.
@@ -21,15 +21,15 @@ Simple, well-supported, ~20 LoC.
 
 ## The Hard Part: Container Boundary
 
-`DOM.setFileInputFiles` expects file paths **relative to the Chrome process**, not Ghost.
-Chrome runs in a Docker sidecar. The GHOST's workspace files aren't visible to Chrome
-unless we solve this.
+`DOM.setFileInputFiles` expects file paths **relative to the Chrome process**, not
+Ghost. Chrome runs in a Docker sidecar. The GHOST's workspace files aren't visible to
+Chrome unless we solve this.
 
 Options:
 
 1. **Shared volume mount** — mount `$WORKSPACE` (or a subdirectory like
-   `$WORKSPACE/.cache/browser/uploads/`) into the Chrome container. Ghost copies/symlinks
-   files there before upload. Chrome sees them at a known path.
+   `$WORKSPACE/.cache/browser/uploads/`) into the Chrome container. Ghost
+   copies/symlinks files there before upload. Chrome sees them at a known path.
 
 2. **Base64 via CDP** — use `Runtime.evaluate` to programmatically set files on the
    input element via JavaScript `File` and `DataTransfer` APIs. Avoids volume mount
@@ -38,8 +38,8 @@ Options:
 3. **Named pipe / tmpfs** — shared tmpfs between containers. Ghost writes file, Chrome
    reads it, file is cleaned up. Avoids persistent volume but adds Docker config.
 
-**Recommendation**: Option 1 (shared volume). Simplest, most reliable. Add a
-`/uploads` mount to the Chrome sidecar in docker-compose:
+**Recommendation**: Option 1 (shared volume). Simplest, most reliable. Add a `/uploads`
+mount to the Chrome sidecar in docker-compose:
 
 ```yaml
 services:

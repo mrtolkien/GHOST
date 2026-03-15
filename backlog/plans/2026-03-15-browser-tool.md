@@ -22,29 +22,29 @@ WebSocket. Accessibility tree fetched via `Accessibility.getFullAXTree`, parsed 
 
 ### New files
 
-| File | Responsibility |
-|---|---|
-| `src/web/browser/mod.rs` | `BrowserSession` struct, public API (connect, navigate, snapshot, click, type_text, scroll, screenshot, close) |
-| `src/web/browser/cdp.rs` | CDP connection via chromiumoxide, raw page commands |
-| `src/web/browser/accessibility.rs` | `AxNode`, `AxRole`, `RefMap`, role classification, XML rendering |
-| `src/web/browser/error.rs` | `BrowserError` enum |
-| `src/tools/browser.rs` | `Tool` trait impl, action dispatch, result formatting, security wrapping |
-| `src/web/browser/url_check.rs` | SSRF validation for navigate URLs |
+| File                               | Responsibility                                                                                                 |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `src/web/browser/mod.rs`           | `BrowserSession` struct, public API (connect, navigate, snapshot, click, type_text, scroll, screenshot, close) |
+| `src/web/browser/cdp.rs`           | CDP connection via chromiumoxide, raw page commands                                                            |
+| `src/web/browser/accessibility.rs` | `AxNode`, `AxRole`, `RefMap`, role classification, XML rendering                                               |
+| `src/web/browser/error.rs`         | `BrowserError` enum                                                                                            |
+| `src/tools/browser.rs`             | `Tool` trait impl, action dispatch, result formatting, security wrapping                                       |
+| `src/web/browser/url_check.rs`     | SSRF validation for navigate URLs                                                                              |
 
 ### Modified files
 
-| File | Change |
-|---|---|
-| `src/web/browser.rs` → `src/web/crawl4ai.rs` | Rename (no content change) |
-| `src/web/mod.rs` | Update re-exports: `browser` → `crawl4ai`, add `pub mod browser;` |
-| `src/web/fetch.rs` | Update `super::browser::` → `super::crawl4ai::` (3 references) |
-| `src/tools/mod.rs` | Add `pub mod browser;` |
-| `src/tools/manager.rs` | Conditional browser tool registration in `for_chat()` and `all_available()` |
-| `src/tools/context.rs` | Add `browser_session` field to `ToolContext` |
-| `src/config.rs` | Add `chrome_cdp_url` to `WebSettings` and `WebConfig` |
-| `src/web/crawl4ai.rs` | Pass `cdp_url` to crawl4ai `BrowserConfig` when available |
-| `Cargo.toml` | Add `chromiumoxide` dependency |
-| `docker-compose.yml` | Add Chrome sidecar service |
+| File                                         | Change                                                                      |
+| -------------------------------------------- | --------------------------------------------------------------------------- |
+| `src/web/browser.rs` → `src/web/crawl4ai.rs` | Rename (no content change)                                                  |
+| `src/web/mod.rs`                             | Update re-exports: `browser` → `crawl4ai`, add `pub mod browser;`           |
+| `src/web/fetch.rs`                           | Update `super::browser::` → `super::crawl4ai::` (3 references)              |
+| `src/tools/mod.rs`                           | Add `pub mod browser;`                                                      |
+| `src/tools/manager.rs`                       | Conditional browser tool registration in `for_chat()` and `all_available()` |
+| `src/tools/context.rs`                       | Add `browser_session` field to `ToolContext`                                |
+| `src/config.rs`                              | Add `chrome_cdp_url` to `WebSettings` and `WebConfig`                       |
+| `src/web/crawl4ai.rs`                        | Pass `cdp_url` to crawl4ai `BrowserConfig` when available                   |
+| `Cargo.toml`                                 | Add `chromiumoxide` dependency                                              |
+| `docker-compose.yml`                         | Add Chrome sidecar service                                                  |
 
 ---
 
@@ -53,6 +53,7 @@ WebSocket. Accessibility tree fetched via `Accessibility.getFullAXTree`, parsed 
 Do the rename first to avoid confusion with the new `browser/` module.
 
 **Files:**
+
 - Rename: `src/web/browser.rs` → `src/web/crawl4ai.rs`
 - Modify: `src/web/mod.rs`
 - Modify: `src/web/fetch.rs`
@@ -113,6 +114,7 @@ Clears the 'browser' name for the upcoming browser tool module."
 ## Task 2: Config — add `chrome_cdp_url`
 
 **Files:**
+
 - Modify: `src/config.rs`
 
 - [ ] **Step 1: Add to `WebSettings`** (line ~146)
@@ -156,8 +158,8 @@ And add `chrome_cdp_url,` to the `WebConfig { ... }` construction.
 
 - [ ] **Step 4: Update `test_config()` helpers**
 
-Add `chrome_cdp_url: None` to `WebConfig` construction in `src/config.rs` `test_config()`
-(~line 621) and `tests/common.rs` `test_config()`.
+Add `chrome_cdp_url: None` to `WebConfig` construction in `src/config.rs`
+`test_config()` (~line 621) and `tests/common.rs` `test_config()`.
 
 - [ ] **Step 5: Verify**
 
@@ -177,6 +179,7 @@ git commit -m "feat: add chrome_cdp_url to web config"
 ## Task 3: `BrowserError` enum
 
 **Files:**
+
 - Create: `src/web/browser/error.rs`
 - Create: `src/web/browser/mod.rs` (minimal barrel, just `pub mod error;`)
 - Modify: `src/web/mod.rs` (add `pub mod browser;`)
@@ -248,6 +251,7 @@ git commit -m "feat: add BrowserError enum for browser tool"
 This is the core of the browser tool. Build it with unit tests — no CDP dependency.
 
 **Files:**
+
 - Create: `src/web/browser/accessibility.rs`
 - Modify: `src/web/browser/mod.rs`
 
@@ -328,6 +332,7 @@ pub fn classify_role(role: &str) -> RoleClass {
 ```bash
 cargo test -p ghost web::browser::accessibility
 ```
+
 Expected: all 4 tests pass.
 
 - [ ] **Step 4: Write tests for ref assignment**
@@ -585,10 +590,10 @@ fn xml_escape(s: &str) -> String {
 ```
 
 Full `render_xml` implementation: walk depth-first, emit opening tag with attributes
-(ref, level, value, checked, expanded, name on structural nodes), recurse children
-with indent+2, emit closing tag. For `StaticText` role, emit `<text>` instead.
-Track node count; when limit reached, append `<!-- Snapshot truncated: showing N of
-M nodes. Use offset=N to see more. -->`.
+(ref, level, value, checked, expanded, name on structural nodes), recurse children with
+indent+2, emit closing tag. For `StaticText` role, emit `<text>` instead. Track node
+count; when limit reached, append
+`<!-- Snapshot truncated: showing N of M nodes. Use offset=N to see more. -->`.
 
 - [ ] **Step 9: Run all tests, verify pass**
 
@@ -608,6 +613,7 @@ git commit -m "feat: accessibility tree parsing, ref assignment, and XML renderi
 ## Task 5: CDP connection and page actions
 
 **Files:**
+
 - Create: `src/web/browser/cdp.rs`
 - Modify: `src/web/browser/mod.rs`
 - Modify: `Cargo.toml`
@@ -705,8 +711,8 @@ during implementation.
 **Risk**: `click_node` and `type_into_node` using `BackendNodeId` may not work with
 chromiumoxide's high-level helpers (which expect `Element` from CSS selectors). You'll
 likely need raw CDP commands: `DOM.resolveNode` → `DOM.getBoxModel` →
-`Input.dispatchMouseEvent` for clicks, and `DOM.focus` → `Input.insertText` for
-typing. chromiumoxide supports `page.execute(CdpCommand)` for arbitrary CDP calls.
+`Input.dispatchMouseEvent` for clicks, and `DOM.focus` → `Input.insertText` for typing.
+chromiumoxide supports `page.execute(CdpCommand)` for arbitrary CDP calls.
 
 - [ ] **Step 3: Verify it compiles**
 
@@ -726,6 +732,7 @@ git commit -m "feat: CDP connection and page action primitives"
 ## Task 6: `BrowserSession` — public API
 
 **Files:**
+
 - Modify: `src/web/browser/mod.rs`
 
 - [ ] **Step 1: Implement `BrowserSession`**
@@ -906,6 +913,7 @@ git commit -m "feat: BrowserSession with navigate, snapshot, click, type, scroll
 ## Task 7: SSRF protection
 
 **Files:**
+
 - Create: `src/web/browser/url_check.rs` (or inline in `mod.rs` if small)
 
 - [ ] **Step 1: Write tests**
@@ -997,10 +1005,10 @@ fn is_private_ip(ip: IpAddr) -> bool {
 Note: `url` crate is already in `Cargo.toml`.
 
 **DNS rebinding**: The spec calls for resolving DNS before connecting to catch hostnames
-that resolve to private IPs. This requires async DNS resolution (`tokio::net::lookup_host`).
-For MVP, the IP check on the parsed URL is sufficient — DNS rebinding is a lower-priority
-threat (attacker needs to control DNS for a domain the GHOST is navigating to). Add DNS
-resolution as a follow-up hardening task.
+that resolve to private IPs. This requires async DNS resolution
+(`tokio::net::lookup_host`). For MVP, the IP check on the parsed URL is sufficient — DNS
+rebinding is a lower-priority threat (attacker needs to control DNS for a domain the
+GHOST is navigating to). Add DNS resolution as a follow-up hardening task.
 
 - [ ] **Step 3: Run tests**
 
@@ -1026,14 +1034,15 @@ git commit -m "feat: SSRF protection for browser navigation"
 ## Task 8: `ToolContext` integration
 
 **Files:**
+
 - Modify: `src/tools/context.rs`
 
 - [ ] **Step 1: Add `browser_session` field to `ToolContext`**
 
 Use `Arc<tokio::sync::Mutex<Option<BrowserSession>>>` — NOT `Option<Arc<...>>`. The
 `Arc` is always present so the tool can lock and populate the inner `Option` through
-`&ToolContext` (which is immutable). Cloning `ToolContext` clones the `Arc` (cheap,
-same underlying session).
+`&ToolContext` (which is immutable). Cloning `ToolContext` clones the `Arc` (cheap, same
+underlying session).
 
 ```rust
 use std::sync::Arc;
@@ -1066,8 +1075,8 @@ Search for `ToolContext {` in the codebase. Add
 `browser_session: Arc::new(TokioMutex::new(None))` to each. Known sites:
 `src/chat/session.rs`, `src/scripting/bindings.rs`, `src/tools/shell.rs`,
 `src/tools/file_edit.rs`, `src/tools/write_file.rs`, `src/tools/read_file.rs`,
-`tests/tools.rs`, `tests/knowledge.rs`, `tests/coding_agent.rs`,
-`tests/common.rs` (`test_config()`).
+`tests/tools.rs`, `tests/knowledge.rs`, `tests/coding_agent.rs`, `tests/common.rs`
+(`test_config()`).
 
 ```bash
 grep -rn "ToolContext {" src/ tests/
@@ -1091,6 +1100,7 @@ git commit -m "feat: add browser_session field to ToolContext"
 ## Task 9: Browser tool — `Tool` trait implementation
 
 **Files:**
+
 - Create: `src/tools/browser.rs`
 - Modify: `src/tools/mod.rs`
 - Modify: `src/tools/manager.rs`
@@ -1287,12 +1297,13 @@ pub fn with_browser_if_configured(&mut self, config: &Config) {
 ```
 
 Call sites to update:
+
 - `src/chat/session.rs` `SessionChat::from_config()`: after `ToolManager::for_chat()`,
   call `manager.with_browser_if_configured(&config)` before passing to `Self::new()`
-- `src/tools/manager.rs` `all_available()`: call `with_browser_if_configured` at the
-  end (but `all_available()` doesn't take config — either add a `Config` parameter or
-  add the browser tool unconditionally in `all_available` since it's used for
-  agent tool whitelisting and the tool itself checks config at runtime)
+- `src/tools/manager.rs` `all_available()`: call `with_browser_if_configured` at the end
+  (but `all_available()` doesn't take config — either add a `Config` parameter or add
+  the browser tool unconditionally in `all_available` since it's used for agent tool
+  whitelisting and the tool itself checks config at runtime)
 
 - [ ] **Step 4: Verify**
 
@@ -1312,6 +1323,7 @@ git commit -m "feat: browser tool implementation with action dispatch"
 ## Task 10: crawl4ai shared Chrome integration
 
 **Files:**
+
 - Modify: `src/web/crawl4ai.rs`
 
 - [ ] **Step 1: Pass `cdp_url` to crawl4ai requests**
@@ -1366,23 +1378,24 @@ git commit -m "feat: pass chrome_cdp_url to crawl4ai for shared browser"
 ## Task 11: Docker compose
 
 **Files:**
+
 - Modify: `docker-compose.yml`
 
 - [ ] **Step 1: Add Chrome sidecar**
 
 ```yaml
-  chrome:
-    image: chromedp/headless-shell:stable
-    ports:
-      - "127.0.0.1:9222:9222"
-    shm_size: "2gb"
-    init: true
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 2g
-          cpus: "1.0"
+chrome:
+  image: chromedp/headless-shell:stable
+  ports:
+    - "127.0.0.1:9222:9222"
+  shm_size: "2gb"
+  init: true
+  restart: unless-stopped
+  deploy:
+    resources:
+      limits:
+        memory: 2g
+        cpus: "1.0"
 ```
 
 - [ ] **Step 2: Commit**
@@ -1397,6 +1410,7 @@ git commit -m "feat: add Chrome headless sidecar for browser tool"
 ## Task 12: Integration test (requires running Chrome)
 
 **Files:**
+
 - Create: test in `tests/` or as a live test in an existing test file
 
 - [ ] **Step 1: Write integration test**

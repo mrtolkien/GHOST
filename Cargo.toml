@@ -6,6 +6,9 @@ edition = "2024"
 [dependencies]
 async-trait = "0.1"
 base64 = "0.22"
+chromiumoxide = { version = "0.7", features = [
+  "tokio-runtime",
+], default-features = false }
 chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4", features = ["derive"] }
 cron = "0.15"

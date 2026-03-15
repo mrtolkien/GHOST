@@ -286,21 +286,29 @@ snapshots.
 Return JSON:
 
 ```json
-{"ok": true, "url": "https://example.com/dashboard", "title": "Dashboard - Acme"}
+{ "ok": true, "url": "https://example.com/dashboard", "title": "Dashboard - Acme" }
 ```
 
 For interactions, add a `description` field:
 
 ```json
-{"ok": true, "url": "https://example.com/form", "description": "Clicked 'Submit' [button]"}
+{
+  "ok": true,
+  "url": "https://example.com/form",
+  "description": "Clicked 'Submit' [button]"
+}
 ```
 
 ```json
-{"ok": true, "url": "https://example.com/form", "description": "Typed into 'Email' [textbox]"}
+{
+  "ok": true,
+  "url": "https://example.com/form",
+  "description": "Typed into 'Email' [textbox]"
+}
 ```
 
 ```json
-{"ok": true, "url": "https://example.com/results", "description": "Scrolled down"}
+{ "ok": true, "url": "https://example.com/results", "description": "Scrolled down" }
 ```
 
 ### Snapshot
@@ -348,22 +356,30 @@ through large trees.
 ### Screenshot
 
 Screenshot is saved to disk at `$WORKSPACE/.cache/browser/screenshot-<timestamp>.png`.
-NOT sent inline as an image (avoids context pollution). The GHOST can use `read_file`
-on the path if it needs vision analysis.
+NOT sent inline as an image (avoids context pollution). The GHOST can use `read_file` on
+the path if it needs vision analysis.
 
 ```json
-{"ok": true, "url": "https://example.com/dashboard", "path": ".cache/browser/screenshot-2026-03-15-143022.png", "description": "Screenshot captured (1280x720)"}
+{
+  "ok": true,
+  "url": "https://example.com/dashboard",
+  "path": ".cache/browser/screenshot-2026-03-15-143022.png",
+  "description": "Screenshot captured (1280x720)"
+}
 ```
 
-Default viewport: 1280x720. This balances readability with file size (~200-500KB PNG
-per screenshot). Not configurable in MVP.
+Default viewport: 1280x720. This balances readability with file size (~200-500KB PNG per
+screenshot). Not configurable in MVP.
 
 ### Errors
 
 Same JSON shape, `ok: false`, with actionable messages:
 
 ```json
-{"ok": false, "error": "element [ref=e5] not found — page may have changed, try 'snapshot'"}
+{
+  "ok": false,
+  "error": "element [ref=e5] not found — page may have changed, try 'snapshot'"
+}
 ```
 
 ## 3. Accessibility Tree
@@ -375,8 +391,8 @@ value, checked, expanded).
 
 ### Data source
 
-Chrome's `Accessibility.getFullAXTree` CDP command returns a flat array of AX nodes.
-We reconstruct the tree from `childIds`, skip `ignored` nodes, and render to XML.
+Chrome's `Accessibility.getFullAXTree` CDP command returns a flat array of AX nodes. We
+reconstruct the tree from `childIds`, skip `ignored` nodes, and render to XML.
 
 ### Node struct
 
@@ -396,34 +412,34 @@ Roles determine whether a node gets a ref (and thus can be targeted by the GHOST
 
 **Interactive** — always assigned a ref. Elements the GHOST can act on:
 
-`button`, `checkbox`, `combobox`, `link`, `listbox`, `menuitem`,
-`menuitemcheckbox`, `menuitemradio`, `option`, `radio`, `searchbox`, `slider`,
-`spinbutton`, `switch`, `tab`, `textbox`, `treeitem`
+`button`, `checkbox`, `combobox`, `link`, `listbox`, `menuitem`, `menuitemcheckbox`,
+`menuitemradio`, `option`, `radio`, `searchbox`, `slider`, `spinbutton`, `switch`,
+`tab`, `textbox`, `treeitem`
 
-**Content** — assigned a ref only when they have a non-empty name. Carry meaningful
-text but are not directly interactive:
+**Content** — assigned a ref only when they have a non-empty name. Carry meaningful text
+but are not directly interactive:
 
 `cell`, `columnheader`, `heading`, `img`, `listitem`, `rowheader`
 
 **Structural** — never assigned a ref. Provide hierarchy and grouping. Rendered as
 containers so the GHOST understands page layout:
 
-`application`, `banner`, `complementary`, `contentinfo`, `dialog`, `document`,
-`form`, `grid`, `group`, `list`, `main`, `menu`, `menubar`, `navigation`,
-`region`, `row`, `table`, `tablist`, `toolbar`, `tree`
+`application`, `banner`, `complementary`, `contentinfo`, `dialog`, `document`, `form`,
+`grid`, `group`, `list`, `main`, `menu`, `menubar`, `navigation`, `region`, `row`,
+`table`, `tablist`, `toolbar`, `tree`
 
 Roles not in any list are treated as structural.
 
 ### Ref assignment
 
-Refs are sequential (`e1`, `e2`, ...) assigned in depth-first tree order. The ref map
-is **invalidated on every `snapshot()` call** — a new snapshot rebuilds the tree and
+Refs are sequential (`e1`, `e2`, ...) assigned in depth-first tree order. The ref map is
+**invalidated on every `snapshot()` call** — a new snapshot rebuilds the tree and
 reassigns all refs from `e1`.
 
-Between snapshots, refs are stable: `e5` always points to the same DOM node. If the
-page mutates (navigation, JS updates) without a new snapshot, refs may point to stale
-or removed nodes. Actions on stale refs return `BrowserError::RefNotFound` with a
-message suggesting the GHOST call `snapshot` to get fresh refs.
+Between snapshots, refs are stable: `e5` always points to the same DOM node. If the page
+mutates (navigation, JS updates) without a new snapshot, refs may point to stale or
+removed nodes. Actions on stale refs return `BrowserError::RefNotFound` with a message
+suggesting the GHOST call `snapshot` to get fresh refs.
 
 ```rust
 pub struct RefMap {
@@ -434,7 +450,8 @@ pub struct RefMap {
 
 ### XML rendering rules
 
-- Each node becomes an XML element named after its role (`<button>`, `<link>`, `<heading>`)
+- Each node becomes an XML element named after its role (`<button>`, `<link>`,
+  `<heading>`)
 - Ref is an attribute: `<button ref="e5">`
 - Name is the text content: `<button ref="e5">Submit</button>`
 - Special properties become attributes:
@@ -448,7 +465,8 @@ pub struct RefMap {
 - Text content is XML-escaped (`&lt;` `&gt;` `&amp;` `&quot;`)
 - `StaticText` AX nodes render as `<text>content</text>` (no ref — not interactive)
 - Maximum tree depth: 15 levels (deeper nodes omitted with XML comment)
-- Maximum node count: 500 (remaining nodes omitted with XML comment, `offset` for pagination)
+- Maximum node count: 500 (remaining nodes omitted with XML comment, `offset` for
+  pagination)
 
 ### Content rendering
 
@@ -486,10 +504,10 @@ Example — a blog article would render as:
 ### Rename
 
 `src/web/browser.rs` → `src/web/crawl4ai.rs` (it is a crawl4ai client, the name should
-say so). The `browser` name belongs to this feature. This is a mechanical rename:
-update `src/web/mod.rs` re-exports and `src/web/fetch.rs` references
-(`super::browser::` → `super::crawl4ai::`). Do this rename first, before adding the
-new `browser/` module, to avoid confusion.
+say so). The `browser` name belongs to this feature. This is a mechanical rename: update
+`src/web/mod.rs` re-exports and `src/web/fetch.rs` references (`super::browser::` →
+`super::crawl4ai::`). Do this rename first, before adding the new `browser/` module, to
+avoid confusion.
 
 ### New module: `src/web/browser/`
 
@@ -507,8 +525,8 @@ src/web/
 ```
 
 **`browser/mod.rs`** (~150-200 LoC) — `BrowserSession` struct with public methods:
-`connect`, `navigate`, `snapshot`, `click`, `type_text`, `scroll`, `screenshot`, `close`.
-Delegates to `cdp.rs` and `accessibility.rs`.
+`connect`, `navigate`, `snapshot`, `click`, `type_text`, `scroll`, `screenshot`,
+`close`. Delegates to `cdp.rs` and `accessibility.rs`.
 
 **`browser/cdp.rs`** (~200-300 LoC) — `chromiumoxide` connection management, page
 creation, raw CDP commands (click node, type into node, scroll, capture screenshot
@@ -541,8 +559,8 @@ pub struct BrowserSession {
 `Option<Arc<tokio::sync::Mutex<BrowserSession>>>` on `ToolContext`. Starts as `None`.
 Created lazily on first `browser` tool call — the tool checks `ToolContext`, if `None`
 it connects and stores the session. Held for the duration of the chat session. Dropped
-when the session ends (the `Arc` is dropped with the `ToolContext`). On drop, the
-Chrome tab is closed via CDP.
+when the session ends (the `Arc` is dropped with the `ToolContext`). On drop, the Chrome
+tab is closed via CDP.
 
 This requires adding a field to `ToolContext`:
 
@@ -550,11 +568,11 @@ This requires adding a field to `ToolContext`:
 pub browser_session: Option<Arc<tokio::sync::Mutex<BrowserSession>>>,
 ```
 
-`ToolManager::for_chat()` needs a `&Config` parameter (or the browser tool is
-registered separately after construction) to conditionally include the browser tool
-only when `chrome_cdp_url` is configured. The tool registers based on config
-presence, not on Chrome connectivity — if Chrome is down, the tool exists but returns
-a clear error on first call.
+`ToolManager::for_chat()` needs a `&Config` parameter (or the browser tool is registered
+separately after construction) to conditionally include the browser tool only when
+`chrome_cdp_url` is configured. The tool registers based on config presence, not on
+Chrome connectivity — if Chrome is down, the tool exists but returns a clear error on
+first call.
 
 **CDP abstraction**: `BrowserSession` takes a `ws://` URL. No assumptions about Chrome
 being local or headless. This enables future remote CDP (OPERATOR's browser via
@@ -611,11 +629,10 @@ This is ~5 lines changed in `crawl4ai.rs`. Risks and fallbacks tracked in
 
 **Cookie-sharing caveat**: crawl4ai uses Playwright internally, and Playwright's
 `BrowserContext` can isolate cookies. Whether crawl4ai's `cdp_url` mode shares the
-default browser context's cookie jar or creates an isolated one is **unverified**.
-This must be tested early in implementation. If Playwright isolates cookies, the
-fallback is extracting cookies from the browser tool's Chrome via
-`Network.getAllCookies()` and injecting them into crawl4ai requests — see
-`browser-crawl4ai-shared-chrome.md` risk #1.
+default browser context's cookie jar or creates an isolated one is **unverified**. This
+must be tested early in implementation. If Playwright isolates cookies, the fallback is
+extracting cookies from the browser tool's Chrome via `Network.getAllCookies()` and
+injecting them into crawl4ai requests — see `browser-crawl4ai-shared-chrome.md` risk #1.
 
 ## 6. Config & Docker
 
@@ -629,9 +646,9 @@ crawl4ai_url = "http://localhost:11235"    # existing
 chrome_cdp_url = "ws://localhost:9222"     # new — env fallback: CHROME_CDP_URL
 ```
 
-When `chrome_cdp_url` is not set, the `browser` tool is not registered in
-`ToolManager` — the GHOST doesn't see it. When set, crawl4ai also receives the URL to
-share the same Chrome instance.
+When `chrome_cdp_url` is not set, the `browser` tool is not registered in `ToolManager`
+— the GHOST doesn't see it. When set, crawl4ai also receives the URL to share the same
+Chrome instance.
 
 ### Docker
 

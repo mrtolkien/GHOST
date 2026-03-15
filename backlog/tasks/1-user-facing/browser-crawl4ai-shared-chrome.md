@@ -70,6 +70,7 @@ cookie extraction (risk 1 fallback).
 ## Monitoring
 
 When the MVP ships, watch for:
+
 - crawl4ai errors specifically in shared-Chrome mode (grep logs for crawl4ai + CDP)
 - Chrome sidecar memory usage over time
 - Orphaned tabs (tabs that persist after crawl4ai requests complete)

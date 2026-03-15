@@ -54,8 +54,8 @@ Escalation flow when Ghost needs help:
 3. Connects to OPERATOR's Chrome, opens new tab, injects state
 4. Notifies OPERATOR: "I need you to log in at [URL]"
 5. OPERATOR logs in / solves CAPTCHA
-6. Ghost detects success (page change, cookie change), continues in OPERATOR's browser
-   — or transfers state back to headless
+6. Ghost detects success (page change, cookie change), continues in OPERATOR's browser —
+   or transfers state back to headless
 
 ### OPERATOR Visual Access to Headless Chrome
 
@@ -79,8 +79,8 @@ sidecar's screen:
 
 ## Open Questions
 
-- Should Ghost auto-detect "stuck" states (login forms, CAPTCHAs) or should the
-  OPERATOR explicitly trigger escalation?
+- Should Ghost auto-detect "stuck" states (login forms, CAPTCHAs) or should the OPERATOR
+  explicitly trigger escalation?
 - Should state transfer be bidirectional (headless ↔ operator) or one-way (headless →
   operator, then stay there)?
 - Is Tailscale the only supported transport, or should we also support SSH tunnels /

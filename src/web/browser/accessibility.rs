@@ -30,10 +30,8 @@ pub enum RoleClass {
 pub fn classify_role(role: &str) -> RoleClass {
     match role {
         "button" | "checkbox" | "combobox" | "link" | "listbox" | "menuitem"
-        | "menuitemcheckbox" | "menuitemradio" | "option" | "radio" | "searchbox"
-        | "slider" | "spinbutton" | "switch" | "tab" | "textbox" | "treeitem" => {
-            RoleClass::Interactive
-        }
+        | "menuitemcheckbox" | "menuitemradio" | "option" | "radio" | "searchbox" | "slider"
+        | "spinbutton" | "switch" | "tab" | "textbox" | "treeitem" => RoleClass::Interactive,
         "cell" | "columnheader" | "heading" | "img" | "listitem" | "rowheader" => {
             RoleClass::Content
         }
@@ -220,8 +218,17 @@ fn render_node(
         // Still recurse children for counting and ref assignment.
         for child in &node.children {
             render_node(
-                child, refs, max_nodes, max_depth, offset, depth + 1, buf,
-                counter, rendered, truncated, total,
+                child,
+                refs,
+                max_nodes,
+                max_depth,
+                offset,
+                depth + 1,
+                buf,
+                counter,
+                rendered,
+                truncated,
+                total,
             );
         }
         return;
@@ -305,8 +312,17 @@ fn render_node(
         let _ = writeln!(buf, "{indent}<{tag}{attrs}>");
         for child in &node.children {
             render_node(
-                child, refs, max_nodes, max_depth, offset, depth + 1, buf,
-                counter, rendered, truncated, total,
+                child,
+                refs,
+                max_nodes,
+                max_depth,
+                offset,
+                depth + 1,
+                buf,
+                counter,
+                rendered,
+                truncated,
+                total,
             );
         }
         if !*truncated {
@@ -318,10 +334,7 @@ fn render_node(
     } else if render_name_as_attr || (structural_with_name && node.name.is_empty()) {
         // Self-closing with attributes.
         let _ = writeln!(buf, "{indent}<{tag}{attrs} />");
-    } else if !node.name.is_empty()
-        && !structural_with_name
-        && !render_name_as_attr
-    {
+    } else if !node.name.is_empty() && !structural_with_name && !render_name_as_attr {
         // Leaf with name as text content.
         let _ = writeln!(buf, "{indent}<{tag}{attrs}>{escaped_name}</{tag}>");
     } else if !attrs.is_empty() {
