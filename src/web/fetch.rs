@@ -89,7 +89,14 @@ pub async fn fetch(
         match head_content_type(&parsed).await {
             Ok(ct) => {
                 if is_html_content_type(&ct) {
-                    return fetch_html_via_crawl4ai(c4ai_url, url, &c4ai_options, options, chrome_cdp_url).await;
+                    return fetch_html_via_crawl4ai(
+                        c4ai_url,
+                        url,
+                        &c4ai_options,
+                        options,
+                        chrome_cdp_url,
+                    )
+                    .await;
                 } else if is_text_content(&ct) {
                     return fetch_text_via_reqwest(url).await;
                 } else {
@@ -102,7 +109,14 @@ pub async fn fetch(
                     "HEAD request failed, trying crawl4ai directly",
                     url = url.to_string(),
                 );
-                return fetch_html_via_crawl4ai(c4ai_url, url, &c4ai_options, options, chrome_cdp_url).await;
+                return fetch_html_via_crawl4ai(
+                    c4ai_url,
+                    url,
+                    &c4ai_options,
+                    options,
+                    chrome_cdp_url,
+                )
+                .await;
             }
         }
     }

@@ -72,34 +72,22 @@ impl Tool for BrowserTool {
         }
     }
 
-    async fn execute(
-        &self,
-        params: Value,
-        ctx: &ToolContext,
-    ) -> Result<ToolOutput, ToolError> {
+    async fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput, ToolError> {
         let action = params
             .get("action")
             .and_then(Value::as_str)
-            .ok_or_else(|| {
-                ToolError::InvalidParams(
-                    "missing required parameter: action".into(),
-                )
-            })?;
+            .ok_or_else(|| ToolError::InvalidParams("missing required parameter: action".into()))?;
 
         // Lazy-init: lock the Arc<Mutex<Option<BrowserSession>>>, create
         // if None
         let mut guard = ctx.browser_session.lock().await;
         if guard.is_none() {
-            let cdp_url =
-                ctx.config.web.chrome_cdp_url.as_deref().ok_or_else(|| {
-                    ToolError::ExecutionFailed(
-                        "chrome_cdp_url not configured".into(),
-                    )
-                })?;
-            let session =
-                crate::web::browser::BrowserSession::connect(cdp_url)
-                    .await
-                    .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
+            let cdp_url = ctx.config.web.chrome_cdp_url.as_deref().ok_or_else(|| {
+                ToolError::ExecutionFailed("chrome_cdp_url not configured".into())
+            })?;
+            let session = crate::web::browser::BrowserSession::connect(cdp_url)
+                .await
+                .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
             *guard = Some(session);
         }
         let session = guard.as_mut().unwrap();
@@ -125,11 +113,7 @@ async fn execute_navigate(
     let url = params
         .get("url")
         .and_then(Value::as_str)
-        .ok_or_else(|| {
-            ToolError::InvalidParams(
-                "'navigate' requires 'url' parameter".into(),
-            )
-        })?;
+        .ok_or_else(|| ToolError::InvalidParams("'navigate' requires 'url' parameter".into()))?;
     let (final_url, title) = session
         .navigate(url)
         .await
@@ -142,10 +126,7 @@ async fn execute_snapshot(
     session: &mut crate::web::browser::BrowserSession,
     params: &Value,
 ) -> Result<ToolOutput, ToolError> {
-    let offset = params
-        .get("offset")
-        .and_then(Value::as_u64)
-        .unwrap_or(0) as usize;
+    let offset = params.get("offset").and_then(Value::as_u64).unwrap_or(0) as usize;
     let xml = session
         .snapshot(offset)
         .await
@@ -168,11 +149,7 @@ async fn execute_click(
     let ref_id = params
         .get("ref")
         .and_then(Value::as_str)
-        .ok_or_else(|| {
-            ToolError::InvalidParams(
-                "'click' requires 'ref' parameter".into(),
-            )
-        })?;
+        .ok_or_else(|| ToolError::InvalidParams("'click' requires 'ref' parameter".into()))?;
     let desc = session
         .click(ref_id)
         .await
@@ -189,19 +166,11 @@ async fn execute_type(
     let ref_id = params
         .get("ref")
         .and_then(Value::as_str)
-        .ok_or_else(|| {
-            ToolError::InvalidParams(
-                "'type' requires 'ref' parameter".into(),
-            )
-        })?;
+        .ok_or_else(|| ToolError::InvalidParams("'type' requires 'ref' parameter".into()))?;
     let text = params
         .get("text")
         .and_then(Value::as_str)
-        .ok_or_else(|| {
-            ToolError::InvalidParams(
-                "'type' requires 'text' parameter".into(),
-            )
-        })?;
+        .ok_or_else(|| ToolError::InvalidParams("'type' requires 'text' parameter".into()))?;
     let desc = session
         .type_text(ref_id, text)
         .await

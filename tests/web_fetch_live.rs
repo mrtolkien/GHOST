@@ -37,7 +37,7 @@ async fn crawl4ai_wikipedia() {
     eprintln!("\n=== Wikipedia ===");
 
     let start = std::time::Instant::now();
-    let result = fetch(url, &FetchOptions::default(), Some(&crawl4ai_url()))
+    let result = fetch(url, &FetchOptions::default(), Some(&crawl4ai_url()), None)
         .await
         .expect("fetch should succeed");
 
@@ -73,7 +73,7 @@ async fn crawl4ai_reddit() {
     let url = "https://www.reddit.com/r/3Dprinting/comments/1ip98af/best_enclosed_fdm_3d_printer_to_start_with/";
     eprintln!("\n=== Reddit Thread ===");
 
-    let md = fetch_with_crawl4ai(&crawl4ai_url(), url, &Crawl4aiOptions::default())
+    let md = fetch_with_crawl4ai(&crawl4ai_url(), url, &Crawl4aiOptions::default(), None)
         .await
         .expect("crawl4ai fetch");
     let words = md.split_whitespace().count();
@@ -92,7 +92,7 @@ async fn crawl4ai_toms_hardware() {
     let url = "https://www.tomshardware.com/best-picks/best-3d-printers";
     eprintln!("\n=== Tom's Hardware ===");
 
-    let md = fetch_with_crawl4ai(&crawl4ai_url(), url, &Crawl4aiOptions::default())
+    let md = fetch_with_crawl4ai(&crawl4ai_url(), url, &Crawl4aiOptions::default(), None)
         .await
         .expect("crawl4ai fetch");
     let words = md.split_whitespace().count();
@@ -111,7 +111,7 @@ async fn crawl4ai_github_issue() {
     let url = "https://github.com/rust-lang/rust/issues/34511";
     eprintln!("\n=== GitHub Issue ===");
 
-    let result = fetch(url, &FetchOptions::default(), Some(&crawl4ai_url()))
+    let result = fetch(url, &FetchOptions::default(), Some(&crawl4ai_url()), None)
         .await
         .expect("fetch should succeed");
 
@@ -139,7 +139,7 @@ async fn crawl4ai_css_selector() {
     let url = "https://en.wikipedia.org/wiki/3D_printing";
     eprintln!("\n=== CSS Selector ===");
 
-    let full = fetch_with_crawl4ai(&crawl4ai_url(), url, &Crawl4aiOptions::default())
+    let full = fetch_with_crawl4ai(&crawl4ai_url(), url, &Crawl4aiOptions::default(), None)
         .await
         .expect("full fetch");
     let full_words = full.split_whitespace().count();
@@ -151,6 +151,7 @@ async fn crawl4ai_css_selector() {
             css_selector: Some("#mw-content-text".into()),
             ..Default::default()
         },
+        None,
     )
     .await
     .expect("focused fetch");
@@ -179,7 +180,7 @@ async fn crawl4ai_auroratech() {
     let url = "https://auroratechchannel.com/";
     eprintln!("\n=== AuroraTech ===");
 
-    let md = fetch_with_crawl4ai(&crawl4ai_url(), url, &Crawl4aiOptions::default())
+    let md = fetch_with_crawl4ai(&crawl4ai_url(), url, &Crawl4aiOptions::default(), None)
         .await
         .expect("crawl4ai fetch");
     let words = md.split_whitespace().count();
@@ -202,7 +203,7 @@ async fn crawl4ai_mybest() {
     let url = "https://my-best.com/306";
     eprintln!("\n=== MyBest ===");
 
-    let md = fetch_with_crawl4ai(&crawl4ai_url(), url, &Crawl4aiOptions::default())
+    let md = fetch_with_crawl4ai(&crawl4ai_url(), url, &Crawl4aiOptions::default(), None)
         .await
         .expect("crawl4ai fetch");
     let words = md.split_whitespace().count();
@@ -221,7 +222,7 @@ async fn crawl4ai_stackoverflow() {
     let url = "https://stackoverflow.com/questions/927358/how-do-i-undo-the-most-recent-local-commits-in-git";
     eprintln!("\n=== Stack Overflow ===");
 
-    let md = fetch_with_crawl4ai(&crawl4ai_url(), url, &Crawl4aiOptions::default())
+    let md = fetch_with_crawl4ai(&crawl4ai_url(), url, &Crawl4aiOptions::default(), None)
         .await
         .expect("crawl4ai fetch");
     let words = md.split_whitespace().count();
@@ -244,7 +245,7 @@ async fn crawl4ai_react_docs() {
     let url = "https://react.dev/learn";
     eprintln!("\n=== React Docs (SPA) ===");
 
-    let md = fetch_with_crawl4ai(&crawl4ai_url(), url, &Crawl4aiOptions::default())
+    let md = fetch_with_crawl4ai(&crawl4ai_url(), url, &Crawl4aiOptions::default(), None)
         .await
         .expect("crawl4ai fetch");
     let words = md.split_whitespace().count();
@@ -263,7 +264,7 @@ async fn crawl4ai_arxiv() {
     let url = "https://arxiv.org/abs/2401.10020";
     eprintln!("\n=== ArXiv Paper ===");
 
-    let md = fetch_with_crawl4ai(&crawl4ai_url(), url, &Crawl4aiOptions::default())
+    let md = fetch_with_crawl4ai(&crawl4ai_url(), url, &Crawl4aiOptions::default(), None)
         .await
         .expect("crawl4ai fetch");
     let words = md.split_whitespace().count();
@@ -283,7 +284,7 @@ async fn crawl4ai_gsmarena_comparison() {
     let url = "https://www.gsmarena.com/compare.php3?idPhone1=12082&idPhone2=11861";
     eprintln!("\n=== GSMarena Comparison ===");
 
-    let md = fetch_with_crawl4ai(&crawl4ai_url(), url, &Crawl4aiOptions::default())
+    let md = fetch_with_crawl4ai(&crawl4ai_url(), url, &Crawl4aiOptions::default(), None)
         .await
         .expect("crawl4ai fetch");
     let words = md.split_whitespace().count();
@@ -314,7 +315,7 @@ async fn fetch_integrated_reddit() {
     let url = "https://www.reddit.com/r/3Dprinting/comments/1ip98af/best_enclosed_fdm_3d_printer_to_start_with/";
     eprintln!("\n=== fetch() integrated — Reddit ===");
 
-    let result = fetch(url, &FetchOptions::default(), Some(&crawl4ai_url()))
+    let result = fetch(url, &FetchOptions::default(), Some(&crawl4ai_url()), None)
         .await
         .expect("fetch should succeed");
 
@@ -340,7 +341,7 @@ async fn fetch_integrated_pcmag() {
     let url = "https://www.pcmag.com/picks/the-best-3d-printers";
     eprintln!("\n=== fetch() integrated — PCMag ===");
 
-    let result = fetch(url, &FetchOptions::default(), Some(&crawl4ai_url()))
+    let result = fetch(url, &FetchOptions::default(), Some(&crawl4ai_url()), None)
         .await
         .expect("fetch should succeed");
 
@@ -371,7 +372,7 @@ async fn fallback_to_local() {
     let bad_url = "http://localhost:1";
     eprintln!("\n=== Fallback to Local ===");
 
-    let result = fetch(url, &FetchOptions::default(), Some(bad_url))
+    let result = fetch(url, &FetchOptions::default(), Some(bad_url), None)
         .await
         .expect("should fall back to local extraction");
 
