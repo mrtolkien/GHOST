@@ -135,12 +135,11 @@ fn find_ref_by_tag(xml: &str, tags: &[&str]) -> String {
             let prefix_self = format!("<{tag}/");
             if (trimmed.starts_with(&prefix) || trimmed.starts_with(&prefix_self))
                 && trimmed.contains("ref=\"")
+                && let Some(start) = trimmed.find("ref=\"")
             {
-                if let Some(start) = trimmed.find("ref=\"") {
-                    let after = &trimmed[start + 5..];
-                    if let Some(end) = after.find('"') {
-                        return after[..end].to_string();
-                    }
+                let after = &trimmed[start + 5..];
+                if let Some(end) = after.find('"') {
+                    return after[..end].to_string();
                 }
             }
         }
