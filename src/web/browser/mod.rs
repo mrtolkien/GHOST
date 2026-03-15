@@ -44,6 +44,7 @@ impl BrowserSession {
     }
 
     pub async fn navigate(&mut self, url: &str) -> Result<(String, String), BrowserError> {
+        url_check::validate_url(url)?;
         self.refs.reset();
         cdp::navigate(&self.page, url).await
     }
