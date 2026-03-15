@@ -1,10 +1,17 @@
 use chromiumoxide::cdp::browser_protocol::{
     accessibility::EnableParams as AxEnableParams,
-    dom::{BackendNodeId, FocusParams, GetBoxModelParams, ScrollIntoViewIfNeededParams},
+    dom::{
+        BackendNodeId, FocusParams, GetBoxModelParams, ResolveNodeParams,
+        ScrollIntoViewIfNeededParams,
+    },
     emulation::SetDeviceMetricsOverrideParams,
-    input::{DispatchMouseEventParams, DispatchMouseEventType, InsertTextParams, MouseButton},
+    input::{
+        DispatchKeyEventParams, DispatchKeyEventType, DispatchMouseEventParams,
+        DispatchMouseEventType, InsertTextParams, MouseButton,
+    },
     page::CaptureScreenshotFormat,
 };
+use chromiumoxide::cdp::js_protocol::runtime::{CallArgument, CallFunctionOnParams};
 use chromiumoxide::page::ScreenshotParams;
 use chromiumoxide::{Browser, Page};
 use futures::StreamExt;
@@ -357,6 +364,415 @@ pub async fn screenshot(page: &Page) -> Result<Vec<u8>, BrowserError> {
         .map_err(|e| BrowserError::ScreenshotFailed {
             reason: e.to_string(),
         })
+}
+
+/// Send a keyboard key press (keyDown + keyUp).
+///
+/// The `key` parameter is a DOM key name (e.g. "Enter", "Escape", "Tab",
+/// "ArrowDown"). For Enter, sets `text: "\r"`. For single printable
+/// characters, sets `text` to the character itself.
+pub async fn press_key(page: &Page, key: &str) -> Result<(), BrowserError> {
+    // Determine the text payload for the key event.
+    let text = match key {
+        "Enter" => Some("\r".to_string()),
+        k if k.chars().count() == 1 => Some(k.to_string()),
+        _ => None,
+    };
+
+    let mut down = DispatchKeyEventParams::builder()
+        .r#type(DispatchKeyEventType::KeyDown)
+        .key(key);
+    if let Some(ref t) = text {
+        down = down.text(t.clone());
+    }
+    page.execute(
+        down.build()
+            .map_err(|e| BrowserError::CdpError { message: e })?,
+    )
+    .await
+    .map_err(|e| BrowserError::CdpError {
+        message: format!("keyDown dispatch failed: {e}"),
+    })?;
+
+    let up = DispatchKeyEventParams::builder()
+        .r#type(DispatchKeyEventType::KeyUp)
+        .key(key)
+        .build()
+        .map_err(|e| BrowserError::CdpError { message: e })?;
+    page.execute(up).await.map_err(|e| BrowserError::CdpError {
+        message: format!("keyUp dispatch failed: {e}"),
+    })?;
+
+    debug!(key, "pressed key");
+    Ok(())
+}
+
+/// Hover over an element identified by its `BackendNodeId`.
+///
+/// Scrolls the element into view, gets the box model center, then
+/// dispatches a `mouseMoved` event at those coordinates.
+pub async fn hover_node(page: &Page, backend_node_id: i64) -> Result<(), BrowserError> {
+    let node_id = BackendNodeId::new(backend_node_id);
+
+    page.execute(
+        ScrollIntoViewIfNeededParams::builder()
+            .backend_node_id(node_id)
+            .build(),
+    )
+    .await
+    .map_err(|e| BrowserError::NotInteractable {
+        ref_id: format!("backend:{backend_node_id}"),
+        reason: format!("scroll into view failed: {e}"),
+    })?;
+
+    let box_model = page
+        .execute(
+            GetBoxModelParams::builder()
+                .backend_node_id(node_id)
+                .build(),
+        )
+        .await
+        .map_err(|e| BrowserError::NotInteractable {
+            ref_id: format!("backend:{backend_node_id}"),
+            reason: format!("could not compute box model: {e}"),
+        })?;
+
+    let (cx, cy) = quad_center(box_model.result.model.content.inner());
+
+    page.execute(
+        DispatchMouseEventParams::builder()
+            .r#type(DispatchMouseEventType::MouseMoved)
+            .x(cx)
+            .y(cy)
+            .build()
+            .map_err(|e| BrowserError::CdpError { message: e })?,
+    )
+    .await
+    .map_err(|e| BrowserError::CdpError {
+        message: format!("mouseMoved dispatch failed: {e}"),
+    })?;
+
+    debug!(backend_node_id, x = cx, y = cy, "hovered element");
+    Ok(())
+}
+
+/// Select an option value in a `<select>` element.
+///
+/// Resolves the backend node to a JS object, then calls a function on it
+/// to set the value and dispatch a `change` event.
+pub async fn select_option(
+    page: &Page,
+    backend_node_id: i64,
+    value: &str,
+) -> Result<(), BrowserError> {
+    let node_id = BackendNodeId::new(backend_node_id);
+
+    // Resolve the DOM node to a Runtime.RemoteObject.
+    let resolved = page
+        .execute(
+            ResolveNodeParams::builder()
+                .backend_node_id(node_id)
+                .build(),
+        )
+        .await
+        .map_err(|e| BrowserError::NotInteractable {
+            ref_id: format!("backend:{backend_node_id}"),
+            reason: format!("resolveNode failed: {e}"),
+        })?;
+
+    let object_id =
+        resolved
+            .result
+            .object
+            .object_id
+            .ok_or_else(|| BrowserError::NotInteractable {
+                ref_id: format!("backend:{backend_node_id}"),
+                reason: "resolveNode returned no objectId".to_string(),
+            })?;
+
+    // Call a function on the element to set the value and fire change.
+    let js = "function(v) { \
+        this.value = v; \
+        this.dispatchEvent(new Event('change', {bubbles: true})); \
+    }";
+    let arg = CallArgument::builder()
+        .value(serde_json::Value::String(value.to_string()))
+        .build();
+
+    page.execute(
+        CallFunctionOnParams::builder()
+            .function_declaration(js)
+            .object_id(object_id)
+            .argument(arg)
+            .build()
+            .map_err(|e| BrowserError::CdpError { message: e })?,
+    )
+    .await
+    .map_err(|e| BrowserError::CdpError {
+        message: format!("callFunctionOn failed: {e}"),
+    })?;
+
+    debug!(backend_node_id, value, "selected option");
+    Ok(())
+}
+
+/// Fill a form field by clearing existing content then inserting new text.
+///
+/// Focuses the element, selects all existing content (Ctrl+A), then
+/// inserts the new text, replacing whatever was there.
+pub async fn fill_field(
+    page: &Page,
+    backend_node_id: i64,
+    value: &str,
+) -> Result<(), BrowserError> {
+    let node_id = BackendNodeId::new(backend_node_id);
+
+    // Focus the target element.
+    page.execute(FocusParams::builder().backend_node_id(node_id).build())
+        .await
+        .map_err(|e| BrowserError::NotInteractable {
+            ref_id: format!("backend:{backend_node_id}"),
+            reason: format!("focus failed: {e}"),
+        })?;
+
+    // Select all existing content with Ctrl+A.
+    page.execute(
+        DispatchKeyEventParams::builder()
+            .r#type(DispatchKeyEventType::KeyDown)
+            .key("a")
+            .modifiers(2_i64) // Ctrl
+            .build()
+            .map_err(|e| BrowserError::CdpError { message: e })?,
+    )
+    .await
+    .map_err(|e| BrowserError::CdpError {
+        message: format!("select-all keyDown failed: {e}"),
+    })?;
+
+    page.execute(
+        DispatchKeyEventParams::builder()
+            .r#type(DispatchKeyEventType::KeyUp)
+            .key("a")
+            .modifiers(2_i64)
+            .build()
+            .map_err(|e| BrowserError::CdpError { message: e })?,
+    )
+    .await
+    .map_err(|e| BrowserError::CdpError {
+        message: format!("select-all keyUp failed: {e}"),
+    })?;
+
+    // Insert the new text (replaces the selection).
+    page.execute(InsertTextParams::new(value))
+        .await
+        .map_err(|e| BrowserError::NotInteractable {
+            ref_id: format!("backend:{backend_node_id}"),
+            reason: format!("insertText failed: {e}"),
+        })?;
+
+    debug!(backend_node_id, chars = value.len(), "filled field");
+    Ok(())
+}
+
+/// Wait for an element to be resolvable via `DOM.resolveNode`, polling
+/// until success or timeout.
+///
+/// If `backend_node_id` is provided, polls until the node can be resolved.
+/// The caller is responsible for sleeping when no node ID is given.
+pub async fn wait_for_element(
+    page: &Page,
+    backend_node_id: i64,
+    timeout_ms: u64,
+) -> Result<(), BrowserError> {
+    let node_id = BackendNodeId::new(backend_node_id);
+    let deadline = tokio::time::Instant::now() + std::time::Duration::from_millis(timeout_ms);
+    let poll_interval = std::time::Duration::from_millis(100);
+
+    loop {
+        let result = page
+            .execute(
+                ResolveNodeParams::builder()
+                    .backend_node_id(node_id)
+                    .build(),
+            )
+            .await;
+
+        if result.is_ok() {
+            debug!(backend_node_id, "element found");
+            return Ok(());
+        }
+
+        if tokio::time::Instant::now() >= deadline {
+            return Err(BrowserError::CdpError {
+                message: format!(
+                    "timed out waiting for element backend:{backend_node_id} \
+                     after {timeout_ms}ms"
+                ),
+            });
+        }
+
+        tokio::time::sleep(poll_interval).await;
+    }
+}
+
+/// Evaluate a JavaScript expression and return the string result.
+pub async fn evaluate_js(page: &Page, expression: &str) -> Result<String, BrowserError> {
+    let result = page
+        .evaluate(expression)
+        .await
+        .map_err(|e| BrowserError::CdpError {
+            message: format!("JS evaluation failed: {e}"),
+        })?;
+
+    // Try to extract a string value, falling back to the JSON
+    // representation.
+    let value: String = result.into_value().unwrap_or_else(|v| format!("{v:?}"));
+
+    debug!(
+        expr_len = expression.len(),
+        result_len = value.len(),
+        "evaluated JS"
+    );
+    Ok(value)
+}
+
+/// Drag from one element to another by dispatching mouse events.
+///
+/// Dispatches mouseMoved → mousePressed at the source center, then
+/// mouseMoved → mouseReleased at the target center.
+pub async fn drag_node(
+    page: &Page,
+    from_node_id: i64,
+    to_node_id: i64,
+) -> Result<(), BrowserError> {
+    // Scroll source into view and get its center.
+    let from_id = BackendNodeId::new(from_node_id);
+    page.execute(
+        ScrollIntoViewIfNeededParams::builder()
+            .backend_node_id(from_id)
+            .build(),
+    )
+    .await
+    .map_err(|e| BrowserError::NotInteractable {
+        ref_id: format!("backend:{from_node_id}"),
+        reason: format!("scroll into view failed: {e}"),
+    })?;
+
+    let from_box = page
+        .execute(
+            GetBoxModelParams::builder()
+                .backend_node_id(from_id)
+                .build(),
+        )
+        .await
+        .map_err(|e| BrowserError::NotInteractable {
+            ref_id: format!("backend:{from_node_id}"),
+            reason: format!("could not compute box model: {e}"),
+        })?;
+    let (sx, sy) = quad_center(from_box.result.model.content.inner());
+
+    // Scroll target into view and get its center.
+    let to_id = BackendNodeId::new(to_node_id);
+    page.execute(
+        ScrollIntoViewIfNeededParams::builder()
+            .backend_node_id(to_id)
+            .build(),
+    )
+    .await
+    .map_err(|e| BrowserError::NotInteractable {
+        ref_id: format!("backend:{to_node_id}"),
+        reason: format!("scroll into view failed: {e}"),
+    })?;
+
+    let to_box = page
+        .execute(GetBoxModelParams::builder().backend_node_id(to_id).build())
+        .await
+        .map_err(|e| BrowserError::NotInteractable {
+            ref_id: format!("backend:{to_node_id}"),
+            reason: format!("could not compute box model: {e}"),
+        })?;
+    let (tx, ty) = quad_center(to_box.result.model.content.inner());
+
+    // 1. mouseMoved to source
+    page.execute(
+        DispatchMouseEventParams::builder()
+            .r#type(DispatchMouseEventType::MouseMoved)
+            .x(sx)
+            .y(sy)
+            .build()
+            .map_err(|e| BrowserError::CdpError { message: e })?,
+    )
+    .await
+    .map_err(|e| BrowserError::CdpError {
+        message: format!("mouseMoved to source failed: {e}"),
+    })?;
+
+    // 2. mousePressed at source
+    page.execute(
+        DispatchMouseEventParams::builder()
+            .r#type(DispatchMouseEventType::MousePressed)
+            .x(sx)
+            .y(sy)
+            .button(MouseButton::Left)
+            .click_count(1)
+            .build()
+            .map_err(|e| BrowserError::CdpError { message: e })?,
+    )
+    .await
+    .map_err(|e| BrowserError::CdpError {
+        message: format!("mousePressed at source failed: {e}"),
+    })?;
+
+    // 3. mouseMoved to target (with button held)
+    page.execute(
+        DispatchMouseEventParams::builder()
+            .r#type(DispatchMouseEventType::MouseMoved)
+            .x(tx)
+            .y(ty)
+            .button(MouseButton::Left)
+            .build()
+            .map_err(|e| BrowserError::CdpError { message: e })?,
+    )
+    .await
+    .map_err(|e| BrowserError::CdpError {
+        message: format!("mouseMoved to target failed: {e}"),
+    })?;
+
+    // 4. mouseReleased at target
+    page.execute(
+        DispatchMouseEventParams::builder()
+            .r#type(DispatchMouseEventType::MouseReleased)
+            .x(tx)
+            .y(ty)
+            .button(MouseButton::Left)
+            .click_count(1)
+            .build()
+            .map_err(|e| BrowserError::CdpError { message: e })?,
+    )
+    .await
+    .map_err(|e| BrowserError::CdpError {
+        message: format!("mouseReleased at target failed: {e}"),
+    })?;
+
+    debug!(from = from_node_id, to = to_node_id, "dragged element");
+    Ok(())
+}
+
+/// Resize the browser viewport via `Emulation.setDeviceMetricsOverride`.
+pub async fn resize_viewport(page: &Page, width: u32, height: u32) -> Result<(), BrowserError> {
+    page.execute(SetDeviceMetricsOverrideParams::new(
+        width as i64,
+        height as i64,
+        1.0,   // device_scale_factor
+        false, // mobile
+    ))
+    .await
+    .map_err(|e| BrowserError::CdpError {
+        message: format!("failed to resize viewport: {e}"),
+    })?;
+
+    debug!(width, height, "viewport resized");
+    Ok(())
 }
 
 /// Calculate the center point of a CDP Quad (array of 8 floats:

@@ -32,14 +32,25 @@ impl Tool for BrowserTool {
                         "type": "string",
                         "enum": [
                             "navigate", "snapshot", "click",
-                            "type", "scroll", "screenshot"
+                            "type", "scroll", "screenshot",
+                            "press", "hover", "select",
+                            "fill", "wait", "evaluate",
+                            "drag", "resize"
                         ],
                         "description": "navigate: open URL (replaces current page). \
                             snapshot: get accessibility tree with ref IDs. \
                             click: click element by ref. \
                             type: enter text into element by ref. \
                             scroll: scroll page or element. \
-                            screenshot: capture page as PNG image."
+                            screenshot: capture page as PNG image. \
+                            press: send a keyboard key (Enter, Escape, Tab, etc.). \
+                            hover: hover over element by ref. \
+                            select: select option in <select> dropdown by ref. \
+                            fill: fill multiple form fields at once. \
+                            wait: wait for element or fixed duration. \
+                            evaluate: execute JavaScript expression. \
+                            drag: drag element to another element. \
+                            resize: resize the browser viewport."
                     },
                     "url": {
                         "type": "string",
@@ -65,6 +76,53 @@ impl Tool for BrowserTool {
                         "type": "integer",
                         "description": "Skip first N nodes in snapshot. For \
                             paginating large trees. Only for 'snapshot'."
+                    },
+                    "key": {
+                        "type": "string",
+                        "description": "Key to press (e.g. 'Enter', 'Escape', \
+                            'Tab', 'ArrowDown'). Required for 'press'."
+                    },
+                    "value": {
+                        "type": "string",
+                        "description": "Option value for 'select'. Used by \
+                            'select' action."
+                    },
+                    "fields": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "ref": {"type": "string"},
+                                "value": {"type": "string"}
+                            },
+                            "required": ["ref", "value"]
+                        },
+                        "description": "Array of {ref, value} pairs for 'fill' \
+                            action."
+                    },
+                    "expression": {
+                        "type": "string",
+                        "description": "JavaScript expression to evaluate. \
+                            Required for 'evaluate'."
+                    },
+                    "target_ref": {
+                        "type": "string",
+                        "description": "Target element ref for 'drag' action."
+                    },
+                    "width": {
+                        "type": "integer",
+                        "description": "Viewport width in pixels. Required for \
+                            'resize'."
+                    },
+                    "height": {
+                        "type": "integer",
+                        "description": "Viewport height in pixels. Required for \
+                            'resize'."
+                    },
+                    "timeout": {
+                        "type": "integer",
+                        "description": "Wait timeout in milliseconds. Defaults \
+                            to 1000. Only for 'wait'."
                     }
                 },
                 "required": ["action"]
@@ -99,6 +157,14 @@ impl Tool for BrowserTool {
             "type" => execute_type(session, &params).await,
             "scroll" => execute_scroll(session, &params).await,
             "screenshot" => execute_screenshot(session, &params, ctx).await,
+            "press" => execute_press(session, &params).await,
+            "hover" => execute_hover(session, &params).await,
+            "select" => execute_select(session, &params).await,
+            "fill" => execute_fill(session, &params).await,
+            "wait" => execute_wait(session, &params).await,
+            "evaluate" => execute_evaluate(session, &params).await,
+            "drag" => execute_drag(session, &params).await,
+            "resize" => execute_resize(session, &params).await,
             _ => Err(ToolError::InvalidParams(format!(
                 "unknown action: {action}"
             ))),
@@ -216,5 +282,181 @@ async fn execute_screenshot(
         "path": rel.display().to_string(),
         "description": "Screenshot captured (1280x720)"
     });
+    Ok(ToolOutput::text(result.to_string()))
+}
+
+async fn execute_press(
+    session: &crate::web::browser::BrowserSession,
+    params: &Value,
+) -> Result<ToolOutput, ToolError> {
+    let key = params
+        .get("key")
+        .and_then(Value::as_str)
+        .ok_or_else(|| ToolError::InvalidParams("'press' requires 'key' parameter".into()))?;
+    let desc = session
+        .press(key)
+        .await
+        .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
+    let url = session.current_url().await.unwrap_or_default();
+    let result = json!({"ok": true, "url": url, "description": desc});
+    Ok(ToolOutput::text(result.to_string()))
+}
+
+async fn execute_hover(
+    session: &crate::web::browser::BrowserSession,
+    params: &Value,
+) -> Result<ToolOutput, ToolError> {
+    let ref_id = params
+        .get("ref")
+        .and_then(Value::as_str)
+        .ok_or_else(|| ToolError::InvalidParams("'hover' requires 'ref' parameter".into()))?;
+    let desc = session
+        .hover(ref_id)
+        .await
+        .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
+    let url = session.current_url().await.unwrap_or_default();
+    let result = json!({"ok": true, "url": url, "description": desc});
+    Ok(ToolOutput::text(result.to_string()))
+}
+
+async fn execute_select(
+    session: &crate::web::browser::BrowserSession,
+    params: &Value,
+) -> Result<ToolOutput, ToolError> {
+    let ref_id = params
+        .get("ref")
+        .and_then(Value::as_str)
+        .ok_or_else(|| ToolError::InvalidParams("'select' requires 'ref' parameter".into()))?;
+    let value = params
+        .get("value")
+        .and_then(Value::as_str)
+        .ok_or_else(|| ToolError::InvalidParams("'select' requires 'value' parameter".into()))?;
+    let desc = session
+        .select(ref_id, value)
+        .await
+        .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
+    let url = session.current_url().await.unwrap_or_default();
+    let result = json!({"ok": true, "url": url, "description": desc});
+    Ok(ToolOutput::text(result.to_string()))
+}
+
+async fn execute_fill(
+    session: &crate::web::browser::BrowserSession,
+    params: &Value,
+) -> Result<ToolOutput, ToolError> {
+    let fields_val = params
+        .get("fields")
+        .and_then(Value::as_array)
+        .ok_or_else(|| ToolError::InvalidParams("'fill' requires 'fields' parameter".into()))?;
+
+    let mut fields = Vec::with_capacity(fields_val.len());
+    for item in fields_val {
+        let ref_id = item
+            .get("ref")
+            .and_then(Value::as_str)
+            .ok_or_else(|| ToolError::InvalidParams("each field must have a 'ref' key".into()))?
+            .to_string();
+        let value = item
+            .get("value")
+            .and_then(Value::as_str)
+            .ok_or_else(|| ToolError::InvalidParams("each field must have a 'value' key".into()))?
+            .to_string();
+        fields.push((ref_id, value));
+    }
+
+    let desc = session
+        .fill(&fields)
+        .await
+        .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
+    let url = session.current_url().await.unwrap_or_default();
+    let result = json!({"ok": true, "url": url, "description": desc});
+    Ok(ToolOutput::text(result.to_string()))
+}
+
+async fn execute_wait(
+    session: &crate::web::browser::BrowserSession,
+    params: &Value,
+) -> Result<ToolOutput, ToolError> {
+    let ref_id = params.get("ref").and_then(Value::as_str);
+    let timeout_ms = params
+        .get("timeout")
+        .and_then(Value::as_u64)
+        .unwrap_or(1000);
+    let desc = session
+        .wait(ref_id, timeout_ms)
+        .await
+        .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
+    let url = session.current_url().await.unwrap_or_default();
+    let result = json!({"ok": true, "url": url, "description": desc});
+    Ok(ToolOutput::text(result.to_string()))
+}
+
+async fn execute_evaluate(
+    session: &crate::web::browser::BrowserSession,
+    params: &Value,
+) -> Result<ToolOutput, ToolError> {
+    let expression = params
+        .get("expression")
+        .and_then(Value::as_str)
+        .ok_or_else(|| {
+            ToolError::InvalidParams("'evaluate' requires 'expression' parameter".into())
+        })?;
+    let result_str = session
+        .evaluate(expression)
+        .await
+        .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
+    let url = session.current_url().await.unwrap_or_default();
+    let wrapped = format!(
+        "<<<EXTERNAL_UNTRUSTED_CONTENT>>>\n\
+         Source: Browser JS ({url})\n\
+         ---\n\
+         {result_str}\n\
+         <<<END_EXTERNAL_UNTRUSTED_CONTENT>>>"
+    );
+    let result = json!({"ok": true, "url": url, "result": wrapped});
+    Ok(ToolOutput::text(result.to_string()))
+}
+
+async fn execute_drag(
+    session: &crate::web::browser::BrowserSession,
+    params: &Value,
+) -> Result<ToolOutput, ToolError> {
+    let ref_id = params
+        .get("ref")
+        .and_then(Value::as_str)
+        .ok_or_else(|| ToolError::InvalidParams("'drag' requires 'ref' parameter".into()))?;
+    let target_ref = params
+        .get("target_ref")
+        .and_then(Value::as_str)
+        .ok_or_else(|| ToolError::InvalidParams("'drag' requires 'target_ref' parameter".into()))?;
+    let desc = session
+        .drag(ref_id, target_ref)
+        .await
+        .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
+    let url = session.current_url().await.unwrap_or_default();
+    let result = json!({"ok": true, "url": url, "description": desc});
+    Ok(ToolOutput::text(result.to_string()))
+}
+
+async fn execute_resize(
+    session: &crate::web::browser::BrowserSession,
+    params: &Value,
+) -> Result<ToolOutput, ToolError> {
+    let width = params
+        .get("width")
+        .and_then(Value::as_u64)
+        .ok_or_else(|| ToolError::InvalidParams("'resize' requires 'width' parameter".into()))?
+        as u32;
+    let height = params
+        .get("height")
+        .and_then(Value::as_u64)
+        .ok_or_else(|| ToolError::InvalidParams("'resize' requires 'height' parameter".into()))?
+        as u32;
+    let desc = session
+        .resize(width, height)
+        .await
+        .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
+    let url = session.current_url().await.unwrap_or_default();
+    let result = json!({"ok": true, "url": url, "description": desc});
     Ok(ToolOutput::text(result.to_string()))
 }

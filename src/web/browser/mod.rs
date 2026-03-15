@@ -130,6 +130,105 @@ impl BrowserSession {
         Ok(path)
     }
 
+    /// Send a keyboard key press.
+    pub async fn press(&self, key: &str) -> Result<String, BrowserError> {
+        cdp::press_key(&self.page, key).await?;
+        Ok(format!("Pressed {key}"))
+    }
+
+    /// Hover over an element by ref ID.
+    pub async fn hover(&self, ref_id: &str) -> Result<String, BrowserError> {
+        let node_id = self
+            .refs
+            .resolve(ref_id)
+            .ok_or_else(|| BrowserError::RefNotFound {
+                ref_id: ref_id.to_string(),
+            })?;
+        cdp::hover_node(&self.page, node_id).await?;
+        Ok(format!("Hovered [ref={ref_id}]"))
+    }
+
+    /// Select an option value in a `<select>` element by ref ID.
+    pub async fn select(&self, ref_id: &str, value: &str) -> Result<String, BrowserError> {
+        let node_id = self
+            .refs
+            .resolve(ref_id)
+            .ok_or_else(|| BrowserError::RefNotFound {
+                ref_id: ref_id.to_string(),
+            })?;
+        cdp::select_option(&self.page, node_id, value).await?;
+        Ok(format!("Selected '{value}' in [ref={ref_id}]"))
+    }
+
+    /// Fill multiple form fields, clearing each before typing.
+    ///
+    /// Each pair is `(ref_id, value)`.
+    pub async fn fill(&self, fields: &[(String, String)]) -> Result<String, BrowserError> {
+        for (ref_id, value) in fields {
+            let node_id = self
+                .refs
+                .resolve(ref_id)
+                .ok_or_else(|| BrowserError::RefNotFound {
+                    ref_id: ref_id.to_string(),
+                })?;
+            cdp::fill_field(&self.page, node_id, value).await?;
+        }
+        Ok(format!("Filled {} fields", fields.len()))
+    }
+
+    /// Wait for an element or a fixed duration.
+    ///
+    /// If `ref_id` is provided, polls until the element is resolvable.
+    /// Otherwise sleeps for `timeout_ms`.
+    pub async fn wait(
+        &self,
+        ref_id: Option<&str>,
+        timeout_ms: u64,
+    ) -> Result<String, BrowserError> {
+        if let Some(r) = ref_id {
+            let node_id = self
+                .refs
+                .resolve(r)
+                .ok_or_else(|| BrowserError::RefNotFound {
+                    ref_id: r.to_string(),
+                })?;
+            cdp::wait_for_element(&self.page, node_id, timeout_ms).await?;
+            Ok(format!("Waited for [ref={r}]"))
+        } else {
+            tokio::time::sleep(std::time::Duration::from_millis(timeout_ms)).await;
+            Ok(format!("Waited {timeout_ms}ms"))
+        }
+    }
+
+    /// Evaluate a JavaScript expression and return the result.
+    pub async fn evaluate(&self, expression: &str) -> Result<String, BrowserError> {
+        cdp::evaluate_js(&self.page, expression).await
+    }
+
+    /// Drag one element to another.
+    pub async fn drag(&self, ref_id: &str, target_ref_id: &str) -> Result<String, BrowserError> {
+        let from_id = self
+            .refs
+            .resolve(ref_id)
+            .ok_or_else(|| BrowserError::RefNotFound {
+                ref_id: ref_id.to_string(),
+            })?;
+        let to_id = self
+            .refs
+            .resolve(target_ref_id)
+            .ok_or_else(|| BrowserError::RefNotFound {
+                ref_id: target_ref_id.to_string(),
+            })?;
+        cdp::drag_node(&self.page, from_id, to_id).await?;
+        Ok(format!("Dragged [ref={ref_id}] to [ref={target_ref_id}]"))
+    }
+
+    /// Resize the browser viewport.
+    pub async fn resize(&self, width: u32, height: u32) -> Result<String, BrowserError> {
+        cdp::resize_viewport(&self.page, width, height).await?;
+        Ok(format!("Viewport resized to {width}x{height}"))
+    }
+
     /// Get the current page URL.
     pub async fn current_url(&self) -> Result<String, BrowserError> {
         let result = self
