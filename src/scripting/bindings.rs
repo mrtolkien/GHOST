@@ -254,6 +254,8 @@ impl LuaUserData for AgentContext {
 
                 let params: serde_json::Value = lua.from_value(args)?;
 
+                // NOTE: Each script context gets a fresh browser session.
+                // Lua agent tool calls don't persist browser state across calls.
                 let tool_ctx = crate::tools::context::ToolContext {
                     workspace: this.workspace.clone(),
                     cwd: this.workspace.clone(),
@@ -299,6 +301,8 @@ impl LuaUserData for AgentContext {
                 parsed_calls.push((name, params));
             }
 
+            // NOTE: Each script context gets a fresh browser session.
+            // Lua agent tool calls don't persist browser state across calls.
             let tool_ctx = crate::tools::context::ToolContext {
                 workspace: this.workspace.clone(),
                 cwd: this.workspace.clone(),

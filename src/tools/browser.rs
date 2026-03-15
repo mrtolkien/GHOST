@@ -28,8 +28,7 @@ impl Tool for BrowserTool {
                 accessibility tree as XML with ref IDs (e.g. ref=\"e5\"), then use refs \
                 to interact (click, type, fill, press). Refs are invalidated on each \
                 snapshot call — always re-snapshot after actions that change the page \
-                (navigate, click that triggers navigation). Screenshots are saved to \
-                disk, not sent inline — use read_file on the path if you need vision."
+                (navigate, click that triggers navigation)."
                 .to_string(),
             input_schema: json!({
                 "type": "object",
@@ -53,7 +52,7 @@ impl Tool for BrowserTool {
                             hover: hover over element by ref. \
                             select: select option in <select> dropdown by ref. \
                             fill: fill multiple form fields at once. \
-                            wait: wait for element or fixed duration. \
+                            wait: wait for a fixed duration (timeout param) or for a ref to be DOM-resolvable (ref must be from current snapshot). \
                             evaluate: execute JavaScript expression. \
                             drag: drag element to another element. \
                             resize: resize the browser viewport."
@@ -64,9 +63,9 @@ impl Tool for BrowserTool {
                     },
                     "ref": {
                         "type": "string",
-                        "description": "Element ref ID (e.g. 'e5'). Required for \
-                            'click' and 'type'. Optional for 'scroll' (scrolls \
-                            element into view)."
+                        "description": "Element ref ID from snapshot (e.g. 'e5'). \
+                            Required for 'click', 'type', 'hover', 'select', 'fill', \
+                            'drag'. Optional for 'scroll' (scrolls element into view)."
                     },
                     "text": {
                         "type": "string",
@@ -128,7 +127,7 @@ impl Tool for BrowserTool {
                     "timeout": {
                         "type": "integer",
                         "description": "Wait timeout in milliseconds. Defaults \
-                            to 1000. Only for 'wait'."
+                            to 1000. For 'wait' action."
                     }
                 },
                 "required": ["action"]
@@ -136,6 +135,7 @@ impl Tool for BrowserTool {
         }
     }
 
+    #[tracing::instrument(skip_all, fields(tool = "browser"))]
     async fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput, ToolError> {
         let action = params
             .get("action")
@@ -286,7 +286,7 @@ async fn execute_screenshot(
         "ok": true,
         "url": url,
         "path": rel.display().to_string(),
-        "description": "Screenshot captured (1280x720)"
+        "description": format!("Screenshot captured ({}x{})", session.viewport_size().0, session.viewport_size().1)
     });
     Ok(ToolOutput::text(result.to_string()))
 }
@@ -445,7 +445,7 @@ async fn execute_drag(
 }
 
 async fn execute_resize(
-    session: &crate::web::browser::BrowserSession,
+    session: &mut crate::web::browser::BrowserSession,
     params: &Value,
 ) -> Result<ToolOutput, ToolError> {
     let width = params

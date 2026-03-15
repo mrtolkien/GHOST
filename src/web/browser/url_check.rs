@@ -24,19 +24,25 @@ pub fn validate_url(raw: &str) -> Result<Url, BrowserError> {
         }
     }
 
-    if let Some(host) = url.host_str() {
-        if host == "localhost" {
-            return Err(BrowserError::UrlBlocked {
-                reason: "localhost not allowed".into(),
-            });
-        }
-        if let Ok(ip) = host.parse::<IpAddr>()
-            && is_private_ip(ip)
-        {
-            return Err(BrowserError::UrlBlocked {
-                reason: format!("private IP {ip} not allowed"),
-            });
-        }
+    if let Some(host_str) = url.host_str()
+        && host_str == "localhost"
+    {
+        return Err(BrowserError::UrlBlocked {
+            reason: "localhost not allowed".into(),
+        });
+    }
+    // Use url::Host for reliable IP parsing (handles IPv6 brackets).
+    let ip = match url.host() {
+        Some(url::Host::Ipv4(v4)) => Some(IpAddr::V4(v4)),
+        Some(url::Host::Ipv6(v6)) => Some(IpAddr::V6(v6)),
+        _ => None,
+    };
+    if let Some(ip) = ip
+        && is_private_ip(ip)
+    {
+        return Err(BrowserError::UrlBlocked {
+            reason: format!("private IP {ip} not allowed"),
+        });
     }
 
     Ok(url)
@@ -45,7 +51,28 @@ pub fn validate_url(raw: &str) -> Result<Url, BrowserError> {
 fn is_private_ip(ip: IpAddr) -> bool {
     match ip {
         IpAddr::V4(v4) => v4.is_loopback() || v4.is_private() || v4.is_link_local(),
-        IpAddr::V6(v6) => v6.is_loopback(),
+        IpAddr::V6(v6) => {
+            v6.is_loopback()
+                || is_ipv6_unique_local(&v6)
+                || is_ipv6_link_local(&v6)
+                || is_ipv4_mapped_private(&v6)
+        }
+    }
+}
+
+fn is_ipv6_unique_local(v6: &std::net::Ipv6Addr) -> bool {
+    (v6.segments()[0] & 0xfe00) == 0xfc00 // fc00::/7
+}
+
+fn is_ipv6_link_local(v6: &std::net::Ipv6Addr) -> bool {
+    (v6.segments()[0] & 0xffc0) == 0xfe80 // fe80::/10
+}
+
+fn is_ipv4_mapped_private(v6: &std::net::Ipv6Addr) -> bool {
+    // ::ffff:127.0.0.1, ::ffff:10.x.x.x, etc.
+    match v6.to_ipv4_mapped() {
+        Some(v4) => v4.is_loopback() || v4.is_private() || v4.is_link_local(),
+        None => false,
     }
 }
 
@@ -78,5 +105,14 @@ mod tests {
     fn blocks_localhost() {
         assert!(validate_url("http://localhost").is_err());
         assert!(validate_url("http://localhost:9222").is_err());
+    }
+
+    #[test]
+    fn blocks_ipv6_private() {
+        assert!(validate_url("http://[::1]").is_err());
+        assert!(validate_url("http://[fc00::1]").is_err());
+        assert!(validate_url("http://[fe80::1]").is_err());
+        assert!(validate_url("http://[::ffff:127.0.0.1]").is_err());
+        assert!(validate_url("http://[::ffff:10.0.0.1]").is_err());
     }
 }

@@ -23,6 +23,8 @@ pub struct BrowserSession {
     refs: RefMap,
     _browser: chromiumoxide::Browser,
     _handler: JoinHandle<()>,
+    viewport_width: u32,
+    viewport_height: u32,
 }
 
 impl Drop for BrowserSession {
@@ -40,6 +42,8 @@ impl BrowserSession {
             refs: RefMap::new(),
             _browser: browser,
             _handler: handler,
+            viewport_width: cdp::VIEWPORT_WIDTH,
+            viewport_height: cdp::VIEWPORT_HEIGHT,
         })
     }
 
@@ -224,9 +228,16 @@ impl BrowserSession {
     }
 
     /// Resize the browser viewport.
-    pub async fn resize(&self, width: u32, height: u32) -> Result<String, BrowserError> {
+    pub async fn resize(&mut self, width: u32, height: u32) -> Result<String, BrowserError> {
         cdp::resize_viewport(&self.page, width, height).await?;
+        self.viewport_width = width;
+        self.viewport_height = height;
         Ok(format!("Viewport resized to {width}x{height}"))
+    }
+
+    /// Current viewport dimensions `(width, height)`.
+    pub fn viewport_size(&self) -> (u32, u32) {
+        (self.viewport_width, self.viewport_height)
     }
 
     /// Get the current page URL.

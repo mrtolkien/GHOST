@@ -38,12 +38,23 @@ pub fn parse_ax_tree(raw_nodes: &[JsonValue]) -> Vec<AxNode> {
         .filter_map(|(i, n)| Some((n.get("nodeId")?.as_str()?, i)))
         .collect();
 
-    let root_idx = match raw_nodes
+    let root_idx = raw_nodes
         .iter()
-        .position(|n| !n.get("ignored").and_then(|v| v.as_bool()).unwrap_or(false))
-    {
-        Some(idx) => idx,
-        None => return Vec::new(),
+        .position(|n| {
+            let role = n
+                .get("role")
+                .and_then(|v| v.get("value"))
+                .and_then(|v| v.as_str());
+            role == Some("RootWebArea")
+        })
+        .or_else(|| {
+            raw_nodes
+                .iter()
+                .position(|n| !n.get("ignored").and_then(|v| v.as_bool()).unwrap_or(false))
+        });
+
+    let Some(root_idx) = root_idx else {
+        return Vec::new();
     };
 
     // Build tree from the root, returning its children

@@ -38,6 +38,7 @@ pub struct SessionChat {
     cwd_override: Option<std::path::PathBuf>,
     active_sessions: super::interrupt::ActiveSessions,
     confirmation_tx: Option<crate::tools::confirmation::ConfirmationSender>,
+    browser_session: Arc<tokio::sync::Mutex<Option<crate::web::browser::BrowserSession>>>,
 }
 
 impl std::fmt::Debug for SessionChat {
@@ -80,6 +81,7 @@ impl SessionChat {
             cwd_override: None,
             active_sessions: std::sync::Arc::new(dashmap::DashMap::new()),
             confirmation_tx: None,
+            browser_session: Arc::new(tokio::sync::Mutex::new(None)),
         }
     }
 
@@ -518,7 +520,7 @@ impl SessionChat {
             event_tx: self.event_tx.clone(),
             channel_id: channel_id.map(String::from),
             confirmation_tx: self.confirmation_tx.clone(),
-            browser_session: Arc::new(tokio::sync::Mutex::new(None)),
+            browser_session: self.browser_session.clone(),
         };
 
         match self.tool_manager.execute(name, input, &tool_ctx).await {
