@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use async_trait::async_trait;
 use serde_json::{Value, json};
 
@@ -8,6 +10,9 @@ use super::context::ToolContext;
 use super::error::ToolError;
 use super::manager::Tool;
 use super::output::ToolOutput;
+
+/// Mount path inside the Chrome container where workspace/uploads/ is mapped.
+const CHROME_UPLOADS_MOUNT: &str = "/uploads";
 
 #[derive(Debug)]
 pub struct BrowserTool;
@@ -40,7 +45,7 @@ impl Tool for BrowserTool {
                             "type", "scroll", "screenshot",
                             "press", "hover", "select",
                             "fill", "wait", "evaluate",
-                            "drag", "resize"
+                            "drag", "resize", "upload"
                         ],
                         "description": "navigate: open URL (replaces current page). \
                             snapshot: get accessibility tree with ref IDs. \
@@ -55,7 +60,8 @@ impl Tool for BrowserTool {
                             wait: wait for a fixed duration (timeout param) or for a ref to be DOM-resolvable (ref must be from current snapshot). \
                             evaluate: execute JavaScript expression. \
                             drag: drag element to another element. \
-                            resize: resize the browser viewport."
+                            resize: resize the browser viewport. \
+                            upload: set file(s) on a <input type='file'> by ref. Requires 'path' parameter."
                     },
                     "url": {
                         "type": "string",
@@ -128,6 +134,11 @@ impl Tool for BrowserTool {
                         "type": "integer",
                         "description": "Wait timeout in milliseconds. Defaults \
                             to 1000. For 'wait' action."
+                    },
+                    "path": {
+                        "type": "string",
+                        "description": "Workspace-relative file path for 'upload' \
+                            action (e.g. 'uploads/1710504000_data.csv')."
                     }
                 },
                 "required": ["action"]
@@ -173,6 +184,7 @@ impl Tool for BrowserTool {
             "evaluate" => execute_evaluate(session, &params).await,
             "drag" => execute_drag(session, &params).await,
             "resize" => execute_resize(session, &params).await,
+            "upload" => execute_upload(session, &params, ctx).await,
             _ => Err(ToolError::InvalidParams(format!(
                 "unknown action: {action}"
             ))),
@@ -467,4 +479,100 @@ async fn execute_resize(
     let url = session.current_url().await.unwrap_or_default();
     let result = json!({"ok": true, "url": url, "description": desc});
     Ok(ToolOutput::text(result.to_string()))
+}
+
+/// Resolve a workspace-relative path to the Chrome-container path.
+///
+/// Files already in `uploads/` map directly to `/uploads/...` inside the
+/// container. Files elsewhere in the workspace are copied to a staging
+/// directory under `uploads/.browser-staging/` so Chrome can see them.
+/// Returns `(chrome_path, staging_host_path_if_copied)`.
+async fn stage_for_chrome(
+    workspace: &std::path::Path,
+    rel_path: &str,
+) -> Result<(String, Option<PathBuf>), ToolError> {
+    let host_path = workspace.join(rel_path);
+
+    // Security: ensure the resolved path stays inside the workspace.
+    let canonical = tokio::fs::canonicalize(&host_path)
+        .await
+        .map_err(|e| ToolError::ExecutionFailed(format!("file not found: {rel_path} ({e})")))?;
+    let ws_canonical = tokio::fs::canonicalize(workspace)
+        .await
+        .map_err(|e| ToolError::ExecutionFailed(format!("workspace error: {e}")))?;
+    if !canonical.starts_with(&ws_canonical) {
+        return Err(ToolError::ExecutionFailed(
+            "path escapes workspace boundary".into(),
+        ));
+    }
+
+    // If the file is already under uploads/, Chrome can see it directly.
+    let uploads_dir = workspace.join("uploads");
+    if canonical.starts_with(
+        tokio::fs::canonicalize(&uploads_dir)
+            .await
+            .unwrap_or(uploads_dir.clone()),
+    ) {
+        let relative_to_uploads = canonical
+            .strip_prefix(
+                tokio::fs::canonicalize(&uploads_dir)
+                    .await
+                    .unwrap_or(uploads_dir),
+            )
+            .map_err(|_| ToolError::ExecutionFailed("path error".into()))?;
+        let chrome_path = format!("{CHROME_UPLOADS_MOUNT}/{}", relative_to_uploads.display());
+        return Ok((chrome_path, None));
+    }
+
+    // Otherwise, copy to a staging area Chrome can access.
+    let staging_dir = uploads_dir.join(".browser-staging");
+    tokio::fs::create_dir_all(&staging_dir)
+        .await
+        .map_err(|e| ToolError::ExecutionFailed(format!("failed to create staging dir: {e}")))?;
+
+    let filename = canonical
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_else(|| "file".to_string());
+    let staged_name = format!("{}_{filename}", ulid::Ulid::new());
+    let staged_path = staging_dir.join(&staged_name);
+
+    tokio::fs::copy(&canonical, &staged_path)
+        .await
+        .map_err(|e| ToolError::ExecutionFailed(format!("failed to stage file: {e}")))?;
+
+    let chrome_path = format!("{CHROME_UPLOADS_MOUNT}/.browser-staging/{staged_name}");
+    Ok((chrome_path, Some(staged_path)))
+}
+
+async fn execute_upload(
+    session: &crate::web::browser::BrowserSession,
+    params: &Value,
+    ctx: &ToolContext,
+) -> Result<ToolOutput, ToolError> {
+    let ref_id = params
+        .get("ref")
+        .and_then(Value::as_str)
+        .ok_or_else(|| ToolError::InvalidParams("'upload' requires 'ref' parameter".into()))?;
+    let path = params
+        .get("path")
+        .and_then(Value::as_str)
+        .ok_or_else(|| ToolError::InvalidParams("'upload' requires 'path' parameter".into()))?;
+
+    let (chrome_path, staging) = stage_for_chrome(&ctx.workspace, path).await?;
+
+    let result = session
+        .upload(ref_id, &[chrome_path])
+        .await
+        .map_err(|e| ToolError::ExecutionFailed(e.to_string()));
+
+    // Clean up staging copy regardless of success/failure.
+    if let Some(staged) = staging {
+        let _ = tokio::fs::remove_file(&staged).await;
+    }
+
+    let desc = result?;
+    let url = session.current_url().await.unwrap_or_default();
+    let output = json!({"ok": true, "url": url, "description": desc, "path": path});
+    Ok(ToolOutput::text(output.to_string()))
 }

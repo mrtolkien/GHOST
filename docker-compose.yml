@@ -18,6 +18,8 @@ services:
     image: chromedp/headless-shell:stable
     ports:
       - "127.0.0.1:9222:9222"
+    volumes:
+      - ${GHOST_WORKSPACE:-~/GHOST}/uploads:/uploads:ro
     shm_size: "2gb"
     init: true
     restart: unless-stopped

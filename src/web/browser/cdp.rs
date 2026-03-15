@@ -2,7 +2,7 @@ use chromiumoxide::cdp::browser_protocol::{
     accessibility::EnableParams as AxEnableParams,
     dom::{
         BackendNodeId, FocusParams, GetBoxModelParams, ResolveNodeParams,
-        ScrollIntoViewIfNeededParams,
+        ScrollIntoViewIfNeededParams, SetFileInputFilesParams,
     },
     emulation::SetDeviceMetricsOverrideParams,
     input::{
@@ -777,6 +777,38 @@ pub async fn resize_viewport(page: &Page, width: u32, height: u32) -> Result<(),
     })?;
 
     debug!(width, height, "viewport resized");
+    Ok(())
+}
+
+/// Set file paths on a `<input type="file">` element via
+/// `DOM.setFileInputFiles`.
+///
+/// `files` are paths as seen by the Chrome process (e.g. `/uploads/data.csv`
+/// inside the container).
+pub async fn set_file_input_files(
+    page: &Page,
+    backend_node_id: i64,
+    files: &[String],
+) -> Result<(), BrowserError> {
+    let node_id = BackendNodeId::new(backend_node_id);
+
+    page.execute(
+        SetFileInputFilesParams::builder()
+            .files(files.iter().cloned())
+            .backend_node_id(node_id)
+            .build()
+            .map_err(|e| BrowserError::CdpError { message: e })?,
+    )
+    .await
+    .map_err(|e| BrowserError::CdpError {
+        message: format!("setFileInputFiles failed: {e}"),
+    })?;
+
+    debug!(
+        backend_node_id,
+        file_count = files.len(),
+        "set file input files"
+    );
     Ok(())
 }
 

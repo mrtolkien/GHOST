@@ -24,6 +24,9 @@ pub enum BrowserError {
     #[error("screenshot failed: {reason}")]
     ScreenshotFailed { reason: String },
 
+    #[error("file upload failed: {reason}")]
+    UploadFailed { reason: String },
+
     #[error("CDP error: {message}")]
     CdpError { message: String },
 

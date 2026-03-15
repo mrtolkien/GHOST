@@ -229,6 +229,27 @@ impl BrowserSession {
         Ok(format!("Dragged [ref={ref_id}] to [ref={target_ref_id}]"))
     }
 
+    /// Upload files to a `<input type="file">` element by ref ID.
+    ///
+    /// `chrome_paths` are paths as seen by the Chrome process (e.g.
+    /// `/uploads/data.csv` inside the container).
+    pub async fn upload(
+        &self,
+        ref_id: &str,
+        chrome_paths: &[String],
+    ) -> Result<String, BrowserError> {
+        let node_id = self
+            .refs
+            .resolve(ref_id)
+            .ok_or_else(|| BrowserError::RefNotFound {
+                ref_id: ref_id.to_string(),
+            })?;
+        cdp::set_file_input_files(&self.page, node_id, chrome_paths).await?;
+        let count = chrome_paths.len();
+        let noun = if count == 1 { "file" } else { "files" };
+        Ok(format!("Uploaded {count} {noun} to [ref={ref_id}]"))
+    }
+
     /// Resize the browser viewport.
     pub async fn resize(&mut self, width: u32, height: u32) -> Result<String, BrowserError> {
         cdp::resize_viewport(&self.page, width, height).await?;

@@ -307,3 +307,74 @@ async fn browser_tool_full_interaction() {
 
     eprintln!("all actions tested through Tool path");
 }
+
+/// Test the upload action against a page with a file input.
+///
+/// Uses the-internet.herokuapp.com/upload which has a simple
+/// `<input type="file">` + submit button. The CDP setFileInputFiles
+/// command accepts any path regardless of whether Chrome can actually
+/// read it, so this works even though the test workspace isn't the
+/// real volume mount — it exercises the full tool path: ref resolution,
+/// path staging, and the CDP call.
+#[tokio::test]
+async fn browser_upload_file() {
+    let (ctx, _ws) = browser_tool_ctx();
+
+    // Create a test file in workspace/uploads/
+    let uploads_dir = _ws.path().join("uploads");
+    tokio::fs::create_dir_all(&uploads_dir).await.unwrap();
+    let test_file = uploads_dir.join("test-data.csv");
+    tokio::fs::write(&test_file, "name,value\nfoo,42\n")
+        .await
+        .unwrap();
+
+    // Navigate to the file upload test page.
+    let result = browser_action(
+        &ctx,
+        json!({"action": "navigate", "url": "https://the-internet.herokuapp.com/upload"}),
+    )
+    .await;
+    let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
+    assert_eq!(parsed["ok"], true);
+    eprintln!("  navigate to upload page ok");
+
+    // Snapshot to find the file input element.
+    let result = browser_action(&ctx, json!({"action": "snapshot"})).await;
+    let xml = extract_snapshot_xml(&result);
+    eprintln!("  upload page snapshot:\n{xml}");
+
+    // File inputs appear as a button "Choose File" in Chrome's AX tree.
+    let file_ref = find_ref_containing(xml, "Choose File");
+    eprintln!("  found file input ref={file_ref}");
+
+    // Upload the test file.
+    let result = browser_action(
+        &ctx,
+        json!({"action": "upload", "ref": file_ref, "path": "uploads/test-data.csv"}),
+    )
+    .await;
+    let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
+    assert_eq!(parsed["ok"], true);
+    assert!(
+        parsed["description"].as_str().unwrap().contains("Uploaded"),
+        "description should mention upload, got: {}",
+        parsed["description"]
+    );
+    assert_eq!(parsed["path"], "uploads/test-data.csv");
+    eprintln!("  upload ok");
+
+    // Verify the file input reflects the uploaded filename via JS.
+    let result = browser_action(
+        &ctx,
+        json!({"action": "evaluate", "expression": "document.getElementById('file-upload').value"}),
+    )
+    .await;
+    let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
+    let eval_text = parsed["result"].as_str().unwrap_or("");
+    assert!(
+        eval_text.contains("test-data.csv"),
+        "file input value should contain filename, got: {eval_text}"
+    );
+    eprintln!("  file input value verified");
+
+}
