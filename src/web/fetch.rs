@@ -77,7 +77,7 @@ pub async fn fetch(
         }
     }
 
-    let c4ai_options = super::browser::Crawl4aiOptions {
+    let c4ai_options = super::crawl4ai::Crawl4aiOptions {
         wait_for: options.wait_for.clone(),
         css_selector: options.css_selector.clone(),
         scan_full_page: options.scan_full_page,
@@ -134,10 +134,10 @@ fn is_html_content_type(ct: &str) -> bool {
 async fn fetch_html_via_crawl4ai(
     c4ai_url: &str,
     page_url: &str,
-    c4ai_options: &super::browser::Crawl4aiOptions,
+    c4ai_options: &super::crawl4ai::Crawl4aiOptions,
     fetch_options: &FetchOptions,
 ) -> Result<ExtractedContent, WebError> {
-    match super::browser::fetch_with_crawl4ai(c4ai_url, page_url, c4ai_options).await {
+    match super::crawl4ai::fetch_with_crawl4ai(c4ai_url, page_url, c4ai_options).await {
         Ok(markdown) => Ok(markdown_to_content(markdown, None)),
         Err(e) => {
             logfire::warn!(

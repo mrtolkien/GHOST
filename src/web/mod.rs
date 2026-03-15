@@ -1,4 +1,4 @@
-mod browser;
+mod crawl4ai;
 mod cache;
 pub mod curation;
 pub mod docling;
@@ -7,7 +7,7 @@ mod search;
 mod searxng;
 mod types;
 
-pub use browser::{Crawl4aiOptions, fetch_with_crawl4ai};
+pub use crawl4ai::{Crawl4aiOptions, fetch_with_crawl4ai};
 pub use cache::{
     format_search_metadata, save_fetch_cache, save_search_cache, scan_web_cache, slug_from_url,
 };
