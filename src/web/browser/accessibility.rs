@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 use std::fmt::Write;
 
+use chromiumoxide::cdp::browser_protocol::accessibility::{AxNode as CdpAxNode, AxPropertyName};
+
 /// A node in the parsed accessibility tree.
 #[derive(Debug, Clone)]
 pub struct AxNode {
@@ -17,6 +19,131 @@ pub struct AxProperties {
     pub value: Option<String>,
     pub checked: Option<bool>,
     pub expanded: Option<bool>,
+}
+
+/// Parse Chrome's flat AXNode array into a tree of our `AxNode`.
+///
+/// Chrome returns nodes in a flat array with `child_ids` references.
+/// We build a lookup from `AxNodeId` to index, then reconstruct the tree
+/// recursively. Ignored nodes are skipped. The root node itself (usually
+/// `RootWebArea`) is omitted — its children become the returned top-level
+/// nodes.
+pub fn parse_ax_tree(raw_nodes: &[CdpAxNode]) -> Vec<AxNode> {
+    // Map AxNodeId → index in the flat array.
+    let id_to_idx: HashMap<&str, usize> = raw_nodes
+        .iter()
+        .enumerate()
+        .map(|(i, n)| (n.node_id.as_ref(), i))
+        .collect();
+
+    // Find the root: first non-ignored node.
+    let root_idx = match raw_nodes.iter().position(|n| !n.ignored) {
+        Some(idx) => idx,
+        None => return Vec::new(),
+    };
+
+    // Build the tree starting from the root, then return its children
+    // (skipping the RootWebArea wrapper).
+    let root = build_node(raw_nodes, root_idx, &id_to_idx);
+    match root {
+        Some(n) => n.children,
+        None => Vec::new(),
+    }
+}
+
+/// Recursively build an `AxNode` from the flat array.
+fn build_node(raw: &[CdpAxNode], idx: usize, id_map: &HashMap<&str, usize>) -> Option<AxNode> {
+    let cdp = &raw[idx];
+
+    if cdp.ignored {
+        return None;
+    }
+
+    let role = extract_ax_str(&cdp.role);
+    let name = extract_ax_str(&cdp.name);
+    let backend_node_id = cdp.backend_dom_node_id.as_ref().map(|id| *id.inner());
+    let properties = extract_properties(cdp);
+
+    let children: Vec<AxNode> = cdp
+        .child_ids
+        .as_ref()
+        .map(|ids| {
+            ids.iter()
+                .filter_map(|child_id| {
+                    let child_idx = id_map.get(child_id.as_ref())?;
+                    build_node(raw, *child_idx, id_map)
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+
+    Some(AxNode {
+        role,
+        name,
+        backend_node_id,
+        properties,
+        children,
+    })
+}
+
+/// Extract a string value from an optional `AXValue`.
+fn extract_ax_str(
+    ax_val: &Option<chromiumoxide::cdp::browser_protocol::accessibility::AxValue>,
+) -> String {
+    ax_val
+        .as_ref()
+        .and_then(|v| v.value.as_ref())
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string()
+}
+
+/// Extract our `AxProperties` from a CDP node's properties list.
+fn extract_properties(cdp: &CdpAxNode) -> AxProperties {
+    let mut props = AxProperties::default();
+
+    // The CDP node also has a top-level `value` field.
+    if let Some(ref ax_val) = cdp.value
+        && let Some(ref v) = ax_val.value
+    {
+        props.value = v.as_str().map(String::from);
+    }
+
+    let Some(ref prop_list) = cdp.properties else {
+        return props;
+    };
+
+    for prop in prop_list {
+        match prop.name {
+            AxPropertyName::Level => {
+                if let Some(ref v) = prop.value.value {
+                    props.level = v.as_u64().map(|n| n as u32);
+                }
+            }
+            AxPropertyName::Checked => {
+                if let Some(ref v) = prop.value.value {
+                    // CDP sends checked as "true"/"false" strings or booleans.
+                    props.checked = match v {
+                        serde_json::Value::Bool(b) => Some(*b),
+                        serde_json::Value::String(s) => Some(s == "true"),
+                        _ => None,
+                    };
+                }
+            }
+            AxPropertyName::Expanded => {
+                if let Some(ref v) = prop.value.value {
+                    props.expanded = match v {
+                        serde_json::Value::Bool(b) => Some(*b),
+                        serde_json::Value::String(s) => Some(s == "true"),
+                        _ => None,
+                    };
+                }
+            }
+            _ => {}
+        }
+    }
+
+    props
 }
 
 /// Classification that determines whether a node gets a ref ID.
