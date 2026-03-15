@@ -58,7 +58,7 @@ pub async fn import_page(
     let batch_id = db::knowledge::upsert_import_batch(db, &topic_id, "page", url, None, 0).await?;
 
     // Fetch page content: try HTML fetch first, fall back to docling for non-text
-    let text = match web::fetch(url, &web::FetchOptions::default(), None).await {
+    let text = match web::fetch(url, &web::FetchOptions::default(), None, None).await {
         Ok(extracted) => extracted.text,
         Err(web::WebError::UnsupportedContentType { .. }) => {
             let convert_opts = web::docling::ConvertOptions {

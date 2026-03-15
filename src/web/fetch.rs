@@ -63,6 +63,7 @@ pub async fn fetch(
     url: &str,
     options: &FetchOptions,
     crawl4ai_url: Option<&str>,
+    chrome_cdp_url: Option<&str>,
 ) -> Result<ExtractedContent, WebError> {
     let parsed = Url::parse(url).map_err(|_| WebError::InvalidUrl {
         url: url.to_string(),
@@ -88,7 +89,7 @@ pub async fn fetch(
         match head_content_type(&parsed).await {
             Ok(ct) => {
                 if is_html_content_type(&ct) {
-                    return fetch_html_via_crawl4ai(c4ai_url, url, &c4ai_options, options).await;
+                    return fetch_html_via_crawl4ai(c4ai_url, url, &c4ai_options, options, chrome_cdp_url).await;
                 } else if is_text_content(&ct) {
                     return fetch_text_via_reqwest(url).await;
                 } else {
@@ -101,7 +102,7 @@ pub async fn fetch(
                     "HEAD request failed, trying crawl4ai directly",
                     url = url.to_string(),
                 );
-                return fetch_html_via_crawl4ai(c4ai_url, url, &c4ai_options, options).await;
+                return fetch_html_via_crawl4ai(c4ai_url, url, &c4ai_options, options, chrome_cdp_url).await;
             }
         }
     }
@@ -136,8 +137,9 @@ async fn fetch_html_via_crawl4ai(
     page_url: &str,
     c4ai_options: &super::crawl4ai::Crawl4aiOptions,
     fetch_options: &FetchOptions,
+    cdp_url: Option<&str>,
 ) -> Result<ExtractedContent, WebError> {
-    match super::crawl4ai::fetch_with_crawl4ai(c4ai_url, page_url, c4ai_options).await {
+    match super::crawl4ai::fetch_with_crawl4ai(c4ai_url, page_url, c4ai_options, cdp_url).await {
         Ok(markdown) => Ok(markdown_to_content(markdown, None)),
         Err(e) => {
             logfire::warn!(

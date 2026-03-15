@@ -85,7 +85,14 @@ impl Tool for WebFetch {
             ..Default::default()
         };
 
-        let content = match fetch(url, &options, ctx.config.web.crawl4ai_url.as_deref()).await {
+        let content = match fetch(
+            url,
+            &options,
+            ctx.config.web.crawl4ai_url.as_deref(),
+            ctx.config.web.chrome_cdp_url.as_deref(),
+        )
+        .await
+        {
             Ok(c) => c,
             Err(WebError::UnsupportedContentType { content_type }) => {
                 return Err(ToolError::ExecutionFailed(format!(

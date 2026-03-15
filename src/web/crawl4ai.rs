@@ -45,15 +45,20 @@ pub async fn fetch_with_crawl4ai(
     base_url: &str,
     page_url: &str,
     options: &Crawl4aiOptions,
+    cdp_url: Option<&str>,
 ) -> Result<String, WebError> {
     let endpoint = format!("{}/crawl", base_url.trim_end_matches('/'));
 
     let params = crawler_params(options);
+    let mut browser_params = json!({ "headless": true });
+    if let Some(url) = cdp_url {
+        browser_params["cdp_url"] = json!(url);
+    }
     let body = json!({
         "urls": [page_url],
         "browser_config": {
             "type": "BrowserConfig",
-            "params": { "headless": true }
+            "params": browser_params
         },
         "crawler_config": {
             "type": "CrawlerRunConfig",

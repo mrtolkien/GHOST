@@ -14,6 +14,19 @@ services:
       - "127.0.0.1:8080:8080"
     restart: unless-stopped
 
+  chrome:
+    image: chromedp/headless-shell:stable
+    ports:
+      - "127.0.0.1:9222:9222"
+    shm_size: "2gb"
+    init: true
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+          cpus: "1.0"
+
   docling-serve:
     image: quay.io/docling-project/docling-serve:latest
     ports:
