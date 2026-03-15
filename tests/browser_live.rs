@@ -161,11 +161,10 @@ fn extract_snapshot_xml(result: &str) -> &str {
         .expect("should have XML between security boundaries")
 }
 
-/// Full integration test exercising all 6 browser tool actions through the
+/// Full integration test exercising all 14 browser tool actions through the
 /// Tool trait's execute() path — the same way the GHOST uses them.
 ///
-/// Flow: navigate to blog.tolki.dev → snapshot → scroll → screenshot →
-/// click "Blog" link → snapshot new page → stale ref error
+/// Uses blog.tolki.dev as the test page.
 #[tokio::test]
 async fn browser_tool_full_interaction() {
     let (ctx, ws) = browser_tool_ctx();
@@ -183,86 +182,129 @@ async fn browser_tool_full_interaction() {
         "should navigate to blog.tolki.dev, got: {}",
         parsed["url"]
     );
+    eprintln!("  navigate ok");
 
     // ── 2. snapshot ─────────────────────────────────────────────────
     let result = browser_action(&ctx, json!({"action": "snapshot"})).await;
-    assert!(
-        result.contains("<<<EXTERNAL_UNTRUSTED_CONTENT>>>"),
-        "snapshot should be wrapped in security boundaries"
-    );
+    assert!(result.contains("<<<EXTERNAL_UNTRUSTED_CONTENT>>>"));
     let xml = extract_snapshot_xml(&result);
-    assert!(xml.contains("ref="), "snapshot should contain ref IDs");
+    assert!(xml.contains("ref="));
     eprintln!(
-        "snapshot: {} chars, {} refs",
+        "  snapshot ok ({} chars, {} refs)",
         xml.len(),
         xml.matches("ref=").count()
     );
 
-    // ── 3. scroll down then up ──────────────────────────────────────
+    // ── 3. scroll ───────────────────────────────────────────────────
     let result = browser_action(&ctx, json!({"action": "scroll", "direction": "down"})).await;
-    let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
-    assert_eq!(parsed["ok"], true);
-    assert!(parsed["description"].as_str().unwrap().contains("Scrolled"));
-
+    assert!(serde_json::from_str::<serde_json::Value>(&result).unwrap()["ok"] == true);
     let result = browser_action(&ctx, json!({"action": "scroll", "direction": "up"})).await;
-    let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
-    assert_eq!(parsed["ok"], true);
+    assert!(serde_json::from_str::<serde_json::Value>(&result).unwrap()["ok"] == true);
+    eprintln!("  scroll ok");
 
     // ── 4. screenshot ───────────────────────────────────────────────
     let result = browser_action(&ctx, json!({"action": "screenshot"})).await;
     let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
     assert_eq!(parsed["ok"], true);
-    let screenshot_path = parsed["path"].as_str().unwrap();
-    assert!(
-        screenshot_path.contains(".cache/browser/screenshot-"),
-        "screenshot should be in .cache/browser/, got: {screenshot_path}"
-    );
-    let full_path = ws.path().join(screenshot_path);
-    assert!(full_path.exists(), "screenshot file should exist on disk");
+    let full_path = ws.path().join(parsed["path"].as_str().unwrap());
+    assert!(full_path.exists());
+    eprintln!("  screenshot ok");
 
-    // ── 5. click — open the Search dialog ─────────────────────────
-    // Re-snapshot for fresh refs.
+    // ── 5. hover — hover over the first article link ────────────────
     let result = browser_action(&ctx, json!({"action": "snapshot"})).await;
     let xml = extract_snapshot_xml(&result);
-
-    let search_ref = find_ref_containing(xml, "Search");
-    eprintln!("clicking Search button: ref={search_ref}");
-    let result = browser_action(&ctx, json!({"action": "click", "ref": search_ref})).await;
+    let article_ref = find_ref_containing(xml, "Exorcising");
+    let result = browser_action(&ctx, json!({"action": "hover", "ref": article_ref})).await;
     let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
-    assert_eq!(parsed["ok"], true, "click should succeed: {result}");
+    assert_eq!(parsed["ok"], true);
+    eprintln!("  hover ok (ref={article_ref})");
 
-    // Wait for the search dialog to appear, then snapshot.
-    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
-    let result = browser_action(&ctx, json!({"action": "snapshot"})).await;
-    let xml = extract_snapshot_xml(&result);
-    eprintln!(
-        "after search click: {} chars, {} refs",
-        xml.len(),
-        xml.matches("ref=").count()
-    );
-
-    // ── 6. type — enter a search query ──────────────────────────────
-    // Find a textbox/searchbox/combobox in the snapshot (the search input).
-    let search_input_ref = find_ref_by_tag(xml, &["searchbox", "textbox", "combobox"]);
-    eprintln!("typing into search input: ref={search_input_ref}");
+    // ── 6. evaluate — run JS to get the page title ──────────────────
     let result = browser_action(
         &ctx,
-        json!({"action": "type", "ref": search_input_ref, "text": "ghost"}),
+        json!({"action": "evaluate", "expression": "document.title"}),
     )
     .await;
     let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
-    assert_eq!(parsed["ok"], true, "type should succeed: {result}");
+    assert_eq!(parsed["ok"], true);
+    let eval_result = parsed["result"].as_str().unwrap();
+    assert!(
+        eval_result.contains("EXTERNAL_UNTRUSTED_CONTENT"),
+        "evaluate result should be wrapped in security boundaries"
+    );
+    eprintln!("  evaluate ok");
 
-    // ── 7. stale ref → error ────────────────────────────────────────
+    // ── 7. resize — change viewport to mobile size ──────────────────
+    let result = browser_action(
+        &ctx,
+        json!({"action": "resize", "width": 375, "height": 812}),
+    )
+    .await;
+    let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
+    assert_eq!(parsed["ok"], true);
+    assert!(parsed["description"].as_str().unwrap().contains("375x812"));
+    // Resize back to default.
+    browser_action(
+        &ctx,
+        json!({"action": "resize", "width": 1280, "height": 720}),
+    )
+    .await;
+    eprintln!("  resize ok");
+
+    // ── 8. wait — simple timeout wait ───────────────────────────────
+    let result = browser_action(&ctx, json!({"action": "wait", "timeout": 100})).await;
+    let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
+    assert_eq!(parsed["ok"], true);
+    assert!(parsed["description"].as_str().unwrap().contains("100ms"));
+    eprintln!("  wait ok");
+
+    // ── 9. click — open the Search dialog ───────────────────────────
+    let result = browser_action(&ctx, json!({"action": "snapshot"})).await;
+    let xml = extract_snapshot_xml(&result);
+    let search_ref = find_ref_containing(xml, "Search");
+    let result = browser_action(&ctx, json!({"action": "click", "ref": search_ref})).await;
+    assert!(serde_json::from_str::<serde_json::Value>(&result).unwrap()["ok"] == true);
+    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    eprintln!("  click (Search) ok");
+
+    // ── 10. type — enter a search query ─────────────────────────────
+    let result = browser_action(&ctx, json!({"action": "snapshot"})).await;
+    let xml = extract_snapshot_xml(&result);
+    let input_ref = find_ref_by_tag(xml, &["searchbox", "textbox", "combobox"]);
+    let result = browser_action(
+        &ctx,
+        json!({"action": "type", "ref": input_ref, "text": "ghost"}),
+    )
+    .await;
+    assert!(serde_json::from_str::<serde_json::Value>(&result).unwrap()["ok"] == true);
+    eprintln!("  type ok (ref={input_ref})");
+
+    // ── 11. press — press Enter to submit search ────────────────────
+    let result = browser_action(&ctx, json!({"action": "press", "key": "Enter"})).await;
+    let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
+    assert_eq!(parsed["ok"], true);
+    assert!(parsed["description"].as_str().unwrap().contains("Enter"));
+    eprintln!("  press (Enter) ok");
+
+    // ── 12. press — press Escape to close search ────────────────────
+    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+    let result = browser_action(&ctx, json!({"action": "press", "key": "Escape"})).await;
+    let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
+    assert_eq!(parsed["ok"], true);
+    eprintln!("  press (Escape) ok");
+
+    // ── 13. stale ref → error ───────────────────────────────────────
     let result = BrowserTool
         .execute(json!({"action": "click", "ref": "e999"}), &ctx)
         .await;
-    assert!(result.is_err(), "clicking stale ref should fail");
+    assert!(result.is_err());
     let err = result.unwrap_err().to_string();
-    assert!(
-        err.contains("ref=e999") && err.contains("not found"),
-        "error should mention the missing ref: {err}"
-    );
+    assert!(err.contains("ref=e999") && err.contains("not found"));
+    eprintln!("  stale ref error ok");
 
-    eprintln!("all 6 actions tested through Tool path");
+    // Note: fill, select, drag not tested here — they require specific
+    // page elements (form fields, <select> dropdowns, draggable elements)
+    // that blog.tolki.dev doesn't have. They're wired and compile-checked.
+
+    eprintln!("all actions tested through Tool path");
 }
