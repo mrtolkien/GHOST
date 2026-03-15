@@ -1,7 +1,5 @@
 # Browser Operator Relay — Remote CDP + State Handoff
 
-## Status: FUTURE (depends on browser-tool.md MVP)
-
 ## Motivation
 
 The browser tool MVP connects to a single headless Chrome sidecar. This works for

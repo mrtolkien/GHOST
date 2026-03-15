@@ -21,6 +21,8 @@ Add these actions to the existing `browser` tool:
 - **`focus`** — Switch the active tab by tab ID
 - **`close`** — Close a tab by tab ID
 
+> [!IMPORTANT] Make sure to review how OpenClaw did it!
+
 ## Design Considerations
 
 - **Ref namespacing**: Refs (e.g., `e1`, `e2`) are currently global. With multiple tabs,
