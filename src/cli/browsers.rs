@@ -26,6 +26,21 @@ pub enum BrowsersCommand {
         /// Name of the browser to check, or "all"
         name: String,
     },
+    /// Start a browser with CDP and relay it over Tailscale
+    Serve {
+        /// CDP port (default: 9222)
+        #[arg(long, default_value = "9222")]
+        port: u16,
+        /// Tailscale IP to bind on (auto-detected if omitted)
+        #[arg(long)]
+        bind: Option<String>,
+        /// Browser command (auto-detected if omitted)
+        #[arg(long)]
+        browser: Option<String>,
+        /// Profile directory
+        #[arg(long, default_value = "~/.config/ghost/browser-profile")]
+        profile: String,
+    },
 }
 
 pub async fn execute(command: BrowsersCommand) -> Result<(), GhostError> {
@@ -35,6 +50,12 @@ pub async fn execute(command: BrowsersCommand) -> Result<(), GhostError> {
         BrowsersCommand::Remove { name } => execute_remove(&name),
         BrowsersCommand::Discover => execute_discover().await,
         BrowsersCommand::Check { name } => execute_check(&name).await,
+        BrowsersCommand::Serve {
+            port,
+            bind,
+            browser,
+            profile,
+        } => execute_serve(port, bind, browser, profile).await,
     }
 }
 
@@ -137,6 +158,181 @@ async fn execute_check(name: &str) -> Result<(), GhostError> {
     }
 
     Ok(())
+}
+
+async fn execute_serve(
+    port: u16,
+    bind: Option<String>,
+    browser_cmd: Option<String>,
+    profile: String,
+) -> Result<(), GhostError> {
+    use std::net::SocketAddr;
+    use std::time::Duration;
+
+    use tokio::io::AsyncWriteExt;
+    use tokio::net::TcpListener;
+
+    // 1. Resolve Tailscale IP.
+    let tailscale_ip = match bind {
+        Some(ip) => ip,
+        None => crate::web::browser::discovery::tailscale_self_ip()
+            .await
+            .map_err(|e| {
+                GhostError::Other(format!(
+                    "Tailscale is required for `ghost browsers serve`. \
+                     Use --bind <ip> to override.\n{e}"
+                ))
+            })?,
+    };
+
+    // 2. Resolve profile path (expand ~).
+    let profile_path = if let Some(rest) = profile.strip_prefix("~/") {
+        let home = std::env::var("HOME")
+            .map_err(|_| GhostError::Other("HOME not set, cannot expand ~".into()))?;
+        format!("{home}/{rest}")
+    } else {
+        profile
+    };
+    std::fs::create_dir_all(&profile_path)
+        .map_err(|e| GhostError::Other(format!("failed to create profile dir: {e}")))?;
+
+    // 3. Find browser binary.
+    let browser_bin = match browser_cmd {
+        Some(cmd) => cmd,
+        None => detect_browser()?,
+    };
+
+    // 4. Start browser.
+    eprintln!("Starting {browser_bin}...");
+    let mut child = tokio::process::Command::new(&browser_bin)
+        .args([
+            &format!("--remote-debugging-port={port}"),
+            &format!("--user-data-dir={profile_path}"),
+        ])
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .map_err(|e| GhostError::Other(format!("failed to start {browser_bin}: {e}")))?;
+
+    // 5. Wait for CDP to be ready.
+    let local_url = format!("http://127.0.0.1:{port}/json/version");
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(2))
+        .build()
+        .map_err(|e| GhostError::Other(e.to_string()))?;
+
+    eprintln!("Waiting for CDP on port {port}...");
+    let mut ready = false;
+    for _ in 0..15 {
+        if client.get(&local_url).send().await.is_ok() {
+            ready = true;
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(500)).await;
+    }
+    if !ready {
+        let _ = child.kill().await;
+        return Err(GhostError::Other(format!(
+            "Browser did not start CDP on port {port} within 7.5s"
+        )));
+    }
+
+    // 6. Start TCP relay: tailscale_ip:port → 127.0.0.1:port
+    let relay_addr: SocketAddr = format!("{tailscale_ip}:{port}")
+        .parse()
+        .map_err(|e| GhostError::Other(format!("invalid bind address: {e}")))?;
+    let relay_target: SocketAddr = format!("127.0.0.1:{port}")
+        .parse()
+        .map_err(|e| GhostError::Other(format!("invalid target: {e}")))?;
+
+    let listener = TcpListener::bind(relay_addr)
+        .await
+        .map_err(|e| GhostError::Other(format!("failed to bind {relay_addr}: {e}")))?;
+
+    eprintln!();
+    eprintln!("Browser ready!");
+    eprintln!("  Local:  ws://127.0.0.1:{port}");
+    eprintln!("  Remote: ws://{tailscale_ip}:{port}");
+    eprintln!();
+    eprintln!("From the GHOST machine, run:");
+    eprintln!("  ghost browsers add operator ws://{tailscale_ip}:{port}");
+    eprintln!("  ghost reboot");
+    eprintln!();
+    eprintln!("Press Ctrl+C to stop.");
+
+    // Relay loop + Ctrl+C handling.
+    let relay_handle = tokio::spawn(async move {
+        loop {
+            let (inbound, peer) = match listener.accept().await {
+                Ok(conn) => conn,
+                Err(e) => {
+                    debug!("relay accept error: {e}");
+                    continue;
+                }
+            };
+            debug!(%peer, "CDP relay connection");
+            let target = relay_target;
+            tokio::spawn(async move {
+                let outbound = match tokio::net::TcpStream::connect(target).await {
+                    Ok(s) => s,
+                    Err(e) => {
+                        debug!("relay connect to Chrome failed: {e}");
+                        return;
+                    }
+                };
+                let (mut ri, mut wi) = inbound.into_split();
+                let (mut ro, mut wo) = outbound.into_split();
+                tokio::select! {
+                    r = tokio::io::copy(&mut ri, &mut wo) => {
+                        let _ = wo.shutdown().await;
+                        if let Err(e) = r { debug!("relay inbound→outbound: {e}"); }
+                    }
+                    r = tokio::io::copy(&mut ro, &mut wi) => {
+                        let _ = wi.shutdown().await;
+                        if let Err(e) = r { debug!("relay outbound→inbound: {e}"); }
+                    }
+                }
+            });
+        }
+    });
+
+    // Wait for Ctrl+C.
+    tokio::signal::ctrl_c()
+        .await
+        .map_err(|e| GhostError::Other(format!("signal handler failed: {e}")))?;
+    eprintln!("\nShutting down...");
+    relay_handle.abort();
+    let _ = child.kill().await;
+    eprintln!("Done.");
+
+    Ok(())
+}
+
+/// Find a Chromium-based browser in PATH.
+fn detect_browser() -> Result<String, GhostError> {
+    let candidates = [
+        "chromium",
+        "chromium-browser",
+        "google-chrome",
+        "google-chrome-stable",
+        "chrome",
+    ];
+    for name in candidates {
+        let ok = std::process::Command::new("which")
+            .arg(name)
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status()
+            .is_ok_and(|s| s.success());
+        if ok {
+            return Ok(name.to_string());
+        }
+    }
+    Err(GhostError::Other(format!(
+        "no browser found in PATH. Tried: {}. \
+         Use --browser <path> to specify one.",
+        candidates.join(", ")
+    )))
 }
 
 /// Attempt to connect to a browser CDP endpoint with a 5-second timeout.

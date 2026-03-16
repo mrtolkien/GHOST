@@ -91,6 +91,33 @@ async fn probe_cdp(
     }))
 }
 
+/// Get this machine's Tailscale IPv4 address.
+///
+/// Runs `tailscale ip -4` and returns the first line.
+pub async fn tailscale_self_ip() -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+    let output = tokio::process::Command::new("tailscale")
+        .args(["ip", "-4"])
+        .output()
+        .await?;
+
+    if !output.status.success() {
+        return Err("tailscale ip -4 failed — is Tailscale running?".into());
+    }
+
+    let ip = String::from_utf8(output.stdout)?
+        .lines()
+        .next()
+        .unwrap_or("")
+        .trim()
+        .to_string();
+
+    if ip.is_empty() {
+        return Err("tailscale returned no IPv4 address".into());
+    }
+
+    Ok(ip)
+}
+
 /// Get Tailscale peer IPs via `tailscale status --json`.
 ///
 /// Returns only online peers' IPv4 addresses. Fails gracefully if

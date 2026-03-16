@@ -41,6 +41,9 @@ pub enum GhostError {
 
     #[error(transparent)]
     Coding(#[from] crate::coding::session::CodingError),
+
+    #[error("{0}")]
+    Other(String),
 }
 
 impl From<crate::db::DatabaseError> for GhostError {
