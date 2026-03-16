@@ -27,14 +27,9 @@ impl Tool for BrowserTool {
     fn schema(&self) -> ToolDefinition {
         ToolDefinition {
             name: "browser".to_string(),
-            description: "Control a headless browser for pages requiring interaction \
-                (login walls, forms, JS-heavy content). Use web_fetch for simple page \
-                reads — after logging in via browser, web_fetch can access authenticated \
-                content (shared cookies). Workflow: call snapshot to get the page's \
-                accessibility tree as XML with ref IDs (e.g. ref=\"e5\"), then use refs \
-                to interact (click, type, fill, press). Refs are invalidated on each \
-                snapshot call — always re-snapshot after actions that change the page \
-                (navigate, click that triggers navigation)."
+            description: "Browser automation — navigate, read, and interact \
+                with web pages. Supports multiple browsers and tabs. \
+                Read the browser-use skill for usage details."
                 .to_string(),
             input_schema: json!({
                 "type": "object",
