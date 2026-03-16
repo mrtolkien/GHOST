@@ -202,11 +202,25 @@ async fn execute_serve(
         None => detect_browser()?,
     };
 
-    // 4. Start browser.
+    // 4. Pick a free internal port for Chromium.
+    //
+    // We can't use the external port (default 9222) because
+    // something else may already be on 127.0.0.1:9222 (e.g. a
+    // headless-shell Docker container). Chromium would silently
+    // fall back to [::1] and the relay would hit the wrong Chrome.
+    let internal_port = {
+        let sock = std::net::TcpListener::bind("127.0.0.1:0")
+            .map_err(|e| GhostError::Other(format!("no free port: {e}")))?;
+        sock.local_addr()
+            .map_err(|e| GhostError::Other(e.to_string()))?
+            .port()
+    };
+
+    // 5. Start browser on the internal port.
     eprintln!("Starting {browser_bin}...");
     let mut child = tokio::process::Command::new(&browser_bin)
         .args([
-            &format!("--remote-debugging-port={port}"),
+            &format!("--remote-debugging-port={internal_port}"),
             &format!("--user-data-dir={profile_path}"),
         ])
         .stdout(std::process::Stdio::null())
@@ -214,14 +228,14 @@ async fn execute_serve(
         .spawn()
         .map_err(|e| GhostError::Other(format!("failed to start {browser_bin}: {e}")))?;
 
-    // 5. Wait for CDP to be ready.
-    let local_url = format!("http://127.0.0.1:{port}/json/version");
+    // 6. Wait for CDP to be ready.
+    let local_url = format!("http://127.0.0.1:{internal_port}/json/version");
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(2))
         .build()
         .map_err(|e| GhostError::Other(e.to_string()))?;
 
-    eprintln!("Waiting for CDP on port {port}...");
+    eprintln!("Waiting for CDP...");
     let mut ready = false;
     for _ in 0..15 {
         if client.get(&local_url).send().await.is_ok() {
@@ -232,16 +246,16 @@ async fn execute_serve(
     }
     if !ready {
         let _ = child.kill().await;
-        return Err(GhostError::Other(format!(
-            "Browser did not start CDP on port {port} within 7.5s"
-        )));
+        return Err(GhostError::Other(
+            "Browser did not start CDP within 7.5s".into(),
+        ));
     }
 
-    // 6. Start TCP relay: tailscale_ip:port → 127.0.0.1:port
+    // 7. Start TCP relay: tailscale_ip:port → 127.0.0.1:internal_port
     let relay_addr: SocketAddr = format!("{tailscale_ip}:{port}")
         .parse()
         .map_err(|e| GhostError::Other(format!("invalid bind address: {e}")))?;
-    let relay_target: SocketAddr = format!("127.0.0.1:{port}")
+    let relay_target: SocketAddr = format!("127.0.0.1:{internal_port}")
         .parse()
         .map_err(|e| GhostError::Other(format!("invalid target: {e}")))?;
 
