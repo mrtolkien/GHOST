@@ -11,31 +11,33 @@ Add communication interfaces beyond Discord.
 - Generic WebSocket interface for custom clients
 - JSON message protocol
 - Enables building custom UIs (web, mobile, desktop)
-- Was part of t-koma — can be adapted
+- Will be accessed 100% through Tailscale + will need some security
 
-### Telegram Bot
+### ?Telegram Bot?
 
 - Alternative to Discord for users who prefer Telegram
 - Similar message model (channels, DMs, groups)
 - Rich markdown support
 
-### Slack Bot
+### ?Slack Bot?
 
 - For workplace/team use
 - Thread-based conversations map well to sessions
 - Slash command integration
 
-### Matrix
+### ?Matrix?
 
 - Open-source, self-hosted alternative
 - E2EE support for privacy-sensitive use
 
 ### CLI Chat
 
-- `ghost chat` — Interactive CLI chat mode
-- Simple stdin/stdout loop
-- Useful for scripting and automation
-- No daemon required (direct provider access)
+- `ghost chat` — Interactive CLI chat mode?
+
+### ?Other Ideas?
+
+If there's a way to check what the most popular interfaces are for OpenClaw, we'll start
+with it.
 
 ## Architecture Note
 

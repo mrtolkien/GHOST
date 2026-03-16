@@ -8,7 +8,28 @@ Add direct provider adapters beyond OpenRouter for:
 - Provider-specific features (Anthropic prompt caching, Gemini long context)
 - Resilience (direct fallback when OpenRouter is down)
 
+## Inspiration
+
+Pi mono:
+
+https://github.com/badlogic/pi-mono/tree/main/packages/ai
+
+ZeroClaw:
+
+https://github.com/zeroclaw-labs/zeroclaw/tree/master/src/providers
+
 ## Planned Providers
+
+### Claude Code
+
+Also called Anthropic OAUTH sometimes.
+
+Against ToS, but they don't really care it seems
+
+### Google Gemini
+
+- Has a free tier
+- API: `https://generativelanguage.googleapis.com/v1beta/`
 
 ### Anthropic (Direct)
 
@@ -17,26 +38,17 @@ Add direct provider adapters beyond OpenRouter for:
 - Better rate limits than through OpenRouter
 - API: `https://api.anthropic.com/v1/messages`
 
-### Google Gemini
-
-- Very long context windows (1M+ tokens)
-- Good for bulk analysis tasks
-- API: `https://generativelanguage.googleapis.com/v1beta/`
-
 ### OpenAI-Compatible (Generic)
 
 - Support local models (llama.cpp, vLLM, Ollama chat)
 - Configurable base URL
 - Useful for private/sensitive workloads
 
-### Kimi Code (Moonshot AI)
-
-- Specialized for code tasks
-- Good pricing for code-heavy workloads
-
 ## Model Chains
 
-With multiple providers, re-enable model chain fallback:
+With multiple providers, re-enable model chain fallback.
+
+Check the model chain note too, next to this one.
 
 ```toml
 default_model = ["primary", "fallback", "tertiary"]
@@ -54,8 +66,15 @@ provider = "gemini"
 model = "gemini-2.0-flash"
 ```
 
-Chain resolution: try primary, if rate limited try fallback, then tertiary. Circuit
-breaker prevents hammering rate-limited providers.
+Maybe even something like:
+
+```toml
+[model.main]
+provider = ["primary", "fallback", "tertiary"]
+```
+
+Chain resolution: try primary, if rate limited try the next one, and so on and so forth.
+Circuit breaker prevents hammering rate-limited providers.
 
 ## Implementation
 
