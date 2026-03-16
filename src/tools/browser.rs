@@ -47,7 +47,8 @@ impl Tool for BrowserTool {
                             "press", "hover", "select",
                             "fill", "wait", "evaluate",
                             "drag", "resize", "upload",
-                            "tabs", "open", "focus", "close"
+                            "tabs", "open", "focus", "close",
+                            "browsers", "connect", "disconnect"
                         ],
                         "description": "navigate: open URL (replaces current page). \
                             snapshot: get accessibility tree with ref IDs. \
@@ -67,7 +68,10 @@ impl Tool for BrowserTool {
                             tabs: list open tabs in the active browser. \
                             open: open a new tab, optionally navigating to 'url'. Returns snapshot. \
                             focus: switch to tab by ID ('tab' param). Returns snapshot with fresh refs. \
-                            close: close tab by ID ('tab' param)."
+                            close: close tab by ID ('tab' param). \
+                            browsers: list all known browsers with connection status. \
+                            connect: connect to a browser by 'name' and 'cdp_url', set as active. \
+                            disconnect: disconnect from a browser by 'name'."
                     },
                     "url": {
                         "type": "string",
@@ -149,6 +153,15 @@ impl Tool for BrowserTool {
                     "tab": {
                         "type": "integer",
                         "description": "Tab ID for 'focus' and 'close' actions."
+                    },
+                    "name": {
+                        "type": "string",
+                        "description": "Browser name for 'connect' and 'disconnect' actions."
+                    },
+                    "cdp_url": {
+                        "type": "string",
+                        "description": "WebSocket CDP URL for 'connect' action \
+                            (e.g. 'ws://localhost:9222')."
                     }
                 },
                 "required": ["action"]
@@ -185,6 +198,9 @@ impl Tool for BrowserTool {
             "open" => execute_open(&mut mgr, &params).await,
             "focus" => execute_focus(&mut mgr, &params).await,
             "close" => execute_close(&mut mgr, &params).await,
+            "browsers" => execute_browsers(&mut mgr).await,
+            "connect" => execute_connect(&mut mgr, &params).await,
+            "disconnect" => execute_disconnect(&mut mgr, &params).await,
             _ => Err(ToolError::InvalidParams(format!(
                 "unknown action: {action}"
             ))),
@@ -624,5 +640,78 @@ async fn execute_close(mgr: &mut BrowserManager, params: &Value) -> Result<ToolO
         .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
     Ok(ToolOutput::text(
         json!({"ok": true, "description": msg}).to_string(),
+    ))
+}
+
+async fn execute_browsers(mgr: &mut BrowserManager) -> Result<ToolOutput, ToolError> {
+    let browsers = mgr.list_browsers();
+    let active = mgr.active_browser_name();
+    if browsers.is_empty() {
+        return Ok(ToolOutput::text("No browsers registered.".to_string()));
+    }
+    let mut lines = vec!["Known browsers:".to_string()];
+    // Sort by name for deterministic output.
+    let mut sorted = browsers;
+    sorted.sort_by(|a, b| a.name.cmp(&b.name));
+    for b in &sorted {
+        let active_marker = if active == Some(b.name.as_str()) {
+            " [active]"
+        } else {
+            ""
+        };
+        let status = if b.connected {
+            "connected"
+        } else {
+            "disconnected"
+        };
+        let origin = if b.discovered { " (discovered)" } else { "" };
+        lines.push(format!(
+            "  {}{}: {} — {} tab(s), {}{}",
+            b.name, active_marker, b.cdp_url, b.tab_count, status, origin,
+        ));
+    }
+    Ok(ToolOutput::text(lines.join("\n")))
+}
+
+async fn execute_connect(
+    mgr: &mut BrowserManager,
+    params: &Value,
+) -> Result<ToolOutput, ToolError> {
+    let name = params
+        .get("name")
+        .and_then(Value::as_str)
+        .ok_or_else(|| ToolError::InvalidParams("'connect' requires 'name' parameter".into()))?;
+    let cdp_url = params
+        .get("cdp_url")
+        .and_then(Value::as_str)
+        .ok_or_else(|| ToolError::InvalidParams("'connect' requires 'cdp_url' parameter".into()))?;
+    let info = mgr
+        .connect_browser(name, cdp_url)
+        .await
+        .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
+    let result = json!({
+        "ok": true,
+        "name": info.name,
+        "cdp_url": info.cdp_url,
+        "connected": info.connected,
+        "tab_count": info.tab_count,
+        "active": true,
+    });
+    Ok(ToolOutput::text(result.to_string()))
+}
+
+async fn execute_disconnect(
+    mgr: &mut BrowserManager,
+    params: &Value,
+) -> Result<ToolOutput, ToolError> {
+    let name = params
+        .get("name")
+        .and_then(Value::as_str)
+        .ok_or_else(|| ToolError::InvalidParams("'disconnect' requires 'name' parameter".into()))?;
+    mgr.disconnect_browser(name)
+        .await
+        .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
+    Ok(ToolOutput::text(
+        json!({"ok": true, "description": format!("Disconnected browser '{name}'")}).to_string(),
     ))
 }

@@ -474,6 +474,63 @@ impl BrowserManager {
         let tab = self.active_tab_mut().await?;
         tab.current_title().await
     }
+
+    /// Name of the active browser, if any.
+    pub fn active_browser_name(&self) -> Option<&str> {
+        self.active_browser.as_deref()
+    }
+
+    /// Connect to a browser by name and CDP URL, setting it as active.
+    ///
+    /// If a browser with this name already exists, its URL is updated
+    /// and the connection is refreshed. New browsers are added in-memory
+    /// only — they are not persisted to config (`ghost browsers add`
+    /// handles persistence).
+    pub async fn connect_browser(
+        &mut self,
+        name: &str,
+        cdp_url: &str,
+    ) -> Result<BrowserInfo, BrowserError> {
+        if let Some(browser) = self.browsers.get_mut(name) {
+            if browser.cdp_url != cdp_url {
+                browser.cdp_url = cdp_url.to_string();
+            }
+            browser.disconnect();
+            browser.ensure_connected().await?;
+        } else {
+            let mut browser = ManagedBrowser::new(name.to_string(), cdp_url.to_string(), false);
+            browser.ensure_connected().await?;
+            self.browsers.insert(name.to_string(), browser);
+        }
+        self.active_browser = Some(name.to_string());
+
+        let browser = self
+            .browsers
+            .get(name)
+            .ok_or_else(|| BrowserError::BrowserNotFound { name: name.into() })?;
+        Ok(BrowserInfo {
+            name: browser.name.clone(),
+            cdp_url: browser.cdp_url.clone(),
+            connected: browser.check_health(),
+            tab_count: browser.tab_count(),
+            discovered: browser.discovered,
+        })
+    }
+
+    /// Disconnect a browser by name.
+    ///
+    /// Clears the active browser selection if it was the one disconnected.
+    pub async fn disconnect_browser(&mut self, name: &str) -> Result<(), BrowserError> {
+        let browser = self
+            .browsers
+            .get_mut(name)
+            .ok_or_else(|| BrowserError::BrowserNotFound { name: name.into() })?;
+        browser.disconnect();
+        if self.active_browser.as_deref() == Some(name) {
+            self.active_browser = None;
+        }
+        Ok(())
+    }
 }
 
 impl std::fmt::Debug for BrowserManager {
