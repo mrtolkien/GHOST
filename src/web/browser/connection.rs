@@ -23,7 +23,7 @@ enum ConnectionState {
     Disconnected,
     Connected(Box<ConnectedState>),
     Failed {
-        _last_error: String,
+        last_error: String,
         retry_after: Instant,
     },
 }
@@ -97,12 +97,15 @@ impl ManagedBrowser {
                     false
                 }
             }
-            ConnectionState::Failed { retry_after, .. } => {
+            ConnectionState::Failed {
+                retry_after,
+                last_error,
+            } => {
                 if Instant::now() < *retry_after {
                     return Err(BrowserError::ReconnectExhausted {
                         name: self.name.clone(),
                         attempts: self.reconnect_attempts,
-                        reason: "retry backoff in progress".into(),
+                        reason: format!("retry backoff in progress (last: {last_error})"),
                     });
                 }
                 true
@@ -117,7 +120,12 @@ impl ManagedBrowser {
     }
 
     /// Try to connect (or reconnect) to the browser's CDP endpoint.
+    ///
+    /// Clears all tabs on reconnect — old page handles are stale.
     async fn attempt_connect(&mut self) -> Result<(), BrowserError> {
+        self.tabs.clear();
+        self.active_tab_id = None;
+
         match cdp::connect(&self.cdp_url).await {
             Ok((browser, handler)) => {
                 self.reconnect_attempts = 0;
@@ -131,7 +139,7 @@ impl ManagedBrowser {
                 let delay_idx = (self.reconnect_attempts - 1).min(RECONNECT_DELAYS.len() - 1);
                 let delay = RECONNECT_DELAYS[delay_idx];
                 self.connection = ConnectionState::Failed {
-                    _last_error: e.to_string(),
+                    last_error: e.to_string(),
                     retry_after: Instant::now() + delay,
                 };
 
