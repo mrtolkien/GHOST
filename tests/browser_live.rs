@@ -728,3 +728,93 @@ async fn browser_upload_file() {
     );
     eprintln!("  file input value verified");
 }
+
+// ---------------------------------------------------------------------------
+// Crawl4AI + shared Chrome session test
+// ---------------------------------------------------------------------------
+
+/// Test that Crawl4AI uses the same Chrome session as the browser tool.
+///
+/// Sets a cookie in Chrome via the browser tool, then fetches the same
+/// site's cookie page via Crawl4AI (pointing at the same Chrome). If the
+/// cookie is visible in Crawl4AI's output, the session is shared.
+///
+/// Requires:
+///   - Chrome headless-shell on ws://localhost:9222 (docker compose up chrome)
+///   - Crawl4AI on http://localhost:11235 (docker compose up crawl4ai)
+///
+/// Run with: cargo test --features live-tests-crawl4ai -p ghost --test browser_live
+#[cfg(feature = "live-tests-crawl4ai")]
+#[tokio::test]
+async fn crawl4ai_shares_browser_session() {
+    use ghost::web::browser::BrowserManager;
+
+    let configs = vec![ghost::config::BrowserConfig {
+        name: "headless".to_string(),
+        cdp_url: "ws://localhost:9222".to_string(),
+        discovered: false,
+    }];
+    let mut mgr = BrowserManager::new(configs);
+
+    // 1. Navigate to httpbin and set a unique cookie via JS.
+    let cookie_value = format!("ghost_test_{}", ulid::Ulid::new());
+    mgr.navigate("https://httpbin.org/html")
+        .await
+        .expect("navigate should succeed");
+    eprintln!("  navigated to httpbin.org/html");
+
+    let js =
+        format!("document.cookie = 'ghost_session={cookie_value}; path=/; domain=httpbin.org'");
+    mgr.evaluate(&js)
+        .await
+        .expect("setting cookie should succeed");
+    eprintln!("  set cookie: ghost_session={cookie_value}");
+
+    // Verify the cookie is set in Chrome.
+    let cookies = mgr
+        .evaluate("document.cookie")
+        .await
+        .expect("reading cookie should succeed");
+    assert!(
+        cookies.contains(&cookie_value),
+        "cookie should be set in Chrome, got: {cookies}"
+    );
+    eprintln!("  verified cookie in Chrome");
+
+    // 2. Fetch httpbin.org/cookies via Crawl4AI through the same Chrome.
+    //
+    // Crawl4AI must run with network_mode: host so it can reach
+    // localhost:9222 (Chrome) and Tailscale IPs.
+    //
+    // We call fetch_with_crawl4ai directly (not fetch()) because
+    // httpbin.org/cookies returns JSON, and fetch() routes non-HTML
+    // to plain reqwest which has no cookies.
+    let crawl4ai_url = "http://localhost:11235";
+    let cdp_url = "ws://localhost:9222";
+
+    let c4ai_options = ghost::web::Crawl4aiOptions::default();
+    let markdown = ghost::web::fetch_with_crawl4ai(
+        crawl4ai_url,
+        "https://httpbin.org/cookies",
+        &c4ai_options,
+        Some(cdp_url),
+    )
+    .await
+    .expect("crawl4ai fetch should succeed");
+
+    eprintln!(
+        "  crawl4ai response ({} chars): {}",
+        markdown.len(),
+        &markdown[..markdown.len().min(500)]
+    );
+
+    // 3. The cookie should be visible in the fetched content.
+    assert!(
+        markdown.contains(&cookie_value),
+        "Crawl4AI should see the cookie set via browser tool.\n\
+         Expected cookie value: {cookie_value}\n\
+         Crawl4AI output: {}",
+        &markdown[..markdown.len().min(1000)]
+    );
+    eprintln!("  cookie visible in Crawl4AI output — shared session confirmed!");
+}

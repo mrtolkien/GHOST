@@ -61,7 +61,11 @@ pub async fn connect(cdp_url: &str) -> Result<(Browser, JoinHandle<()>), Browser
 
 /// If `cdp_url` is a base URL (no path or just `/`), query Chrome's
 /// `/json/version` endpoint to discover the actual WebSocket URL.
-async fn resolve_ws_url(cdp_url: &str) -> Result<String, BrowserError> {
+///
+/// Public so that other modules (e.g. Crawl4AI integration) can
+/// resolve base URLs before passing them to external services that
+/// need the full `webSocketDebuggerUrl`.
+pub async fn resolve_ws_url(cdp_url: &str) -> Result<String, BrowserError> {
     let parsed = url::Url::parse(cdp_url).map_err(|e| BrowserError::ConnectionFailed {
         url: cdp_url.to_owned(),
         source: Box::new(e),

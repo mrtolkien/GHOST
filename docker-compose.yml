@@ -2,8 +2,9 @@
 services:
   crawl4ai:
     image: unclecode/crawl4ai:latest
-    ports:
-      - "127.0.0.1:11235:11235"
+    # Host networking so Crawl4AI can reach Chrome on localhost:9222
+    # and remote browsers on Tailscale IPs.
+    network_mode: host
     restart: unless-stopped
 
   searxng:

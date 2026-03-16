@@ -88,6 +88,27 @@ becomes the active tab.
 3. Read from tab 1, focus tab 2, fill fields
 ```
 
+## web_fetch and Browser Sessions
+
+`web_fetch` and the browser tool **share the same Chrome session** when both point at
+the same browser. This means:
+
+- Log in to a site via the browser tool (navigate, fill credentials, click submit)
+- Then use `web_fetch` to read pages on that site — it sees the authenticated cookies
+- Much faster than snapshot for reading long content-heavy pages
+
+This works because `web_fetch` routes HTML pages through Crawl4AI, which connects to the
+same Chrome instance via CDP and shares its cookie jar.
+
+**When to use which:**
+
+| Scenario                                        | Tool               |
+| ----------------------------------------------- | ------------------ |
+| Simple page read (no auth)                      | `web_fetch`        |
+| Login-gated page (after logging in via browser) | `web_fetch`        |
+| Interactive work (forms, clicks, JS-heavy)      | `browser`          |
+| Need to see page structure/elements             | `browser` snapshot |
+
 ## Operator Handoff
 
 When you hit authentication, decide how to handle it:
