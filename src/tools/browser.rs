@@ -12,28 +12,26 @@ use super::error::ToolError;
 use super::manager::Tool;
 use super::output::ToolOutput;
 
-/// Build a status line showing active browser/tab context.
+/// Inject browser/tab context fields into a JSON result.
 ///
-/// Example: `[browser: headless | tab 2 of 3 | https://example.com]`
-fn status_line(mgr: &BrowserManager, url: &str) -> String {
-    let browser = mgr.active_browser_name().unwrap_or("none");
-    let active_tab = mgr.active_tab_id();
-    let tab_count = mgr
-        .list_browsers()
-        .iter()
-        .find(|b| Some(b.name.as_str()) == mgr.active_browser_name())
-        .map(|b| b.tab_count)
-        .unwrap_or(0);
-    match active_tab {
-        Some(id) => format!("[browser: {browser} | tab {id} of {tab_count} | {url}]"),
-        None => format!("[browser: {browser} | no tabs | {url}]"),
+/// Adds `"browser"`, `"tab"`, and `"tab_count"` to the object so the
+/// LLM can track which browser and tab produced this output.
+fn with_status(mgr: &BrowserManager, _url: &str, mut result: Value) -> String {
+    if let Some(obj) = result.as_object_mut() {
+        let browser = mgr.active_browser_name().unwrap_or("none");
+        let tab_count = mgr
+            .list_browsers()
+            .iter()
+            .find(|b| Some(b.name.as_str()) == mgr.active_browser_name())
+            .map(|b| b.tab_count)
+            .unwrap_or(0);
+        obj.insert("browser".into(), json!(browser));
+        if let Some(id) = mgr.active_tab_id() {
+            obj.insert("tab".into(), json!(id));
+        }
+        obj.insert("tab_count".into(), json!(tab_count));
     }
-}
-
-/// Format a JSON result with a browser/tab status line appended.
-fn with_status(mgr: &BrowserManager, url: &str, result: Value) -> String {
-    let status = status_line(mgr, url);
-    format!("{}\n{status}", result)
+    result.to_string()
 }
 
 /// Mount path inside the Chrome container where workspace/uploads/ is mapped.
@@ -256,14 +254,12 @@ async fn execute_snapshot(
         .await
         .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
     let url = mgr.current_url().await.unwrap_or_default();
-    let status = status_line(mgr, &url);
     let wrapped = format!(
         "<<<EXTERNAL_UNTRUSTED_CONTENT>>>\n\
          Source: Browser ({url})\n\
          ---\n\
          {xml}\n\
-         <<<END_EXTERNAL_UNTRUSTED_CONTENT>>>\n\
-         {status}"
+         <<<END_EXTERNAL_UNTRUSTED_CONTENT>>>"
     );
     Ok(ToolOutput::text(wrapped))
 }

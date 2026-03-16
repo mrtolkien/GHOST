@@ -419,13 +419,18 @@ async fn multi_tab_tool_actions() {
         json!({"action": "navigate", "url": "https://example.com"}),
     )
     .await;
-    assert!(result.contains("example.com"));
-    // Verify status line is present.
+    let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
+    assert!(parsed["url"].as_str().unwrap().contains("example.com"));
+    // Verify browser/tab context fields are present.
     assert!(
-        result.contains("[browser:"),
-        "output should contain status line, got: {result}"
+        parsed.get("browser").is_some(),
+        "output should contain browser field, got: {result}"
     );
-    eprintln!("  navigate ok, status line present");
+    assert!(
+        parsed.get("tab").is_some(),
+        "output should contain tab field, got: {result}"
+    );
+    eprintln!("  navigate ok, browser/tab context present");
 
     // Open a second tab.
     let result = browser_action(
