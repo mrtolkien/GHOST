@@ -1,47 +1,55 @@
-Those are a few different thoughts I've had that link to a common thread:
-
-- How to interact with the config from outside the GHOST's container?
-
-Since containerized execution is the golden path, it's important to be able to configure
-the GHOST from _outside_ its environment.
-
-This likely translates into a lightweight CLI/TUI dedicated to it.
-
-Could be linked to /home/tolki/Development/ghost/specs/backlog/tui.md
-
----
-
 We need a good onboarding flow:
 
-- ?Check nix install?
-- Setup model + embeddings (OpenRouter does both!)
+- Check nix install (or install nix ourself?)
+- Setup model provider
+  - The model could be used for some questions during the onboarding if there's a need
+    to debug things?
+- Setup embeddings
 - Setup discord (bot token + approved user id)
-- Setup logfire/opentelemetry -> Optional
-- Setup tailscale -> Optional atm, will likely be required in the future for web
-  interface
+- Setup tailscale (both host and clients)
+- Setup opentelemetry -> Optional
 
 ---
 
-Maybe we could have a dedicated onboarding CLI, different from the live CLI, that talks
-to the daemon through a socket/port?
+Onboarding wizard + external service management. Deferred until core install/update flow
+is solid.
+
+## Onboarding (`ghost init` interactive setup)
+
+- LLM provider selection (OpenRouter, Kimi, OpenAI OAuth) + API key
+- Discord token + user ID
+- For each service (embeddings, search, crawl, docling): ask "local Docker / remote URL
+  / skip?"
+- Generate `config.toml` + `.env` + `docker-compose.yml` from answers
+- Replace `deploy/common/onboard.py` with native Rust implementation
+
+## Service management
+
+- Ghost should manage its own sidecar services (start/stop/restart containers)
+- Either a skill that teaches Ghost to run compose commands, or a `ghost stack` CLI
+- Health checks: Ghost detects when a service goes down, notifies operator
+- See also: `deployment_per_platform.md` for per-platform service fallback chains
+  (Firecrawl, Brave API, remote embeddings, etc.)
 
 ---
 
 - Onboarding should include oauth sync
 - Onboarding/cli config picker should properly list available models for all providers
   - For example, get top models on openrouter, ...
+  - Check model-picker spec
 - Onboarding/deployment should work on Linux with all GPU types (Nvidia, AMD, Intel,
   ...)
 
 ---
 
-Currently, the `ghost` CLI operates only on the local ghost
+Create a clean services list and docker compose file to be included in the binary and
+deploy it with podman rootless by default (or docker if available):
 
-But in practice, we'll use the CLI with a remote server
+- crawl4ai
+- searxng (also possible native with nix, but no gain?)
+- Headless chrome w/ CDP
 
-So:
+Native would be better for:
 
-- How to connect to the CLI to a remote server securily?
-- Should we rewrite the CLI to talk to the daemon instead of directly touching the DB?
-  - Would it be "simpler" to have a remote connection then?
-- Should we have a distinct local and remote CLI?
+- Docling (maybe even use the CLI? Can we install it with nix as part of the flake?)
+- Llama.cpp

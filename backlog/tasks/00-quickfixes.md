@@ -4,6 +4,7 @@
 
 ---
 
+- [x] Repair orphaned tool calls _on each response_
 - [x] Don't send histories with tool calls that don't have a response -> at least give
       an error if that's the case
 - [x] Need some feedback (container w/ color) on reboot
