@@ -48,7 +48,8 @@ impl Tool for BrowserTool {
                             "fill", "wait", "evaluate",
                             "drag", "resize", "upload",
                             "tabs", "open", "focus", "close",
-                            "browsers", "connect", "disconnect"
+                            "browsers", "connect", "disconnect",
+                            "discover"
                         ],
                         "description": "navigate: open URL (replaces current page). \
                             snapshot: get accessibility tree with ref IDs. \
@@ -71,7 +72,8 @@ impl Tool for BrowserTool {
                             close: close tab by ID ('tab' param). \
                             browsers: list all known browsers with connection status. \
                             connect: connect to a browser by 'name' and 'cdp_url', set as active. \
-                            disconnect: disconnect from a browser by 'name'."
+                            disconnect: disconnect from a browser by 'name'. \
+                            discover: scan localhost and Tailscale peers for CDP endpoints."
                     },
                     "url": {
                         "type": "string",
@@ -201,6 +203,7 @@ impl Tool for BrowserTool {
             "browsers" => execute_browsers(&mut mgr).await,
             "connect" => execute_connect(&mut mgr, &params).await,
             "disconnect" => execute_disconnect(&mut mgr, &params).await,
+            "discover" => execute_discover().await,
             _ => Err(ToolError::InvalidParams(format!(
                 "unknown action: {action}"
             ))),
@@ -714,4 +717,20 @@ async fn execute_disconnect(
     Ok(ToolOutput::text(
         json!({"ok": true, "description": format!("Disconnected browser '{name}'")}).to_string(),
     ))
+}
+
+async fn execute_discover() -> Result<ToolOutput, ToolError> {
+    let found = crate::web::browser::discovery::discover().await;
+    if found.is_empty() {
+        return Ok(ToolOutput::text("No CDP endpoints found.".to_string()));
+    }
+    let mut lines = vec!["Discovered CDP endpoints:".to_string()];
+    for b in &found {
+        let version = b.browser_version.as_deref().unwrap_or("unknown");
+        lines.push(format!(
+            "  {}:{} — {} ({})",
+            b.host, b.port, version, b.cdp_url
+        ));
+    }
+    Ok(ToolOutput::text(lines.join("\n")))
 }

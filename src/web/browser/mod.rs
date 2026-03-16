@@ -1,6 +1,7 @@
 pub mod accessibility;
 pub mod cdp;
 pub mod connection;
+pub mod discovery;
 pub mod error;
 pub mod manager;
 pub mod tab;
