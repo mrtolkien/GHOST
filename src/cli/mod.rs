@@ -1,5 +1,6 @@
 pub mod agent;
 pub mod auth;
+pub mod browsers;
 pub mod config;
 pub mod daemon;
 pub mod document;
