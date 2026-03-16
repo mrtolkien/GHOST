@@ -75,11 +75,15 @@ async fn browser_ssrf_blocks_private_ips() {
     );
 }
 
-/// Helper: build a ToolContext with chrome_cdp_url configured.
+/// Helper: build a ToolContext with a browser configured.
 fn browser_tool_ctx() -> (ToolContext, tempfile::TempDir) {
     let workspace = tempfile::tempdir().unwrap();
     let mut config = ghost::config::test_config(workspace.path());
-    config.web.chrome_cdp_url = Some("ws://localhost:9222".to_string());
+    config.web.browsers = vec![ghost::config::BrowserConfig {
+        name: "headless".to_string(),
+        cdp_url: "ws://localhost:9222".to_string(),
+        discovered: false,
+    }];
     let ctx = ToolContext {
         workspace: workspace.path().to_path_buf(),
         cwd: workspace.path().to_path_buf(),
@@ -376,5 +380,4 @@ async fn browser_upload_file() {
         "file input value should contain filename, got: {eval_text}"
     );
     eprintln!("  file input value verified");
-
 }

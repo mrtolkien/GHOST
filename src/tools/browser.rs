@@ -157,9 +157,14 @@ impl Tool for BrowserTool {
         // if None
         let mut guard = ctx.browser_session.lock().await;
         if guard.is_none() {
-            let cdp_url = ctx.config.web.chrome_cdp_url.as_deref().ok_or_else(|| {
-                ToolError::ExecutionFailed("chrome_cdp_url not configured".into())
-            })?;
+            // TODO(multi-browser): use BrowserManager.active_cdp_url()
+            let cdp_url = ctx
+                .config
+                .web
+                .browsers
+                .first()
+                .map(|b| b.cdp_url.as_str())
+                .ok_or_else(|| ToolError::ExecutionFailed("no browser configured".into()))?;
             let session = crate::web::browser::BrowserSession::connect(cdp_url)
                 .await
                 .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;

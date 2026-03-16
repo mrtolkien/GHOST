@@ -85,11 +85,13 @@ impl Tool for WebFetch {
             ..Default::default()
         };
 
+        // TODO(multi-browser): use BrowserManager.active_cdp_url()
+        let cdp_url = ctx.config.web.browsers.first().map(|b| b.cdp_url.as_str());
         let content = match fetch(
             url,
             &options,
             ctx.config.web.crawl4ai_url.as_deref(),
-            ctx.config.web.chrome_cdp_url.as_deref(),
+            cdp_url,
         )
         .await
         {

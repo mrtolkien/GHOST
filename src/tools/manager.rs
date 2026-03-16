@@ -79,9 +79,10 @@ impl ToolManager {
         manager
     }
 
-    /// Conditionally register the browser tool if Chrome CDP is configured.
+    /// Conditionally register the browser tool if a browser is configured.
+    // TODO(multi-browser): always register browser tool
     pub fn with_browser_if_configured(&mut self, config: &Config) {
-        if config.web.chrome_cdp_url.is_some() {
+        if !config.web.browsers.is_empty() {
             self.register(Arc::new(super::browser::BrowserTool));
         }
     }

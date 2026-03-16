@@ -90,13 +90,10 @@ pub async fn execute(command: WebCommand) -> Result<(), GhostError> {
                 css_selector,
                 scan_full_page,
             };
-            let content = web::fetch(
-                &url,
-                &options,
-                config.web.crawl4ai_url.as_deref(),
-                config.web.chrome_cdp_url.as_deref(),
-            )
-            .await?;
+            // TODO(multi-browser): use BrowserManager.active_cdp_url()
+            let cdp_url = config.web.browsers.first().map(|b| b.cdp_url.as_str());
+            let content =
+                web::fetch(&url, &options, config.web.crawl4ai_url.as_deref(), cdp_url).await?;
 
             match web::save_fetch_cache(&config.workspace, "cli", &url, &content) {
                 Ok(path) => {

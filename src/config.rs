@@ -141,12 +141,32 @@ pub struct CompactionSettings {
     pub instructions: Option<String>,
 }
 
+/// A browser definition in config.toml.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct BrowserSettings {
+    pub name: String,
+    pub cdp_url: String,
+    /// Marker for browsers added by `discover` (not manually).
+    #[serde(default)]
+    pub discovered: bool,
+}
+
+/// Resolved browser configuration.
+#[derive(Debug, Clone, Serialize)]
+pub struct BrowserConfig {
+    pub name: String,
+    pub cdp_url: String,
+    pub discovered: bool,
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct WebSettings {
     pub search_max_results: Option<usize>,
     pub crawl4ai_url: Option<String>,
+    /// Deprecated: use [[web.browsers]] instead. Kept for config compat.
     pub chrome_cdp_url: Option<String>,
+    pub browsers: Option<Vec<BrowserSettings>>,
     pub search: Option<SearchProviderSettings>,
 }
 
@@ -253,7 +273,7 @@ pub struct CompactionConfig {
 pub struct WebConfig {
     pub search_max_results: usize,
     pub crawl4ai_url: Option<String>,
-    pub chrome_cdp_url: Option<String>,
+    pub browsers: Vec<BrowserConfig>,
     pub search_provider: SearchProviderConfig,
 }
 
@@ -434,11 +454,41 @@ impl Config {
                     .and_then(|w| w.crawl4ai_url.clone())
                     .or_else(|| env::var("CRAWL4AI_URL").ok());
 
-                let chrome_cdp_url = settings
-                    .web
-                    .as_ref()
-                    .and_then(|w| w.chrome_cdp_url.clone())
-                    .or_else(|| env::var("CHROME_CDP_URL").ok());
+                let browsers = {
+                    let configured = settings
+                        .web
+                        .as_ref()
+                        .and_then(|w| w.browsers.clone())
+                        .unwrap_or_default();
+
+                    if !configured.is_empty() {
+                        configured
+                            .into_iter()
+                            .map(|b| BrowserConfig {
+                                name: b.name,
+                                cdp_url: b.cdp_url,
+                                discovered: b.discovered,
+                            })
+                            .collect()
+                    } else {
+                        // Deprecated config field fallback
+                        let legacy_url = settings
+                            .web
+                            .as_ref()
+                            .and_then(|w| w.chrome_cdp_url.clone())
+                            .or_else(|| env::var("CHROME_CDP_URL").ok());
+
+                        if let Some(url) = legacy_url {
+                            vec![BrowserConfig {
+                                name: "headless".to_string(),
+                                cdp_url: url,
+                                discovered: false,
+                            }]
+                        } else {
+                            vec![]
+                        }
+                    }
+                };
 
                 let search_provider = match settings.web.as_ref().and_then(|w| w.search.as_ref()) {
                     Some(s) => match s.provider {
@@ -463,7 +513,7 @@ impl Config {
                         .and_then(|w| w.search_max_results)
                         .unwrap_or(5),
                     crawl4ai_url,
-                    chrome_cdp_url,
+                    browsers,
                     search_provider,
                 }
             },
@@ -669,7 +719,7 @@ pub fn test_config(workspace: &std::path::Path) -> Config {
         web: WebConfig {
             search_max_results: 5,
             crawl4ai_url: None,
-            chrome_cdp_url: None,
+            browsers: vec![],
             search_provider: SearchProviderConfig::Brave,
         },
         docling: DoclingConfig {
