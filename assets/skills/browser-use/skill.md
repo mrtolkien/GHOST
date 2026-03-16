@@ -90,19 +90,59 @@ becomes the active tab.
 
 ## Operator Handoff
 
-When you hit a login wall, CAPTCHA, or need the OPERATOR's authenticated session:
+When you hit authentication, decide how to handle it:
 
-1. **Ask the OPERATOR** to start a dedicated Chromium with CDP enabled:
-   `chromium --remote-debugging-port=9222`
-2. **Security:** The OPERATOR should use a separate browser (not their main one).
-   Chromium with a fresh profile is ideal. CDP is unauthenticated — anyone who can reach
-   the port has full browser control.
-3. **Network:** The OPERATOR should expose the port via Tailscale. You can then
-   `discover` their browser or `connect` directly with their Tailscale IP.
-4. **Authentication:** Ask the OPERATOR to log in to the required service in that
-   browser, then you can continue working in their authenticated session.
-5. **When done:** `disconnect` from the operator's browser. The OPERATOR can close
-   Chromium.
+- **Username/password auth:** Ask the OPERATOR what they prefer — either give you the
+  credentials so you can log in yourself in the headless browser, or log in themselves
+  in a live browser you can then control.
+- **OAuth, SSO, CAPTCHA, or MFA:** You can't do these yourself. Ask the OPERATOR to
+  start a live browser with remote debugging so they can complete the auth flow and you
+  take over afterwards.
+
+### Starting the OPERATOR's browser
+
+Ask the OPERATOR to run this on their machine:
+
+```
+chromium --remote-debugging-port=9222 --user-data-dir=~/.config/ghost/browser-profile
+```
+
+Explain why:
+
+- `--remote-debugging-port=9222` opens CDP so you can control the browser.
+- `--user-data-dir=~/.config/ghost/browser-profile` uses a **dedicated profile**,
+  separate from their daily browser. This is important: CDP is unauthenticated —
+  anything that can reach port 9222 gets full browser control (read cookies, run JS,
+  navigate). A dedicated profile keeps the OPERATOR's real passwords and sessions safe.
+- The profile is **persistent** — logins, cookies, and site data survive across
+  restarts. The OPERATOR only needs to log in to services once.
+
+### Adding the browser
+
+If the OPERATOR's browser is on the same machine, use `ws://localhost:9222`.
+
+If it's on a different machine on the Tailscale network, all ports are open between
+peers by default — no extra config needed. Ask the OPERATOR for their Tailscale IP
+(`tailscale ip -4`).
+
+Then persist the browser so it's available across reboots:
+
+1. Run `discover` to scan for CDP endpoints (localhost + Tailscale peers).
+2. Tell the OPERATOR to run `ghost browsers add operator ws://<ip>:9222` to save it.
+3. Tell the OPERATOR to run `ghost reboot` to pick up the new config.
+
+After reboot, the OPERATOR's browser is available by name. You can `connect` to
+`"operator"` without needing the URL again.
+
+### Workflow
+
+1. **Ask** the OPERATOR to start the browser (give them the command above).
+2. **Add** the browser to config and reboot (or `connect` at runtime for one-off use).
+3. **Ask** the OPERATOR to log in to any services you need (you can watch via `snapshot`
+   and guide them).
+4. **Work** in their authenticated session — navigate, fill forms, extract data.
+5. **When done**, `disconnect`. The OPERATOR can close the browser or leave it running
+   for next time (the profile persists).
 
 ## Tool Actions Reference
 
