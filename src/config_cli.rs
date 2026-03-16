@@ -159,3 +159,116 @@ fn render_value(value: &toml::Value) -> String {
         _ => value.to_string(),
     }
 }
+
+/// Add a `[[web.browsers]]` entry to config.toml.
+///
+/// If a browser with the same name exists, updates its `cdp_url`.
+/// Uses `toml_edit` to preserve existing formatting and comments.
+pub fn add_browser(name: &str, cdp_url: &str, discovered: bool) -> Result<(), ConfigError> {
+    let dir = config_dir()?;
+    std::fs::create_dir_all(&dir).map_err(|source| ConfigError::WriteFile {
+        path: dir.clone(),
+        source,
+    })?;
+    let path = dir.join(CONFIG_FILE_NAME);
+    let content = std::fs::read_to_string(&path).unwrap_or_default();
+    let mut doc =
+        content
+            .parse::<toml_edit::DocumentMut>()
+            .map_err(|e| ConfigError::InvalidKey {
+                key: format!("config parse error: {e}"),
+            })?;
+
+    // Ensure [web] table exists.
+    if !doc.contains_key("web") {
+        doc["web"] = toml_edit::Item::Table(toml_edit::Table::new());
+    }
+
+    let web = doc["web"]
+        .as_table_mut()
+        .ok_or_else(|| ConfigError::InvalidKey {
+            key: "web is not a table".into(),
+        })?;
+
+    // Ensure [[web.browsers]] array-of-tables exists.
+    if !web.contains_key("browsers") {
+        web["browsers"] = toml_edit::Item::ArrayOfTables(toml_edit::ArrayOfTables::new());
+    }
+
+    let browsers =
+        web["browsers"]
+            .as_array_of_tables_mut()
+            .ok_or_else(|| ConfigError::InvalidKey {
+                key: "web.browsers is not an array of tables".into(),
+            })?;
+
+    // Update existing entry or append a new one.
+    let existing = browsers
+        .iter_mut()
+        .find(|b| b.get("name").and_then(|v| v.as_str()) == Some(name));
+
+    if let Some(entry) = existing {
+        entry["cdp_url"] = toml_edit::value(cdp_url);
+    } else {
+        let mut entry = toml_edit::Table::new();
+        entry["name"] = toml_edit::value(name);
+        entry["cdp_url"] = toml_edit::value(cdp_url);
+        if discovered {
+            entry["discovered"] = toml_edit::value(true);
+        }
+        browsers.push(entry);
+    }
+
+    std::fs::write(&path, doc.to_string()).map_err(|source| ConfigError::WriteFile {
+        path: path.clone(),
+        source,
+    })?;
+
+    Ok(())
+}
+
+/// Remove a `[[web.browsers]]` entry from config.toml by name.
+///
+/// Returns `true` if the entry was found and removed, `false` if not found.
+pub fn remove_browser(name: &str) -> Result<bool, ConfigError> {
+    let path = config_dir()?.join(CONFIG_FILE_NAME);
+    let content = std::fs::read_to_string(&path).map_err(|source| ConfigError::ReadFile {
+        path: path.clone(),
+        source,
+    })?;
+    let mut doc =
+        content
+            .parse::<toml_edit::DocumentMut>()
+            .map_err(|e| ConfigError::InvalidKey {
+                key: format!("config parse error: {e}"),
+            })?;
+
+    let web = match doc.get_mut("web").and_then(|w| w.as_table_mut()) {
+        Some(w) => w,
+        None => return Ok(false),
+    };
+
+    let browsers = match web
+        .get_mut("browsers")
+        .and_then(|b| b.as_array_of_tables_mut())
+    {
+        Some(b) => b,
+        None => return Ok(false),
+    };
+
+    let idx = browsers
+        .iter()
+        .position(|b| b.get("name").and_then(|v| v.as_str()) == Some(name));
+
+    match idx {
+        Some(i) => {
+            browsers.remove(i);
+            std::fs::write(&path, doc.to_string()).map_err(|source| ConfigError::WriteFile {
+                path: path.clone(),
+                source,
+            })?;
+            Ok(true)
+        }
+        None => Ok(false),
+    }
+}
