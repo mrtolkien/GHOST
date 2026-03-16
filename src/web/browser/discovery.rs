@@ -19,8 +19,6 @@ pub struct DiscoveredBrowser {
 struct CdpVersionResponse {
     #[serde(rename = "Browser")]
     browser: Option<String>,
-    #[serde(rename = "webSocketDebuggerUrl")]
-    web_socket_debugger_url: Option<String>,
 }
 
 /// Discover CDP endpoints on localhost and Tailscale peers.
@@ -81,9 +79,9 @@ async fn probe_cdp(
     let resp = client.get(&url).send().await?;
     let version: CdpVersionResponse = resp.json().await?;
 
-    let cdp_url = version
-        .web_socket_debugger_url
-        .unwrap_or_else(|| format!("ws://{host}:{port}"));
+    // Use the base URL — cdp::connect resolves the session-scoped
+    // webSocketDebuggerUrl at connect time via /json/version.
+    let cdp_url = format!("ws://{host}:{port}");
 
     Ok(Some(DiscoveredBrowser {
         host: host.to_string(),
