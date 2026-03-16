@@ -59,12 +59,16 @@ pub async fn connect(cdp_url: &str) -> Result<(Browser, JoinHandle<()>), Browser
     Ok((browser, handle))
 }
 
-/// If `cdp_url` is a base URL (no path or just `/`), query Chrome's
-/// `/json/version` endpoint to discover the actual WebSocket URL.
+/// Resolve a CDP base URL to its full `webSocketDebuggerUrl`.
 ///
-/// Public so that other modules (e.g. Crawl4AI integration) can
-/// resolve base URLs before passing them to external services that
-/// need the full `webSocketDebuggerUrl`.
+/// If `cdp_url` already has a path (e.g. `/devtools/browser/UUID`),
+/// returns it as-is. Otherwise queries `/json/version` to discover
+/// the full WebSocket URL.
+///
+/// Chrome always reports `127.0.0.1` in `webSocketDebuggerUrl`
+/// regardless of how you connect to it. This function preserves the
+/// host and port from the original `cdp_url` so the returned URL is
+/// reachable from the caller's network perspective.
 pub async fn resolve_ws_url(cdp_url: &str) -> Result<String, BrowserError> {
     let parsed = url::Url::parse(cdp_url).map_err(|e| BrowserError::ConnectionFailed {
         url: cdp_url.to_owned(),
@@ -77,12 +81,11 @@ pub async fn resolve_ws_url(cdp_url: &str) -> Result<String, BrowserError> {
         return Ok(cdp_url.to_string());
     }
 
+    let host = parsed.host_str().unwrap_or("localhost");
+    let port = parsed.port().unwrap_or(9222);
+
     // Query /json/version for the webSocketDebuggerUrl
-    let http_url = format!(
-        "http://{}:{}/json/version",
-        parsed.host_str().unwrap_or("localhost"),
-        parsed.port().unwrap_or(9222)
-    );
+    let http_url = format!("http://{host}:{port}/json/version");
     let resp: serde_json::Value = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(5))
         .build()
@@ -101,13 +104,25 @@ pub async fn resolve_ws_url(cdp_url: &str) -> Result<String, BrowserError> {
             source: Box::new(e),
         })?;
 
-    resp.get("webSocketDebuggerUrl")
+    let discovered = resp
+        .get("webSocketDebuggerUrl")
         .and_then(|v| v.as_str())
-        .map(String::from)
         .ok_or_else(|| BrowserError::ConnectionFailed {
             url: cdp_url.to_owned(),
             source: "no webSocketDebuggerUrl in /json/version response".into(),
-        })
+        })?;
+
+    // Chrome returns 127.0.0.1 in webSocketDebuggerUrl regardless of
+    // the interface we connected through. Replace with the original
+    // host:port so the URL works from the caller's network.
+    let mut result = url::Url::parse(discovered).map_err(|e| BrowserError::ConnectionFailed {
+        url: cdp_url.to_owned(),
+        source: Box::new(e),
+    })?;
+    let _ = result.set_host(Some(host));
+    let _ = result.set_port(Some(port));
+
+    Ok(result.to_string())
 }
 
 /// Open a new blank tab and configure the viewport.

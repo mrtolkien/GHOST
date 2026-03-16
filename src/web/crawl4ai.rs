@@ -53,18 +53,14 @@ pub async fn fetch_with_crawl4ai(
     let mut browser_params = json!({ "headless": true });
     if let Some(base_url) = cdp_url {
         // Resolve to the full webSocketDebuggerUrl — Crawl4AI uses
-        // Playwright's connect_over_cdp which needs the full path,
-        // unlike chromiumoxide which auto-discovers from base URLs.
+        // Playwright's connect_over_cdp which needs the full path.
+        // resolve_ws_url preserves the original host/port.
         let ws_url = crate::web::browser::cdp::resolve_ws_url(base_url)
             .await
             .map_err(|e| WebError::Crawl4ai {
                 url: page_url.to_string(),
                 detail: format!("failed to resolve CDP URL: {e}"),
             })?;
-        // The resolved URL may have 127.0.0.1 (Chrome's self-view).
-        // Replace the host with the original base_url's host so the
-        // URL is reachable from Crawl4AI's network perspective.
-        let ws_url = rewrite_ws_host(&ws_url, base_url);
         browser_params["cdp_url"] = json!(ws_url);
         // Share the existing browser's session (cookies, localStorage)
         // instead of creating an isolated context.
@@ -126,29 +122,6 @@ pub async fn fetch_with_crawl4ai(
     Ok(markdown.to_string())
 }
 
-/// Replace the host:port in `resolved_url` with the host:port from
-/// `original_url`.
-///
-/// Chrome's `/json/version` returns `webSocketDebuggerUrl` with its own
-/// view of its address (usually `127.0.0.1`). When Crawl4AI runs in a
-/// different network context (e.g. Docker), it needs the host from the
-/// original configured URL to actually reach Chrome.
-fn rewrite_ws_host(resolved_url: &str, original_url: &str) -> String {
-    let Ok(mut resolved) = url::Url::parse(resolved_url) else {
-        return resolved_url.to_string();
-    };
-    let Ok(original) = url::Url::parse(original_url) else {
-        return resolved_url.to_string();
-    };
-    if let Some(host) = original.host_str() {
-        let _ = resolved.set_host(Some(host));
-    }
-    if let Some(port) = original.port() {
-        let _ = resolved.set_port(Some(port));
-    }
-    resolved.to_string()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -175,29 +148,5 @@ mod tests {
         assert_eq!(params["wait_for"], "css:.loaded");
         assert_eq!(params["css_selector"], "article.main");
         assert_eq!(params["scan_full_page"], true);
-    }
-
-    #[test]
-    fn rewrite_ws_host_replaces_host_and_port() {
-        let resolved = "ws://127.0.0.1:9222/devtools/browser/abc-123";
-        let original = "ws://172.19.0.4:9222";
-        let result = rewrite_ws_host(resolved, original);
-        assert_eq!(result, "ws://172.19.0.4:9222/devtools/browser/abc-123");
-    }
-
-    #[test]
-    fn rewrite_ws_host_different_port() {
-        let resolved = "ws://127.0.0.1:9222/devtools/browser/x";
-        let original = "ws://chrome-host:9333";
-        let result = rewrite_ws_host(resolved, original);
-        assert_eq!(result, "ws://chrome-host:9333/devtools/browser/x");
-    }
-
-    #[test]
-    fn rewrite_ws_host_same_host_noop() {
-        let resolved = "ws://localhost:9222/devtools/browser/x";
-        let original = "ws://localhost:9222";
-        let result = rewrite_ws_host(resolved, original);
-        assert_eq!(result, "ws://localhost:9222/devtools/browser/x");
     }
 }
