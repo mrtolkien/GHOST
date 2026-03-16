@@ -12,6 +12,30 @@ use super::error::ToolError;
 use super::manager::Tool;
 use super::output::ToolOutput;
 
+/// Build a status line showing active browser/tab context.
+///
+/// Example: `[browser: headless | tab 2 of 3 | https://example.com]`
+fn status_line(mgr: &BrowserManager, url: &str) -> String {
+    let browser = mgr.active_browser_name().unwrap_or("none");
+    let active_tab = mgr.active_tab_id();
+    let tab_count = mgr
+        .list_browsers()
+        .iter()
+        .find(|b| Some(b.name.as_str()) == mgr.active_browser_name())
+        .map(|b| b.tab_count)
+        .unwrap_or(0);
+    match active_tab {
+        Some(id) => format!("[browser: {browser} | tab {id} of {tab_count} | {url}]"),
+        None => format!("[browser: {browser} | no tabs | {url}]"),
+    }
+}
+
+/// Format a JSON result with a browser/tab status line appended.
+fn with_status(mgr: &BrowserManager, url: &str, result: Value) -> String {
+    let status = status_line(mgr, url);
+    format!("{}\n{status}", result)
+}
+
 /// Mount path inside the Chrome container where workspace/uploads/ is mapped.
 const CHROME_UPLOADS_MOUNT: &str = "/uploads";
 
@@ -219,7 +243,7 @@ async fn execute_navigate(
         .await
         .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
     let result = json!({"ok": true, "url": final_url, "title": title});
-    Ok(ToolOutput::text(result.to_string()))
+    Ok(ToolOutput::text(with_status(mgr, &final_url, result)))
 }
 
 async fn execute_snapshot(
@@ -232,12 +256,14 @@ async fn execute_snapshot(
         .await
         .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
     let url = mgr.current_url().await.unwrap_or_default();
+    let status = status_line(mgr, &url);
     let wrapped = format!(
         "<<<EXTERNAL_UNTRUSTED_CONTENT>>>\n\
          Source: Browser ({url})\n\
          ---\n\
          {xml}\n\
-         <<<END_EXTERNAL_UNTRUSTED_CONTENT>>>"
+         <<<END_EXTERNAL_UNTRUSTED_CONTENT>>>\n\
+         {status}"
     );
     Ok(ToolOutput::text(wrapped))
 }
@@ -253,7 +279,7 @@ async fn execute_click(mgr: &mut BrowserManager, params: &Value) -> Result<ToolO
         .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
     let url = mgr.current_url().await.unwrap_or_default();
     let result = json!({"ok": true, "url": url, "description": desc});
-    Ok(ToolOutput::text(result.to_string()))
+    Ok(ToolOutput::text(with_status(mgr, &url, result)))
 }
 
 async fn execute_type(mgr: &mut BrowserManager, params: &Value) -> Result<ToolOutput, ToolError> {
@@ -271,7 +297,7 @@ async fn execute_type(mgr: &mut BrowserManager, params: &Value) -> Result<ToolOu
         .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
     let url = mgr.current_url().await.unwrap_or_default();
     let result = json!({"ok": true, "url": url, "description": desc});
-    Ok(ToolOutput::text(result.to_string()))
+    Ok(ToolOutput::text(with_status(mgr, &url, result)))
 }
 
 async fn execute_scroll(mgr: &mut BrowserManager, params: &Value) -> Result<ToolOutput, ToolError> {
@@ -286,7 +312,7 @@ async fn execute_scroll(mgr: &mut BrowserManager, params: &Value) -> Result<Tool
         .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
     let url = mgr.current_url().await.unwrap_or_default();
     let result = json!({"ok": true, "url": url, "description": desc});
-    Ok(ToolOutput::text(result.to_string()))
+    Ok(ToolOutput::text(with_status(mgr, &url, result)))
 }
 
 async fn execute_screenshot(
@@ -308,7 +334,7 @@ async fn execute_screenshot(
         "path": rel.display().to_string(),
         "description": format!("Screenshot captured ({vw}x{vh})")
     });
-    Ok(ToolOutput::text(result.to_string()))
+    Ok(ToolOutput::text(with_status(mgr, &url, result)))
 }
 
 async fn execute_press(mgr: &mut BrowserManager, params: &Value) -> Result<ToolOutput, ToolError> {
@@ -322,7 +348,7 @@ async fn execute_press(mgr: &mut BrowserManager, params: &Value) -> Result<ToolO
         .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
     let url = mgr.current_url().await.unwrap_or_default();
     let result = json!({"ok": true, "url": url, "description": desc});
-    Ok(ToolOutput::text(result.to_string()))
+    Ok(ToolOutput::text(with_status(mgr, &url, result)))
 }
 
 async fn execute_hover(mgr: &mut BrowserManager, params: &Value) -> Result<ToolOutput, ToolError> {
@@ -336,7 +362,7 @@ async fn execute_hover(mgr: &mut BrowserManager, params: &Value) -> Result<ToolO
         .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
     let url = mgr.current_url().await.unwrap_or_default();
     let result = json!({"ok": true, "url": url, "description": desc});
-    Ok(ToolOutput::text(result.to_string()))
+    Ok(ToolOutput::text(with_status(mgr, &url, result)))
 }
 
 async fn execute_select(mgr: &mut BrowserManager, params: &Value) -> Result<ToolOutput, ToolError> {
@@ -354,7 +380,7 @@ async fn execute_select(mgr: &mut BrowserManager, params: &Value) -> Result<Tool
         .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
     let url = mgr.current_url().await.unwrap_or_default();
     let result = json!({"ok": true, "url": url, "description": desc});
-    Ok(ToolOutput::text(result.to_string()))
+    Ok(ToolOutput::text(with_status(mgr, &url, result)))
 }
 
 async fn execute_fill(mgr: &mut BrowserManager, params: &Value) -> Result<ToolOutput, ToolError> {
@@ -384,7 +410,7 @@ async fn execute_fill(mgr: &mut BrowserManager, params: &Value) -> Result<ToolOu
         .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
     let url = mgr.current_url().await.unwrap_or_default();
     let result = json!({"ok": true, "url": url, "description": desc});
-    Ok(ToolOutput::text(result.to_string()))
+    Ok(ToolOutput::text(with_status(mgr, &url, result)))
 }
 
 async fn execute_wait(mgr: &mut BrowserManager, params: &Value) -> Result<ToolOutput, ToolError> {
@@ -399,7 +425,7 @@ async fn execute_wait(mgr: &mut BrowserManager, params: &Value) -> Result<ToolOu
         .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
     let url = mgr.current_url().await.unwrap_or_default();
     let result = json!({"ok": true, "url": url, "description": desc});
-    Ok(ToolOutput::text(result.to_string()))
+    Ok(ToolOutput::text(with_status(mgr, &url, result)))
 }
 
 async fn execute_evaluate(
@@ -425,7 +451,7 @@ async fn execute_evaluate(
          <<<END_EXTERNAL_UNTRUSTED_CONTENT>>>"
     );
     let result = json!({"ok": true, "url": url, "result": wrapped});
-    Ok(ToolOutput::text(result.to_string()))
+    Ok(ToolOutput::text(with_status(mgr, &url, result)))
 }
 
 async fn execute_drag(mgr: &mut BrowserManager, params: &Value) -> Result<ToolOutput, ToolError> {
@@ -443,7 +469,7 @@ async fn execute_drag(mgr: &mut BrowserManager, params: &Value) -> Result<ToolOu
         .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
     let url = mgr.current_url().await.unwrap_or_default();
     let result = json!({"ok": true, "url": url, "description": desc});
-    Ok(ToolOutput::text(result.to_string()))
+    Ok(ToolOutput::text(with_status(mgr, &url, result)))
 }
 
 async fn execute_resize(mgr: &mut BrowserManager, params: &Value) -> Result<ToolOutput, ToolError> {
@@ -463,7 +489,7 @@ async fn execute_resize(mgr: &mut BrowserManager, params: &Value) -> Result<Tool
         .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
     let url = mgr.current_url().await.unwrap_or_default();
     let result = json!({"ok": true, "url": url, "description": desc});
-    Ok(ToolOutput::text(result.to_string()))
+    Ok(ToolOutput::text(with_status(mgr, &url, result)))
 }
 
 /// Resolve a workspace-relative path to the Chrome-container path.
@@ -564,7 +590,7 @@ async fn execute_upload(
         "description": desc,
         "path": path,
     });
-    Ok(ToolOutput::text(output.to_string()))
+    Ok(ToolOutput::text(with_status(mgr, &url, output)))
 }
 
 async fn execute_tabs(mgr: &mut BrowserManager) -> Result<ToolOutput, ToolError> {

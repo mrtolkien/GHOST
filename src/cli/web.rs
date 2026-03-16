@@ -90,7 +90,7 @@ pub async fn execute(command: WebCommand) -> Result<(), GhostError> {
                 css_selector,
                 scan_full_page,
             };
-            // TODO(multi-browser): use BrowserManager.active_cdp_url()
+            // CLI has no BrowserManager — use first configured browser.
             let cdp_url = config.web.browsers.first().map(|b| b.cdp_url.as_str());
             let content =
                 web::fetch(&url, &options, config.web.crawl4ai_url.as_deref(), cdp_url).await?;
