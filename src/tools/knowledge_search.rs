@@ -29,12 +29,9 @@ impl Tool for KnowledgeSearch {
         ToolDefinition {
             name: self.name().to_string(),
             description: "Search your knowledge base using hybrid BM25 + semantic \
-                          search across notes, references, diary entries, and scripts. \
-                          Search when the query relates to topics you may have notes, \
-                          references, or diary entries about. Not needed for real-time \
-                          queries or general knowledge. Defaults to notes and diary; \
-                          pass categories to include references or scripts. Returns \
-                          ranked results with snippets."
+                          search. Returns ranked results with snippets. Defaults to \
+                          notes and diary; pass categories to include references or \
+                          scripts."
                 .to_string(),
             input_schema: json!({
                 "type": "object",

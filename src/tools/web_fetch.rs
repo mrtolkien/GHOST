@@ -24,20 +24,8 @@ impl Tool for WebFetch {
             description: "Fetch and extract the text content of a web page as markdown. \
                           Uses a headless browser — works on JS-rendered SPAs, pages \
                           that block bots, and dynamic content. Content is cached for \
-                          later reference curation.\n\n\
-                          Works well by default for most pages (articles, docs, forums, \
-                          product reviews, Stack Overflow, Wikipedia). Only use the \
-                          options below when the default extraction is insufficient:\n\n\
-                          - css_selector: focus extraction on a DOM region (e.g. \
-                            'article', '#main-content', '.post-body'). Use when output \
-                            has too much sidebar/menu noise.\n\
-                          - scan_full_page: scroll the entire page before extracting. \
-                            Use ONLY for infinite-scroll pages or long lists where \
-                            content near the bottom is missing. Adds 10-20s.\n\
-                          - wait_for: wait for a CSS selector (css:.loaded) or JS \
-                            condition (js:() => document.querySelector('.data')) \
-                            before extracting. Use when content loads after an async \
-                            fetch or animation."
+                          later reference curation. Works well by default; use optional \
+                          parameters only when default extraction is insufficient."
                 .to_string(),
             input_schema: json!({
                 "type": "object",

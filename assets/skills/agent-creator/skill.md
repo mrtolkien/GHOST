@@ -164,11 +164,17 @@ Define agent-specific tools directly in `agent.lua`:
 
 ```lua
 custom_tools = {
-    {
-        name = "my_tool",
+    my_tool = {
         description = "What the tool does",
         parameters = {
-            { name = "input", type = "string", description = "The input", required = true },
+            type = "object",
+            properties = {
+                input = {
+                    type = "string",
+                    description = "The input",
+                },
+            },
+            required = { "input" },
         },
         terminal = false, -- if true, tool result ends the session
         handler = function(ctx, args)

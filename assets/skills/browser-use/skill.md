@@ -1,8 +1,9 @@
 ---
 name: browser-use
 description:
-  How to use the browser tool — multi-browser management, tab workflow, operator
-  handoff, element refs, and interaction patterns
+  Read before first use of the browser tool in a session. Covers multi-browser
+  management, tab workflow, element refs, operator handoff for auth, and web_fetch
+  session sharing.
 ---
 
 # Browser Use

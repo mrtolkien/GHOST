@@ -1,8 +1,9 @@
 ---
 name: note-writer
 description:
-  Comprehensive guide for creating structured knowledge notes. Covers discovery, note
-  format, titles, linking, trust scores, tags, and special note types.
+  Read before creating or updating knowledge notes with note_write. Covers mandatory
+  conventions — titles, typed linking, tags, trust scores, special note types. Skip for
+  diary entries and simple file writes.
 ---
 
 # Note Writer — Knowledge Note Guide

@@ -68,29 +68,12 @@ impl Tool for BrowserTool {
                             "browsers", "connect", "disconnect",
                             "discover"
                         ],
-                        "description": "navigate: open URL (replaces current page). \
-                            snapshot: get accessibility tree with ref IDs. \
-                            click: click element by ref. \
-                            type: enter text into element by ref. \
-                            scroll: scroll page or element. \
-                            screenshot: capture page as PNG image. \
-                            press: send a keyboard key (Enter, Escape, Tab, etc.). \
-                            hover: hover over element by ref. \
-                            select: select option in <select> dropdown by ref. \
-                            fill: fill multiple form fields at once. \
-                            wait: wait for a fixed duration (timeout param) or for a ref to be DOM-resolvable (ref must be from current snapshot). \
-                            evaluate: execute JavaScript expression. \
-                            drag: drag element to another element. \
-                            resize: resize the browser viewport. \
-                            upload: set file(s) on a <input type='file'> by ref. Requires 'path' parameter. \
-                            tabs: list open tabs in the active browser. \
-                            open: open a new tab, optionally navigating to 'url'. Returns snapshot. \
-                            focus: switch to tab by ID ('tab' param). Returns snapshot with fresh refs. \
-                            close: close tab by ID ('tab' param). \
-                            browsers: list all known browsers with connection status. \
-                            connect: connect to a browser by 'name' and 'cdp_url', set as active. \
-                            disconnect: disconnect from a browser by 'name'. \
-                            discover: scan localhost and Tailscale peers for CDP endpoints."
+                        "description": "Page: navigate, snapshot (accessibility tree with ref IDs), \
+                            click, type, scroll, screenshot, press (keyboard key), hover, select, \
+                            fill (multiple fields), wait, evaluate (JS), drag, resize, upload. \
+                            Tabs: tabs (list), open, focus, close. \
+                            Browsers: browsers (list), connect, disconnect, discover. \
+                            Read the browser-use skill for details."
                     },
                     "url": {
                         "type": "string",

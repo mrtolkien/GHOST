@@ -1,9 +1,9 @@
 ---
 name: knowledge-navigator
 description:
-  Knowledge system internals — graph traversal, orphan detection, topic browsing,
-  reference listing, and advanced query techniques. Not needed for basic searches or
-  note writing.
+  Read when you need to browse, traverse, or query the knowledge system beyond basic
+  knowledge_search — graph traversal, tag exploration, orphan detection, reference
+  browsing, topic listing, or direct SQL access.
 ---
 
 # Knowledge Navigator Skill

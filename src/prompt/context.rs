@@ -120,10 +120,6 @@ pub fn build_ghost_skills(workspace: &Path) -> String {
 
     format!(
         "## Available Skills\n\n\
-         Read the full skill file with `read_file` before starting any task \
-         that matches a skill's description. Skills contain critical workflow \
-         instructions that you MUST follow.\n\n\
-         Do not re-read a skills you already read recently.
          <available_skills>\n{}\n</available_skills>",
         entries.join("\n"),
     )
