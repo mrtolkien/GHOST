@@ -46,7 +46,8 @@ impl Tool for BrowserTool {
                             "type", "scroll", "screenshot",
                             "press", "hover", "select",
                             "fill", "wait", "evaluate",
-                            "drag", "resize", "upload"
+                            "drag", "resize", "upload",
+                            "tabs", "open", "focus", "close"
                         ],
                         "description": "navigate: open URL (replaces current page). \
                             snapshot: get accessibility tree with ref IDs. \
@@ -62,7 +63,11 @@ impl Tool for BrowserTool {
                             evaluate: execute JavaScript expression. \
                             drag: drag element to another element. \
                             resize: resize the browser viewport. \
-                            upload: set file(s) on a <input type='file'> by ref. Requires 'path' parameter."
+                            upload: set file(s) on a <input type='file'> by ref. Requires 'path' parameter. \
+                            tabs: list open tabs in the active browser. \
+                            open: open a new tab, optionally navigating to 'url'. Returns snapshot. \
+                            focus: switch to tab by ID ('tab' param). Returns snapshot with fresh refs. \
+                            close: close tab by ID ('tab' param)."
                     },
                     "url": {
                         "type": "string",
@@ -140,6 +145,10 @@ impl Tool for BrowserTool {
                         "type": "string",
                         "description": "Workspace-relative file path for 'upload' \
                             action (e.g. 'uploads/1710504000_data.csv')."
+                    },
+                    "tab": {
+                        "type": "integer",
+                        "description": "Tab ID for 'focus' and 'close' actions."
                     }
                 },
                 "required": ["action"]
@@ -172,6 +181,10 @@ impl Tool for BrowserTool {
             "drag" => execute_drag(&mut mgr, &params).await,
             "resize" => execute_resize(&mut mgr, &params).await,
             "upload" => execute_upload(&mut mgr, &params, ctx).await,
+            "tabs" => execute_tabs(&mut mgr).await,
+            "open" => execute_open(&mut mgr, &params).await,
+            "focus" => execute_focus(&mut mgr, &params).await,
+            "close" => execute_close(&mut mgr, &params).await,
             _ => Err(ToolError::InvalidParams(format!(
                 "unknown action: {action}"
             ))),
@@ -538,4 +551,78 @@ async fn execute_upload(
         "path": path,
     });
     Ok(ToolOutput::text(output.to_string()))
+}
+
+async fn execute_tabs(mgr: &mut BrowserManager) -> Result<ToolOutput, ToolError> {
+    let tabs = mgr
+        .list_tabs()
+        .await
+        .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
+    let active_id = mgr.active_tab_id();
+    let mut lines = vec!["Open tabs:".to_string()];
+    for tab in &tabs {
+        let marker = if Some(tab.id) == active_id {
+            " [active]"
+        } else {
+            ""
+        };
+        lines.push(format!(
+            "  Tab {}: {} — {}{}",
+            tab.id, tab.title, tab.url, marker
+        ));
+    }
+    Ok(ToolOutput::text(lines.join("\n")))
+}
+
+async fn execute_open(mgr: &mut BrowserManager, params: &Value) -> Result<ToolOutput, ToolError> {
+    let url = params.get("url").and_then(Value::as_str);
+    let xml = mgr
+        .open_tab(url)
+        .await
+        .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
+    let url_str = mgr.current_url().await.unwrap_or_default();
+    let wrapped = format!(
+        "<<<EXTERNAL_UNTRUSTED_CONTENT>>>\n\
+         Source: Browser ({url_str})\n\
+         ---\n\
+         {xml}\n\
+         <<<END_EXTERNAL_UNTRUSTED_CONTENT>>>"
+    );
+    Ok(ToolOutput::text(wrapped))
+}
+
+async fn execute_focus(mgr: &mut BrowserManager, params: &Value) -> Result<ToolOutput, ToolError> {
+    let tab_id = params
+        .get("tab")
+        .and_then(Value::as_u64)
+        .ok_or_else(|| ToolError::InvalidParams("'focus' requires 'tab' parameter".into()))?
+        as u32;
+    let xml = mgr
+        .focus_tab(tab_id)
+        .await
+        .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
+    let url = mgr.current_url().await.unwrap_or_default();
+    let wrapped = format!(
+        "<<<EXTERNAL_UNTRUSTED_CONTENT>>>\n\
+         Source: Browser ({url})\n\
+         ---\n\
+         {xml}\n\
+         <<<END_EXTERNAL_UNTRUSTED_CONTENT>>>"
+    );
+    Ok(ToolOutput::text(wrapped))
+}
+
+async fn execute_close(mgr: &mut BrowserManager, params: &Value) -> Result<ToolOutput, ToolError> {
+    let tab_id = params
+        .get("tab")
+        .and_then(Value::as_u64)
+        .ok_or_else(|| ToolError::InvalidParams("'close' requires 'tab' parameter".into()))?
+        as u32;
+    let msg = mgr
+        .close_tab(tab_id)
+        .await
+        .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
+    Ok(ToolOutput::text(
+        json!({"ok": true, "description": msg}).to_string(),
+    ))
 }

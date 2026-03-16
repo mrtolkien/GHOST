@@ -7,7 +7,7 @@ use super::accessibility::{parse_ax_tree, render_xml};
 use super::cdp::{self, ScrollDirection};
 use super::connection::ManagedBrowser;
 use super::error::BrowserError;
-use super::tab::TabState;
+use super::tab::{TabInfo, TabState};
 use super::url_check;
 use super::{MAX_SNAPSHOT_DEPTH, MAX_SNAPSHOT_NODES};
 use crate::config::BrowserConfig;
@@ -372,6 +372,95 @@ impl BrowserManager {
             .and_then(|name| self.browsers.get(name))
             .map(|b| (b.viewport_width, b.viewport_height))
             .unwrap_or((cdp::VIEWPORT_WIDTH, cdp::VIEWPORT_HEIGHT))
+    }
+
+    /// ID of the active tab in the active browser, if any.
+    pub fn active_tab_id(&self) -> Option<u32> {
+        self.active_browser
+            .as_ref()
+            .and_then(|name| self.browsers.get(name))
+            .and_then(|b| b.active_tab_id)
+    }
+
+    /// List tabs in the active browser, sorted by tab ID.
+    pub async fn list_tabs(&self) -> Result<Vec<TabInfo>, BrowserError> {
+        let browser_name = self
+            .active_browser
+            .as_ref()
+            .ok_or(BrowserError::NoBrowserActive)?;
+        let browser = self
+            .browsers
+            .get(browser_name)
+            .ok_or(BrowserError::NoBrowserActive)?;
+        let mut tabs = Vec::new();
+        for tab in browser.tabs.values() {
+            tabs.push(tab.info().await);
+        }
+        tabs.sort_by_key(|t| t.id);
+        Ok(tabs)
+    }
+
+    /// Open a new tab in the active browser, optionally navigating to a URL.
+    ///
+    /// Auto-activates the first browser if none is active. Returns a
+    /// snapshot of the new tab.
+    pub async fn open_tab(&mut self, url: Option<&str>) -> Result<String, BrowserError> {
+        self.auto_activate_browser()?;
+        let browser_name = self
+            .active_browser
+            .clone()
+            .ok_or(BrowserError::NoBrowserActive)?;
+        let browser = self
+            .browsers
+            .get_mut(&browser_name)
+            .ok_or(BrowserError::NoBrowserActive)?;
+        browser.ensure_connected().await?;
+        let tab_id = self.next_tab_id();
+        let browser = self
+            .browsers
+            .get_mut(&browser_name)
+            .ok_or(BrowserError::NoBrowserActive)?;
+        browser.open_tab(url, tab_id).await?;
+        self.snapshot(0).await
+    }
+
+    /// Switch the active tab to `tab_id` and return a snapshot.
+    ///
+    /// Resets refs on the newly focused tab so stale ref IDs from
+    /// the previous tab are not accidentally reused.
+    pub async fn focus_tab(&mut self, tab_id: u32) -> Result<String, BrowserError> {
+        let browser_name = self
+            .active_browser
+            .as_ref()
+            .ok_or(BrowserError::NoBrowserActive)?
+            .clone();
+        let browser = self
+            .browsers
+            .get_mut(&browser_name)
+            .ok_or(BrowserError::NoBrowserActive)?;
+        if !browser.tabs.contains_key(&tab_id) {
+            return Err(BrowserError::TabNotFound { id: tab_id });
+        }
+        browser.active_tab_id = Some(tab_id);
+        if let Some(tab) = browser.active_tab_mut() {
+            tab.refs.reset();
+        }
+        self.snapshot(0).await
+    }
+
+    /// Close a tab by ID. Returns a confirmation message.
+    pub async fn close_tab(&mut self, tab_id: u32) -> Result<String, BrowserError> {
+        let browser_name = self
+            .active_browser
+            .as_ref()
+            .ok_or(BrowserError::NoBrowserActive)?
+            .clone();
+        let browser = self
+            .browsers
+            .get_mut(&browser_name)
+            .ok_or(BrowserError::NoBrowserActive)?;
+        browser.close_tab(tab_id)?;
+        Ok(format!("Closed tab {tab_id}"))
     }
 
     /// Get the current page URL on the active tab.
