@@ -48,14 +48,10 @@ pub enum BrowserError {
     #[error("tab limit reached ({limit} tabs) — close a tab first")]
     TabLimitReached { limit: usize },
 
-    #[error(
-        "browser '{name}' connection lost: {reason}. reconnect in progress"
-    )]
+    #[error("browser '{name}' connection lost: {reason}. reconnect in progress")]
     ConnectionLost { name: String, reason: String },
 
-    #[error(
-        "browser '{name}' reconnect exhausted after {attempts} attempts: {reason}"
-    )]
+    #[error("browser '{name}' reconnect exhausted after {attempts} attempts: {reason}")]
     ReconnectExhausted {
         name: String,
         attempts: usize,

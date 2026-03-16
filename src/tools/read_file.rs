@@ -129,7 +129,9 @@ mod tests {
             event_tx: None,
             channel_id: None,
             confirmation_tx: None,
-            browser_session: std::sync::Arc::new(tokio::sync::Mutex::new(None)),
+            browser_manager: std::sync::Arc::new(tokio::sync::Mutex::new(
+                crate::web::browser::BrowserManager::new(vec![]),
+            )),
         }
     }
 

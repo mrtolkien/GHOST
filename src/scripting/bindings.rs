@@ -266,7 +266,9 @@ impl LuaUserData for AgentContext {
                     event_tx: None,
                     channel_id: None,
                     confirmation_tx: None,
-                    browser_session: std::sync::Arc::new(tokio::sync::Mutex::new(None)),
+                    browser_manager: std::sync::Arc::new(tokio::sync::Mutex::new(
+                        crate::web::browser::BrowserManager::new(vec![]),
+                    )),
                 };
 
                 let output = tool_manager
@@ -313,7 +315,9 @@ impl LuaUserData for AgentContext {
                 event_tx: None,
                 channel_id: None,
                 confirmation_tx: None,
-                browser_session: std::sync::Arc::new(tokio::sync::Mutex::new(None)),
+                browser_manager: std::sync::Arc::new(tokio::sync::Mutex::new(
+                    crate::web::browser::BrowserManager::new(vec![]),
+                )),
             };
 
             // Build tool_calls_json upfront (just metadata, no execution)

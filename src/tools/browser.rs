@@ -4,6 +4,7 @@ use async_trait::async_trait;
 use serde_json::{Value, json};
 
 use crate::providers::ToolDefinition;
+use crate::web::browser::BrowserManager;
 use crate::web::browser::cdp::ScrollDirection;
 
 use super::context::ToolContext;
@@ -153,43 +154,24 @@ impl Tool for BrowserTool {
             .and_then(Value::as_str)
             .ok_or_else(|| ToolError::InvalidParams("missing required parameter: action".into()))?;
 
-        // Lazy-init: lock the Arc<Mutex<Option<BrowserSession>>>, create
-        // if None
-        let mut guard = ctx.browser_session.lock().await;
-        if guard.is_none() {
-            // TODO(multi-browser): use BrowserManager.active_cdp_url()
-            let cdp_url = ctx
-                .config
-                .web
-                .browsers
-                .first()
-                .map(|b| b.cdp_url.as_str())
-                .ok_or_else(|| ToolError::ExecutionFailed("no browser configured".into()))?;
-            let session = crate::web::browser::BrowserSession::connect(cdp_url)
-                .await
-                .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
-            *guard = Some(session);
-        }
-        let session = guard
-            .as_mut()
-            .ok_or_else(|| ToolError::ExecutionFailed("browser session unavailable".into()))?;
+        let mut mgr = ctx.browser_manager.lock().await;
 
         match action {
-            "navigate" => execute_navigate(session, &params).await,
-            "snapshot" => execute_snapshot(session, &params).await,
-            "click" => execute_click(session, &params).await,
-            "type" => execute_type(session, &params).await,
-            "scroll" => execute_scroll(session, &params).await,
-            "screenshot" => execute_screenshot(session, &params, ctx).await,
-            "press" => execute_press(session, &params).await,
-            "hover" => execute_hover(session, &params).await,
-            "select" => execute_select(session, &params).await,
-            "fill" => execute_fill(session, &params).await,
-            "wait" => execute_wait(session, &params).await,
-            "evaluate" => execute_evaluate(session, &params).await,
-            "drag" => execute_drag(session, &params).await,
-            "resize" => execute_resize(session, &params).await,
-            "upload" => execute_upload(session, &params, ctx).await,
+            "navigate" => execute_navigate(&mut mgr, &params).await,
+            "snapshot" => execute_snapshot(&mut mgr, &params).await,
+            "click" => execute_click(&mut mgr, &params).await,
+            "type" => execute_type(&mut mgr, &params).await,
+            "scroll" => execute_scroll(&mut mgr, &params).await,
+            "screenshot" => execute_screenshot(&mut mgr, &params, ctx).await,
+            "press" => execute_press(&mut mgr, &params).await,
+            "hover" => execute_hover(&mut mgr, &params).await,
+            "select" => execute_select(&mut mgr, &params).await,
+            "fill" => execute_fill(&mut mgr, &params).await,
+            "wait" => execute_wait(&mut mgr, &params).await,
+            "evaluate" => execute_evaluate(&mut mgr, &params).await,
+            "drag" => execute_drag(&mut mgr, &params).await,
+            "resize" => execute_resize(&mut mgr, &params).await,
+            "upload" => execute_upload(&mut mgr, &params, ctx).await,
             _ => Err(ToolError::InvalidParams(format!(
                 "unknown action: {action}"
             ))),
@@ -198,14 +180,14 @@ impl Tool for BrowserTool {
 }
 
 async fn execute_navigate(
-    session: &mut crate::web::browser::BrowserSession,
+    mgr: &mut BrowserManager,
     params: &Value,
 ) -> Result<ToolOutput, ToolError> {
     let url = params
         .get("url")
         .and_then(Value::as_str)
         .ok_or_else(|| ToolError::InvalidParams("'navigate' requires 'url' parameter".into()))?;
-    let (final_url, title) = session
+    let (final_url, title) = mgr
         .navigate(url)
         .await
         .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
@@ -214,15 +196,15 @@ async fn execute_navigate(
 }
 
 async fn execute_snapshot(
-    session: &mut crate::web::browser::BrowserSession,
+    mgr: &mut BrowserManager,
     params: &Value,
 ) -> Result<ToolOutput, ToolError> {
     let offset = params.get("offset").and_then(Value::as_u64).unwrap_or(0) as usize;
-    let xml = session
+    let xml = mgr
         .snapshot(offset)
         .await
         .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
-    let url = session.current_url().await.unwrap_or_default();
+    let url = mgr.current_url().await.unwrap_or_default();
     let wrapped = format!(
         "<<<EXTERNAL_UNTRUSTED_CONTENT>>>\n\
          Source: Browser ({url})\n\
@@ -233,27 +215,21 @@ async fn execute_snapshot(
     Ok(ToolOutput::text(wrapped))
 }
 
-async fn execute_click(
-    session: &crate::web::browser::BrowserSession,
-    params: &Value,
-) -> Result<ToolOutput, ToolError> {
+async fn execute_click(mgr: &mut BrowserManager, params: &Value) -> Result<ToolOutput, ToolError> {
     let ref_id = params
         .get("ref")
         .and_then(Value::as_str)
         .ok_or_else(|| ToolError::InvalidParams("'click' requires 'ref' parameter".into()))?;
-    let desc = session
+    let desc = mgr
         .click(ref_id)
         .await
         .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
-    let url = session.current_url().await.unwrap_or_default();
+    let url = mgr.current_url().await.unwrap_or_default();
     let result = json!({"ok": true, "url": url, "description": desc});
     Ok(ToolOutput::text(result.to_string()))
 }
 
-async fn execute_type(
-    session: &crate::web::browser::BrowserSession,
-    params: &Value,
-) -> Result<ToolOutput, ToolError> {
+async fn execute_type(mgr: &mut BrowserManager, params: &Value) -> Result<ToolOutput, ToolError> {
     let ref_id = params
         .get("ref")
         .and_then(Value::as_str)
@@ -262,92 +238,81 @@ async fn execute_type(
         .get("text")
         .and_then(Value::as_str)
         .ok_or_else(|| ToolError::InvalidParams("'type' requires 'text' parameter".into()))?;
-    let desc = session
+    let desc = mgr
         .type_text(ref_id, text)
         .await
         .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
-    let url = session.current_url().await.unwrap_or_default();
+    let url = mgr.current_url().await.unwrap_or_default();
     let result = json!({"ok": true, "url": url, "description": desc});
     Ok(ToolOutput::text(result.to_string()))
 }
 
-async fn execute_scroll(
-    session: &crate::web::browser::BrowserSession,
-    params: &Value,
-) -> Result<ToolOutput, ToolError> {
+async fn execute_scroll(mgr: &mut BrowserManager, params: &Value) -> Result<ToolOutput, ToolError> {
     let direction = match params.get("direction").and_then(Value::as_str) {
         Some("up") => ScrollDirection::Up,
         _ => ScrollDirection::Down,
     };
     let ref_id = params.get("ref").and_then(Value::as_str);
-    let desc = session
+    let desc = mgr
         .scroll(direction, ref_id)
         .await
         .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
-    let url = session.current_url().await.unwrap_or_default();
+    let url = mgr.current_url().await.unwrap_or_default();
     let result = json!({"ok": true, "url": url, "description": desc});
     Ok(ToolOutput::text(result.to_string()))
 }
 
 async fn execute_screenshot(
-    session: &crate::web::browser::BrowserSession,
+    mgr: &mut BrowserManager,
     params: &Value,
     ctx: &ToolContext,
 ) -> Result<ToolOutput, ToolError> {
-    let _ = params; // unused but kept for signature consistency
-    let path = session
+    let _ = params;
+    let path = mgr
         .screenshot(&ctx.workspace)
         .await
         .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
     let rel = path.strip_prefix(&ctx.workspace).unwrap_or(&path);
-    let url = session.current_url().await.unwrap_or_default();
+    let url = mgr.current_url().await.unwrap_or_default();
+    let (vw, vh) = mgr.viewport_size();
     let result = json!({
         "ok": true,
         "url": url,
         "path": rel.display().to_string(),
-        "description": format!("Screenshot captured ({}x{})", session.viewport_size().0, session.viewport_size().1)
+        "description": format!("Screenshot captured ({vw}x{vh})")
     });
     Ok(ToolOutput::text(result.to_string()))
 }
 
-async fn execute_press(
-    session: &crate::web::browser::BrowserSession,
-    params: &Value,
-) -> Result<ToolOutput, ToolError> {
+async fn execute_press(mgr: &mut BrowserManager, params: &Value) -> Result<ToolOutput, ToolError> {
     let key = params
         .get("key")
         .and_then(Value::as_str)
         .ok_or_else(|| ToolError::InvalidParams("'press' requires 'key' parameter".into()))?;
-    let desc = session
+    let desc = mgr
         .press(key)
         .await
         .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
-    let url = session.current_url().await.unwrap_or_default();
+    let url = mgr.current_url().await.unwrap_or_default();
     let result = json!({"ok": true, "url": url, "description": desc});
     Ok(ToolOutput::text(result.to_string()))
 }
 
-async fn execute_hover(
-    session: &crate::web::browser::BrowserSession,
-    params: &Value,
-) -> Result<ToolOutput, ToolError> {
+async fn execute_hover(mgr: &mut BrowserManager, params: &Value) -> Result<ToolOutput, ToolError> {
     let ref_id = params
         .get("ref")
         .and_then(Value::as_str)
         .ok_or_else(|| ToolError::InvalidParams("'hover' requires 'ref' parameter".into()))?;
-    let desc = session
+    let desc = mgr
         .hover(ref_id)
         .await
         .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
-    let url = session.current_url().await.unwrap_or_default();
+    let url = mgr.current_url().await.unwrap_or_default();
     let result = json!({"ok": true, "url": url, "description": desc});
     Ok(ToolOutput::text(result.to_string()))
 }
 
-async fn execute_select(
-    session: &crate::web::browser::BrowserSession,
-    params: &Value,
-) -> Result<ToolOutput, ToolError> {
+async fn execute_select(mgr: &mut BrowserManager, params: &Value) -> Result<ToolOutput, ToolError> {
     let ref_id = params
         .get("ref")
         .and_then(Value::as_str)
@@ -356,19 +321,16 @@ async fn execute_select(
         .get("value")
         .and_then(Value::as_str)
         .ok_or_else(|| ToolError::InvalidParams("'select' requires 'value' parameter".into()))?;
-    let desc = session
+    let desc = mgr
         .select(ref_id, value)
         .await
         .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
-    let url = session.current_url().await.unwrap_or_default();
+    let url = mgr.current_url().await.unwrap_or_default();
     let result = json!({"ok": true, "url": url, "description": desc});
     Ok(ToolOutput::text(result.to_string()))
 }
 
-async fn execute_fill(
-    session: &crate::web::browser::BrowserSession,
-    params: &Value,
-) -> Result<ToolOutput, ToolError> {
+async fn execute_fill(mgr: &mut BrowserManager, params: &Value) -> Result<ToolOutput, ToolError> {
     let fields_val = params
         .get("fields")
         .and_then(Value::as_array)
@@ -389,35 +351,32 @@ async fn execute_fill(
         fields.push((ref_id, value));
     }
 
-    let desc = session
+    let desc = mgr
         .fill(&fields)
         .await
         .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
-    let url = session.current_url().await.unwrap_or_default();
+    let url = mgr.current_url().await.unwrap_or_default();
     let result = json!({"ok": true, "url": url, "description": desc});
     Ok(ToolOutput::text(result.to_string()))
 }
 
-async fn execute_wait(
-    session: &crate::web::browser::BrowserSession,
-    params: &Value,
-) -> Result<ToolOutput, ToolError> {
+async fn execute_wait(mgr: &mut BrowserManager, params: &Value) -> Result<ToolOutput, ToolError> {
     let ref_id = params.get("ref").and_then(Value::as_str);
     let timeout_ms = params
         .get("timeout")
         .and_then(Value::as_u64)
         .unwrap_or(1000);
-    let desc = session
+    let desc = mgr
         .wait(ref_id, timeout_ms)
         .await
         .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
-    let url = session.current_url().await.unwrap_or_default();
+    let url = mgr.current_url().await.unwrap_or_default();
     let result = json!({"ok": true, "url": url, "description": desc});
     Ok(ToolOutput::text(result.to_string()))
 }
 
 async fn execute_evaluate(
-    session: &crate::web::browser::BrowserSession,
+    mgr: &mut BrowserManager,
     params: &Value,
 ) -> Result<ToolOutput, ToolError> {
     let expression = params
@@ -426,11 +385,11 @@ async fn execute_evaluate(
         .ok_or_else(|| {
             ToolError::InvalidParams("'evaluate' requires 'expression' parameter".into())
         })?;
-    let result_str = session
+    let result_str = mgr
         .evaluate(expression)
         .await
         .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
-    let url = session.current_url().await.unwrap_or_default();
+    let url = mgr.current_url().await.unwrap_or_default();
     let wrapped = format!(
         "<<<EXTERNAL_UNTRUSTED_CONTENT>>>\n\
          Source: Browser JS ({url})\n\
@@ -442,10 +401,7 @@ async fn execute_evaluate(
     Ok(ToolOutput::text(result.to_string()))
 }
 
-async fn execute_drag(
-    session: &crate::web::browser::BrowserSession,
-    params: &Value,
-) -> Result<ToolOutput, ToolError> {
+async fn execute_drag(mgr: &mut BrowserManager, params: &Value) -> Result<ToolOutput, ToolError> {
     let ref_id = params
         .get("ref")
         .and_then(Value::as_str)
@@ -454,19 +410,16 @@ async fn execute_drag(
         .get("target_ref")
         .and_then(Value::as_str)
         .ok_or_else(|| ToolError::InvalidParams("'drag' requires 'target_ref' parameter".into()))?;
-    let desc = session
+    let desc = mgr
         .drag(ref_id, target_ref)
         .await
         .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
-    let url = session.current_url().await.unwrap_or_default();
+    let url = mgr.current_url().await.unwrap_or_default();
     let result = json!({"ok": true, "url": url, "description": desc});
     Ok(ToolOutput::text(result.to_string()))
 }
 
-async fn execute_resize(
-    session: &mut crate::web::browser::BrowserSession,
-    params: &Value,
-) -> Result<ToolOutput, ToolError> {
+async fn execute_resize(mgr: &mut BrowserManager, params: &Value) -> Result<ToolOutput, ToolError> {
     let width = params
         .get("width")
         .and_then(Value::as_u64)
@@ -477,11 +430,11 @@ async fn execute_resize(
         .and_then(Value::as_u64)
         .ok_or_else(|| ToolError::InvalidParams("'resize' requires 'height' parameter".into()))?
         as u32;
-    let desc = session
+    let desc = mgr
         .resize(width, height)
         .await
         .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
-    let url = session.current_url().await.unwrap_or_default();
+    let url = mgr.current_url().await.unwrap_or_default();
     let result = json!({"ok": true, "url": url, "description": desc});
     Ok(ToolOutput::text(result.to_string()))
 }
@@ -551,7 +504,7 @@ async fn stage_for_chrome(
 }
 
 async fn execute_upload(
-    session: &crate::web::browser::BrowserSession,
+    mgr: &mut BrowserManager,
     params: &Value,
     ctx: &ToolContext,
 ) -> Result<ToolOutput, ToolError> {
@@ -566,7 +519,7 @@ async fn execute_upload(
 
     let (chrome_path, staging) = stage_for_chrome(&ctx.workspace, path).await?;
 
-    let result = session
+    let result = mgr
         .upload(ref_id, &[chrome_path])
         .await
         .map_err(|e| ToolError::ExecutionFailed(e.to_string()));
@@ -577,7 +530,12 @@ async fn execute_upload(
     }
 
     let desc = result?;
-    let url = session.current_url().await.unwrap_or_default();
-    let output = json!({"ok": true, "url": url, "description": desc, "path": path});
+    let url = mgr.current_url().await.unwrap_or_default();
+    let output = json!({
+        "ok": true,
+        "url": url,
+        "description": desc,
+        "path": path,
+    });
     Ok(ToolOutput::text(output.to_string()))
 }

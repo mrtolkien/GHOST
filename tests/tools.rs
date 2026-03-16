@@ -19,7 +19,9 @@ fn tool_ctx(
         event_tx: None,
         channel_id: None,
         confirmation_tx: None,
-        browser_session: std::sync::Arc::new(tokio::sync::Mutex::new(None)),
+        browser_manager: std::sync::Arc::new(tokio::sync::Mutex::new(
+            ghost::web::browser::BrowserManager::new(vec![]),
+        )),
     }
 }
 
@@ -298,7 +300,9 @@ async fn unknown_tool_returns_not_found() {
         event_tx: None,
         channel_id: None,
         confirmation_tx: None,
-        browser_session: std::sync::Arc::new(tokio::sync::Mutex::new(None)),
+        browser_manager: std::sync::Arc::new(tokio::sync::Mutex::new(
+            ghost::web::browser::BrowserManager::new(vec![]),
+        )),
     };
 
     let result = manager.execute("nonexistent_tool", json!({}), &ctx).await;

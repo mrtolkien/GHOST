@@ -7,7 +7,7 @@ use crate::agents::AgentRunner;
 use crate::config::Config;
 use crate::db::GhostDb;
 use crate::events::SessionEventSender;
-use crate::web::browser::BrowserSession;
+use crate::web::browser::BrowserManager;
 
 use super::ToolError;
 use super::confirmation::ConfirmationSender;
@@ -23,7 +23,7 @@ pub struct ToolContext {
     pub event_tx: Option<SessionEventSender>,
     pub channel_id: Option<String>,
     pub confirmation_tx: Option<ConfirmationSender>,
-    pub browser_session: Arc<TokioMutex<Option<BrowserSession>>>,
+    pub browser_manager: Arc<TokioMutex<BrowserManager>>,
 }
 
 impl std::fmt::Debug for ToolContext {
@@ -31,7 +31,7 @@ impl std::fmt::Debug for ToolContext {
         f.debug_struct("ToolContext")
             .field("workspace", &self.workspace)
             .field("session_id", &self.session_id)
-            .field("browser_session", &"<browser>")
+            .field("browser_manager", &"<browser>")
             .finish_non_exhaustive()
     }
 }

@@ -15,16 +15,19 @@ use tokio::sync::Mutex;
 use ghost::tools::browser::BrowserTool;
 use ghost::tools::context::ToolContext;
 use ghost::tools::manager::Tool;
-use ghost::web::browser::BrowserSession;
+use ghost::web::browser::BrowserManager;
 
 #[tokio::test]
 async fn browser_navigate_and_snapshot() {
-    let mut session = BrowserSession::connect("ws://localhost:9222")
-        .await
-        .expect("Chrome should be running at ws://localhost:9222");
+    let configs = vec![ghost::config::BrowserConfig {
+        name: "headless".to_string(),
+        cdp_url: "ws://localhost:9222".to_string(),
+        discovered: false,
+    }];
+    let mut mgr = BrowserManager::new(configs);
 
     // Navigate to a simple page
-    let (url, _title) = session
+    let (url, _title) = mgr
         .navigate("https://example.com")
         .await
         .expect("navigate should succeed");
@@ -34,7 +37,7 @@ async fn browser_navigate_and_snapshot() {
     );
 
     // Get accessibility snapshot
-    let xml = session.snapshot(0).await.expect("snapshot should succeed");
+    let xml = mgr.snapshot(0).await.expect("snapshot should succeed");
     assert!(
         xml.contains("<heading"),
         "snapshot should contain a heading element"
@@ -47,7 +50,7 @@ async fn browser_navigate_and_snapshot() {
 
     // Screenshot
     let dir = tempfile::tempdir().unwrap();
-    let path = session
+    let path = mgr
         .screenshot(dir.path())
         .await
         .expect("screenshot should succeed");
@@ -62,11 +65,14 @@ async fn browser_navigate_and_snapshot() {
 
 #[tokio::test]
 async fn browser_ssrf_blocks_private_ips() {
-    let mut session = BrowserSession::connect("ws://localhost:9222")
-        .await
-        .expect("Chrome should be running");
+    let configs = vec![ghost::config::BrowserConfig {
+        name: "headless".to_string(),
+        cdp_url: "ws://localhost:9222".to_string(),
+        discovered: false,
+    }];
+    let mut mgr = BrowserManager::new(configs);
 
-    let result = session.navigate("http://127.0.0.1:9222").await;
+    let result = mgr.navigate("http://127.0.0.1:9222").await;
     assert!(result.is_err(), "navigating to localhost should be blocked");
     let err = result.unwrap_err().to_string();
     assert!(
@@ -88,13 +94,13 @@ fn browser_tool_ctx() -> (ToolContext, tempfile::TempDir) {
         workspace: workspace.path().to_path_buf(),
         cwd: workspace.path().to_path_buf(),
         db: sqlx::SqlitePool::connect_lazy("sqlite::memory:").unwrap(),
-        config,
+        config: config.clone(),
         session_id: "browser-test".to_string(),
         agent_runner: None,
         event_tx: None,
         channel_id: None,
         confirmation_tx: None,
-        browser_session: Arc::new(Mutex::new(None)),
+        browser_manager: Arc::new(Mutex::new(BrowserManager::new(config.web.browsers.clone()))),
     };
     (ctx, workspace)
 }
@@ -172,7 +178,7 @@ fn extract_snapshot_xml(result: &str) -> &str {
 async fn browser_tool_full_interaction() {
     let (ctx, ws) = browser_tool_ctx();
 
-    // ── 1. navigate ─────────────────────────────────────────────────
+    // -- 1. navigate
     let result = browser_action(
         &ctx,
         json!({"action": "navigate", "url": "https://blog.tolki.dev/"}),
@@ -187,7 +193,7 @@ async fn browser_tool_full_interaction() {
     );
     eprintln!("  navigate ok");
 
-    // ── 2. snapshot ─────────────────────────────────────────────────
+    // -- 2. snapshot
     let result = browser_action(&ctx, json!({"action": "snapshot"})).await;
     assert!(result.contains("<<<EXTERNAL_UNTRUSTED_CONTENT>>>"));
     let xml = extract_snapshot_xml(&result);
@@ -198,14 +204,14 @@ async fn browser_tool_full_interaction() {
         xml.matches("ref=").count()
     );
 
-    // ── 3. scroll ───────────────────────────────────────────────────
+    // -- 3. scroll
     let result = browser_action(&ctx, json!({"action": "scroll", "direction": "down"})).await;
     assert!(serde_json::from_str::<serde_json::Value>(&result).unwrap()["ok"] == true);
     let result = browser_action(&ctx, json!({"action": "scroll", "direction": "up"})).await;
     assert!(serde_json::from_str::<serde_json::Value>(&result).unwrap()["ok"] == true);
     eprintln!("  scroll ok");
 
-    // ── 4. screenshot ───────────────────────────────────────────────
+    // -- 4. screenshot
     let result = browser_action(&ctx, json!({"action": "screenshot"})).await;
     let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
     assert_eq!(parsed["ok"], true);
@@ -213,7 +219,7 @@ async fn browser_tool_full_interaction() {
     assert!(full_path.exists());
     eprintln!("  screenshot ok");
 
-    // ── 5. hover — hover over the first article link ────────────────
+    // -- 5. hover — hover over the first article link
     let result = browser_action(&ctx, json!({"action": "snapshot"})).await;
     let xml = extract_snapshot_xml(&result);
     let article_ref = find_ref_containing(xml, "Exorcising");
@@ -222,7 +228,7 @@ async fn browser_tool_full_interaction() {
     assert_eq!(parsed["ok"], true);
     eprintln!("  hover ok (ref={article_ref})");
 
-    // ── 6. evaluate — run JS to get the page title ──────────────────
+    // -- 6. evaluate — run JS to get the page title
     let result = browser_action(
         &ctx,
         json!({"action": "evaluate", "expression": "document.title"}),
@@ -237,7 +243,7 @@ async fn browser_tool_full_interaction() {
     );
     eprintln!("  evaluate ok");
 
-    // ── 7. resize — change viewport to mobile size ──────────────────
+    // -- 7. resize — change viewport to mobile size
     let result = browser_action(
         &ctx,
         json!({"action": "resize", "width": 375, "height": 812}),
@@ -254,14 +260,14 @@ async fn browser_tool_full_interaction() {
     .await;
     eprintln!("  resize ok");
 
-    // ── 8. wait — simple timeout wait ───────────────────────────────
+    // -- 8. wait — simple timeout wait
     let result = browser_action(&ctx, json!({"action": "wait", "timeout": 100})).await;
     let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
     assert_eq!(parsed["ok"], true);
     assert!(parsed["description"].as_str().unwrap().contains("100ms"));
     eprintln!("  wait ok");
 
-    // ── 9. click — open the Search dialog ───────────────────────────
+    // -- 9. click — open the Search dialog
     let result = browser_action(&ctx, json!({"action": "snapshot"})).await;
     let xml = extract_snapshot_xml(&result);
     let search_ref = find_ref_containing(xml, "Search");
@@ -270,7 +276,7 @@ async fn browser_tool_full_interaction() {
     tokio::time::sleep(std::time::Duration::from_millis(500)).await;
     eprintln!("  click (Search) ok");
 
-    // ── 10. type — enter a search query ─────────────────────────────
+    // -- 10. type — enter a search query
     let result = browser_action(&ctx, json!({"action": "snapshot"})).await;
     let xml = extract_snapshot_xml(&result);
     let input_ref = find_ref_by_tag(xml, &["searchbox", "textbox", "combobox"]);
@@ -282,21 +288,21 @@ async fn browser_tool_full_interaction() {
     assert!(serde_json::from_str::<serde_json::Value>(&result).unwrap()["ok"] == true);
     eprintln!("  type ok (ref={input_ref})");
 
-    // ── 11. press — press Enter to submit search ────────────────────
+    // -- 11. press — press Enter to submit search
     let result = browser_action(&ctx, json!({"action": "press", "key": "Enter"})).await;
     let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
     assert_eq!(parsed["ok"], true);
     assert!(parsed["description"].as_str().unwrap().contains("Enter"));
     eprintln!("  press (Enter) ok");
 
-    // ── 12. press — press Escape to close search ────────────────────
+    // -- 12. press — press Escape to close search
     tokio::time::sleep(std::time::Duration::from_millis(300)).await;
     let result = browser_action(&ctx, json!({"action": "press", "key": "Escape"})).await;
     let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
     assert_eq!(parsed["ok"], true);
     eprintln!("  press (Escape) ok");
 
-    // ── 13. stale ref → error ───────────────────────────────────────
+    // -- 13. stale ref -> error
     let result = BrowserTool
         .execute(json!({"action": "click", "ref": "e999"}), &ctx)
         .await;

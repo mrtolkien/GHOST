@@ -38,7 +38,7 @@ pub struct SessionChat {
     cwd_override: Option<std::path::PathBuf>,
     active_sessions: super::interrupt::ActiveSessions,
     confirmation_tx: Option<crate::tools::confirmation::ConfirmationSender>,
-    browser_session: Arc<tokio::sync::Mutex<Option<crate::web::browser::BrowserSession>>>,
+    browser_manager: Arc<tokio::sync::Mutex<crate::web::browser::BrowserManager>>,
 }
 
 impl std::fmt::Debug for SessionChat {
@@ -55,7 +55,7 @@ impl SessionChat {
     pub fn from_config(db: GhostDb, config: Config) -> Result<Self, ChatError> {
         let provider = provider_for_alias(&config, None)?;
         let mut tool_manager = ToolManager::for_chat();
-        tool_manager.with_browser_if_configured(&config);
+        tool_manager.with_browser();
 
         Ok(Self::new(db, provider, tool_manager, config))
     }
@@ -68,6 +68,9 @@ impl SessionChat {
         config: Config,
     ) -> Self {
         let prompt_renderer = PromptRenderer::new(config.clone());
+        let browser_manager = Arc::new(tokio::sync::Mutex::new(
+            crate::web::browser::BrowserManager::new(config.web.browsers.clone()),
+        ));
         Self {
             db,
             provider,
@@ -81,7 +84,7 @@ impl SessionChat {
             cwd_override: None,
             active_sessions: std::sync::Arc::new(dashmap::DashMap::new()),
             confirmation_tx: None,
-            browser_session: Arc::new(tokio::sync::Mutex::new(None)),
+            browser_manager,
         }
     }
 
@@ -520,7 +523,7 @@ impl SessionChat {
             event_tx: self.event_tx.clone(),
             channel_id: channel_id.map(String::from),
             confirmation_tx: self.confirmation_tx.clone(),
-            browser_session: self.browser_session.clone(),
+            browser_manager: self.browser_manager.clone(),
         };
 
         match self.tool_manager.execute(name, input, &tool_ctx).await {

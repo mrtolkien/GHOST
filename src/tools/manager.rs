@@ -4,7 +4,6 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use serde_json::Value;
 
-use crate::config::Config;
 use crate::providers::ToolDefinition;
 
 use super::context::ToolContext;
@@ -79,12 +78,9 @@ impl ToolManager {
         manager
     }
 
-    /// Conditionally register the browser tool if a browser is configured.
-    // TODO(multi-browser): always register browser tool
-    pub fn with_browser_if_configured(&mut self, config: &Config) {
-        if !config.web.browsers.is_empty() {
-            self.register(Arc::new(super::browser::BrowserTool));
-        }
+    /// Register the browser tool.
+    pub fn with_browser(&mut self) {
+        self.register(Arc::new(super::browser::BrowserTool));
     }
 
     /// Build a registry containing every tool the system knows about.
