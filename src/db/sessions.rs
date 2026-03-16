@@ -270,6 +270,36 @@ pub async fn create_message_with_metadata(
     raw_output: Option<Vec<serde_json::Value>>,
     images: Option<Vec<serde_json::Value>>,
 ) -> Result<String, DatabaseError> {
+    create_message_with_timestamp(
+        db,
+        session_id,
+        role,
+        content,
+        tool_calls,
+        tool_results,
+        raw_output,
+        images,
+        &now(),
+    )
+    .await
+}
+
+/// Like `create_message_with_metadata` but with an explicit timestamp.
+/// Used by orphan repair to place messages at the correct chronological
+/// position rather than at the end of the history.
+#[allow(clippy::too_many_arguments)]
+#[tracing::instrument(skip_all, level = "debug", fields(session_id = %session_id, role = %role))]
+pub async fn create_message_with_timestamp(
+    db: &SqlitePool,
+    session_id: &str,
+    role: &str,
+    content: &str,
+    tool_calls: Option<Vec<serde_json::Value>>,
+    tool_results: Option<Vec<serde_json::Value>>,
+    raw_output: Option<Vec<serde_json::Value>>,
+    images: Option<Vec<serde_json::Value>>,
+    created_at: &str,
+) -> Result<String, DatabaseError> {
     let id = new_id();
 
     sqlx::query(
@@ -284,7 +314,7 @@ pub async fn create_message_with_metadata(
     .bind(tool_results.as_ref().map(|v| serde_json::to_string(v).unwrap_or_default()))
     .bind(raw_output.as_ref().map(|v| serde_json::to_string(v).unwrap_or_default()))
     .bind(images.as_ref().map(|v| serde_json::to_string(v).unwrap_or_default()))
-    .bind(now())
+    .bind(created_at)
     .execute(db)
     .await
     .map_err(|source| DatabaseError::Query {

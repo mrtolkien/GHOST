@@ -379,21 +379,25 @@ impl SessionChat {
                 .filter_map(|c| c.get("id").and_then(Value::as_str).map(String::from))
                 .collect();
 
-            // Collect tool-result IDs from the immediately following message.
-            let answered_ids: std::collections::HashSet<String> = if i + 1 < messages.len() {
-                messages[i + 1]
-                    .tool_results_parsed()
-                    .unwrap_or_default()
-                    .iter()
-                    .filter_map(|r| {
-                        r.get("tool_use_id")
-                            .and_then(Value::as_str)
-                            .map(String::from)
-                    })
-                    .collect()
-            } else {
-                std::collections::HashSet::new()
-            };
+            // Collect tool-result IDs from all following non-assistant messages.
+            // Repairs from prior runs may not be at i+1 (their DB timestamp
+            // placed them later), so we scan forward until the next assistant
+            // message to find all answered IDs.
+            let mut answered_ids = std::collections::HashSet::<String>::new();
+            let mut last_result_idx = i; // track last message with results
+            for (j, msg) in messages.iter().enumerate().skip(i + 1) {
+                if msg.role == "assistant" {
+                    break;
+                }
+                if let Some(results) = msg.tool_results_parsed() {
+                    for r in &results {
+                        if let Some(id) = r.get("tool_use_id").and_then(Value::as_str) {
+                            answered_ids.insert(id.to_string());
+                        }
+                    }
+                    last_result_idx = j;
+                }
+            }
 
             let orphaned_ids: Vec<&str> = call_ids
                 .iter()
@@ -418,7 +422,13 @@ impl SessionChat {
                 })
                 .collect();
 
-            let msg_id = db::sessions::create_message_with_metadata(
+            // Use a timestamp just after the assistant message (or last
+            // partial-result message) so the repair sorts correctly on
+            // future DB loads instead of landing at the end of the history.
+            let anchor = &messages[last_result_idx].created_at;
+            let repair_ts = bump_timestamp(anchor);
+
+            let msg_id = db::sessions::create_message_with_timestamp(
                 &self.db,
                 session_id,
                 "user",
@@ -427,6 +437,7 @@ impl SessionChat {
                 Some(error_results.clone()),
                 None,
                 None,
+                &repair_ts,
             )
             .await?;
 
@@ -439,16 +450,11 @@ impl SessionChat {
                 tool_results: Some(serde_json::to_string(&error_results).unwrap_or_default()),
                 raw_output: None,
                 images: None,
-                created_at: crate::db::now(),
+                created_at: repair_ts,
             };
 
-            // If there were partial results, insert after them (i+2);
-            // otherwise insert right after the assistant message (i+1).
-            let insert_at = if answered_ids.is_empty() {
-                i + 1
-            } else {
-                i + 2
-            };
+            // Insert right after the last result message (or the assistant).
+            let insert_at = last_result_idx + 1;
             insertions.push((insert_at, repair_record));
 
             let sid = session_id.to_string();
@@ -1318,5 +1324,16 @@ impl SessionChat {
 
         self.active_sessions.remove(session_id);
         result
+    }
+}
+
+/// Advance an RFC 3339 timestamp by 1 millisecond so a repair message sorts
+/// right after its anchor message in `ORDER BY created_at ASC` queries.
+fn bump_timestamp(ts: &str) -> String {
+    if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(ts) {
+        (dt + chrono::Duration::milliseconds(1)).to_rfc3339()
+    } else {
+        // Fallback: append a 'z' so it lexicographically sorts just after.
+        format!("{ts}+")
     }
 }
