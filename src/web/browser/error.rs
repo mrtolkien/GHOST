@@ -32,4 +32,36 @@ pub enum BrowserError {
 
     #[error("URL not allowed: {reason}")]
     UrlBlocked { reason: String },
+
+    #[error("no browser is active — connect to a browser first")]
+    NoBrowserActive,
+
+    #[error("no tab is active — open a tab first")]
+    NoTabActive,
+
+    #[error("browser '{name}' not found")]
+    BrowserNotFound { name: String },
+
+    #[error("tab {id} not found")]
+    TabNotFound { id: u32 },
+
+    #[error("tab limit reached ({limit} tabs) — close a tab first")]
+    TabLimitReached { limit: usize },
+
+    #[error(
+        "browser '{name}' connection lost: {reason}. reconnect in progress"
+    )]
+    ConnectionLost { name: String, reason: String },
+
+    #[error(
+        "browser '{name}' reconnect exhausted after {attempts} attempts: {reason}"
+    )]
+    ReconnectExhausted {
+        name: String,
+        attempts: usize,
+        reason: String,
+    },
+
+    #[error("CDP discovery failed: {reason}")]
+    DiscoveryFailed { reason: String },
 }
