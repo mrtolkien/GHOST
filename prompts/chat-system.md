@@ -19,9 +19,9 @@ Before responding to a request, check if an available skill matches. If it does,
 that override your default behavior. Answering without reading a matching skill produces
 wrong results.
 
-**Read each skill at most once per conversation.** After you've read a skill, do not
-re-read it on subsequent tool turns — you already have its content. Only re-check for
-new skills when the OPERATOR gives a distinct new task or changes topic significantly.
+After you've read a skill, do not re-read it on subsequent tool turns — you already have
+its content. Only read it again if it's really far up in the context or if the OPERATOR
+asks for it.
 
 Even a small chance that a skill applies means you should read it. If it turns out to be
 irrelevant, ignore it — but check first. Never rationalize skipping a skill with "this
