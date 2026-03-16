@@ -114,10 +114,16 @@ fn set_default_rust_log_filter() {
     //   RUST_LOG=warn,ghost=info,ghost::providers=debug
     //
     // SAFETY: daemon startup sets process env before spawning runtime tasks.
+    // TODO: remove chromiumoxide=error filter once upstream fixes
+    // camelCase CDP event deserialization (chromiumoxide#266). Chrome
+    // 140+ sends events that chromiumoxide can't parse, spamming
+    // "WS Invalid message: data did not match any variant of untagged
+    // enum Message" warnings hundreds of times per minute.
     unsafe {
         std::env::set_var(
             "RUST_LOG",
-            "warn,ghost=info,usvg=off,resvg=off,fontdb=off,html5ever=off",
+            "warn,ghost=info,chromiumoxide=error,\
+             usvg=off,resvg=off,fontdb=off,html5ever=off",
         );
     }
 }
@@ -136,10 +142,12 @@ fn set_default_rust_log_filter_for_tests() {
     // re-enable verbose provider logging when needed.
     //
     // SAFETY: test init sets process env before spawning runtime tasks.
+    // TODO: remove chromiumoxide=error once chromiumoxide#266 is fixed.
     unsafe {
         std::env::set_var(
             "RUST_LOG",
-            "warn,ghost=info,ghost::providers=warn,usvg=off,resvg=off,fontdb=off,html5ever=off",
+            "warn,ghost=info,ghost::providers=warn,chromiumoxide=error,\
+             usvg=off,resvg=off,fontdb=off,html5ever=off",
         );
     }
 }
