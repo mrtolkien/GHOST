@@ -13,7 +13,7 @@ pub struct ReadFile;
 #[async_trait]
 impl Tool for ReadFile {
     fn name(&self) -> &str {
-        "read_file"
+        "file_read"
     }
 
     fn schema(&self) -> ToolDefinition {
@@ -36,7 +36,7 @@ impl Tool for ReadFile {
         }
     }
 
-    #[tracing::instrument(skip_all, fields(tool = "read_file"))]
+    #[tracing::instrument(skip_all, fields(tool = "file_read"))]
     async fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput, ToolError> {
         let raw_path = params.get("path").and_then(Value::as_str).ok_or_else(|| {
             ToolError::InvalidParams("missing required parameter 'path'".to_string())

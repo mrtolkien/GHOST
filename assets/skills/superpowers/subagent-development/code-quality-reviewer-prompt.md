@@ -7,7 +7,7 @@ Use this template when dispatching a code quality reviewer subagent.
 **Only dispatch after spec compliance review passes.**
 
 ```
-agent_control(action: "start", ...):
+agent(action: "start", ...):
   Use the code-reviewer prompt template at
   Read the `code-reviewer.md` extra from the `requesting-review` skill
 

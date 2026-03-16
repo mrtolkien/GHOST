@@ -13,7 +13,7 @@ pub struct AgentControl;
 #[async_trait]
 impl Tool for AgentControl {
     fn name(&self) -> &str {
-        "agent_control"
+        "agent"
     }
 
     fn schema(&self) -> ToolDefinition {
@@ -51,7 +51,7 @@ impl Tool for AgentControl {
         }
     }
 
-    #[tracing::instrument(skip_all, fields(tool = "agent_control"))]
+    #[tracing::instrument(skip_all, fields(tool = "agent"))]
     async fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput, ToolError> {
         let action = params
             .get("action")
@@ -153,7 +153,7 @@ impl AgentControl {
 
         Ok(format!(
             "Agent '{agent_name}' continued (agent_id: {agent_id}). \
-             Check progress with agent_control(action: 'status', \
+             Check progress with agent(action: 'status', \
              agent_id: '{agent_id}')."
         ))
     }

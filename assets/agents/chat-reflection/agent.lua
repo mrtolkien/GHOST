@@ -7,9 +7,9 @@ return {
     max_iterations = 30,
 
     tools = {
-        "run_shell_command",
-        "read_file",
-        "write_file",
+        "shell",
+        "file_read",
+        "file_write",
         "file_edit",
         "knowledge_search",
         "note_write",

@@ -13,7 +13,7 @@ pub struct WriteFile;
 #[async_trait]
 impl Tool for WriteFile {
     fn name(&self) -> &str {
-        "write_file"
+        "file_write"
     }
 
     fn schema(&self) -> ToolDefinition {
@@ -40,7 +40,7 @@ impl Tool for WriteFile {
         }
     }
 
-    #[tracing::instrument(skip_all, fields(tool = "write_file"))]
+    #[tracing::instrument(skip_all, fields(tool = "file_write"))]
     async fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput, ToolError> {
         let raw_path = params.get("path").and_then(Value::as_str).ok_or_else(|| {
             ToolError::InvalidParams("missing required parameter 'path'".to_string())

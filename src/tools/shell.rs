@@ -103,7 +103,7 @@ fn shell_command(
 #[async_trait]
 impl Tool for RunShellCommand {
     fn name(&self) -> &str {
-        "run_shell_command"
+        "shell"
     }
 
     fn schema(&self) -> ToolDefinition {
@@ -140,7 +140,7 @@ impl Tool for RunShellCommand {
         }
     }
 
-    #[tracing::instrument(skip_all, fields(tool = "run_shell_command"))]
+    #[tracing::instrument(skip_all, fields(tool = "shell"))]
     async fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput, ToolError> {
         let command = params
             .get("command")

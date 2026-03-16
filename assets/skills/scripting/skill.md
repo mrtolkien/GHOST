@@ -20,7 +20,7 @@ Check if you already have a script for this:
 knowledge_search query="<what you need>" categories=["scripts"]
 ```
 
-If found, read it with `read_file` and run it. Update it if the OPERATOR's request is a
+If found, read it with `file_read` and run it. Update it if the OPERATOR's request is a
 variation.
 
 ## File Organization
@@ -87,7 +87,7 @@ if __name__ == "__main__":
 ### Running
 
 ```
-run_shell_command command="uv run scripts/{topic}/{name}.py [args]"
+shell command="uv run scripts/{topic}/{name}.py [args]"
 ```
 
 ## Non-Python Scripts
@@ -123,10 +123,10 @@ If you're unsure about a library's API, import its documentation first:
 
 ```
 # For PyPI packages with docs sites:
-run_shell_command command="ghost reference import crawl --url https://typer.tiangolo.com/ --topic typer --max-depth 2"
+shell command="ghost reference import crawl --url https://typer.tiangolo.com/ --topic typer --max-depth 2"
 
 # For GitHub repos:
-run_shell_command command="ghost reference import git --url https://github.com/tiangolo/typer --topic typer --paths docs/ --extensions md"
+shell command="ghost reference import git --url https://github.com/tiangolo/typer --topic typer --paths docs/ --extensions md"
 ```
 
 Then search your references:

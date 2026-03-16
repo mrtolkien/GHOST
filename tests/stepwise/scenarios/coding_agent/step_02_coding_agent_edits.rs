@@ -10,7 +10,7 @@ use crate::stepwise::harness;
 ///
 /// Assertions:
 /// - The coding agent responds to a user message
-/// - The coding agent calls file editing tools (write_file or file_edit)
+/// - The coding agent calls file editing tools (file_write or file_edit)
 /// - `greeting.py` is modified
 #[tokio::test]
 async fn coding_agent_step_02_coding_agent_edits() {
@@ -82,7 +82,7 @@ async fn coding_agent_step_02_coding_agent_edits() {
         .await
         .expect("list coding session messages");
 
-    let edit_tools = ["write_file", "file_edit"];
+    let edit_tools = ["file_write", "file_edit"];
     let has_file_edit = messages.iter().any(|msg| {
         msg.tool_calls_parsed()
             .map(|calls| {
@@ -95,7 +95,7 @@ async fn coding_agent_step_02_coding_agent_edits() {
     });
     assert!(
         has_file_edit,
-        "coding agent should use write_file or file_edit to modify the code"
+        "coding agent should use file_write or file_edit to modify the code"
     );
 
     // Verify greeting.py was actually modified

@@ -4,6 +4,6 @@
 
 ## Conversation Transcript
 
-Tool results are stripped — use `read_file` to retrieve saved content.
+Tool results are stripped — use `file_read` to retrieve saved content.
 
 {{transcript}}

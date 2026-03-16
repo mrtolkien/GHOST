@@ -3,7 +3,7 @@
 ## Decision
 
 GHOST ships with 5 core tools + 3 reflection-only tools. Knowledge search, web search,
-and web fetch are CLI commands accessed via `run_shell_command`, with skills providing
+and web fetch are CLI commands accessed via `shell`, with skills providing
 usage guidance. This is intentional and evidence-based.
 
 If real usage shows the GHOST frequently botching CLI invocations for core operations
@@ -67,7 +67,7 @@ Promote a CLI command to a dedicated tool when:
 
 ### Always loaded (5 core)
 
-`run_shell_command`, `read_file`, `write_file`, `file_edit`, `todo`
+`shell`, `file_read`, `file_write`, `file_edit`, `todo`
 
 ### Reflection only (+2)
 

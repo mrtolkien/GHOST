@@ -74,9 +74,9 @@ Each agent gets:
 ### 3. Dispatch in Parallel
 
 ```
-agent_control(action: "start", name: "fix-abort-tests", prompt: "Fix agent-tool-abort test failures")
-agent_control(action: "start", name: "fix-batch-tests", prompt: "Fix batch-completion-behavior test failures")
-agent_control(action: "start", name: "fix-race-tests", prompt: "Fix tool-approval-race-conditions test failures")
+agent(action: "start", name: "fix-abort-tests", prompt: "Fix agent-tool-abort test failures")
+agent(action: "start", name: "fix-batch-tests", prompt: "Fix batch-completion-behavior test failures")
+agent(action: "start", name: "fix-race-tests", prompt: "Fix tool-approval-race-conditions test failures")
 // All three run concurrently
 ```
 

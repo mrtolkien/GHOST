@@ -36,10 +36,10 @@ async fn project_create_step_02_confirm_and_create() {
 
     let tool_calls = env.collect_tool_calls(session).await;
 
-    // GHOST should have called run_shell_command (to run ghost project init)
+    // GHOST should have called shell (to run ghost project init)
     assert!(
-        tool_calls.iter().any(|t| t == "run_shell_command"),
-        "expected run_shell_command call for project creation, got: {tool_calls:?}"
+        tool_calls.iter().any(|t| t == "shell"),
+        "expected shell call for project creation, got: {tool_calls:?}"
     );
 
     // Verify project directory was created

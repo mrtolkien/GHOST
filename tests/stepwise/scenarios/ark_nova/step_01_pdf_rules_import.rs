@@ -43,8 +43,8 @@ async fn ark_nova_step_01_pdf_rules_import() {
     env.log(format!("Phase 1 tool calls: {tool_calls:?}"));
 
     assert!(
-        tool_calls.iter().any(|name| name == "run_shell_command"),
-        "Phase 1: GHOST should have called run_shell_command to import the PDF, \
+        tool_calls.iter().any(|name| name == "shell"),
+        "Phase 1: GHOST should have called shell to import the PDF, \
          tool calls: {tool_calls:?}",
     );
 

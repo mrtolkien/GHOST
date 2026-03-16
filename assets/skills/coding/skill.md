@@ -37,19 +37,19 @@ Repos live under `code/` in the workspace. Use the project slug as the directory
 **If not cloned yet:**
 
 ```
-run_shell_command command="git clone <repo-url> code/<slug>"
+shell command="git clone <repo-url> code/<slug>"
 ```
 
 **If already cloned:**
 
 ```
-run_shell_command command="cd code/<slug> && git fetch && git status"
+shell command="cd code/<slug> && git fetch && git status"
 ```
 
 ### 3. Start the Coding Session
 
 ```
-run_shell_command command="ghost hack start code/<slug> --prompt '<task description>'"
+shell command="ghost hack start code/<slug> --prompt '<task description>'"
 ```
 
 The command outputs:
@@ -81,13 +81,13 @@ When the OPERATOR ends the session, you'll receive a system message with a git s
 If the OPERATOR wants to continue previous work:
 
 ```
-run_shell_command command="ghost hack list"
+shell command="ghost hack list"
 ```
 
 Then resume with:
 
 ```
-run_shell_command command="ghost hack resume <coding_session_id>"
+shell command="ghost hack resume <coding_session_id>"
 ```
 
 ## Creating `repo.md` References

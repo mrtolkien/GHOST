@@ -24,10 +24,10 @@ The Puppet Master has access to the same tools as your GHOST:
 
 | Tool               | Purpose                                |
 | ------------------ | -------------------------------------- |
-| `read_file`        | Read file contents                     |
-| `write_file`       | Create new files                       |
+| `file_read`        | Read file contents                     |
+| `file_write`       | Create new files                       |
 | `file_edit`        | Targeted edits to existing files       |
-| `run_shell_command` | Builds, tests, git, any shell command |
+| `shell`            | Builds, tests, git, any shell command  |
 | `search_notes`     | Query the knowledge base               |
 | `search_references` | Search reference documents            |
 | `web_search`       | Search the web                         |

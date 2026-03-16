@@ -234,16 +234,16 @@ pub fn validate_agent(workspace: &Path, name: &str) -> Vec<String> {
 
     // Validate tool names exist
     let known_tools = [
-        "run_shell_command",
-        "read_file",
-        "write_file",
+        "shell",
+        "file_read",
+        "file_write",
         "file_edit",
         "todo",
         "knowledge_search",
         "web_search",
         "web_fetch",
         "note_write",
-        "agent_control",
+        "agent",
     ];
     for tool in &config.tools {
         if !known_tools.contains(&tool.as_str()) {

@@ -30,7 +30,7 @@ fn system_prompt() -> String {
 }
 
 /// Build a request with 5 user + 5 assistant messages of history, followed by
-/// a 6th user message that explicitly asks to call `run_shell_command`.
+/// a 6th user message that explicitly asks to call `shell`.
 fn tool_use_request(model: &str) -> ChatRequest {
     let messages = vec![
         // Exchange 1
@@ -43,9 +43,9 @@ fn tool_use_request(model: &str) -> ChatRequest {
         user_message("What tools do you have available?"),
         assistant_text(
             "I have five tools:\n\
-             1. run_shell_command — execute shell commands\n\
-             2. read_file — read file contents with line numbers\n\
-             3. write_file — create or overwrite files\n\
+             1. shell — execute shell commands\n\
+             2. file_read — read file contents with line numbers\n\
+             3. file_write — create or overwrite files\n\
              4. file_edit — make targeted edits to existing files\n\
              5. todo — manage a task list",
         ),
@@ -66,7 +66,7 @@ fn tool_use_request(model: &str) -> ChatRequest {
         assistant_text("Sure, I'll check that for you right away."),
         // The tool-triggering request
         user_message(
-            "Use the run_shell_command tool to execute `pwd`. \
+            "Use the shell tool to execute `pwd`. \
              Do not respond with text — call the tool.",
         ),
     ];
@@ -85,7 +85,7 @@ fn tool_use_request(model: &str) -> ChatRequest {
     }
 }
 
-fn assert_called_run_shell_command(response: &ChatResponse) {
+fn assert_called_shell_tool(response: &ChatResponse) {
     assert_eq!(
         response.stop_reason,
         StopReason::ToolUse,
@@ -104,8 +104,8 @@ fn assert_called_run_shell_command(response: &ChatResponse) {
         .expect("expected at least one ToolUse content block");
 
     assert_eq!(
-        tool_use.1, "run_shell_command",
-        "expected tool name 'run_shell_command', got '{}'",
+        tool_use.1, "shell",
+        "expected tool name 'shell', got '{}'",
         tool_use.1,
     );
     assert!(
@@ -119,7 +119,7 @@ fn assert_called_run_shell_command(response: &ChatResponse) {
 // ── Provider tests ──────────────────────────────────────────────────────────
 
 #[tokio::test]
-async fn openrouter_kimi25_calls_run_shell_command() {
+async fn openrouter_kimi25_calls_shell_tool() {
     let _obs = ghost::observability::init_for_live_tests().expect("init live test observability");
 
     if std::env::var("OPENROUTER_API_KEY")
@@ -136,11 +136,11 @@ async fn openrouter_kimi25_calls_run_shell_command() {
     let request = tool_use_request("moonshotai/kimi-k2.5");
 
     let response = provider.chat(request).await.expect("provider chat");
-    assert_called_run_shell_command(&response);
+    assert_called_shell_tool(&response);
 }
 
 #[tokio::test]
-async fn kimi_code_calls_run_shell_command() {
+async fn kimi_code_calls_shell_tool() {
     let _obs = ghost::observability::init_for_live_tests().expect("init live test observability");
 
     if std::env::var("KIMI_API_KEY")
@@ -157,11 +157,11 @@ async fn kimi_code_calls_run_shell_command() {
     let request = tool_use_request("kimi-k2.5");
 
     let response = provider.chat(request).await.expect("provider chat");
-    assert_called_run_shell_command(&response);
+    assert_called_shell_tool(&response);
 }
 
 #[tokio::test]
-async fn openai_oauth_gpt53_calls_run_shell_command() {
+async fn openai_oauth_gpt53_calls_shell_tool() {
     let _obs = ghost::observability::init_for_live_tests().expect("init live test observability");
 
     if ghost::auth::openai_oauth::auth_status()
@@ -178,5 +178,5 @@ async fn openai_oauth_gpt53_calls_run_shell_command() {
     let request = tool_use_request("gpt-5.3-codex");
 
     let response = provider.chat(request).await.expect("provider chat");
-    assert_called_run_shell_command(&response);
+    assert_called_shell_tool(&response);
 }

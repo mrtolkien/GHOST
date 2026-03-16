@@ -32,14 +32,14 @@ async fn for_chat_registers_expected_tools() {
     assert_eq!(schemas.len(), 8, "expected 8 tools, got {}", schemas.len());
 
     let names: Vec<&str> = schemas.iter().map(|s| s.name.as_str()).collect();
-    assert!(names.contains(&"run_shell_command"));
-    assert!(names.contains(&"read_file"));
-    assert!(names.contains(&"write_file"));
+    assert!(names.contains(&"shell"));
+    assert!(names.contains(&"file_read"));
+    assert!(names.contains(&"file_write"));
     assert!(names.contains(&"file_edit"));
     assert!(names.contains(&"knowledge_search"));
     assert!(names.contains(&"web_search"));
     assert!(names.contains(&"web_fetch"));
-    assert!(names.contains(&"agent_control"));
+    assert!(names.contains(&"agent"));
     assert!(!names.contains(&"todo"), "todo should not be in chat tools");
 
     for schema in &schemas {
@@ -51,9 +51,9 @@ async fn for_chat_registers_expected_tools() {
 #[tokio::test]
 async fn for_agent_includes_knowledge_tools() {
     let tools: Vec<String> = vec![
-        "run_shell_command",
-        "read_file",
-        "write_file",
+        "shell",
+        "file_read",
+        "file_write",
         "file_edit",
         "todo",
         "knowledge_search",
@@ -71,8 +71,8 @@ async fn for_agent_includes_knowledge_tools() {
     let schemas = agent_manager.all_tool_schemas();
     let names: Vec<&str> = schemas.iter().map(|s| s.name.as_str()).collect();
     assert!(names.contains(&"note_write"));
-    // agent_control should NOT be included
-    assert!(!names.contains(&"agent_control"));
+    // agent should NOT be included
+    assert!(!names.contains(&"agent"));
 }
 
 #[tokio::test]
@@ -193,7 +193,7 @@ async fn chained_write_edit_read() {
     // Write a file
     let result = manager
         .execute(
-            "write_file",
+            "file_write",
             json!({
                 "path": "test.txt",
                 "content": "line 1\nline 2\nline 3\n"
@@ -201,7 +201,7 @@ async fn chained_write_edit_read() {
             &ctx,
         )
         .await
-        .expect("write_file");
+        .expect("file_write");
 
     assert!(result.text.contains("Created"));
 
@@ -223,9 +223,9 @@ async fn chained_write_edit_read() {
 
     // Read the file
     let result = manager
-        .execute("read_file", json!({"path": "test.txt"}), &ctx)
+        .execute("file_read", json!({"path": "test.txt"}), &ctx)
         .await
-        .expect("read_file");
+        .expect("file_read");
 
     assert!(result.text.contains("line two (edited)"));
     assert!(result.text.contains("1 | line 1"));
@@ -242,7 +242,7 @@ async fn shell_runs_in_workspace() {
     let manager = ToolManager::for_chat();
 
     let result = manager
-        .execute("run_shell_command", json!({"command": "pwd"}), &ctx)
+        .execute("shell", json!({"command": "pwd"}), &ctx)
         .await
         .expect("shell pwd");
 

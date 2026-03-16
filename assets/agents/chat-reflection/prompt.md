@@ -18,7 +18,7 @@ Complete each step fully before moving to the next.
 Write or append a brief entry to `diary/{{date}}.md` summarizing the session — what was
 discussed, decisions made, open questions.
 
-- Use `write_file` if the file doesn't exist.
+- Use `file_write` if the file doesn't exist.
 - Use `file_edit` to append if it already exists.
 - Keep entries brief — details belong in notes, diary is the timeline.
 - Do not duplicate information. Keep it short.
@@ -30,14 +30,14 @@ discussed, decisions made, open questions.
 - `SOUL.md` — notes about the GHOST's own personality/behavior
 
 Only update these when the conversation provides clear, meaningful information. Use
-`read_file` first to check current content, then `file_edit` to update.
+`file_read` first to check current content, then `file_edit` to update.
 
 ### Step 3: Notes (if noteworthy knowledge)
 
 If the conversation contains information worth preserving long-term:
 
 1. `knowledge_search` for the topic — check for existing notes to update.
-2. `ghost knowledge tags` via `run_shell_command` — see existing tag hierarchies.
+2. `ghost knowledge tags` via `shell` — see existing tag hierarchies.
 3. Create or update notes following the note-writer conventions in your system prompt.
 
 Update existing notes rather than creating duplicates. Skip this step for casual

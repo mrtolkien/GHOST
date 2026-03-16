@@ -6,7 +6,7 @@ description:
 
 Shell access, file operations, and task tracking.
 
-## `run_shell_command`
+## `shell`
 
 Execute shell commands on the host system.
 
@@ -22,7 +22,7 @@ detached. On completion, the output is posted as a `[shell-command completed]`
 system message into the session. GHOST sees this message on the next
 conversation turn.
 
-## `read_file`
+## `file_read`
 
 Read file contents with optional pagination.
 
@@ -34,7 +34,7 @@ Read file contents with optional pagination.
 
 Returns contents with line numbers for precise editing.
 
-## `write_file`
+## `file_write`
 
 Create or overwrite a file.
 

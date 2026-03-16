@@ -1,5 +1,5 @@
 /// Result of a tool execution. Most tools return text-only output.
-/// Tools like `read_file` can include images alongside text.
+/// Tools like `file_read` can include images alongside text.
 #[derive(Debug)]
 pub struct ToolOutput {
     pub text: String,

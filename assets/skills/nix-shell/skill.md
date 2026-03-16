@@ -26,7 +26,7 @@ while you restart.
 
 `$WORKSPACE/shell/flake.nix` defines the shell tools as a `buildEnv` package. At daemon
 boot, `nix build` creates a merged store path whose `bin/` is prepended to PATH for
-every `run_shell_command`.
+every `shell`.
 
 The ghost binary is NOT in this flake. Ghost is installed system-wide via
 `nix profile install` and is available on PATH via `~/.nix-profile/bin/`.

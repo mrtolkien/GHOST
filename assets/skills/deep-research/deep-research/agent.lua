@@ -19,9 +19,9 @@ return {
         "knowledge_search",
         "web_search",
         "web_fetch",
-        "read_file",
+        "file_read",
         "todo",
-        "run_shell_command",
+        "shell",
     },
 
     custom_tools = {

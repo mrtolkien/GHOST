@@ -45,13 +45,13 @@ running), spawn the deep-research agent. You matched this skill's description be
 the question needs multi-source research — that research belongs in the agent's isolated
 context, not inline.
 
-**Your next tool call after the knowledge check must be `agent_control`.** Do not call
+**Your next tool call after the knowledge check must be `agent`.** Do not call
 `web_search` or `web_fetch` — every page you fetch inline is context you can never
 reclaim. Let the agent do the heavy reading.
 
 ## Spawning the Agent
 
-Use `agent_control(action: 'start', agent: 'deep-research', prompt: '...')`. Include:
+Use `agent(action: 'start', name: 'deep-research', prompt: '...')`. Include:
 
 - **Specific question** — what exactly needs to be answered
 - **Context** — constraints, preferences, use case the OPERATOR mentioned
@@ -74,7 +74,7 @@ When the OPERATOR provides follow-up criteria or refinements after the agent del
 findings, **continue** the existing agent session:
 
 ```
-agent_control(action: 'continue', agent_id: '<id>',
+agent(action: 'continue', agent_id: '<id>',
   prompt: '<new constraints and follow-up question>')
 ```
 

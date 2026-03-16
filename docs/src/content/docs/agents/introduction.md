@@ -30,7 +30,7 @@ return {
     description = "Reflection on operator chat sessions",
     max_iterations = 30,
     tools = {
-        "run_shell_command", "read_file", "write_file",
+        "shell", "file_read", "file_write",
         "file_edit", "knowledge_search", "note_write",
     },
     skills = { "knowledge-navigator", "note-writer" },
@@ -84,4 +84,4 @@ ghost agent logs [name]        # View agent run logs
 ```
 
 During conversation, GHOST can also spawn and manage agents with the
-[`agent_control`](/agents/agent-control/) tool.
+[`agent`](/agents/agent-control/) tool.

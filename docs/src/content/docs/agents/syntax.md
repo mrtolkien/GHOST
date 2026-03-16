@@ -22,7 +22,7 @@ return {
     max_iterations = 30,      -- max tool loop iterations
 
     -- Tools and skills
-    tools = { "web_search", "web_fetch", "read_file", "todo" },
+    tools = { "web_search", "web_fetch", "file_read", "todo" },
     skills = { "note-writer" },
 
     -- Hooks (all optional except build)
@@ -41,16 +41,16 @@ Agents declare which tools they can use via the `tools` list:
 | --- | --- |
 | `web_search` | Search the web |
 | `web_fetch` | Fetch and extract web page content |
-| `read_file` | Read files from the workspace |
-| `write_file` | Write files to the workspace |
+| `file_read` | Read files from the workspace |
+| `file_write` | Write files to the workspace |
 | `file_edit` | Edit files in place |
-| `run_shell_command` | Execute shell commands |
+| `shell` | Execute shell commands |
 | `knowledge_search` | Search the knowledge base |
 | `note_write` | Create knowledge notes |
 | `todo` | Manage a TODO checklist |
-| `agent_control` | Start, stop, and check agents |
+| `agent` | Start, stop, and check agents |
 
-If an agent declares `skills`, `read_file` is automatically added.
+If an agent declares `skills`, `file_read` is automatically added.
 
 ## Custom Tools
 

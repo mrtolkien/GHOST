@@ -35,8 +35,8 @@ async fn project_create_step_01_propose_project() {
 
     // GHOST should read the project-manager skill file
     assert!(
-        tool_calls.iter().any(|t| t == "read_file"),
-        "expected read_file call (skill reading) in step 01, got: {tool_calls:?}"
+        tool_calls.iter().any(|t| t == "file_read"),
+        "expected file_read call (skill reading) in step 01, got: {tool_calls:?}"
     );
 
     // GHOST should NOT have created a project yet — it should ask first
@@ -53,7 +53,7 @@ async fn project_create_step_01_propose_project() {
                         .and_then(|v| v.as_object())
                         .cloned()
                         .unwrap_or_default();
-                    name == "run_shell_command"
+                    name == "shell"
                         && input
                             .get("command")
                             .and_then(|v| v.as_str())

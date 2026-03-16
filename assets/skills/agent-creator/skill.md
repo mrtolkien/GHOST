@@ -50,7 +50,7 @@ description:
 
 ## Spawning
 
-\`\`\` agent_control(action: "start", agent: "<agent-name>", prompt:
+\`\`\` agent(action: "start", name: "<agent-name>", prompt:
 "<what to include>") \`\`\`
 ```
 
@@ -76,8 +76,8 @@ return {
 
     -- Tools available to the agent
     tools = {
-        "web_search", "web_fetch", "read_file", "write_file",
-        "file_edit", "run_shell_command", "knowledge_search",
+        "web_search", "web_fetch", "file_read", "file_write",
+        "file_edit", "shell", "knowledge_search",
         "note_write", "todo",
     },
 

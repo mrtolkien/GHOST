@@ -37,7 +37,7 @@ HEAD_SHA=$(git rev-parse HEAD)
 
 **2. Start a code-reviewer agent:**
 
-Use `agent_control(action: "start", ...)` with a code-reviewer agent. Provide:
+Use `agent(action: "start", ...)` with a code-reviewer agent. Provide:
 
 - `{WHAT_WAS_IMPLEMENTED}` - What you just built
 - `{PLAN_OR_REQUIREMENTS}` - What it should do

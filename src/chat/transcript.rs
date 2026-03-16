@@ -123,13 +123,13 @@ mod tests {
     #[test]
     fn transcript_preserves_tool_calls() {
         let tool_call = serde_json::json!({
-            "name": "read_file",
+            "name": "file_read",
             "input": {"path": "/tmp/test.txt"}
         });
         let messages = vec![make_message("assistant", "", Some(vec![tool_call]), None)];
 
         let result = filter_transcript(&messages, None);
-        assert!(result.contains("[tool_call] read_file("));
+        assert!(result.contains("[tool_call] file_read("));
         assert!(result.contains("/tmp/test.txt"));
     }
 
@@ -153,7 +153,7 @@ mod tests {
     fn transcript_truncates_long_tool_inputs() {
         let long_input = "x".repeat(300);
         let tool_call = serde_json::json!({
-            "name": "write_file",
+            "name": "file_write",
             "input": {"content": long_input}
         });
         let messages = vec![make_message("assistant", "", Some(vec![tool_call]), None)];

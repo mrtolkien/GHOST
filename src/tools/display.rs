@@ -22,7 +22,7 @@ pub fn display_request(tool_name: &str, args: &Value) -> String {
                 .unwrap_or(&url);
             format!("\u{1F4C4}\u{FE0E} {}", clip(short, DISPLAY_VALUE_MAX))
         }
-        "run_shell_command" => {
+        "shell" => {
             let cmd = str_arg(args, "command");
             let bg = args
                 .get("background")
@@ -31,11 +31,11 @@ pub fn display_request(tool_name: &str, args: &Value) -> String {
             let suffix = if bg { " &" } else { "" };
             format!("$ {}{}", clip(&cmd, DISPLAY_VALUE_MAX), suffix)
         }
-        "read_file" => {
+        "file_read" => {
             let path = str_arg(args, "path");
             format!("\u{1F4D6}\u{FE0E} {}", clip(&path, DISPLAY_VALUE_MAX))
         }
-        "write_file" => {
+        "file_write" => {
             let path = str_arg(args, "path");
             format!("\u{270F}\u{FE0E} {}", clip(&path, DISPLAY_VALUE_MAX))
         }
@@ -47,7 +47,7 @@ pub fn display_request(tool_name: &str, args: &Value) -> String {
             let title = str_arg(args, "title");
             format!("\u{1F4DD}\u{FE0E} \"{}\"", clip(&title, DISPLAY_VALUE_MAX))
         }
-        "agent_control" => {
+        "agent" => {
             let action = str_arg(args, "action");
             let agent = args.get("agent").and_then(Value::as_str).unwrap_or("");
             let agent_id = args.get("agent_id").and_then(Value::as_str).unwrap_or("");
@@ -142,7 +142,7 @@ pub fn display_result(tool_name: &str, _args: &Value, result: &str, is_error: bo
             let chars = result.len();
             format!("\u{2192} {}", format_size(chars))
         }
-        "run_shell_command" => {
+        "shell" => {
             if let Some(line) = result.lines().find(|l| l.starts_with("Exit code:")) {
                 let code = line.strip_prefix("Exit code: ").unwrap_or("?").trim();
                 format!("# {code}")
@@ -154,13 +154,13 @@ pub fn display_result(tool_name: &str, _args: &Value, result: &str, is_error: bo
                 "\u{2713}".to_string()
             }
         }
-        "read_file" => {
+        "file_read" => {
             let chars = result.len();
             format!("\u{2192} {}", format_size(chars))
         }
-        "write_file" | "file_edit" => "\u{2713}".to_string(),
+        "file_write" | "file_edit" => "\u{2713}".to_string(),
         "note_write" => "\u{2713}".to_string(),
-        "agent_control" => {
+        "agent" => {
             if result.contains("started") {
                 "\u{2192} started".to_string()
             } else if result.contains("stopped") {
@@ -211,11 +211,11 @@ pub fn tool_emoji(tool_name: &str) -> &'static str {
         "knowledge_search" => "\u{1F50D}\u{FE0E}",
         "web_search" => "\u{1F310}\u{FE0E}",
         "web_fetch" => "\u{1F4C4}\u{FE0E}",
-        "run_shell_command" => "$",
-        "read_file" => "\u{1F4D6}\u{FE0E}",
-        "write_file" | "file_edit" => "\u{270F}\u{FE0E}",
+        "shell" => "$",
+        "file_read" => "\u{1F4D6}\u{FE0E}",
+        "file_write" | "file_edit" => "\u{270F}\u{FE0E}",
         "note_write" => "\u{1F4DD}\u{FE0E}",
-        "agent_control" => "\u{1F916}\u{FE0E}",
+        "agent" => "\u{1F916}\u{FE0E}",
         "browser" => "\u{1F9ED}\u{FE0E}",
         "todo" => "\u{2713}",
         _ => "\u{2022}",
@@ -263,7 +263,7 @@ mod tests {
     #[test]
     fn display_request_shell_background() {
         let args = json!({"command": "cargo build", "background": true});
-        let result = display_request("run_shell_command", &args);
+        let result = display_request("shell", &args);
         assert_eq!(result, "$ cargo build &");
     }
 
@@ -291,7 +291,7 @@ mod tests {
 
     #[test]
     fn display_result_shell_exit_code() {
-        let result = display_result("run_shell_command", &json!({}), "Exit code: 0\nok", false);
+        let result = display_result("shell", &json!({}), "Exit code: 0\nok", false);
         assert_eq!(result, "# 0");
     }
 
@@ -305,7 +305,7 @@ mod tests {
     #[test]
     fn tool_emoji_known_tools() {
         assert_eq!(tool_emoji("web_search"), "\u{1F310}\u{FE0E}");
-        assert_eq!(tool_emoji("run_shell_command"), "$");
+        assert_eq!(tool_emoji("shell"), "$");
         assert_eq!(tool_emoji("unknown_tool"), "\u{2022}");
     }
 

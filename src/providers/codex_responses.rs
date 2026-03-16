@@ -649,7 +649,7 @@ mod tests {
             }],
             model: "gpt-5.3-codex".to_string(),
             tools: Some(vec![ToolDefinition {
-                name: "run_shell_command".to_string(),
+                name: "shell".to_string(),
                 description: "Run a shell command".to_string(),
                 input_schema: json!({
                     "type": "object",
@@ -671,7 +671,7 @@ mod tests {
 
         assert_eq!(json["tool_choice"], "auto");
         assert_eq!(json["tools"][0]["type"], "function");
-        assert_eq!(json["tools"][0]["name"], "run_shell_command");
+        assert_eq!(json["tools"][0]["name"], "shell");
         // Responses API flat format — no nested "function" object.
         assert!(json["tools"][0].get("function").is_none());
     }
@@ -690,7 +690,7 @@ mod tests {
                     role: Role::Assistant,
                     content: vec![ContentBlock::ToolUse {
                         id: "call_1".to_string(),
-                        name: "run_shell_command".to_string(),
+                        name: "shell".to_string(),
                         input: json!({"command": "pwd"}),
                     }],
                 },
@@ -721,7 +721,7 @@ mod tests {
         assert_eq!(json["input"][0]["type"], "message");
         assert_eq!(json["input"][1]["type"], "function_call");
         assert_eq!(json["input"][1]["call_id"], "call_1");
-        assert_eq!(json["input"][1]["name"], "run_shell_command");
+        assert_eq!(json["input"][1]["name"], "shell");
         assert_eq!(json["input"][2]["type"], "function_call_output");
         assert_eq!(json["input"][2]["call_id"], "call_1");
         assert_eq!(json["input"][2]["output"], "/home/user");
@@ -736,7 +736,7 @@ mod tests {
                 {
                     "type": "function_call",
                     "call_id": "call_abc",
-                    "name": "run_shell_command",
+                    "name": "shell",
                     "arguments": "{\"command\":\"pwd\"}"
                 }
             ],
@@ -754,7 +754,7 @@ mod tests {
         match &parsed.content[0] {
             ContentBlock::ToolUse { id, name, input } => {
                 assert_eq!(id, "call_abc");
-                assert_eq!(name, "run_shell_command");
+                assert_eq!(name, "shell");
                 assert_eq!(input["command"], "pwd");
             }
             other => panic!("expected ToolUse, got {other:?}"),
@@ -774,7 +774,7 @@ mod tests {
                 {
                     "type": "function_call",
                     "call_id": "call_xyz",
-                    "name": "read_file",
+                    "name": "file_read",
                     "arguments": "{\"path\":\"src/main.rs\"}"
                 }
             ],
@@ -790,7 +790,7 @@ mod tests {
             matches!(&parsed.content[0], ContentBlock::Text { text } if text == "Let me check.")
         );
         assert!(
-            matches!(&parsed.content[1], ContentBlock::ToolUse { name, .. } if name == "read_file")
+            matches!(&parsed.content[1], ContentBlock::ToolUse { name, .. } if name == "file_read")
         );
     }
 
@@ -807,7 +807,7 @@ mod tests {
                 {
                     "type": "function_call",
                     "call_id": "call_xyz",
-                    "name": "read_file",
+                    "name": "file_read",
                     "arguments": "{\"path\":\"src/main.rs\"}"
                 }
             ],
@@ -825,7 +825,7 @@ mod tests {
         ));
         assert!(matches!(
             &parsed.content[1],
-            ContentBlock::ToolUse { name, .. } if name == "read_file"
+            ContentBlock::ToolUse { name, .. } if name == "file_read"
         ));
     }
 

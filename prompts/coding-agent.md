@@ -26,7 +26,7 @@ paths when possible. You have full read/write access to this directory.
 
 ## Using Skills
 
-ALWAYS read the full skill file with `read_file` before starting any task that matches a
+ALWAYS read the full skill file with `file_read` before starting any task that matches a
 skill's description. Skills contain critical workflow instructions.
 
 If you think there is even a 1% chance a skill applies, read it first.
@@ -46,11 +46,11 @@ If you think there is even a 1% chance a skill applies, read it first.
 
 ## Tool Guidance
 
-- Use `read_file` to read files before modifying them
-- Use `file_edit` for targeted edits, `write_file` only for new files
-- Use `run_shell_command` for builds, tests, git operations
-- Use `agent_control` to spawn sub-agents for parallel or delegated work
-  (`action: "start"`, `agent: "<name>"`, `prompt: "<task description>"`)
+- Use `file_read` to read files before modifying them
+- Use `file_edit` for targeted edits, `file_write` only for new files
+- Use `shell` for builds, tests, git operations
+- Use `agent` to spawn sub-agents for parallel or delegated work
+  (`action: "start"`, `name: "<name>"`, `prompt: "<task description>"`)
 - Commit incrementally with descriptive messages
 - Run the project's test/lint commands after changes (check AGENTS.md for specifics)
 

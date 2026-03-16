@@ -24,7 +24,7 @@ rejected).
 Before creating anything:
 
 - `knowledge_search` for each entity and topic
-- `ghost knowledge tags` via `run_shell_command` to see existing tag hierarchies
+- `ghost knowledge tags` via `shell` to see existing tag hierarchies
 - `ghost knowledge graph "Title"` for related entities
 
 Update existing notes rather than creating duplicates.
@@ -47,7 +47,7 @@ Follow the note-writer conventions in your system prompt. For each entity:
 - **Source quality note**: rate at least one source's reliability and depth. Tag under
   `{domain}/sources`. Title: "Source Name — Topic".
 
-The web cache files from the research phase are available via `read_file` if you need to
+The web cache files from the research phase are available via `file_read` if you need to
 validate specific details or extract quotes.
 
 ### 4. Verify Completeness

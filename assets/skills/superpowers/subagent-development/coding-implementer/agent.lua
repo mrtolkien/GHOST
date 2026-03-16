@@ -14,10 +14,10 @@ return {
     },
 
     tools = {
-        "read_file",
-        "write_file",
+        "file_read",
+        "file_write",
         "file_edit",
-        "run_shell_command",
+        "shell",
         "todo",
     },
 

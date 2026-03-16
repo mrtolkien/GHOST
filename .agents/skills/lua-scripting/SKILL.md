@@ -132,7 +132,7 @@ passed to `pre_turn(state)` and `on_end_turn(state)`:
     max_iterations = 30,    -- configured maximum
     remaining = 25,         -- max_iterations - iteration
     elapsed_seconds = 120,  -- wall clock since agent start
-    tool_counts = { web_search = 3, read_file = 7 },
+    tool_counts = { web_search = 3, file_read = 7 },
     last_input_tokens = 5000,
     context_window = 128000,
     todo_summary = { total = 5, completed = 2, incomplete = 3 },  -- or nil

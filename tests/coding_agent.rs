@@ -449,7 +449,7 @@ async fn cwd_override_affects_tool_execution() {
         response(
             vec![ContentBlock::ToolUse {
                 id: "call_1".to_string(),
-                name: "read_file".to_string(),
+                name: "file_read".to_string(),
                 input: json!({"path": "test.txt"}),
             }],
             StopReason::ToolUse,
@@ -460,7 +460,7 @@ async fn cwd_override_affects_tool_execution() {
 
     let chat = SessionChat::new(db.clone(), provider, ToolManager::for_chat(), config);
 
-    // working_dir points to workspace/repo — read_file("test.txt") resolves there
+    // working_dir points to workspace/repo — file_read("test.txt") resolves there
     let _ = chat
         .chat_coding(
             &session_id,

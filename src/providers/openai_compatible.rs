@@ -470,7 +470,7 @@ mod tests {
                     role: Role::Assistant,
                     content: vec![ContentBlock::ToolUse {
                         id: "call_1".to_string(),
-                        name: "run_shell_command".to_string(),
+                        name: "shell".to_string(),
                         input: json!({"command": "pwd"}),
                     }],
                 },
@@ -516,7 +516,7 @@ mod tests {
                         id: "call_1".to_string(),
                         r#type: "function".to_string(),
                         function: ToolCallFunction {
-                            name: "run_shell_command".to_string(),
+                            name: "shell".to_string(),
                             arguments: "{\"command\":\"pwd\"}".to_string(),
                         },
                     }]),

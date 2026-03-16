@@ -96,12 +96,12 @@ Use only when no git source exists:
 ## Files on Disk
 
 All imported references are written to disk under `references/{topic}/` in the workspace
-AND stored in the DB for search. This means you can `read_file` on paths returned by
+AND stored in the DB for search. This means you can `file_read` on paths returned by
 `knowledge_search` to get full reference content — no need to re-fetch from the web.
 
 - **Git imports**: files mirror the repo structure (`references/{topic}/{rel_path}`)
 - **Crawl imports**: filenames are URL slugs (`references/{topic}/{slug}.md`)
-- `knowledge_search` results for references include a `path:` field you can `read_file`
+- `knowledge_search` results for references include a `path:` field you can `file_read`
 
 ## Post-Import: Enrich the Topic Note
 

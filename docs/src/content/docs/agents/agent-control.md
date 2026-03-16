@@ -1,11 +1,11 @@
 ---
 title: Agent Control
-description: The agent_control tool — spawning and managing agents during conversation.
+description: The agent tool — spawning and managing agents during conversation.
 ---
 
-The `agent_control` tool lets your GHOST spawn and manage agents during conversation.
+The `agent` tool lets your GHOST spawn and manage agents during conversation.
 
-## `agent_control`
+## `agent`
 
 | Action     | Description                            |
 | ---------- | -------------------------------------- |

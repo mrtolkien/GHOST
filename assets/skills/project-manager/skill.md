@@ -50,7 +50,7 @@ $WORKSPACE/projects/{slug}/
 
 ## CLI Commands
 
-All project management is done via `ghost project` commands through `run_shell_command`.
+All project management is done via `ghost project` commands through `shell`.
 
 ### Project Commands
 

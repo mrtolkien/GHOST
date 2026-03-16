@@ -7,8 +7,8 @@ return {
     max_iterations = 20,
 
     tools = {
-        "read_file",
-        "run_shell_command",
+        "file_read",
+        "shell",
     },
 
     custom_tools = {

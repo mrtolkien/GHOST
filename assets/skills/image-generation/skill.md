@@ -11,7 +11,7 @@ Generate new images or edit existing ones using Google's Gemini 3.1 Flash Image 
 
 ## Usage
 
-Run the bundled script via `run_shell_command`. Images are saved to `$WORKSPACE/tmp/`.
+Run the bundled script via `shell`. Images are saved to `$WORKSPACE/tmp/`.
 
 **Generate new image:**
 

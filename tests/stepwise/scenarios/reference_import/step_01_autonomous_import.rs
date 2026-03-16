@@ -37,13 +37,13 @@ async fn reference_import_step_01_autonomous_import() {
     ));
     env.log_session_json("phase1_chat", &session).await;
 
-    // Phase 1 assertions: GHOST should have called run_shell_command with background=true
+    // Phase 1 assertions: GHOST should have called shell with background=true
     let tool_calls = env.collect_tool_calls(&session).await;
     env.log(format!("Phase 1 tool calls: {tool_calls:?}"));
 
     assert!(
-        tool_calls.iter().any(|name| name == "run_shell_command"),
-        "Phase 1: GHOST should have called run_shell_command to start the import, \
+        tool_calls.iter().any(|name| name == "shell"),
+        "Phase 1: GHOST should have called shell to start the import, \
          tool calls: {tool_calls:?}",
     );
 

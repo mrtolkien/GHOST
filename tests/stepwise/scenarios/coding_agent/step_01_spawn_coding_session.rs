@@ -11,7 +11,7 @@ use crate::stepwise::harness;
 /// - A `repo.md` reference exists pointing to it
 ///
 /// Assertions:
-/// - GHOST calls `run_shell_command` with `ghost hack start`
+/// - GHOST calls `shell` with `ghost hack start`
 /// - A coding session record exists in the DB
 /// - The coding session has status "active"
 #[tokio::test]
@@ -81,7 +81,7 @@ async fn coding_agent_step_01_spawn_coding_session() {
         "GHOST should respond with a non-empty message"
     );
 
-    // Verify GHOST called run_shell_command with ghost hack start
+    // Verify GHOST called shell with ghost hack start
     let messages = ghost::db::sessions::list_messages_by_session(&env.db, &session)
         .await
         .expect("list messages");
@@ -96,7 +96,7 @@ async fn coding_agent_step_01_spawn_coding_session() {
                         .and_then(|v| v.as_object())
                         .cloned()
                         .unwrap_or_default();
-                    name == "run_shell_command"
+                    name == "shell"
                         && input
                             .get("command")
                             .and_then(|v| v.as_str())
@@ -107,7 +107,7 @@ async fn coding_agent_step_01_spawn_coding_session() {
     });
     assert!(
         has_hack_start,
-        "GHOST should call `ghost hack start` via run_shell_command"
+        "GHOST should call `ghost hack start` via shell"
     );
 
     // Verify a coding session was created in the DB

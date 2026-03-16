@@ -37,12 +37,12 @@ Skills guide *what* to do. Tools provide *how* to do it.
 
 GHOST ships with tools for:
 
-- **File operations** — `read_file`, `write_file`, `file_edit`
-- **Shell access** — `run_shell_command`
+- **File operations** — `file_read`, `file_write`, `file_edit`
+- **Shell access** — `shell`
 - **Task tracking** — `todo`
 - **Web research** — `web_search`, `web_fetch` (see [Web Research](/web-research/overview/))
 - **Knowledge** — `knowledge_search`, `note_write` (see [Knowledge Tools](/knowledge/tools/))
-- **Agent control** — `agent_control` (see [Agent Control](/agents/agent-control/))
+- **Agent control** — `agent` (see [Agent Control](/agents/agent-control/))
 
 See [Core Tools](/skills-and-tools/core-tools/) for file, shell, and task tracking
 tool reference.

@@ -86,23 +86,23 @@ digraph process {
 
 ## Subagent Roles
 
-Three Lua agents, dispatched via `agent_control`:
+Three Lua agents, dispatched via `agent`:
 
 1. **Implementer** —
-   `agent_control(action: "start", agent: "coding-implementer", prompt: "<full task text + context>")`
+   `agent(action: "start", name: "coding-implementer", prompt: "<full task text + context>")`
    Implements a single task. Follows TDD, commits, self-reviews. May ask questions
    before starting.
 2. **Spec reviewer** —
-   `agent_control(action: "start", agent: "coding-spec-reviewer", prompt: "<spec text>")`
+   `agent(action: "start", name: "coding-spec-reviewer", prompt: "<spec text>")`
    Checks that the implementation matches the spec exactly. Reports missing requirements
    and anything extra that was not requested.
 3. **Code quality reviewer** —
-   `agent_control(action: "start", agent: "coding-quality-reviewer", prompt: "<scope>")`
+   `agent(action: "start", name: "coding-quality-reviewer", prompt: "<scope>")`
    Reviews code quality only (after spec compliance is confirmed). Checks style,
    structure, test coverage, naming, etc.
 
 After all tasks, dispatch the final reviewer:
-`agent_control(action: "start", agent: "coding-reviewer", prompt: "<overall scope>")`
+`agent(action: "start", name: "coding-reviewer", prompt: "<overall scope>")`
 
 ## Step-by-Step
 

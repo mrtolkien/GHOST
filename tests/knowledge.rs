@@ -7,9 +7,9 @@ use serde_json::json;
 
 fn reflection_tools() -> Vec<String> {
     vec![
-        "run_shell_command",
-        "read_file",
-        "write_file",
+        "shell",
+        "file_read",
+        "file_write",
         "file_edit",
         "todo",
         "knowledge_search",

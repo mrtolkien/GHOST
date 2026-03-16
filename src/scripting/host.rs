@@ -1238,7 +1238,7 @@ mod tests {
                 description = "Tests call_tool",
                 tools = {},
                 build = function(ctx, args)
-                    local content = ctx:call_tool("read_file", {
+                    local content = ctx:call_tool("file_read", {
                         path = ctx.workspace .. "/hello.txt",
                     })
                     return {
@@ -1292,8 +1292,8 @@ mod tests {
                 tools = {},
                 build = function(ctx, args)
                     local tool_msgs = ctx:call_tools({
-                        { "read_file", { path = ctx.workspace .. "/a.txt" } },
-                        { "read_file", { path = ctx.workspace .. "/b.txt" } },
+                        { "file_read", { path = ctx.workspace .. "/a.txt" } },
+                        { "file_read", { path = ctx.workspace .. "/b.txt" } },
                     })
                     -- tool_msgs is {assistant_msg, user_msg}
                     -- Append a final instruction
@@ -1336,8 +1336,8 @@ mod tests {
             .as_ref()
             .expect("should have tool_calls");
         assert_eq!(tool_calls.len(), 2);
-        assert_eq!(tool_calls[0]["name"], "read_file");
-        assert_eq!(tool_calls[1]["name"], "read_file");
+        assert_eq!(tool_calls[0]["name"], "file_read");
+        assert_eq!(tool_calls[1]["name"], "file_read");
 
         // Second message: user with tool_results
         assert_eq!(result.messages[1].role, "user");

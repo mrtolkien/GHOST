@@ -121,7 +121,7 @@ function ctx:curate_web_cache() end
 
 --- Execute a single tool and return its output text.
 --- Only available when AgentContext has tool support (build, on_resume, post_completion).
----@param name string  Tool name (e.g. "web_fetch", "read_file")
+---@param name string  Tool name (e.g. "web_fetch", "file_read")
 ---@param args table  Tool arguments as key-value pairs
 ---@return string result  The tool's output text
 ---@async

@@ -70,7 +70,7 @@ receives only curated, structured data from the research agent:
 3. **deep-research-reflection starts** — its `build()` receives the
    structured data in `args` and renders it into the system prompt
 4. **Model writes notes** — using `note_write`, `knowledge_search`, and
-   `run_shell_command` to create structured notes following the note-writer
+   `shell` to create structured notes following the note-writer
    skill
 5. **Post-processing** — web cache curation via the `post_completion` hook
 

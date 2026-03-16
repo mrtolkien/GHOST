@@ -480,8 +480,8 @@ async fn setup_agent(
     let provider = provider_for_alias(config, agent_config.model.as_deref())?;
 
     let mut tools = agent_config.tools.clone();
-    if !agent_config.skills.is_empty() && !tools.iter().any(|t| t == "read_file") {
-        tools.push("read_file".to_string());
+    if !agent_config.skills.is_empty() && !tools.iter().any(|t| t == "file_read") {
+        tools.push("file_read".to_string());
     }
     let mut tool_manager = ToolManager::for_agent(&tools);
     for custom_tool in build_custom_tools(&agent_config, &script_host) {

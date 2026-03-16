@@ -8,7 +8,7 @@ conversation), it currently needs a specific named agent. There's no general-pur
 
 ## Proposal
 
-Add a built-in default agent that `agent_control` uses when no `agent` parameter is
+Add a built-in default agent that `agent` uses when no `name` parameter is
 provided. It would:
 
 - Use the chat system prompt, reworded for autonomous execution

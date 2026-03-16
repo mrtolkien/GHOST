@@ -29,8 +29,8 @@ async fn printer_3d_step_01_spawn_agent() {
 
     let tool_calls = env.collect_tool_calls(&session).await;
     assert!(
-        tool_calls.iter().any(|t| t == "agent_control"),
-        "expected agent_control call in step 01, got: {tool_calls:?}"
+        tool_calls.iter().any(|t| t == "agent"),
+        "expected agent call in step 01, got: {tool_calls:?}"
     );
 
     let agent_ids = env.agent_runner.list_agent_ids().await;
