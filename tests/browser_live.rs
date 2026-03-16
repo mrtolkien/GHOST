@@ -318,6 +318,342 @@ async fn browser_tool_full_interaction() {
     eprintln!("all actions tested through Tool path");
 }
 
+// ---------------------------------------------------------------------------
+// Multi-tab tests
+// ---------------------------------------------------------------------------
+
+/// Test multi-tab workflow: open, list, focus, close.
+///
+/// Exercises BrowserManager's tab management directly (not through the tool).
+#[tokio::test]
+async fn multi_tab_open_focus_close() {
+    let configs = vec![ghost::config::BrowserConfig {
+        name: "headless".to_string(),
+        cdp_url: "ws://localhost:9222".to_string(),
+        discovered: false,
+    }];
+    let mut mgr = BrowserManager::new(configs);
+
+    // Navigate to a page (auto-creates browser connection + tab 1).
+    let (url1, _) = mgr
+        .navigate("https://example.com")
+        .await
+        .expect("navigate should succeed");
+    assert!(url1.contains("example.com"));
+    let tab1_id = mgr.active_tab_id().expect("should have active tab");
+    eprintln!("  tab 1 (id={tab1_id}) opened: {url1}");
+
+    // Open a second tab with a different URL.
+    let _snapshot = mgr
+        .open_tab(Some("https://httpbin.org/html"))
+        .await
+        .expect("open_tab should succeed");
+    let tab2_id = mgr.active_tab_id().expect("should have active tab");
+    assert_ne!(tab1_id, tab2_id, "second tab should get a new ID");
+    eprintln!("  tab 2 (id={tab2_id}) opened");
+
+    // List tabs — should have exactly 2.
+    let tabs = mgr.list_tabs().await.expect("list_tabs should succeed");
+    assert_eq!(tabs.len(), 2, "should have 2 tabs, got: {}", tabs.len());
+    eprintln!(
+        "  tabs: {:?}",
+        tabs.iter()
+            .map(|t| format!("tab {} @ {}", t.id, t.url))
+            .collect::<Vec<_>>()
+    );
+
+    // Tab 2 should be active (was just opened).
+    assert_eq!(mgr.active_tab_id(), Some(tab2_id));
+
+    // Focus back to tab 1 — should return a snapshot.
+    let snapshot = mgr
+        .focus_tab(tab1_id)
+        .await
+        .expect("focus_tab should succeed");
+    assert!(
+        snapshot.contains("Example Domain"),
+        "focusing tab 1 should show example.com content"
+    );
+    assert_eq!(mgr.active_tab_id(), Some(tab1_id));
+    eprintln!("  focused tab 1, verified content");
+
+    // Focus tab 2 — should show httpbin content.
+    let snapshot = mgr
+        .focus_tab(tab2_id)
+        .await
+        .expect("focus_tab should succeed");
+    assert!(
+        snapshot.contains("Herman Melville"),
+        "focusing tab 2 should show httpbin/html content"
+    );
+    eprintln!("  focused tab 2, verified content");
+
+    // Close tab 1.
+    let msg = mgr
+        .close_tab(tab1_id)
+        .await
+        .expect("close_tab should succeed");
+    assert!(msg.contains(&tab1_id.to_string()));
+    eprintln!("  closed tab 1");
+
+    // Should have 1 tab remaining, tab 2 still active.
+    let tabs = mgr.list_tabs().await.expect("list_tabs should succeed");
+    assert_eq!(tabs.len(), 1, "should have 1 tab after close");
+    assert_eq!(mgr.active_tab_id(), Some(tab2_id));
+    eprintln!("  verified 1 tab remaining");
+
+    // Close non-existent tab should error.
+    let result = mgr.close_tab(tab1_id).await;
+    assert!(result.is_err(), "closing already-closed tab should error");
+    eprintln!("  closing non-existent tab errors correctly");
+}
+
+/// Test multi-tab through the Tool interface (same path GHOST uses).
+#[tokio::test]
+async fn multi_tab_tool_actions() {
+    let (ctx, _ws) = browser_tool_ctx();
+
+    // Navigate to first page.
+    let result = browser_action(
+        &ctx,
+        json!({"action": "navigate", "url": "https://example.com"}),
+    )
+    .await;
+    assert!(result.contains("example.com"));
+    // Verify status line is present.
+    assert!(
+        result.contains("[browser:"),
+        "output should contain status line, got: {result}"
+    );
+    eprintln!("  navigate ok, status line present");
+
+    // Open a second tab.
+    let result = browser_action(
+        &ctx,
+        json!({"action": "open", "url": "https://httpbin.org/html"}),
+    )
+    .await;
+    assert!(
+        result.contains("EXTERNAL_UNTRUSTED_CONTENT"),
+        "open should return snapshot"
+    );
+    eprintln!("  opened tab 2");
+
+    // List tabs — should show 2.
+    let result = browser_action(&ctx, json!({"action": "tabs"})).await;
+    assert!(result.contains("Tab"), "tabs should list tabs");
+    assert!(
+        result.contains("[active]"),
+        "should mark active tab: {result}"
+    );
+    // Count "Tab " occurrences to verify 2 tabs.
+    let tab_count = result.matches("Tab ").count();
+    assert_eq!(tab_count, 2, "should list 2 tabs, got: {result}");
+    eprintln!("  tabs action shows 2 tabs");
+
+    // Focus back to tab 1.
+    let result = browser_action(&ctx, json!({"action": "focus", "tab": 1})).await;
+    assert!(
+        result.contains("Example Domain"),
+        "focusing tab 1 should show example.com"
+    );
+    eprintln!("  focused tab 1 via tool");
+
+    // Close tab 2.
+    let result = browser_action(&ctx, json!({"action": "close", "tab": 2})).await;
+    assert!(result.contains("ok"), "close should return ok");
+    eprintln!("  closed tab 2 via tool");
+
+    // Verify only 1 tab left.
+    let result = browser_action(&ctx, json!({"action": "tabs"})).await;
+    let tab_count = result.matches("Tab ").count();
+    assert_eq!(tab_count, 1, "should have 1 tab after close: {result}");
+    eprintln!("  verified 1 tab remaining");
+}
+
+/// Test that the 5-tab limit is enforced.
+#[tokio::test]
+async fn tab_limit_enforced() {
+    let configs = vec![ghost::config::BrowserConfig {
+        name: "headless".to_string(),
+        cdp_url: "ws://localhost:9222".to_string(),
+        discovered: false,
+    }];
+    let mut mgr = BrowserManager::new(configs);
+
+    // Navigate creates tab 1.
+    mgr.navigate("https://example.com")
+        .await
+        .expect("navigate should succeed");
+
+    // Open tabs 2-5.
+    for i in 2..=5 {
+        mgr.open_tab(None)
+            .await
+            .unwrap_or_else(|e| panic!("open tab {i} should succeed: {e}"));
+    }
+
+    let tabs = mgr.list_tabs().await.unwrap();
+    assert_eq!(tabs.len(), 5, "should have 5 tabs");
+    eprintln!("  opened 5 tabs");
+
+    // Tab 6 should fail with TabLimitReached.
+    let result = mgr.open_tab(None).await;
+    assert!(result.is_err(), "6th tab should be rejected");
+    let err = result.unwrap_err().to_string();
+    assert!(
+        err.contains("tab limit"),
+        "error should mention tab limit, got: {err}"
+    );
+    eprintln!("  6th tab correctly rejected: {err}");
+}
+
+// ---------------------------------------------------------------------------
+// Multi-browser tests (requires 2 Chrome instances)
+// ---------------------------------------------------------------------------
+
+/// Test multi-browser management: connect, switch, disconnect.
+///
+/// Requires two Chrome instances:
+///   - ws://localhost:9222 (primary)
+///   - ws://localhost:9223 (secondary)
+///
+/// Start both with:
+///   docker compose up -d chrome chrome2
+///
+/// Only runs with `live-tests-multi-browser` feature.
+#[cfg(feature = "live-tests-multi-browser")]
+#[tokio::test]
+async fn multi_browser_connect_and_switch() {
+    let mut mgr = BrowserManager::new(vec![]);
+
+    // Connect first browser.
+    let info1 = mgr
+        .connect_browser("primary", "ws://localhost:9222")
+        .await
+        .expect("connect primary should succeed");
+    assert!(info1.connected, "primary should be connected");
+    assert_eq!(
+        mgr.active_browser_name(),
+        Some("primary"),
+        "primary should be active"
+    );
+    eprintln!("  connected primary: {:?}", info1);
+
+    // Navigate on primary.
+    mgr.navigate("https://example.com")
+        .await
+        .expect("navigate on primary should succeed");
+    let url = mgr.current_url().await.unwrap_or_default();
+    assert!(url.contains("example.com"));
+    eprintln!("  navigated primary to example.com");
+
+    // Connect second browser — becomes active.
+    let info2 = mgr
+        .connect_browser("secondary", "ws://localhost:9223")
+        .await
+        .expect("connect secondary should succeed");
+    assert!(info2.connected, "secondary should be connected");
+    assert_eq!(
+        mgr.active_browser_name(),
+        Some("secondary"),
+        "secondary should now be active"
+    );
+    eprintln!("  connected secondary: {:?}", info2);
+
+    // Navigate on secondary.
+    mgr.navigate("https://httpbin.org/html")
+        .await
+        .expect("navigate on secondary should succeed");
+    let url = mgr.current_url().await.unwrap_or_default();
+    assert!(url.contains("httpbin.org"));
+    eprintln!("  navigated secondary to httpbin.org");
+
+    // List browsers — should show both.
+    let browsers = mgr.list_browsers();
+    assert_eq!(
+        browsers.len(),
+        2,
+        "should have 2 browsers, got: {}",
+        browsers.len()
+    );
+    assert!(
+        browsers.iter().all(|b| b.connected),
+        "both should be connected"
+    );
+    eprintln!("  listed 2 browsers, both connected");
+
+    // Disconnect primary.
+    mgr.disconnect_browser("primary")
+        .await
+        .expect("disconnect primary should succeed");
+    let browsers = mgr.list_browsers();
+    let primary = browsers.iter().find(|b| b.name == "primary").unwrap();
+    assert!(!primary.connected, "primary should be disconnected");
+    eprintln!("  disconnected primary");
+
+    // Secondary still works.
+    let snapshot = mgr
+        .snapshot(0)
+        .await
+        .expect("snapshot on secondary should work");
+    assert!(
+        snapshot.contains("Herman Melville"),
+        "secondary should still serve content"
+    );
+    eprintln!("  secondary still works after primary disconnect");
+}
+
+/// Test the browsers/connect/disconnect tool actions.
+///
+/// Requires two Chrome instances (see multi_browser_connect_and_switch).
+#[cfg(feature = "live-tests-multi-browser")]
+#[tokio::test]
+async fn multi_browser_tool_actions() {
+    let (ctx, _ws) = browser_tool_ctx();
+
+    // Connect to a second browser via tool action.
+    let result = browser_action(
+        &ctx,
+        json!({
+            "action": "connect",
+            "name": "secondary",
+            "cdp_url": "ws://localhost:9223"
+        }),
+    )
+    .await;
+    let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
+    assert_eq!(parsed["ok"], true);
+    assert_eq!(parsed["name"], "secondary");
+    assert_eq!(parsed["connected"], true);
+    eprintln!("  connected secondary via tool");
+
+    // List browsers — should show the preconfigured headless + secondary.
+    let result = browser_action(&ctx, json!({"action": "browsers"})).await;
+    assert!(
+        result.contains("headless") || result.contains("secondary"),
+        "should list browsers: {result}"
+    );
+    eprintln!("  browsers action ok: {result}");
+
+    // Navigate on secondary.
+    let result = browser_action(
+        &ctx,
+        json!({"action": "navigate", "url": "https://httpbin.org/html"}),
+    )
+    .await;
+    assert!(result.contains("httpbin.org"));
+    eprintln!("  navigate on secondary ok");
+
+    // Disconnect secondary.
+    let result = browser_action(&ctx, json!({"action": "disconnect", "name": "secondary"})).await;
+    assert!(
+        result.contains("ok") || result.contains("Disconnected"),
+        "disconnect should succeed: {result}"
+    );
+    eprintln!("  disconnected secondary via tool");
+}
+
 /// Test the upload action against a page with a file input.
 ///
 /// Uses the-internet.herokuapp.com/upload which has a simple
