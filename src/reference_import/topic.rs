@@ -8,6 +8,43 @@ use crate::knowledge;
 
 use super::types::{ImportConfigJson, ImportError};
 
+/// Read an `ImportConfigJson` from the `_import.toml` file on disk for the
+/// given topic. Extra fields (version_ref, ref_count) are silently ignored.
+pub fn read_import_toml(
+    workspace: &Path,
+    topic_name: &str,
+) -> Result<ImportConfigJson, ImportError> {
+    let path = workspace
+        .join("references")
+        .join(topic_name)
+        .join("_import.toml");
+    let content = std::fs::read_to_string(&path).map_err(|e| {
+        ImportError::Config(format!("no _import.toml for topic '{topic_name}': {e}"))
+    })?;
+    toml::from_str(&content).map_err(|e| {
+        ImportError::Config(format!(
+            "invalid _import.toml for topic '{topic_name}': {e}"
+        ))
+    })
+}
+
+/// Load an `ImportConfigJson` from the DB's `import_batch.import_config`
+/// column. Returns `None` if no batch exists or if `import_config` is null.
+pub async fn load_import_config_from_db(
+    db: &GhostDb,
+    topic_id: &str,
+) -> Result<Option<ImportConfigJson>, ImportError> {
+    let batch = db::knowledge::get_import_batch_by_topic(db, topic_id).await?;
+    match batch.and_then(|b| b.import_config) {
+        Some(json) => {
+            let config: ImportConfigJson = serde_json::from_str(&json)
+                .map_err(|e| ImportError::Config(format!("invalid import_config JSON: {e}")))?;
+            Ok(Some(config))
+        }
+        None => Ok(None),
+    }
+}
+
 /// Ensure that a topic hierarchy exists in the DB. For "dioxus/docs",
 /// ensures both "dioxus" and "dioxus/docs" exist as topic rows.
 /// Returns the leaf topic ID.

@@ -53,6 +53,9 @@ pub enum ImportError {
 
     #[error("I/O error: {0}")]
     Io(#[from] std::io::Error),
+
+    #[error("config error: {0}")]
+    Config(String),
 }
 
 /// Serializable snapshot of an `ImportConfig` for storage in DB and TOML.
@@ -70,6 +73,35 @@ pub struct ImportConfigJson {
     pub max_depth: Option<usize>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_pages: Option<usize>,
+}
+
+impl ImportConfigJson {
+    /// Reconstruct an `ImportConfig` from the serialized snapshot.
+    /// Only source types that support update (git, crawl) are accepted.
+    pub fn to_import_config(&self, topic: &str) -> Result<ImportConfig, ImportError> {
+        let source = match self.source_type.as_str() {
+            "git" => ImportSource::Git {
+                url: self.source_url.clone(),
+                paths: self.paths.clone(),
+                extensions: self.extensions.clone(),
+                git_ref: self.git_ref.clone(),
+            },
+            "crawl" => ImportSource::Crawl {
+                url: self.source_url.clone(),
+                max_depth: self.max_depth.unwrap_or(3),
+                max_pages: self.max_pages.unwrap_or(50),
+            },
+            other => {
+                return Err(ImportError::Config(format!(
+                    "unsupported source_type for update: {other}"
+                )));
+            }
+        };
+        Ok(ImportConfig {
+            source,
+            topic: topic.to_string(),
+        })
+    }
 }
 
 impl From<&ImportConfig> for ImportConfigJson {
