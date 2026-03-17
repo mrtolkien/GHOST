@@ -7,7 +7,7 @@ use crate::db;
 use crate::db::GhostDb;
 use crate::knowledge::parse_note;
 
-use super::slug_from_url;
+use super::url_match::{extract_frontmatter_info, slug_from_url, topic_from_url, urls_match};
 
 /// A web cache file classified by whether it was cited in agent findings.
 #[derive(Debug, Clone)]
@@ -138,32 +138,6 @@ pub fn classify_web_cache(
             }
         })
         .collect()
-}
-
-/// Extract URL and whether it's a search result from frontmatter.
-/// Returns (url_or_empty, is_search).
-fn extract_frontmatter_info(content: &str) -> (String, bool) {
-    let mut in_frontmatter = false;
-    let mut url = String::new();
-    let mut is_search = false;
-    for line in content.lines() {
-        let trimmed = line.trim();
-        if trimmed == "---" {
-            if in_frontmatter {
-                break;
-            }
-            in_frontmatter = true;
-            continue;
-        }
-        if in_frontmatter {
-            if let Some(u) = trimmed.strip_prefix("url: ") {
-                url = u.to_string();
-            } else if trimmed.starts_with("query: ") {
-                is_search = true;
-            }
-        }
-    }
-    (url, is_search)
 }
 
 /// Format classified cache files as structured XML for agent prompts.
@@ -533,13 +507,6 @@ fn collect_urls_recursive(dir: &Path, urls: &mut Vec<NoteUrl>) {
     }
 }
 
-/// Check if two URLs refer to the same page by comparing their slugs.
-fn urls_match(a: &str, b: &str) -> bool {
-    let slug_a = slug_from_url(a);
-    let slug_b = slug_from_url(b);
-    slug_a == slug_b || slug_a.starts_with(&slug_b) || slug_b.starts_with(&slug_a)
-}
-
 /// Move a cache file to the references directory.
 fn move_to_references(
     workspace: &Path,
@@ -596,22 +563,6 @@ fn find_reference_on_disk(workspace: &Path, domain: &str, filename: &str) -> Opt
         return Some(format!("{domain}/{filename}"));
     }
     None
-}
-
-/// Extract a topic directory name from a URL's domain.
-///
-/// E.g. `https://www.tomshardware.com/reviews/...` → `tomshardware-com`
-fn topic_from_url(url: &str) -> String {
-    let stripped = url
-        .trim_start_matches("https://")
-        .trim_start_matches("http://")
-        .trim_start_matches("www.");
-
-    // Take just the domain part (up to first '/')
-    let domain = stripped.split('/').next().unwrap_or(stripped);
-
-    // Replace dots with hyphens for directory name
-    domain.replace('.', "-")
 }
 
 #[cfg(test)]
@@ -822,7 +773,7 @@ mod tests {
 
         std::fs::write(
             notes_dir.join("tokio.md"),
-            "---\ntitle: Tokio\ntags:\n  - rust/async\nsources:\n  - https://docs.rs/tokio\n---\nAn async runtime.\n",
+            "---\ntitle: Tokio\narchetype: entity\nwritten_at: '2026-01-01T00:00:00Z'\ntags:\n  - rust/async\nsources:\n  - https://docs.rs/tokio\n---\nAn async runtime.\n",
         )
         .unwrap();
 
@@ -852,7 +803,7 @@ mod tests {
 
         std::fs::write(
             notes_dir.join("test.md"),
-            "---\ntitle: Test\nsources:\n  - https://example.com/src1\n  - https://other.com/src2\n---\nBody text with no URLs.\n",
+            "---\ntitle: Test\narchetype: entity\nwritten_at: '2026-01-01T00:00:00Z'\nsources:\n  - https://example.com/src1\n  - https://other.com/src2\n---\nBody text with no URLs.\n",
         )
         .unwrap();
 
@@ -865,18 +816,5 @@ mod tests {
             urls.iter().any(|u| u.url.contains("other.com/src2")),
             "should find second frontmatter source URL: {urls:?}"
         );
-    }
-
-    #[test]
-    fn topic_from_url_extracts_domain() {
-        assert_eq!(
-            topic_from_url("https://www.tomshardware.com/reviews/test"),
-            "tomshardware-com"
-        );
-        assert_eq!(
-            topic_from_url("https://all3dp.com/best-printers"),
-            "all3dp-com"
-        );
-        assert_eq!(topic_from_url("http://example.org/page"), "example-org");
     }
 }

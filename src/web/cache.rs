@@ -2,6 +2,7 @@ use std::path::{Path, PathBuf};
 
 use chrono::Utc;
 
+use super::url_match::{sanitize_slug, slug_from_url};
 use super::{ExtractedContent, SearchResult, WebError};
 
 const CACHE_BASE_DIR: &str = ".cache";
@@ -195,51 +196,8 @@ fn extract_frontmatter_label(path: &Path) -> String {
     "unknown".to_string()
 }
 
-pub fn slug_from_url(url: &str) -> String {
-    let stripped = url
-        .trim_start_matches("https://")
-        .trim_start_matches("http://")
-        .trim_start_matches("www.");
-    sanitize_slug(stripped)
-}
-
 fn slug_from_query(query: &str) -> String {
     sanitize_slug(query)
-}
-
-fn sanitize_slug(input: &str) -> String {
-    let slug: String = input
-        .chars()
-        .map(|c| if c.is_alphanumeric() { c } else { '-' })
-        .collect::<String>()
-        .to_lowercase();
-
-    // Collapse consecutive dashes and trim
-    let mut result = String::with_capacity(slug.len());
-    let mut prev_dash = false;
-    for c in slug.chars() {
-        if c == '-' {
-            if !prev_dash && !result.is_empty() {
-                result.push('-');
-            }
-            prev_dash = true;
-        } else {
-            result.push(c);
-            prev_dash = false;
-        }
-    }
-
-    let trimmed = result.trim_end_matches('-');
-    if trimmed.len() > 60 {
-        // Find a char boundary at or before byte 60
-        let mut end = 60;
-        while !trimmed.is_char_boundary(end) {
-            end -= 1;
-        }
-        trimmed[..end].trim_end_matches('-').to_string()
-    } else {
-        trimmed.to_string()
-    }
 }
 
 #[cfg(test)]
@@ -319,34 +277,10 @@ mod tests {
     }
 
     #[test]
-    fn slug_from_url_strips_scheme_and_www() {
-        assert_eq!(
-            slug_from_url("https://www.example.com/page"),
-            "example-com-page"
-        );
-        assert_eq!(slug_from_url("http://docs.rs/tokio"), "docs-rs-tokio");
-    }
-
-    #[test]
-    fn slug_truncates_at_60_chars() {
-        let long_url = format!("https://example.com/{}", "a".repeat(100));
-        let slug = slug_from_url(&long_url);
-        assert!(slug.len() <= 60);
-    }
-
-    #[test]
-    fn slug_truncates_multibyte_without_panic() {
+    fn slug_from_query_multibyte_without_panic() {
         let slug = slug_from_query("井の頭公園-花見-場所取り-何時-レジャーシート-サイズ-大人数");
         assert!(slug.len() <= 63); // may be up to 62 (last full char before 60)
         assert!(slug.is_char_boundary(slug.len()));
-    }
-
-    #[test]
-    fn slug_handles_special_characters() {
-        let slug = slug_from_url("https://example.com/path?q=hello&x=1");
-        assert!(!slug.contains('?'));
-        assert!(!slug.contains('&'));
-        assert!(!slug.contains('='));
     }
 
     #[test]
