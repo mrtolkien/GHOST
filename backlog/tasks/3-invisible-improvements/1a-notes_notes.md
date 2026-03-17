@@ -15,14 +15,16 @@ This is crucial:
 
 Other remark: the GHOST creates notes a bit too often atm:
 
-- Creates them only from web searches, without fetches -> a bit iffy, but maybe ok?
+- Creates them sometimes from web searches, without fetches
 - Creates very low-impact ones like ennemies in Slay the Spire 2, developers names, ...
 - Creates them to _reinforce its own conclusions without evidence_ (cf "assets" naming)
 
 We should make it clear that notes are there for knowledge _that was not part of the
 model_, which means it 99% of the time comes from web searches and fetches.
 
-I'll attach my current GHOST workspace so you can look at it
+---
+
+Need "written_at" and/or "updated_at" fields to track age of notes
 
 ---
 
@@ -49,3 +51,17 @@ From my understanding:
 ---
 
 Goes hand in hand with archetypes backlog, it's about solidifying the knowledge system
+
+---
+
+# Important data
+
+The GHOST has been running for a week on my homelab and took many notes, I will join the
+workspace. If you don't have it, ask me!
+
+The goal is to look at all notes and:
+
+- See if them are low quality/pointless
+- _Understand_ why they were created
+- Propose better reflection prompts and/or changes to the system to improve notes
+  quality
