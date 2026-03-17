@@ -311,6 +311,9 @@ async fn process_note_change(
         }
     };
 
+    // Extract archetype from parsed frontmatter for DB storage
+    let archetype_str = parsed.front.archetype.to_string();
+
     // Look up the note in DB by title
     let note_id = match crate::db::knowledge::find_note_by_title(db, &parsed.front.title).await {
         Ok(Some(n)) => {
@@ -322,7 +325,7 @@ async fn process_note_change(
                 &parsed.front.tags,
                 &parsed.front.sources,
                 parsed.front.trust,
-                None,
+                Some(archetype_str.as_str()),
                 topic_id.as_deref(),
                 Some(&rel_path),
                 file_hash,
@@ -345,7 +348,7 @@ async fn process_note_change(
                 &parsed.front.tags,
                 &parsed.front.sources,
                 parsed.front.trust,
-                None,
+                Some(archetype_str.as_str()),
                 topic_id.as_deref(),
                 Some(&rel_path),
                 file_hash,
