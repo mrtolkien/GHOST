@@ -11,6 +11,15 @@ pub enum ReferenceCommand {
         #[command(subcommand)]
         command: ReferenceImportCommand,
     },
+    /// Update references for a topic from its original source
+    Update {
+        /// Topic name (e.g. "dioxus/docs")
+        #[arg(long)]
+        topic: String,
+        /// Override git ref (branch or tag) for this update
+        #[arg(long = "ref")]
+        git_ref: Option<String>,
+    },
     /// Delete a topic and all its references
     Delete {
         #[arg(long)]
@@ -102,6 +111,18 @@ pub async fn execute(command: ReferenceCommand) -> Result<(), GhostError> {
                 Ok(())
             }
         },
+        ReferenceCommand::Update { topic, git_ref } => {
+            println!("Updating references for topic: {topic}");
+            let result = crate::reference_import::update_references(
+                &db,
+                workspace,
+                &topic,
+                git_ref.as_deref(),
+            )
+            .await?;
+            print_update_result(&topic, &result);
+            Ok(())
+        }
         ReferenceCommand::Delete { topic } => cmd_delete(&db, workspace, &topic).await,
     }
 }
@@ -124,6 +145,21 @@ fn print_result(topic: &str, source: &str, result: crate::reference_import::Impo
              Edit it with a real description of what this library/topic is about —\n  \
              semantic search relies on this to discover the topic."
         );
+    }
+}
+
+fn print_update_result(_topic: &str, result: &crate::reference_import::UpdateResult) {
+    if let (Some(old), Some(new)) = (&result.old_version_ref, &result.new_version_ref)
+        && old != new
+    {
+        println!("Version: {old} → {new}");
+    }
+    println!(
+        "Done. Created: {}, Updated: {}, Deleted: {}, Orphaned: {}, Unchanged: {}",
+        result.created, result.updated, result.deleted, result.orphaned, result.unchanged
+    );
+    if result.created + result.updated > 0 {
+        println!("Embeddings are being re-computed in the background by the file watcher.");
     }
 }
 
