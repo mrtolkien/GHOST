@@ -8,6 +8,7 @@ use crate::db;
 use crate::knowledge::reconcile::reconcile_edges;
 use crate::knowledge::{self, Archetype, NoteFrontMatter, extract_wiki_links};
 use crate::providers::ToolDefinition;
+use crate::web::url_match::{extract_frontmatter_info, urls_match};
 
 use super::context::ToolContext;
 use super::error::ToolError;
@@ -165,6 +166,92 @@ impl Tool for NoteWrite {
 }
 
 impl NoteWrite {
+    /// Check if source URLs are backed by fetched web cache or existing references.
+    ///
+    /// For each `https://` URL in sources:
+    /// - Check `.cache/{session_id}/*.md` files for matching url: frontmatter
+    /// - Check references DB via `find_reference_by_url`
+    ///
+    /// Returns (verified_urls, warnings) where warnings list URLs found only
+    /// in old refs.
+    async fn verify_source_urls(
+        workspace: &std::path::Path,
+        session_id: &str,
+        db: &crate::db::GhostDb,
+        sources: &[String],
+    ) -> Result<Vec<String>, ToolError> {
+        let https_urls: Vec<&str> = sources
+            .iter()
+            .map(|s| s.as_str())
+            .filter(|s| s.starts_with("https://"))
+            .collect();
+
+        if https_urls.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        // Read all cache files for this session once
+        let cache_dir = workspace.join(format!(".cache/{session_id}"));
+        let mut cache_urls: Vec<String> = Vec::new();
+        if cache_dir.is_dir() {
+            let entries = std::fs::read_dir(&cache_dir)
+                .map_err(|e| {
+                    ToolError::ExecutionFailed(format!(
+                        "failed to read cache dir: {e}"
+                    ))
+                })?;
+            for entry in entries {
+                let entry = entry.map_err(|e| {
+                    ToolError::ExecutionFailed(format!(
+                        "failed to read cache entry: {e}"
+                    ))
+                })?;
+                let path = entry.path();
+                if path.extension().is_some_and(|ext| ext == "md")
+                    && let Ok(content) = std::fs::read_to_string(&path)
+                {
+                    let (url, _is_search) =
+                        extract_frontmatter_info(&content);
+                    if !url.is_empty() {
+                        cache_urls.push(url);
+                    }
+                }
+            }
+        }
+
+        let mut warnings = Vec::new();
+        for url in &https_urls {
+            let in_cache = cache_urls
+                .iter()
+                .any(|cached| urls_match(cached, url));
+            if in_cache {
+                continue;
+            }
+            // Not in cache — check references DB
+            let in_refs =
+                db::knowledge::find_reference_by_url(db, url)
+                    .await
+                    .map_err(|e| {
+                        ToolError::ExecutionFailed(e.to_string())
+                    })?;
+            if in_refs.is_some() {
+                warnings.push(format!(
+                    "Source URL {url} found in old references but \
+                     not in current session cache — the page was \
+                     not freshly fetched this session."
+                ));
+            } else {
+                return Err(ToolError::ExecutionFailed(format!(
+                    "Source URL {url} not found in web cache or \
+                     references. Fetch the page with web_fetch \
+                     before citing it."
+                )));
+            }
+        }
+
+        Ok(warnings)
+    }
+
     /// Strip `[[references/...]]` wiki links that point to non-existent files.
     ///
     /// Regular wiki links (e.g. `[[Bambu Lab]]`) are fine — those create stubs.
@@ -232,6 +319,14 @@ impl NoteWrite {
         archetype: Archetype,
         parent: Option<&str>,
     ) -> Result<String, ToolError> {
+        let source_warnings = Self::verify_source_urls(
+            &ctx.workspace,
+            &ctx.session_id,
+            &ctx.db,
+            sources,
+        )
+        .await?;
+
         let (sanitized_body, ref_warning) =
             Self::sanitize_reference_links(&ctx.workspace, body);
 
@@ -360,6 +455,9 @@ impl NoteWrite {
             }
             _ => {}
         }
+        for warning in &source_warnings {
+            msg.push_str(&format!("\n\nWARNING: {warning}"));
+        }
         Ok(msg)
     }
 
@@ -377,6 +475,14 @@ impl NoteWrite {
         archetype: Archetype,
         parent: Option<&str>,
     ) -> Result<String, ToolError> {
+        let source_warnings = Self::verify_source_urls(
+            &ctx.workspace,
+            &ctx.session_id,
+            &ctx.db,
+            sources,
+        )
+        .await?;
+
         let (sanitized_body, ref_warning) =
             Self::sanitize_reference_links(&ctx.workspace, body);
 
@@ -530,6 +636,9 @@ impl NoteWrite {
                 }
             }
             _ => {}
+        }
+        for warning in &source_warnings {
+            msg.push_str(&format!("\n\nWARNING: {warning}"));
         }
         Ok(msg)
     }
