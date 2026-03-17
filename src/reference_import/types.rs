@@ -40,6 +40,17 @@ pub struct ImportResult {
     pub references_skipped: usize,
 }
 
+#[derive(Debug)]
+pub struct UpdateResult {
+    pub created: usize,
+    pub updated: usize,
+    pub deleted: usize,
+    pub orphaned: usize,
+    pub unchanged: usize,
+    pub old_version_ref: Option<String>,
+    pub new_version_ref: Option<String>,
+}
+
 #[derive(Debug, Error)]
 pub enum ImportError {
     #[error("git operation failed: {0}")]
