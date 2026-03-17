@@ -22,6 +22,7 @@ async fn import_and_query_git_references() {
             url: "https://github.com/DioxusLabs/docsite".to_string(),
             paths: vec!["docs-src/0.7/src/tutorial/".to_string()],
             extensions: vec![".md".to_string()],
+            git_ref: None,
         },
         topic: "dioxus/docs".to_string(),
     };

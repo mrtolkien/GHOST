@@ -30,6 +30,9 @@ pub enum ReferenceImportCommand {
         paths: Vec<String>,
         #[arg(long, value_delimiter = ',')]
         extensions: Vec<String>,
+        /// Pin import to a specific branch or tag
+        #[arg(long = "ref")]
+        git_ref: Option<String>,
     },
     /// Import by crawling a website
     Crawl {
@@ -59,12 +62,14 @@ pub async fn execute(command: ReferenceCommand) -> Result<(), GhostError> {
                 topic,
                 paths,
                 extensions,
+                git_ref,
             } => {
                 let import_config = ImportConfig {
                     source: ImportSource::Git {
                         url: url.clone(),
                         paths,
                         extensions,
+                        git_ref,
                     },
                     topic: topic.clone(),
                 };

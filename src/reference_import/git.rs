@@ -23,6 +23,7 @@ pub async fn import_git(
         url,
         paths,
         extensions,
+        git_ref,
     } = &config.source
     else {
         return Err(ImportError::Git("expected git source".into()));
@@ -32,15 +33,21 @@ pub async fn import_git(
     let repo_dir = tmp_dir.path().join("repo");
 
     // Phase 1: shallow blobless clone
+    let mut clone_args = vec![
+        "clone",
+        "--no-checkout",
+        "--depth",
+        "1",
+        "--filter=blob:none",
+    ];
+    if let Some(r) = git_ref {
+        clone_args.push("--branch");
+        clone_args.push(r);
+    }
+    clone_args.push(url);
+
     let status = Command::new("git")
-        .args([
-            "clone",
-            "--no-checkout",
-            "--depth",
-            "1",
-            "--filter=blob:none",
-            url,
-        ])
+        .args(&clone_args)
         .arg(&repo_dir)
         .output()
         .await

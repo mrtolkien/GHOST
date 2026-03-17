@@ -12,6 +12,7 @@ pub enum ImportSource {
         url: String,
         paths: Vec<String>,
         extensions: Vec<String>,
+        git_ref: Option<String>,
     },
     Page {
         url: String,
