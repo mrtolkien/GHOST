@@ -196,6 +196,61 @@ mod tests {
     }
 
     #[test]
+    fn parse_full_frontmatter_roundtrip() {
+        let raw = concat!(
+            "---\n",
+            "title: Test Product\n",
+            "archetype: entity\n",
+            "tags:\n",
+            "  - hardware/gpu\n",
+            "parent: Nvidia\n",
+            "sources:\n",
+            "  - https://example.com/review\n",
+            "trust: 7\n",
+            "written_at: '2026-03-17T10:00:00Z'\n",
+            "updated_at: '2026-03-17T12:00:00Z'\n",
+            "---\n",
+            "A great product. [[made_by>Nvidia]]\n",
+        );
+
+        let parsed = parse_note(raw).unwrap();
+        assert_eq!(
+            parsed.front.archetype,
+            super::super::types::Archetype::Entity
+        );
+        assert_eq!(parsed.front.parent.as_deref(), Some("Nvidia"));
+        assert_eq!(parsed.front.written_at, "2026-03-17T10:00:00Z");
+        assert_eq!(
+            parsed.front.updated_at.as_deref(),
+            Some("2026-03-17T12:00:00Z")
+        );
+
+        let serialized =
+            serialize_note(&parsed.front, &parsed.body).unwrap();
+        let reparsed = parse_note(&serialized).unwrap();
+        assert_eq!(reparsed.front, parsed.front);
+    }
+
+    #[test]
+    fn parse_analysis_archetype() {
+        let raw = "---\ntitle: Comparison\narchetype: analysis\n\
+            written_at: '2026-01-01T00:00:00Z'\n---\nBody.\n";
+        let parsed = parse_note(raw).unwrap();
+        assert_eq!(
+            parsed.front.archetype,
+            super::super::types::Archetype::Analysis
+        );
+        assert_eq!(parsed.front.trust, 5); // serde default, not archetype default
+    }
+
+    #[test]
+    fn missing_archetype_fails() {
+        let raw = "---\ntitle: Old Note\ntrust: 5\n\
+            written_at: '2026-01-01T00:00:00Z'\n---\nBody.\n";
+        assert!(parse_note(raw).is_err());
+    }
+
+    #[test]
     fn sources_omitted_when_empty() {
         let front = NoteFrontMatter {
             title: "No Sources".to_string(),
