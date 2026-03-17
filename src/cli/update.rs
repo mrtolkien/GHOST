@@ -78,11 +78,18 @@ pub async fn execute(from_source: bool, version: Option<String>) -> Result<(), G
 
     println!("updated: {new_version}");
 
-    // Regenerate service file so it points to the current binary path
-    let config = crate::config::load()?;
-    crate::cli::init::install_service_file(&config, true)?;
-
+    // Delegate post-update steps to the NEW binary. The old binary
+    // running right now may not understand config changes introduced by
+    // the new version (e.g. new provider variants), so we exec the new
+    // binary for service file regeneration and daemon reboot.
     println!("rebooting daemon...");
-    crate::cli::reboot::execute()?;
+    let status = std::process::Command::new("ghost")
+        .arg("reboot")
+        .status()
+        .map_err(|e| std::io::Error::new(e.kind(), format!("failed to reboot daemon: {e}")))?;
+    if !status.success() {
+        eprintln!("warning: daemon reboot returned non-zero");
+    }
+
     Ok(())
 }
