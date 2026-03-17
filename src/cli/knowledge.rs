@@ -116,7 +116,7 @@ async fn cmd_search(
     let mut bm25_hits = Vec::new();
 
     if kind.is_none() || kind == Some("note") {
-        bm25_hits.extend(db::knowledge::search_notes(db, query, limit).await?);
+        bm25_hits.extend(db::knowledge::search_notes(db, query, limit, None).await?);
     }
     if kind.is_none() || kind == Some("reference") {
         if resolved_topic_ids.is_empty() {

@@ -24,6 +24,7 @@ pub async fn search_notes(
     db: &SqlitePool,
     query: &str,
     limit: usize,
+    archetype: Option<&str>,
 ) -> Result<Vec<SearchHit>, DatabaseError> {
     #[derive(sqlx::FromRow)]
     struct NoteSearchRow {
@@ -35,20 +36,38 @@ pub async fn search_notes(
 
     let fts_query = sanitize_fts_query(query);
 
-    let rows = sqlx::query_as::<_, NoteSearchRow>(
-        "SELECT n.id, n.title, \
-         snippet(note_fts, 1, '', '', '...', 80) AS body, \
-         -bm25(note_fts, 2.0, 1.0) AS score \
-         FROM note_fts \
-         JOIN note n ON n.rowid = note_fts.rowid \
-         WHERE note_fts MATCH ? \
-         ORDER BY score DESC \
-         LIMIT ?",
-    )
-    .bind(&fts_query)
-    .bind(limit as i64)
-    .fetch_all(db)
-    .await
+    let rows = if let Some(arch) = archetype {
+        sqlx::query_as::<_, NoteSearchRow>(
+            "SELECT n.id, n.title, \
+             snippet(note_fts, 1, '', '', '...', 80) AS body, \
+             -bm25(note_fts, 2.0, 1.0) AS score \
+             FROM note_fts \
+             JOIN note n ON n.rowid = note_fts.rowid \
+             WHERE note_fts MATCH ? AND n.archetype = ? \
+             ORDER BY score DESC \
+             LIMIT ?",
+        )
+        .bind(&fts_query)
+        .bind(arch)
+        .bind(limit as i64)
+        .fetch_all(db)
+        .await
+    } else {
+        sqlx::query_as::<_, NoteSearchRow>(
+            "SELECT n.id, n.title, \
+             snippet(note_fts, 1, '', '', '...', 80) AS body, \
+             -bm25(note_fts, 2.0, 1.0) AS score \
+             FROM note_fts \
+             JOIN note n ON n.rowid = note_fts.rowid \
+             WHERE note_fts MATCH ? \
+             ORDER BY score DESC \
+             LIMIT ?",
+        )
+        .bind(&fts_query)
+        .bind(limit as i64)
+        .fetch_all(db)
+        .await
+    }
     .map_err(|source| DatabaseError::Query {
         table: "note",
         operation: "search",

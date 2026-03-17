@@ -55,6 +55,11 @@ impl Tool for KnowledgeSearch {
                     "limit": {
                         "type": "integer",
                         "description": "Max results per category (default: 10)."
+                    },
+                    "archetype": {
+                        "type": "string",
+                        "enum": ["entity", "analysis", "source", "profile", "topic"],
+                        "description": "Filter results to notes of a specific archetype."
                     }
                 },
                 "required": ["query"]
@@ -74,6 +79,7 @@ impl Tool for KnowledgeSearch {
             .unwrap_or(DEFAULT_LIMIT);
 
         let topic = params.get("topic").and_then(Value::as_str);
+        let archetype = params.get("archetype").and_then(Value::as_str);
 
         let categories: Vec<String> = params
             .get("categories")
@@ -110,7 +116,7 @@ impl Tool for KnowledgeSearch {
 
         if search_notes_flag {
             bm25_hits.extend(
-                search_notes(&ctx.db, query, limit)
+                search_notes(&ctx.db, query, limit, archetype)
                     .await
                     .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?,
             );

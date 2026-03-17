@@ -274,7 +274,7 @@ async fn bm25_search_returns_results() {
     .await
     .expect("create note 2");
 
-    let hits = db::knowledge::search_notes(&db, "rust programming", 10)
+    let hits = db::knowledge::search_notes(&db, "rust programming", 10, None)
         .await
         .expect("search");
     assert!(!hits.is_empty(), "should find at least one result");
