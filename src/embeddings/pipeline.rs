@@ -383,6 +383,9 @@ fn walk_directory_inner(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>
     for entry in entries.flatten() {
         let path = entry.path();
         if path.is_dir() {
+            if path.file_name().is_some_and(|n| n == ".archive") {
+                continue;
+            }
             walk_directory_inner(&path, out);
         } else if path.is_file() {
             out.push(path);

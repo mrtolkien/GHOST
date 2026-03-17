@@ -59,6 +59,9 @@ pub(super) fn collect_md_files_recursive(
         })?;
         let path = entry.path();
         if path.is_dir() {
+            if path.file_name().is_some_and(|n| n == ".archive") {
+                continue;
+            }
             collect_md_files_recursive(&path, results)?;
         } else if path.extension().and_then(|e| e.to_str()) == Some("md") {
             results.push(path);
