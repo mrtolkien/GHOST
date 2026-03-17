@@ -69,7 +69,7 @@ impl Tool for NoteWrite {
                         "description": "Title of parent note for hierarchy (e.g. 'Nvidia' for 'RTX 4090')."
                     }
                 },
-                "required": ["action", "title", "body", "archetype"],
+                "required": ["action", "title"],
                 "additionalProperties": false
             }),
         }
@@ -87,10 +87,24 @@ impl Tool for NoteWrite {
             .get("title")
             .and_then(Value::as_str)
             .ok_or_else(|| ToolError::InvalidParams("missing required parameter 'title'".into()))?;
+
+        // Archive only needs title
+        if action == "archive" {
+            return self.archive_note(ctx, title).await.map(ToolOutput::text);
+        }
+
+        // Create and update need body, archetype, and the rest
         let body = params
             .get("body")
             .and_then(Value::as_str)
-            .ok_or_else(|| ToolError::InvalidParams("missing required parameter 'body'".into()))?;
+            .ok_or_else(|| ToolError::InvalidParams("missing 'body' for create/update".into()))?;
+        let archetype = params
+            .get("archetype")
+            .and_then(Value::as_str)
+            .ok_or_else(|| {
+                ToolError::InvalidParams("missing 'archetype' for create/update".into())
+            })?;
+        let archetype = Archetype::from_str(archetype).map_err(ToolError::InvalidParams)?;
         let tags: Vec<String> = params
             .get("tags")
             .and_then(Value::as_array)
@@ -111,18 +125,6 @@ impl Tool for NoteWrite {
                     .collect()
             })
             .unwrap_or_default();
-        // Archive action only needs title — skip archetype/parent/trust parsing
-        if action == "archive" {
-            return self.archive_note(ctx, title).await.map(ToolOutput::text);
-        }
-
-        let archetype = params
-            .get("archetype")
-            .and_then(Value::as_str)
-            .ok_or_else(|| {
-                ToolError::InvalidParams("missing required parameter 'archetype'".into())
-            })?;
-        let archetype = Archetype::from_str(archetype).map_err(ToolError::InvalidParams)?;
         let parent = params
             .get("parent")
             .and_then(Value::as_str)
