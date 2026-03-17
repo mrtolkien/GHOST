@@ -1,6 +1,7 @@
 ---
 title: Providers
-description: LLM backends supported by GHOST — OpenRouter, Kimi Code, and OpenAI OAuth.
+description:
+  LLM backends supported by GHOST — OpenRouter, Kimi Code, OpenAI OAuth, and Anthropic.
 ---
 
 A provider is an LLM backend. GHOST supports multiple providers and lets you define
@@ -8,11 +9,12 @@ named model aliases.
 
 ## Available Providers
 
-| Provider             | ID             | Auth                         |
-| -------------------- | -------------- | ---------------------------- |
-| OpenRouter           | `openrouter`   | `OPENROUTER_API_KEY` env var |
-| Kimi Code            | `kimi_code`    | `KIMI_API_KEY` env var       |
-| OpenAI OAuth (Codex) | `openai_oauth` | `ghost auth codex`           |
+| Provider             | ID             | Auth                                      |
+| -------------------- | -------------- | ----------------------------------------- |
+| OpenRouter           | `openrouter`   | `OPENROUTER_API_KEY` env var              |
+| Kimi Code            | `kimi_code`    | `KIMI_API_KEY` env var                    |
+| OpenAI OAuth (Codex) | `openai_oauth` | `ghost auth codex`                        |
+| Anthropic (OAuth)    | `anthropic`    | Claude Code credentials (see setup below) |
 
 ## Model Aliases
 
@@ -33,17 +35,15 @@ model = "kimi-k2.5"
 context_window = 250000
 ```
 
-:::note
-`default` specifies which alias to use when none is specified. Each alias
-needs `provider`, `model`, and `context_window`. You can optionally add
-`headers` for extra HTTP headers.
-:::
+:::note `default` specifies which alias to use when none is specified. Each alias needs
+`provider`, `model`, and `context_window`. You can optionally add `headers` for extra
+HTTP headers. :::
 
 ## OpenRouter Provider Routing
 
-OpenRouter routes requests across multiple upstream providers. Use
-`provider_routing` to control which providers receive your requests — for
-example, to restrict to providers that support prompt caching:
+OpenRouter routes requests across multiple upstream providers. Use `provider_routing` to
+control which providers receive your requests — for example, to restrict to providers
+that support prompt caching:
 
 ```toml title="~/.config/ghost/config.toml"
 [models.primary]
@@ -55,13 +55,13 @@ provider_routing = { only = ["anthropic", "openai", "google", "deepseek"] }
 
 Available fields:
 
-| Field                | Type       | Description                                       |
-| -------------------- | ---------- | ------------------------------------------------- |
-| `only`               | `string[]` | Whitelist: only route to these providers           |
-| `ignore`             | `string[]` | Blacklist: never route to these providers          |
-| `order`              | `string[]` | Preferred provider order (first = highest priority)|
-| `allow_fallbacks`    | `bool`     | Fall back when preferred providers fail            |
-| `require_parameters` | `bool`     | Only use providers supporting all request params   |
+| Field                | Type       | Description                                         |
+| -------------------- | ---------- | --------------------------------------------------- |
+| `only`               | `string[]` | Whitelist: only route to these providers            |
+| `ignore`             | `string[]` | Blacklist: never route to these providers           |
+| `order`              | `string[]` | Preferred provider order (first = highest priority) |
+| `allow_fallbacks`    | `bool`     | Fall back when preferred providers fail             |
+| `require_parameters` | `bool`     | Only use providers supporting all request params    |
 
 This maps directly to the OpenRouter
 [provider preferences](https://openrouter.ai/docs/guides/routing/provider-selection)
@@ -74,6 +74,64 @@ Different features can use different models:
 - **Chat sessions** use the default model
 - **Jobs** specify their own model alias in frontmatter
 - **Agents** can override the model in their definition
+
+## Anthropic Provider Setup
+
+The Anthropic provider talks directly to the Anthropic Messages API using Claude Code's
+OAuth credentials. This gives GHOST access to Claude Opus, Sonnet, and other Claude
+models through your existing Claude Code subscription — no separate API key needed.
+
+Be aware this is very much against Anthropic's ToS and they could decide to enforce
+their rules and ban your account. There are no customer protection rules where they live
+so they might think banning users for using the service they paid for is acceptable, and
+they would be in their rights!
+
+### 1. Install and authenticate Claude Code
+
+Run Claude Code and authenticate:
+
+```bash
+# Civilized one-time run
+nix run nixpkgs#claude-code --impure
+
+# Barbaric global install
+npm install -g @anthropic-ai/claude-code
+claude
+```
+
+This creates `~/.claude/.credentials.json` with your OAuth tokens.
+
+### 2. Add a model alias
+
+```toml title="~/.config/ghost/config.toml"
+[models.claude]
+provider = "anthropic"
+model = "claude-sonnet-4-6"
+context_window = 1000000
+```
+
+Available models include `claude-sonnet-4-6`, `claude-opus-4-6`, and
+`claude-haiku-4-5-20251001`. See
+[Anthropic's model docs](https://docs.anthropic.com/en/docs/about-claude/models) for the
+full list.
+
+### 3. Optional: enable extended thinking
+
+```toml title="~/.config/ghost/config.toml"
+[models.claude-thinking]
+provider = "anthropic"
+model = "claude-opus-4-6"
+context_window = 1000000
+reasoning_effort = "high"
+```
+
+Sonnet 4.6 and Opus 4.6 use adaptive thinking (the model decides how much to think).
+Older models use budget-based thinking.
+
+:::note Token refresh is automatic. GHOST reads `~/.claude/.credentials.json`, refreshes
+expired tokens, and writes updated credentials back with file locking to avoid races
+with Claude Code. You can also set the `ANTHROPIC_OAUTH_TOKEN` env var to use a token
+directly (no refresh). :::
 
 ## OpenAI OAuth Setup
 
