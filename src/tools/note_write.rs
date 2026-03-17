@@ -34,8 +34,8 @@ impl Tool for NoteWrite {
                 "properties": {
                     "action": {
                         "type": "string",
-                        "enum": ["create", "update"],
-                        "description": "Whether to create a new note or update an existing one"
+                        "enum": ["create", "update", "archive"],
+                        "description": "Whether to create a new note, update an existing one, or archive it"
                     },
                     "title": {
                         "type": "string",
@@ -111,6 +111,11 @@ impl Tool for NoteWrite {
                     .collect()
             })
             .unwrap_or_default();
+        // Archive action only needs title — skip archetype/parent/trust parsing
+        if action == "archive" {
+            return self.archive_note(ctx, title).await.map(ToolOutput::text);
+        }
+
         let archetype = params
             .get("archetype")
             .and_then(Value::as_str)
@@ -158,7 +163,7 @@ impl Tool for NoteWrite {
                 .await
             }
             _ => Err(ToolError::InvalidParams(format!(
-                "unknown action '{action}', expected 'create' or 'update'"
+                "unknown action '{action}', expected 'create', 'update', or 'archive'"
             ))),
         }
         .map(ToolOutput::text)
@@ -641,5 +646,54 @@ impl NoteWrite {
             msg.push_str(&format!("\n\nWARNING: {warning}"));
         }
         Ok(msg)
+    }
+
+    /// Archive a note: move its file to `.archive/`, delete embeddings, and
+    /// remove the DB record (CASCADE deletes edges).
+    async fn archive_note(
+        &self,
+        ctx: &ToolContext,
+        title: &str,
+    ) -> Result<String, ToolError> {
+        let existing = db::knowledge::find_note_by_title(&ctx.db, title)
+            .await
+            .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?
+            .ok_or_else(|| {
+                ToolError::ExecutionFailed(format!("note '{title}' not found"))
+            })?;
+
+        // Move file to .archive/
+        if let Some(rel_path) = &existing.path {
+            let src = ctx.workspace.join(rel_path);
+            let archive_path =
+                rel_path.replacen("notes/", "notes/.archive/", 1);
+            let dest = ctx.workspace.join(&archive_path);
+            if src.exists() {
+                if let Some(parent) = dest.parent() {
+                    std::fs::create_dir_all(parent).map_err(|e| {
+                        ToolError::ExecutionFailed(e.to_string())
+                    })?;
+                }
+                std::fs::rename(&src, &dest).map_err(|e| {
+                    ToolError::ExecutionFailed(e.to_string())
+                })?;
+            }
+        }
+
+        // Delete embeddings (no FK CASCADE)
+        let _ = crate::db::embeddings::delete_embeddings_for_source(
+            &ctx.db,
+            &existing.id,
+        )
+        .await;
+
+        // Delete note record (CASCADE deletes relates_to + cited edges)
+        db::knowledge::delete_note(&ctx.db, &existing.id)
+            .await
+            .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
+
+        Ok(format!(
+            "Archived note '{title}'. File moved to .archive/, DB record removed."
+        ))
     }
 }
