@@ -12,8 +12,7 @@ use super::tool_names::{normalize_tool_call_id, to_claude_code_name};
 use crate::providers::ProviderError;
 use crate::providers::types::*;
 
-const CLAUDE_CODE_PREAMBLE: &str = "You are Claude Code, an interactive \
-    CLI-based coding assistant made by Anthropic.\n\n";
+const CLAUDE_CODE_PREAMBLE: &str = "You are Claude Code, Anthropic's official CLI for Claude.";
 
 const DEFAULT_MAX_TOKENS: u32 = 8096;
 
@@ -45,17 +44,20 @@ pub(crate) fn build_request_body(
         "stream": true,
     });
 
-    // --- System prompt ---
-    let system_text = format!(
-        "{}{}",
-        CLAUDE_CODE_PREAMBLE,
-        request.system.as_deref().unwrap_or("")
-    );
-    body["system"] = json!([{
+    // --- System prompt (two separate blocks per pi-mono) ---
+    let mut system_blocks = vec![json!({
         "type": "text",
-        "text": system_text,
+        "text": CLAUDE_CODE_PREAMBLE,
         "cache_control": { "type": "ephemeral" }
-    }]);
+    })];
+    if let Some(ref system) = request.system {
+        system_blocks.push(json!({
+            "type": "text",
+            "text": system,
+            "cache_control": { "type": "ephemeral" }
+        }));
+    }
+    body["system"] = Value::Array(system_blocks);
 
     // --- Tool definitions ---
     if let Some(tools) = &request.tools {
@@ -392,11 +394,13 @@ mod tests {
         }]);
         let body = build_request_body(&req, &[]).unwrap();
         let system = body["system"].as_array().unwrap();
-        assert_eq!(system.len(), 1);
-        let text = system[0]["text"].as_str().unwrap();
-        assert!(text.starts_with("You are Claude Code"));
-        assert!(text.contains("You are helpful."));
+        assert_eq!(system.len(), 2);
+        let preamble = system[0]["text"].as_str().unwrap();
+        assert!(preamble.starts_with("You are Claude Code"));
         assert_eq!(system[0]["cache_control"]["type"], "ephemeral");
+        let user_system = system[1]["text"].as_str().unwrap();
+        assert_eq!(user_system, "You are helpful.");
+        assert_eq!(system[1]["cache_control"]["type"], "ephemeral");
     }
 
     #[test]

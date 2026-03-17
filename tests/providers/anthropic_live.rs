@@ -21,7 +21,7 @@ async fn anthropic_simple_chat() {
 
     let response = provider
         .chat(ChatRequest {
-            model: "claude-sonnet-4-6-20250514".into(),
+            model: "claude-sonnet-4-6".into(),
             messages: vec![user_message("Say 'hello' and nothing else.")],
             tools: None,
             max_tokens: Some(100),
@@ -68,7 +68,7 @@ async fn anthropic_tool_use() {
 
     let response = provider
         .chat(ChatRequest {
-            model: "claude-sonnet-4-6-20250514".into(),
+            model: "claude-sonnet-4-6".into(),
             messages: vec![user_message(
                 "What's the weather in Paris? Use the get_weather tool.",
             )],
@@ -125,7 +125,7 @@ async fn anthropic_multi_turn_with_history() {
     // Turn 1
     let response1 = provider
         .chat(ChatRequest {
-            model: "claude-sonnet-4-6-20250514".into(),
+            model: "claude-sonnet-4-6".into(),
             messages: vec![user_message("What is 2 + 2? Reply in one word.")],
             tools: None,
             max_tokens: Some(100),
@@ -150,7 +150,7 @@ async fn anthropic_multi_turn_with_history() {
     // Turn 2 — echo back full content as history
     let response2 = provider
         .chat(ChatRequest {
-            model: "claude-sonnet-4-6-20250514".into(),
+            model: "claude-sonnet-4-6".into(),
             messages: vec![
                 user_message("What is 2 + 2? Reply in one word."),
                 ChatMessage {

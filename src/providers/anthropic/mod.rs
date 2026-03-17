@@ -51,13 +51,17 @@ impl AnthropicProvider {
 
         let mut static_headers = HeaderMap::new();
         static_headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
-        static_headers.insert(ACCEPT, HeaderValue::from_static("text/event-stream"));
+        static_headers.insert(ACCEPT, HeaderValue::from_static("application/json"));
         static_headers.insert(
             "anthropic-version",
             HeaderValue::from_static(ANTHROPIC_VERSION),
         );
+        static_headers.insert(
+            "anthropic-dangerous-direct-browser-access",
+            HeaderValue::from_static("true"),
+        );
         static_headers.insert("user-agent", HeaderValue::from_static(USER_AGENT));
-        static_headers.insert("x-app", HeaderValue::from_static("ghost"));
+        static_headers.insert("x-app", HeaderValue::from_static("cli"));
 
         for (name, value) in extra_headers {
             if let (Ok(header_name), Ok(header_value)) = (
@@ -216,6 +220,12 @@ impl AnthropicProvider {
         }
         if !status.is_success() {
             self.circuit_breaker.record_failure(&request.model);
+            logfire::warn!(
+                "anthropic provider non-success response",
+                provider = "anthropic",
+                status = status.as_u16(),
+                raw_response = response_body.clone()
+            );
             return Err(ProviderError::InvalidResponse(format!(
                 "http status {status}: {}",
                 extract_error_message(&response_body)
