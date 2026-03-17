@@ -7,7 +7,8 @@ tokens. This gives Ghost access to the full Claude model lineup (Opus, Sonnet, H
 using the user's existing Claude Code subscription — no separate API key needed.
 
 This is NOT the Claude Code CLI as a subprocess. It's a direct integration with the
-Anthropic Messages API, using the same OAuth credentials that Claude Code stores locally.
+Anthropic Messages API, using the same OAuth credentials that Claude Code stores
+locally.
 
 ## Prior Art: pi-mono
 
@@ -60,8 +61,8 @@ Mirror pi-mono exactly:
 4. Compute `expiresAt = now + expires_in * 1000 - 5min` (5-minute safety buffer, per
    pi-mono)
 5. Write new credentials back to `~/.claude/.credentials.json`
-6. Use a file lock (`fd-lock` or `fs2`) to avoid races with Claude Code or other
-   Ghost processes
+6. Use a file lock (`fd-lock` or `fs2`) to avoid races with Claude Code or other Ghost
+   processes
 7. 30-second timeout on the refresh HTTP request
 
 If the env var is used (no refresh token available), skip refresh and fail with a clear
@@ -146,26 +147,29 @@ Tool names that don't match any canonical name are passed through unchanged.
 
 ### Tool Call ID Normalization
 
-Per pi-mono: strip non-`[a-zA-Z0-9_-]` characters (replace with `_`) and truncate to
-64 chars. Handles cross-provider ID format differences (e.g., Codex Responses API
-generates 450+ char IDs with `|` characters).
+Per pi-mono: strip non-`[a-zA-Z0-9_-]` characters (replace with `_`) and truncate to 64
+chars. Handles cross-provider ID format differences (e.g., Codex Responses API generates
+450+ char IDs with `|` characters).
 
 ### Streaming (SSE)
 
-Event flow: `message_start` → (`content_block_start` → `content_block_delta`* →
-`content_block_stop`)* → `message_delta` → `message_stop`
+Event flow: `message_start` → (`content_block_start` → `content_block_delta`_ →
+`content_block_stop`)_ → `message_delta` → `message_stop`
 
 **Delta types:**
+
 - `text_delta` → accumulate into `ContentBlock::Text`
 - `input_json_delta` → accumulate partial JSON for tool input
 - `thinking_delta` → accumulate into thinking block
 - `signature_delta` → accumulate signature for thinking block
 
 **Terminal events:**
+
 - `message_delta` carries `stop_reason` and final `usage`
 - `message_stop` signals end of stream
 
 **Usage handling:**
+
 - Capture `input_tokens` from `message_start` immediately (available even if stream
   aborts)
 - Update usage from `message_delta` only for non-null fields (preserves `input_tokens`
@@ -180,19 +184,19 @@ signature, set content to `"[Reasoning redacted]"`.
 
 ### Response Mapping
 
-| Anthropic | Ghost |
-|---|---|
-| `text` block | `ContentBlock::Text` |
-| `tool_use` block | `ContentBlock::ToolUse` (reverse tool name translation) |
-| `thinking` block | `ContentBlock::RawOutput` (preserve as-is for echo-back) |
-| `redacted_thinking` block | `ContentBlock::RawOutput` (preserve `data` field) |
-| `stop_reason: "end_turn"` | `StopReason::EndTurn` |
-| `stop_reason: "tool_use"` | `StopReason::ToolUse` |
-| `stop_reason: "max_tokens"` | `StopReason::MaxTokens` |
-| `stop_reason: "pause_turn"` | `StopReason::ToolUse` (triggers continuation turn) |
-| `stop_reason: "stop_sequence"` | `StopReason::EndTurn` |
-| `stop_reason: "sensitive"` | `ProviderError::InvalidResponse` (safety filter) |
-| `stop_reason: "refusal"` | `ProviderError::InvalidResponse` (refusal) |
+| Anthropic                      | Ghost                                                    |
+| ------------------------------ | -------------------------------------------------------- |
+| `text` block                   | `ContentBlock::Text`                                     |
+| `tool_use` block               | `ContentBlock::ToolUse` (reverse tool name translation)  |
+| `thinking` block               | `ContentBlock::RawOutput` (preserve as-is for echo-back) |
+| `redacted_thinking` block      | `ContentBlock::RawOutput` (preserve `data` field)        |
+| `stop_reason: "end_turn"`      | `StopReason::EndTurn`                                    |
+| `stop_reason: "tool_use"`      | `StopReason::ToolUse`                                    |
+| `stop_reason: "max_tokens"`    | `StopReason::MaxTokens`                                  |
+| `stop_reason: "pause_turn"`    | `StopReason::ToolUse` (triggers continuation turn)       |
+| `stop_reason: "stop_sequence"` | `StopReason::EndTurn`                                    |
+| `stop_reason: "sensitive"`     | `ProviderError::InvalidResponse` (safety filter)         |
+| `stop_reason: "refusal"`       | `ProviderError::InvalidResponse` (refusal)               |
 
 Unknown stop reasons → `ProviderError` (don't silently default).
 
@@ -217,10 +221,12 @@ Anthropic native format — no nested `function` wrapper:
 ### Thinking / Reasoning
 
 **Adaptive (Opus 4.6 / Sonnet 4.6):**
+
 - `thinking: {type: "adaptive"}`
 - `output_config: {effort: "low"/"medium"/"high"/"max"}` (max only for Opus 4.6)
 
 **Budget-based (older models):**
+
 - `thinking: {type: "enabled", budget_tokens: N}`
 - Budget by effort level (per pi-mono): minimal=1024, low=2048, medium=8192, high=16384
 - When using budget-based thinking, increase `max_tokens` by the thinking budget
@@ -234,6 +240,7 @@ requests (same pattern as Codex reasoning items).
 ### Images
 
 Base64-encoded in Anthropic format:
+
 ```json
 {
   "type": "image",
@@ -280,6 +287,7 @@ message with multiple `tool_result` content blocks.
 
 If an assistant message has `tool_use` blocks but the following messages don't include
 matching `tool_result` blocks, insert synthetic error results:
+
 ```json
 {
   "type": "tool_result",
@@ -293,6 +301,7 @@ matching `tool_result` blocks, insert synthetic error results:
 
 When conversation history contains thinking/redacted_thinking blocks from a different
 model:
+
 - **Redacted thinking blocks**: drop entirely (only valid for same model)
 - **Thinking blocks with signature but no text**: drop
 - **Non-empty thinking blocks**: convert to plain `text` blocks (strip signature)
@@ -305,8 +314,8 @@ them entirely from the conversation before sending.
 ## Shared Code
 
 After review, the Codex and Anthropic SSE parsers handle entirely different event types
-and accumulation patterns. The only common code is trivial line splitting (~5 lines).
-No shared `streaming.rs` — each provider keeps its own parser.
+and accumulation patterns. The only common code is trivial line splitting (~5 lines). No
+shared `streaming.rs` — each provider keeps its own parser.
 
 ## Config
 

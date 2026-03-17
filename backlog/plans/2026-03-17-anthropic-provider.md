@@ -9,8 +9,8 @@ credentials, mirroring pi-mono's implementation.
 
 **Architecture:** Standalone provider module at `src/providers/anthropic/` with
 submodules for credentials (read/refresh/lock), message conversion (Ghost → Anthropic
-format), SSE streaming, and tool name translation. Integrates with existing
-`Provider` trait, circuit breaker, and debug infrastructure.
+format), SSE streaming, and tool name translation. Integrates with existing `Provider`
+trait, circuit breaker, and debug infrastructure.
 
 **Tech Stack:** reqwest (existing), serde/serde_json (existing), fs2 (new — file
 locking), chrono (existing — timestamp math)
@@ -31,6 +31,7 @@ src/providers/anthropic/
 ```
 
 Also modified:
+
 - `src/providers/mod.rs` — declare `pub mod anthropic`
 - `src/providers/types.rs` — add `"anthropic"` arm to `provider_for_alias()`
 - `Cargo.toml` — add `fs2` dependency
@@ -45,6 +46,7 @@ keeps its own parser.
 ### Task 1: Add `fs2` dependency and module skeleton
 
 **Files:**
+
 - Modify: `Cargo.toml`
 - Create: `src/providers/anthropic/mod.rs`
 - Create: `src/providers/anthropic/credentials.rs`
@@ -64,6 +66,7 @@ Add after the `futures` line.
 - [ ] **Step 2: Create empty module files**
 
 `src/providers/anthropic/mod.rs`:
+
 ```rust
 mod credentials;
 mod messages;
@@ -72,21 +75,25 @@ mod tool_names;
 ```
 
 `src/providers/anthropic/credentials.rs`:
+
 ```rust
 // Anthropic OAuth credential reading and token refresh.
 ```
 
 `src/providers/anthropic/messages.rs`:
+
 ```rust
 // Ghost ChatRequest → Anthropic Messages API request format.
 ```
 
 `src/providers/anthropic/streaming.rs`:
+
 ```rust
 // Anthropic Messages API SSE stream parsing.
 ```
 
 `src/providers/anthropic/tool_names.rs`:
+
 ```rust
 // Claude Code canonical tool name translation.
 ```
@@ -101,8 +108,7 @@ pub mod anthropic;
 
 - [ ] **Step 4: Verify it compiles**
 
-Run: `cargo check`
-Expected: compiles with no errors (empty modules are fine)
+Run: `cargo check` Expected: compiles with no errors (empty modules are fine)
 
 - [ ] **Step 5: Commit**
 
@@ -118,6 +124,7 @@ git commit -m "chore: scaffold anthropic provider module and add fs2 dependency"
 No dependencies on other new modules — can be built and tested in isolation.
 
 **Files:**
+
 - Create: `src/providers/anthropic/tool_names.rs`
 
 - [ ] **Step 1: Write tests**
@@ -168,8 +175,8 @@ mod tests {
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `cargo test --lib providers::anthropic::tool_names -- --nocapture`
-Expected: compilation errors (functions not defined)
+Run: `cargo test --lib providers::anthropic::tool_names -- --nocapture` Expected:
+compilation errors (functions not defined)
 
 - [ ] **Step 3: Implement**
 
@@ -246,8 +253,8 @@ pub(crate) fn normalize_tool_call_id(id: &str) -> String {
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `cargo test --lib providers::anthropic::tool_names -- --nocapture`
-Expected: all pass
+Run: `cargo test --lib providers::anthropic::tool_names -- --nocapture` Expected: all
+pass
 
 - [ ] **Step 5: Commit**
 
@@ -261,6 +268,7 @@ git commit -m "feat: add Claude Code tool name translation for Anthropic provide
 ### Task 3: Credential reading and token refresh (`credentials.rs`)
 
 **Files:**
+
 - Create: `src/providers/anthropic/credentials.rs`
 
 - [ ] **Step 1: Write tests for credential parsing**
@@ -324,8 +332,8 @@ mod tests {
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `cargo test --lib providers::anthropic::credentials -- --nocapture`
-Expected: compilation errors
+Run: `cargo test --lib providers::anthropic::credentials -- --nocapture` Expected:
+compilation errors
 
 - [ ] **Step 3: Implement credential types and reading**
 
@@ -543,8 +551,8 @@ fn write_credentials(path: &Path, creds: &OAuthCredentials) -> Result<(), Provid
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `cargo test --lib providers::anthropic::credentials -- --nocapture`
-Expected: all pass
+Run: `cargo test --lib providers::anthropic::credentials -- --nocapture` Expected: all
+pass
 
 - [ ] **Step 5: Commit**
 
@@ -563,6 +571,7 @@ control, thinking config, surrogate sanitization, orphaned tool calls, consecuti
 result batching, and cross-model thinking block handling.
 
 **Files:**
+
 - Create: `src/providers/anthropic/messages.rs`
 
 - [ ] **Step 1: Write tests for message conversion**
@@ -835,16 +844,17 @@ mod tests {
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `cargo test --lib providers::anthropic::messages -- --nocapture`
-Expected: compilation errors
+Run: `cargo test --lib providers::anthropic::messages -- --nocapture` Expected:
+compilation errors
 
 - [ ] **Step 3: Implement `build_request_body`**
 
-This is the core function. It takes a `ChatRequest` and a list of Ghost tool names
-(for reverse translation) and returns a `serde_json::Value` representing the Anthropic
+This is the core function. It takes a `ChatRequest` and a list of Ghost tool names (for
+reverse translation) and returns a `serde_json::Value` representing the Anthropic
 Messages API request body.
 
 Key behaviors:
+
 - Prepend Claude Code preamble to system prompt
 - System prompt as array with `cache_control: {type: "ephemeral"}`
 - Convert messages: user/assistant roles, content blocks
@@ -882,8 +892,7 @@ filter to strip code points in U+D800..U+DFFF.
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `cargo test --lib providers::anthropic::messages -- --nocapture`
-Expected: all pass
+Run: `cargo test --lib providers::anthropic::messages -- --nocapture` Expected: all pass
 
 - [ ] **Step 5: Commit**
 
@@ -899,6 +908,7 @@ git commit -m "feat: anthropic message conversion (Ghost → Anthropic Messages 
 Parses the Anthropic Messages API SSE stream into a `ChatResponse`.
 
 **Files:**
+
 - Create: `src/providers/anthropic/streaming.rs`
 
 - [ ] **Step 1: Write tests**
@@ -1149,8 +1159,8 @@ mod tests {
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `cargo test --lib providers::anthropic::streaming -- --nocapture`
-Expected: compilation errors
+Run: `cargo test --lib providers::anthropic::streaming -- --nocapture` Expected:
+compilation errors
 
 - [ ] **Step 3: Implement SSE parser**
 
@@ -1165,6 +1175,7 @@ pub(crate) fn parse_sse_response(
 ```
 
 Implementation approach:
+
 - Track in-progress content blocks by index (Vec or HashMap)
 - Each block tracks: type (text/tool_use/thinking/redacted_thinking), accumulated text,
   accumulated json (for tool input), thinking text, signature, tool id, tool name
@@ -1174,7 +1185,8 @@ Implementation approach:
 - On `content_block_stop`: finalize block into ContentBlock
 - On `message_delta`: capture stop_reason, update usage (only non-null fields)
 - On `error` event: return ProviderError
-- After parsing: map stop_reason string to StopReason enum (with error variants per spec)
+- After parsing: map stop_reason string to StopReason enum (with error variants per
+  spec)
 - Reverse-translate tool names via `from_claude_code_name()`
 
 Reference the Codex SSE parser at `codex_responses.rs:269-375` for the SSE line
@@ -1183,8 +1195,8 @@ accumulation logic are completely different.
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `cargo test --lib providers::anthropic::streaming -- --nocapture`
-Expected: all pass
+Run: `cargo test --lib providers::anthropic::streaming -- --nocapture` Expected: all
+pass
 
 - [ ] **Step 5: Commit**
 
@@ -1200,6 +1212,7 @@ git commit -m "feat: anthropic SSE stream parser"
 Wire everything together: construct the provider, dispatch requests, handle errors.
 
 **Files:**
+
 - Modify: `src/providers/anthropic/mod.rs`
 - Modify: `src/providers/types.rs`
 
@@ -1252,6 +1265,7 @@ pub struct AnthropicProvider {
 ```
 
 `new()`:
+
 - Call `credentials::load_credentials()` to get initial token
 - Build `static_headers`: Content-Type, Accept, anthropic-version, user-agent, x-app
 - Merge extra_headers from config
@@ -1260,6 +1274,7 @@ pub struct AnthropicProvider {
 `set_debug()`: same pattern as other providers.
 
 `send_request()`:
+
 - Circuit breaker check
 - Check if credentials expired → refresh if file-based (has credentials_path)
 - Build headers: static + Authorization Bearer + anthropic-beta (with model-dependent
@@ -1288,8 +1303,8 @@ fn is_adaptive_thinking_model(model: &str) -> bool {
 }
 ```
 
-Used in both `messages.rs` (for thinking config in request body) and `mod.rs` (for
-beta header selection).
+Used in both `messages.rs` (for thinking config in request body) and `mod.rs` (for beta
+header selection).
 
 Put this in `mod.rs` and make it `pub(crate)` so `messages.rs` can use it too.
 
@@ -1322,8 +1337,7 @@ pub use anthropic::AnthropicProvider;
 
 - [ ] **Step 5: Verify it compiles**
 
-Run: `cargo check`
-Expected: compiles clean
+Run: `cargo check` Expected: compiles clean
 
 - [ ] **Step 6: Commit**
 
@@ -1339,6 +1353,7 @@ git commit -m "feat: AnthropicProvider struct, trait impl, and registration"
 Write a live test that exercises the full provider round-trip.
 
 **Files:**
+
 - Create: `tests/providers/anthropic_live.rs` (or add to existing provider test file)
 
 - [ ] **Step 1: Write the live test**
@@ -1453,8 +1468,8 @@ mod anthropic_live {
 
 - [ ] **Step 2: Run with live test feature**
 
-Run: `cargo test --features live-tests-llms anthropic_live -- --nocapture`
-Expected: both tests pass (requires Claude Code credentials on the machine)
+Run: `cargo test --features live-tests-llms anthropic_live -- --nocapture` Expected:
+both tests pass (requires Claude Code credentials on the machine)
 
 - [ ] **Step 3: Commit**
 
@@ -1469,8 +1484,7 @@ git commit -m "test: live tests for Anthropic OAuth provider"
 
 - [ ] **Step 1: Run CI**
 
-Run: `just ci`
-Expected: format, check, clippy, and tests all pass
+Run: `just ci` Expected: format, check, clippy, and tests all pass
 
 - [ ] **Step 2: Fix any issues found**
 
