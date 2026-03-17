@@ -374,6 +374,7 @@ async fn note_write_tool_creates_file_and_db_record() {
                 "title": "Test Note",
                 "body": "This links to [[Concept]]",
                 "tags": ["test"],
+                "archetype": "entity",
                 "trust": 7
             }),
             &ctx,

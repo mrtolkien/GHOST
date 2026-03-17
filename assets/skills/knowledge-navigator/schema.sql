@@ -98,7 +98,7 @@ CREATE TABLE note (
     path TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
-, file_hash TEXT);
+, file_hash TEXT, archetype TEXT);
 CREATE TABLE reference (
     id TEXT PRIMARY KEY NOT NULL,
     topic_id TEXT NOT NULL REFERENCES topic(id),
@@ -157,3 +157,4 @@ CREATE INDEX idx_message_session ON message(session_id, created_at);
 CREATE INDEX idx_message_source_message ON message_source(message_id);
 CREATE INDEX idx_message_source_reference ON message_source(reference_id);
 CREATE INDEX idx_message_source_url ON message_source(url);
+CREATE INDEX idx_reference_source_url ON reference(source_url);

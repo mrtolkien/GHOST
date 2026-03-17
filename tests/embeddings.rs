@@ -26,10 +26,20 @@ fn rss_mb() -> u64 {
 async fn upsert_and_count_embeddings() {
     let (db, _config, _workspace, _config_dir) = common::test_database().await;
 
-    let note_id =
-        db::knowledge::create_note_full(&db, "Test Note", "body", &[], &[], 5, None, None, None, None)
-            .await
-            .expect("create note");
+    let note_id = db::knowledge::create_note_full(
+        &db,
+        "Test Note",
+        "body",
+        &[],
+        &[],
+        5,
+        None,
+        None,
+        None,
+        None,
+    )
+    .await
+    .expect("create note");
 
     let vector = vec![0.1_f32; 1024];
     db::embeddings::upsert_embedding(&db, "note", &note_id, 0, "chunk text", &vector, None)
@@ -44,10 +54,20 @@ async fn upsert_and_count_embeddings() {
 async fn upsert_overwrites_on_duplicate_source_and_chunk() {
     let (db, _config, _workspace, _config_dir) = common::test_database().await;
 
-    let note_id =
-        db::knowledge::create_note_full(&db, "Dup Note", "body", &[], &[], 5, None, None, None, None)
-            .await
-            .expect("create note");
+    let note_id = db::knowledge::create_note_full(
+        &db,
+        "Dup Note",
+        "body",
+        &[],
+        &[],
+        5,
+        None,
+        None,
+        None,
+        None,
+    )
+    .await
+    .expect("create note");
 
     let vector_a = vec![0.1_f32; 1024];
     let vector_b = vec![0.9_f32; 1024];
@@ -67,10 +87,20 @@ async fn upsert_overwrites_on_duplicate_source_and_chunk() {
 async fn delete_embeddings_for_source_removes_all_chunks() {
     let (db, _config, _workspace, _config_dir) = common::test_database().await;
 
-    let note_id =
-        db::knowledge::create_note_full(&db, "Multi Chunk", "body", &[], &[], 5, None, None, None, None)
-            .await
-            .expect("create note");
+    let note_id = db::knowledge::create_note_full(
+        &db,
+        "Multi Chunk",
+        "body",
+        &[],
+        &[],
+        5,
+        None,
+        None,
+        None,
+        None,
+    )
+    .await
+    .expect("create note");
 
     let vector = vec![0.1_f32; 1024];
     for i in 0..3 {
@@ -130,10 +160,20 @@ async fn delete_all_embeddings_clears_table() {
 async fn vector_search_returns_results() {
     let (db, _config, _workspace, _config_dir) = common::test_database().await;
 
-    let note_id =
-        db::knowledge::create_note_full(&db, "Search Me", "body", &[], &[], 5, None, None, None, None)
-            .await
-            .expect("create note");
+    let note_id = db::knowledge::create_note_full(
+        &db,
+        "Search Me",
+        "body",
+        &[],
+        &[],
+        5,
+        None,
+        None,
+        None,
+        None,
+    )
+    .await
+    .expect("create note");
 
     // Insert a known vector
     let vector = vec![1.0_f32; 1024];
@@ -164,9 +204,10 @@ async fn vector_search_ranks_similar_higher() {
         db::knowledge::create_note_full(&db, "Close", "body", &[], &[], 5, None, None, None, None)
             .await
             .unwrap();
-    let far_id = db::knowledge::create_note_full(&db, "Far", "body", &[], &[], 5, None, None, None, None)
-        .await
-        .unwrap();
+    let far_id =
+        db::knowledge::create_note_full(&db, "Far", "body", &[], &[], 5, None, None, None, None)
+            .await
+            .unwrap();
 
     // close_vec is similar to query_vec, far_vec is orthogonal
     let mut close_vec = vec![1.0_f32; 1024];
@@ -633,10 +674,20 @@ async fn vector_insert_large_scale_memory() {
 async fn replace_embeddings_atomically_swaps_all_chunks() {
     let (db, _config, _workspace, _config_dir) = common::test_database().await;
 
-    let note_id =
-        db::knowledge::create_note_full(&db, "Atomic Note", "body", &[], &[], 5, None, None, None, None)
-            .await
-            .expect("create note");
+    let note_id = db::knowledge::create_note_full(
+        &db,
+        "Atomic Note",
+        "body",
+        &[],
+        &[],
+        5,
+        None,
+        None,
+        None,
+        None,
+    )
+    .await
+    .expect("create note");
 
     // Insert 2 old chunks
     let old_vec = vec![0.1_f32; 1024];

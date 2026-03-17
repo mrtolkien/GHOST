@@ -225,8 +225,7 @@ mod tests {
             Some("2026-03-17T12:00:00Z")
         );
 
-        let serialized =
-            serialize_note(&parsed.front, &parsed.body).unwrap();
+        let serialized = serialize_note(&parsed.front, &parsed.body).unwrap();
         let reparsed = parse_note(&serialized).unwrap();
         assert_eq!(reparsed.front, parsed.front);
     }

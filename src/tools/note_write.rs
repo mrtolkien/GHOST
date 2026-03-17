@@ -120,12 +120,9 @@ impl Tool for NoteWrite {
             .get("archetype")
             .and_then(Value::as_str)
             .ok_or_else(|| {
-                ToolError::InvalidParams(
-                    "missing required parameter 'archetype'".into(),
-                )
+                ToolError::InvalidParams("missing required parameter 'archetype'".into())
             })?;
-        let archetype = Archetype::from_str(archetype)
-            .map_err(ToolError::InvalidParams)?;
+        let archetype = Archetype::from_str(archetype).map_err(ToolError::InvalidParams)?;
         let parent = params
             .get("parent")
             .and_then(Value::as_str)
@@ -199,24 +196,18 @@ impl NoteWrite {
         let cache_dir = workspace.join(format!(".cache/{session_id}"));
         let mut cache_urls: Vec<String> = Vec::new();
         if cache_dir.is_dir() {
-            let entries = std::fs::read_dir(&cache_dir)
-                .map_err(|e| {
-                    ToolError::ExecutionFailed(format!(
-                        "failed to read cache dir: {e}"
-                    ))
-                })?;
+            let entries = std::fs::read_dir(&cache_dir).map_err(|e| {
+                ToolError::ExecutionFailed(format!("failed to read cache dir: {e}"))
+            })?;
             for entry in entries {
                 let entry = entry.map_err(|e| {
-                    ToolError::ExecutionFailed(format!(
-                        "failed to read cache entry: {e}"
-                    ))
+                    ToolError::ExecutionFailed(format!("failed to read cache entry: {e}"))
                 })?;
                 let path = entry.path();
                 if path.extension().is_some_and(|ext| ext == "md")
                     && let Ok(content) = std::fs::read_to_string(&path)
                 {
-                    let (url, _is_search) =
-                        extract_frontmatter_info(&content);
+                    let (url, _is_search) = extract_frontmatter_info(&content);
                     if !url.is_empty() {
                         cache_urls.push(url);
                     }
@@ -226,19 +217,14 @@ impl NoteWrite {
 
         let mut warnings = Vec::new();
         for url in &https_urls {
-            let in_cache = cache_urls
-                .iter()
-                .any(|cached| urls_match(cached, url));
+            let in_cache = cache_urls.iter().any(|cached| urls_match(cached, url));
             if in_cache {
                 continue;
             }
             // Not in cache — check references DB
-            let in_refs =
-                db::knowledge::find_reference_by_url(db, url)
-                    .await
-                    .map_err(|e| {
-                        ToolError::ExecutionFailed(e.to_string())
-                    })?;
+            let in_refs = db::knowledge::find_reference_by_url(db, url)
+                .await
+                .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
             if in_refs.is_some() {
                 warnings.push(format!(
                     "Source URL {url} found in old references but \
@@ -324,16 +310,10 @@ impl NoteWrite {
         archetype: Archetype,
         parent: Option<&str>,
     ) -> Result<String, ToolError> {
-        let source_warnings = Self::verify_source_urls(
-            &ctx.workspace,
-            &ctx.session_id,
-            &ctx.db,
-            sources,
-        )
-        .await?;
+        let source_warnings =
+            Self::verify_source_urls(&ctx.workspace, &ctx.session_id, &ctx.db, sources).await?;
 
-        let (sanitized_body, ref_warning) =
-            Self::sanitize_reference_links(&ctx.workspace, body);
+        let (sanitized_body, ref_warning) = Self::sanitize_reference_links(&ctx.workspace, body);
 
         let front = NoteFrontMatter {
             title: title.to_string(),
@@ -388,8 +368,7 @@ impl NoteWrite {
         .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
 
         let wiki_links = extract_wiki_links(&sanitized_body);
-        let result =
-            reconcile_edges(&ctx.db, &note_id, title, &wiki_links, parent)
+        let result = reconcile_edges(&ctx.db, &note_id, title, &wiki_links, parent)
             .await
             .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
 
@@ -439,8 +418,7 @@ impl NoteWrite {
                 }
             }
             Archetype::Source => {
-                let tagged_sources =
-                    tags.iter().any(|t| t.contains("/sources"));
+                let tagged_sources = tags.iter().any(|t| t.contains("/sources"));
                 if !tagged_sources {
                     msg.push_str(
                         "\n\nWARNING: Source note should be tagged \
@@ -449,8 +427,7 @@ impl NoteWrite {
                 }
             }
             Archetype::Profile => {
-                let tagged_operator =
-                    tags.iter().any(|t| t.starts_with("operator"));
+                let tagged_operator = tags.iter().any(|t| t.starts_with("operator"));
                 if !tagged_operator {
                     msg.push_str(
                         "\n\nWARNING: Profile note should be tagged \
@@ -480,23 +457,15 @@ impl NoteWrite {
         archetype: Archetype,
         parent: Option<&str>,
     ) -> Result<String, ToolError> {
-        let source_warnings = Self::verify_source_urls(
-            &ctx.workspace,
-            &ctx.session_id,
-            &ctx.db,
-            sources,
-        )
-        .await?;
+        let source_warnings =
+            Self::verify_source_urls(&ctx.workspace, &ctx.session_id, &ctx.db, sources).await?;
 
-        let (sanitized_body, ref_warning) =
-            Self::sanitize_reference_links(&ctx.workspace, body);
+        let (sanitized_body, ref_warning) = Self::sanitize_reference_links(&ctx.workspace, body);
 
         let existing = db::knowledge::find_note_by_title(&ctx.db, title)
             .await
             .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?
-            .ok_or_else(|| {
-                ToolError::ExecutionFailed(format!("note '{title}' not found"))
-            })?;
+            .ok_or_else(|| ToolError::ExecutionFailed(format!("note '{title}' not found")))?;
 
         // Preserve original written_at from the existing file
         let existing_note = existing
@@ -571,10 +540,9 @@ impl NoteWrite {
         }
 
         let wiki_links = extract_wiki_links(&sanitized_body);
-        let result =
-            reconcile_edges(&ctx.db, &existing.id, title, &wiki_links, parent)
-                .await
-                .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
+        let result = reconcile_edges(&ctx.db, &existing.id, title, &wiki_links, parent)
+            .await
+            .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
 
         let mut msg = format!(
             "Updated note '{}' at {}\n\
@@ -621,8 +589,7 @@ impl NoteWrite {
                 }
             }
             Archetype::Source => {
-                let tagged_sources =
-                    tags.iter().any(|t| t.contains("/sources"));
+                let tagged_sources = tags.iter().any(|t| t.contains("/sources"));
                 if !tagged_sources {
                     msg.push_str(
                         "\n\nWARNING: Source note should be tagged \
@@ -631,8 +598,7 @@ impl NoteWrite {
                 }
             }
             Archetype::Profile => {
-                let tagged_operator =
-                    tags.iter().any(|t| t.starts_with("operator"));
+                let tagged_operator = tags.iter().any(|t| t.starts_with("operator"));
                 if !tagged_operator {
                     msg.push_str(
                         "\n\nWARNING: Profile note should be tagged \
@@ -650,42 +616,29 @@ impl NoteWrite {
 
     /// Archive a note: move its file to `.archive/`, delete embeddings, and
     /// remove the DB record (CASCADE deletes edges).
-    async fn archive_note(
-        &self,
-        ctx: &ToolContext,
-        title: &str,
-    ) -> Result<String, ToolError> {
+    async fn archive_note(&self, ctx: &ToolContext, title: &str) -> Result<String, ToolError> {
         let existing = db::knowledge::find_note_by_title(&ctx.db, title)
             .await
             .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?
-            .ok_or_else(|| {
-                ToolError::ExecutionFailed(format!("note '{title}' not found"))
-            })?;
+            .ok_or_else(|| ToolError::ExecutionFailed(format!("note '{title}' not found")))?;
 
         // Move file to .archive/
         if let Some(rel_path) = &existing.path {
             let src = ctx.workspace.join(rel_path);
-            let archive_path =
-                rel_path.replacen("notes/", "notes/.archive/", 1);
+            let archive_path = rel_path.replacen("notes/", "notes/.archive/", 1);
             let dest = ctx.workspace.join(&archive_path);
             if src.exists() {
                 if let Some(parent) = dest.parent() {
-                    std::fs::create_dir_all(parent).map_err(|e| {
-                        ToolError::ExecutionFailed(e.to_string())
-                    })?;
+                    std::fs::create_dir_all(parent)
+                        .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
                 }
-                std::fs::rename(&src, &dest).map_err(|e| {
-                    ToolError::ExecutionFailed(e.to_string())
-                })?;
+                std::fs::rename(&src, &dest)
+                    .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
             }
         }
 
         // Delete embeddings (no FK CASCADE)
-        let _ = crate::db::embeddings::delete_embeddings_for_source(
-            &ctx.db,
-            &existing.id,
-        )
-        .await;
+        let _ = crate::db::embeddings::delete_embeddings_for_source(&ctx.db, &existing.id).await;
 
         // Delete note record (CASCADE deletes relates_to + cited edges)
         db::knowledge::delete_note(&ctx.db, &existing.id)
