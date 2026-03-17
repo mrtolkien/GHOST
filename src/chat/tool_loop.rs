@@ -477,6 +477,35 @@ pub(super) async fn run_tool_loop(
                 let result = handler
                     .on_end_turn(message, response.stop_reason, &tool_uses, raw_output)
                     .await?;
+
+                // Drain pending interrupts before exiting. If a user message
+                // arrived during the final LLM call, persist it and continue
+                // so the model sees and responds to it.
+                if let Some(ref mut rx) = interrupt_rx {
+                    let pre_drain_len = history.len();
+                    match drain_interrupts(rx, history, session_chat.db(), session_id).await? {
+                        InterruptAction::Stop => {
+                            metadata.iterations = iterations;
+                            metadata.duration = started_at.elapsed();
+                            return Ok((result, metadata));
+                        }
+                        InterruptAction::Continue => {
+                            if history.len() > pre_drain_len {
+                                // New user messages were injected. Push the
+                                // assistant's EndTurn response into history
+                                // and continue so the model responds to them.
+                                history.push(ChatMessage {
+                                    role: Role::Assistant,
+                                    content: response.content,
+                                });
+                                last_result = None;
+                                iterations += 1;
+                                continue;
+                            }
+                        }
+                    }
+                }
+
                 logfire::info!(
                     "agent run complete",
                     iterations = iterations as u64,
