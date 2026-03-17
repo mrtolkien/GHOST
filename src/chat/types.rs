@@ -43,6 +43,9 @@ pub enum ChatError {
 
     #[error("invalid session id '{session_id}'")]
     InvalidSessionId { session_id: String },
+
+    #[error("session '{session_id}' already has an active tool loop")]
+    SessionBusy { session_id: String },
 }
 
 /// Accumulated metadata from a complete tool loop run.

@@ -171,6 +171,22 @@ impl SessionChat {
         db::sessions::get_session(&self.db, &session_thing).await?;
         db::sessions::update_activity(&self.db, &session_thing).await?;
 
+        // Atomic session guard — prevent concurrent tool loops.
+        let (int_tx, int_rx) = super::interrupt::channel();
+        {
+            use dashmap::mapref::entry::Entry;
+            match self.active_sessions.entry(session_id.to_string()) {
+                Entry::Occupied(_) => {
+                    return Err(ChatError::SessionBusy {
+                        session_id: session_id.to_string(),
+                    });
+                }
+                Entry::Vacant(entry) => {
+                    entry.insert(int_tx);
+                }
+            }
+        }
+
         let image_values = images.as_ref().and_then(|imgs| {
             let vals: Vec<serde_json::Value> = imgs
                 .iter()
@@ -214,9 +230,6 @@ impl SessionChat {
             pending_todo_update: false,
         };
 
-        let (int_tx, int_rx) = super::interrupt::channel();
-        self.active_sessions.insert(session_id.to_string(), int_tx);
-
         let result = run_tool_loop(
             self,
             session_id,
@@ -249,6 +262,23 @@ impl SessionChat {
         let session_thing = parse_session_thing(session_id)?;
         db::sessions::get_session(&self.db, &session_thing).await?;
         db::sessions::update_activity(&self.db, &session_thing).await?;
+
+        // Atomic session guard — prevent concurrent tool loops.
+        let (int_tx, int_rx) = super::interrupt::channel();
+        {
+            use dashmap::mapref::entry::Entry;
+            match self.active_sessions.entry(session_id.to_string()) {
+                Entry::Occupied(_) => {
+                    return Err(ChatError::SessionBusy {
+                        session_id: session_id.to_string(),
+                    });
+                }
+                Entry::Vacant(entry) => {
+                    entry.insert(int_tx);
+                }
+            }
+        }
+
         db::sessions::create_message(&self.db, &session_thing, "user", user_message).await?;
 
         let (mut history, stored_ids) = self.load_provider_history(&session_thing).await?;
@@ -266,9 +296,6 @@ impl SessionChat {
             working_dir: working_dir.to_path_buf(),
             compaction: coding_compaction_config(self.compaction_config()),
         };
-
-        let (int_tx, int_rx) = super::interrupt::channel();
-        self.active_sessions.insert(session_id.to_string(), int_tx);
 
         let result = run_tool_loop(
             self,
