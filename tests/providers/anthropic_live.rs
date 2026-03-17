@@ -4,6 +4,7 @@ use ghost::providers::{
     AnthropicProvider, ChatMessage, ChatRequest, ContentBlock, Provider, Role, StopReason,
     ToolDefinition, user_message,
 };
+use ghost::tools::manager::ToolManager;
 use serde_json::json;
 
 #[tokio::test]
@@ -178,4 +179,68 @@ async fn anthropic_multi_turn_with_history() {
             .any(|b| !matches!(b, ContentBlock::RawOutput { .. })),
         "turn 2 should have usable content"
     );
+}
+
+/// Validates that the Anthropic OAuth endpoint accepts all of Ghost's
+/// tools — including non-Claude-Code ones like `knowledge_search`,
+/// `note_write`, `agent`, etc. — and can produce a tool call for one.
+#[tokio::test]
+async fn anthropic_tool_use_with_full_ghost_toolset() {
+    let _observability =
+        ghost::observability::init_for_live_tests().expect("init live test observability");
+
+    let provider = match AnthropicProvider::new(BTreeMap::new()) {
+        Ok(p) => p,
+        Err(e) => {
+            eprintln!("Skipping: no Claude Code credentials ({e})");
+            return;
+        }
+    };
+
+    let all_tools = ToolManager::all_available().all_tool_schemas();
+    let tool_count = all_tools.len();
+    assert!(
+        tool_count >= 8,
+        "expected at least 8 tools, got {tool_count}"
+    );
+
+    let tool_names: Vec<&str> = all_tools.iter().map(|t| t.name.as_str()).collect();
+    eprintln!("Sending {tool_count} tools: {tool_names:?}");
+
+    let response = provider
+        .chat(ChatRequest {
+            model: "claude-sonnet-4-6".into(),
+            messages: vec![user_message(
+                "Search my knowledge base for notes about Rust. Use the knowledge_search tool.",
+            )],
+            tools: Some(all_tools),
+            max_tokens: Some(1024),
+            temperature: Some(0.0),
+            system: Some("You are a helpful assistant.".into()),
+            reasoning_effort: None,
+            cache_key: String::new(),
+            turn_state: None,
+            debug_context: None,
+        })
+        .await
+        .expect("chat request with full Ghost toolset");
+
+    assert_eq!(
+        response.stop_reason,
+        StopReason::ToolUse,
+        "expected tool_use stop reason, got {:?}",
+        response.stop_reason
+    );
+
+    let tool_use = response
+        .content
+        .iter()
+        .find(|b| matches!(b, ContentBlock::ToolUse { .. }))
+        .expect("should have a tool_use block");
+    match tool_use {
+        ContentBlock::ToolUse { name, .. } => {
+            assert_eq!(name, "knowledge_search");
+        }
+        _ => unreachable!(),
+    }
 }
