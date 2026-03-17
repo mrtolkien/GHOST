@@ -38,6 +38,7 @@ async fn create_note_and_retrieve_all_fields() {
         None,
         None,
         None,
+        None,
     )
     .await
     .expect("create note");
@@ -54,7 +55,7 @@ async fn update_note_changes_fields() {
     let (db, _config, _workspace, _config_dir) = common::test_database().await;
 
     let id =
-        db::knowledge::create_note_full(&db, "Draft", "old body", &[], &[], 5, None, None, None)
+        db::knowledge::create_note_full(&db, "Draft", "old body", &[], &[], 5, None, None, None, None)
             .await
             .expect("create");
 
@@ -67,6 +68,7 @@ async fn update_note_changes_fields() {
         &["updated".to_string()],
         &[],
         7,
+        None,
         None,
         None,
         None,
@@ -94,6 +96,7 @@ async fn wiki_link_creates_relates_to_edge_and_stub() {
         &[],
         &[],
         5,
+        None,
         None,
         None,
         None,
@@ -131,7 +134,7 @@ async fn typed_wiki_link_creates_labeled_edge() {
     let (db, _config, _workspace, _config_dir) = common::test_database().await;
 
     let rust_id =
-        db::knowledge::create_note_full(&db, "Rust", "A language", &[], &[], 5, None, None, None)
+        db::knowledge::create_note_full(&db, "Rust", "A language", &[], &[], 5, None, None, None, None)
             .await
             .expect("create Rust");
 
@@ -142,6 +145,7 @@ async fn typed_wiki_link_creates_labeled_edge() {
         &[],
         &[],
         5,
+        None,
         None,
         None,
         None,
@@ -166,7 +170,7 @@ async fn typed_wiki_link_creates_labeled_edge() {
 async fn removing_link_deletes_edge() {
     let (db, _config, _workspace, _config_dir) = common::test_database().await;
 
-    let _rust_id = db::knowledge::create_note_full(&db, "Rust", "", &[], &[], 5, None, None, None)
+    let _rust_id = db::knowledge::create_note_full(&db, "Rust", "", &[], &[], 5, None, None, None, None)
         .await
         .expect("create Rust");
 
@@ -177,6 +181,7 @@ async fn removing_link_deletes_edge() {
         &[],
         &[],
         5,
+        None,
         None,
         None,
         None,
@@ -228,6 +233,7 @@ async fn bm25_search_returns_results() {
         None,
         None,
         None,
+        None,
     )
     .await
     .expect("create note 1");
@@ -239,6 +245,7 @@ async fn bm25_search_returns_results() {
         &[],
         &[],
         5,
+        None,
         None,
         None,
         None,
@@ -260,14 +267,14 @@ async fn graph_chain_neighbors() {
     let (db, _config, _workspace, _config_dir) = common::test_database().await;
 
     let a =
-        db::knowledge::create_note_full(&db, "A", "Links to [[B]]", &[], &[], 5, None, None, None)
+        db::knowledge::create_note_full(&db, "A", "Links to [[B]]", &[], &[], 5, None, None, None, None)
             .await
             .expect("create A");
     let b =
-        db::knowledge::create_note_full(&db, "B", "Links to [[C]]", &[], &[], 5, None, None, None)
+        db::knowledge::create_note_full(&db, "B", "Links to [[C]]", &[], &[], 5, None, None, None, None)
             .await
             .expect("create B");
-    let c = db::knowledge::create_note_full(&db, "C", "End node", &[], &[], 5, None, None, None)
+    let c = db::knowledge::create_note_full(&db, "C", "End node", &[], &[], 5, None, None, None, None)
         .await
         .expect("create C");
 
@@ -364,6 +371,7 @@ async fn tags_with_correct_counts() {
         None,
         None,
         None,
+        None,
     )
     .await
     .expect("create A");
@@ -375,6 +383,7 @@ async fn tags_with_correct_counts() {
         &["rust".to_string(), "web".to_string()],
         &[],
         5,
+        None,
         None,
         None,
         None,
@@ -401,14 +410,14 @@ async fn tags_with_correct_counts() {
 async fn recent_returns_items_sorted() {
     let (db, _config, _workspace, _config_dir) = common::test_database().await;
 
-    db::knowledge::create_note_full(&db, "First Note", "body", &[], &[], 5, None, None, None)
+    db::knowledge::create_note_full(&db, "First Note", "body", &[], &[], 5, None, None, None, None)
         .await
         .expect("create first");
 
     // Small delay to ensure different timestamps
     tokio::time::sleep(std::time::Duration::from_millis(50)).await;
 
-    db::knowledge::create_note_full(&db, "Second Note", "body", &[], &[], 5, None, None, None)
+    db::knowledge::create_note_full(&db, "Second Note", "body", &[], &[], 5, None, None, None, None)
         .await
         .expect("create second");
 
@@ -436,6 +445,7 @@ async fn orphan_notes_detected() {
         None,
         None,
         None,
+        None,
     )
     .await
     .expect("create isolated");
@@ -450,6 +460,7 @@ async fn orphan_notes_detected() {
         None,
         None,
         None,
+        None,
     )
     .await
     .expect("create connected");
@@ -461,6 +472,7 @@ async fn orphan_notes_detected() {
         &[],
         &[],
         5,
+        None,
         None,
         None,
         None,
@@ -518,6 +530,7 @@ async fn link_cited_edges_creates_note_to_reference_edges() {
         &[],
         &["https://example.com/review".to_string()],
         5,
+        None,
         None,
         Some(&format!("notes/{slug}.md")),
         None,

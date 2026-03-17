@@ -65,6 +65,7 @@ async fn embed_source_pipeline_stores_and_searches() {
         None,
         None,
         None,
+        None,
     )
     .await
     .expect("create note");

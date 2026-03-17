@@ -126,6 +126,7 @@ async fn create_note(
         sources,
         trust,
         None,
+        None,
         Some(&rel_path),
         None,
     )
@@ -209,6 +210,7 @@ async fn update_note(
         tags,
         sources,
         trust,
+        None,
         None,
         Some(&rel_path),
         None,

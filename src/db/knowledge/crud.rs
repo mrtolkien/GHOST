@@ -13,7 +13,7 @@ pub async fn create_note(
     title: &str,
     body: &str,
 ) -> Result<String, DatabaseError> {
-    create_note_full(db, title, body, &[], &[], 5, None, None, None).await
+    create_note_full(db, title, body, &[], &[], 5, None, None, None, None).await
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -25,6 +25,7 @@ pub async fn create_note_full(
     tags: &[String],
     sources: &[String],
     trust: i64,
+    archetype: Option<&str>,
     topic_id: Option<&str>,
     path: Option<&str>,
     file_hash: Option<&str>,
@@ -36,8 +37,8 @@ pub async fn create_note_full(
 
     sqlx::query(
         "INSERT INTO note \
-         (id, title, body, tags, sources, trust, topic_id, path, file_hash, created_at, updated_at) \
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+         (id, title, body, tags, sources, trust, archetype, topic_id, path, file_hash, created_at, updated_at) \
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
     )
     .bind(&id)
     .bind(title)
@@ -45,6 +46,7 @@ pub async fn create_note_full(
     .bind(&tags_json)
     .bind(&sources_json)
     .bind(trust)
+    .bind(archetype)
     .bind(topic_id)
     .bind(path)
     .bind(file_hash)
@@ -70,6 +72,7 @@ pub async fn update_note(
     tags: &[String],
     sources: &[String],
     trust: i64,
+    archetype: Option<&str>,
     topic_id: Option<&str>,
     path: Option<&str>,
     file_hash: Option<&str>,
@@ -79,13 +82,14 @@ pub async fn update_note(
 
     sqlx::query(
         "UPDATE note SET body = ?, tags = ?, sources = ?, \
-         trust = ?, topic_id = COALESCE(?, topic_id), path = ?, file_hash = ?, \
+         trust = ?, archetype = ?, topic_id = COALESCE(?, topic_id), path = ?, file_hash = ?, \
          updated_at = ? WHERE id = ?",
     )
     .bind(body)
     .bind(&tags_json)
     .bind(&sources_json)
     .bind(trust)
+    .bind(archetype)
     .bind(topic_id)
     .bind(path)
     .bind(file_hash)

@@ -8,6 +8,7 @@ pub struct NoteRecord {
     pub tags: String,    // JSON array of strings
     pub sources: String, // JSON array of strings
     pub trust: i64,
+    pub archetype: Option<String>,
     pub topic_id: Option<String>,
     pub path: Option<String>,
     pub file_hash: Option<String>,

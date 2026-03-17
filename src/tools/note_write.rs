@@ -230,6 +230,7 @@ impl NoteWrite {
             sources,
             trust,
             None,
+            None,
             Some(&rel_path),
             None,
         )
@@ -315,6 +316,7 @@ impl NoteWrite {
             tags,
             sources,
             trust,
+            None,
             None,
             Some(&rel_path),
             None,

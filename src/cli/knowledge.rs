@@ -462,6 +462,7 @@ async fn cmd_reindex(
                     &parsed.front.sources,
                     parsed.front.trust,
                     None,
+                    None,
                     rel_path.as_deref(),
                     Some(&hash),
                 )
@@ -489,6 +490,7 @@ async fn cmd_reindex(
                     &parsed.front.tags,
                     &parsed.front.sources,
                     parsed.front.trust,
+                    None,
                     None,
                     rel_path.as_deref(),
                     Some(&hash),
