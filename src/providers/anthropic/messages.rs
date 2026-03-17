@@ -394,7 +394,6 @@ mod tests {
     use serde_json::json;
 
     use super::*;
-    use crate::providers::types::*;
 
     fn simple_request(messages: Vec<ChatMessage>) -> ChatRequest {
         ChatRequest {

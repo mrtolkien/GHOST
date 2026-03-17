@@ -1,4 +1,482 @@
+/// Anthropic Messages API provider using Claude Code OAuth credentials.
+///
+/// Talks to `api.anthropic.com/v1/messages` with SSE streaming, prompt
+/// caching, thinking support, and Claude Code tool name translation.
+
 mod credentials;
 mod messages;
 mod streaming;
 mod tool_names;
+
+use std::collections::BTreeMap;
+use std::path::PathBuf;
+use std::sync::RwLock;
+use std::time::Instant;
+
+use async_trait::async_trait;
+use reqwest::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE, HeaderMap, HeaderName, HeaderValue};
+use serde_json::Value;
+use tracing::Span;
+
+use self::credentials::OAuthCredentials;
+use crate::providers::circuit_breaker::CircuitBreaker;
+use crate::providers::types::{
+    ChatRequest, ChatResponse, ContentBlock, Provider, ProviderError,
+};
+
+const ANTHROPIC_API_URL: &str = "https://api.anthropic.com/v1/messages";
+const ANTHROPIC_VERSION: &str = "2023-06-01";
+const USER_AGENT: &str = "claude-cli/2.1.75";
+const BASE_BETA_FLAGS: &str =
+    "claude-code-20250219,oauth-2025-04-20,fine-grained-tool-streaming-2025-05-14";
+const INTERLEAVED_THINKING_BETA: &str = "interleaved-thinking-2025-05-14";
+
+#[derive(Debug)]
+pub struct AnthropicProvider {
+    client: reqwest::Client,
+    credentials: RwLock<OAuthCredentials>,
+    /// `None` when credentials came from an env var (no refresh possible).
+    credentials_path: Option<PathBuf>,
+    circuit_breaker: CircuitBreaker,
+    static_headers: HeaderMap,
+    debug_save_requests: bool,
+    debug_dir: Option<PathBuf>,
+}
+
+impl AnthropicProvider {
+    #[tracing::instrument(skip_all)]
+    pub fn new(
+        extra_headers: BTreeMap<String, String>,
+    ) -> Result<Self, ProviderError> {
+        let (creds, creds_path) = credentials::load_credentials()?;
+
+        let client = reqwest::Client::builder()
+            .build()
+            .map_err(ProviderError::Request)?;
+
+        let mut static_headers = HeaderMap::new();
+        static_headers.insert(
+            CONTENT_TYPE,
+            HeaderValue::from_static("application/json"),
+        );
+        static_headers.insert(
+            ACCEPT,
+            HeaderValue::from_static("text/event-stream"),
+        );
+        static_headers.insert(
+            "anthropic-version",
+            HeaderValue::from_static(ANTHROPIC_VERSION),
+        );
+        static_headers.insert(
+            "user-agent",
+            HeaderValue::from_static(USER_AGENT),
+        );
+        static_headers.insert(
+            "x-app",
+            HeaderValue::from_static("ghost"),
+        );
+
+        for (name, value) in extra_headers {
+            if let (Ok(header_name), Ok(header_value)) = (
+                HeaderName::try_from(name.as_str()),
+                HeaderValue::from_str(&value),
+            ) {
+                static_headers.insert(header_name, header_value);
+            }
+        }
+
+        Ok(Self {
+            client,
+            credentials: RwLock::new(creds),
+            credentials_path: creds_path,
+            circuit_breaker: CircuitBreaker::default(),
+            static_headers,
+            debug_save_requests: false,
+            debug_dir: None,
+        })
+    }
+
+    pub fn set_debug(&mut self, save: bool, workspace: &std::path::Path) {
+        self.debug_save_requests = save;
+        if save {
+            self.debug_dir = Some(workspace.join("debug/requests"));
+        }
+    }
+
+    #[tracing::instrument(
+        name = "request completion",
+        skip_all,
+        fields(
+            gen_ai.system = "anthropic",
+            gen_ai.operation.name = "chat",
+            gen_ai.request.model = %request.model,
+            gen_ai.response.model = tracing::field::Empty,
+            gen_ai.response.id = tracing::field::Empty,
+            gen_ai.response.finish_reasons = tracing::field::Empty,
+            gen_ai.usage.input_tokens = tracing::field::Empty,
+            gen_ai.usage.output_tokens = tracing::field::Empty,
+            gen_ai.usage.cache_read_input_tokens = tracing::field::Empty,
+            gen_ai.usage.cache_creation_input_tokens = tracing::field::Empty,
+            duration_ms = tracing::field::Empty,
+            tool_calls = tracing::field::Empty,
+        )
+    )]
+    async fn send_request(
+        &self,
+        request: &ChatRequest,
+    ) -> Result<ChatResponse, ProviderError> {
+        // --- Circuit breaker ---
+        if let Some(retry_after_secs) =
+            self.circuit_breaker.check(&request.model)
+        {
+            return Err(ProviderError::CircuitOpen {
+                model: request.model.clone(),
+                retry_after_secs,
+            });
+        }
+
+        // --- Credential refresh ---
+        let access_token = self.ensure_valid_token().await?;
+
+        // --- Headers ---
+        let mut headers = self.static_headers.clone();
+        headers.insert(
+            AUTHORIZATION,
+            HeaderValue::from_str(&format!("Bearer {access_token}"))
+                .map_err(|e| {
+                    ProviderError::InvalidResponse(format!(
+                        "failed to encode authorization header: {e}"
+                    ))
+                })?,
+        );
+
+        let beta_header = build_beta_header(&request.model);
+        headers.insert(
+            "anthropic-beta",
+            HeaderValue::from_str(&beta_header).map_err(|e| {
+                ProviderError::InvalidResponse(format!(
+                    "failed to encode beta header: {e}"
+                ))
+            })?,
+        );
+
+        // --- Build request body ---
+        let ghost_tool_names: Vec<&str> = request
+            .tools
+            .as_ref()
+            .map(|tools| {
+                tools.iter().map(|t| t.name.as_str()).collect()
+            })
+            .unwrap_or_default();
+
+        let body =
+            messages::build_request_body(request, &ghost_tool_names)?;
+        let request_json = serde_json::to_string(&body)
+            .unwrap_or_else(|e| {
+                format!("<serialization failed: {e}>")
+            });
+
+        logfire::info!(
+            "provider request body",
+            body = request_json.clone()
+        );
+
+        // --- HTTP request ---
+        let started = Instant::now();
+
+        let http_response = self
+            .client
+            .post(ANTHROPIC_API_URL)
+            .headers(headers)
+            .json(&body)
+            .send()
+            .await?;
+
+        let status = http_response.status();
+        let retry_after_secs = parse_retry_after_secs(
+            http_response
+                .headers()
+                .get("Retry-After")
+                .and_then(|v| v.to_str().ok()),
+        );
+        let response_body = http_response.text().await?;
+        let duration_ms = started.elapsed().as_millis() as u64;
+
+        // --- Debug save ---
+        if self.debug_save_requests {
+            if let Some(ref dir) = self.debug_dir {
+                crate::providers::debug::save_debug_request(
+                    &crate::providers::debug::DebugRequestData {
+                        dir,
+                        provider_name: "anthropic",
+                        model: &request.model,
+                        request_body: &request_json,
+                        response_body: &response_body,
+                        status: status.as_u16(),
+                        duration_ms,
+                        debug_context: request.debug_context.as_ref(),
+                    },
+                );
+            }
+        }
+
+        // --- Error handling ---
+        if status == reqwest::StatusCode::TOO_MANY_REQUESTS {
+            self.circuit_breaker.record_failure(&request.model);
+            logfire::warn!(
+                "anthropic provider rate limited",
+                provider = "anthropic",
+                model = request.model.clone(),
+                retry_after_secs = retry_after_secs,
+                raw_response = response_body.clone()
+            );
+            return Err(ProviderError::RateLimited { retry_after_secs });
+        }
+        if status == reqwest::StatusCode::UNAUTHORIZED
+            || status == reqwest::StatusCode::FORBIDDEN
+        {
+            self.circuit_breaker.record_failure(&request.model);
+            return Err(ProviderError::Auth(extract_error_message(
+                &response_body,
+            )));
+        }
+        if status == reqwest::StatusCode::NOT_FOUND {
+            self.circuit_breaker.record_failure(&request.model);
+            return Err(ProviderError::ModelNotFound(
+                request.model.clone(),
+            ));
+        }
+        if status.is_server_error() {
+            self.circuit_breaker.record_failure(&request.model);
+            return Err(ProviderError::ServerError {
+                status: status.as_u16(),
+                message: extract_error_message(&response_body),
+            });
+        }
+        if !status.is_success() {
+            self.circuit_breaker.record_failure(&request.model);
+            return Err(ProviderError::InvalidResponse(format!(
+                "http status {status}: {}",
+                extract_error_message(&response_body)
+            )));
+        }
+
+        // --- Parse SSE response ---
+        let parsed = streaming::parse_sse_response(
+            &response_body,
+            &request.model,
+            &ghost_tool_names,
+        )
+        .inspect_err(|error| {
+            logfire::error!(
+                "anthropic provider response parse failed",
+                provider = "anthropic",
+                model = request.model.clone(),
+                error = error.to_string(),
+                raw_response = response_body.clone()
+            );
+        })?;
+
+        self.circuit_breaker.record_success(&request.model);
+
+        // --- OTel span recording ---
+        let response_json = serde_json::to_string(&parsed.content)
+            .unwrap_or_else(|e| {
+                format!("<serialization failed: {e}>")
+            });
+        logfire::info!(
+            "provider response content",
+            content = response_json
+        );
+
+        let tool_call_summary: String = parsed
+            .content
+            .iter()
+            .filter_map(|block| match block {
+                ContentBlock::ToolUse { name, .. } => {
+                    Some(name.as_str())
+                }
+                _ => None,
+            })
+            .collect::<Vec<_>>()
+            .join(", ");
+
+        let finish_reason = match parsed.stop_reason {
+            crate::providers::StopReason::EndTurn => "stop",
+            crate::providers::StopReason::ToolUse => "tool_calls",
+            crate::providers::StopReason::MaxTokens => "length",
+        };
+
+        let span = Span::current();
+        span.record("gen_ai.response.model", &parsed.model);
+        if let Some(ref id) = parsed.response_id {
+            span.record("gen_ai.response.id", id);
+        }
+        span.record(
+            "gen_ai.response.finish_reasons",
+            finish_reason,
+        );
+        span.record(
+            "gen_ai.usage.input_tokens",
+            parsed.usage.input_tokens,
+        );
+        span.record(
+            "gen_ai.usage.output_tokens",
+            parsed.usage.output_tokens,
+        );
+        span.record(
+            "gen_ai.usage.cache_read_input_tokens",
+            parsed.usage.cache_read_tokens.unwrap_or(0),
+        );
+        span.record(
+            "gen_ai.usage.cache_creation_input_tokens",
+            parsed.usage.cache_creation_tokens.unwrap_or(0),
+        );
+        span.record("duration_ms", duration_ms);
+        span.record("tool_calls", &tool_call_summary);
+
+        Ok(parsed)
+    }
+
+    /// Return a valid access token, refreshing if expired and file-based.
+    async fn ensure_valid_token(
+        &self,
+    ) -> Result<String, ProviderError> {
+        // Fast path: read lock to check if token is still valid.
+        {
+            let creds = self
+                .credentials
+                .read()
+                .expect("credentials lock poisoned");
+            if !creds.is_expired() {
+                return Ok(creds.access_token.clone());
+            }
+        }
+
+        // Token is expired. If env-var based, we can't refresh.
+        let Some(ref creds_path) = self.credentials_path else {
+            let creds = self
+                .credentials
+                .read()
+                .expect("credentials lock poisoned");
+            return Ok(creds.access_token.clone());
+        };
+
+        // Clone what we need before the async call.
+        let old_creds = {
+            let creds = self
+                .credentials
+                .read()
+                .expect("credentials lock poisoned");
+            creds.clone()
+        };
+        let path = creds_path.clone();
+
+        // Perform refresh (async, no lock held).
+        let new_creds = credentials::refresh_token(
+            &self.client,
+            &old_creds,
+            &path,
+        )
+        .await?;
+
+        let token = new_creds.access_token.clone();
+
+        // Write lock to update stored credentials.
+        {
+            let mut creds = self
+                .credentials
+                .write()
+                .expect("credentials lock poisoned");
+            *creds = new_creds;
+        }
+
+        Ok(token)
+    }
+}
+
+#[async_trait]
+impl Provider for AnthropicProvider {
+    async fn chat(
+        &self,
+        request: ChatRequest,
+    ) -> Result<ChatResponse, ProviderError> {
+        self.send_request(&request).await
+    }
+
+    fn name(&self) -> &str {
+        "anthropic"
+    }
+}
+
+/// Build the `anthropic-beta` header value. Adaptive-thinking models
+/// omit the interleaved-thinking beta; older models include it.
+fn build_beta_header(model: &str) -> String {
+    if messages::is_adaptive_thinking_model(model) {
+        BASE_BETA_FLAGS.to_string()
+    } else {
+        format!("{BASE_BETA_FLAGS},{INTERLEAVED_THINKING_BETA}")
+    }
+}
+
+fn parse_retry_after_secs(retry_after: Option<&str>) -> Option<u64> {
+    retry_after.and_then(|v| v.trim().parse::<u64>().ok())
+}
+
+/// Extract error message from Anthropic error JSON format:
+/// `{"type": "error", "error": {"type": "...", "message": "..."}}`
+fn extract_error_message(raw: &str) -> String {
+    if let Ok(value) = serde_json::from_str::<Value>(raw) {
+        if let Some(message) = value
+            .get("error")
+            .and_then(|e| e.get("message"))
+            .and_then(Value::as_str)
+        {
+            return message.to_string();
+        }
+        if let Some(message) =
+            value.get("message").and_then(Value::as_str)
+        {
+            return message.to_string();
+        }
+    }
+    raw.to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn beta_header_adaptive_model() {
+        let header =
+            build_beta_header("claude-opus-4-6-20250514");
+        assert!(!header.contains(INTERLEAVED_THINKING_BETA));
+        assert!(header.contains("claude-code-20250219"));
+    }
+
+    #[test]
+    fn beta_header_older_model() {
+        let header =
+            build_beta_header("claude-3-5-sonnet-20241022");
+        assert!(header.contains(INTERLEAVED_THINKING_BETA));
+        assert!(header.contains("claude-code-20250219"));
+    }
+
+    #[test]
+    fn extract_error_message_anthropic_format() {
+        let raw = r#"{"type":"error","error":{"type":"invalid_request_error","message":"max_tokens: 99999 > 8096"}}"#;
+        assert_eq!(
+            extract_error_message(raw),
+            "max_tokens: 99999 > 8096"
+        );
+    }
+
+    #[test]
+    fn extract_error_message_fallback() {
+        assert_eq!(
+            extract_error_message("not json at all"),
+            "not json at all"
+        );
+    }
+}

@@ -268,6 +268,12 @@ pub fn provider_for_alias(
             provider.set_debug(config.debug.save_requests, &config.workspace);
             Ok(Arc::new(provider))
         }
+        "anthropic" => {
+            let mut provider =
+                crate::providers::anthropic::AnthropicProvider::new(model.headers.clone())?;
+            provider.set_debug(config.debug.save_requests, &config.workspace);
+            Ok(Arc::new(provider))
+        }
         unsupported => Err(ProviderInitError::UnsupportedProvider {
             provider: unsupported.to_string(),
         }),
