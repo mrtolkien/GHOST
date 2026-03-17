@@ -82,6 +82,7 @@ pub async fn import_git(
         url,
         Some(version_ref),
         0, // placeholder, updated below
+        None,
     )
     .await?;
 
@@ -146,6 +147,7 @@ pub async fn import_git(
         url,
         Some(version_ref),
         total_refs as i64,
+        None,
     )
     .await?;
 

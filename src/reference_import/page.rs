@@ -45,7 +45,7 @@ pub async fn import_page(
     {
         // Upsert batch even if skipping (topic may not have one yet)
         let batch_id =
-            db::knowledge::upsert_import_batch(db, &topic_id, "page", url, None, 1).await?;
+            db::knowledge::upsert_import_batch(db, &topic_id, "page", url, None, 1, None).await?;
         return Ok(ImportResult {
             topic_id,
             batch_id,
@@ -55,7 +55,8 @@ pub async fn import_page(
     }
 
     // Upsert import batch
-    let batch_id = db::knowledge::upsert_import_batch(db, &topic_id, "page", url, None, 0).await?;
+    let batch_id =
+        db::knowledge::upsert_import_batch(db, &topic_id, "page", url, None, 0, None).await?;
 
     // Fetch page content: try HTML fetch first, fall back to docling for non-text
     let text = match web::fetch(url, &web::FetchOptions::default(), None, None).await {
@@ -101,9 +102,16 @@ pub async fn import_page(
 
     // Update import batch with final ref count
     let total_refs = db::knowledge::count_references_by_topic(db, &topic_id).await? as usize;
-    let batch_id =
-        db::knowledge::upsert_import_batch(db, &topic_id, "page", url, None, total_refs as i64)
-            .await?;
+    let batch_id = db::knowledge::upsert_import_batch(
+        db,
+        &topic_id,
+        "page",
+        url,
+        None,
+        total_refs as i64,
+        None,
+    )
+    .await?;
 
     // Write _import.toml and ensure index notes
     super::topic::write_import_toml(workspace, &config.topic, "page", url, None, total_refs)?;

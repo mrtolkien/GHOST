@@ -58,7 +58,8 @@ pub async fn import_file(
         .is_some()
     {
         let batch_id =
-            db::knowledge::upsert_import_batch(db, &topic_id, "file", file_path, None, 1).await?;
+            db::knowledge::upsert_import_batch(db, &topic_id, "file", file_path, None, 1, None)
+                .await?;
         return Ok(ImportResult {
             topic_id,
             batch_id,
@@ -68,7 +69,7 @@ pub async fn import_file(
     }
 
     let batch_id =
-        db::knowledge::upsert_import_batch(db, &topic_id, "file", file_path, None, 0).await?;
+        db::knowledge::upsert_import_batch(db, &topic_id, "file", file_path, None, 0, None).await?;
 
     // Convert via docling
     let convert_opts = crate::web::docling::ConvertOptions {
@@ -123,6 +124,7 @@ pub async fn import_file(
         file_path,
         None,
         total_refs as i64,
+        None,
     )
     .await?;
 

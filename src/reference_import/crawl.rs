@@ -39,7 +39,7 @@ pub async fn import_crawl(
 
     // Upsert import batch with placeholder count
     let batch_id =
-        db::knowledge::upsert_import_batch(db, &topic_id, "crawl", seed_url, None, 0).await?;
+        db::knowledge::upsert_import_batch(db, &topic_id, "crawl", seed_url, None, 0, None).await?;
 
     let mut queue: VecDeque<(Url, usize)> = VecDeque::new();
     let mut visited: HashSet<String> = HashSet::new();
@@ -149,6 +149,7 @@ pub async fn import_crawl(
         seed_url,
         None,
         total_refs as i64,
+        None,
     )
     .await?;
 

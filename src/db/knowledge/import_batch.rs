@@ -15,6 +15,7 @@ pub async fn upsert_import_batch(
     source_url: &str,
     version_ref: Option<&str>,
     ref_count: i64,
+    import_config: Option<&str>,
 ) -> Result<String, DatabaseError> {
     let id = new_id();
     let ts = now();
@@ -22,13 +23,15 @@ pub async fn upsert_import_batch(
     // Use INSERT ... ON CONFLICT to upsert
     let result = sqlx::query_as::<_, (String,)>(
         "INSERT INTO import_batch \
-         (id, topic_id, source_type, source_url, version_ref, ref_count, created_at, updated_at) \
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?) \
+         (id, topic_id, source_type, source_url, version_ref, ref_count, \
+         import_config, created_at, updated_at) \
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) \
          ON CONFLICT(topic_id) DO UPDATE SET \
          source_type = excluded.source_type, \
          source_url = excluded.source_url, \
          version_ref = excluded.version_ref, \
          ref_count = excluded.ref_count, \
+         import_config = excluded.import_config, \
          updated_at = excluded.updated_at \
          RETURNING id",
     )
@@ -38,6 +41,7 @@ pub async fn upsert_import_batch(
     .bind(source_url)
     .bind(version_ref)
     .bind(ref_count)
+    .bind(import_config)
     .bind(&ts)
     .bind(&ts)
     .fetch_one(db)

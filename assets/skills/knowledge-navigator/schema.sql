@@ -60,7 +60,7 @@ CREATE TABLE import_batch (
     version_ref TEXT,
     ref_count INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL, import_config TEXT,
     UNIQUE(topic_id)
 );
 CREATE TABLE interface_session (
