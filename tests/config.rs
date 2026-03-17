@@ -159,6 +159,48 @@ fn config_set_model_provider_must_be_valid() {
 }
 
 #[test]
+fn config_loads_anthropic_provider() {
+    let _guard = env_lock().lock().expect("env lock");
+
+    let workspace = TempDir::new().expect("workspace tempdir");
+    let config_dir = TempDir::new().expect("config tempdir");
+
+    fs::write(
+        config_dir.path().join("config.toml"),
+        format!(
+            "workspace = \"{}\"\n\
+\n\
+[models]\n\
+default = \"claude\"\n\
+\n\
+[models.claude]\n\
+provider = \"anthropic\"\n\
+model = \"claude-sonnet-4-6\"\n\
+context_window = 1000000\n",
+            workspace.path().display()
+        ),
+    )
+    .expect("write config file");
+
+    // SAFETY: test-level synchronization via env_lock prevents concurrent mutation.
+    unsafe {
+        std::env::set_var(CONFIG_DIR_ENV, config_dir.path());
+    }
+
+    let config = config::load().expect("load config with anthropic provider");
+    assert_eq!(config.models.default, "claude");
+    let model = config.models.aliases.get("claude").expect("claude alias");
+    assert_eq!(model.provider, "anthropic");
+    assert_eq!(model.model, "claude-sonnet-4-6");
+    assert_eq!(model.context_window, 1_000_000);
+
+    // SAFETY: test-level synchronization via env_lock prevents concurrent mutation.
+    unsafe {
+        std::env::remove_var(CONFIG_DIR_ENV);
+    }
+}
+
+#[test]
 fn config_get_prints_resolved_default_alias() {
     let (_config, _workspace, config_dir) = common::test_config();
     let value = config_cli::get_resolved_value_from_dir(config_dir.path(), "models.default")
