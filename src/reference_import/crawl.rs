@@ -9,7 +9,7 @@ use crate::db::GhostDb;
 use crate::web;
 
 use super::topic::ensure_topic_hierarchy;
-use super::types::{ImportConfig, ImportError, ImportResult, ImportSource};
+use super::types::{ImportConfig, ImportConfigJson, ImportError, ImportResult, ImportSource};
 
 /// Import references by BFS-crawling a website, following same-host links.
 #[tracing::instrument(name = "import crawl", skip_all, fields(topic = %config.topic))]
@@ -37,9 +37,21 @@ pub async fn import_crawl(
     // Ensure topic hierarchy
     let topic_id = ensure_topic_hierarchy(db, &config.topic).await?;
 
+    // Build serializable config snapshot for DB and TOML
+    let config_json = ImportConfigJson::from(config);
+    let config_json_str = serde_json::to_string(&config_json).ok();
+
     // Upsert import batch with placeholder count
-    let batch_id =
-        db::knowledge::upsert_import_batch(db, &topic_id, "crawl", seed_url, None, 0, None).await?;
+    let batch_id = db::knowledge::upsert_import_batch(
+        db,
+        &topic_id,
+        "crawl",
+        seed_url,
+        None,
+        0,
+        config_json_str.as_deref(),
+    )
+    .await?;
 
     let mut queue: VecDeque<(Url, usize)> = VecDeque::new();
     let mut visited: HashSet<String> = HashSet::new();
@@ -149,19 +161,12 @@ pub async fn import_crawl(
         seed_url,
         None,
         total_refs as i64,
-        None,
+        config_json_str.as_deref(),
     )
     .await?;
 
     // Write _import.toml and ensure index notes
-    super::topic::write_import_toml(
-        workspace,
-        &config.topic,
-        "crawl",
-        seed_url,
-        None,
-        total_refs,
-    )?;
+    super::topic::write_import_toml(workspace, &config.topic, &config_json, None, total_refs)?;
 
     Ok(ImportResult {
         topic_id,

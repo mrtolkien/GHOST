@@ -6,7 +6,7 @@ use crate::db;
 use crate::db::GhostDb;
 
 use super::topic::ensure_topic_hierarchy;
-use super::types::{ImportConfig, ImportError, ImportResult, ImportSource};
+use super::types::{ImportConfig, ImportConfigJson, ImportError, ImportResult, ImportSource};
 
 /// Import references from a git repository using sparse checkout.
 ///
@@ -75,6 +75,10 @@ pub async fn import_git(
     // Ensure topic hierarchy in DB
     let topic_id = ensure_topic_hierarchy(db, &config.topic).await?;
 
+    // Build serializable config snapshot for DB and TOML
+    let config_json = ImportConfigJson::from(config);
+    let config_json_str = serde_json::to_string(&config_json).ok();
+
     // Walk files and collect references
     let files = walk_files(&repo_dir, paths, extensions);
     let total_files = files.len();
@@ -89,7 +93,7 @@ pub async fn import_git(
         url,
         Some(version_ref),
         0, // placeholder, updated below
-        None,
+        config_json_str.as_deref(),
     )
     .await?;
 
@@ -154,7 +158,7 @@ pub async fn import_git(
         url,
         Some(version_ref),
         total_refs as i64,
-        None,
+        config_json_str.as_deref(),
     )
     .await?;
 
@@ -162,8 +166,7 @@ pub async fn import_git(
     super::topic::write_import_toml(
         workspace,
         &config.topic,
-        "git",
-        url,
+        &config_json,
         Some(version_ref),
         total_refs,
     )?;

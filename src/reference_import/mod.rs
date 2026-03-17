@@ -10,4 +10,4 @@ pub use file::import_file;
 pub use git::import_git;
 pub use page::import_page;
 pub use topic::ensure_topic_hierarchy;
-pub use types::{ImportConfig, ImportError, ImportResult, ImportSource};
+pub use types::{ImportConfig, ImportConfigJson, ImportError, ImportResult, ImportSource};
