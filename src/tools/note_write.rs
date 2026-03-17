@@ -4,7 +4,7 @@ use serde_json::{Value, json};
 
 use crate::db;
 use crate::knowledge::reconcile::reconcile_edges;
-use crate::knowledge::{self, NoteFrontMatter, extract_wiki_links};
+use crate::knowledge::{self, Archetype, NoteFrontMatter, extract_wiki_links};
 use crate::providers::ToolDefinition;
 
 use super::context::ToolContext;
@@ -188,9 +188,13 @@ impl NoteWrite {
 
         let front = NoteFrontMatter {
             title: title.to_string(),
+            archetype: Archetype::Entity,
             tags: tags.to_vec(),
+            parent: None,
             sources: sources.to_vec(),
             trust,
+            written_at: chrono::Utc::now().to_rfc3339(),
+            updated_at: None,
         };
 
         let subfolder = knowledge::subfolder_from_tags(tags);
@@ -320,9 +324,13 @@ impl NoteWrite {
 
         let front = NoteFrontMatter {
             title: title.to_string(),
+            archetype: Archetype::Entity,
             tags: tags.to_vec(),
+            parent: None,
             sources: sources.to_vec(),
             trust,
+            written_at: chrono::Utc::now().to_rfc3339(),
+            updated_at: None,
         };
         let path = knowledge::write_note(&ctx.workspace, &front, &sanitized_body)
             .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;

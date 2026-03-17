@@ -80,7 +80,7 @@ mod tests {
     use super::*;
     #[test]
     fn parse_valid_note_roundtrip() {
-        let raw = "---\ntitle: Rust\ntags:\n  - lang\ntrust: 8\n---\nRust is a systems programming language.\n\nIt has [[Ownership]] and [[concept>Borrowing]].\n";
+        let raw = "---\ntitle: Rust\narchetype: entity\ntags:\n  - lang\ntrust: 8\nwritten_at: '2026-01-01T00:00:00Z'\n---\nRust is a systems programming language.\n\nIt has [[Ownership]] and [[concept>Borrowing]].\n";
 
         let parsed = parse_note(raw).unwrap();
         assert_eq!(parsed.front.title, "Rust");
@@ -148,9 +148,13 @@ mod tests {
     fn serialize_roundtrip() {
         let front = NoteFrontMatter {
             title: "Test Note".to_string(),
+            archetype: super::super::types::Archetype::Entity,
             tags: vec!["a".into(), "b".into()],
+            parent: None,
             sources: vec![],
             trust: 7,
+            written_at: "2026-01-01T00:00:00Z".into(),
+            updated_at: None,
         };
         let body = "Some body content.\n";
 
@@ -162,7 +166,7 @@ mod tests {
 
     #[test]
     fn default_trust_value() {
-        let raw = "---\ntitle: Minimal\n---\nJust body.\n";
+        let raw = "---\ntitle: Minimal\narchetype: entity\nwritten_at: '2026-01-01T00:00:00Z'\n---\nJust body.\n";
         let parsed = parse_note(raw).unwrap();
         assert_eq!(parsed.front.trust, 5);
     }
@@ -171,12 +175,16 @@ mod tests {
     fn sources_roundtrip() {
         let front = NoteFrontMatter {
             title: "With Sources".to_string(),
+            archetype: super::super::types::Archetype::Entity,
             tags: vec!["test".into()],
+            parent: None,
             sources: vec![
                 "https://example.com/article".into(),
                 "https://other.com/page".into(),
             ],
             trust: 7,
+            written_at: "2026-01-01T00:00:00Z".into(),
+            updated_at: None,
         };
         let body = "Body with sources in frontmatter.\n";
 
@@ -191,9 +199,13 @@ mod tests {
     fn sources_omitted_when_empty() {
         let front = NoteFrontMatter {
             title: "No Sources".to_string(),
+            archetype: super::super::types::Archetype::Entity,
             tags: vec![],
+            parent: None,
             sources: vec![],
             trust: 5,
+            written_at: "2026-01-01T00:00:00Z".into(),
+            updated_at: None,
         };
         let serialized = serialize_note(&front, "body\n").unwrap();
         assert!(

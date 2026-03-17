@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use super::error::KnowledgeError;
 use super::files::collect_md_files_recursive;
 use super::parser::{parse_note, serialize_note};
-use super::types::{NoteFrontMatter, ParsedNote};
+use super::types::{Archetype, NoteFrontMatter, ParsedNote};
 
 #[must_use]
 pub fn note_path(workspace: &Path, subfolder: Option<&str>, slug: &str) -> PathBuf {
@@ -111,9 +111,13 @@ pub fn ensure_index_notes(
 
         let front = NoteFrontMatter {
             title,
+            archetype: Archetype::Topic,
             tags: vec![folder_path.clone()],
+            parent: None,
             sources: vec![],
             trust: 5,
+            written_at: chrono::Utc::now().to_rfc3339(),
+            updated_at: None,
         };
         let body = format!("Knowledge hub for {}.\n", folder_path);
         let content = serialize_note(&front, &body)?;
@@ -151,9 +155,13 @@ mod tests {
 
         let front = NoteFrontMatter {
             title: "Test Note".to_string(),
+            archetype: Archetype::Entity,
             tags: vec!["test".into()],
+            parent: None,
             sources: vec![],
             trust: 7,
+            written_at: "2026-01-01T00:00:00Z".into(),
+            updated_at: None,
         };
         let body = "This is the body.\n";
 
@@ -174,9 +182,13 @@ mod tests {
 
         let front = NoteFrontMatter {
             title: "Flat Note".to_string(),
+            archetype: Archetype::Entity,
             tags: vec![],
+            parent: None,
             sources: vec![],
             trust: 5,
+            written_at: "2026-01-01T00:00:00Z".into(),
+            updated_at: None,
         };
 
         let path = write_note(workspace.path(), &front, "body\n").unwrap();

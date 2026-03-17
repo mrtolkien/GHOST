@@ -64,9 +64,13 @@ pub async fn test_database() -> (GhostDb, Config, TempDir, TempDir) {
 pub fn write_test_note(workspace: &std::path::Path, title: &str, body: &str) -> PathBuf {
     let front = NoteFrontMatter {
         title: title.to_string(),
+        archetype: ghost::knowledge::Archetype::Entity,
         tags: vec![],
+        parent: None,
         sources: vec![],
         trust: 5,
+        written_at: "2026-01-01T00:00:00Z".into(),
+        updated_at: None,
     };
     let content = serialize_note(&front, body).expect("serialize note");
     let slug = ghost::knowledge::slug_from_title(title);

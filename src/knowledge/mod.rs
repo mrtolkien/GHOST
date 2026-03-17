@@ -16,4 +16,4 @@ pub use notes::{
     write_note,
 };
 pub use parser::{extract_wiki_links, parse_note, serialize_note, slug_from_title};
-pub use types::{KnowledgeKind, NoteFrontMatter, ParsedNote, WikiLink};
+pub use types::{Archetype, KnowledgeKind, NoteFrontMatter, ParsedNote, WikiLink};

@@ -496,9 +496,13 @@ async fn link_cited_edges_creates_note_to_reference_edges() {
     // Write a note file with a source URL in frontmatter
     let front = NoteFrontMatter {
         title: "Test Product".to_string(),
+        archetype: ghost::knowledge::Archetype::Entity,
         tags: vec![],
+        parent: None,
         sources: vec!["https://example.com/review".to_string()],
         trust: 5,
+        written_at: "2026-01-01T00:00:00Z".into(),
+        updated_at: None,
     };
     let content = serialize_note(&front, "A review of the product.").unwrap();
     let notes_dir = ws.join("notes");

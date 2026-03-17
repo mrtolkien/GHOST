@@ -7,7 +7,7 @@ use crate::db::GhostDb;
 use crate::error::GhostError;
 use crate::knowledge::reconcile::reconcile_edges;
 use crate::knowledge::sanitize::sanitize_reference_links;
-use crate::knowledge::{self, NoteFrontMatter, extract_wiki_links};
+use crate::knowledge::{self, Archetype, NoteFrontMatter, extract_wiki_links};
 
 #[derive(Debug, Subcommand)]
 pub enum NoteCommand {
@@ -84,9 +84,13 @@ async fn create_note(
 
     let front = NoteFrontMatter {
         title: title.to_string(),
+        archetype: Archetype::Entity,
         tags: tags.to_vec(),
+        parent: None,
         sources: sources.to_vec(),
         trust,
+        written_at: chrono::Utc::now().to_rfc3339(),
+        updated_at: None,
     };
 
     let subfolder = knowledge::subfolder_from_tags(tags);
@@ -214,9 +218,13 @@ async fn update_note(
 
     let front = NoteFrontMatter {
         title: title.to_string(),
+        archetype: Archetype::Entity,
         tags: tags.to_vec(),
+        parent: None,
         sources: sources.to_vec(),
         trust,
+        written_at: chrono::Utc::now().to_rfc3339(),
+        updated_at: None,
     };
     let path = knowledge::write_note(workspace, &front, &sanitized_body)
         .map_err(|e| std::io::Error::other(e.to_string()))?;
