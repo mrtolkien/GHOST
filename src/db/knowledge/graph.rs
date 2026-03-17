@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use sqlx::SqlitePool;
 
 use crate::db::error::DatabaseError;
@@ -210,4 +212,43 @@ pub async fn orphan_notes(db: &SqlitePool) -> Result<Vec<NoteRecord>, DatabaseEr
         operation: "orphan_notes",
         source,
     })
+}
+
+/// Returns the subset of `reference_ids` that are cited by at least one note.
+#[tracing::instrument(skip_all, level = "debug")]
+pub async fn cited_reference_ids(
+    db: &SqlitePool,
+    reference_ids: &[String],
+) -> Result<HashSet<String>, DatabaseError> {
+    if reference_ids.is_empty() {
+        return Ok(HashSet::new());
+    }
+
+    // Build IN clause with positional params
+    let placeholders: Vec<&str> = reference_ids.iter().map(|_| "?").collect();
+    let query = format!(
+        "SELECT DISTINCT to_id FROM cited WHERE to_id IN ({})",
+        placeholders.join(", ")
+    );
+
+    #[derive(sqlx::FromRow)]
+    struct Row {
+        to_id: String,
+    }
+
+    let mut q = sqlx::query_as::<_, Row>(&query);
+    for id in reference_ids {
+        q = q.bind(id);
+    }
+
+    let rows = q
+        .fetch_all(db)
+        .await
+        .map_err(|source| DatabaseError::Query {
+            table: "cited",
+            operation: "cited_reference_ids",
+            source,
+        })?;
+
+    Ok(rows.into_iter().map(|r| r.to_id).collect())
 }

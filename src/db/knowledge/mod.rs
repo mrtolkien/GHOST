@@ -17,9 +17,9 @@ pub use crud::{
     update_script,
 };
 pub use graph::{
-    backfill_message_source_references, create_cited_edge, create_edge, create_message_source,
-    delete_outgoing_edges, incoming_cited, incoming_edges, orphan_notes, outgoing_edges,
-    related_note_ids,
+    backfill_message_source_references, cited_reference_ids, create_cited_edge, create_edge,
+    create_message_source, delete_outgoing_edges, incoming_cited, incoming_edges, orphan_notes,
+    outgoing_edges, related_note_ids,
 };
 pub use import_batch::{
     delete_import_batch, get_import_batch_by_topic, list_import_batches, upsert_import_batch,
