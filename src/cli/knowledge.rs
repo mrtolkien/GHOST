@@ -472,6 +472,7 @@ async fn cmd_reindex(
                     &existing.id,
                     &parsed.front.title,
                     &parsed.wiki_links,
+                    parsed.front.parent.as_deref(),
                 )
                 .await
                 .map_err(|e| std::io::Error::other(e.to_string()))?;
@@ -501,6 +502,7 @@ async fn cmd_reindex(
                     &note_id,
                     &parsed.front.title,
                     &parsed.wiki_links,
+                    parsed.front.parent.as_deref(),
                 )
                 .await
                 .map_err(|e| std::io::Error::other(e.to_string()))?;

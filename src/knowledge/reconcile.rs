@@ -21,13 +21,28 @@ pub async fn reconcile_edges(
     note_id: &str,
     _note_title: &str,
     new_links: &[WikiLink],
+    parent: Option<&str>,
 ) -> Result<ReconcileResult, KnowledgeError> {
     let mut stubs_created = 0usize;
     let mut stub_titles = Vec::new();
 
+    // Build desired links, injecting parent edge if set
+    let mut all_links = new_links.to_vec();
+    if let Some(parent_title) = parent {
+        let already_linked = all_links
+            .iter()
+            .any(|l| l.target == parent_title && l.relationship.as_deref() == Some("parent"));
+        if !already_linked {
+            all_links.push(WikiLink {
+                target: parent_title.to_string(),
+                relationship: Some("parent".to_string()),
+            });
+        }
+    }
+
     // Resolve each wiki link target to a note ID, creating stubs as needed.
     let mut desired: Vec<(String, String)> = Vec::new();
-    for link in new_links {
+    for link in &all_links {
         let target_id = match db::knowledge::find_note_by_title(db_conn, &link.target)
             .await
             .map_err(Box::new)?
@@ -41,7 +56,7 @@ pub async fn reconcile_edges(
                     &[],
                     &[],
                     1,
-                    None,
+                    Some("entity"),
                     None,
                     None,
                     None,

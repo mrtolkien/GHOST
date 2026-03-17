@@ -238,7 +238,7 @@ impl NoteWrite {
         .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
 
         let wiki_links = extract_wiki_links(&sanitized_body);
-        let result = reconcile_edges(&ctx.db, &note_id, title, &wiki_links)
+        let result = reconcile_edges(&ctx.db, &note_id, title, &wiki_links, None)
             .await
             .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
 
@@ -356,7 +356,7 @@ impl NoteWrite {
         }
 
         let wiki_links = extract_wiki_links(&sanitized_body);
-        let result = reconcile_edges(&ctx.db, &existing.id, title, &wiki_links)
+        let result = reconcile_edges(&ctx.db, &existing.id, title, &wiki_links, None)
             .await
             .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
 

@@ -134,7 +134,7 @@ async fn create_note(
     .map_err(|e| GhostError::Database(Box::new(e)))?;
 
     let wiki_links = extract_wiki_links(&sanitized_body);
-    let result = reconcile_edges(db, &note_id, title, &wiki_links)
+    let result = reconcile_edges(db, &note_id, title, &wiki_links, None)
         .await
         .map_err(|e| std::io::Error::other(e.to_string()))?;
 
@@ -245,7 +245,7 @@ async fn update_note(
     }
 
     let wiki_links = extract_wiki_links(&sanitized_body);
-    let result = reconcile_edges(db, &existing.id, title, &wiki_links)
+    let result = reconcile_edges(db, &existing.id, title, &wiki_links, None)
         .await
         .map_err(|e| std::io::Error::other(e.to_string()))?;
 

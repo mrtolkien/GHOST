@@ -336,6 +336,7 @@ async fn process_note_change(
                 &n.id,
                 &parsed.front.title,
                 &parsed.wiki_links,
+                parsed.front.parent.as_deref(),
             )
             .await;
             n.id
@@ -361,6 +362,7 @@ async fn process_note_change(
                         &id,
                         &parsed.front.title,
                         &parsed.wiki_links,
+                        parsed.front.parent.as_deref(),
                     )
                     .await;
                     id

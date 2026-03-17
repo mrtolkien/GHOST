@@ -54,10 +54,20 @@ async fn create_note_and_retrieve_all_fields() {
 async fn update_note_changes_fields() {
     let (db, _config, _workspace, _config_dir) = common::test_database().await;
 
-    let id =
-        db::knowledge::create_note_full(&db, "Draft", "old body", &[], &[], 5, None, None, None, None)
-            .await
-            .expect("create");
+    let id = db::knowledge::create_note_full(
+        &db,
+        "Draft",
+        "old body",
+        &[],
+        &[],
+        5,
+        None,
+        None,
+        None,
+        None,
+    )
+    .await
+    .expect("create");
 
     let before = db::knowledge::get_note(&db, &id).await.expect("get before");
 
@@ -105,7 +115,7 @@ async fn wiki_link_creates_relates_to_edge_and_stub() {
     .expect("create note");
 
     let links = knowledge::extract_wiki_links("See [[Rust]]");
-    let result = knowledge::reconcile::reconcile_edges(&db, &note_id, "My Note", &links)
+    let result = knowledge::reconcile::reconcile_edges(&db, &note_id, "My Note", &links, None)
         .await
         .expect("reconcile");
 
@@ -133,10 +143,20 @@ async fn wiki_link_creates_relates_to_edge_and_stub() {
 async fn typed_wiki_link_creates_labeled_edge() {
     let (db, _config, _workspace, _config_dir) = common::test_database().await;
 
-    let rust_id =
-        db::knowledge::create_note_full(&db, "Rust", "A language", &[], &[], 5, None, None, None, None)
-            .await
-            .expect("create Rust");
+    let rust_id = db::knowledge::create_note_full(
+        &db,
+        "Rust",
+        "A language",
+        &[],
+        &[],
+        5,
+        None,
+        None,
+        None,
+        None,
+    )
+    .await
+    .expect("create Rust");
 
     let note_id = db::knowledge::create_note_full(
         &db,
@@ -154,7 +174,7 @@ async fn typed_wiki_link_creates_labeled_edge() {
     .expect("create Ghost");
 
     let links = knowledge::extract_wiki_links("Built with [[written_in>Rust]]");
-    knowledge::reconcile::reconcile_edges(&db, &note_id, "Ghost", &links)
+    knowledge::reconcile::reconcile_edges(&db, &note_id, "Ghost", &links, None)
         .await
         .expect("reconcile");
 
@@ -170,9 +190,10 @@ async fn typed_wiki_link_creates_labeled_edge() {
 async fn removing_link_deletes_edge() {
     let (db, _config, _workspace, _config_dir) = common::test_database().await;
 
-    let _rust_id = db::knowledge::create_note_full(&db, "Rust", "", &[], &[], 5, None, None, None, None)
-        .await
-        .expect("create Rust");
+    let _rust_id =
+        db::knowledge::create_note_full(&db, "Rust", "", &[], &[], 5, None, None, None, None)
+            .await
+            .expect("create Rust");
 
     let note_id = db::knowledge::create_note_full(
         &db,
@@ -191,7 +212,7 @@ async fn removing_link_deletes_edge() {
 
     // Initial reconcile creates edge
     let links = knowledge::extract_wiki_links("See [[Rust]]");
-    knowledge::reconcile::reconcile_edges(&db, &note_id, "My Note", &links)
+    knowledge::reconcile::reconcile_edges(&db, &note_id, "My Note", &links, None)
         .await
         .expect("reconcile 1");
     assert_eq!(
@@ -204,7 +225,7 @@ async fn removing_link_deletes_edge() {
 
     // Update with no links — edge should be deleted
     let no_links = knowledge::extract_wiki_links("No more links");
-    let result = knowledge::reconcile::reconcile_edges(&db, &note_id, "My Note", &no_links)
+    let result = knowledge::reconcile::reconcile_edges(&db, &note_id, "My Note", &no_links, None)
         .await
         .expect("reconcile 2");
     assert_eq!(result.deleted, 1);
@@ -266,27 +287,48 @@ async fn bm25_search_returns_results() {
 async fn graph_chain_neighbors() {
     let (db, _config, _workspace, _config_dir) = common::test_database().await;
 
-    let a =
-        db::knowledge::create_note_full(&db, "A", "Links to [[B]]", &[], &[], 5, None, None, None, None)
+    let a = db::knowledge::create_note_full(
+        &db,
+        "A",
+        "Links to [[B]]",
+        &[],
+        &[],
+        5,
+        None,
+        None,
+        None,
+        None,
+    )
+    .await
+    .expect("create A");
+    let b = db::knowledge::create_note_full(
+        &db,
+        "B",
+        "Links to [[C]]",
+        &[],
+        &[],
+        5,
+        None,
+        None,
+        None,
+        None,
+    )
+    .await
+    .expect("create B");
+    let c =
+        db::knowledge::create_note_full(&db, "C", "End node", &[], &[], 5, None, None, None, None)
             .await
-            .expect("create A");
-    let b =
-        db::knowledge::create_note_full(&db, "B", "Links to [[C]]", &[], &[], 5, None, None, None, None)
-            .await
-            .expect("create B");
-    let c = db::knowledge::create_note_full(&db, "C", "End node", &[], &[], 5, None, None, None, None)
-        .await
-        .expect("create C");
+            .expect("create C");
 
     // A -> B
     let links_a = knowledge::extract_wiki_links("Links to [[B]]");
-    knowledge::reconcile::reconcile_edges(&db, &a, "A", &links_a)
+    knowledge::reconcile::reconcile_edges(&db, &a, "A", &links_a, None)
         .await
         .expect("reconcile A");
 
     // B -> C
     let links_b = knowledge::extract_wiki_links("Links to [[C]]");
-    knowledge::reconcile::reconcile_edges(&db, &b, "B", &links_b)
+    knowledge::reconcile::reconcile_edges(&db, &b, "B", &links_b, None)
         .await
         .expect("reconcile B");
 
@@ -410,16 +452,38 @@ async fn tags_with_correct_counts() {
 async fn recent_returns_items_sorted() {
     let (db, _config, _workspace, _config_dir) = common::test_database().await;
 
-    db::knowledge::create_note_full(&db, "First Note", "body", &[], &[], 5, None, None, None, None)
-        .await
-        .expect("create first");
+    db::knowledge::create_note_full(
+        &db,
+        "First Note",
+        "body",
+        &[],
+        &[],
+        5,
+        None,
+        None,
+        None,
+        None,
+    )
+    .await
+    .expect("create first");
 
     // Small delay to ensure different timestamps
     tokio::time::sleep(std::time::Duration::from_millis(50)).await;
 
-    db::knowledge::create_note_full(&db, "Second Note", "body", &[], &[], 5, None, None, None, None)
-        .await
-        .expect("create second");
+    db::knowledge::create_note_full(
+        &db,
+        "Second Note",
+        "body",
+        &[],
+        &[],
+        5,
+        None,
+        None,
+        None,
+        None,
+    )
+    .await
+    .expect("create second");
 
     let recent = db::knowledge::list_recent(&db, 10).await.expect("recent");
     assert!(recent.len() >= 2);
