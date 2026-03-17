@@ -39,6 +39,18 @@ pub async fn connect(workspace: &Path, embedding_dim: usize) -> Result<GhostDb, 
         .pragma("cache_size", "-65536"); // 64 MB
 
     let pool = SqlitePoolOptions::new()
+        // sqlx's SQLite ping() is a no-op (only checks the worker thread
+        // channel, not the actual SQLite handle). A connection that hits a
+        // transient I/O error stays in the pool and poisons every subsequent
+        // query. This callback runs a real query to detect broken connections
+        // so the pool can replace them. Near-zero cost for SQLite (in-process).
+        .test_before_acquire(false)
+        .before_acquire(|conn, _meta| {
+            Box::pin(async move {
+                sqlx::query("SELECT 1").execute(&mut *conn).await?;
+                Ok(true)
+            })
+        })
         .connect_with(opts)
         .await
         .map_err(|source| DatabaseError::Connect {
