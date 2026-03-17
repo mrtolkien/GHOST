@@ -3,10 +3,6 @@
 /// Maps Ghost tool names to Claude Code canonical names before sending
 /// requests to the Anthropic API via OAuth (stealth mode), and back again
 /// when processing responses.
-
-/// Claude Code canonical tool names. Case-insensitive lookup maps Ghost
-/// tool names to these exact strings before sending to the Anthropic API
-/// via OAuth (stealth mode). Per pi-mono.
 const CANONICAL_NAMES: &[&str] = &[
     "Read",
     "Write",

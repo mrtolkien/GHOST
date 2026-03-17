@@ -2,14 +2,11 @@
 ///
 /// Accumulates streamed SSE events into a complete `ChatResponse`. Handles
 /// text, tool_use, thinking, and redacted_thinking content block types.
-
 use serde_json::Value;
 
 use super::tool_names::from_claude_code_name;
-use crate::providers::types::{
-    ChatResponse, ContentBlock, StopReason, Usage,
-};
 use crate::providers::ProviderError;
+use crate::providers::types::{ChatResponse, ContentBlock, StopReason, Usage};
 
 /// In-progress state for a single content block being streamed.
 #[derive(Debug, Default)]
@@ -72,8 +69,7 @@ pub(crate) fn parse_sse_response(
                 let v: Value = parse_json(&data_str)?;
                 let idx = v["index"].as_u64().unwrap_or(0) as usize;
                 let cb = &v["content_block"];
-                let block_type =
-                    cb["type"].as_str().unwrap_or("text").to_string();
+                let block_type = cb["type"].as_str().unwrap_or("text").to_string();
 
                 let mut state = BlockState {
                     block_type: block_type.clone(),
@@ -82,14 +78,8 @@ pub(crate) fn parse_sse_response(
 
                 match block_type.as_str() {
                     "tool_use" => {
-                        state.tool_id = cb["id"]
-                            .as_str()
-                            .unwrap_or("")
-                            .to_string();
-                        state.tool_name = cb["name"]
-                            .as_str()
-                            .unwrap_or("")
-                            .to_string();
+                        state.tool_id = cb["id"].as_str().unwrap_or("").to_string();
+                        state.tool_name = cb["name"].as_str().unwrap_or("").to_string();
                     }
                     "redacted_thinking" => {
                         state.redacted_json = Some(cb.clone());
@@ -110,8 +100,7 @@ pub(crate) fn parse_sse_response(
                     continue;
                 }
                 let delta = &v["delta"];
-                let delta_type =
-                    delta["type"].as_str().unwrap_or("");
+                let delta_type = delta["type"].as_str().unwrap_or("");
 
                 match delta_type {
                     "text_delta" => {
@@ -120,8 +109,7 @@ pub(crate) fn parse_sse_response(
                         }
                     }
                     "input_json_delta" => {
-                        if let Some(j) = delta["partial_json"].as_str()
-                        {
+                        if let Some(j) = delta["partial_json"].as_str() {
                             blocks[idx].json_buf.push_str(j);
                         }
                     }
@@ -161,9 +149,7 @@ pub(crate) fn parse_sse_response(
                         _ => stop_reason = StopReason::EndTurn,
                     }
                 }
-                if let Some(out) =
-                    v["usage"]["output_tokens"].as_u64()
-                {
+                if let Some(out) = v["usage"]["output_tokens"].as_u64() {
                     usage.output_tokens = out as u32;
                 }
             }
@@ -173,9 +159,7 @@ pub(crate) fn parse_sse_response(
                     .as_str()
                     .or_else(|| v["message"].as_str())
                     .unwrap_or("unknown error");
-                return Err(ProviderError::InvalidResponse(
-                    msg.to_string(),
-                ));
+                return Err(ProviderError::InvalidResponse(msg.to_string()));
             }
             // ping, message_stop, unknown — ignore
             _ => {}
@@ -228,11 +212,8 @@ fn parse_sse_chunk(chunk: &str) -> (Option<&str>, Option<String>) {
 }
 
 fn parse_json(s: &str) -> Result<Value, ProviderError> {
-    serde_json::from_str(s).map_err(|e| {
-        ProviderError::InvalidResponse(format!(
-            "invalid JSON in SSE data: {e}"
-        ))
-    })
+    serde_json::from_str(s)
+        .map_err(|e| ProviderError::InvalidResponse(format!("invalid JSON in SSE data: {e}")))
 }
 
 fn apply_message_start_usage(usage: &mut Usage, v: &Value) {
@@ -247,22 +228,15 @@ fn apply_message_start_usage(usage: &mut Usage, v: &Value) {
     }
 }
 
-fn finalize_block(
-    state: &BlockState,
-    ghost_tool_names: &[&str],
-) -> ContentBlock {
+fn finalize_block(state: &BlockState, ghost_tool_names: &[&str]) -> ContentBlock {
     match state.block_type.as_str() {
         "tool_use" => {
             let input: Value = if state.json_buf.is_empty() {
                 serde_json::json!({})
             } else {
-                serde_json::from_str(&state.json_buf)
-                    .unwrap_or(serde_json::json!({}))
+                serde_json::from_str(&state.json_buf).unwrap_or(serde_json::json!({}))
             };
-            let name = from_claude_code_name(
-                &state.tool_name,
-                ghost_tool_names,
-            );
+            let name = from_claude_code_name(&state.tool_name, ghost_tool_names);
             ContentBlock::ToolUse {
                 id: state.tool_id.clone(),
                 name,
@@ -279,10 +253,7 @@ fn finalize_block(
         },
         "redacted_thinking" => ContentBlock::RawOutput {
             original_type: "redacted_thinking".to_string(),
-            value: state
-                .redacted_json
-                .clone()
-                .unwrap_or(serde_json::json!({})),
+            value: state.redacted_json.clone().unwrap_or(serde_json::json!({})),
         },
         // text and anything else
         _ => ContentBlock::Text {
@@ -298,9 +269,7 @@ mod tests {
     fn make_sse(events: &[(&str, serde_json::Value)]) -> String {
         events
             .iter()
-            .map(|(event, data)| {
-                format!("event: {event}\ndata: {}\n\n", data)
-            })
+            .map(|(event, data)| format!("event: {event}\ndata: {}\n\n", data))
             .collect()
     }
 
@@ -352,10 +321,7 @@ mod tests {
                     "usage": {"output_tokens": 5}
                 }),
             ),
-            (
-                "message_stop",
-                serde_json::json!({"type": "message_stop"}),
-            ),
+            ("message_stop", serde_json::json!({"type": "message_stop"})),
         ]);
         let resp = parse_sse_response(&sse, "fallback", &[]).unwrap();
         assert_eq!(resp.content.len(), 1);
@@ -416,13 +382,9 @@ mod tests {
                     "usage": {"output_tokens": 20}
                 }),
             ),
-            (
-                "message_stop",
-                serde_json::json!({"type": "message_stop"}),
-            ),
+            ("message_stop", serde_json::json!({"type": "message_stop"})),
         ]);
-        let resp =
-            parse_sse_response(&sse, "fallback", &["read"]).unwrap();
+        let resp = parse_sse_response(&sse, "fallback", &["read"]).unwrap();
         assert_eq!(resp.stop_reason, StopReason::ToolUse);
         match &resp.content[0] {
             ContentBlock::ToolUse { id, name, input } => {
@@ -500,10 +462,7 @@ mod tests {
                     "usage": {"output_tokens": 30}
                 }),
             ),
-            (
-                "message_stop",
-                serde_json::json!({"type": "message_stop"}),
-            ),
+            ("message_stop", serde_json::json!({"type": "message_stop"})),
         ]);
         let resp = parse_sse_response(&sse, "fallback", &[]).unwrap();
         assert_eq!(resp.content.len(), 2);
@@ -572,10 +531,7 @@ mod tests {
                     "usage": {"output_tokens": 10}
                 }),
             ),
-            (
-                "message_stop",
-                serde_json::json!({"type": "message_stop"}),
-            ),
+            ("message_stop", serde_json::json!({"type": "message_stop"})),
         ]);
         let resp = parse_sse_response(&sse, "fallback", &[]).unwrap();
         assert_eq!(resp.content.len(), 2);
@@ -610,10 +566,7 @@ mod tests {
                     "usage": {"output_tokens": 0}
                 }),
             ),
-            (
-                "message_stop",
-                serde_json::json!({"type": "message_stop"}),
-            ),
+            ("message_stop", serde_json::json!({"type": "message_stop"})),
         ]);
         let result = parse_sse_response(&sse, "fallback", &[]);
         assert!(result.is_err());
@@ -660,10 +613,7 @@ mod tests {
                     "usage": {"output_tokens": 1}
                 }),
             ),
-            (
-                "message_stop",
-                serde_json::json!({"type": "message_stop"}),
-            ),
+            ("message_stop", serde_json::json!({"type": "message_stop"})),
         ]);
         let resp = parse_sse_response(&sse, "fallback", &[]).unwrap();
         assert_eq!(resp.usage.input_tokens, 42);

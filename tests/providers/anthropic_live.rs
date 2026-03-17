@@ -1,23 +1,20 @@
 use std::collections::BTreeMap;
 
 use ghost::providers::{
-    AnthropicProvider, ChatMessage, ChatRequest, ContentBlock, Provider,
-    Role, StopReason, ToolDefinition, user_message,
+    AnthropicProvider, ChatMessage, ChatRequest, ContentBlock, Provider, Role, StopReason,
+    ToolDefinition, user_message,
 };
 use serde_json::json;
 
 #[tokio::test]
 async fn anthropic_simple_chat() {
     let _observability =
-        ghost::observability::init_for_live_tests()
-            .expect("init live test observability");
+        ghost::observability::init_for_live_tests().expect("init live test observability");
 
     let provider = match AnthropicProvider::new(BTreeMap::new()) {
         Ok(p) => p,
         Err(e) => {
-            eprintln!(
-                "Skipping: no Claude Code credentials ({e})"
-            );
+            eprintln!("Skipping: no Claude Code credentials ({e})");
             return;
         }
     };
@@ -25,9 +22,7 @@ async fn anthropic_simple_chat() {
     let response = provider
         .chat(ChatRequest {
             model: "claude-sonnet-4-6-20250514".into(),
-            messages: vec![user_message(
-                "Say 'hello' and nothing else.",
-            )],
+            messages: vec![user_message("Say 'hello' and nothing else.")],
             tools: None,
             max_tokens: Some(100),
             temperature: Some(0.0),
@@ -40,10 +35,7 @@ async fn anthropic_simple_chat() {
         .await
         .expect("chat request");
 
-    assert!(
-        !response.content.is_empty(),
-        "response should have content"
-    );
+    assert!(!response.content.is_empty(), "response should have content");
     let text = response
         .content
         .iter()
@@ -64,15 +56,12 @@ async fn anthropic_simple_chat() {
 #[tokio::test]
 async fn anthropic_tool_use() {
     let _observability =
-        ghost::observability::init_for_live_tests()
-            .expect("init live test observability");
+        ghost::observability::init_for_live_tests().expect("init live test observability");
 
     let provider = match AnthropicProvider::new(BTreeMap::new()) {
         Ok(p) => p,
         Err(e) => {
-            eprintln!(
-                "Skipping: no Claude Code credentials ({e})"
-            );
+            eprintln!("Skipping: no Claude Code credentials ({e})");
             return;
         }
     };
@@ -123,15 +112,12 @@ async fn anthropic_tool_use() {
 #[tokio::test]
 async fn anthropic_multi_turn_with_history() {
     let _observability =
-        ghost::observability::init_for_live_tests()
-            .expect("init live test observability");
+        ghost::observability::init_for_live_tests().expect("init live test observability");
 
     let provider = match AnthropicProvider::new(BTreeMap::new()) {
         Ok(p) => p,
         Err(e) => {
-            eprintln!(
-                "Skipping: no Claude Code credentials ({e})"
-            );
+            eprintln!("Skipping: no Claude Code credentials ({e})");
             return;
         }
     };
@@ -140,9 +126,7 @@ async fn anthropic_multi_turn_with_history() {
     let response1 = provider
         .chat(ChatRequest {
             model: "claude-sonnet-4-6-20250514".into(),
-            messages: vec![user_message(
-                "What is 2 + 2? Reply in one word.",
-            )],
+            messages: vec![user_message("What is 2 + 2? Reply in one word.")],
             tools: None,
             max_tokens: Some(100),
             temperature: Some(0.0),
@@ -168,16 +152,12 @@ async fn anthropic_multi_turn_with_history() {
         .chat(ChatRequest {
             model: "claude-sonnet-4-6-20250514".into(),
             messages: vec![
-                user_message(
-                    "What is 2 + 2? Reply in one word.",
-                ),
+                user_message("What is 2 + 2? Reply in one word."),
                 ChatMessage {
                     role: Role::Assistant,
                     content: response1.content,
                 },
-                user_message(
-                    "Now what is 3 + 3? Reply in one word.",
-                ),
+                user_message("Now what is 3 + 3? Reply in one word."),
             ],
             tools: None,
             max_tokens: Some(100),

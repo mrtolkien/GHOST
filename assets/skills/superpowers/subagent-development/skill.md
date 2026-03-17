@@ -93,13 +93,13 @@ Three Lua agents, dispatched via `agent`:
    Implements a single task. Follows TDD, commits, self-reviews. May ask questions
    before starting.
 2. **Spec reviewer** —
-   `agent(action: "start", name: "coding-spec-reviewer", prompt: "<spec text>")`
-   Checks that the implementation matches the spec exactly. Reports missing requirements
-   and anything extra that was not requested.
+   `agent(action: "start", name: "coding-spec-reviewer", prompt: "<spec text>")` Checks
+   that the implementation matches the spec exactly. Reports missing requirements and
+   anything extra that was not requested.
 3. **Code quality reviewer** —
-   `agent(action: "start", name: "coding-quality-reviewer", prompt: "<scope>")`
-   Reviews code quality only (after spec compliance is confirmed). Checks style,
-   structure, test coverage, naming, etc.
+   `agent(action: "start", name: "coding-quality-reviewer", prompt: "<scope>")` Reviews
+   code quality only (after spec compliance is confirmed). Checks style, structure, test
+   coverage, naming, etc.
 
 After all tasks, dispatch the final reviewer:
 `agent(action: "start", name: "coding-reviewer", prompt: "<overall scope>")`

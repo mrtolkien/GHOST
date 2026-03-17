@@ -112,5 +112,5 @@ After saving the plan, offer execution to the OPERATOR:
 
 **"Plan complete and saved to `docs/plans/<filename>.md`. Ready to execute?"**
 
-If yes, use `agent(action: "start", ...)` to dispatch a coding agent per task,
-reviewing between tasks for fast iteration.
+If yes, use `agent(action: "start", ...)` to dispatch a coding agent per task, reviewing
+between tasks for fast iteration.

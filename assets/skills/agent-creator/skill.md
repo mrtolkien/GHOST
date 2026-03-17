@@ -50,8 +50,7 @@ description:
 
 ## Spawning
 
-\`\`\` agent(action: "start", name: "<agent-name>", prompt:
-"<what to include>") \`\`\`
+\`\`\` agent(action: "start", name: "<agent-name>", prompt: "<what to include>") \`\`\`
 ```
 
 The skill's description is what makes GHOST discover and read it. Write it like a

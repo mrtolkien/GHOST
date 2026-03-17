@@ -49,8 +49,8 @@ If you think there is even a 1% chance a skill applies, read it first.
 - Use `file_read` to read files before modifying them
 - Use `file_edit` for targeted edits, `file_write` only for new files
 - Use `shell` for builds, tests, git operations
-- Use `agent` to spawn sub-agents for parallel or delegated work
-  (`action: "start"`, `name: "<name>"`, `prompt: "<task description>"`)
+- Use `agent` to spawn sub-agents for parallel or delegated work (`action: "start"`,
+  `name: "<name>"`, `prompt: "<task description>"`)
 - Commit incrementally with descriptive messages
 - Run the project's test/lint commands after changes (check AGENTS.md for specifics)
 

@@ -30,6 +30,7 @@ impl OAuthCredentials {
 }
 
 /// Detect OAuth tokens by prefix (per pi-mono).
+#[allow(dead_code)]
 pub(crate) fn is_oauth_token(token: &str) -> bool {
     token.contains("sk-ant-oat")
 }
@@ -64,9 +65,8 @@ pub(crate) fn read_credentials_from_path(path: &Path) -> Result<OAuthCredentials
             path.display()
         ))
     })?;
-    let file: CredentialsFile = serde_json::from_str(&content).map_err(|e| {
-        ProviderError::Auth(format!("failed to parse Claude credentials: {e}"))
-    })?;
+    let file: CredentialsFile = serde_json::from_str(&content)
+        .map_err(|e| ProviderError::Auth(format!("failed to parse Claude credentials: {e}")))?;
     let oauth = file.claude_ai_oauth.ok_or_else(|| {
         ProviderError::Auth("no claudeAiOauth section in credentials file".into())
     })?;
@@ -95,9 +95,7 @@ pub(crate) fn load_credentials() -> Result<(OAuthCredentials, Option<PathBuf>), 
 
     // 2. Read from Claude Code credentials file
     let path = default_credentials_path().ok_or_else(|| {
-        ProviderError::Auth(
-            "cannot determine home directory for Claude credentials".into(),
-        )
+        ProviderError::Auth("cannot determine home directory for Claude credentials".into())
     })?;
     let creds = read_credentials_from_path(&path)?;
     Ok((creds, Some(path)))
@@ -142,9 +140,10 @@ pub(crate) async fn refresh_token(
         .map_err(|e| ProviderError::Auth(format!("token refresh request failed: {e}")))?;
 
     let status = response.status();
-    let text = response.text().await.map_err(|e| {
-        ProviderError::Auth(format!("failed to read refresh response: {e}"))
-    })?;
+    let text = response
+        .text()
+        .await
+        .map_err(|e| ProviderError::Auth(format!("failed to read refresh response: {e}")))?;
 
     if !status.is_success() {
         return Err(ProviderError::Auth(format!(
@@ -152,9 +151,8 @@ pub(crate) async fn refresh_token(
         )));
     }
 
-    let refresh_resp: RefreshResponse = serde_json::from_str(&text).map_err(|e| {
-        ProviderError::Auth(format!("failed to parse refresh response: {e}"))
-    })?;
+    let refresh_resp: RefreshResponse = serde_json::from_str(&text)
+        .map_err(|e| ProviderError::Auth(format!("failed to parse refresh response: {e}")))?;
 
     let now_ms = chrono::Utc::now().timestamp_millis() as u64;
     let new_creds = OAuthCredentials {
@@ -181,9 +179,7 @@ fn write_credentials(path: &Path, creds: &OAuthCredentials) -> Result<(), Provid
         .read(true)
         .write(true)
         .open(path)
-        .map_err(|e| {
-            ProviderError::Auth(format!("failed to open credentials for writing: {e}"))
-        })?;
+        .map_err(|e| ProviderError::Auth(format!("failed to open credentials for writing: {e}")))?;
     file.lock_exclusive()
         .map_err(|e| ProviderError::Auth(format!("failed to lock credentials file: {e}")))?;
 
@@ -197,9 +193,8 @@ fn write_credentials(path: &Path, creds: &OAuthCredentials) -> Result<(), Provid
     doc["claudeAiOauth"]["refreshToken"] = serde_json::Value::String(creds.refresh_token.clone());
     doc["claudeAiOauth"]["expiresAt"] = serde_json::json!(creds.expires_at);
 
-    let json = serde_json::to_string_pretty(&doc).map_err(|e| {
-        ProviderError::Auth(format!("failed to serialize credentials: {e}"))
-    })?;
+    let json = serde_json::to_string_pretty(&doc)
+        .map_err(|e| ProviderError::Auth(format!("failed to serialize credentials: {e}")))?;
 
     // Truncate and write under the same lock
     file.set_len(0)

@@ -5,21 +5,20 @@
 /// consecutive tool result batching, and cross-model thinking block handling.
 use base64::Engine;
 use regex::Regex;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::sync::LazyLock;
 
 use super::tool_names::{normalize_tool_call_id, to_claude_code_name};
-use crate::providers::types::*;
 use crate::providers::ProviderError;
+use crate::providers::types::*;
 
 const CLAUDE_CODE_PREAMBLE: &str = "You are Claude Code, an interactive \
     CLI-based coding assistant made by Anthropic.\n\n";
 
 const DEFAULT_MAX_TOKENS: u32 = 8096;
 
-static SURROGATE_RE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"\\u[dD][89abAB][0-9a-fA-F]{2}").expect("valid regex")
-});
+static SURROGATE_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"\\u[dD][89abAB][0-9a-fA-F]{2}").expect("valid regex"));
 
 /// Strip unpaired UTF-16 surrogate escape sequences from text.
 pub(crate) fn sanitize_surrogates(text: &str) -> String {
@@ -78,25 +77,22 @@ pub(crate) fn build_request_body(
     }
 
     // --- Messages ---
-    let messages =
-        convert_messages(&request.messages, ghost_tool_names)?;
+    let messages = convert_messages(&request.messages, ghost_tool_names)?;
     body["messages"] = Value::Array(messages);
 
     // --- Thinking config ---
     let thinking_enabled = apply_thinking_config(request, &mut body);
 
     // --- Temperature (omit when thinking is enabled) ---
-    if !thinking_enabled {
-        if let Some(temp) = request.temperature {
-            body["temperature"] = json!(temp);
-        }
+    if !thinking_enabled && let Some(temp) = request.temperature {
+        body["temperature"] = json!(temp);
     }
 
     // --- metadata.user_id ---
-    if let Some(ref dc) = request.debug_context {
-        if !dc.session_id.is_empty() {
-            body["metadata"] = json!({"user_id": dc.session_id});
-        }
+    if let Some(ref dc) = request.debug_context
+        && !dc.session_id.is_empty()
+    {
+        body["metadata"] = json!({"user_id": dc.session_id});
     }
 
     Ok(body)
@@ -119,8 +115,7 @@ fn convert_messages(
     while i < len {
         let msg = &messages[i];
         let role_str = role_str(&msg.role);
-        let content_blocks =
-            convert_content_blocks(&msg.content, ghost_tool_names);
+        let content_blocks = convert_content_blocks(&msg.content, ghost_tool_names);
 
         if content_blocks.is_empty() {
             i += 1;
@@ -139,16 +134,13 @@ fn convert_messages(
                 .content
                 .iter()
                 .filter_map(|b| match b {
-                    ContentBlock::ToolUse { id, .. } => {
-                        Some(normalize_tool_call_id(id))
-                    }
+                    ContentBlock::ToolUse { id, .. } => Some(normalize_tool_call_id(id)),
                     _ => None,
                 })
                 .collect();
 
             if !tool_use_ids.is_empty() {
-                let next_has_results =
-                    has_matching_tool_results(messages, i + 1, &tool_use_ids);
+                let next_has_results = has_matching_tool_results(messages, i + 1, &tool_use_ids);
                 if !next_has_results {
                     // Insert synthetic error results.
                     let synthetic: Vec<Value> = tool_use_ids
@@ -181,10 +173,7 @@ fn convert_messages(
                 && messages[j].role == Role::User
                 && is_tool_result_only(&messages[j].content)
             {
-                let extra = convert_content_blocks(
-                    &messages[j].content,
-                    ghost_tool_names,
-                );
+                let extra = convert_content_blocks(&messages[j].content, ghost_tool_names);
                 arr.extend(extra);
                 j += 1;
             }
@@ -236,17 +225,11 @@ fn is_tool_result_only(content: &[ContentBlock]) -> bool {
 /// Add `cache_control: ephemeral` to the last content block of the last
 /// user message in the output array.
 fn apply_cache_control_to_last_user(messages: &mut [Value]) {
-    if let Some(last_user) = messages
-        .iter_mut()
-        .rev()
-        .find(|m| m["role"] == "user")
+    if let Some(last_user) = messages.iter_mut().rev().find(|m| m["role"] == "user")
+        && let Some(arr) = last_user["content"].as_array_mut()
+        && let Some(last_block) = arr.last_mut()
     {
-        if let Some(arr) = last_user["content"].as_array_mut() {
-            if let Some(last_block) = arr.last_mut() {
-                last_block["cache_control"] =
-                    json!({"type": "ephemeral"});
-            }
-        }
+        last_block["cache_control"] = json!({"type": "ephemeral"});
     }
 }
 
@@ -255,10 +238,7 @@ fn apply_cache_control_to_last_user(messages: &mut [Value]) {
 // ---------------------------------------------------------------------------
 
 /// Convert a slice of Ghost `ContentBlock`s into Anthropic JSON blocks.
-fn convert_content_blocks(
-    blocks: &[ContentBlock],
-    ghost_tool_names: &[&str],
-) -> Vec<Value> {
+fn convert_content_blocks(blocks: &[ContentBlock], ghost_tool_names: &[&str]) -> Vec<Value> {
     let mut out: Vec<Value> = Vec::new();
     let mut has_text = false;
     let mut has_image = false;
@@ -302,8 +282,7 @@ fn convert_content_blocks(
                 has_image = true;
                 match std::fs::read(path) {
                     Ok(bytes) => {
-                        let encoded = base64::engine::general_purpose::STANDARD
-                            .encode(&bytes);
+                        let encoded = base64::engine::general_purpose::STANDARD.encode(&bytes);
                         out.push(json!({
                             "type": "image",
                             "source": {
@@ -326,9 +305,7 @@ fn convert_content_blocks(
                 original_type,
                 value,
             } => {
-                if original_type == "thinking"
-                    || original_type == "redacted_thinking"
-                {
+                if original_type == "thinking" || original_type == "redacted_thinking" {
                     out.push(value.clone());
                 }
                 // Other RawOutput types are silently skipped.
@@ -338,10 +315,7 @@ fn convert_content_blocks(
 
     // Image-only messages: prepend a text placeholder.
     if has_image && !has_text {
-        out.insert(
-            0,
-            json!({"type": "text", "text": "[Image attached]"}),
-        );
+        out.insert(0, json!({"type": "text", "text": "[Image attached]"}));
     }
 
     out
@@ -414,9 +388,7 @@ mod tests {
     fn system_prompt_prepends_preamble_with_cache_control() {
         let req = simple_request(vec![ChatMessage {
             role: Role::User,
-            content: vec![ContentBlock::Text {
-                text: "hi".into(),
-            }],
+            content: vec![ContentBlock::Text { text: "hi".into() }],
         }]);
         let body = build_request_body(&req, &[]).unwrap();
         let system = body["system"].as_array().unwrap();
@@ -437,9 +409,7 @@ mod tests {
             }]),
             ..simple_request(vec![ChatMessage {
                 role: Role::User,
-                content: vec![ContentBlock::Text {
-                    text: "hi".into(),
-                }],
+                content: vec![ContentBlock::Text { text: "hi".into() }],
             }])
         };
         let body = build_request_body(&req, &["read"]).unwrap();
@@ -451,9 +421,7 @@ mod tests {
         let req = simple_request(vec![
             ChatMessage {
                 role: Role::User,
-                content: vec![ContentBlock::Text {
-                    text: "hi".into(),
-                }],
+                content: vec![ContentBlock::Text { text: "hi".into() }],
             },
             ChatMessage {
                 role: Role::Assistant,
@@ -486,9 +454,7 @@ mod tests {
         let req = simple_request(vec![
             ChatMessage {
                 role: Role::User,
-                content: vec![ContentBlock::Text {
-                    text: "hi".into(),
-                }],
+                content: vec![ContentBlock::Text { text: "hi".into() }],
             },
             ChatMessage {
                 role: Role::Assistant,
@@ -537,9 +503,7 @@ mod tests {
         let req = simple_request(vec![
             ChatMessage {
                 role: Role::User,
-                content: vec![ContentBlock::Text {
-                    text: "hi".into(),
-                }],
+                content: vec![ContentBlock::Text { text: "hi".into() }],
             },
             ChatMessage {
                 role: Role::Assistant,
@@ -576,9 +540,7 @@ mod tests {
             reasoning_effort: Some(ReasoningEffort::High),
             ..simple_request(vec![ChatMessage {
                 role: Role::User,
-                content: vec![ContentBlock::Text {
-                    text: "hi".into(),
-                }],
+                content: vec![ContentBlock::Text { text: "hi".into() }],
             }])
         };
         let body = build_request_body(&req, &[]).unwrap();
@@ -593,9 +555,7 @@ mod tests {
             reasoning_effort: Some(ReasoningEffort::High),
             ..simple_request(vec![ChatMessage {
                 role: Role::User,
-                content: vec![ContentBlock::Text {
-                    text: "hi".into(),
-                }],
+                content: vec![ContentBlock::Text { text: "hi".into() }],
             }])
         };
         let body = build_request_body(&req, &[]).unwrap();
@@ -610,9 +570,7 @@ mod tests {
             reasoning_effort: Some(ReasoningEffort::High),
             ..simple_request(vec![ChatMessage {
                 role: Role::User,
-                content: vec![ContentBlock::Text {
-                    text: "hi".into(),
-                }],
+                content: vec![ContentBlock::Text { text: "hi".into() }],
             }])
         };
         let body = build_request_body(&req, &[]).unwrap();
@@ -645,11 +603,9 @@ mod tests {
         let body = build_request_body(&req, &[]).unwrap();
         let messages = body["messages"].as_array().unwrap();
         let last_user = &messages[2];
-        let last_block =
-            last_user["content"].as_array().unwrap().last().unwrap();
+        let last_block = last_user["content"].as_array().unwrap().last().unwrap();
         assert_eq!(last_block["cache_control"]["type"], "ephemeral");
-        let first_block =
-            &messages[0]["content"].as_array().unwrap()[0];
+        let first_block = &messages[0]["content"].as_array().unwrap()[0];
         assert!(first_block.get("cache_control").is_none());
     }
 

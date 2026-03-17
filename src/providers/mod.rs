@@ -9,10 +9,10 @@ pub mod openai_oauth;
 pub mod openrouter;
 pub mod types;
 
+pub use anthropic::AnthropicProvider;
 pub(crate) use codex_responses::extract_reasoning_summary;
 pub use kimi_code::KimiCodeProvider;
 pub use openai_oauth::OpenAiOAuthProvider;
-pub use anthropic::AnthropicProvider;
 pub use openrouter::OpenRouterProvider;
 pub use types::{
     ChatMessage, ChatRequest, ChatResponse, ContentBlock, Provider, ProviderError,

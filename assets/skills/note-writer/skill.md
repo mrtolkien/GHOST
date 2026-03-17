@@ -17,8 +17,8 @@ Always discover what already exists before creating anything:
 
 1. **Search**: `knowledge_search` for the topic — check for existing notes to update
    rather than duplicate.
-2. **Tags**: `ghost knowledge tags` via `shell` — see existing tag
-   hierarchies before inventing new ones.
+2. **Tags**: `ghost knowledge tags` via `shell` — see existing tag hierarchies before
+   inventing new ones.
 3. **Graph**: `ghost knowledge graph "Title"` — check how related notes connect.
 
 **Update existing notes rather than creating duplicates.** If a note covers the same
