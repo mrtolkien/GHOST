@@ -117,6 +117,17 @@ async fn handle_event(
         }
     };
 
+    // If the session is already being handled (e.g. by a Discord message),
+    // the running tool loop will see the background task's system message
+    // in its history. No need to trigger a separate response.
+    if matches!(&chat_result, Err(crate::chat::ChatError::SessionBusy { .. })) {
+        logfire::info!(
+            "session already active, skipping continuation",
+            session_id = session_id.clone(),
+        );
+        return;
+    }
+
     // Send response to Discord.
     match chat_result {
         Ok((result, metadata)) => {

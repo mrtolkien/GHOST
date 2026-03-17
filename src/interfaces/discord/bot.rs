@@ -367,6 +367,15 @@ impl Handler {
                     let _ = send_gateway_v2(&ctx.http, msg.channel_id, "Stopped.", None).await;
                 }
             }
+            Err(crate::chat::ChatError::SessionBusy { .. }) => {
+                // TOCTOU race: session became active between the check at
+                // the steer guard and chat_with_images(). Steer the running loop.
+                if let Some(tx) = self.active_sessions.get(&session_id) {
+                    let _ = tx.send(crate::chat::interrupt::Interrupt::Steer {
+                        message: full_content,
+                    });
+                }
+            }
             Err(e) => {
                 error!(
                     session_id = %session_id,
@@ -481,6 +490,15 @@ impl Handler {
 
                 if result.stop_reason == ChatStopReason::Stopped {
                     let _ = send_gateway_v2(&ctx.http, msg.channel_id, "Stopped.", None).await;
+                }
+            }
+            Err(crate::chat::ChatError::SessionBusy { .. }) => {
+                // TOCTOU race: session became active between the check at
+                // the steer guard and chat_coding(). Steer the running loop.
+                if let Some(tx) = self.active_sessions.get(session_id) {
+                    let _ = tx.send(crate::chat::interrupt::Interrupt::Steer {
+                        message: full_content,
+                    });
                 }
             }
             Err(e) => {
