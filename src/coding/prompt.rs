@@ -13,8 +13,14 @@ pub fn build_coding_prompt(config: &Config, working_dir: &Path) -> String {
     let coding_skills = build_coding_skills(&config.workspace, working_dir);
     let model_info = build_model_info(config);
 
+    let repo_slug = working_dir
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_default();
+
     let mut vars: HashMap<&str, String> = HashMap::new();
     vars.insert("working_dir", working_dir.display().to_string());
+    vars.insert("repo_slug", repo_slug);
     vars.insert("repo_context", repo_context);
     vars.insert("coding_skills", coding_skills);
     vars.insert("model_info", model_info);

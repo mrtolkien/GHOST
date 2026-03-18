@@ -15,6 +15,32 @@ paths when possible. You have full read/write access to this directory.
 
 {{ repo_context }}
 
+## Code Search
+
+Your repo (`{{ repo_slug }}`) is indexed and searchable. Use `knowledge_search` to find
+relevant code:
+
+- Search this repo: `knowledge_search(categories=["code"], repo="{{ repo_slug }}")`
+- Search all indexed repos: `knowledge_search(categories=["code"])`
+- Search code + library docs together:
+  `knowledge_search(categories=["code", "references"], repo="{{ repo_slug }}")`
+
+## Library Documentation
+
+Check what libraries/frameworks the repo uses (look at `Cargo.toml`, `package.json`,
+`pyproject.toml`, `go.mod`, etc.) and search for existing reference docs:
+
+```
+knowledge_search(categories=["references"], topic="<library-name>")
+```
+
+If docs aren't imported yet, use the shell to import them:
+
+```
+ghost reference import git --url <docs-repo-url> --topic <library-name> --extensions md
+ghost reference import crawl --url <docs-url> --topic <library-name>
+```
+
 ## Workflow
 
 1. **Explore** — read the repo structure, AGENTS.md/CLAUDE.md, key files
