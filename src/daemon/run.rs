@@ -253,7 +253,7 @@ pub async fn boot_with_config(config: Config) -> Result<DaemonHandle, GhostError
     let (idle_trigger_tx, idle_trigger_rx) = tokio::sync::mpsc::channel::<()>(8);
     let scheduler_handle = crate::agents::scheduler::spawn_scheduler(
         Arc::clone(&agent_runner),
-        config.clone(),
+        shared_config.clone(),
         db.clone(),
         shutdown_rx.clone(),
         idle_trigger_rx,

@@ -9,7 +9,7 @@ use tokio::sync::{mpsc, watch};
 use tokio::task::JoinHandle;
 use tracing::info;
 
-use crate::config::Config;
+use crate::config::{SharedConfig, SharedConfigExt};
 use crate::db;
 use crate::db::GhostDb;
 
@@ -43,14 +43,15 @@ struct IdleAgent {
 #[tracing::instrument(name = "start scheduler", skip_all)]
 pub fn spawn_scheduler(
     agent_runner: Arc<AgentRunner>,
-    config: Config,
+    mut config: SharedConfig,
     db: GhostDb,
     mut shutdown: watch::Receiver<bool>,
     mut idle_trigger_rx: mpsc::Receiver<()>,
 ) -> JoinHandle<()> {
     tokio::spawn(async move {
-        let tick_secs = config.timing.scheduler_tick_seconds;
-        let workspace = config.workspace.clone();
+        let cfg = config.current();
+        let mut tick_secs = cfg.timing.scheduler_tick_seconds;
+        let workspace = cfg.workspace.clone();
         let agents_dir = workspace.join("agents");
 
         let (mut scheduled, mut idle_agents) = build_entries(&workspace);
@@ -97,6 +98,19 @@ pub fn spawn_scheduler(
                         scheduled = new_scheduled;
                         idle_agents = new_idle;
                     }
+                }
+                _ = config.changed() => {
+                    let cfg = config.current();
+                    let new_tick = cfg.timing.scheduler_tick_seconds;
+                    if new_tick != tick_secs {
+                        tick_secs = new_tick;
+                        interval = tokio::time::interval(Duration::from_secs(tick_secs));
+                        info!(tick_seconds = tick_secs, "scheduler tick interval updated");
+                    }
+                    // Reload agent entries in case workspace agents changed
+                    let (new_scheduled, new_idle) = build_entries(&workspace);
+                    scheduled = new_scheduled;
+                    idle_agents = new_idle;
                 }
                 _ = shutdown.changed() => {
                     info!("unified scheduler shutting down");
