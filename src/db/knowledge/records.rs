@@ -78,6 +78,17 @@ pub struct ScriptRecord {
     pub updated_at: String,
 }
 
+#[derive(Debug, Clone, Deserialize, Serialize, sqlx::FromRow)]
+pub struct CodeFileRecord {
+    pub id: String,
+    pub repo: String,
+    pub path: String,
+    pub content: String,
+    pub file_hash: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct SearchHit {
     pub id: String,
