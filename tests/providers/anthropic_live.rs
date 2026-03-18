@@ -1,8 +1,8 @@
 use std::collections::BTreeMap;
 
 use ghost::providers::{
-    AnthropicProvider, ChatMessage, ChatRequest, ContentBlock, Provider, Role, StopReason,
-    ToolDefinition, user_message,
+    AnthropicProvider, ChatMessage, ChatRequest, ContentBlock, Provider, ReasoningEffort, Role,
+    StopReason, ToolDefinition, user_message,
 };
 use ghost::tools::manager::ToolManager;
 use serde_json::json;
@@ -243,4 +243,137 @@ async fn anthropic_tool_use_with_full_ghost_toolset() {
         }
         _ => unreachable!(),
     }
+}
+
+/// Validates that Anthropic thinking blocks are:
+/// 1. Produced as `ContentBlock::Thinking` (not `RawOutput`)
+/// 2. Contain text + signature
+/// 3. Survive a round-trip (echo back as history in turn 2)
+///
+/// This exercises the critical ordering fix: thinking blocks must
+/// precede tool_use/text in assistant messages per the Anthropic API.
+///
+/// ```sh
+/// cargo test --features live-tests-llms anthropic_thinking -- --nocapture
+/// ```
+#[tokio::test]
+async fn anthropic_thinking_block_round_trip() {
+    let _observability =
+        ghost::observability::init_for_live_tests().expect("init live test observability");
+
+    let provider = match AnthropicProvider::new(BTreeMap::new()) {
+        Ok(p) => p,
+        Err(e) => {
+            eprintln!("Skipping: no Claude Code credentials ({e})");
+            return;
+        }
+    };
+
+    // Turn 1: request with thinking enabled.
+    let response1 = provider
+        .chat(ChatRequest {
+            model: "claude-sonnet-4-6".into(),
+            messages: vec![user_message(
+                "What is the sum of the first 10 prime numbers? Answer briefly.",
+            )],
+            tools: None,
+            max_tokens: Some(2048),
+            temperature: None,
+            system: Some("You are a concise math assistant.".into()),
+            reasoning_effort: Some(ReasoningEffort::High),
+            cache_key: String::new(),
+            turn_state: None,
+            debug_context: None,
+        })
+        .await
+        .expect("turn 1 chat response");
+
+    eprintln!("Turn 1 blocks: {}", response1.content.len());
+    for (i, block) in response1.content.iter().enumerate() {
+        match block {
+            ContentBlock::Thinking {
+                text, signature, ..
+            } => {
+                eprintln!(
+                    "  [{i}] Thinking: text_len={}, has_sig={}",
+                    text.as_ref().map_or(0, |t| t.len()),
+                    signature.is_some(),
+                );
+            }
+            ContentBlock::Text { text } => {
+                eprintln!("  [{i}] Text: {} chars", text.len());
+            }
+            other => eprintln!("  [{i}] {other:?}"),
+        }
+    }
+
+    // Assert: response contains a Thinking block with text + signature.
+    let thinking = response1
+        .content
+        .iter()
+        .find(|b| matches!(b, ContentBlock::Thinking { .. }))
+        .expect("response must contain a Thinking block");
+
+    if let ContentBlock::Thinking {
+        text, signature, ..
+    } = thinking
+    {
+        assert!(text.is_some(), "thinking block must have text");
+        assert!(signature.is_some(), "thinking block must have signature");
+    }
+
+    // Assert: also has usable text content.
+    assert!(
+        response1
+            .content
+            .iter()
+            .any(|b| matches!(b, ContentBlock::Text { .. })),
+        "response must also contain a Text block"
+    );
+
+    // Turn 2: echo back the full response (including thinking) as
+    // history. This validates that our thinking block ordering +
+    // reconstruction is accepted by the Anthropic API.
+    let response2 = provider
+        .chat(ChatRequest {
+            model: "claude-sonnet-4-6".into(),
+            messages: vec![
+                user_message("What is the sum of the first 10 prime numbers? Answer briefly."),
+                ChatMessage {
+                    role: Role::Assistant,
+                    content: response1.content,
+                },
+                user_message("Now what is the sum of the first 5 prime numbers?"),
+            ],
+            tools: None,
+            max_tokens: Some(2048),
+            temperature: None,
+            system: Some("You are a concise math assistant.".into()),
+            reasoning_effort: Some(ReasoningEffort::High),
+            cache_key: String::new(),
+            turn_state: None,
+            debug_context: None,
+        })
+        .await
+        .expect("turn 2 chat response (thinking round-trip)");
+
+    eprintln!("Turn 2 blocks: {}", response2.content.len());
+    for (i, block) in response2.content.iter().enumerate() {
+        match block {
+            ContentBlock::Thinking { .. } => eprintln!("  [{i}] Thinking"),
+            ContentBlock::Text { text } => {
+                eprintln!("  [{i}] Text: {} chars", text.len())
+            }
+            other => eprintln!("  [{i}] {other:?}"),
+        }
+    }
+
+    // Turn 2 should succeed and have text content.
+    assert!(
+        response2
+            .content
+            .iter()
+            .any(|b| matches!(b, ContentBlock::Text { .. })),
+        "turn 2 must contain text (thinking round-trip works)"
+    );
 }

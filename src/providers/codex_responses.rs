@@ -93,18 +93,19 @@ pub(super) fn build_codex_request_body(
         for block in &message.content {
             match block {
                 ContentBlock::Thinking {
-                    text,
-                    opaque_data,
-                    ..
+                    text, opaque_data, ..
                 } => {
-                    // Reconstruct Codex reasoning item
+                    // Reconstruct Codex reasoning item. The API
+                    // requires `summary` even when empty.
                     let mut item = json!({"type": "reasoning"});
                     if let Some(data) = opaque_data {
                         item["encrypted_content"] = json!(data);
                     }
-                    if let Some(text) = text {
-                        item["summary"] = json!([{"type": "summary_text", "text": text}]);
-                    }
+                    item["summary"] = if let Some(text) = text {
+                        json!([{"type": "summary_text", "text": text}])
+                    } else {
+                        json!([])
+                    };
                     raw_items.push(item);
                 }
                 ContentBlock::RawOutput { value, .. } => {
