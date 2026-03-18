@@ -495,7 +495,7 @@ async fn setup_agent(
     let agent_compaction =
         build_agent_compaction_config(&config.compaction, agent_config.compaction.as_ref());
 
-    // Create a one-shot SharedConfig for the SessionChat from the Arc snapshot.
+    // One-shot channel: agent runs use a fixed config snapshot, not hot-reload.
     let (_, cfg_rx) = tokio::sync::watch::channel(Arc::clone(&config));
     let mut session_chat = SessionChat::new(db.clone(), provider, tool_manager, cfg_rx)
         .with_max_tool_iterations(agent_config.max_iterations)

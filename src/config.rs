@@ -577,9 +577,10 @@ pub fn load() -> Result<Config, ConfigError> {
 /// Re-read `.env` and `config.toml` for hot-reload.
 ///
 /// Unlike `load()`, this always re-reads `.env` (bypassing the `Once` guard)
-/// so that environment variable changes take effect.
+/// so that environment variable changes take effect. Uses `from_path_override`
+/// to overwrite existing env vars with new `.env` values.
 pub fn reload() -> Result<Config, ConfigError> {
-    load_dotenv_from_config_dir();
+    reload_dotenv();
     load_from_dir(&config_dir()?)
 }
 
@@ -629,6 +630,18 @@ pub(crate) fn load_dotenv_from_config_dir() {
     }
     // Fallback: CWD-based .env (original behaviour)
     let _ = dotenvy::dotenv();
+}
+
+/// Re-read `.env` for hot-reload, overwriting existing env vars.
+fn reload_dotenv() {
+    if let Ok(dir) = config_dir() {
+        let env_path = dir.join(".env");
+        if env_path.exists() {
+            let _ = dotenvy::from_path_override(&env_path);
+            return;
+        }
+    }
+    let _ = dotenvy::dotenv_override();
 }
 
 #[tracing::instrument(skip_all)]

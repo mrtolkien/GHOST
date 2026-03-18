@@ -151,7 +151,7 @@ pub async fn run() -> Result<(), GhostError> {
     Ok(())
 }
 
-/// Wait for either SIGINT (Ctrl+C) or SIGTERM (`ghost reboot`).
+/// Wait for either SIGINT (Ctrl+C) or SIGTERM.
 async fn shutdown_signal() {
     let mut sigterm = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
         .expect("failed to register SIGTERM handler");
