@@ -216,13 +216,16 @@ pub async fn boot_with_config(config: Config) -> Result<DaemonHandle, GhostError
         logfire::warn!("Ollama unavailable — skipping boot reconciliation");
     }
 
+    // Create shared config for hot-reload (sender held for future reload support)
+    let (_config_tx, shared_config): (crate::config::ConfigSender, SharedConfig) =
+        tokio::sync::watch::channel(Arc::new(config.clone()));
+
     // Spawn file watcher for automatic embedding on content changes
     let (shutdown_tx, shutdown_rx) = tokio::sync::watch::channel(false);
     let watcher_busy = Arc::new(AtomicBool::new(false));
     let watcher_handle = super::watcher::spawn_watcher(
         db.clone(),
-        config.workspace.clone(),
-        config.embeddings.clone(),
+        shared_config.clone(),
         shutdown_rx.clone(),
         Arc::clone(&watcher_busy),
     );
@@ -230,17 +233,12 @@ pub async fn boot_with_config(config: Config) -> Result<DaemonHandle, GhostError
     // Spawn hourly embedding reconciliation
     let reconcile_handle = super::watcher::spawn_reconciliation_loop(
         db.clone(),
-        config.workspace.clone(),
-        config.embeddings.clone(),
+        shared_config.clone(),
         shutdown_rx.clone(),
     );
 
     // Create session event channel (background tasks → event handler)
     let (event_tx, event_rx) = crate::events::channel();
-
-    // Create shared config for hot-reload (sender held for future reload support)
-    let (_config_tx, shared_config): (crate::config::ConfigSender, SharedConfig) =
-        tokio::sync::watch::channel(Arc::new(config.clone()));
 
     // Create agent runner with event sender
     let agent_runner = Arc::new(AgentRunner::new(

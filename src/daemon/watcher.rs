@@ -8,7 +8,7 @@ use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use tokio::sync::mpsc;
 use tracing::{Instrument, info};
 
-use crate::config::EmbeddingsConfig;
+use crate::config::{SharedConfig, SharedConfigExt};
 use crate::db::GhostDb;
 use crate::embeddings::EmbeddingClient;
 use crate::embeddings::pipeline::{EmbedRequest, PipelineError};
@@ -19,13 +19,14 @@ use crate::knowledge;
 #[tracing::instrument(name = "start watcher", skip_all)]
 pub fn spawn_watcher(
     db: GhostDb,
-    workspace: PathBuf,
-    embeddings_config: EmbeddingsConfig,
+    config: SharedConfig,
     mut shutdown: tokio::sync::watch::Receiver<bool>,
     watcher_busy: Arc<AtomicBool>,
 ) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
-        let client = EmbeddingClient::new(&embeddings_config);
+        let cfg = config.current();
+        let workspace = cfg.workspace.clone();
+        let client = EmbeddingClient::new(&cfg.embeddings);
 
         let (tx, mut rx) = mpsc::channel::<PathBuf>(256);
 
@@ -618,12 +619,13 @@ const RECONCILE_INTERVAL: Duration = Duration::from_secs(60 * 60);
 #[tracing::instrument(name = "start reconciliation loop", skip_all)]
 pub fn spawn_reconciliation_loop(
     db: GhostDb,
-    workspace: PathBuf,
-    embeddings_config: EmbeddingsConfig,
+    config: SharedConfig,
     mut shutdown: tokio::sync::watch::Receiver<bool>,
 ) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
-        let client = EmbeddingClient::new(&embeddings_config);
+        let cfg = config.current();
+        let workspace = cfg.workspace.clone();
+        let client = EmbeddingClient::new(&cfg.embeddings);
 
         loop {
             tokio::select! {
