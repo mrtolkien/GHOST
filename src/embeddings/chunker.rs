@@ -346,7 +346,9 @@ fn detect_code_language(file_path: &str) -> Option<(Language, &'static str)> {
     match ext {
         "rs" => Some((tree_sitter_rust::LANGUAGE.into(), "rust")),
         "py" | "pyi" => Some((tree_sitter_python::LANGUAGE.into(), "python")),
-        "js" | "mjs" | "cjs" => Some((tree_sitter_javascript::LANGUAGE.into(), "javascript")),
+        "js" | "mjs" | "cjs" | "jsx" => {
+            Some((tree_sitter_javascript::LANGUAGE.into(), "javascript"))
+        }
         "ts" => Some((
             tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into(),
             "typescript",
