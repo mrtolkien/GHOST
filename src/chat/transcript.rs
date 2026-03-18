@@ -1,3 +1,5 @@
+use serde_json::Value;
+
 use crate::db::sessions::MessageRecord;
 
 /// Filter a transcript for agents: preserve user/assistant text,
@@ -25,15 +27,25 @@ pub fn filter_transcript(messages: &[MessageRecord], since: Option<&str>) -> Str
                 }
             }
             "assistant" => {
-                // Include reasoning summaries from raw_output
+                // Include reasoning/thinking summaries from raw_output
                 if let Some(raw_items) = msg.raw_output_parsed() {
                     for item in &raw_items {
-                        if item.get("original_type").and_then(|v| v.as_str()) == Some("reasoning")
-                            && let Some(value) = item.get("value")
-                        {
-                            let summary = crate::providers::extract_reasoning_summary(value);
-                            if !summary.is_empty() {
-                                lines.push(format!("[reasoning] {summary}"));
+                        let otype = item
+                            .get("original_type")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("");
+                        // New format: text stored directly
+                        if let Some(text) = item.get("text").and_then(Value::as_str) {
+                            if !text.is_empty() {
+                                lines.push(format!("[{otype}] {}", &text[..text.len().min(200)]));
+                            }
+                        } else if otype == "reasoning" {
+                            // Legacy format: extract from value
+                            if let Some(value) = item.get("value") {
+                                let summary = crate::providers::extract_reasoning_summary(value);
+                                if !summary.is_empty() {
+                                    lines.push(format!("[reasoning] {summary}"));
+                                }
                             }
                         }
                     }

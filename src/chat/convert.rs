@@ -98,11 +98,51 @@ pub(super) fn convert_stored_message_to_provider_message(
     if let Some(raw_output) = raw_output {
         for item in raw_output {
             if let Some(original_type) = item.get("original_type").and_then(Value::as_str) {
-                let value = item.get("value").cloned().unwrap_or(Value::Null);
-                content.push(ContentBlock::RawOutput {
-                    original_type: original_type.to_string(),
-                    value,
-                });
+                match original_type {
+                    "thinking" | "redacted_thinking" | "reasoning" => {
+                        // New format: typed fields stored directly
+                        if item.get("text").is_some()
+                            || item.get("signature").is_some()
+                            || item.get("opaque_data").is_some()
+                        {
+                            content.push(ContentBlock::Thinking {
+                                text: item.get("text").and_then(Value::as_str).map(String::from),
+                                signature: item
+                                    .get("signature")
+                                    .and_then(Value::as_str)
+                                    .map(String::from),
+                                opaque_data: item
+                                    .get("opaque_data")
+                                    .and_then(Value::as_str)
+                                    .map(String::from),
+                            });
+                        } else if let Some(value) = item.get("value").filter(|v| !v.is_null()) {
+                            // Legacy format: extract from raw value
+                            content.push(ContentBlock::Thinking {
+                                text: value
+                                    .get("thinking")
+                                    .and_then(Value::as_str)
+                                    .map(String::from),
+                                signature: value
+                                    .get("signature")
+                                    .and_then(Value::as_str)
+                                    .map(String::from),
+                                opaque_data: value
+                                    .get("data")
+                                    .or_else(|| value.get("encrypted_content"))
+                                    .and_then(Value::as_str)
+                                    .map(String::from),
+                            });
+                        }
+                    }
+                    _ => {
+                        let value = item.get("value").cloned().unwrap_or(Value::Null);
+                        content.push(ContentBlock::RawOutput {
+                            original_type: original_type.to_string(),
+                            value,
+                        });
+                    }
+                }
             }
         }
     }
@@ -152,6 +192,26 @@ pub(super) fn raw_output_to_values(content: &[ContentBlock]) -> Option<Vec<Value
     let values: Vec<Value> = content
         .iter()
         .filter_map(|block| match block {
+            ContentBlock::Thinking {
+                text,
+                signature,
+                opaque_data,
+            } => {
+                // Determine original_type for DB storage
+                let original_type = if signature.is_some() {
+                    "thinking"
+                } else if opaque_data.is_some() && text.is_none() {
+                    "redacted_thinking"
+                } else {
+                    "reasoning"
+                };
+                Some(json!({
+                    "original_type": original_type,
+                    "text": text,
+                    "signature": signature,
+                    "opaque_data": opaque_data,
+                }))
+            }
             ContentBlock::RawOutput {
                 original_type,
                 value,
@@ -218,5 +278,111 @@ pub(super) fn render_tool_error(error: ToolError) -> String {
         ToolError::PermissionDenied(msg) => {
             format!("Permission denied: {msg}")
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::db::sessions::MessageRecord;
+
+    #[test]
+    fn legacy_raw_output_thinking_loads_as_thinking_block() {
+        let record = MessageRecord {
+            id: "test".into(),
+            session_id: "s".into(),
+            role: "assistant".into(),
+            content: String::new(),
+            tool_calls: None,
+            tool_results: None,
+            raw_output: Some(
+                serde_json::to_string(&json!([{
+                    "original_type": "thinking",
+                    "value": {
+                        "type": "thinking",
+                        "thinking": "let me reason about this",
+                        "signature": "sig_abc123"
+                    }
+                }]))
+                .unwrap(),
+            ),
+            images: None,
+            created_at: "2026-01-01T00:00:00Z".into(),
+        };
+        let msg = convert_stored_message_to_provider_message(record);
+        match &msg.content[0] {
+            ContentBlock::Thinking {
+                text,
+                signature,
+                opaque_data,
+            } => {
+                assert_eq!(text.as_deref(), Some("let me reason about this"));
+                assert_eq!(signature.as_deref(), Some("sig_abc123"));
+                assert!(opaque_data.is_none());
+            }
+            other => panic!("expected Thinking, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn new_format_thinking_round_trips() {
+        let content = vec![ContentBlock::Thinking {
+            text: Some("deep thoughts".into()),
+            signature: Some("sig_xyz".into()),
+            opaque_data: None,
+        }];
+        let values = raw_output_to_values(&content).unwrap();
+        assert_eq!(values.len(), 1);
+        assert_eq!(values[0]["original_type"], "thinking");
+        assert_eq!(values[0]["text"], "deep thoughts");
+        assert_eq!(values[0]["signature"], "sig_xyz");
+
+        // Simulate DB round-trip
+        let record = MessageRecord {
+            id: "test".into(),
+            session_id: "s".into(),
+            role: "assistant".into(),
+            content: String::new(),
+            tool_calls: None,
+            tool_results: None,
+            raw_output: Some(serde_json::to_string(&values).unwrap()),
+            images: None,
+            created_at: "2026-01-01T00:00:00Z".into(),
+        };
+        let msg = convert_stored_message_to_provider_message(record);
+        match &msg.content[0] {
+            ContentBlock::Thinking {
+                text,
+                signature,
+                opaque_data,
+            } => {
+                assert_eq!(text.as_deref(), Some("deep thoughts"));
+                assert_eq!(signature.as_deref(), Some("sig_xyz"));
+                assert!(opaque_data.is_none());
+            }
+            other => panic!("expected Thinking, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn redacted_thinking_original_type() {
+        let content = vec![ContentBlock::Thinking {
+            text: None,
+            signature: None,
+            opaque_data: Some("encrypted_blob".into()),
+        }];
+        let values = raw_output_to_values(&content).unwrap();
+        assert_eq!(values[0]["original_type"], "redacted_thinking");
+    }
+
+    #[test]
+    fn reasoning_original_type() {
+        let content = vec![ContentBlock::Thinking {
+            text: Some("summary".into()),
+            signature: None,
+            opaque_data: Some("encrypted".into()),
+        }];
+        let values = raw_output_to_values(&content).unwrap();
+        assert_eq!(values[0]["original_type"], "reasoning");
     }
 }
