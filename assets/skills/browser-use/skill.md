@@ -151,9 +151,9 @@ Then persist the browser so it's available across reboots:
 
 1. Run `discover` to scan for CDP endpoints (localhost + Tailscale peers).
 2. Tell the OPERATOR to run `ghost browsers add operator ws://<ip>:9222` to save it.
-3. Tell the OPERATOR to run `ghost reboot` to pick up the new config.
+3. Tell the OPERATOR to run `ghost config reload` to pick up the new config.
 
-After reboot, the OPERATOR's browser is available by name. You can `connect` to
+After reload, the OPERATOR's browser is available by name. You can `connect` to
 `"operator"` without needing the URL again.
 
 ### Workflow

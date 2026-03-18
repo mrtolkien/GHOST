@@ -81,7 +81,7 @@ fn execute_list() -> Result<(), GhostError> {
 fn execute_add(name: &str, cdp_url: &str) -> Result<(), GhostError> {
     crate::config_cli::add_browser(name, cdp_url, false)?;
     println!("Browser '{name}' added with URL: {cdp_url}");
-    println!("Run `ghost reboot` to apply changes.");
+    println!("Run `ghost config reload` to apply changes.");
     Ok(())
 }
 
@@ -89,7 +89,7 @@ fn execute_remove(name: &str) -> Result<(), GhostError> {
     let removed = crate::config_cli::remove_browser(name)?;
     if removed {
         println!("Browser '{name}' removed.");
-        println!("Run `ghost reboot` to apply changes.");
+        println!("Run `ghost config reload` to apply changes.");
     } else {
         println!("Browser '{name}' not found in config.");
     }
@@ -270,7 +270,7 @@ async fn execute_serve(
     eprintln!();
     eprintln!("From the GHOST machine, run:");
     eprintln!("  ghost browsers add operator ws://{tailscale_ip}:{port}");
-    eprintln!("  ghost reboot");
+    eprintln!("  ghost config reload");
     eprintln!();
     eprintln!("Press Ctrl+C to stop.");
 
