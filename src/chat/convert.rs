@@ -376,6 +376,45 @@ mod tests {
     }
 
     #[test]
+    fn legacy_codex_reasoning_loads_as_thinking_block() {
+        let record = MessageRecord {
+            id: "test".into(),
+            session_id: "s".into(),
+            role: "assistant".into(),
+            content: String::new(),
+            tool_calls: None,
+            tool_results: None,
+            raw_output: Some(
+                serde_json::to_string(&json!([{
+                    "original_type": "reasoning",
+                    "value": {
+                        "type": "reasoning",
+                        "encrypted_content": "some_encrypted_data",
+                        "summary": [{"type": "summary_text", "text": "step by step"}]
+                    }
+                }]))
+                .unwrap(),
+            ),
+            images: None,
+            created_at: "2026-01-01T00:00:00Z".into(),
+        };
+        let msg = convert_stored_message_to_provider_message(record);
+        match &msg.content[0] {
+            ContentBlock::Thinking {
+                text,
+                signature,
+                opaque_data,
+            } => {
+                // Legacy path extracts "thinking" key, not nested summary
+                assert!(text.is_none());
+                assert!(signature.is_none());
+                assert_eq!(opaque_data.as_deref(), Some("some_encrypted_data"));
+            }
+            other => panic!("expected Thinking, got {other:?}"),
+        }
+    }
+
+    #[test]
     fn reasoning_original_type() {
         let content = vec![ContentBlock::Thinking {
             text: Some("summary".into()),
