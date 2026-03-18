@@ -141,10 +141,10 @@ async fn anthropic_multi_turn_with_history() {
         .expect("turn 1 chat response");
 
     assert!(
-        response1
-            .content
-            .iter()
-            .any(|b| !matches!(b, ContentBlock::RawOutput { .. })),
+        response1.content.iter().any(|b| !matches!(
+            b,
+            ContentBlock::RawOutput { .. } | ContentBlock::Thinking { .. }
+        )),
         "turn 1 should have usable content"
     );
 
@@ -173,10 +173,10 @@ async fn anthropic_multi_turn_with_history() {
         .expect("turn 2 chat response");
 
     assert!(
-        response2
-            .content
-            .iter()
-            .any(|b| !matches!(b, ContentBlock::RawOutput { .. })),
+        response2.content.iter().any(|b| !matches!(
+            b,
+            ContentBlock::RawOutput { .. } | ContentBlock::Thinking { .. }
+        )),
         "turn 2 should have usable content"
     );
 }
