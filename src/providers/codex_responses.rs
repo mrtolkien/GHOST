@@ -167,6 +167,7 @@ pub(super) fn build_codex_request_body(
                 }
                 ContentBlock::Text { .. }
                 | ContentBlock::Image { .. }
+                | ContentBlock::Thinking { .. }
                 | ContentBlock::RawOutput { .. } => {}
             }
         }

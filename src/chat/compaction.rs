@@ -44,6 +44,7 @@ pub fn estimate_block_tokens(block: &ContentBlock) -> usize {
             ..
         } => estimate_tokens(tool_use_id) + estimate_tokens(content),
         ContentBlock::Image { .. } => 1000, // rough estimate for a compressed image
+        ContentBlock::Thinking { text, .. } => text.as_deref().map_or(0, estimate_tokens),
         ContentBlock::RawOutput { value, .. } => estimate_tokens(&value.to_string()),
     }
 }
@@ -294,6 +295,11 @@ fn render_messages_for_summary(messages: &[ChatMessage], preview_chars: usize) -
                 }
                 ContentBlock::Image { filename, .. } => {
                     out.push_str(&format!("[image: {filename}]\n\n"));
+                }
+                ContentBlock::Thinking { text, .. } => {
+                    if let Some(t) = text {
+                        out.push_str(&format!("[{role} thinking] {t}\n\n"));
+                    }
                 }
                 ContentBlock::RawOutput { original_type, .. } => {
                     out.push_str(&format!("[{role} raw:{original_type}]\n\n"));

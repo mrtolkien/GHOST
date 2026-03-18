@@ -303,6 +303,27 @@ fn convert_content_blocks(blocks: &[ContentBlock], ghost_tool_names: &[&str]) ->
                     }
                 }
             }
+            ContentBlock::Thinking {
+                text,
+                signature,
+                opaque_data,
+            } => {
+                // Placeholder: mirror RawOutput thinking handling.
+                // Task 4 will implement proper Anthropic thinking/redacted_thinking
+                // block reconstruction from typed fields.
+                if let (Some(t), Some(sig)) = (text, signature) {
+                    out.push(json!({
+                        "type": "thinking",
+                        "thinking": t,
+                        "signature": sig,
+                    }));
+                } else if let Some(data) = opaque_data {
+                    out.push(json!({
+                        "type": "redacted_thinking",
+                        "data": data,
+                    }));
+                }
+            }
             ContentBlock::RawOutput {
                 original_type,
                 value,
