@@ -4,8 +4,8 @@ use serde_json::{Value, json};
 
 use crate::db;
 use crate::db::knowledge::{
-    SearchHit, find_topics_by_prefix, hybrid_merge, search_diary, search_notes, search_references,
-    search_scripts,
+    SearchHit, find_topics_by_prefix, hybrid_merge, search_code_files, search_diary, search_notes,
+    search_references, search_scripts,
 };
 use crate::embeddings::EmbeddingClient;
 use crate::providers::ToolDefinition;
@@ -44,13 +44,17 @@ impl Tool for KnowledgeSearch {
                         "type": "array",
                         "items": {
                             "type": "string",
-                            "enum": ["notes", "references", "diary", "topics", "scripts"]
+                            "enum": ["notes", "references", "diary", "topics", "scripts", "code"]
                         },
-                        "description": "Categories to search. Defaults to [\"notes\", \"diary\"]. Include \"references\" explicitly to search reference material. Use \"topics\" to search topic collections."
+                        "description": "Categories to search. Defaults to [\"notes\", \"diary\"]. Include \"references\" explicitly to search reference material. Use \"topics\" to search topic collections. Use \"code\" to search indexed code files."
                     },
                     "topic": {
                         "type": "string",
                         "description": "Scope search to a topic name (e.g. \"dioxus\" or \"dioxus/docs\"). Prefix matching: \"dioxus\" matches all sub-topics. Only affects references and vector search."
+                    },
+                    "repo": {
+                        "type": "string",
+                        "description": "Scope code search to a repo slug (e.g. \"ghost\"). Prefix matching. Only affects code category and vector search. Auto-includes \"code\" category when set."
                     },
                     "limit": {
                         "type": "integer",
@@ -80,6 +84,7 @@ impl Tool for KnowledgeSearch {
 
         let topic = params.get("topic").and_then(Value::as_str);
         let archetype = params.get("archetype").and_then(Value::as_str);
+        let repo = params.get("repo").and_then(Value::as_str);
 
         let categories: Vec<String> = params
             .get("categories")
@@ -92,14 +97,16 @@ impl Tool for KnowledgeSearch {
             })
             .unwrap_or_default();
 
-        // When topic is set, auto-include references
-        let use_defaults = categories.is_empty() && topic.is_none();
+        // When topic is set, auto-include references; when repo is set, auto-include code
+        let use_defaults = categories.is_empty() && topic.is_none() && repo.is_none();
         let search_notes_flag = use_defaults || categories.iter().any(|c| c == "notes");
         let search_refs_flag =
             topic.is_some() || (!use_defaults && categories.iter().any(|c| c == "references"));
         let search_diary_flag = use_defaults || categories.iter().any(|c| c == "diary");
         let search_topics_flag = categories.iter().any(|c| c == "topics");
         let search_scripts_flag = !use_defaults && categories.iter().any(|c| c == "scripts");
+        let search_code_flag =
+            repo.is_some() || (!use_defaults && categories.iter().any(|c| c == "code"));
 
         // Resolve topic name to topic IDs for scoped search
         let resolved_topic_ids = if let Some(topic_name) = topic {
@@ -110,6 +117,20 @@ impl Tool for KnowledgeSearch {
         } else {
             vec![]
         };
+
+        // Resolve repo to synthetic code/ topic IDs for vector search scoping
+        let repo_topic_ids = if let Some(repo_name) = repo {
+            let code_topic = format!("code/{repo_name}");
+            let topics = find_topics_by_prefix(&ctx.db, &code_topic)
+                .await
+                .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
+            topics.into_iter().map(|t| t.id).collect::<Vec<_>>()
+        } else {
+            vec![]
+        };
+
+        let mut all_topic_ids = resolved_topic_ids.clone();
+        all_topic_ids.extend(repo_topic_ids);
 
         // Collect BM25 hits
         let mut bm25_hits = Vec::new();
@@ -166,6 +187,14 @@ impl Tool for KnowledgeSearch {
             );
         }
 
+        if search_code_flag {
+            bm25_hits.extend(
+                search_code_files(&ctx.db, query, limit, repo)
+                    .await
+                    .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?,
+            );
+        }
+
         // Build effective categories from computed flags so the vector filter
         // respects topic-triggered auto-include of references.
         let mut effective_categories = Vec::new();
@@ -184,6 +213,9 @@ impl Tool for KnowledgeSearch {
         if search_scripts_flag {
             effective_categories.push("scripts".to_string());
         }
+        if search_code_flag {
+            effective_categories.push("code".to_string());
+        }
 
         // Try hybrid search: embed query and merge with BM25
         let mut hits = try_hybrid_search(
@@ -193,7 +225,7 @@ impl Tool for KnowledgeSearch {
             query,
             limit,
             &effective_categories,
-            &resolved_topic_ids,
+            &all_topic_ids,
         )
         .await;
 
@@ -283,6 +315,7 @@ fn filter_embedding_hits(
             "references" => "reference",
             "diary" => "diary",
             "scripts" => "script",
+            "code" => "code_file",
             other => other,
         })
         .collect();
@@ -326,6 +359,7 @@ fn format_results(hits: &[SearchHit]) -> Result<String, ToolError> {
             "reference" => "References",
             "diary" => "Diary",
             "script" => "Scripts",
+            "code" => "Code",
             other => other,
         };
 
