@@ -197,8 +197,9 @@ pub async fn embed_sources(
 
 /// Scan the filesystem and reconcile with DB using batch hash checking.
 ///
-/// Walks `notes/`, `references/`, `diary/`, `scripts/` under the workspace.
-/// For each file, computes SHA-256 and compares against stored file_hash:
+/// Walks `notes/`, `references/`, `diary/`, `scripts/` under the workspace,
+/// plus `code/` repos (gitignore-aware). For each file, computes SHA-256 and
+/// compares against stored file_hash:
 /// - Hash matches + has embeddings: skip entirely
 /// - Hash matches + no embeddings: queue embed request only (no DB upsert)
 /// - Hash differs or path missing: full `process_change` + store hash
@@ -216,6 +217,7 @@ pub async fn reconcile_filesystem(
     let ref_hashes = db::knowledge::load_reference_file_hashes(db).await?;
     let diary_hashes = db::knowledge::load_diary_file_hashes(db).await?;
     let script_hashes = db::knowledge::load_script_file_hashes(db).await?;
+    let code_hashes = db::knowledge::load_code_file_hashes(db).await?;
 
     let mut known: HashMap<String, (Option<String>, bool)> = HashMap::new();
     for r in note_hashes {
@@ -237,6 +239,12 @@ pub async fn reconcile_filesystem(
         known.insert(
             format!("scripts/{}", r.path),
             (r.file_hash, r.has_embeddings),
+        );
+    }
+    for r in &code_hashes {
+        known.insert(
+            format!("code/{}/{}", r.repo, r.path),
+            (r.file_hash.clone(), r.has_embeddings),
         );
     }
 
@@ -296,6 +304,101 @@ pub async fn reconcile_filesystem(
                             );
                         }
                     }
+                }
+            }
+        }
+    }
+
+    // Phase 2b: Walk code repos (gitignore-aware)
+    let code_dir = workspace.join("code");
+    if code_dir.exists() {
+        let mut seen_code_paths: std::collections::HashSet<String> =
+            std::collections::HashSet::new();
+        if let Ok(entries) = std::fs::read_dir(&code_dir) {
+            for entry in entries.flatten() {
+                if !entry.path().is_dir() {
+                    continue;
+                }
+                let repo_dir = entry.path();
+                let files = walk_code_repo(&repo_dir);
+                for file_path in files {
+                    let rel = file_path.strip_prefix(workspace).unwrap_or(&file_path);
+                    let rel_str = rel.to_string_lossy().to_string();
+                    seen_code_paths.insert(rel_str.clone());
+
+                    let raw = match tokio::fs::read_to_string(&file_path).await {
+                        Ok(r) => r,
+                        Err(_) => continue,
+                    };
+                    let hash = content_hash(&raw);
+
+                    match known.get(&rel_str) {
+                        Some((Some(stored_hash), true)) if *stored_hash == hash => {
+                            continue;
+                        }
+                        Some((Some(stored_hash), false)) if *stored_hash == hash => {
+                            if let Some(req) =
+                                build_embed_request_from_db(db, workspace, &file_path, &raw).await
+                            {
+                                embed_requests.push(req);
+                            }
+                        }
+                        _ => {
+                            match crate::daemon::watcher::process_change(
+                                db,
+                                workspace,
+                                &file_path,
+                                Some(&raw),
+                                Some(&hash),
+                            )
+                            .await
+                            {
+                                Ok(Some(req)) => {
+                                    embed_requests.push(req);
+                                    discovered += 1;
+                                }
+                                Ok(None) => {}
+                                Err(e) => {
+                                    tracing::warn!(
+                                        path = file_path.display().to_string(),
+                                        error = e.to_string(),
+                                        "reconcile: failed to process code file"
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Phase 3: Reverse-pass — delete stale code_file records
+        for r in &code_hashes {
+            let rel_key = format!("code/{}/{}", r.repo, r.path);
+            if !seen_code_paths.contains(&rel_key)
+                && let Ok(Some(cf)) = db::knowledge::find_code_file(db, &r.repo, &r.path).await
+            {
+                if let Err(e) = db::embeddings::delete_embeddings_for_source(db, &cf.id).await {
+                    tracing::warn!(
+                        repo = r.repo.as_str(),
+                        path = r.path.as_str(),
+                        error = e.to_string(),
+                        "reconcile: failed to delete code file embeddings"
+                    );
+                }
+                if let Err(e) = db::knowledge::delete_code_file(db, &cf.id).await {
+                    tracing::warn!(
+                        repo = r.repo.as_str(),
+                        path = r.path.as_str(),
+                        error = e.to_string(),
+                        "reconcile: failed to delete stale code file"
+                    );
+                } else {
+                    tracing::info!(
+                        repo = r.repo.as_str(),
+                        path = r.path.as_str(),
+                        "reconcile: removed stale code file"
+                    );
                 }
             }
         }
@@ -363,6 +466,26 @@ async fn build_embed_request_from_db(
             content: content.to_string(),
             tags: vec![],
             topic_id: None,
+            path: Some(rel_str.to_string()),
+        })
+    } else if rel_str.starts_with("code/") {
+        let slug = extract_repo_slug(workspace, file_path)?;
+        let code_path = rel_str
+            .strip_prefix(&format!("code/{slug}/"))
+            .unwrap_or(&rel_str);
+        let cf = db::knowledge::find_code_file(db, &slug, code_path)
+            .await
+            .ok()??;
+        let topic_name = format!("code/{slug}");
+        let topic_id = db::knowledge::find_or_create_topic(db, &topic_name)
+            .await
+            .ok()?;
+        Some(EmbedRequest {
+            source_table: "code_file".into(),
+            source_id: cf.id,
+            content: content.to_string(),
+            tags: vec![],
+            topic_id: Some(topic_id),
             path: Some(rel_str.to_string()),
         })
     } else {
