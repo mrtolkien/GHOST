@@ -354,7 +354,7 @@ async fn note_write_tool_creates_file_and_db_record() {
         workspace: config.workspace.clone(),
         cwd: config.workspace.clone(),
         db: db.clone(),
-        config: config.clone(),
+        config: std::sync::Arc::new(config.clone()),
         session_id: session_id.clone(),
         agent_runner: None,
         event_tx: None,

@@ -94,7 +94,7 @@ fn browser_tool_ctx() -> (ToolContext, tempfile::TempDir) {
         workspace: workspace.path().to_path_buf(),
         cwd: workspace.path().to_path_buf(),
         db: sqlx::SqlitePool::connect_lazy("sqlite::memory:").unwrap(),
-        config: config.clone(),
+        config: Arc::new(config.clone()),
         session_id: "browser-test".to_string(),
         agent_runner: None,
         event_tx: None,

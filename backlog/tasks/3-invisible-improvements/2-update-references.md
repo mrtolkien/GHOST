@@ -19,14 +19,17 @@ Questions:
 Re-fetches from the original source, diffs against existing references, applies changes.
 
 **CLI:**
-- `ghost reference import git --url <url> --topic <name> [--ref <tag>]` — new `--ref` flag
+
+- `ghost reference import git --url <url> --topic <name> [--ref <tag>]` — new `--ref`
+  flag
 - `ghost reference update --topic <name> [--ref <tag>]` — new command
 
 **Config persistence:** `_import.toml` and `import_batch.import_config` (JSON column)
-store the full import config (paths, extensions, max_depth, max_pages, git_ref) so update
-can replay the import faithfully.
+store the full import config (paths, extensions, max_depth, max_pages, git_ref) so
+update can replay the import faithfully.
 
 **Diff semantics:**
+
 - New upstream files → create
 - Changed files (hash mismatch) → update content + hash, watcher re-embeds
 - Unchanged files → skip

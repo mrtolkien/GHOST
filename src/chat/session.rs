@@ -550,7 +550,7 @@ impl SessionChat {
             workspace: self.config.workspace.clone(),
             cwd,
             db: self.db.clone(),
-            config: self.config.clone(),
+            config: Arc::new(self.config.clone()),
             session_id: session_id.to_string(),
             agent_runner: self.agent_runner.clone(),
             event_tx: self.event_tx.clone(),
