@@ -49,18 +49,15 @@ async fn reasoning_effort_high_produces_thinking_block() {
     eprintln!("Turn 1 content blocks: {}", response.content.len());
     for (i, block) in response.content.iter().enumerate() {
         match block {
-            ContentBlock::RawOutput {
-                original_type,
-                value,
+            ContentBlock::Thinking {
+                text,
+                opaque_data,
+                ..
             } => {
-                let has_encrypted = value.get("encrypted_content").is_some();
-                let summary_len = value
-                    .get("summary")
-                    .and_then(|s| s.as_array())
-                    .map_or(0, |a| a.len());
                 eprintln!(
-                    "  [{i}] RawOutput({original_type}): encrypted={has_encrypted}, \
-                     summary_parts={summary_len}"
+                    "  [{i}] Thinking: has_text={}, has_opaque={}",
+                    text.is_some(),
+                    opaque_data.is_some(),
                 );
             }
             ContentBlock::Text { text } => {
@@ -76,20 +73,14 @@ async fn reasoning_effort_high_produces_thinking_block() {
     let reasoning_block = response
         .content
         .iter()
-        .find(|b| {
-            matches!(
-                b,
-                ContentBlock::RawOutput { original_type, .. }
-                    if original_type == "reasoning"
-            )
-        })
-        .expect("response must contain a reasoning RawOutput block");
+        .find(|b| matches!(b, ContentBlock::Thinking { .. }))
+        .expect("response must contain a Thinking block");
 
     // Assert: the reasoning block has encrypted_content (needed for echo-back).
-    if let ContentBlock::RawOutput { value, .. } = reasoning_block {
+    if let ContentBlock::Thinking { opaque_data, .. } = reasoning_block {
         assert!(
-            value.get("encrypted_content").is_some(),
-            "reasoning block must contain encrypted_content for round-trip"
+            opaque_data.is_some(),
+            "reasoning block must contain opaque_data (encrypted_content) for round-trip"
         );
     }
 
@@ -129,8 +120,8 @@ async fn reasoning_effort_high_produces_thinking_block() {
     eprintln!("Turn 2 content blocks: {}", response2.content.len());
     for (i, block) in response2.content.iter().enumerate() {
         match block {
-            ContentBlock::RawOutput { original_type, .. } => {
-                eprintln!("  [{i}] RawOutput({original_type})")
+            ContentBlock::Thinking { .. } => {
+                eprintln!("  [{i}] Thinking")
             }
             ContentBlock::Text { text } => eprintln!("  [{i}] Text: {} chars", text.len()),
             other => eprintln!("  [{i}] {other:?}"),

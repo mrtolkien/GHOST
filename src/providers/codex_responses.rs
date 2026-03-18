@@ -88,15 +88,32 @@ pub(super) fn build_codex_request_body(
             crate::providers::Role::System => ("developer", "input_text"),
         };
 
-        // Collect raw output items (e.g. reasoning) — they must appear as
-        // top-level input items *before* the message they belong to.
+        // Collect thinking blocks — reconstruct as reasoning input items.
         let mut raw_items = Vec::new();
         for block in &message.content {
-            if let ContentBlock::RawOutput { value, .. } = block {
-                raw_items.push(value.clone());
+            match block {
+                ContentBlock::Thinking {
+                    text, opaque_data, ..
+                } => {
+                    // Reconstruct Codex reasoning item. The API
+                    // requires `summary` even when empty.
+                    let mut item = json!({"type": "reasoning"});
+                    if let Some(data) = opaque_data {
+                        item["encrypted_content"] = json!(data);
+                    }
+                    item["summary"] = if let Some(text) = text {
+                        json!([{"type": "summary_text", "text": text}])
+                    } else {
+                        json!([])
+                    };
+                    raw_items.push(item);
+                }
+                ContentBlock::RawOutput { value, .. } => {
+                    raw_items.push(value.clone());
+                }
+                _ => {}
             }
         }
-        // Push raw items before the message (API expects reasoning → message).
         for raw in raw_items {
             input.push(CodexInputItem::Raw(raw));
         }
@@ -167,6 +184,7 @@ pub(super) fn build_codex_request_body(
                 }
                 ContentBlock::Text { .. }
                 | ContentBlock::Image { .. }
+                | ContentBlock::Thinking { .. }
                 | ContentBlock::RawOutput { .. } => {}
             }
         }
@@ -475,16 +493,41 @@ pub(super) fn parse_codex_response_value(
                     }
                 }
                 other => {
-                    let reasoning_summary = extract_reasoning_summary(item);
-                    logfire::info!(
-                        "codex: preserving opaque output item",
-                        item_type = other.to_string(),
-                        reasoning_summary = reasoning_summary,
-                    );
-                    content.push(ContentBlock::RawOutput {
-                        original_type: other.to_string(),
-                        value: item.clone(),
-                    });
+                    if other == "reasoning" {
+                        let text = {
+                            let summary = extract_reasoning_summary(item);
+                            if summary.is_empty() {
+                                None
+                            } else {
+                                Some(summary)
+                            }
+                        };
+                        let opaque_data = item
+                            .get("encrypted_content")
+                            .and_then(Value::as_str)
+                            .map(String::from);
+                        logfire::info!(
+                            "codex: preserving reasoning block",
+                            has_text = text.is_some(),
+                            has_opaque = opaque_data.is_some(),
+                        );
+                        content.push(ContentBlock::Thinking {
+                            text,
+                            signature: None,
+                            opaque_data,
+                        });
+                    } else {
+                        let reasoning_summary = extract_reasoning_summary(item);
+                        logfire::info!(
+                            "codex: preserving opaque output item",
+                            item_type = other.to_string(),
+                            reasoning_summary = reasoning_summary,
+                        );
+                        content.push(ContentBlock::RawOutput {
+                            original_type: other.to_string(),
+                            value: item.clone(),
+                        });
+                    }
                 }
             }
         }
@@ -821,7 +864,7 @@ mod tests {
         assert_eq!(parsed.content.len(), 2);
         assert!(matches!(
             &parsed.content[0],
-            ContentBlock::RawOutput { original_type, .. } if original_type == "reasoning"
+            ContentBlock::Thinking { text, .. } if text.as_deref() == Some("thinking about it")
         ));
         assert!(matches!(
             &parsed.content[1],
@@ -830,7 +873,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_response_reasoning_only_returns_raw_output() {
+    fn parse_response_reasoning_only_produces_thinking_block() {
         let response_value = json!({
             "model": "gpt-5.3-codex",
             "status": "completed",
@@ -848,7 +891,10 @@ mod tests {
         assert_eq!(parsed.content.len(), 1);
         assert!(matches!(
             &parsed.content[0],
-            ContentBlock::RawOutput { original_type, .. } if original_type == "reasoning"
+            ContentBlock::Thinking { text, signature, opaque_data }
+                if text.as_deref() == Some("just thinking")
+                && signature.is_none()
+                && opaque_data.is_none()
         ));
         assert_eq!(parsed.stop_reason, StopReason::EndTurn);
     }

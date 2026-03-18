@@ -122,6 +122,21 @@ pub enum ContentBlock {
         mime_type: String,
         filename: String,
     },
+    /// Model reasoning/thinking block. Typed for correct ordering and
+    /// cross-model transitions.
+    ///
+    /// - Anthropic `thinking`: text + signature (readable, verifiable)
+    /// - Anthropic `redacted_thinking`: opaque_data only
+    /// - OpenAI `reasoning`: opaque_data (encrypted) + text (summary)
+    Thinking {
+        /// Human-readable reasoning text.
+        text: Option<String>,
+        /// Anthropic thinking signature for round-trip verification.
+        signature: Option<String>,
+        /// Opaque/encrypted data (Anthropic redacted_thinking `data`,
+        /// OpenAI reasoning `encrypted_content`).
+        opaque_data: Option<String>,
+    },
     /// Opaque provider output item preserved for faithful echo-back.
     /// `original_type` is the item's native type (e.g. "reasoning").
     /// `value` is the complete raw JSON from the provider.

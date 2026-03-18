@@ -174,7 +174,6 @@ impl OpenAiCompatibleProvider {
             });
         }
         if !status.is_success() {
-            self.circuit_breaker.record_failure(&request.model);
             return Err(ProviderError::InvalidResponse(format!(
                 "http status {status}: {}",
                 extract_error_message(&response_body)

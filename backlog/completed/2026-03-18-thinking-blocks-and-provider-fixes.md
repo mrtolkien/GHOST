@@ -1,40 +1,53 @@
 # Thinking Blocks & Provider Fixes Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use
+> superpowers:subagent-driven-development (recommended) or superpowers:executing-plans
+> to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Fix three production bugs — thinking block ordering crash, circuit breaker triggering on client errors, and compaction summary "system" role rejection — by introducing a typed `ContentBlock::Thinking` variant, hardening the circuit breaker, and fixing Anthropic-specific system message handling.
+**Goal:** Fix three production bugs — thinking block ordering crash, circuit breaker
+triggering on client errors, and compaction summary "system" role rejection — by
+introducing a typed `ContentBlock::Thinking` variant, hardening the circuit breaker, and
+fixing Anthropic-specific system message handling.
 
-**Architecture:** Replace the opaque `ContentBlock::RawOutput` for thinking/reasoning blocks with a typed `ContentBlock::Thinking { text, signature, opaque_data }` variant. Each provider reconstructs its native format from these fields, and cross-model transitions degrade to readable text. Circuit breaker only fires on transient provider errors (429, 5xx, network). Compaction summaries are converted from `Role::System` to a user-role text block in the Anthropic provider's message conversion, keeping session code provider-agnostic.
+**Architecture:** Replace the opaque `ContentBlock::RawOutput` for thinking/reasoning
+blocks with a typed `ContentBlock::Thinking { text, signature, opaque_data }` variant.
+Each provider reconstructs its native format from these fields, and cross-model
+transitions degrade to readable text. Circuit breaker only fires on transient provider
+errors (429, 5xx, network). Compaction summaries are converted from `Role::System` to a
+user-role text block in the Anthropic provider's message conversion, keeping session
+code provider-agnostic.
 
 **Tech Stack:** Rust, serde_json, Anthropic Messages API, OpenAI Codex Responses API
 
-**Relevant test infrastructure:** `@testing` skill, live tests with `--features live-tests-llms`
+**Relevant test infrastructure:** `@testing` skill, live tests with
+`--features live-tests-llms`
 
 ---
 
 ## File Map
 
-| File | Action | Responsibility |
-|------|--------|---------------|
-| `src/providers/types.rs` | Modify | Add `Thinking` variant to `ContentBlock` |
-| `src/providers/anthropic/streaming.rs` | Modify | Produce `Thinking` instead of `RawOutput` |
-| `src/providers/anthropic/messages.rs` | Modify | Consume `Thinking` (reconstruct + order first); handle `Role::System` as user message |
-| `src/providers/codex_responses.rs` | Modify | Produce `Thinking` for reasoning items; consume `Thinking` in request builder |
-| `src/providers/openai_compatible.rs` | Modify | Consume `Thinking` (cross-model text fallback) |
-| `src/chat/convert.rs` | Modify | DB round-trip: store/load `Thinking` via `raw_output` column; update `raw_output_to_values` |
-| `src/chat/compaction.rs` | Modify | Token estimation and summary rendering for `Thinking` |
-| `src/chat/transcript.rs` | Modify | Render `Thinking` blocks in transcript |
-| `src/providers/anthropic/mod.rs` | Modify | Remove `record_failure` from 400 catch-all |
-| `src/providers/openai_oauth.rs` | Modify | Remove `record_failure` from 400 catch-all |
-| `src/providers/openai_compatible_provider.rs` | Modify | Remove `record_failure` from 400 catch-all |
-| `tests/providers/anthropic_live.rs` | Modify | Update round-trip test to use `Thinking` variant |
-| `tests/providers/reasoning_live.rs` | Modify | Update to expect `Thinking` variant |
+| File                                          | Action | Responsibility                                                                              |
+| --------------------------------------------- | ------ | ------------------------------------------------------------------------------------------- |
+| `src/providers/types.rs`                      | Modify | Add `Thinking` variant to `ContentBlock`                                                    |
+| `src/providers/anthropic/streaming.rs`        | Modify | Produce `Thinking` instead of `RawOutput`                                                   |
+| `src/providers/anthropic/messages.rs`         | Modify | Consume `Thinking` (reconstruct + order first); handle `Role::System` as user message       |
+| `src/providers/codex_responses.rs`            | Modify | Produce `Thinking` for reasoning items; consume `Thinking` in request builder               |
+| `src/providers/openai_compatible.rs`          | Modify | Consume `Thinking` (cross-model text fallback)                                              |
+| `src/chat/convert.rs`                         | Modify | DB round-trip: store/load `Thinking` via `raw_output` column; update `raw_output_to_values` |
+| `src/chat/compaction.rs`                      | Modify | Token estimation and summary rendering for `Thinking`                                       |
+| `src/chat/transcript.rs`                      | Modify | Render `Thinking` blocks in transcript                                                      |
+| `src/providers/anthropic/mod.rs`              | Modify | Remove `record_failure` from 400 catch-all                                                  |
+| `src/providers/openai_oauth.rs`               | Modify | Remove `record_failure` from 400 catch-all                                                  |
+| `src/providers/openai_compatible_provider.rs` | Modify | Remove `record_failure` from 400 catch-all                                                  |
+| `tests/providers/anthropic_live.rs`           | Modify | Update round-trip test to use `Thinking` variant                                            |
+| `tests/providers/reasoning_live.rs`           | Modify | Update to expect `Thinking` variant                                                         |
 
 ---
 
 ## Task 1: Add `ContentBlock::Thinking` variant
 
 **Files:**
+
 - Modify: `src/providers/types.rs:102-133`
 
 - [ ] **Step 1: Add the `Thinking` variant to the `ContentBlock` enum**
@@ -59,23 +72,27 @@ Thinking {
 },
 ```
 
-Keep `RawOutput` — it still handles truly unknown provider outputs (e.g. `function_call` fallbacks in Codex).
+Keep `RawOutput` — it still handles truly unknown provider outputs (e.g. `function_call`
+fallbacks in Codex).
 
 - [ ] **Step 2: Fix all exhaustive match arms**
 
-Run `cargo check 2>&1 | head -60` to find every non-exhaustive `match` on `ContentBlock`. Add `ContentBlock::Thinking { .. }` arms alongside the existing `RawOutput` handling — for now just mirror what `RawOutput` did. Files expected to need fixes:
+Run `cargo check 2>&1 | head -60` to find every non-exhaustive `match` on
+`ContentBlock`. Add `ContentBlock::Thinking { .. }` arms alongside the existing
+`RawOutput` handling — for now just mirror what `RawOutput` did. Files expected to need
+fixes:
 
 - `src/chat/compaction.rs` (token estimation + summary rendering)
 - `src/providers/anthropic/messages.rs` (convert_content_blocks)
 - `src/providers/openai_compatible.rs` (convert_messages)
 - `src/providers/codex_responses.rs` (request builder loop)
 
-For each, add a placeholder arm that delegates to the same logic as RawOutput. These will be refined in later tasks.
+For each, add a placeholder arm that delegates to the same logic as RawOutput. These
+will be refined in later tasks.
 
 - [ ] **Step 3: Verify compilation**
 
-Run: `cargo check`
-Expected: compiles with no errors (warnings OK)
+Run: `cargo check` Expected: compiles with no errors (warnings OK)
 
 - [ ] **Step 4: Commit**
 
@@ -88,12 +105,14 @@ feat: add ContentBlock::Thinking variant for typed reasoning blocks
 ## Task 2: Produce `Thinking` blocks from Anthropic streaming parser
 
 **Files:**
+
 - Modify: `src/providers/anthropic/streaming.rs:246-257`
 - Test: existing tests in same file + `tests/providers/anthropic_live.rs`
 
 - [ ] **Step 1: Update the streaming parser to emit `Thinking` instead of `RawOutput`**
 
-In `src/providers/anthropic/streaming.rs`, replace the `"thinking"` and `"redacted_thinking"` arms in `build_content_block()` (around line 246):
+In `src/providers/anthropic/streaming.rs`, replace the `"thinking"` and
+`"redacted_thinking"` arms in `build_content_block()` (around line 246):
 
 ```rust
 "thinking" => ContentBlock::Thinking {
@@ -114,16 +133,18 @@ In `src/providers/anthropic/streaming.rs`, replace the `"thinking"` and `"redact
 
 - [ ] **Step 2: Fix the unit tests in the same file**
 
-Update the tests that match on `ContentBlock::RawOutput` with `original_type == "thinking"` or `"redacted_thinking"` to instead match on `ContentBlock::Thinking { text, signature, opaque_data }` and assert the correct fields.
+Update the tests that match on `ContentBlock::RawOutput` with
+`original_type == "thinking"` or `"redacted_thinking"` to instead match on
+`ContentBlock::Thinking { text, signature, opaque_data }` and assert the correct fields.
 
 - [ ] **Step 3: Run unit tests**
 
-Run: `cargo test --lib providers::anthropic::streaming`
-Expected: all pass
+Run: `cargo test --lib providers::anthropic::streaming` Expected: all pass
 
 - [ ] **Step 4: Run the live round-trip test**
 
-Run: `cargo test --features live-tests-llms anthropic_thinking_block_round_trip -- --nocapture`
+Run:
+`cargo test --features live-tests-llms anthropic_thinking_block_round_trip -- --nocapture`
 Expected: FAIL (test still constructs/matches `RawOutput` — will fix in Task 7)
 
 - [ ] **Step 5: Commit**
@@ -137,12 +158,14 @@ feat: Anthropic streaming parser produces ContentBlock::Thinking
 ## Task 3: Produce `Thinking` blocks from Codex Responses parser
 
 **Files:**
+
 - Modify: `src/providers/codex_responses.rs:477-487`
 - Test: `tests/providers/reasoning_live.rs`
 
 - [ ] **Step 1: Update the Codex parser to emit `Thinking` for reasoning items**
 
-In `src/providers/codex_responses.rs`, in the `other =>` match arm (line 477), check if `other == "reasoning"` and produce a `Thinking` block:
+In `src/providers/codex_responses.rs`, in the `other =>` match arm (line 477), check if
+`other == "reasoning"` and produce a `Thinking` block:
 
 ```rust
 other => {
@@ -182,11 +205,13 @@ other => {
 
 - [ ] **Step 2: Fix the reasoning live test**
 
-Update `tests/providers/reasoning_live.rs` to match on `ContentBlock::Thinking` instead of `ContentBlock::RawOutput` with `original_type == "reasoning"`.
+Update `tests/providers/reasoning_live.rs` to match on `ContentBlock::Thinking` instead
+of `ContentBlock::RawOutput` with `original_type == "reasoning"`.
 
 - [ ] **Step 3: Run tests**
 
-Run: `cargo test --lib providers::codex && cargo test --features live-tests-llms reasoning`
+Run:
+`cargo test --lib providers::codex && cargo test --features live-tests-llms reasoning`
 Expected: unit tests pass; live test pass if credentials available
 
 - [ ] **Step 4: Commit**
@@ -199,15 +224,19 @@ feat: Codex Responses parser produces ContentBlock::Thinking for reasoning
 
 ## Task 4: Consume `Thinking` in Anthropic message builder (reconstruct + order)
 
-This is the critical fix for the production bug — thinking blocks must come FIRST in assistant messages.
+This is the critical fix for the production bug — thinking blocks must come FIRST in
+assistant messages.
 
 **Files:**
+
 - Modify: `src/providers/anthropic/messages.rs:243-324` (`convert_content_blocks`)
-- Modify: `src/providers/anthropic/messages.rs:332-338` (`role_str` — handle System role)
+- Modify: `src/providers/anthropic/messages.rs:332-338` (`role_str` — handle System
+  role)
 
 - [ ] **Step 1: Handle `Thinking` in `convert_content_blocks`**
 
-In `convert_content_blocks`, replace the `RawOutput` arm's thinking/redacted handling and add a `Thinking` arm:
+In `convert_content_blocks`, replace the `RawOutput` arm's thinking/redacted handling
+and add a `Thinking` arm:
 
 ```rust
 ContentBlock::Thinking {
@@ -244,11 +273,13 @@ ContentBlock::Thinking {
 }
 ```
 
-Update the existing `RawOutput` arm to only handle non-thinking types (remove the `thinking`/`redacted_thinking` checks since those are now `Thinking` blocks).
+Update the existing `RawOutput` arm to only handle non-thinking types (remove the
+`thinking`/`redacted_thinking` checks since those are now `Thinking` blocks).
 
 - [ ] **Step 2: Ensure thinking blocks are ordered FIRST**
 
-After the `for block in blocks` loop completes but before returning `out`, partition the output so thinking/redacted_thinking blocks come before all others:
+After the `for block in blocks` loop completes but before returning `out`, partition the
+output so thinking/redacted_thinking blocks come before all others:
 
 ```rust
 // Thinking blocks must precede other content per Anthropic API.
@@ -270,7 +301,8 @@ Place this just before the image-only placeholder check.
 
 - [ ] **Step 3: Handle `Role::System` compaction summaries**
 
-In `convert_messages` (line 109), when a message has `Role::System`, convert it to a user message instead of passing `"system"` as the role:
+In `convert_messages` (line 109), when a message has `Role::System`, convert it to a
+user message instead of passing `"system"` as the role:
 
 ```rust
 let role_str = match msg.role {
@@ -424,8 +456,7 @@ fn cross_model_codex_reasoning_becomes_text_not_redacted() {
 
 - [ ] **Step 6: Run all Anthropic unit tests**
 
-Run: `cargo test --lib providers::anthropic`
-Expected: all pass
+Run: `cargo test --lib providers::anthropic` Expected: all pass
 
 - [ ] **Step 7: Commit**
 
@@ -438,6 +469,7 @@ fix: Anthropic thinking block ordering + system role handling
 ## Task 5: Consume `Thinking` in Codex request builder and OpenAI compatible provider
 
 **Files:**
+
 - Modify: `src/providers/codex_responses.rs:91-102` (request builder)
 - Modify: `src/providers/openai_compatible.rs:226-241` (cross-model fallback)
 
@@ -478,7 +510,8 @@ for raw in raw_items {
 
 - [ ] **Step 2: Update OpenAI compatible provider to use `Thinking` text**
 
-In `src/providers/openai_compatible.rs`, update the content block loop (around line 226):
+In `src/providers/openai_compatible.rs`, update the content block loop (around line
+226):
 
 ```rust
 ContentBlock::Thinking { text, .. } => {
@@ -499,8 +532,7 @@ ContentBlock::RawOutput {
 
 - [ ] **Step 3: Run unit tests**
 
-Run: `cargo test --lib providers`
-Expected: all pass
+Run: `cargo test --lib providers` Expected: all pass
 
 - [ ] **Step 4: Commit**
 
@@ -513,13 +545,17 @@ feat: Codex + OpenAI providers consume ContentBlock::Thinking
 ## Task 6: DB round-trip and chat layer updates
 
 **Files:**
-- Modify: `src/chat/convert.rs:42-108` (load), `src/chat/convert.rs:151-170` (`raw_output_to_values`)
-- Modify: `src/chat/compaction.rs:36-48` (token estimation), `src/chat/compaction.rs:295-300` (summary rendering)
+
+- Modify: `src/chat/convert.rs:42-108` (load), `src/chat/convert.rs:151-170`
+  (`raw_output_to_values`)
+- Modify: `src/chat/compaction.rs:36-48` (token estimation),
+  `src/chat/compaction.rs:295-300` (summary rendering)
 - Modify: `src/chat/transcript.rs:29-39` (transcript rendering)
 
 - [ ] **Step 1: Update `raw_output_to_values` to handle `Thinking` blocks**
 
-In `src/chat/convert.rs`, update `raw_output_to_values` to serialize `Thinking` blocks into the same JSON format used for DB storage:
+In `src/chat/convert.rs`, update `raw_output_to_values` to serialize `Thinking` blocks
+into the same JSON format used for DB storage:
 
 ```rust
 pub(super) fn raw_output_to_values(content: &[ContentBlock]) -> Option<Vec<Value>> {
@@ -564,7 +600,8 @@ pub(super) fn raw_output_to_values(content: &[ContentBlock]) -> Option<Vec<Value
 }
 ```
 
-- [ ] **Step 2: Update `convert_stored_message_to_provider_message` to load `Thinking` blocks**
+- [ ] **Step 2: Update `convert_stored_message_to_provider_message` to load `Thinking`
+      blocks**
 
 In `src/chat/convert.rs`, update the raw_output loading section (lines 98-108):
 
@@ -657,7 +694,9 @@ ContentBlock::Thinking { text, .. } => {
 
 - [ ] **Step 5: Update transcript rendering**
 
-In `src/chat/transcript.rs`, update the assistant branch to handle `Thinking` blocks from the new DB format. The existing code checks `original_type == "reasoning"` on raw_output items. Update to also handle `"thinking"`:
+In `src/chat/transcript.rs`, update the assistant branch to handle `Thinking` blocks
+from the new DB format. The existing code checks `original_type == "reasoning"` on
+raw_output items. Update to also handle `"thinking"`:
 
 ```rust
 if let Some(raw_items) = msg.raw_output_parsed() {
@@ -725,8 +764,7 @@ fn legacy_raw_output_thinking_loads_as_thinking_block() {
 
 - [ ] **Step 7: Run all tests**
 
-Run: `cargo test`
-Expected: all pass
+Run: `cargo test` Expected: all pass
 
 - [ ] **Step 8: Commit**
 
@@ -739,12 +777,15 @@ feat: DB round-trip + chat layer support for ContentBlock::Thinking
 ## Task 7: Update live tests
 
 **Files:**
+
 - Modify: `tests/providers/anthropic_live.rs`
 - Modify: `tests/providers/reasoning_live.rs`
 
 - [ ] **Step 1: Update the Anthropic thinking round-trip test**
 
-In `tests/providers/anthropic_live.rs`, update `anthropic_thinking_block_round_trip_from_typed_fields` to match on `ContentBlock::Thinking` instead of `ContentBlock::RawOutput`:
+In `tests/providers/anthropic_live.rs`, update
+`anthropic_thinking_block_round_trip_from_typed_fields` to match on
+`ContentBlock::Thinking` instead of `ContentBlock::RawOutput`:
 
 ```rust
 ContentBlock::Thinking {
@@ -767,15 +808,19 @@ ContentBlock::Thinking {
 }
 ```
 
-Also update `anthropic_multi_turn_with_history` assertions to not filter on `RawOutput` (use `Thinking` instead).
+Also update `anthropic_multi_turn_with_history` assertions to not filter on `RawOutput`
+(use `Thinking` instead).
 
 - [ ] **Step 2: Update the Codex reasoning live test**
 
-In `tests/providers/reasoning_live.rs`, update matches from `ContentBlock::RawOutput { original_type, .. } if original_type == "reasoning"` to `ContentBlock::Thinking { .. }`.
+In `tests/providers/reasoning_live.rs`, update matches from
+`ContentBlock::RawOutput { original_type, .. } if original_type == "reasoning"` to
+`ContentBlock::Thinking { .. }`.
 
 - [ ] **Step 3: Run all live tests**
 
-Run: `cargo test --features live-tests-llms anthropic_thinking && cargo test --features live-tests-llms reasoning`
+Run:
+`cargo test --features live-tests-llms anthropic_thinking && cargo test --features live-tests-llms reasoning`
 Expected: all pass
 
 - [ ] **Step 4: Commit**
@@ -789,13 +834,16 @@ test: update live tests for ContentBlock::Thinking variant
 ## Task 8: Fix circuit breaker — exclude 400 Bad Request
 
 **Files:**
+
 - Modify: `src/providers/anthropic/mod.rs:221-233`
 - Modify: `src/providers/openai_oauth.rs` (equivalent catch-all)
 - Modify: `src/providers/openai_compatible_provider.rs` (equivalent catch-all)
 
 - [ ] **Step 1: Remove `record_failure` from 400 catch-all in Anthropic provider**
 
-In `src/providers/anthropic/mod.rs`, the catch-all at line 221 fires for ANY non-success status not already handled (429, 401/403, 404, 5xx). This includes 400, which is a client error. Remove the `record_failure` call:
+In `src/providers/anthropic/mod.rs`, the catch-all at line 221 fires for ANY non-success
+status not already handled (429, 401/403, 404, 5xx). This includes 400, which is a
+client error. Remove the `record_failure` call:
 
 ```rust
 if !status.is_success() {
@@ -815,7 +863,8 @@ if !status.is_success() {
 
 - [ ] **Step 2: Same fix for OpenAI OAuth provider**
 
-Apply the same change in `src/providers/openai_oauth.rs` — remove `record_failure` from the catch-all `!status.is_success()` block.
+Apply the same change in `src/providers/openai_oauth.rs` — remove `record_failure` from
+the catch-all `!status.is_success()` block.
 
 - [ ] **Step 3: Same fix for OpenAI Compatible provider**
 
@@ -823,7 +872,9 @@ Apply the same change in `src/providers/openai_compatible_provider.rs`.
 
 - [ ] **Step 4: Write a unit test for circuit breaker behavior**
 
-In `src/providers/circuit_breaker.rs`, add a test documenting that 400-class errors should NOT open the breaker (this is enforced by callers not calling `record_failure`, but document the intent):
+In `src/providers/circuit_breaker.rs`, add a test documenting that 400-class errors
+should NOT open the breaker (this is enforced by callers not calling `record_failure`,
+but document the intent):
 
 ```rust
 #[test]
@@ -837,8 +888,7 @@ fn breaker_stays_closed_without_failure_calls() {
 
 - [ ] **Step 5: Run tests**
 
-Run: `cargo test --lib providers`
-Expected: all pass
+Run: `cargo test --lib providers` Expected: all pass
 
 - [ ] **Step 6: Commit**
 
@@ -852,12 +902,12 @@ fix: circuit breaker only triggers on transient errors, not 400 Bad Request
 
 - [ ] **Step 1: Run full CI**
 
-Run: `just ci`
-Expected: format ✓, check ✓, clippy ✓, tests ✓
+Run: `just ci` Expected: format ✓, check ✓, clippy ✓, tests ✓
 
 - [ ] **Step 2: Run live tests**
 
-Run: `cargo test --features live-tests-llms anthropic_thinking && cargo test --features live-tests-llms anthropic_multi_turn`
+Run:
+`cargo test --features live-tests-llms anthropic_thinking && cargo test --features live-tests-llms anthropic_multi_turn`
 Expected: all pass
 
 - [ ] **Step 3: Final commit if any formatting changes**

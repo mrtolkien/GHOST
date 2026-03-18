@@ -223,6 +223,11 @@ pub(crate) fn convert_messages(request: &ChatRequest) -> Vec<OpenAiMessage> {
                         }
                     }
                 }
+                ContentBlock::Thinking { text, .. } => {
+                    if let Some(text) = text {
+                        text_parts.push(format!("[Reasoning]: {text}"));
+                    }
+                }
                 ContentBlock::RawOutput {
                     original_type,
                     value,
