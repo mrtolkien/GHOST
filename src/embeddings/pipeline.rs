@@ -370,6 +370,68 @@ async fn build_embed_request_from_db(
     }
 }
 
+/// File extensions eligible for code embedding.
+pub(crate) const CODE_EXTENSIONS: &[&str] = &[
+    // Tree-sitter supported (AST-aware chunking)
+    "rs", "py", "js", "jsx", "ts", "tsx", "go", "sh", "bash", "toml", "json",
+    // Text fallback (line-based chunking)
+    "c", "h", "cpp", "hpp", "java", "kt", "rb", "sql", "lua", "zig", "ex", "exs", "yaml", "yml",
+    "md",
+];
+
+/// Maximum file size for code embedding (100KB).
+pub(crate) const MAX_CODE_FILE_SIZE: u64 = 100 * 1024;
+
+/// Walk a repo directory respecting .gitignore, extension allowlist, and size limit.
+pub(crate) fn walk_code_repo(repo_dir: &std::path::Path) -> Vec<std::path::PathBuf> {
+    let mut files = Vec::new();
+    let walker = ignore::WalkBuilder::new(repo_dir)
+        .hidden(true) // skip hidden files (but .gitignore still read)
+        .git_ignore(true) // respect .gitignore
+        .git_exclude(true) // respect .git/info/exclude
+        .build();
+
+    for entry in walker.flatten() {
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
+        }
+        // Extension allowlist
+        let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
+        if !CODE_EXTENSIONS.contains(&ext) {
+            continue;
+        }
+        // Size guard
+        if let Ok(meta) = path.metadata() {
+            if meta.len() > MAX_CODE_FILE_SIZE {
+                tracing::debug!(
+                    path = path.display().to_string(),
+                    size = meta.len(),
+                    "skipping large code file"
+                );
+                continue;
+            }
+        }
+        files.push(path.to_path_buf());
+    }
+    files
+}
+
+/// Extract repo slug from a path under `code/`. Returns `None` if not a code path.
+pub(crate) fn extract_repo_slug(
+    workspace: &std::path::Path,
+    path: &std::path::Path,
+) -> Option<String> {
+    let rel = path.strip_prefix(workspace).ok()?;
+    let mut components = rel.components();
+    let first = components.next()?;
+    if first.as_os_str() != "code" {
+        return None;
+    }
+    let slug = components.next()?;
+    Some(slug.as_os_str().to_string_lossy().to_string())
+}
+
 fn walk_directory(dir: &std::path::Path) -> Vec<std::path::PathBuf> {
     let mut files = Vec::new();
     walk_directory_inner(dir, &mut files);

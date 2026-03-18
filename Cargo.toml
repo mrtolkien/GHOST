@@ -12,6 +12,7 @@ clap = { version = "4", features = ["derive"] }
 cron = "0.15"
 dashmap = "6"
 dirs = "6"
+ignore = "0.4"
 dom_smoothie = "0.16"
 fs2 = "0.4"
 futures = "0.3"
