@@ -128,6 +128,61 @@ ghost knowledge reindex                          # Sync files → database
 ghost knowledge reindex --skip-embeddings        # Skip embedding gen
 ```
 
+## ghost reference
+
+Import, update, and delete external reference material. See
+[Reference Import](/knowledge/reference-import/) for details.
+
+### Import
+
+```bash
+# From a git repository (preferred for doc sets)
+ghost reference import git --url <url> --topic <name> \
+    [--paths dir1,dir2] [--extensions .md,.rs] [--ref <tag-or-branch>]
+
+# By crawling a website (fallback)
+ghost reference import crawl --url <url> --topic <name> \
+    [--max-depth 3] [--max-pages 50]
+```
+
+### Update
+
+```bash
+ghost reference update --topic <name>              # Re-fetch from source
+ghost reference update --topic <name> --ref v2.0   # Switch branch/tag
+```
+
+Re-fetches from the original source and applies changes. New files are
+added, changed files are updated, and files deleted upstream are removed
+— unless cited by notes, in which case they are moved to `_orphaned/`.
+
+### Delete
+
+```bash
+ghost reference delete --topic <name>
+```
+
+Removes the topic, all its references, embeddings, import metadata, and
+workspace files.
+
+## ghost document
+
+Import documents (PDF, DOCX, etc.) via docling-serve. See
+[Reference Import](/knowledge/reference-import/) for details.
+
+```bash
+ghost document import url --url <url> --topic <name>
+ghost document import file --path <path> --topic <name>
+```
+
+Optional flags (use only when explicitly needed):
+
+| Flag | Default | Purpose |
+| --- | --- | --- |
+| `--no-ocr` | OCR on | Skip OCR for digital PDFs |
+| `--page-range "1-10"` | full doc | Import specific pages only |
+| `--timeout 900` | 600s | Extend timeout for large docs |
+
 ## ghost web
 
 Web search and fetch.

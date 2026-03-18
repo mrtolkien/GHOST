@@ -77,6 +77,10 @@ export default defineConfig({
           label: "Knowledge",
           items: [
             { label: "Knowledge Base", slug: "knowledge/knowledge" },
+            {
+              label: "Reference Import",
+              slug: "knowledge/reference-import",
+            },
             { label: "Reflection", slug: "knowledge/reflection" },
             { label: "Knowledge Tools", slug: "knowledge/tools" },
           ],
