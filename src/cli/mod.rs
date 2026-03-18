@@ -10,6 +10,7 @@ pub mod knowledge;
 pub mod project;
 pub mod reboot;
 pub mod reference;
+pub mod reload;
 pub mod send;
 pub mod session;
 pub mod shell;
