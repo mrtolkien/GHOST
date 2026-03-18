@@ -10,9 +10,9 @@ upstream deletions (orphan protection for cited references).
 
 **Architecture:** The update command reads stored import config from `_import.toml` (or
 DB `import_batch`), re-fetches from the original source, diffs against existing
-references by content hash, and applies changes. References deleted upstream but cited by
-notes are moved to `_orphaned/` with a warning rather than deleted. A new `--ref` flag
-on both `import` and `update` enables targeting specific git tags/branches.
+references by content hash, and applies changes. References deleted upstream but cited
+by notes are moved to `_orphaned/` with a warning rather than deleted. A new `--ref`
+flag on both `import` and `update` enables targeting specific git tags/branches.
 
 **Tech Stack:** Rust, clap (CLI), sqlx (SQLite), tokio (async), git CLI (subprocess)
 
@@ -22,21 +22,21 @@ on both `import` and `update` enables targeting specific git tags/branches.
 
 ## File Structure
 
-| Action | Path | Responsibility |
-|--------|------|----------------|
-| Create | `migrations/012_import_batch_config.sql` | Add `import_config` JSON column to `import_batch` |
-| Modify | `src/reference_import/types.rs` | Add `git_ref` to `ImportSource::Git`, add `ImportConfigJson` serde type for persistence |
-| Modify | `src/reference_import/topic.rs` | Extend `write_import_toml` to include all config params |
-| Modify | `src/reference_import/git.rs` | Support `--ref` (branch/tag checkout), return file manifest for diffing |
-| Modify | `src/reference_import/crawl.rs` | Return page manifest for diffing |
-| Create | `src/reference_import/update.rs` | Core update logic: diff, apply, orphan handling |
-| Modify | `src/reference_import/mod.rs` | Export new types and `update_references` |
-| Modify | `src/db/knowledge/import_batch.rs` | Store/load `import_config` JSON |
-| Modify | `src/db/knowledge/graph.rs` | Add `cited_reference_ids` batch query |
-| Modify | `src/db/knowledge/mod.rs` | Re-export new functions |
-| Modify | `src/cli/reference.rs` | Add `Update` subcommand, `--ref` flag on `Git` import |
-| Modify | `assets/skills/reference-import/skill.md` | Document `update` command |
-| Create | `tests/reference_update_git.rs` | Live test: import → mutate → update → verify diff |
+| Action | Path                                      | Responsibility                                                                          |
+| ------ | ----------------------------------------- | --------------------------------------------------------------------------------------- |
+| Create | `migrations/012_import_batch_config.sql`  | Add `import_config` JSON column to `import_batch`                                       |
+| Modify | `src/reference_import/types.rs`           | Add `git_ref` to `ImportSource::Git`, add `ImportConfigJson` serde type for persistence |
+| Modify | `src/reference_import/topic.rs`           | Extend `write_import_toml` to include all config params                                 |
+| Modify | `src/reference_import/git.rs`             | Support `--ref` (branch/tag checkout), return file manifest for diffing                 |
+| Modify | `src/reference_import/crawl.rs`           | Return page manifest for diffing                                                        |
+| Create | `src/reference_import/update.rs`          | Core update logic: diff, apply, orphan handling                                         |
+| Modify | `src/reference_import/mod.rs`             | Export new types and `update_references`                                                |
+| Modify | `src/db/knowledge/import_batch.rs`        | Store/load `import_config` JSON                                                         |
+| Modify | `src/db/knowledge/graph.rs`               | Add `cited_reference_ids` batch query                                                   |
+| Modify | `src/db/knowledge/mod.rs`                 | Re-export new functions                                                                 |
+| Modify | `src/cli/reference.rs`                    | Add `Update` subcommand, `--ref` flag on `Git` import                                   |
+| Modify | `assets/skills/reference-import/skill.md` | Document `update` command                                                               |
+| Create | `tests/reference_update_git.rs`           | Live test: import → mutate → update → verify diff                                       |
 
 ---
 
@@ -46,12 +46,14 @@ The `import_batch` table currently stores only `source_type`, `source_url`,
 `version_ref`, `ref_count`. We need the full import config (paths, extensions,
 max_depth, max_pages, git_ref) persisted so `update` can replay the import.
 
-A JSON TEXT column is the simplest approach — matches the existing pattern (tags, sources
-columns elsewhere use JSON TEXT).
+A JSON TEXT column is the simplest approach — matches the existing pattern (tags,
+sources columns elsewhere use JSON TEXT).
 
 **Files:**
+
 - Create: `migrations/012_import_batch_config.sql`
-- Modify: `src/db/knowledge/records.rs` — add `import_config` field to `ImportBatchRecord`
+- Modify: `src/db/knowledge/records.rs` — add `import_config` field to
+  `ImportBatchRecord`
 - Modify: `src/db/knowledge/import_batch.rs` — pass and store `import_config` in upsert
 
 - [ ] **Step 1: Write the migration**
@@ -87,10 +89,11 @@ feat: add import_config JSON column to import_batch
 
 ## Task 2: `--ref` flag for git import
 
-Currently `import_git` always clones HEAD with `--depth 1`. We need `--ref <branch-or-tag>`
-support to pin imports to a specific version.
+Currently `import_git` always clones HEAD with `--depth 1`. We need
+`--ref <branch-or-tag>` support to pin imports to a specific version.
 
 **Files:**
+
 - Modify: `src/reference_import/types.rs` — add `git_ref` field to `ImportSource::Git`
 - Modify: `src/reference_import/git.rs` — use `--branch <ref>` in clone command
 - Modify: `src/cli/reference.rs` — add `--ref` arg to `ReferenceImportCommand::Git`
@@ -98,6 +101,7 @@ support to pin imports to a specific version.
 - [ ] **Step 1: Add `git_ref` to `ImportSource::Git`**
 
 In `src/reference_import/types.rs`:
+
 ```rust
 Git {
     url: String,
@@ -119,6 +123,7 @@ Store the resolved commit hash as `version_ref` (already done via `rev-parse HEA
 - [ ] **Step 3: Add `--ref` CLI arg**
 
 In `src/cli/reference.rs`, add to `ReferenceImportCommand::Git`:
+
 ```rust
 #[arg(long = "ref")]
 git_ref: Option<String>,
@@ -142,6 +147,7 @@ Wire the full `ImportConfig` into `_import.toml` and `import_batch.import_config
 that `update` can replay the exact same import.
 
 **Files:**
+
 - Modify: `src/reference_import/types.rs` — add `ImportConfigJson` serde struct
 - Modify: `src/reference_import/topic.rs` — extend `write_import_toml` with full config
 - Modify: `src/reference_import/git.rs` — pass config JSON to batch upsert + toml writer
@@ -206,12 +212,14 @@ struct ImportToml {
 - [ ] **Step 3: Update `import_git` and `import_crawl` to persist config**
 
 In both `git.rs` and `crawl.rs`:
+
 1. Build `ImportConfigJson` from the `ImportConfig`
 2. Serialize to JSON string: `serde_json::to_string(&config_json)?`
 3. Pass to `upsert_import_batch` as the new `import_config` param
 4. Pass `&config_json` to the updated `write_import_toml`
 
-Do the same for `page.rs` and `file.rs` if they call `write_import_toml` / `upsert_import_batch`.
+Do the same for `page.rs` and `file.rs` if they call `write_import_toml` /
+`upsert_import_batch`.
 
 - [ ] **Step 4: Run `just ci`**
 
@@ -229,7 +237,9 @@ Add a function to read back the stored import config so `update` can reconstruct
 original `ImportConfig`.
 
 **Files:**
-- Modify: `src/reference_import/types.rs` — add `ImportConfigJson::to_import_config()` method
+
+- Modify: `src/reference_import/types.rs` — add `ImportConfigJson::to_import_config()`
+  method
 - Modify: `src/reference_import/topic.rs` — add `read_import_toml()` function
 
 - [ ] **Step 1: Add `to_import_config` on `ImportConfigJson`**
@@ -264,6 +274,7 @@ an error from `to_import_config`.
 - [ ] **Step 2: Add `Config` variant to `ImportError`**
 
 In `src/reference_import/types.rs`, add to the `ImportError` enum:
+
 ```rust
 #[error("config error: {0}")]
 Config(String),
@@ -331,6 +342,7 @@ Before we can delete references that disappeared upstream, we need to check if a
 cite them. Add a batch query and the orphan-move logic.
 
 **Files:**
+
 - Modify: `src/db/knowledge/graph.rs` — add `cited_reference_ids` batch query
 - Modify: `src/db/knowledge/mod.rs` — re-export
 
@@ -367,6 +379,7 @@ This is the main `update_references` function. It re-fetches from source, diffs,
 applies changes.
 
 **Files:**
+
 - Create: `src/reference_import/update.rs`
 - Modify: `src/reference_import/mod.rs` — export `update_references`
 - Modify: `src/reference_import/types.rs` — add `UpdateResult`
@@ -374,6 +387,7 @@ applies changes.
 - [ ] **Step 1: Define `UpdateResult`**
 
 In `src/reference_import/types.rs`:
+
 ```rust
 #[derive(Debug)]
 pub struct UpdateResult {
@@ -412,8 +426,9 @@ pub async fn update_references(
 6. **Git short-circuit:** If source is git and the new commit hash equals the stored
    `version_ref` (from the import batch) AND no `--ref` override was given, print
    "Already up to date at {hash}" and return early with all-zeros `UpdateResult`.
-7. Load existing references from DB: `list_references_by_topic(db, Some(&topic_id), 10_000)`
-   → build `HashMap<path, (ref_id, file_hash)>`
+7. Load existing references from DB:
+   `list_references_by_topic(db, Some(&topic_id), 10_000)` → build
+   `HashMap<path, (ref_id, file_hash)>`
 8. **Diff:**
    - For each upstream file: compute hash, compare against existing map
      - Not in map → **create** (write disk + DB)
@@ -421,28 +436,30 @@ pub async fn update_references(
      - In map, hash matches → **unchanged** (skip)
    - For each existing ref NOT in upstream manifest → **deleted upstream**
      - Check citations via `cited_reference_ids`
-     - If cited → **orphan**: move disk file to `references/{topic}/_orphaned/{filename}`,
-       update DB path via `update_reference_path`, print warning with citing note IDs
+     - If cited → **orphan**: move disk file to
+       `references/{topic}/_orphaned/{filename}`, update DB path via
+       `update_reference_path`, print warning with citing note IDs
      - If not cited → **delete**: remove disk file, `delete_reference` from DB
-   - **Note on disk writes:** For both create and update cases, explicitly `std::fs::write`
-     the content to disk before updating the DB. The file watcher will pick up the change
-     and trigger re-embedding.
+   - **Note on disk writes:** For both create and update cases, explicitly
+     `std::fs::write` the content to disk before updating the DB. The file watcher will
+     pick up the change and trigger re-embedding.
 9. Update batch metadata (new version_ref, ref_count)
 10. Rewrite `_import.toml`
 11. Return `UpdateResult`
 
-**Crawl content instability:** Re-crawling a page may produce slightly different markdown
-even when the page hasn't meaningfully changed (whitespace, timestamps, dynamic content).
-This will cause false "updated" detections. This is acceptable for now — the cost is just
-unnecessary re-embedding, not data corruption.
+**Crawl content instability:** Re-crawling a page may produce slightly different
+markdown even when the page hasn't meaningfully changed (whitespace, timestamps, dynamic
+content). This will cause false "updated" detections. This is acceptable for now — the
+cost is just unnecessary re-embedding, not data corruption.
 
 - [ ] **Step 3: Extract `fetch_git_manifest` from `import_git`**
 
-The current `import_git` clones + walks + writes to DB in one pass. We need a lower-level
-function that clones + walks and returns a manifest of `(rel_path, content)` pairs without
-touching the DB. Refactor:
+The current `import_git` clones + walks + writes to DB in one pass. We need a
+lower-level function that clones + walks and returns a manifest of `(rel_path, content)`
+pairs without touching the DB. Refactor:
 
 In `src/reference_import/git.rs`, extract:
+
 ```rust
 pub(crate) async fn fetch_git_manifest(
     config: &ImportConfig,
@@ -457,6 +474,7 @@ loop.
 - [ ] **Step 4: Extract `fetch_crawl_manifest` from `import_crawl`**
 
 Same pattern for crawl in `src/reference_import/crawl.rs`:
+
 ```rust
 pub(crate) async fn fetch_crawl_manifest(
     config: &ImportConfig,
@@ -470,6 +488,7 @@ Then refactor `import_crawl` to call this + the DB write loop.
 - [ ] **Step 5: Verify existing import tests still pass**
 
 Run the existing import tests to confirm the refactor didn't break anything:
+
 ```bash
 cargo test --features live-tests reference_import_git -- --nocapture
 cargo test --features live-tests reference_import_crawl -- --nocapture
@@ -483,11 +502,13 @@ Wire up the full algorithm from step 2 using `fetch_git_manifest` /
 `fetch_crawl_manifest`, the diff logic, and the orphan handling.
 
 For the orphan move:
+
 - Create `references/{topic}/_orphaned/` directory
 - Move the disk file there
-- Update DB: `update_reference_path(db, ref_id, new_path, topic_id)` where `new_path`
-  is `{topic}/_orphaned/{filename}`
-- Print warning: `"Warning: {path} deleted upstream but cited by notes: {note_ids}. Moved to _orphaned/"`
+- Update DB: `update_reference_path(db, ref_id, new_path, topic_id)` where `new_path` is
+  `{topic}/_orphaned/{filename}`
+- Print warning:
+  `"Warning: {path} deleted upstream but cited by notes: {note_ids}. Moved to _orphaned/"`
 
 - [ ] **Step 7: Run `just ci`**
 
@@ -504,6 +525,7 @@ feat: core reference update logic with diff and orphan protection
 Wire the update logic into the CLI.
 
 **Files:**
+
 - Modify: `src/cli/reference.rs` — add `Update` variant to `ReferenceCommand`
 
 - [ ] **Step 1: Add `Update` subcommand**
@@ -528,6 +550,7 @@ pub enum ReferenceCommand {
 - [ ] **Step 2: Implement the `execute` match arm**
 
 In `execute()`, add the `Update` handler:
+
 ```rust
 ReferenceCommand::Update { topic, git_ref } => {
     let result = crate::reference_import::update_references(
@@ -557,6 +580,7 @@ The skill file teaches the AI when and how to use the CLI. Add documentation for
 update command.
 
 **Files:**
+
 - Modify: `assets/skills/reference-import/skill.md`
 
 - [ ] **Step 1: Add update section to skill**
@@ -568,10 +592,11 @@ After the "Cleanup" section, add:
 
 When the OPERATOR asks to refresh or update existing reference material, or when you
 notice imported docs may be stale (e.g. a library released a new version):
+```
 
-```
 ghost reference update --topic <name> [--ref <tag-or-branch>]
-```
+
+````
 
 This re-fetches from the original source and applies changes:
 - New files are added
@@ -583,7 +608,8 @@ Examples:
 ```json
 { "command": "ghost reference update --topic dioxus/docs", "background": true }
 { "command": "ghost reference update --topic dioxus/docs --ref v0.6", "background": true }
-```
+````
+
 ```
 
 Also update the "CLI Commands" section to include `ghost reference update`.
@@ -591,8 +617,10 @@ Also update the "CLI Commands" section to include `ghost reference update`.
 - [ ] **Step 2: Commit**
 
 ```
+
 docs: document reference update command in skill
-```
+
+````
 
 ---
 
@@ -628,7 +656,7 @@ Pattern: use the same Dioxus docsite repo as `reference_import_git.rs`. The test
 
 ```bash
 cargo test --features live-tests reference_update_git -- --nocapture
-```
+````
 
 - [ ] **Step 3: Fix any failures — fix the code, not the test**
 
@@ -644,7 +672,8 @@ test: live test for reference update with diff and orphan protection
 
 - [ ] **Step 1: Run `just ci`** — fix all warnings, clippy lints, formatting
 - [ ] **Step 2: Verify `_import.toml` backward compatibility** — old TOML files without
-  the new fields should still parse (the `#[serde(default)]` annotations handle this)
+      the new fields should still parse (the `#[serde(default)]` annotations handle
+      this)
 - [ ] **Step 3: Commit any remaining fixes**
 
 ```
