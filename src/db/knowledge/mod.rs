@@ -30,7 +30,8 @@ pub use records::{
     ReferenceRecord, ScriptRecord, SearchHit, TopicRecord,
 };
 pub use search::{
-    hybrid_merge, search_diary, search_notes, search_references, search_scripts, search_topics,
+    hybrid_merge, search_code_files, search_diary, search_notes, search_references, search_scripts,
+    search_topics,
 };
 pub use stats::{
     count_diary, count_edges, count_notes, count_references, count_scripts, count_stubs,

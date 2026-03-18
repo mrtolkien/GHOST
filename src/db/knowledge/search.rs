@@ -315,6 +315,78 @@ pub async fn search_scripts(
         .collect())
 }
 
+#[tracing::instrument(skip_all, level = "debug", fields(query = %query))]
+pub async fn search_code_files(
+    db: &SqlitePool,
+    query: &str,
+    limit: usize,
+    repo: Option<&str>,
+) -> Result<Vec<SearchHit>, DatabaseError> {
+    #[derive(sqlx::FromRow)]
+    struct CodeSearchRow {
+        id: String,
+        repo: String,
+        path: String,
+        content: String,
+        score: f64,
+    }
+
+    let fts_query = sanitize_fts_query(query);
+
+    let rows = if let Some(repo_filter) = repo {
+        sqlx::query_as::<_, CodeSearchRow>(
+            "SELECT cf.id, cf.repo, cf.path, \
+             snippet(code_file_fts, 2, '', '', '...', 80) AS content, \
+             -bm25(code_file_fts, 1.0, 3.0, 1.0) AS score \
+             FROM code_file_fts \
+             JOIN code_file cf ON cf.rowid = code_file_fts.rowid \
+             WHERE code_file_fts MATCH ? AND cf.repo = ? \
+             ORDER BY score DESC \
+             LIMIT ?",
+        )
+        .bind(&fts_query)
+        .bind(repo_filter)
+        .bind(limit as i64)
+        .fetch_all(db)
+        .await
+    } else {
+        sqlx::query_as::<_, CodeSearchRow>(
+            "SELECT cf.id, cf.repo, cf.path, \
+             snippet(code_file_fts, 2, '', '', '...', 80) AS content, \
+             -bm25(code_file_fts, 1.0, 3.0, 1.0) AS score \
+             FROM code_file_fts \
+             JOIN code_file cf ON cf.rowid = code_file_fts.rowid \
+             WHERE code_file_fts MATCH ? \
+             ORDER BY score DESC \
+             LIMIT ?",
+        )
+        .bind(&fts_query)
+        .bind(limit as i64)
+        .fetch_all(db)
+        .await
+    }
+    .map_err(|source| DatabaseError::Query {
+        table: "code_file",
+        operation: "search",
+        source,
+    })?;
+
+    Ok(rows
+        .into_iter()
+        .map(|r| {
+            let snippet = truncate_snippet(&r.content, 500);
+            SearchHit {
+                id: r.id,
+                title: format!("{}/{}", r.repo, r.path),
+                snippet,
+                score: r.score,
+                kind: "code".to_string(),
+                path: Some(format!("code/{}/{}", r.repo, r.path)),
+            }
+        })
+        .collect())
+}
+
 /// Merge BM25 results with vector search results using score fusion.
 ///
 /// BM25 weight: 0.4, embedding weight: 0.6.
