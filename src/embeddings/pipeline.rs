@@ -402,15 +402,15 @@ pub(crate) fn walk_code_repo(repo_dir: &std::path::Path) -> Vec<std::path::PathB
             continue;
         }
         // Size guard
-        if let Ok(meta) = path.metadata() {
-            if meta.len() > MAX_CODE_FILE_SIZE {
-                tracing::debug!(
-                    path = path.display().to_string(),
-                    size = meta.len(),
-                    "skipping large code file"
-                );
-                continue;
-            }
+        if let Ok(meta) = path.metadata()
+            && meta.len() > MAX_CODE_FILE_SIZE
+        {
+            tracing::debug!(
+                path = path.display().to_string(),
+                size = meta.len(),
+                "skipping large code file"
+            );
+            continue;
         }
         files.push(path.to_path_buf());
     }

@@ -160,8 +160,9 @@ fn setup_watcher(
     let refs_dir = workspace.join("references");
     let diary_dir = workspace.join("diary");
     let scripts_dir = workspace.join("scripts");
+    let code_dir = workspace.join("code");
 
-    for dir in [&notes_dir, &refs_dir, &diary_dir, &scripts_dir] {
+    for dir in [&notes_dir, &refs_dir, &diary_dir, &scripts_dir, &code_dir] {
         if dir.exists() {
             watcher.watch(dir, RecursiveMode::Recursive)?;
         }
@@ -183,6 +184,8 @@ fn classify_watcher_kind(workspace: &Path, path: &Path) -> &'static str {
         "diary"
     } else if rel.starts_with("scripts/") {
         "script"
+    } else if rel.starts_with("code/") {
+        "code"
     } else {
         "unknown"
     }
@@ -241,6 +244,8 @@ pub(crate) async fn process_change(
         process_diary_change(db, path, raw_content, file_hash).await
     } else if rel_str.starts_with("scripts/") {
         process_script_change(db, workspace, path, raw_content, file_hash).await
+    } else if rel_str.starts_with("code/") {
+        process_code_file_change(db, workspace, path, raw_content, file_hash).await
     } else {
         Ok(None)
     }
@@ -605,6 +610,100 @@ async fn process_script_change(
         content: content.to_string(),
         tags: vec![],
         topic_id: None,
+        path: Some(fs_rel),
+    }))
+}
+
+/// Sync a changed code file to the database.
+///
+/// Similar to `process_script_change` but with repo-scoped paths,
+/// extension allowlist, and size guard. Creates a synthetic topic
+/// `"code/<repo>"` for vector search scoping.
+async fn process_code_file_change(
+    db: &GhostDb,
+    workspace: &Path,
+    path: &Path,
+    raw_content: Option<&str>,
+    file_hash: Option<&str>,
+) -> Result<Option<EmbedRequest>, PipelineError> {
+    let repo = match crate::embeddings::pipeline::extract_repo_slug(workspace, path) {
+        Some(r) => r,
+        None => return Ok(None),
+    };
+
+    let fs_rel = path
+        .strip_prefix(workspace)
+        .unwrap_or(path)
+        .to_string_lossy()
+        .to_string();
+
+    // DB stores path relative to repo root (strip "code/<slug>/")
+    let code_path = fs_rel
+        .strip_prefix(&format!("code/{repo}/"))
+        .unwrap_or(&fs_rel)
+        .to_string();
+
+    // Extension check
+    let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
+    if !crate::embeddings::pipeline::CODE_EXTENSIONS.contains(&ext) {
+        return Ok(None);
+    }
+
+    // Size guard
+    if path
+        .metadata()
+        .is_ok_and(|m| m.len() > crate::embeddings::pipeline::MAX_CODE_FILE_SIZE)
+    {
+        return Ok(None);
+    }
+
+    // Deletion
+    if !path.exists() {
+        if let Ok(Some(cf)) = crate::db::knowledge::find_code_file(db, &repo, &code_path).await {
+            crate::db::embeddings::delete_embeddings_for_source(db, &cf.id).await?;
+            crate::db::knowledge::delete_code_file(db, &cf.id).await?;
+            logfire::info!("watcher: deleted code file", repo = repo, path = code_path);
+        }
+        return Ok(None);
+    }
+
+    let owned;
+    let content = match raw_content {
+        Some(c) => c,
+        None => {
+            owned = match tokio::fs::read_to_string(path).await {
+                Ok(c) => c,
+                Err(_) => return Ok(None),
+            };
+            &owned
+        }
+    };
+
+    // Find or create synthetic topic for this repo
+    let topic_name = format!("code/{repo}");
+    let topic_id = crate::db::knowledge::find_or_create_topic(db, &topic_name).await?;
+
+    let code_file_id = match crate::db::knowledge::find_code_file(db, &repo, &code_path).await {
+        Ok(Some(cf)) => {
+            let _ = crate::db::knowledge::update_code_file(db, &cf.id, content, file_hash).await;
+            cf.id
+        }
+        _ => {
+            match crate::db::knowledge::create_code_file(db, &repo, &code_path, content, file_hash)
+                .await
+            {
+                Ok(id) => id,
+                Err(_) => return Ok(None),
+            }
+        }
+    };
+
+    Ok(Some(EmbedRequest {
+        source_table: "code_file".into(),
+        source_id: code_file_id,
+        content: content.to_string(),
+        tags: vec![],
+        topic_id: Some(topic_id),
         path: Some(fs_rel),
     }))
 }
