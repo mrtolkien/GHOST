@@ -577,3 +577,43 @@ fn walk_directory_inner(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn extract_repo_slug_from_code_path() {
+        let ws = std::path::Path::new("/home/user/GHOST");
+        let path = std::path::Path::new("/home/user/GHOST/code/myapp/src/main.rs");
+        assert_eq!(extract_repo_slug(ws, path), Some("myapp".to_string()));
+
+        let non_code = std::path::Path::new("/home/user/GHOST/notes/foo.md");
+        assert_eq!(extract_repo_slug(ws, non_code), None);
+    }
+
+    #[test]
+    fn walk_code_repo_respects_gitignore() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let repo = dir.path();
+
+        // Create a minimal git repo with .gitignore
+        std::fs::create_dir_all(repo.join(".git")).unwrap();
+        std::fs::write(repo.join(".gitignore"), "target/\n*.log\n").unwrap();
+        std::fs::create_dir_all(repo.join("src")).unwrap();
+        std::fs::write(repo.join("src/main.rs"), "fn main() {}").unwrap();
+        std::fs::create_dir_all(repo.join("target")).unwrap();
+        std::fs::write(repo.join("target/debug.rs"), "ignored").unwrap();
+        std::fs::write(repo.join("build.log"), "ignored").unwrap();
+
+        let files = walk_code_repo(repo);
+        let names: Vec<&str> = files
+            .iter()
+            .filter_map(|p| p.file_name()?.to_str())
+            .collect();
+
+        assert!(names.contains(&"main.rs"));
+        assert!(!names.contains(&"debug.rs"), "target/ should be gitignored");
+        assert!(!names.contains(&"build.log"), "*.log should be gitignored");
+    }
+}

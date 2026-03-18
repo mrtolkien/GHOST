@@ -443,3 +443,41 @@ pub fn hybrid_merge(
     results.truncate(limit);
     results
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::db::knowledge::create_code_file;
+
+    #[tokio::test]
+    async fn search_code_files_filters_by_repo() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let db = crate::db::connect(dir.path(), 384).await.unwrap();
+
+        create_code_file(
+            &db,
+            "ghost",
+            "src/main.rs",
+            "fn main() { start_ghost() }",
+            Some("a"),
+        )
+        .await
+        .unwrap();
+        create_code_file(&db, "other", "src/lib.rs", "fn start_ghost() {}", Some("b"))
+            .await
+            .unwrap();
+
+        // Search with repo filter -- only ghost results
+        let hits = search_code_files(&db, "ghost", 10, Some("ghost"))
+            .await
+            .unwrap();
+        assert!(
+            hits.iter()
+                .all(|h| h.path.as_deref().unwrap().starts_with("code/ghost/"))
+        );
+
+        // Search without filter -- both repos
+        let all = search_code_files(&db, "ghost", 10, None).await.unwrap();
+        assert!(all.len() >= 2, "should find results from both repos");
+    }
+}

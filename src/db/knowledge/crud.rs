@@ -898,3 +898,39 @@ pub async fn delete_code_files_by_repo(db: &SqlitePool, repo: &str) -> Result<u6
         })?;
     Ok(result.rows_affected())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn code_file_crud_roundtrip() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let db = crate::db::connect(dir.path(), 384).await.unwrap();
+
+        let id = create_code_file(&db, "ghost", "src/main.rs", "fn main() {}", Some("abc123"))
+            .await
+            .unwrap();
+
+        let found = find_code_file(&db, "ghost", "src/main.rs")
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(found.id, id);
+        assert_eq!(found.repo, "ghost");
+        assert_eq!(found.content, "fn main() {}");
+
+        update_code_file(&db, &id, "fn main() { todo!() }", Some("def456"))
+            .await
+            .unwrap();
+        let updated = find_code_file(&db, "ghost", "src/main.rs")
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(updated.content, "fn main() { todo!() }");
+
+        delete_code_file(&db, &id).await.unwrap();
+        let gone = find_code_file(&db, "ghost", "src/main.rs").await.unwrap();
+        assert!(gone.is_none());
+    }
+}
