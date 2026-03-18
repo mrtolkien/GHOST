@@ -3,7 +3,9 @@ use sqlx::SqlitePool;
 use crate::db::error::DatabaseError;
 use crate::db::{new_id, now};
 
-use super::records::{DiaryRecord, NoteRecord, RecentItem, ReferenceRecord, ScriptRecord};
+use super::records::{
+    CodeFileRecord, DiaryRecord, NoteRecord, RecentItem, ReferenceRecord, ScriptRecord,
+};
 
 // --- Create / Update ---
 
@@ -525,6 +527,15 @@ pub struct FileHashRecord {
     pub has_embeddings: bool,
 }
 
+/// Like `FileHashRecord` but for code files, which carry a `repo` dimension.
+#[derive(Debug, sqlx::FromRow)]
+pub struct CodeFileHashRecord {
+    pub repo: String,
+    pub path: String,
+    pub file_hash: Option<String>,
+    pub has_embeddings: bool,
+}
+
 /// Load all (path, file_hash, has_embeddings) for notes.
 pub async fn load_note_file_hashes(db: &SqlitePool) -> Result<Vec<FileHashRecord>, DatabaseError> {
     sqlx::query_as::<_, FileHashRecord>(
@@ -609,6 +620,28 @@ pub async fn load_script_file_hashes(
     .await
     .map_err(|source| DatabaseError::Query {
         table: "script",
+        operation: "load_file_hashes",
+        source,
+    })
+}
+
+/// Load all (repo, path, file_hash, has_embeddings) for code files.
+pub async fn load_code_file_hashes(
+    db: &SqlitePool,
+) -> Result<Vec<CodeFileHashRecord>, DatabaseError> {
+    sqlx::query_as::<_, CodeFileHashRecord>(
+        "SELECT \
+            cf.repo, cf.path, cf.file_hash, \
+            (e.source_id IS NOT NULL) AS has_embeddings \
+         FROM code_file cf \
+         LEFT JOIN ( \
+            SELECT DISTINCT source_id FROM embedding WHERE source_table = 'code_file' \
+         ) e ON e.source_id = cf.id",
+    )
+    .fetch_all(db)
+    .await
+    .map_err(|source| DatabaseError::Query {
+        table: "code_file",
         operation: "load_file_hashes",
         source,
     })
@@ -762,4 +795,106 @@ pub async fn list_all_scripts(db: &SqlitePool) -> Result<Vec<ScriptRecord>, Data
             operation: "list_all",
             source,
         })
+}
+
+// ---------------------------------------------------------------------------
+// Code Files
+// ---------------------------------------------------------------------------
+
+#[tracing::instrument(skip_all, level = "debug", fields(repo = %repo, path = %path))]
+pub async fn create_code_file(
+    db: &SqlitePool,
+    repo: &str,
+    path: &str,
+    content: &str,
+    file_hash: Option<&str>,
+) -> Result<String, DatabaseError> {
+    let id = new_id();
+    let ts = now();
+    sqlx::query(
+        "INSERT INTO code_file (id, repo, path, content, file_hash, created_at, updated_at) \
+         VALUES (?, ?, ?, ?, ?, ?, ?)",
+    )
+    .bind(&id)
+    .bind(repo)
+    .bind(path)
+    .bind(content)
+    .bind(file_hash)
+    .bind(&ts)
+    .bind(&ts)
+    .execute(db)
+    .await
+    .map_err(|source| DatabaseError::Query {
+        table: "code_file",
+        operation: "create",
+        source,
+    })?;
+    Ok(id)
+}
+
+#[tracing::instrument(skip_all, level = "debug", fields(code_file_id = %code_file_id))]
+pub async fn update_code_file(
+    db: &SqlitePool,
+    code_file_id: &str,
+    content: &str,
+    file_hash: Option<&str>,
+) -> Result<(), DatabaseError> {
+    sqlx::query("UPDATE code_file SET content = ?, file_hash = ?, updated_at = ? WHERE id = ?")
+        .bind(content)
+        .bind(file_hash)
+        .bind(now())
+        .bind(code_file_id)
+        .execute(db)
+        .await
+        .map_err(|source| DatabaseError::Query {
+            table: "code_file",
+            operation: "update",
+            source,
+        })?;
+    Ok(())
+}
+
+pub async fn find_code_file(
+    db: &SqlitePool,
+    repo: &str,
+    path: &str,
+) -> Result<Option<CodeFileRecord>, DatabaseError> {
+    sqlx::query_as::<_, CodeFileRecord>(
+        "SELECT * FROM code_file WHERE repo = ? AND path = ? LIMIT 1",
+    )
+    .bind(repo)
+    .bind(path)
+    .fetch_optional(db)
+    .await
+    .map_err(|source| DatabaseError::Query {
+        table: "code_file",
+        operation: "find",
+        source,
+    })
+}
+
+pub async fn delete_code_file(db: &SqlitePool, code_file_id: &str) -> Result<(), DatabaseError> {
+    sqlx::query("DELETE FROM code_file WHERE id = ?")
+        .bind(code_file_id)
+        .execute(db)
+        .await
+        .map_err(|source| DatabaseError::Query {
+            table: "code_file",
+            operation: "delete",
+            source,
+        })?;
+    Ok(())
+}
+
+pub async fn delete_code_files_by_repo(db: &SqlitePool, repo: &str) -> Result<u64, DatabaseError> {
+    let result = sqlx::query("DELETE FROM code_file WHERE repo = ?")
+        .bind(repo)
+        .execute(db)
+        .await
+        .map_err(|source| DatabaseError::Query {
+            table: "code_file",
+            operation: "delete_by_repo",
+            source,
+        })?;
+    Ok(result.rows_affected())
 }
