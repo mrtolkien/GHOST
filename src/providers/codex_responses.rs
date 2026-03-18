@@ -88,15 +88,31 @@ pub(super) fn build_codex_request_body(
             crate::providers::Role::System => ("developer", "input_text"),
         };
 
-        // Collect raw output items (e.g. reasoning) — they must appear as
-        // top-level input items *before* the message they belong to.
+        // Collect thinking blocks — reconstruct as reasoning input items.
         let mut raw_items = Vec::new();
         for block in &message.content {
-            if let ContentBlock::RawOutput { value, .. } = block {
-                raw_items.push(value.clone());
+            match block {
+                ContentBlock::Thinking {
+                    text,
+                    opaque_data,
+                    ..
+                } => {
+                    // Reconstruct Codex reasoning item
+                    let mut item = json!({"type": "reasoning"});
+                    if let Some(data) = opaque_data {
+                        item["encrypted_content"] = json!(data);
+                    }
+                    if let Some(text) = text {
+                        item["summary"] = json!([{"type": "summary_text", "text": text}]);
+                    }
+                    raw_items.push(item);
+                }
+                ContentBlock::RawOutput { value, .. } => {
+                    raw_items.push(value.clone());
+                }
+                _ => {}
             }
         }
-        // Push raw items before the message (API expects reasoning → message).
         for raw in raw_items {
             input.push(CodexInputItem::Raw(raw));
         }
@@ -479,7 +495,11 @@ pub(super) fn parse_codex_response_value(
                     if other == "reasoning" {
                         let text = {
                             let summary = extract_reasoning_summary(item);
-                            if summary.is_empty() { None } else { Some(summary) }
+                            if summary.is_empty() {
+                                None
+                            } else {
+                                Some(summary)
+                            }
                         };
                         let opaque_data = item
                             .get("encrypted_content")

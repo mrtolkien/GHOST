@@ -224,12 +224,8 @@ pub(crate) fn convert_messages(request: &ChatRequest) -> Vec<OpenAiMessage> {
                     }
                 }
                 ContentBlock::Thinking { text, .. } => {
-                    // Placeholder: mirror RawOutput reasoning handling.
-                    // Task 5 will implement proper cross-model Thinking handling.
-                    if let Some(t) = text
-                        && !t.trim().is_empty()
-                    {
-                        text_parts.push(format!("[Previous model thinking]: {t}"));
+                    if let Some(text) = text {
+                        text_parts.push(format!("[Reasoning]: {text}"));
                     }
                 }
                 ContentBlock::RawOutput {
