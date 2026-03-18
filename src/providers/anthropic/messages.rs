@@ -116,8 +116,39 @@ fn convert_messages(
     let mut i = 0;
     while i < len {
         let msg = &messages[i];
-        let role_str = role_str(&msg.role);
-        let content_blocks = convert_content_blocks(&msg.content, ghost_tool_names);
+        let role_str = match msg.role {
+            // Anthropic doesn't accept system in messages array.
+            Role::System => "user",
+            _ => role_str(&msg.role),
+        };
+
+        let content_blocks = if msg.role == Role::System {
+            // Convert system messages (e.g. compaction summaries) to
+            // user text blocks -- Anthropic requires system in
+            // top-level param only.
+            msg.content
+                .iter()
+                .filter_map(|b| match b {
+                    ContentBlock::Text { text } => {
+                        let sanitized = sanitize_surrogates(text);
+                        if sanitized.is_empty() {
+                            None
+                        } else {
+                            Some(json!({
+                                "type": "text",
+                                "text": format!(
+                                    "[Previous conversation summary]\n\
+                                     {sanitized}"
+                                ),
+                            }))
+                        }
+                    }
+                    _ => None,
+                })
+                .collect::<Vec<_>>()
+        } else {
+            convert_content_blocks(&msg.content, ghost_tool_names)
+        };
 
         if content_blocks.is_empty() {
             i += 1;
@@ -308,33 +339,56 @@ fn convert_content_blocks(blocks: &[ContentBlock], ghost_tool_names: &[&str]) ->
                 signature,
                 opaque_data,
             } => {
-                // Placeholder: mirror RawOutput thinking handling.
-                // Task 4 will implement proper Anthropic thinking/redacted_thinking
-                // block reconstruction from typed fields.
-                if let (Some(t), Some(sig)) = (text, signature) {
+                if let (Some(text), Some(sig)) = (text, signature) {
+                    // Anthropic thinking: reconstruct with signature.
                     out.push(json!({
                         "type": "thinking",
-                        "thinking": t,
+                        "thinking": text,
                         "signature": sig,
                     }));
-                } else if let Some(data) = opaque_data {
+                } else if opaque_data.is_some() && text.is_none() && signature.is_none() {
+                    // Anthropic redacted_thinking: no readable text,
+                    // has opaque blob. Only reconstruct as
+                    // redacted_thinking when there's NO text and NO
+                    // signature -- this distinguishes it from Codex
+                    // reasoning (which has text + opaque_data but no
+                    // signature).
                     out.push(json!({
                         "type": "redacted_thinking",
-                        "data": data,
+                        "data": opaque_data.as_ref().unwrap(),
                     }));
+                } else if let Some(text) = text {
+                    // Cross-model block (e.g. Codex reasoning sent to
+                    // Anthropic). Convert readable text to a plain text
+                    // note so context survives.
+                    out.push(json!({
+                        "type": "text",
+                        "text": format!("[Reasoning]: {text}"),
+                    }));
+                    has_text = true;
                 }
+                // If nothing matched (all None), skip silently.
             }
-            ContentBlock::RawOutput {
-                original_type,
-                value,
-            } => {
-                if original_type == "thinking" || original_type == "redacted_thinking" {
-                    out.push(value.clone());
-                }
-                // Other RawOutput types are silently skipped.
+            ContentBlock::RawOutput { .. } => {
+                // RawOutput types (e.g. function_call fallbacks) are
+                // not Anthropic-native -- skip silently.
             }
         }
     }
+
+    // Thinking blocks must precede other content per Anthropic API.
+    let mut thinking = Vec::new();
+    let mut rest = Vec::new();
+    for block in out {
+        let block_type = block.get("type").and_then(Value::as_str).unwrap_or("");
+        if block_type == "thinking" || block_type == "redacted_thinking" {
+            thinking.push(block);
+        } else {
+            rest.push(block);
+        }
+    }
+    thinking.extend(rest);
+    let mut out = thinking;
 
     // Image-only messages: prepend a text placeholder.
     if has_image && !has_text {
@@ -657,5 +711,114 @@ mod tests {
         let messages = body["messages"].as_array().unwrap();
         let content = messages[0]["content"].as_array().unwrap();
         assert!(content.iter().any(|b| b["type"] == "text"));
+    }
+
+    #[test]
+    fn thinking_blocks_ordered_before_tool_use() {
+        let req = simple_request(vec![
+            ChatMessage {
+                role: Role::User,
+                content: vec![ContentBlock::Text { text: "hi".into() }],
+            },
+            ChatMessage {
+                role: Role::Assistant,
+                content: vec![
+                    ContentBlock::ToolUse {
+                        id: "t1".into(),
+                        name: "bash".into(),
+                        input: json!({}),
+                    },
+                    ContentBlock::Thinking {
+                        text: Some("let me think".into()),
+                        signature: Some("sig123".into()),
+                        opaque_data: None,
+                    },
+                ],
+            },
+            ChatMessage {
+                role: Role::User,
+                content: vec![ContentBlock::ToolResult {
+                    tool_use_id: "t1".into(),
+                    content: "ok".into(),
+                    is_error: false,
+                }],
+            },
+        ]);
+        let body = build_request_body(&req, &["bash"]).unwrap();
+        let messages = body["messages"].as_array().unwrap();
+        let assistant = &messages[1];
+        let content = assistant["content"].as_array().unwrap();
+        assert_eq!(content[0]["type"], "thinking", "thinking must come first");
+        assert_eq!(
+            content[1]["type"], "tool_use",
+            "tool_use must come after thinking"
+        );
+    }
+
+    #[test]
+    fn system_role_converted_to_user_for_anthropic() {
+        let req = simple_request(vec![
+            ChatMessage {
+                role: Role::System,
+                content: vec![ContentBlock::Text {
+                    text: "Summary of prior conversation.".into(),
+                }],
+            },
+            ChatMessage {
+                role: Role::User,
+                content: vec![ContentBlock::Text {
+                    text: "hello".into(),
+                }],
+            },
+        ]);
+        let body = build_request_body(&req, &[]).unwrap();
+        let messages = body["messages"].as_array().unwrap();
+        assert_eq!(messages[0]["role"], "user");
+        assert!(
+            messages[0]["content"][0]["text"]
+                .as_str()
+                .unwrap()
+                .contains("conversation summary"),
+        );
+    }
+
+    #[test]
+    fn cross_model_codex_reasoning_becomes_text_not_redacted() {
+        let req = simple_request(vec![
+            ChatMessage {
+                role: Role::User,
+                content: vec![ContentBlock::Text { text: "hi".into() }],
+            },
+            ChatMessage {
+                role: Role::Assistant,
+                content: vec![
+                    ContentBlock::Thinking {
+                        text: Some("step by step reasoning".into()),
+                        signature: None,
+                        opaque_data: Some("encrypted_blob".into()),
+                    },
+                    ContentBlock::Text {
+                        text: "answer".into(),
+                    },
+                ],
+            },
+            ChatMessage {
+                role: Role::User,
+                content: vec![ContentBlock::Text { text: "ok".into() }],
+            },
+        ]);
+        let body = build_request_body(&req, &[]).unwrap();
+        let messages = body["messages"].as_array().unwrap();
+        let assistant = &messages[1];
+        let content = assistant["content"].as_array().unwrap();
+        // Should be converted to text, not redacted_thinking
+        assert!(content.iter().all(|b| b["type"] != "redacted_thinking"));
+        assert!(content.iter().any(|b| {
+            b["type"] == "text"
+                && b["text"]
+                    .as_str()
+                    .unwrap_or("")
+                    .contains("step by step reasoning")
+        }));
     }
 }
