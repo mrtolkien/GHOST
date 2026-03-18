@@ -12,7 +12,7 @@ pub struct SettleTimeout(std::time::Duration);
 
 use crate::agents::AgentRunner;
 use crate::chat::{ActiveSessions, SessionChat};
-use crate::config::{Config, SharedConfig};
+use crate::config::{Config, ConfigSender, SharedConfig, SharedConfigExt};
 use crate::db::{self, GhostDb};
 use crate::embeddings::EmbeddingClient;
 use crate::error::GhostError;
@@ -23,7 +23,8 @@ use crate::interfaces::discord::{self, DiscordHandle};
 pub struct DaemonHandle {
     pub session_chat: Arc<SessionChat>,
     pub db: GhostDb,
-    pub config: Config,
+    pub config: SharedConfig,
+    config_tx: ConfigSender,
     pub agent_runner: Arc<AgentRunner>,
     pub active_sessions: ActiveSessions,
     shutdown_tx: watch::Sender<bool>,
@@ -108,7 +109,40 @@ pub async fn run() -> Result<(), GhostError> {
         info!("No interfaces enabled. Waiting for Ctrl+C...");
     }
 
-    shutdown_signal().await;
+    let mut sighup = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::hangup())
+        .expect("failed to register SIGHUP handler");
+
+    loop {
+        tokio::select! {
+            _ = shutdown_signal() => break,
+            _ = sighup.recv() => {
+                info!("SIGHUP received, reloading config...");
+                match crate::config::reload() {
+                    Ok(new_config) => {
+                        let current = handle.config.current();
+                        match crate::config::validate_reload(&current, &new_config) {
+                            Ok(()) => {
+                                handle.config_tx.send(Arc::new(new_config)).ok();
+                                info!("config reloaded successfully");
+                            }
+                            Err(e) => {
+                                logfire::warn!(
+                                    "config reload rejected",
+                                    error = e.to_string(),
+                                );
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        logfire::warn!(
+                            "config reload failed",
+                            error = e.to_string(),
+                        );
+                    }
+                }
+            }
+        }
+    }
     info!("shutting down...");
 
     handle.shutdown().await;
@@ -216,8 +250,8 @@ pub async fn boot_with_config(config: Config) -> Result<DaemonHandle, GhostError
         logfire::warn!("Ollama unavailable — skipping boot reconciliation");
     }
 
-    // Create shared config for hot-reload (sender held for future reload support)
-    let (_config_tx, shared_config): (crate::config::ConfigSender, SharedConfig) =
+    // Create shared config for hot-reload
+    let (config_tx, shared_config): (ConfigSender, SharedConfig) =
         tokio::sync::watch::channel(Arc::new(config.clone()));
 
     // Spawn file watcher for automatic embedding on content changes
@@ -279,7 +313,7 @@ pub async fn boot_with_config(config: Config) -> Result<DaemonHandle, GhostError
     };
 
     let discord_result = discord::start_discord(
-        &config,
+        &shared_config,
         session_chat.clone(),
         db.clone(),
         active_sessions.clone(),
@@ -290,7 +324,8 @@ pub async fn boot_with_config(config: Config) -> Result<DaemonHandle, GhostError
 
     // If there are updates, prompt the user or auto-accept
     if has_updates {
-        handle_bundled_updates(&config, &changes, &db, &discord_result, bundled_rx).await?;
+        let cfg = shared_config.current();
+        handle_bundled_updates(&cfg, &changes, &db, &discord_result, bundled_rx).await?;
     }
 
     let discord_sender_arc = discord_result.as_ref().map(|d| Arc::new(d.sender.clone()));
@@ -307,7 +342,8 @@ pub async fn boot_with_config(config: Config) -> Result<DaemonHandle, GhostError
     Ok(DaemonHandle {
         session_chat,
         db,
-        config,
+        config: shared_config,
+        config_tx,
         agent_runner,
         active_sessions,
         shutdown_tx,

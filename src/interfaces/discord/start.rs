@@ -8,7 +8,7 @@ use tokio::task::JoinHandle;
 use tracing::info;
 
 use crate::chat::{ActiveSessions, SessionChat};
-use crate::config::Config;
+use crate::config::{SharedConfig, SharedConfigExt};
 use crate::db::GhostDb;
 
 use super::components_v2::{action_row, button, container, send_v2_message, text_display};
@@ -116,19 +116,20 @@ const CONFIRMATION_ACCENT: u32 = 0xFA_B3_87;
 /// disabled or unconfigured.
 #[tracing::instrument(skip_all)]
 pub async fn start_discord(
-    config: &Config,
+    config: &SharedConfig,
     session_chat: Arc<SessionChat>,
     db: GhostDb,
     active_sessions: ActiveSessions,
     bundled_update_tx: Option<tokio::sync::mpsc::UnboundedSender<String>>,
     confirmation_rx: Option<ConfirmationReceiver>,
 ) -> Result<Option<DiscordHandle>, DiscordError> {
-    if !config.discord.enabled {
+    let cfg = config.current();
+    if !cfg.discord.enabled {
         info!("Discord is disabled in config");
         return Ok(None);
     }
 
-    if config.discord.allowed_user_ids.is_empty() {
+    if cfg.discord.allowed_user_ids.is_empty() {
         return Err(DiscordError::MissingAllowedUser);
     }
 
@@ -157,7 +158,6 @@ pub async fn start_discord(
         session_chat,
         db,
         config.clone(),
-        config.discord.allowed_user_ids.clone(),
         active_sessions,
         bundled_update_tx,
         Arc::clone(&pending_confirmations),

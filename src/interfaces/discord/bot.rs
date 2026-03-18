@@ -16,7 +16,7 @@ use tracing::{Instrument, error, info, warn};
 
 use crate::chat::{ActiveSessions, ChatStopReason, SessionChat};
 use crate::coding;
-use crate::config::Config;
+use crate::config::{SharedConfig, SharedConfigExt};
 use crate::db;
 use crate::db::GhostDb;
 use crate::providers::ContentBlock;
@@ -71,8 +71,7 @@ impl Drop for TimedTyping {
 pub(super) struct Handler {
     session_chat: Arc<SessionChat>,
     db: GhostDb,
-    config: Config,
-    allowed_user_ids: Vec<String>,
+    config: SharedConfig,
     bot_user_id: OnceLock<String>,
     started_at: std::time::SystemTime,
     active_sessions: ActiveSessions,
@@ -86,8 +85,7 @@ impl Handler {
     pub fn new(
         session_chat: Arc<SessionChat>,
         db: GhostDb,
-        config: Config,
-        allowed_user_ids: Vec<String>,
+        config: SharedConfig,
         active_sessions: ActiveSessions,
         bundled_update_tx: Option<tokio::sync::mpsc::UnboundedSender<String>>,
         pending_confirmations: Arc<dashmap::DashMap<String, tokio::sync::oneshot::Sender<String>>>,
@@ -96,7 +94,6 @@ impl Handler {
             session_chat,
             db,
             config,
-            allowed_user_ids,
             bot_user_id: OnceLock::new(),
             started_at: std::time::SystemTime::now(),
             active_sessions,
@@ -161,7 +158,8 @@ impl Handler {
             return Vec::new();
         }
 
-        let upload_dir = self.config.workspace.join("uploads");
+        let cfg = self.config.current();
+        let upload_dir = cfg.workspace.join("uploads");
         if let Err(e) = tokio::fs::create_dir_all(&upload_dir).await {
             error!("Failed to create uploads dir: {e}");
             return Vec::new();
@@ -439,7 +437,8 @@ impl Handler {
         let _typing = TimedTyping::start(msg.channel_id, &ctx.http);
 
         let working_path = std::path::Path::new(working_dir);
-        let system_prompt = coding::prompt::build_coding_prompt(&self.config, working_path);
+        let cfg = self.config.current();
+        let system_prompt = coding::prompt::build_coding_prompt(&cfg, working_path);
 
         let (event_tx, event_rx) = tokio::sync::mpsc::unbounded_channel();
         let renderer = DiscordUiRenderer::new(event_rx, Arc::clone(&ctx.http), msg.channel_id);
@@ -527,7 +526,13 @@ impl EventHandler for Handler {
             return;
         }
         let author_id = msg.author.id.to_string();
-        if !self.allowed_user_ids.iter().any(|id| id == &author_id) {
+        let cfg = self.config.current();
+        if !cfg
+            .discord
+            .allowed_user_ids
+            .iter()
+            .any(|id| id == &author_id)
+        {
             return;
         }
         if *msg.timestamp < self.started_at {
@@ -769,13 +774,14 @@ impl EventHandler for Handler {
                     }
                 };
 
+                let cfg = self.config.current();
                 let timestamp = chrono::Utc::now().format("%Y-%m-%dT%H-%M-%S").to_string();
                 let slug = feedback::make_slug(&feedback_message);
                 let folder_name = format!("{timestamp}-{slug}");
-                let feedback_dir = self.config.workspace.join("feedback").join(&folder_name);
+                let feedback_dir = cfg.workspace.join("feedback").join(&folder_name);
 
                 match feedback::save_feedback(
-                    &self.config.workspace,
+                    &cfg.workspace,
                     &feedback_dir,
                     &self.db,
                     &session_id,
@@ -847,7 +853,8 @@ impl EventHandler for Handler {
         let version = env!("CARGO_PKG_VERSION");
         let commit = env!("GIT_COMMIT_HASH");
         let content = format!("### BOOT SEQUENCE COMPLETE\nghost v{version} ({commit})");
-        for user_id_str in &self.allowed_user_ids {
+        let cfg = self.config.current();
+        for user_id_str in &cfg.discord.allowed_user_ids {
             let Ok(uid) = user_id_str.parse::<u64>() else {
                 warn!(
                     user_id = user_id_str,
