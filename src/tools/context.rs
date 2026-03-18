@@ -17,7 +17,7 @@ pub struct ToolContext {
     pub workspace: PathBuf,
     pub cwd: PathBuf,
     pub db: GhostDb,
-    pub config: Config,
+    pub config: Arc<Config>,
     pub session_id: String,
     pub agent_runner: Option<Arc<AgentRunner>>,
     pub event_tx: Option<SessionEventSender>,

@@ -296,7 +296,7 @@ mod tests {
             workspace: workspace.path().to_path_buf(),
             cwd: workspace.path().to_path_buf(),
             db: sqlx::SqlitePool::connect_lazy("sqlite::memory:").unwrap(),
-            config: crate::config::test_config(workspace.path()),
+            config: std::sync::Arc::new(crate::config::test_config(workspace.path())),
             session_id: "test".to_string(),
             agent_runner: None,
             event_tx: None,

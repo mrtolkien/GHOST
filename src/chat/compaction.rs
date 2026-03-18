@@ -433,9 +433,9 @@ impl SessionChat {
             Err(_) => return,
         };
 
-        let alias = &self.config().models.default;
-        let context_window = self
-            .config()
+        let config = self.config();
+        let alias = &config.models.default;
+        let context_window = config
             .models
             .aliases
             .get(alias)
@@ -496,7 +496,7 @@ impl SessionChat {
             &cache_key,
             &masked,
             stored_message_ids,
-            compaction,
+            &compaction,
             compaction.instructions.as_deref(),
         )
         .await
@@ -568,7 +568,8 @@ impl SessionChat {
         session_id: &str,
         history: &mut Vec<ChatMessage>,
     ) {
-        self.compact_in_tool_loop_with_config(session_id, history, self.compaction_config())
+        let compaction = self.compaction_config();
+        self.compact_in_tool_loop_with_config(session_id, history, &compaction)
             .await;
     }
 

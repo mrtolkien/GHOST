@@ -50,9 +50,7 @@ async fn reasoning_effort_high_produces_thinking_block() {
     for (i, block) in response.content.iter().enumerate() {
         match block {
             ContentBlock::Thinking {
-                text,
-                opaque_data,
-                ..
+                text, opaque_data, ..
             } => {
                 eprintln!(
                     "  [{i}] Thinking: has_text={}, has_opaque={}",

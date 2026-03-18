@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::config::Config;
+use crate::config::{SharedConfig, SharedConfigExt};
 
 use super::context;
 use super::error::PromptError;
@@ -18,19 +18,20 @@ pub struct PromptContext {
 /// Assembles system and job prompts from templates and runtime context.
 #[derive(Debug, Clone)]
 pub struct PromptRenderer {
-    config: Config,
+    config: SharedConfig,
 }
 
 impl PromptRenderer {
     #[must_use]
-    pub fn new(config: Config) -> Self {
+    pub fn new(config: SharedConfig) -> Self {
         Self { config }
     }
 
     /// Render the full system prompt for a chat session.
     #[tracing::instrument(skip_all, level = "debug", fields(model = %context.model))]
     pub fn render_system_prompt(&self, context: &PromptContext) -> Result<String, PromptError> {
-        let workspace = &self.config.workspace;
+        let cfg = self.config.current();
+        let workspace = &cfg.workspace;
 
         let ghost_identity = context::build_ghost_identity(workspace);
         let operator_context = context::build_operator_context(workspace);
@@ -58,7 +59,14 @@ mod tests {
     use super::*;
     use crate::config::test_config;
     use std::fs;
+    use std::sync::Arc;
     use tempfile::TempDir;
+
+    /// Helper: wrap a `Config` in a `SharedConfig` for tests.
+    fn shared(config: crate::config::Config) -> SharedConfig {
+        let (_tx, rx) = tokio::sync::watch::channel(Arc::new(config));
+        rx
+    }
 
     #[test]
     fn full_render_injects_identity_and_runtime_context() {
@@ -66,7 +74,7 @@ mod tests {
         fs::write(dir.path().join("BOOT.md"), "# BOOT\nBe helpful.").unwrap();
         fs::write(dir.path().join("SOUL.md"), "I am Ghost.").unwrap();
 
-        let renderer = PromptRenderer::new(test_config(dir.path()));
+        let renderer = PromptRenderer::new(shared(test_config(dir.path())));
         let prompt = renderer
             .render_system_prompt(&PromptContext {
                 model: "test-model".to_string(),
@@ -88,7 +96,7 @@ mod tests {
     fn render_succeeds_with_no_workspace_files() {
         let dir = TempDir::new().unwrap();
 
-        let prompt = PromptRenderer::new(test_config(dir.path()))
+        let prompt = PromptRenderer::new(shared(test_config(dir.path())))
             .render_system_prompt(&PromptContext {
                 model: "m".to_string(),
                 provider: "p".to_string(),

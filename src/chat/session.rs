@@ -4,7 +4,7 @@ use crate::db::GhostDb;
 use async_trait::async_trait;
 use serde_json::{Value, json};
 
-use crate::config::{self, Config};
+use crate::config::{self, Config, SharedConfig, SharedConfigExt};
 use crate::db;
 use crate::prompt::{PromptContext, PromptRenderer};
 use crate::providers::{
@@ -29,7 +29,7 @@ pub struct SessionChat {
     db: GhostDb,
     provider: Arc<dyn Provider>,
     tool_manager: ToolManager,
-    config: Config,
+    config: SharedConfig,
     prompt_renderer: PromptRenderer,
     max_tool_iterations: usize,
     agent_runner: Option<Arc<crate::agents::AgentRunner>>,
@@ -52,8 +52,9 @@ impl std::fmt::Debug for SessionChat {
 
 impl SessionChat {
     #[tracing::instrument(name = "create session_chat", skip_all)]
-    pub fn from_config(db: GhostDb, config: Config) -> Result<Self, ChatError> {
-        let provider = provider_for_alias(&config, None)?;
+    pub fn from_config(db: GhostDb, config: SharedConfig) -> Result<Self, ChatError> {
+        let cfg = config.current();
+        let provider = provider_for_alias(&cfg, None)?;
         let mut tool_manager = ToolManager::for_chat();
         tool_manager.with_browser();
 
@@ -65,11 +66,12 @@ impl SessionChat {
         db: GhostDb,
         provider: Arc<dyn Provider>,
         tool_manager: ToolManager,
-        config: Config,
+        config: SharedConfig,
     ) -> Self {
+        let cfg = config.current();
         let prompt_renderer = PromptRenderer::new(config.clone());
         let browser_manager = Arc::new(tokio::sync::Mutex::new(
-            crate::web::browser::BrowserManager::new(config.web.browsers.clone()),
+            crate::web::browser::BrowserManager::new(cfg.web.browsers.clone()),
         ));
         Self {
             db,
@@ -141,10 +143,14 @@ impl SessionChat {
     }
 
     /// Return the effective compaction config (override if set, else global).
-    pub(super) fn compaction_config(&self) -> &config::CompactionConfig {
+    ///
+    /// When no override is set, returns the compaction config from the current
+    /// config snapshot. The returned owned value avoids lifetime issues with
+    /// the `Arc<Config>` temporary.
+    pub(super) fn compaction_config(&self) -> config::CompactionConfig {
         self.compaction_override
-            .as_ref()
-            .unwrap_or(&self.config.compaction)
+            .clone()
+            .unwrap_or_else(|| self.config.current().compaction.clone())
     }
 
     #[tracing::instrument(name = "orchestrate response", skip_all, fields(session_id = session_id))]
@@ -294,7 +300,7 @@ impl SessionChat {
             pending_todo_update: false,
             system_prompt: system_prompt.to_string(),
             working_dir: working_dir.to_path_buf(),
-            compaction: coding_compaction_config(self.compaction_config()),
+            compaction: coding_compaction_config(&self.compaction_config()),
         };
 
         let result = run_tool_loop(
@@ -542,15 +548,16 @@ impl SessionChat {
         cwd_override: Option<&std::path::Path>,
         channel_id: Option<&str>,
     ) -> Vec<ContentBlock> {
+        let config = self.config.current();
         let cwd = cwd_override
             .map(|p| p.to_path_buf())
             .or_else(|| self.cwd_override.clone())
-            .unwrap_or_else(|| self.config.workspace.clone());
+            .unwrap_or_else(|| config.workspace.clone());
         let tool_ctx = ToolContext {
-            workspace: self.config.workspace.clone(),
+            workspace: config.workspace.clone(),
             cwd,
             db: self.db.clone(),
-            config: self.config.clone(),
+            config,
             session_id: session_id.to_string(),
             agent_runner: self.agent_runner.clone(),
             event_tx: self.event_tx.clone(),
@@ -584,8 +591,9 @@ impl SessionChat {
     }
 
     pub(super) fn default_model_name(&self) -> Result<String, ChatError> {
-        let alias = &self.config.models.default;
-        let model = self.config.models.aliases.get(alias).ok_or_else(|| {
+        let config = self.config.current();
+        let alias = &config.models.default;
+        let model = config.models.aliases.get(alias).ok_or_else(|| {
             ChatError::Config(config::ConfigError::UnknownDefaultModelAlias {
                 alias: alias.clone(),
             })
@@ -601,26 +609,28 @@ impl SessionChat {
         &self.provider
     }
 
-    pub fn config(&self) -> &Config {
-        &self.config
+    pub fn config(&self) -> Arc<Config> {
+        self.config.current()
     }
 
     /// Context window size (in tokens) from the default model alias.
     pub(super) fn model_context_window(&self) -> usize {
-        self.config
+        let config = self.config.current();
+        config
             .models
             .aliases
-            .get(&self.config.models.default)
+            .get(&config.models.default)
             .map(|m| m.context_window as usize)
             .unwrap_or(200_000)
     }
 
     /// Reasoning effort configured on the default model alias, if any.
     fn model_reasoning_effort(&self) -> Option<ReasoningEffort> {
-        self.config
+        let config = self.config.current();
+        config
             .models
             .aliases
-            .get(&self.config.models.default)
+            .get(&config.models.default)
             .and_then(|m| m.reasoning_effort)
     }
 

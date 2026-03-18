@@ -222,7 +222,8 @@ async fn detect_coding_session(
             .flatten()?;
 
     let working_dir = PathBuf::from(&working_dir_str);
-    let system_prompt = build_coding_prompt(session_chat.config(), &working_dir);
+    let config = session_chat.config();
+    let system_prompt = build_coding_prompt(&config, &working_dir);
     Some((working_dir, system_prompt))
 }
 

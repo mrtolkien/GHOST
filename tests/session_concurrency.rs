@@ -24,8 +24,13 @@ async fn chat_returns_session_busy_when_session_already_active() {
     let provider = Arc::new(common::MockProvider::new(vec![]));
     let active_sessions: interrupt::ActiveSessions = Arc::new(dashmap::DashMap::new());
 
-    let session_chat = SessionChat::new(db.clone(), provider, ToolManager::for_chat(), config)
-        .with_active_sessions(active_sessions.clone());
+    let session_chat = SessionChat::new(
+        db.clone(),
+        provider,
+        ToolManager::for_chat(),
+        common::shared(&config),
+    )
+    .with_active_sessions(active_sessions.clone());
 
     let session_id = db::sessions::create_session(&db).await.unwrap();
 
@@ -128,7 +133,7 @@ async fn steer_interrupt_drained_on_end_turn_triggers_continuation() {
         db.clone(),
         provider as Arc<dyn Provider>,
         ToolManager::for_chat(),
-        config,
+        common::shared(&config),
     )
     .with_active_sessions(active_sessions.clone());
 

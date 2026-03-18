@@ -7,7 +7,7 @@ use ghost::providers::{ContentBlock, StopReason};
 use ghost::tools::ToolManager;
 use serde_json::json;
 
-use common::{EchoTool, MockProvider, respond_response, response};
+use common::{EchoTool, MockProvider, respond_response, response, shared};
 
 #[tokio::test]
 async fn chat_returns_response_text() {
@@ -20,7 +20,7 @@ async fn chat_returns_response_text() {
         "hello from ghost",
         vec![],
     )]));
-    let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config);
+    let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), shared(&config));
     let result = chat
         .chat(&session_id, "hi", None, None)
         .await
@@ -52,7 +52,7 @@ async fn tool_loop_executes_and_sends_tool_result_back() {
 
     let mut tools = ToolManager::empty();
     tools.register(Arc::new(EchoTool));
-    let chat = SessionChat::new(db.clone(), provider, tools, config);
+    let chat = SessionChat::new(db.clone(), provider, tools, shared(&config));
 
     let result = chat
         .chat(&session_id, "run tool", None, None)
@@ -106,7 +106,8 @@ async fn max_iterations_stops_loop() {
 
     let mut tools = ToolManager::empty();
     tools.register(Arc::new(EchoTool));
-    let chat = SessionChat::new(db.clone(), provider, tools, config).with_max_tool_iterations(1);
+    let chat =
+        SessionChat::new(db.clone(), provider, tools, shared(&config)).with_max_tool_iterations(1);
     let result = chat
         .chat(&session_id, "loop", None, None)
         .await
@@ -125,7 +126,7 @@ async fn chat_persists_user_and_assistant_messages() {
         "persisted",
         vec![],
     )]));
-    let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config);
+    let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), shared(&config));
 
     let _ = chat
         .chat(&session_id, "persist", None, None)
@@ -155,7 +156,7 @@ async fn reboot_marks_old_session_and_creates_new_one() {
     .expect("set mapping");
 
     let provider = Arc::new(MockProvider::new(vec![]));
-    let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config);
+    let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), shared(&config));
     let new_session = chat
         .reboot_session(&old_session_id)
         .await
@@ -198,7 +199,7 @@ async fn main_chat_does_not_inject_todo() {
 
     let provider = Arc::new(MockProvider::new(vec![respond_response("ok", vec![])]));
     let requests = provider.requests();
-    let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config);
+    let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), shared(&config));
     let _ = chat
         .chat(&session_id, "check todo", None, None)
         .await
@@ -255,7 +256,7 @@ async fn orphaned_tool_calls_get_error_results() {
         vec![],
     )]));
     let requests = provider.requests();
-    let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config);
+    let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), shared(&config));
     let result = chat
         .chat(&session_id, "continue", None, None)
         .await
@@ -349,7 +350,7 @@ async fn partial_tool_results_get_remaining_errors() {
 
     let provider = Arc::new(MockProvider::new(vec![respond_response("ok", vec![])]));
     let requests = provider.requests();
-    let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config);
+    let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), shared(&config));
     let _ = chat
         .chat(&session_id, "continue", None, None)
         .await
@@ -437,7 +438,7 @@ async fn complete_tool_results_not_repaired() {
     .unwrap();
 
     let provider = Arc::new(MockProvider::new(vec![respond_response("ok", vec![])]));
-    let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config);
+    let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), shared(&config));
     let _ = chat
         .chat(&session_id, "continue", None, None)
         .await
@@ -500,7 +501,7 @@ async fn compaction_triggers_when_over_threshold() {
         respond_response("post-compaction", vec![]),
     ]));
     let requests = provider.requests();
-    let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config);
+    let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), shared(&config));
 
     let result = chat
         .chat(&session_id, "new question", None, None)
@@ -556,7 +557,7 @@ async fn original_messages_preserved_after_compaction() {
         ),
         respond_response("ok", vec![]),
     ]));
-    let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config);
+    let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), shared(&config));
 
     let _ = chat
         .chat(&session_id, "check", None, None)
@@ -602,7 +603,7 @@ async fn no_compaction_below_threshold() {
         vec![],
     )]));
     let requests = provider.requests();
-    let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config);
+    let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), shared(&config));
 
     let result = chat
         .chat(&session_id, "short message", None, None)
@@ -651,7 +652,7 @@ async fn double_compaction_summary_of_summary() {
         // Chat response for round 1
         respond_response("round1", vec![]),
     ]));
-    let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config.clone());
+    let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), shared(&config));
     let r1 = chat
         .chat(&session_id, "round1 question", None, None)
         .await
@@ -673,7 +674,7 @@ async fn double_compaction_summary_of_summary() {
         respond_response("round2", vec![]),
     ]));
     let requests2 = provider2.requests();
-    let chat2 = SessionChat::new(db.clone(), provider2, ToolManager::empty(), config);
+    let chat2 = SessionChat::new(db.clone(), provider2, ToolManager::empty(), shared(&config));
 
     let r2 = chat2
         .chat(&session_id, "round2 question", None, None)

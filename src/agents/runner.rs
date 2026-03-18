@@ -9,7 +9,7 @@ use tokio_util::sync::CancellationToken;
 use tracing::Instrument;
 
 use crate::chat::{RunMetadata, SessionChat};
-use crate::config::{CompactionConfig, Config};
+use crate::config::{CompactionConfig, Config, SharedConfig, SharedConfigExt};
 use crate::db;
 use crate::db::GhostDb;
 use crate::providers::provider_for_alias;
@@ -64,7 +64,7 @@ struct AgentHandle {
 #[derive(Debug, Clone)]
 pub struct AgentRunner {
     db: GhostDb,
-    config: Config,
+    config: SharedConfig,
     handles: Arc<Mutex<HashMap<String, AgentHandle>>>,
     event_tx: Option<crate::events::SessionEventSender>,
     active_count: Arc<AtomicUsize>,
@@ -78,7 +78,7 @@ impl AgentRunner {
     #[must_use]
     pub fn new(
         db: GhostDb,
-        config: Config,
+        config: SharedConfig,
         event_tx: Option<crate::events::SessionEventSender>,
     ) -> Self {
         Self {
@@ -126,10 +126,11 @@ impl AgentRunner {
         .await?;
 
         let cancel_token = CancellationToken::new();
+        let config = self.config.current();
 
         let result = execute_agent(
             &self.db,
-            &self.config,
+            config,
             agent_name,
             args,
             &agent_session_id,
@@ -153,10 +154,11 @@ impl AgentRunner {
             db::agent_runs::create_agent_run(&self.db, agent_name, None, session_id).await?;
 
         let cancel_token = CancellationToken::new();
+        let config = self.config.current();
 
         let result = execute_resume(
             &self.db,
-            &self.config,
+            config,
             agent_name,
             prompt,
             session_id,
@@ -182,7 +184,8 @@ impl AgentRunner {
         cwd: Option<PathBuf>,
     ) -> Result<String, AgentError> {
         // Verify agent exists before spawning background task.
-        if super::loader::resolve_agent_dir(&self.config.workspace, agent_name).is_none() {
+        let config = self.config.current();
+        if super::loader::resolve_agent_dir(&config.workspace, agent_name).is_none() {
             return Err(AgentError::NotFound {
                 name: agent_name.to_string(),
             });
@@ -205,7 +208,7 @@ impl AgentRunner {
         let join_handle = spawn_background_run(
             BackgroundTask {
                 db: self.db.clone(),
-                config: self.config.clone(),
+                config,
                 agent_name: agent_name.to_string(),
                 agent_session_id: agent_session_id.clone(),
                 parent_session_id: parent_session_id.map(|s| s.to_string()),
@@ -273,7 +276,7 @@ impl AgentRunner {
         let join_handle = spawn_background_resume(
             BackgroundTask {
                 db: self.db.clone(),
-                config: self.config.clone(),
+                config: self.config.current(),
                 agent_name: agent_name.clone(),
                 agent_session_id: agent_session_id.clone(),
                 parent_session_id: parent_session_id.map(|s| s.to_string()),
@@ -318,7 +321,8 @@ impl AgentRunner {
     /// Fire child agents from spawn requests with depth=0.
     pub fn spawn_children(&self, result: &mut AgentResult) {
         let spawns = std::mem::take(&mut result.spawns);
-        spawn_children_inner(spawns, &self.db, &self.config, &result.session_id, 0);
+        let config = self.config.current();
+        spawn_children_inner(spawns, &self.db, config, &result.session_id, 0);
     }
 
     // --- Handle management ------------------------------------------------
@@ -447,7 +451,7 @@ struct AgentSetup {
 
 async fn setup_agent(
     db: &GhostDb,
-    config: &Config,
+    config: Arc<Config>,
     agent_name: &str,
     args: HashMap<String, String>,
     agent_session_id: &str,
@@ -464,7 +468,7 @@ async fn setup_agent(
         agent_session_id.to_string(),
     );
     ctx.trigger_session_id = parent_session_id.map(String::from);
-    ctx = ctx.with_tool_support(config.clone(), Arc::new(ToolManager::all_available()));
+    ctx = ctx.with_tool_support(Arc::clone(&config), Arc::new(ToolManager::all_available()));
     // Keep a handle so spawn_requests from tool handlers aren't lost
     // when post_completion creates a fresh ctx.
     let build_spawn_requests = ctx.spawn_requests.clone();
@@ -477,7 +481,7 @@ async fn setup_agent(
                 message: format!("build hook failed: {e}"),
             })?;
 
-    let provider = provider_for_alias(config, agent_config.model.as_deref())?;
+    let provider = provider_for_alias(&config, agent_config.model.as_deref())?;
 
     let mut tools = agent_config.tools.clone();
     if !agent_config.skills.is_empty() && !tools.iter().any(|t| t == "file_read") {
@@ -491,7 +495,9 @@ async fn setup_agent(
     let agent_compaction =
         build_agent_compaction_config(&config.compaction, agent_config.compaction.as_ref());
 
-    let mut session_chat = SessionChat::new(db.clone(), provider, tool_manager, config.clone())
+    // One-shot channel: agent runs use a fixed config snapshot, not hot-reload.
+    let (_, cfg_rx) = tokio::sync::watch::channel(Arc::clone(&config));
+    let mut session_chat = SessionChat::new(db.clone(), provider, tool_manager, cfg_rx)
         .with_max_tool_iterations(agent_config.max_iterations)
         .with_compaction_config(agent_compaction);
 
@@ -521,7 +527,7 @@ struct ResumeSetup {
 
 async fn setup_resume(
     db: &GhostDb,
-    config: &Config,
+    config: Arc<Config>,
     agent_name: &str,
     prompt: &str,
     session_id: &str,
@@ -530,7 +536,7 @@ async fn setup_resume(
     // Get config + system prompt from build()
     let setup = setup_agent(
         db,
-        config,
+        Arc::clone(&config),
         agent_name,
         prompt_args(prompt),
         session_id,
@@ -562,7 +568,7 @@ async fn setup_resume(
             agent_name.to_string(),
             session_id.to_string(),
         )
-        .with_tool_support(config.clone(), Arc::new(ToolManager::all_available()));
+        .with_tool_support(Arc::clone(&config), Arc::new(ToolManager::all_available()));
         // Pre-populate editable fields
         *ctx.system_prompt.lock().expect("lock") = Some(system_prompt.clone());
         *ctx.resume_messages.lock().expect("lock") = Some(messages.clone());
@@ -623,7 +629,7 @@ async fn run_post_completion(
     agent_config: &AgentConfig,
     script_host: &ScriptHost,
     db: &GhostDb,
-    config: &Config,
+    config: &Arc<Config>,
     agent_name: &str,
     agent_session_id: &str,
     parent_session_id: Option<&str>,
@@ -635,7 +641,7 @@ async fn run_post_completion(
             agent_name.to_string(),
             agent_session_id.to_string(),
         )
-        .with_tool_support(config.clone(), Arc::new(ToolManager::all_available()));
+        .with_tool_support(Arc::clone(config), Arc::new(ToolManager::all_available()));
         ctx.trigger_session_id = parent_session_id.map(String::from);
         let spawn_requests = ctx.spawn_requests.clone();
         if let Err(e) = script_host.call_post_completion(ctx).await {
@@ -659,7 +665,7 @@ async fn run_post_completion(
 ))]
 async fn execute_agent(
     db: &GhostDb,
-    config: &Config,
+    config: Arc<Config>,
     agent_name: &str,
     args: HashMap<String, String>,
     agent_session_id: &str,
@@ -669,7 +675,7 @@ async fn execute_agent(
 ) -> Result<AgentResult, AgentError> {
     let setup = setup_agent(
         db,
-        config,
+        Arc::clone(&config),
         agent_name,
         args,
         agent_session_id,
@@ -712,7 +718,7 @@ async fn execute_agent(
             &setup.config,
             &setup.script_host,
             db,
-            config,
+            &config,
             agent_name,
             agent_session_id,
             parent_session_id,
@@ -735,14 +741,14 @@ async fn execute_agent(
 ))]
 async fn execute_resume(
     db: &GhostDb,
-    config: &Config,
+    config: Arc<Config>,
     agent_name: &str,
     prompt: &str,
     session_id: &str,
     cancel_token: &CancellationToken,
     cwd: Option<&PathBuf>,
 ) -> Result<AgentResult, AgentError> {
-    let resume = setup_resume(db, config, agent_name, prompt, session_id, cwd).await?;
+    let resume = setup_resume(db, Arc::clone(&config), agent_name, prompt, session_id, cwd).await?;
 
     let result = tokio::select! {
         res = resume.session_chat.run_agent_with_history(
@@ -780,7 +786,7 @@ async fn execute_resume(
             &resume.config,
             &resume.script_host,
             db,
-            config,
+            &config,
             agent_name,
             session_id,
             None,
@@ -802,7 +808,7 @@ async fn execute_resume(
 /// Shared params for background agent tasks.
 struct BackgroundTask {
     db: GhostDb,
-    config: Config,
+    config: Arc<Config>,
     agent_name: String,
     agent_session_id: String,
     parent_session_id: Option<String>,
@@ -824,7 +830,7 @@ fn spawn_background_run(task: BackgroundTask, args: HashMap<String, String>) -> 
         async move {
             let result = execute_agent(
                 &task.db,
-                &task.config,
+                Arc::clone(&task.config),
                 &task.agent_name,
                 args,
                 &task.agent_session_id,
@@ -849,7 +855,7 @@ fn spawn_background_resume(task: BackgroundTask, prompt: String) -> JoinHandle<(
         async move {
             let result = execute_resume(
                 &task.db,
-                &task.config,
+                Arc::clone(&task.config),
                 &task.agent_name,
                 &prompt,
                 &task.agent_session_id,
@@ -872,7 +878,7 @@ async fn finish_background(task: BackgroundTask, result: Result<AgentResult, Age
             spawn_children_inner(
                 agent_result.spawns,
                 &task.db,
-                &task.config,
+                Arc::clone(&task.config),
                 &task.agent_session_id,
                 task.depth,
             );
@@ -937,7 +943,7 @@ async fn finish_background(task: BackgroundTask, result: Result<AgentResult, Age
 fn spawn_children_inner(
     requests: Vec<SpawnRequest>,
     db: &GhostDb,
-    config: &Config,
+    config: Arc<Config>,
     parent_session_id: &str,
     depth: u32,
 ) {
@@ -955,7 +961,7 @@ fn spawn_children_inner(
 
     for req in requests {
         let db = db.clone();
-        let config = config.clone();
+        let config = Arc::clone(&config);
         let parent_id = parent_session_id.to_string();
         let span = tracing::Span::current();
 
@@ -1003,7 +1009,7 @@ fn spawn_children_inner(
 
                 let result = execute_agent(
                     &db,
-                    &config,
+                    Arc::clone(&config),
                     &req.agent,
                     req.args,
                     &agent_session_id,
@@ -1018,7 +1024,7 @@ fn spawn_children_inner(
                         spawn_children_inner(
                             agent_result.spawns,
                             &db,
-                            &config,
+                            Arc::clone(&config),
                             &agent_session_id,
                             child_depth,
                         );

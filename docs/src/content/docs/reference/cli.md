@@ -25,11 +25,12 @@ Creates `~/.config/ghost/config.toml` and the workspace directory with default f
 
 ## ghost config
 
-Read and write configuration values.
+Read, write, and reload configuration values.
 
 ```bash
 ghost config get <key>          # Get a config value (with defaults)
 ghost config set <key> <value>  # Set a config value
+ghost config reload             # Validate config and signal the daemon to reload
 ```
 
 Examples:
@@ -38,7 +39,41 @@ Examples:
 ghost config get discord.allowed_user_id
 ghost config set timing.heartbeat_idle_minutes 10
 ghost config set web.search_max_results 10
+ghost config reload
 ```
+
+### ghost config reload
+
+Validates `config.toml` and `.env`, then sends `SIGHUP` to a running daemon to apply
+changes without restarting.
+
+```bash
+ghost config reload
+```
+
+**Hot-reloadable** — the daemon picks up these changes immediately:
+
+- `model` — default chat model
+- `timing` — heartbeat, idle, and compaction intervals
+- `compaction` — token thresholds and limits
+- `web` — search provider, result counts
+- `docling` — document import settings
+- `coding` — coding session settings
+- `debug` — log level and debug flags
+- `discord.allowed_user_ids` — who can interact with GHOST
+- `embeddings.url` and `embeddings.model` — embedding endpoint and model name
+
+**Requires restart** — these settings are read once at startup:
+
+- `workspace` — workspace directory path
+- `embeddings.dimension` — vector size (changing this invalidates stored embeddings)
+- `discord.enabled` — enables or disables the Discord interface
+
+:::caution[Embeddings model change]
+Changing `embeddings.model` without also changing `embeddings.dimension` may produce
+embeddings that are incompatible with existing ones in the database. Run
+`ghost knowledge reindex` after changing the model to regenerate all embeddings.
+:::
 
 ## ghost auth
 

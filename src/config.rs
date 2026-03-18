@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 use std::env;
 use std::path::{Path, PathBuf};
-use std::sync::Once;
+use std::sync::{Arc, Once};
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -66,6 +66,9 @@ pub enum ConfigError {
 
     #[error("web.search.url is required when provider is 'searxng'")]
     MissingSearxngUrl,
+
+    #[error("cannot change '{field}' at runtime (requires restart)")]
+    ImmutableFieldChanged { field: String },
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -547,10 +550,58 @@ impl Config {
     }
 }
 
+/// A shared, dynamically-reloadable config handle.
+/// Cheap to clone — distribute to all consumers.
+pub type SharedConfig = tokio::sync::watch::Receiver<Arc<Config>>;
+
+/// Sender half — held by the daemon to publish config updates.
+pub(crate) type ConfigSender = tokio::sync::watch::Sender<Arc<Config>>;
+
+/// Convenience: grab a snapshot without dealing with borrow lifetimes.
+pub trait SharedConfigExt {
+    fn current(&self) -> Arc<Config>;
+}
+
+impl SharedConfigExt for SharedConfig {
+    fn current(&self) -> Arc<Config> {
+        self.borrow().clone()
+    }
+}
+
 #[tracing::instrument(skip_all)]
 pub fn load() -> Result<Config, ConfigError> {
     load_dotenv();
     load_from_dir(&config_dir()?)
+}
+
+/// Re-read `.env` and `config.toml` for hot-reload.
+///
+/// Unlike `load()`, this always re-reads `.env` (bypassing the `Once` guard)
+/// so that environment variable changes take effect. Uses `from_path_override`
+/// to overwrite existing env vars with new `.env` values.
+pub fn reload() -> Result<Config, ConfigError> {
+    reload_dotenv();
+    load_from_dir(&config_dir()?)
+}
+
+/// Check that immutable fields haven't changed between old and new config.
+pub fn validate_reload(current: &Config, new: &Config) -> Result<(), ConfigError> {
+    if current.workspace != new.workspace {
+        return Err(ConfigError::ImmutableFieldChanged {
+            field: "workspace".into(),
+        });
+    }
+    if current.embeddings.dimension != new.embeddings.dimension {
+        return Err(ConfigError::ImmutableFieldChanged {
+            field: "embeddings.dimension".into(),
+        });
+    }
+    if current.discord.enabled != new.discord.enabled {
+        return Err(ConfigError::ImmutableFieldChanged {
+            field: "discord.enabled".into(),
+        });
+    }
+    Ok(())
 }
 
 #[tracing::instrument(skip_all, fields(config_dir = %config_dir.display()))]
@@ -579,6 +630,18 @@ pub(crate) fn load_dotenv_from_config_dir() {
     }
     // Fallback: CWD-based .env (original behaviour)
     let _ = dotenvy::dotenv();
+}
+
+/// Re-read `.env` for hot-reload, overwriting existing env vars.
+fn reload_dotenv() {
+    if let Ok(dir) = config_dir() {
+        let env_path = dir.join(".env");
+        if env_path.exists() {
+            let _ = dotenvy::from_path_override(&env_path);
+            return;
+        }
+    }
+    let _ = dotenvy::dotenv_override();
 }
 
 #[tracing::instrument(skip_all)]
@@ -677,7 +740,7 @@ fn expand_tilde(input: &str) -> Result<PathBuf, ConfigError> {
     Ok(PathBuf::from(input))
 }
 
-/// Create a minimal `Config` for unit tests that need a ToolContext but don't
+/// Create a minimal [`Config`] for unit tests that need a `ToolContext` but don't
 /// exercise any real config behavior. The workspace is set to the given path.
 pub fn test_config(workspace: &std::path::Path) -> Config {
     let mut aliases = BTreeMap::new();
@@ -733,5 +796,55 @@ pub fn test_config(workspace: &std::path::Path) -> Config {
             save_requests: false,
         },
         install_bundled_docs: false,
+    }
+}
+
+#[cfg(test)]
+mod reload_tests {
+    use super::*;
+
+    #[test]
+    fn validate_reload_accepts_identical_config() {
+        let workspace = std::path::Path::new("/tmp/test");
+        let config = test_config(workspace);
+        assert!(validate_reload(&config, &config).is_ok());
+    }
+
+    #[test]
+    fn validate_reload_rejects_workspace_change() {
+        let a = test_config(std::path::Path::new("/tmp/a"));
+        let b = test_config(std::path::Path::new("/tmp/b"));
+        let err = validate_reload(&a, &b).unwrap_err();
+        assert!(matches!(err, ConfigError::ImmutableFieldChanged { .. }));
+    }
+
+    #[test]
+    fn validate_reload_rejects_dimension_change() {
+        let workspace = std::path::Path::new("/tmp/test");
+        let mut a = test_config(workspace);
+        let mut b = test_config(workspace);
+        a.embeddings.dimension = 1024;
+        b.embeddings.dimension = 768;
+        let err = validate_reload(&a, &b).unwrap_err();
+        assert!(matches!(err, ConfigError::ImmutableFieldChanged { .. }));
+    }
+
+    #[test]
+    fn validate_reload_rejects_discord_enabled_change() {
+        let workspace = std::path::Path::new("/tmp/test");
+        let mut a = test_config(workspace);
+        let mut b = test_config(workspace);
+        a.discord.enabled = false;
+        b.discord.enabled = true;
+        let err = validate_reload(&a, &b).unwrap_err();
+        assert!(matches!(err, ConfigError::ImmutableFieldChanged { .. }));
+    }
+
+    #[test]
+    fn shared_config_current_returns_snapshot() {
+        let config = test_config(std::path::Path::new("/tmp/test"));
+        let (_tx, rx) = tokio::sync::watch::channel(Arc::new(config.clone()));
+        let snapshot = rx.current();
+        assert_eq!(snapshot.workspace, config.workspace);
     }
 }

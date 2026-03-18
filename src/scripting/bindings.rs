@@ -38,7 +38,7 @@ pub struct AgentContext {
     /// Editable message history for `on_resume` hook.
     pub resume_messages: Arc<Mutex<Option<Vec<LuaMessage>>>>,
     /// Config for tool execution via `ctx:call_tool()`.
-    pub config: Option<Config>,
+    pub config: Option<Arc<Config>>,
     /// Tool manager for `ctx:call_tool()` / `ctx:call_tools()`.
     pub tool_manager: Option<Arc<ToolManager>>,
 }
@@ -60,7 +60,11 @@ impl AgentContext {
     }
 
     /// Enable `ctx:call_tool()` / `ctx:call_tools()` by attaching config and tool manager.
-    pub fn with_tool_support(mut self, config: Config, tool_manager: Arc<ToolManager>) -> Self {
+    pub fn with_tool_support(
+        mut self,
+        config: Arc<Config>,
+        tool_manager: Arc<ToolManager>,
+    ) -> Self {
         self.config = Some(config);
         self.tool_manager = Some(tool_manager);
         self
@@ -260,7 +264,7 @@ impl LuaUserData for AgentContext {
                     workspace: this.workspace.clone(),
                     cwd: this.workspace.clone(),
                     db: this.db.clone(),
-                    config: config.clone(),
+                    config: Arc::clone(config),
                     session_id: this.session_id.clone(),
                     agent_runner: None,
                     event_tx: None,
@@ -309,7 +313,7 @@ impl LuaUserData for AgentContext {
                 workspace: this.workspace.clone(),
                 cwd: this.workspace.clone(),
                 db: this.db.clone(),
-                config: config.clone(),
+                config: Arc::clone(config),
                 session_id: this.session_id.clone(),
                 agent_runner: None,
                 event_tx: None,
