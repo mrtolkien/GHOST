@@ -243,17 +243,20 @@ fn finalize_block(state: &BlockState, ghost_tool_names: &[&str]) -> ContentBlock
                 input,
             }
         }
-        "thinking" => ContentBlock::RawOutput {
-            original_type: "thinking".to_string(),
-            value: serde_json::json!({
-                "type": "thinking",
-                "thinking": state.thinking,
-                "signature": state.signature,
-            }),
+        "thinking" => ContentBlock::Thinking {
+            text: Some(state.thinking.clone()),
+            signature: Some(state.signature.clone()),
+            opaque_data: None,
         },
-        "redacted_thinking" => ContentBlock::RawOutput {
-            original_type: "redacted_thinking".to_string(),
-            value: state.redacted_json.clone().unwrap_or(serde_json::json!({})),
+        "redacted_thinking" => ContentBlock::Thinking {
+            text: None,
+            signature: None,
+            opaque_data: state
+                .redacted_json
+                .as_ref()
+                .and_then(|v| v.get("data"))
+                .and_then(Value::as_str)
+                .map(String::from),
         },
         // text and anything else
         _ => ContentBlock::Text {
@@ -466,13 +469,18 @@ mod tests {
         ]);
         let resp = parse_sse_response(&sse, "fallback", &[]).unwrap();
         assert_eq!(resp.content.len(), 2);
-        assert!(matches!(
-            &resp.content[0],
-            ContentBlock::RawOutput {
-                original_type,
-                ..
-            } if original_type == "thinking"
-        ));
+        match &resp.content[0] {
+            ContentBlock::Thinking {
+                text,
+                signature,
+                opaque_data,
+            } => {
+                assert_eq!(text, &Some("Let me think...".to_string()));
+                assert_eq!(signature, &Some("sig123".to_string()));
+                assert_eq!(opaque_data, &None);
+            }
+            other => panic!("expected Thinking, got {other:?}"),
+        }
         assert!(matches!(
             &resp.content[1],
             ContentBlock::Text { text } if text == "Here's my answer."
@@ -536,14 +544,16 @@ mod tests {
         let resp = parse_sse_response(&sse, "fallback", &[]).unwrap();
         assert_eq!(resp.content.len(), 2);
         match &resp.content[0] {
-            ContentBlock::RawOutput {
-                original_type,
-                value,
+            ContentBlock::Thinking {
+                text,
+                signature,
+                opaque_data,
             } => {
-                assert_eq!(original_type, "redacted_thinking");
-                assert_eq!(value["data"], "encrypted_payload");
+                assert_eq!(text, &None);
+                assert_eq!(signature, &None);
+                assert_eq!(opaque_data, &Some("encrypted_payload".to_string()));
             }
-            other => panic!("expected RawOutput, got {other:?}"),
+            other => panic!("expected Thinking, got {other:?}"),
         }
     }
 
