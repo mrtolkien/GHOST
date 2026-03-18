@@ -8,7 +8,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
-use ghost::config::{self, Config};
+use ghost::config::{self, Config, SharedConfig};
 use ghost::db::{self, GhostDb};
 use ghost::knowledge::{NoteFrontMatter, serialize_note};
 use ghost::providers::{
@@ -18,6 +18,13 @@ use ghost::providers::{
 use ghost::tools::{Tool, ToolContext, ToolError};
 use serde_json::json;
 use tempfile::TempDir;
+
+/// Wrap a `Config` into a `SharedConfig` for tests.
+#[allow(dead_code)]
+pub fn shared(config: &Config) -> SharedConfig {
+    let (_tx, rx) = tokio::sync::watch::channel(Arc::new(config.clone()));
+    rx
+}
 
 pub fn test_config() -> (Config, TempDir, TempDir) {
     let workspace = TempDir::new().expect("workspace tempdir");
@@ -362,7 +369,7 @@ impl LiveTestEnv {
 
     /// SessionChat with real provider + chat tools + agent runner.
     pub fn chat(&self) -> ghost::chat::SessionChat {
-        ghost::chat::SessionChat::from_config(self.db.clone(), self.config.clone())
+        ghost::chat::SessionChat::from_config(self.db.clone(), shared(&self.config))
             .expect("build session chat")
             .with_agent_runner(Arc::clone(&self.agent_runner))
     }
@@ -379,7 +386,7 @@ impl LiveTestEnv {
         std::mem::forget(shutdown_tx);
 
         let session_chat = Arc::new(
-            ghost::chat::SessionChat::from_config(self.db.clone(), self.config.clone())
+            ghost::chat::SessionChat::from_config(self.db.clone(), shared(&self.config))
                 .expect("build session chat")
                 .with_agent_runner(Arc::clone(&self.agent_runner))
                 .with_event_sender(event_tx),
@@ -1006,7 +1013,7 @@ pub async fn live_test_database_from_snapshot(
 
     let agent_runner = Arc::new(ghost::agents::AgentRunner::new(
         db.clone(),
-        config.clone(),
+        shared(&config),
         None,
     ));
 

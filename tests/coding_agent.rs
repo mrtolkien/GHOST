@@ -11,7 +11,7 @@ use ghost::tools::ToolManager;
 use serde_json::json;
 use tempfile::TempDir;
 
-use common::{EchoTool, MockProvider, respond_response, response};
+use common::{EchoTool, MockProvider, respond_response, response, shared};
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -292,7 +292,7 @@ async fn chat_coding_uses_custom_system_prompt() {
     )]));
     let requests = provider.requests();
 
-    let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config);
+    let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), shared(&config));
     let system_prompt = "You are a coding agent working in /tmp/repo.";
     let tmp = TempDir::new().unwrap();
 
@@ -342,7 +342,7 @@ async fn chat_coding_tool_loop_works() {
 
     let mut tools = ToolManager::empty();
     tools.register(Arc::new(EchoTool));
-    let chat = SessionChat::new(db.clone(), provider, tools, config);
+    let chat = SessionChat::new(db.clone(), provider, tools, shared(&config));
 
     let tmp = TempDir::new().unwrap();
     let (result, metadata) = chat
@@ -392,7 +392,7 @@ async fn chat_coding_persists_messages_to_db() {
         "I updated the file.",
         vec![],
     )]));
-    let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config);
+    let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), shared(&config));
 
     let tmp = TempDir::new().unwrap();
     let _ = chat
@@ -458,7 +458,12 @@ async fn cwd_override_affects_tool_execution() {
     ]));
     let requests = provider.requests();
 
-    let chat = SessionChat::new(db.clone(), provider, ToolManager::for_chat(), config);
+    let chat = SessionChat::new(
+        db.clone(),
+        provider,
+        ToolManager::for_chat(),
+        shared(&config),
+    );
 
     // working_dir points to workspace/repo — file_read("test.txt") resolves there
     let _ = chat
@@ -524,7 +529,7 @@ async fn full_coding_session_lifecycle() {
     )]));
     let system_prompt = coding::prompt::build_coding_prompt(&config, repo.path());
 
-    let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), config.clone());
+    let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), shared(&config));
 
     let (result, _) = chat
         .chat_coding(
@@ -592,7 +597,7 @@ async fn full_coding_session_lifecycle() {
         "Resumed and ready.",
         vec![],
     )]));
-    let chat2 = SessionChat::new(db.clone(), provider2, ToolManager::empty(), config);
+    let chat2 = SessionChat::new(db.clone(), provider2, ToolManager::empty(), shared(&config));
 
     let (result2, _) = chat2
         .chat_coding(

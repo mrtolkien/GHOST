@@ -125,8 +125,9 @@ pub(super) async fn run_tool_loop(
     channel_id: Option<String>,
 ) -> Result<(ChatResult, RunMetadata), ChatError> {
     let started_at = std::time::Instant::now();
+    let config = session_chat.config();
     let mut metadata = RunMetadata {
-        model_alias: session_chat.config().models.default.clone(),
+        model_alias: config.models.default.clone(),
         ..Default::default()
     };
 
@@ -284,11 +285,7 @@ pub(super) async fn run_tool_loop(
                         let input = t.get("input").unwrap_or(&Value::Null);
                         Some(ToolCallInfo {
                             name: name.to_string(),
-                            args_summary: summarize_tool_args(
-                                name,
-                                input,
-                                &session_chat.config().workspace,
-                            ),
+                            args_summary: summarize_tool_args(name, input, &config.workspace),
                             display: display::display_request(name, input),
                         })
                     })

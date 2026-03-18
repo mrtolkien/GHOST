@@ -1259,7 +1259,7 @@ mod tests {
         let db = test_db(dir.path()).await;
         let config = test_config(dir.path());
         let ctx = test_ctx(db, dir.path()).with_tool_support(
-            config,
+            std::sync::Arc::new(config),
             std::sync::Arc::new(crate::tools::ToolManager::all_available()),
         );
 
@@ -1317,7 +1317,7 @@ mod tests {
         let db = test_db(dir.path()).await;
         let config = test_config(dir.path());
         let ctx = test_ctx(db, dir.path()).with_tool_support(
-            config,
+            std::sync::Arc::new(config),
             std::sync::Arc::new(crate::tools::ToolManager::all_available()),
         );
 

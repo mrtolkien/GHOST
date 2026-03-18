@@ -49,7 +49,8 @@ async fn coding_agent_step_02_coding_agent_edits() {
     let system_prompt = ghost::coding::prompt::build_coding_prompt(&env.config, &working_dir);
 
     // Create a SessionChat for the coding agent
-    let chat = ghost::chat::SessionChat::from_config(env.db.clone(), env.config.clone())
+    let (_, shared_config) = tokio::sync::watch::channel(std::sync::Arc::new(env.config.clone()));
+    let chat = ghost::chat::SessionChat::from_config(env.db.clone(), shared_config)
         .expect("build session chat");
 
     // Send a coding request to the coding agent session

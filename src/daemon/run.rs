@@ -12,7 +12,7 @@ pub struct SettleTimeout(std::time::Duration);
 
 use crate::agents::AgentRunner;
 use crate::chat::{ActiveSessions, SessionChat};
-use crate::config::Config;
+use crate::config::{Config, SharedConfig};
 use crate::db::{self, GhostDb};
 use crate::embeddings::EmbeddingClient;
 use crate::error::GhostError;
@@ -238,10 +238,14 @@ pub async fn boot_with_config(config: Config) -> Result<DaemonHandle, GhostError
     // Create session event channel (background tasks → event handler)
     let (event_tx, event_rx) = crate::events::channel();
 
+    // Create shared config for hot-reload (sender held for future reload support)
+    let (_config_tx, shared_config): (crate::config::ConfigSender, SharedConfig) =
+        tokio::sync::watch::channel(Arc::new(config.clone()));
+
     // Create agent runner with event sender
     let agent_runner = Arc::new(AgentRunner::new(
         db.clone(),
-        config.clone(),
+        shared_config.clone(),
         Some(event_tx.clone()),
     ));
 
@@ -261,7 +265,7 @@ pub async fn boot_with_config(config: Config) -> Result<DaemonHandle, GhostError
     let (confirmation_tx, confirmation_rx) = crate::tools::confirmation::channel();
 
     let session_chat = Arc::new(
-        SessionChat::from_config(db.clone(), config.clone())?
+        SessionChat::from_config(db.clone(), shared_config.clone())?
             .with_agent_runner(Arc::clone(&agent_runner))
             .with_event_sender(event_tx)
             .with_active_sessions(active_sessions.clone())
