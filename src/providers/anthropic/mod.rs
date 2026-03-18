@@ -219,7 +219,6 @@ impl AnthropicProvider {
             });
         }
         if !status.is_success() {
-            self.circuit_breaker.record_failure(&request.model);
             logfire::warn!(
                 "anthropic provider non-success response",
                 provider = "anthropic",
