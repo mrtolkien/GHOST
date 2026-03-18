@@ -27,6 +27,16 @@ CREATE TABLE cited (
     to_id TEXT NOT NULL REFERENCES reference(id) ON DELETE CASCADE,
     created_at TEXT NOT NULL
 );
+CREATE TABLE code_file (
+    id          TEXT PRIMARY KEY,
+    repo        TEXT NOT NULL,
+    path        TEXT NOT NULL,
+    content     TEXT NOT NULL,
+    file_hash   TEXT,
+    created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
+    updated_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
+    UNIQUE(repo, path)
+);
 CREATE TABLE coding_sessions (
     id          TEXT PRIMARY KEY,
     session_id  TEXT NOT NULL REFERENCES session(id) ON DELETE CASCADE,
