@@ -6,7 +6,7 @@ use crate::db::GhostDb;
 use crate::web;
 
 use super::topic::ensure_topic_hierarchy;
-use super::types::{ImportConfig, ImportError, ImportResult, ImportSource};
+use super::types::{ImportConfig, ImportConfigJson, ImportError, ImportResult, ImportSource};
 
 /// Import a single web page or document URL as a reference under a topic.
 /// HTML pages are fetched and converted to markdown directly. Non-text URLs
@@ -33,6 +33,10 @@ pub async fn import_page(
     // Ensure topic hierarchy
     let topic_id = ensure_topic_hierarchy(db, &config.topic).await?;
 
+    // Build serializable config snapshot for DB and TOML
+    let config_json = ImportConfigJson::from(config);
+    let config_json_str = serde_json::to_string(&config_json).ok();
+
     // Build file-based path: {topic}/{slug}.md
     let slug = crate::web::slug_from_url(url);
     let filename = format!("{slug}.md");
@@ -44,8 +48,16 @@ pub async fn import_page(
         .is_some()
     {
         // Upsert batch even if skipping (topic may not have one yet)
-        let batch_id =
-            db::knowledge::upsert_import_batch(db, &topic_id, "page", url, None, 1).await?;
+        let batch_id = db::knowledge::upsert_import_batch(
+            db,
+            &topic_id,
+            "page",
+            url,
+            None,
+            1,
+            config_json_str.as_deref(),
+        )
+        .await?;
         return Ok(ImportResult {
             topic_id,
             batch_id,
@@ -55,7 +67,16 @@ pub async fn import_page(
     }
 
     // Upsert import batch
-    let batch_id = db::knowledge::upsert_import_batch(db, &topic_id, "page", url, None, 0).await?;
+    let batch_id = db::knowledge::upsert_import_batch(
+        db,
+        &topic_id,
+        "page",
+        url,
+        None,
+        0,
+        config_json_str.as_deref(),
+    )
+    .await?;
 
     // Fetch page content: try HTML fetch first, fall back to docling for non-text
     let text = match web::fetch(url, &web::FetchOptions::default(), None, None).await {
@@ -101,12 +122,19 @@ pub async fn import_page(
 
     // Update import batch with final ref count
     let total_refs = db::knowledge::count_references_by_topic(db, &topic_id).await? as usize;
-    let batch_id =
-        db::knowledge::upsert_import_batch(db, &topic_id, "page", url, None, total_refs as i64)
-            .await?;
+    let batch_id = db::knowledge::upsert_import_batch(
+        db,
+        &topic_id,
+        "page",
+        url,
+        None,
+        total_refs as i64,
+        config_json_str.as_deref(),
+    )
+    .await?;
 
     // Write _import.toml and ensure index notes
-    super::topic::write_import_toml(workspace, &config.topic, "page", url, None, total_refs)?;
+    super::topic::write_import_toml(workspace, &config.topic, &config_json, None, total_refs)?;
 
     Ok(ImportResult {
         topic_id,

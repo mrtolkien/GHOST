@@ -6,23 +6,18 @@ use crate::db;
 use crate::db::GhostDb;
 
 use super::topic::ensure_topic_hierarchy;
-use super::types::{ImportConfig, ImportError, ImportResult, ImportSource};
+use super::types::{ImportConfig, ImportConfigJson, ImportError, ImportResult, ImportSource};
 
-/// Import references from a git repository using sparse checkout.
-///
-/// Two-phase clone for large repos:
-/// 1. `git clone --no-checkout --depth 1 --filter=blob:none`
-/// 2. sparse-checkout + selective checkout
-#[tracing::instrument(name = "import git", skip_all, fields(topic = %config.topic))]
-pub async fn import_git(
-    db: &GhostDb,
-    workspace: &Path,
+/// Clone a git repo and return a manifest of (topic-relative path, content) pairs
+/// without touching the database.
+pub(crate) async fn fetch_git_manifest(
     config: &ImportConfig,
-) -> Result<ImportResult, ImportError> {
+) -> Result<(String, Vec<(String, String)>), ImportError> {
     let ImportSource::Git {
         url,
         paths,
         extensions,
+        git_ref,
     } = &config.source
     else {
         return Err(ImportError::Git("expected git source".into()));
@@ -32,15 +27,21 @@ pub async fn import_git(
     let repo_dir = tmp_dir.path().join("repo");
 
     // Phase 1: shallow blobless clone
+    let mut clone_args = vec![
+        "clone",
+        "--no-checkout",
+        "--depth",
+        "1",
+        "--filter=blob:none",
+    ];
+    if let Some(r) = git_ref {
+        clone_args.push("--branch");
+        clone_args.push(r);
+    }
+    clone_args.push(url);
+
     let status = Command::new("git")
-        .args([
-            "clone",
-            "--no-checkout",
-            "--depth",
-            "1",
-            "--filter=blob:none",
-            url,
-        ])
+        .args(&clone_args)
         .arg(&repo_dir)
         .output()
         .await
@@ -61,30 +62,13 @@ pub async fn import_git(
     }
     run_git(&repo_dir, &["checkout"]).await?;
 
-    // Get commit hash for version_ref
-    let version_ref = run_git_output(&repo_dir, &["rev-parse", "HEAD"]).await?;
-    let version_ref = version_ref.trim();
+    // Get commit hash
+    let commit_hash = run_git_output(&repo_dir, &["rev-parse", "HEAD"]).await?;
+    let commit_hash = commit_hash.trim().to_string();
 
-    // Ensure topic hierarchy in DB
-    let topic_id = ensure_topic_hierarchy(db, &config.topic).await?;
-
-    // Walk files and collect references
+    // Walk files and collect as (topic-relative path, content)
     let files = walk_files(&repo_dir, paths, extensions);
-    let total_files = files.len();
-    println!("Found {total_files} files to process");
-    let mut created = 0usize;
-    let mut skipped = 0usize;
-    // Upsert import batch (we'll update ref_count after creating references)
-    let batch_id = db::knowledge::upsert_import_batch(
-        db,
-        &topic_id,
-        "git",
-        url,
-        Some(version_ref),
-        0, // placeholder, updated below
-    )
-    .await?;
-
+    let mut manifest = Vec::new();
     for file_path in &files {
         let rel_path = file_path
             .strip_prefix(&repo_dir)
@@ -92,8 +76,62 @@ pub async fn import_git(
             .to_string_lossy();
         let ref_path = format!("{}/{}", config.topic, rel_path);
 
+        let content = match std::fs::read_to_string(file_path) {
+            Ok(c) => c,
+            Err(_) => continue, // skip binary/unreadable
+        };
+
+        manifest.push((ref_path, content));
+    }
+
+    Ok((commit_hash, manifest))
+}
+
+/// Import references from a git repository using sparse checkout.
+///
+/// Two-phase clone for large repos:
+/// 1. `git clone --no-checkout --depth 1 --filter=blob:none`
+/// 2. sparse-checkout + selective checkout
+#[tracing::instrument(name = "import git", skip_all, fields(topic = %config.topic))]
+pub async fn import_git(
+    db: &GhostDb,
+    workspace: &Path,
+    config: &ImportConfig,
+) -> Result<ImportResult, ImportError> {
+    let ImportSource::Git { url, .. } = &config.source else {
+        return Err(ImportError::Git("expected git source".into()));
+    };
+    let url = url.clone();
+
+    let (version_ref, manifest) = fetch_git_manifest(config).await?;
+
+    // Ensure topic hierarchy in DB
+    let topic_id = ensure_topic_hierarchy(db, &config.topic).await?;
+
+    // Build serializable config snapshot for DB and TOML
+    let config_json = ImportConfigJson::from(config);
+    let config_json_str = serde_json::to_string(&config_json).ok();
+
+    let total_files = manifest.len();
+    println!("Found {total_files} files to process");
+    let mut created = 0usize;
+    let mut skipped = 0usize;
+
+    // Upsert import batch (we'll update ref_count after creating references)
+    let batch_id = db::knowledge::upsert_import_batch(
+        db,
+        &topic_id,
+        "git",
+        &url,
+        Some(&version_ref),
+        0, // placeholder, updated below
+        config_json_str.as_deref(),
+    )
+    .await?;
+
+    for (ref_path, content) in &manifest {
         // Idempotency: skip if reference with this path already exists
-        if db::knowledge::find_reference_by_path(db, &ref_path)
+        if db::knowledge::find_reference_by_path(db, ref_path)
             .await?
             .is_some()
         {
@@ -102,33 +140,22 @@ pub async fn import_git(
         }
 
         let processed = created + skipped + 1;
-        println!("  [{processed}/{total_files}] {rel_path}");
+        println!("  [{processed}/{total_files}] {ref_path}");
 
-        let content = match std::fs::read_to_string(file_path) {
-            Ok(c) => c,
-            Err(_) => {
-                skipped += 1;
-                continue; // skip binary / unreadable files
-            }
-        };
-
-        // Write to disk: references/{topic}/{rel_path}
-        let disk_path = workspace
-            .join("references")
-            .join(&config.topic)
-            .join(&*rel_path);
+        // Write to disk: references/{ref_path}
+        let disk_path = workspace.join("references").join(ref_path);
         if let Some(parent) = disk_path.parent() {
             std::fs::create_dir_all(parent)?;
         }
-        std::fs::write(&disk_path, &content)?;
+        std::fs::write(&disk_path, content)?;
 
-        let hash = crate::embeddings::pipeline::content_hash(&content);
+        let hash = crate::embeddings::pipeline::content_hash(content);
         db::knowledge::create_reference(
             db,
             &topic_id,
-            &ref_path,
-            &content,
-            Some(url),
+            ref_path,
+            content,
+            Some(&url),
             Some(&batch_id),
             Some(&hash),
         )
@@ -143,9 +170,10 @@ pub async fn import_git(
         db,
         &topic_id,
         "git",
-        url,
-        Some(version_ref),
+        &url,
+        Some(&version_ref),
         total_refs as i64,
+        config_json_str.as_deref(),
     )
     .await?;
 
@@ -153,9 +181,8 @@ pub async fn import_git(
     super::topic::write_import_toml(
         workspace,
         &config.topic,
-        "git",
-        url,
-        Some(version_ref),
+        &config_json,
+        Some(&version_ref),
         total_refs,
     )?;
 

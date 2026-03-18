@@ -1,10 +1,11 @@
 ---
 name: reference-import
 description:
-  Import external content into the knowledge base — git repos and web crawls. Use when
-  knowledge_search has no results for a topic, when the OPERATOR wants persistent,
-  searchable reference material from a git repository or website. For PDF/DOCX/file
-  imports, use the document-import skill instead.
+  Import and update external content in the knowledge base — git repos and web crawls.
+  Use when knowledge_search has no results for a topic, when the OPERATOR wants
+  persistent, searchable reference material from a git repository or website, or when
+  existing references may be stale and need refreshing. For PDF/DOCX/file imports, use
+  the document-import skill instead.
 ---
 
 # Reference Import Skill
@@ -33,10 +34,12 @@ Follow this order — stop as soon as you have an answer:
 
 ```
 ghost reference import git --url <url> --topic <name> \
-    [--paths dir1,dir2] [--extensions .md,.rs]
+    [--paths dir1,dir2] [--extensions .md,.rs] [--ref <tag-or-branch>]
 
 ghost reference import crawl --url <url> --topic <name> \
     [--max-depth 3] [--max-pages 50]
+
+ghost reference update --topic <name> [--ref <tag-or-branch>]
 
 ghost topics list
 
@@ -126,4 +129,30 @@ knowledge_search(query="hooks", topic="dioxus", categories=["references"])
 
 ```
 ghost reference delete --topic dioxus/docs
+```
+
+## Updating References
+
+When the OPERATOR asks to refresh or update existing reference material, or when you
+notice imported docs may be stale (e.g. a library released a new version):
+
+```
+ghost reference update --topic <name> [--ref <tag-or-branch>]
+```
+
+This re-fetches from the original source and applies changes:
+
+- New files are added
+- Changed files are updated (content + embeddings)
+- Files deleted upstream are removed — unless cited by notes, in which case they're
+  moved to `_orphaned/` with a warning
+
+For git sources, the command short-circuits if the upstream commit hash hasn't changed.
+Use `--ref` to switch to a different branch or tag.
+
+Examples:
+
+```json
+{ "command": "ghost reference update --topic dioxus/docs", "background": true }
+{ "command": "ghost reference update --topic dioxus/docs --ref v0.6", "background": true }
 ```

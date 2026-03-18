@@ -9,15 +9,13 @@ use crate::db::GhostDb;
 use crate::web;
 
 use super::topic::ensure_topic_hierarchy;
-use super::types::{ImportConfig, ImportError, ImportResult, ImportSource};
+use super::types::{ImportConfig, ImportConfigJson, ImportError, ImportResult, ImportSource};
 
-/// Import references by BFS-crawling a website, following same-host links.
-#[tracing::instrument(name = "import crawl", skip_all, fields(topic = %config.topic))]
-pub async fn import_crawl(
-    db: &GhostDb,
-    workspace: &Path,
+/// BFS-crawl a website and return a manifest of (topic-relative path, content,
+/// source_url) tuples without touching the database.
+pub(crate) async fn fetch_crawl_manifest(
     config: &ImportConfig,
-) -> Result<ImportResult, ImportError> {
+) -> Result<Vec<(String, String, String)>, ImportError> {
     let ImportSource::Crawl {
         url: seed_url,
         max_depth,
@@ -34,17 +32,9 @@ pub async fn import_crawl(
         .ok_or_else(|| ImportError::Fetch("seed URL has no host".into()))?
         .to_string();
 
-    // Ensure topic hierarchy
-    let topic_id = ensure_topic_hierarchy(db, &config.topic).await?;
-
-    // Upsert import batch with placeholder count
-    let batch_id =
-        db::knowledge::upsert_import_batch(db, &topic_id, "crawl", seed_url, None, 0).await?;
-
     let mut queue: VecDeque<(Url, usize)> = VecDeque::new();
     let mut visited: HashSet<String> = HashSet::new();
-    let mut created = 0usize;
-    let mut skipped = 0usize;
+    let mut manifest = Vec::new();
 
     queue.push_back((seed, 0));
 
@@ -52,26 +42,16 @@ pub async fn import_crawl(
 
     while let Some((url, depth)) = queue.pop_front() {
         let normalized = normalize_url(&url);
-        if visited.contains(&normalized) || depth > *max_depth || created + skipped >= *max_pages {
+        if visited.contains(&normalized) || depth > *max_depth || manifest.len() >= *max_pages {
             continue;
         }
         visited.insert(normalized.clone());
 
-        // Build file-based path: {topic}/{slug}.md
         let slug = crate::web::slug_from_url(url.as_str());
         let filename = format!("{slug}.md");
         let ref_path = format!("{}/{filename}", config.topic);
 
-        // Idempotency: skip if already imported
-        if db::knowledge::find_reference_by_path(db, &ref_path)
-            .await?
-            .is_some()
-        {
-            skipped += 1;
-            continue;
-        }
-
-        let page_num = created + skipped + 1;
+        let page_num = manifest.len() + 1;
         println!("  [{page_num}/{max_pages}] {}", url.as_str());
 
         // Fetch raw HTML for link extraction
@@ -108,36 +88,85 @@ pub async fn import_crawl(
             }
         }
 
-        // Convert the already-fetched HTML to markdown locally (no second fetch)
+        // Convert to markdown
         let extracted = web::extract_content(&html, url.as_str(), &web::FetchOptions::default());
 
-        // Write to disk: references/{topic}/{slug}.md
-        let disk_path = workspace
-            .join("references")
-            .join(&config.topic)
-            .join(&filename);
+        manifest.push((ref_path, extracted.text, url.to_string()));
+
+        // Small delay between fetches to be polite
+        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+    }
+
+    Ok(manifest)
+}
+
+/// Import references by BFS-crawling a website, following same-host links.
+#[tracing::instrument(name = "import crawl", skip_all, fields(topic = %config.topic))]
+pub async fn import_crawl(
+    db: &GhostDb,
+    workspace: &Path,
+    config: &ImportConfig,
+) -> Result<ImportResult, ImportError> {
+    let ImportSource::Crawl { url: seed_url, .. } = &config.source else {
+        return Err(ImportError::Fetch("expected crawl source".into()));
+    };
+    let seed_url = seed_url.clone();
+
+    let manifest = fetch_crawl_manifest(config).await?;
+
+    // Ensure topic hierarchy
+    let topic_id = ensure_topic_hierarchy(db, &config.topic).await?;
+
+    // Build serializable config snapshot for DB and TOML
+    let config_json = ImportConfigJson::from(config);
+    let config_json_str = serde_json::to_string(&config_json).ok();
+
+    // Upsert import batch with placeholder count
+    let batch_id = db::knowledge::upsert_import_batch(
+        db,
+        &topic_id,
+        "crawl",
+        &seed_url,
+        None,
+        0,
+        config_json_str.as_deref(),
+    )
+    .await?;
+
+    let mut created = 0usize;
+    let mut skipped = 0usize;
+
+    for (ref_path, content, source_url) in &manifest {
+        // Idempotency: skip if already imported
+        if db::knowledge::find_reference_by_path(db, ref_path)
+            .await?
+            .is_some()
+        {
+            skipped += 1;
+            continue;
+        }
+
+        // Write to disk: references/{ref_path}
+        let disk_path = workspace.join("references").join(ref_path);
         if let Some(parent) = disk_path.parent() {
             std::fs::create_dir_all(parent)?;
         }
-        std::fs::write(&disk_path, &extracted.text)?;
+        std::fs::write(&disk_path, content)?;
 
         // Store as reference
-        let hash = crate::embeddings::pipeline::content_hash(&extracted.text);
+        let hash = crate::embeddings::pipeline::content_hash(content);
         db::knowledge::create_reference(
             db,
             &topic_id,
-            &ref_path,
-            &extracted.text,
-            Some(url.as_str()),
+            ref_path,
+            content,
+            Some(source_url.as_str()),
             Some(&batch_id),
             Some(&hash),
         )
         .await?;
 
         created += 1;
-
-        // Small delay between fetches to be polite
-        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
     }
 
     // Update import batch with final count
@@ -146,21 +175,15 @@ pub async fn import_crawl(
         db,
         &topic_id,
         "crawl",
-        seed_url,
+        &seed_url,
         None,
         total_refs as i64,
+        config_json_str.as_deref(),
     )
     .await?;
 
     // Write _import.toml and ensure index notes
-    super::topic::write_import_toml(
-        workspace,
-        &config.topic,
-        "crawl",
-        seed_url,
-        None,
-        total_refs,
-    )?;
+    super::topic::write_import_toml(workspace, &config.topic, &config_json, None, total_refs)?;
 
     Ok(ImportResult {
         topic_id,

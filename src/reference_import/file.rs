@@ -5,7 +5,7 @@ use crate::db;
 use crate::db::GhostDb;
 
 use super::topic::ensure_topic_hierarchy;
-use super::types::{ImportConfig, ImportError, ImportResult, ImportSource};
+use super::types::{ImportConfig, ImportConfigJson, ImportError, ImportResult, ImportSource};
 
 #[tracing::instrument(name = "import file", skip_all, fields(topic = %config.topic))]
 pub async fn import_file(
@@ -49,6 +49,10 @@ pub async fn import_file(
 
     let topic_id = ensure_topic_hierarchy(db, &config.topic).await?;
 
+    // Build serializable config snapshot for DB and TOML
+    let config_json = ImportConfigJson::from(config);
+    let config_json_str = serde_json::to_string(&config_json).ok();
+
     let filename = format!("{stem}.md");
     let ref_path = format!("{}/{filename}", config.topic);
 
@@ -57,8 +61,16 @@ pub async fn import_file(
         .await?
         .is_some()
     {
-        let batch_id =
-            db::knowledge::upsert_import_batch(db, &topic_id, "file", file_path, None, 1).await?;
+        let batch_id = db::knowledge::upsert_import_batch(
+            db,
+            &topic_id,
+            "file",
+            file_path,
+            None,
+            1,
+            config_json_str.as_deref(),
+        )
+        .await?;
         return Ok(ImportResult {
             topic_id,
             batch_id,
@@ -67,8 +79,16 @@ pub async fn import_file(
         });
     }
 
-    let batch_id =
-        db::knowledge::upsert_import_batch(db, &topic_id, "file", file_path, None, 0).await?;
+    let batch_id = db::knowledge::upsert_import_batch(
+        db,
+        &topic_id,
+        "file",
+        file_path,
+        None,
+        0,
+        config_json_str.as_deref(),
+    )
+    .await?;
 
     // Convert via docling
     let convert_opts = crate::web::docling::ConvertOptions {
@@ -123,17 +143,11 @@ pub async fn import_file(
         file_path,
         None,
         total_refs as i64,
+        config_json_str.as_deref(),
     )
     .await?;
 
-    super::topic::write_import_toml(
-        workspace,
-        &config.topic,
-        "file",
-        file_path,
-        None,
-        total_refs,
-    )?;
+    super::topic::write_import_toml(workspace, &config.topic, &config_json, None, total_refs)?;
 
     Ok(ImportResult {
         topic_id,

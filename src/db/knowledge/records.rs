@@ -54,6 +54,7 @@ pub struct ImportBatchRecord {
     pub source_url: String,
     pub version_ref: Option<String>,
     pub ref_count: i64,
+    pub import_config: Option<String>,
     pub created_at: String,
     pub updated_at: String,
 }
