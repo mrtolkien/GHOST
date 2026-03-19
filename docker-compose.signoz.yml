@@ -13,7 +13,7 @@ x-common: &common
 
 x-clickhouse-defaults: &clickhouse-defaults
   <<: *common
-  image: clickhouse/clickhouse-server:24.1.2
+  image: clickhouse/clickhouse-server:24.11
   tty: true
   depends_on:
     init-clickhouse:
@@ -47,7 +47,7 @@ x-db-depend: &db-depend
 services:
   init-clickhouse:
     <<: *common
-    image: clickhouse/clickhouse-server:24.1.2
+    image: clickhouse/clickhouse-server:24.11
     container_name: signoz-init-clickhouse
     command:
       - bash
@@ -87,6 +87,8 @@ services:
   clickhouse:
     <<: *clickhouse-defaults
     container_name: signoz-clickhouse
+    ports:
+      - "127.0.0.1:8123:8123"
     volumes:
       - ./deploy/common/clickhouse/config.xml:/etc/clickhouse-server/config.xml
       - ./deploy/common/clickhouse/users.xml:/etc/clickhouse-server/users.xml

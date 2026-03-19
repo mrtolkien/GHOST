@@ -11,22 +11,20 @@
 //!       --test observability_live -- --nocapture
 
 use opentelemetry::KeyValue;
-use opentelemetry::trace::{Tracer, TracerProvider};
-use opentelemetry_otlp::WithExportConfig;
+use opentelemetry::trace::{SpanKind, Status, TraceId, SpanId};
 use opentelemetry_sdk::Resource;
-use opentelemetry_sdk::trace::SdkTracerProvider;
+use opentelemetry_sdk::trace::{SpanData, SpanExporter};
 
 /// Verify that spans exported via OTLP HTTP reach the SigNoz stack.
 ///
-/// The test creates a throwaway `SdkTracerProvider` with a unique service name,
-/// emits one span, flushes via `shutdown()`, then queries ClickHouse directly
-/// (exposed on port 8123) to confirm the span was ingested.
+/// Manually constructs a `SpanData`, exports it via the OTLP HTTP exporter
+/// directly (no SDK batch processor), then queries ClickHouse to confirm
+/// ingestion.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn otlp_spans_reach_signoz() {
     let service_name = format!("ghost-test-{}", ulid::Ulid::new());
     eprintln!("Service name for this test run: {service_name}");
 
-    // Build a standalone provider pointing at the local collector.
     let endpoint = std::env::var("OTEL_EXPORTER_OTLP_ENDPOINT")
         .unwrap_or_else(|_| "http://localhost:4318".to_owned());
 
@@ -37,43 +35,66 @@ async fn otlp_spans_reach_signoz() {
         ])
         .build();
 
-    let exporter = opentelemetry_otlp::SpanExporter::builder()
+    // Set the env var so the SDK resolves the endpoint correctly (appends
+    // /v1/traces). Using .with_endpoint() directly would NOT append the path.
+    unsafe {
+        std::env::set_var("OTEL_EXPORTER_OTLP_ENDPOINT", &endpoint);
+    }
+    let mut exporter = opentelemetry_otlp::SpanExporter::builder()
         .with_http()
-        .with_endpoint(&endpoint)
         .build()
         .expect("failed to build OTLP HTTP span exporter");
 
-    let provider = SdkTracerProvider::builder()
-        .with_resource(resource)
-        .with_batch_exporter(exporter)
-        .build();
+    exporter.set_resource(&resource);
 
-    // Create a span using the OTel API directly.
-    let tracer = provider.tracer("ghost-observability-test");
-    let _span = tracer
-        .span_builder("test-span")
-        .with_attributes([KeyValue::new("test.marker", "observability-live")])
-        .start(&tracer);
-    drop(_span);
+    // Build a SpanData manually.
+    let now = std::time::SystemTime::now();
+    let span_data = SpanData {
+        span_context: opentelemetry::trace::SpanContext::new(
+            TraceId::from_hex("4bf92f3577b34da6a3ce929d0e0e4736").unwrap(),
+            SpanId::from_hex("00f067aa0ba902b7").unwrap(),
+            opentelemetry::trace::TraceFlags::SAMPLED,
+            true,
+            opentelemetry::trace::TraceState::default(),
+        ),
+        parent_span_id: SpanId::INVALID,
+        parent_span_is_remote: false,
+        span_kind: SpanKind::Internal,
+        name: "test-span".into(),
+        start_time: now,
+        end_time: now + std::time::Duration::from_millis(42),
+        attributes: vec![KeyValue::new("test.marker", "observability-live")],
+        dropped_attributes_count: 0,
+        events: opentelemetry_sdk::trace::SpanEvents::default(),
+        links: opentelemetry_sdk::trace::SpanLinks::default(),
+        status: Status::Ok,
+        instrumentation_scope: opentelemetry::InstrumentationScope::builder("ghost-test")
+            .build(),
+    };
 
-    // Shutdown flushes the batch exporter.
-    provider
-        .shutdown()
-        .expect("provider shutdown (flush) failed");
+    // Export directly (async, runs in the tokio runtime).
+    let result = exporter.export(vec![span_data]).await;
+    eprintln!("Export result: {result:?}");
+    assert!(result.is_ok(), "OTLP export failed: {result:?}");
 
-    // Give the collector and ClickHouse a few seconds to ingest.
+    // Shutdown the exporter.
+    let _ = exporter.shutdown();
+
+    // Give the collector + ClickHouse time to ingest.
     tokio::time::sleep(std::time::Duration::from_secs(10)).await;
 
     // Query ClickHouse directly for the test service name.
+    // In SigNoz v3 schema the column is resource_string_service$$name.
     let clickhouse_url = std::env::var("CLICKHOUSE_URL")
         .unwrap_or_else(|_| "http://localhost:8123".to_owned());
 
     let query = format!(
         "SELECT count() AS cnt \
          FROM signoz_traces.distributed_signoz_index_v3 \
-         WHERE serviceName = '{service_name}' \
+         WHERE `resource_string_service$$name` = '{service_name}' \
          FORMAT JSON"
     );
+    eprintln!("ClickHouse query: {query}");
 
     let client = reqwest::Client::new();
     let resp = client
