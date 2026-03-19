@@ -1,11 +1,6 @@
 {
   description = "Ghost — personal AI agent";
 
-  nixConfig = {
-    extra-substituters = [ "https://ghost-ai.cachix.org" ];
-    extra-trusted-public-keys = [ "ghost-ai.cachix.org-1:c0BYnkFKE8rYzkusZD5+l5D5Vcl8WRQMXV1zVWjxCBI=" ];
-  };
-
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     crane.url = "github:ipetkov/crane";
