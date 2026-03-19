@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/mrtolkien/GHOST/compare/ghost-v0.2.0...ghost-v0.2.1) (2026-03-19)
+
+
+### Bug Fixes
+
+* trigger on properly named tags! ([4ddc1bf](https://github.com/mrtolkien/GHOST/commit/4ddc1bf487fd6fa6074fce9ccb0a7e14479874a5))
+
 ## [0.2.0](https://github.com/mrtolkien/GHOST/compare/ghost-v0.1.0...ghost-v0.2.0) (2026-03-19)
 
 
