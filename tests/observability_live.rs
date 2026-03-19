@@ -11,7 +11,7 @@
 //!       --test observability_live -- --nocapture
 
 use opentelemetry::KeyValue;
-use opentelemetry::trace::{SpanKind, Status, TraceId, SpanId};
+use opentelemetry::trace::{SpanId, SpanKind, Status, TraceId};
 use opentelemetry_sdk::Resource;
 use opentelemetry_sdk::trace::{SpanData, SpanExporter};
 
@@ -68,8 +68,7 @@ async fn otlp_spans_reach_signoz() {
         events: opentelemetry_sdk::trace::SpanEvents::default(),
         links: opentelemetry_sdk::trace::SpanLinks::default(),
         status: Status::Ok,
-        instrumentation_scope: opentelemetry::InstrumentationScope::builder("ghost-test")
-            .build(),
+        instrumentation_scope: opentelemetry::InstrumentationScope::builder("ghost-test").build(),
     };
 
     // Export directly (async, runs in the tokio runtime).
@@ -85,8 +84,8 @@ async fn otlp_spans_reach_signoz() {
 
     // Query ClickHouse directly for the test service name.
     // In SigNoz v3 schema the column is resource_string_service$$name.
-    let clickhouse_url = std::env::var("CLICKHOUSE_URL")
-        .unwrap_or_else(|_| "http://localhost:8123".to_owned());
+    let clickhouse_url =
+        std::env::var("CLICKHOUSE_URL").unwrap_or_else(|_| "http://localhost:8123".to_owned());
 
     let query = format!(
         "SELECT count() AS cnt \
@@ -104,7 +103,10 @@ async fn otlp_spans_reach_signoz() {
         .await
         .expect("ClickHouse query failed");
 
-    let body = resp.text().await.expect("failed to read ClickHouse response");
+    let body = resp
+        .text()
+        .await
+        .expect("failed to read ClickHouse response");
     eprintln!("ClickHouse response: {body}");
 
     let json: serde_json::Value =
