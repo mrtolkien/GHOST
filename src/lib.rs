@@ -28,3 +28,4 @@ pub mod scripting;
 pub mod skills;
 pub mod tools;
 pub mod web;
+pub mod onboarding;
