@@ -58,7 +58,7 @@ impl ProviderChoice {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ServiceChoice {
     /// Install via nix profile and run as systemd/launchd service.
     NixNative,
@@ -84,12 +84,30 @@ impl ServiceChoice {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SearchChoice {
     SearxngLocal,
     BraveApi(String),
     SearxngRemote(String),
     Skip,
+}
+
+impl SearchChoice {
+    pub fn from_flag(s: &str) -> Result<Self, OnboardingError> {
+        match s {
+            "local" | "searxng" => Ok(Self::SearxngLocal),
+            "skip" => Ok(Self::Skip),
+            s if s.starts_with("brave:") => {
+                Ok(Self::BraveApi(s[6..].to_string()))
+            }
+            s if s.starts_with("remote:") => {
+                Ok(Self::SearxngRemote(s[7..].to_string()))
+            }
+            _ => Err(OnboardingError::InvalidInput(format!(
+                "invalid search choice: {s}"
+            ))),
+        }
+    }
 }
 
 /// Module-local error type.
