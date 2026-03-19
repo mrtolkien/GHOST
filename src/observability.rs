@@ -1,29 +1,43 @@
 use std::sync::OnceLock;
 
-use logfire::config::ConsoleOptions;
+use opentelemetry::KeyValue;
+use opentelemetry::trace::TracerProvider;
+use opentelemetry_sdk::Resource;
+use opentelemetry_sdk::trace::SdkTracerProvider;
 use thiserror::Error;
+use tracing_subscriber::Layer;
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
 
-/// Holds the shutdown guard for the test process so the export pipeline
+/// Holds the tracer provider for the test process so the export pipeline
 /// stays alive until process exit. Initialized exactly once.
-static TEST_SHUTDOWN_GUARD: OnceLock<logfire::ShutdownGuard> = OnceLock::new();
+static TEST_PROVIDER: OnceLock<SdkTracerProvider> = OnceLock::new();
 
 #[derive(Debug, Error)]
 pub enum ObservabilityError {
-    #[error("failed to initialize logfire: {source}")]
-    LogfireInit {
+    #[error("failed to initialize OpenTelemetry exporter: {source}")]
+    OtelInit {
         #[source]
-        source: logfire::ConfigureError,
+        source: opentelemetry_otlp::ExporterBuildError,
     },
 }
 
 pub struct DaemonObservability {
-    _shutdown_guard: Option<logfire::ShutdownGuard>,
+    _provider: Option<SdkTracerProvider>,
 }
 
 impl DaemonObservability {
     fn disabled() -> Self {
-        Self {
-            _shutdown_guard: None,
+        Self { _provider: None }
+    }
+}
+
+impl Drop for DaemonObservability {
+    fn drop(&mut self) {
+        if let Some(provider) = self._provider.take()
+            && let Err(e) = provider.shutdown()
+        {
+            eprintln!("OpenTelemetry shutdown error: {e}");
         }
     }
 }
@@ -35,18 +49,38 @@ pub fn init() -> Result<DaemonObservability, ObservabilityError> {
 
     crate::config::load_dotenv_from_config_dir();
     set_default_rust_log_filter();
-    set_default_logfire_environment();
-    let logfire = logfire::configure()
-        .with_service_name("GHOST")
-        .with_install_panic_handler(true)
-        .send_to_logfire(logfire::config::SendToLogfire::IfTokenPresent)
-        .with_console(Some(console_options()))
-        .finish()
-        .map_err(|source| ObservabilityError::LogfireInit { source })?;
+    install_panic_handler();
 
-    Ok(DaemonObservability {
-        _shutdown_guard: Some(logfire.shutdown_guard()),
-    })
+    let fmt_layer = tracing_subscriber::fmt::layer()
+        .with_ansi(true)
+        .with_timer(tracing_subscriber::fmt::time::SystemTime);
+
+    let env_filter = tracing_subscriber::EnvFilter::from_default_env();
+
+    if std::env::var_os("OTEL_EXPORTER_OTLP_ENDPOINT").is_some() {
+        let provider = build_tracer_provider("production")?;
+        let tracer = provider.tracer("ghost");
+        let otel_layer = tracing_opentelemetry::layer()
+            .with_tracer(tracer)
+            .with_filter(tracing_subscriber::filter::LevelFilter::INFO);
+
+        tracing_subscriber::registry()
+            .with(env_filter)
+            .with(fmt_layer)
+            .with(otel_layer)
+            .init();
+
+        Ok(DaemonObservability {
+            _provider: Some(provider),
+        })
+    } else {
+        tracing_subscriber::registry()
+            .with(env_filter)
+            .with(fmt_layer)
+            .init();
+
+        Ok(DaemonObservability::disabled())
+    }
 }
 
 pub fn init_for_live_tests() -> Result<DaemonObservability, ObservabilityError> {
@@ -56,20 +90,39 @@ pub fn init_for_live_tests() -> Result<DaemonObservability, ObservabilityError> 
     INIT.call_once(|| {
         crate::config::load_dotenv_from_config_dir();
         set_default_rust_log_filter_for_tests();
-        match logfire::configure()
-            .with_service_name("GHOST")
-            .with_environment("test")
-            .with_install_panic_handler(true)
-            .send_to_logfire(logfire::config::SendToLogfire::IfTokenPresent)
-            .with_console(Some(console_options()))
-            .finish()
-        {
-            Ok(logfire) => {
-                let _ = TEST_SHUTDOWN_GUARD.set(logfire.shutdown_guard());
+        install_panic_handler();
+
+        let fmt_layer = tracing_subscriber::fmt::layer()
+            .with_ansi(true)
+            .with_timer(tracing_subscriber::fmt::time::SystemTime);
+
+        let env_filter = tracing_subscriber::EnvFilter::from_default_env();
+
+        if std::env::var_os("OTEL_EXPORTER_OTLP_ENDPOINT").is_some() {
+            match build_tracer_provider("test") {
+                Ok(provider) => {
+                    let tracer = provider.tracer("ghost");
+                    let otel_layer = tracing_opentelemetry::layer()
+                        .with_tracer(tracer)
+                        .with_filter(tracing_subscriber::filter::LevelFilter::INFO);
+
+                    tracing_subscriber::registry()
+                        .with(env_filter)
+                        .with(fmt_layer)
+                        .with(otel_layer)
+                        .init();
+
+                    let _ = TEST_PROVIDER.set(provider);
+                }
+                Err(e) => {
+                    result = Some(e);
+                }
             }
-            Err(source) => {
-                result = Some(ObservabilityError::LogfireInit { source });
-            }
+        } else {
+            tracing_subscriber::registry()
+                .with(env_filter)
+                .with(fmt_layer)
+                .init();
         }
     });
     if let Some(error) = result {
@@ -79,25 +132,48 @@ pub fn init_for_live_tests() -> Result<DaemonObservability, ObservabilityError> 
     Ok(DaemonObservability::disabled())
 }
 
-fn console_options() -> ConsoleOptions {
-    ConsoleOptions::default()
-        .with_colors(logfire::config::ConsoleColors::Auto)
-        .with_include_timestamps(true)
-        .with_min_log_level(tracing::Level::INFO)
+fn build_tracer_provider(environment: &str) -> Result<SdkTracerProvider, ObservabilityError> {
+    let service_name = std::env::var("OTEL_SERVICE_NAME").unwrap_or_else(|_| "GHOST".to_owned());
+
+    let resource = Resource::builder()
+        .with_attributes([
+            KeyValue::new("service.name", service_name),
+            KeyValue::new("deployment.environment.name", environment.to_owned()),
+        ])
+        .build();
+
+    let exporter = opentelemetry_otlp::SpanExporter::builder()
+        .with_http()
+        .build()
+        .map_err(|source| ObservabilityError::OtelInit { source })?;
+
+    let provider = SdkTracerProvider::builder()
+        .with_resource(resource)
+        .with_batch_exporter(exporter)
+        .build();
+
+    Ok(provider)
+}
+
+fn install_panic_handler() {
+    let prev = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        let message = info.payload_as_str().unwrap_or("unknown panic");
+        let location = info
+            .location()
+            .map(|l| format!("{}:{}:{}", l.file(), l.line(), l.column()))
+            .unwrap_or_else(|| "unknown".to_owned());
+        tracing::error!(
+            panic.message = message,
+            panic.location = location,
+            "panic occurred"
+        );
+        prev(info);
+    }));
 }
 
 fn running_under_cargo_test() -> bool {
     std::env::var_os("RUST_TEST_THREADS").is_some()
-}
-
-fn set_default_logfire_environment() {
-    if std::env::var_os("LOGFIRE_ENVIRONMENT").is_some() {
-        return;
-    }
-    // SAFETY: daemon startup sets process env before spawning runtime tasks.
-    unsafe {
-        std::env::set_var("LOGFIRE_ENVIRONMENT", "production");
-    }
 }
 
 fn set_default_rust_log_filter() {
@@ -105,10 +181,7 @@ fn set_default_rust_log_filter() {
         return;
     }
 
-    // RUST_LOG controls both console output and what gets sent to logfire.
-    // logfire's ConsoleOptions::with_min_log_level has a bug (0.9.0) where
-    // log records bypass the min-level check, so RUST_LOG is the only
-    // reliable way to filter console output.
+    // RUST_LOG controls both console output and what gets exported via OTLP.
     //
     // To see provider request/response bodies, set:
     //   RUST_LOG=warn,ghost=info,ghost::providers=debug
