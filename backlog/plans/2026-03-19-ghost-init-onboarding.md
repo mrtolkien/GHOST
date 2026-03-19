@@ -1519,7 +1519,316 @@ git commit -m "test: add integration test for non-interactive ghost init"
 
 ---
 
-## Task 14: Final verification + cleanup
+## Task 14: Documentation
+
+**Files:**
+- Create: `docs/src/content/docs/getting-started/onboarding.md`
+- Create: `docs/src/content/docs/getting-started/services.md`
+- Modify: `docs/astro.config.mjs:30-48` (add sidebar entries)
+- Modify: `docs/src/content/docs/getting-started/installation.mdx` (link to onboarding)
+- Modify: `docs/src/content/docs/reference/dependencies.md` (update for new service
+  management approach)
+
+Two new pages: a short CLI-driven onboarding guide and a more detailed services
+reference. Read the `/docs` skill before writing — it covers formatting rules,
+terminology (`GHOST`/`OPERATOR` in all caps), and build verification.
+
+- [ ] **Step 1: Write the onboarding page**
+
+Create `docs/src/content/docs/getting-started/onboarding.md`:
+
+```markdown
+---
+title: Onboarding
+description: Set up your GHOST with the interactive setup wizard.
+---
+
+After installing the GHOST binary, run the onboarding wizard to configure
+everything:
+
+## Quick Start
+
+    ghost init
+
+The wizard walks you through:
+
+1. **LLM provider** — pick a provider, enter your API key, choose a model
+2. **Discord** — create a bot and connect it to your server
+3. **Services** — set up embeddings, web search, web fetch, and document
+   processing (locally or remotely)
+
+At the end, your GHOST starts and sends you a message on Discord.
+
+## Non-Interactive Mode
+
+For automated deployments, pass all options as flags:
+
+    ghost init \
+      --provider openrouter \
+      --api-key "$OPENROUTER_API_KEY" \
+      --model "anthropic/claude-sonnet-4" \
+      --context-window 200000 \
+      --discord-token "$DISCORD_BOT_TOKEN" \
+      --discord-user "$DISCORD_USER_ID" \
+      --embeddings local \
+      --search local \
+      --crawl local \
+      --docling local \
+      --start
+
+## Re-running
+
+Run `ghost init` again at any time to reconfigure. It detects your
+existing configuration and offers to update it — showing a diff of all
+changes before applying.
+
+## Need Help During Setup?
+
+Press **h** at any prompt to ask the onboarding assistant for help. It
+uses your configured LLM to answer questions about the setup process
+(available after the provider step completes).
+
+## Next Steps
+
+- [Services](/getting-started/services/) — how the service stack works
+  and how your GHOST manages it
+- [Configuration](/getting-started/configuration/) — config.toml and
+  .env reference
+- [Workspace](/getting-started/workspace/) — what's in your GHOST's
+  workspace directory
+```
+
+Keep it short. The wizard itself provides all the context the user needs.
+
+- [ ] **Step 2: Write the services page**
+
+Create `docs/src/content/docs/getting-started/services.md`:
+
+```markdown
+---
+title: Services
+description:
+  How GHOST's service stack works — native services, containers, and
+  how to manage them.
+---
+
+Your GHOST relies on several services to function. The onboarding wizard
+(`ghost init`) sets them up, but this page explains how they work and how
+to manage them afterward.
+
+## Architecture
+
+Services come in two flavors:
+
+### Native Services (nix + systemd/launchd)
+
+Installed via `nix profile install` and managed as system services.
+
+| Service | Binary | Purpose |
+| --- | --- | --- |
+| **ghost-daemon** | `ghost` | The GHOST itself |
+| **llama-server** | `llama-server` | Embedding generation (llama.cpp) |
+| **docling-serve** | `docling-serve` | PDF/document processing |
+
+On Linux, these run as systemd user services:
+
+    systemctl --user status ghost-daemon llama-server docling-serve
+    systemctl --user restart llama-server
+
+On macOS, they run as launchd agents:
+
+    launchctl list | grep com.ghost
+
+### Container Services (podman/docker)
+
+Managed via a single Docker Compose file at
+`<workspace>/services/docker-compose.yml`.
+
+| Service | Image | Purpose |
+| --- | --- | --- |
+| **SearXNG** | `searxng/searxng` | Web search (meta search engine) |
+| **Crawl4AI** | `unclecode/crawl4ai` | Web page extraction |
+| **Chrome** | `chromedp/headless-shell` | Headless browser for Crawl4AI |
+
+Common operations:
+
+    # Status
+    podman compose -f ~/GHOST/services/docker-compose.yml ps
+
+    # Restart all
+    podman compose -f ~/GHOST/services/docker-compose.yml restart
+
+    # View logs
+    podman compose -f ~/GHOST/services/docker-compose.yml logs -f searxng
+
+    # Stop everything
+    podman compose -f ~/GHOST/services/docker-compose.yml down
+
+## File Layout
+
+    ~/.config/ghost/
+    ├── config.toml              # Configuration
+    └── .env                     # Secrets (API keys, tokens)
+
+    ~/GHOST/services/
+    ├── docker-compose.yml       # Container stack
+    └── searxng-settings.yml     # SearXNG configuration
+
+    ~/.config/systemd/user/      # Linux
+    ├── ghost-daemon.service
+    ├── llama-server.service
+    └── docling-serve.service
+
+## Service Details
+
+### Embeddings (llama-server)
+
+Converts text into numerical vectors for semantic search. Your GHOST
+uses these vectors to find relevant notes and references even when exact
+words don't match.
+
+- **Model**: `qwen3-embedding:8b` (configurable in `config.toml`)
+- **Port**: 11434
+- **Config section**: `[embeddings]`
+
+### Web Search (SearXNG)
+
+Self-hosted meta search engine. Aggregates results from Google, Bing,
+DuckDuckGo, and others — no API keys needed.
+
+- **Port**: 8080
+- **Config section**: `[web.search]`
+- **Settings**: `<workspace>/services/searxng-settings.yml`
+
+### Web Fetch (Crawl4AI + Chrome)
+
+Reads web pages and converts them to clean markdown. Crawl4AI renders
+JavaScript-heavy pages using a headless Chrome instance.
+
+- **Crawl4AI port**: 11235
+- **Chrome port**: 9222 (CDP)
+- **Config section**: `[web]` (`crawl4ai_url`, `[[web.browsers]]`)
+
+### Document Processing (Docling)
+
+Converts PDFs, Word documents, and presentations to markdown. Handles
+OCR, table extraction, and complex layouts.
+
+- **Port**: 5001
+- **Config section**: `[docling]`
+
+## Optional: Observability (SigNoz)
+
+SigNoz gives you distributed tracing, metrics, and logs for your GHOST
+via OpenTelemetry. It's not set up by the wizard, but your GHOST knows
+how to help — ask it about the **services** skill's observability
+extra.
+
+Quick setup:
+
+1. Ask your GHOST to read the services skill's observability extra
+2. It will guide you through deploying the SigNoz stack and configuring
+   `OTEL_EXPORTER_OTLP_ENDPOINT`
+
+## Optional: Tailscale
+
+Tailscale provides secure remote access to your GHOST without opening
+ports. Your GHOST can help — ask it about the **services** skill's
+tailscale extra.
+
+## Troubleshooting
+
+### A service won't start
+
+Check its logs:
+
+    # Native service
+    journalctl --user -u llama-server -f
+
+    # Container service
+    podman compose -f ~/GHOST/services/docker-compose.yml logs crawl4ai
+
+### Reconfigure everything
+
+    ghost init
+
+This re-runs the wizard with your existing values pre-filled.
+
+### Nix garbage collection
+
+Nix stores grow over time. Clean up old generations periodically:
+
+    nix-collect-garbage -d
+```
+
+- [ ] **Step 3: Add sidebar entries to `astro.config.mjs`**
+
+In the `Getting Started` sidebar section, add the two new pages after the
+Installation group and before Configuration:
+
+```javascript
+{
+  label: "Getting Started",
+  items: [
+    {
+      label: "Installation",
+      items: [
+        { label: "Overview", slug: "getting-started/installation" },
+        { label: "macOS", slug: "getting-started/install-macos" },
+        { label: "Linux", slug: "getting-started/install-linux" },
+        { label: "From Source", slug: "getting-started/install-source" },
+      ],
+    },
+    { label: "Onboarding", slug: "getting-started/onboarding" },
+    { label: "Services", slug: "getting-started/services" },
+    { label: "Configuration", slug: "getting-started/configuration" },
+    { label: "Workspace", slug: "getting-started/workspace" },
+  ],
+},
+```
+
+- [ ] **Step 4: Update installation.mdx to link to onboarding**
+
+At the bottom of `docs/src/content/docs/getting-started/installation.mdx`, add a note
+pointing to the onboarding page:
+
+```markdown
+## After Installing
+
+Run the onboarding wizard to configure your GHOST:
+
+    ghost init
+
+See [Onboarding](/getting-started/onboarding/) for details.
+```
+
+- [ ] **Step 5: Update dependencies.md**
+
+Update `docs/src/content/docs/reference/dependencies.md` to reflect the new service
+management approach:
+- Replace "Ollama" section with "llama-server (llama.cpp)" — installed via nix, not
+  standalone Ollama
+- Update the note at top: services are now managed by `ghost init` via nix and
+  podman/docker compose, not manually
+- Add Chrome/headless-shell entry (currently missing)
+- Update command examples to use `podman compose` instead of `docker run`
+
+- [ ] **Step 6: Build and verify docs**
+
+Run: `cd docs && npm run build`
+Expected: builds with no errors. Check the sidebar shows the new pages in the right
+order.
+
+- [ ] **Step 7: Commit**
+
+```
+git add docs/
+git commit -m "docs: add onboarding and services pages"
+```
+
+---
+
+## Task 15: Final verification + cleanup
 
 - [ ] **Step 1: Run `just ci`**
 
