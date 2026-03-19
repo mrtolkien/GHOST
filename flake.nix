@@ -43,10 +43,12 @@
 
             nativeBuildInputs = with pkgs; [ pkg-config cmake perl ];
             buildInputs = with pkgs; [ openssl sqlite ]
-              ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
-                pkgs.darwin.apple_sdk.frameworks.Security
-                pkgs.darwin.apple_sdk.frameworks.SystemConfiguration
-              ];
+              ++ pkgs.lib.optionals pkgs.stdenv.isDarwin (
+                with pkgs.darwin.apple_sdk_12_3.frameworks; [
+                  Security
+                  SystemConfiguration
+                ]
+              );
           };
 
           # Dependencies-only derivation — cached when Cargo.lock doesn't change

@@ -10,6 +10,7 @@ jobs:
   # --- Nix build + Cachix push (main + tags, all platforms) ---
   nix-cache:
     strategy:
+      fail-fast: false
       matrix:
         include:
           - runner: ubuntu-latest
