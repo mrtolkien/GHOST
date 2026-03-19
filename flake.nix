@@ -42,13 +42,7 @@
             GIT_COMMIT_HASH = self.shortRev or self.dirtyShortRev or "unknown";
 
             nativeBuildInputs = with pkgs; [ pkg-config cmake perl ];
-            buildInputs = with pkgs; [ openssl sqlite ]
-              ++ pkgs.lib.optionals pkgs.stdenv.isDarwin (
-                with pkgs.darwin.apple_sdk_12_3.frameworks; [
-                  Security
-                  SystemConfiguration
-                ]
-              );
+            buildInputs = with pkgs; [ openssl sqlite ];
           };
 
           # Dependencies-only derivation — cached when Cargo.lock doesn't change
