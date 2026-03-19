@@ -222,8 +222,7 @@ pub fn write_config_files(
 /// - Managed keys absent from `new_content` are removed.
 fn merge_env(existing: &str, new_content: &str) -> String {
     // Parse new key=value pairs for managed keys.
-    let mut new_managed: std::collections::HashMap<&str, &str> =
-        std::collections::HashMap::new();
+    let mut new_managed: std::collections::HashMap<&str, &str> = std::collections::HashMap::new();
     for line in new_content.lines() {
         if let Some((k, v)) = line.split_once('=') {
             if MANAGED_ENV_KEYS.contains(&k) {
@@ -369,10 +368,7 @@ mod tests {
         };
         let toml_str = generate_config_toml(&state);
         let parsed: toml::Value = toml::from_str(&toml_str).expect("valid TOML");
-        assert_eq!(
-            parsed["web"]["search"]["provider"].as_str(),
-            Some("brave")
-        );
+        assert_eq!(parsed["web"]["search"]["provider"].as_str(), Some("brave"));
         // URL should NOT be present for BraveApi
         assert!(parsed["web"]["search"].get("url").is_none());
 

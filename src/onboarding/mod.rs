@@ -1,12 +1,12 @@
-pub mod detect;
-pub mod wizard;
-pub mod provider;
-pub mod discord;
-pub mod services;
-pub mod config_writer;
-pub mod service_files;
-pub mod health;
 pub mod agent;
+pub mod config_writer;
+pub mod detect;
+pub mod discord;
+pub mod health;
+pub mod provider;
+pub mod service_files;
+pub mod services;
+pub mod wizard;
 
 /// Tracks cumulative wizard state across phases.
 #[derive(Debug, Default)]
@@ -97,12 +97,8 @@ impl SearchChoice {
         match s {
             "local" | "searxng" => Ok(Self::SearxngLocal),
             "skip" => Ok(Self::Skip),
-            s if s.starts_with("brave:") => {
-                Ok(Self::BraveApi(s[6..].to_string()))
-            }
-            s if s.starts_with("remote:") => {
-                Ok(Self::SearxngRemote(s[7..].to_string()))
-            }
+            s if s.starts_with("brave:") => Ok(Self::BraveApi(s[6..].to_string())),
+            s if s.starts_with("remote:") => Ok(Self::SearxngRemote(s[7..].to_string())),
             _ => Err(OnboardingError::InvalidInput(format!(
                 "invalid search choice: {s}"
             ))),

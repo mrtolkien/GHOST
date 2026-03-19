@@ -1,5 +1,5 @@
-use super::detect;
 use super::OnboardingError;
+use super::detect;
 use crate::error::GhostError;
 
 // ---------------------------------------------------------------------------
@@ -286,8 +286,7 @@ pub(crate) fn install_service_file(
             .join("systemd/user");
         std::fs::create_dir_all(&unit_dir)?;
 
-        let content =
-            generate_daemon_unit_systemd(&exe, &config.workspace.display().to_string());
+        let content = generate_daemon_unit_systemd(&exe, &config.workspace.display().to_string());
         let unit_path = unit_dir.join("ghost-daemon.service");
         std::fs::write(&unit_path, content)?;
 
@@ -415,8 +414,7 @@ mod tests {
 
     #[test]
     fn docling_unit() {
-        let unit =
-            generate_docling_unit_systemd("/home/user/.nix-profile/bin/docling-serve");
+        let unit = generate_docling_unit_systemd("/home/user/.nix-profile/bin/docling-serve");
         assert!(unit.contains("docling-serve"));
         assert!(unit.contains("Restart=on-failure"));
     }

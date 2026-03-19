@@ -10,10 +10,10 @@
 //!     cargo test --features live-tests-observability \
 //!       --test observability_live -- --nocapture
 
-use opentelemetry::trace::TracerProvider as _;
 use opentelemetry::KeyValue;
-use opentelemetry_sdk::trace::SdkTracerProvider;
+use opentelemetry::trace::TracerProvider as _;
 use opentelemetry_sdk::Resource;
+use opentelemetry_sdk::trace::SdkTracerProvider;
 
 /// Verify that spans exported via OTLP HTTP reach the SigNoz stack.
 ///

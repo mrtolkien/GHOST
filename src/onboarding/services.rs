@@ -4,14 +4,11 @@ use std::process::Command;
 use super::detect::DetectedEnvironment;
 use super::{OnboardingError, OnboardingState, SearchChoice, ServiceChoice};
 
-const SEARXNG_FRAGMENT: &str =
-    include_str!("../../templates/services/docker-compose.searxng.yml");
+const SEARXNG_FRAGMENT: &str = include_str!("../../templates/services/docker-compose.searxng.yml");
 const CRAWL4AI_FRAGMENT: &str =
     include_str!("../../templates/services/docker-compose.crawl4ai.yml");
-const DOCLING_FRAGMENT: &str =
-    include_str!("../../templates/services/docker-compose.docling.yml");
-const SEARXNG_SETTINGS: &str =
-    include_str!("../../templates/services/searxng-settings.yml");
+const DOCLING_FRAGMENT: &str = include_str!("../../templates/services/docker-compose.docling.yml");
+const SEARXNG_SETTINGS: &str = include_str!("../../templates/services/searxng-settings.yml");
 
 /// Which container services to include in the compose file.
 #[derive(Debug, Default)]
@@ -37,9 +34,7 @@ fn show_section(
     let _ = cliclack::log::info(description);
     let _ = cliclack::log::info(link);
     if service_detected {
-        let _ = cliclack::log::success(format!(
-            "Detected: {detected_label} already running"
-        ));
+        let _ = cliclack::log::success(format!("Detected: {detected_label} already running"));
     }
     let _ = env; // used implicitly through service_detected
 }
@@ -86,9 +81,7 @@ fn prompt_embeddings_interactive(
         ServiceChoice::NixNative
     };
 
-    let mut select = cliclack::select(
-        "How should GHOST run llama-server for embeddings?",
-    );
+    let mut select = cliclack::select("How should GHOST run llama-server for embeddings?");
 
     select = select.item(
         ServiceChoice::NixNative,
@@ -109,27 +102,20 @@ fn prompt_embeddings_interactive(
         "Remote — enter URL",
         "",
     );
-    select = select.item(
-        ServiceChoice::Skip,
-        "Skip (embeddings unavailable)",
-        "",
-    );
+    select = select.item(ServiceChoice::Skip, "Skip (embeddings unavailable)", "");
 
     let mut choice = select.initial_value(default).interact()?;
 
     // If "Remote — enter URL" was chosen (empty URL), prompt for actual URL.
     if choice == ServiceChoice::Remote(String::new()) {
-        let url: String =
-            cliclack::input("Enter llama-server URL:").interact()?;
+        let url: String = cliclack::input("Enter llama-server URL:").interact()?;
         choice = ServiceChoice::Remote(url);
     }
 
     Ok(choice)
 }
 
-fn prompt_embedding_model(
-    from_flag: bool,
-) -> Result<String, OnboardingError> {
+fn prompt_embedding_model(from_flag: bool) -> Result<String, OnboardingError> {
     if from_flag {
         return Ok("qwen3-embedding:8b".to_string());
     }
@@ -165,9 +151,7 @@ pub fn prompt_search(
     }
 }
 
-fn prompt_search_interactive(
-    env: &DetectedEnvironment,
-) -> Result<SearchChoice, OnboardingError> {
+fn prompt_search_interactive(env: &DetectedEnvironment) -> Result<SearchChoice, OnboardingError> {
     let default = if env.container_runtime.is_some() {
         SearchChoice::SearxngLocal
     } else {
@@ -197,13 +181,11 @@ fn prompt_search_interactive(
     // Prompt for extra data if needed.
     match &choice {
         SearchChoice::BraveApi(k) if k.is_empty() => {
-            let key: String =
-                cliclack::input("Brave Search API key:").interact()?;
+            let key: String = cliclack::input("Brave Search API key:").interact()?;
             choice = SearchChoice::BraveApi(key);
         }
         SearchChoice::SearxngRemote(u) if u.is_empty() => {
-            let url: String =
-                cliclack::input("SearXNG URL:").interact()?;
+            let url: String = cliclack::input("SearXNG URL:").interact()?;
             choice = SearchChoice::SearxngRemote(url);
         }
         _ => {}
@@ -237,29 +219,24 @@ pub fn prompt_crawl(
     }
 }
 
-fn prompt_crawl_interactive(
-    env: &DetectedEnvironment,
-) -> Result<ServiceChoice, OnboardingError> {
-    let mut choice = cliclack::select(
-        "How should GHOST crawl web pages?",
-    )
-    .item(
-        ServiceChoice::Container,
-        "Container (Crawl4AI + headless Chrome)",
-        "recommended",
-    )
-    .item(
-        ServiceChoice::Remote(String::new()),
-        "Remote — enter URL",
-        "",
-    )
-    .item(ServiceChoice::Skip, "Skip", "")
-    .initial_value(ServiceChoice::Container)
-    .interact()?;
+fn prompt_crawl_interactive(env: &DetectedEnvironment) -> Result<ServiceChoice, OnboardingError> {
+    let mut choice = cliclack::select("How should GHOST crawl web pages?")
+        .item(
+            ServiceChoice::Container,
+            "Container (Crawl4AI + headless Chrome)",
+            "recommended",
+        )
+        .item(
+            ServiceChoice::Remote(String::new()),
+            "Remote — enter URL",
+            "",
+        )
+        .item(ServiceChoice::Skip, "Skip", "")
+        .initial_value(ServiceChoice::Container)
+        .interact()?;
 
     if choice == ServiceChoice::Remote(String::new()) {
-        let url: String =
-            cliclack::input("Enter Crawl4AI URL:").interact()?;
+        let url: String = cliclack::input("Enter Crawl4AI URL:").interact()?;
         choice = ServiceChoice::Remote(url);
     }
 
@@ -292,35 +269,31 @@ pub fn prompt_docling(
     }
 }
 
-fn prompt_docling_interactive(
-    env: &DetectedEnvironment,
-) -> Result<ServiceChoice, OnboardingError> {
+fn prompt_docling_interactive(env: &DetectedEnvironment) -> Result<ServiceChoice, OnboardingError> {
     let default = if env.low_memory {
         ServiceChoice::Skip
     } else {
         ServiceChoice::NixNative
     };
 
-    let mut choice =
-        cliclack::select("How should GHOST process documents?")
-            .item(
-                ServiceChoice::NixNative,
-                "Install docling-serve via nix (recommended)",
-                "",
-            )
-            .item(ServiceChoice::Container, "Container", "")
-            .item(
-                ServiceChoice::Remote(String::new()),
-                "Remote — enter URL",
-                "",
-            )
-            .item(ServiceChoice::Skip, "Skip", "")
-            .initial_value(default)
-            .interact()?;
+    let mut choice = cliclack::select("How should GHOST process documents?")
+        .item(
+            ServiceChoice::NixNative,
+            "Install docling-serve via nix (recommended)",
+            "",
+        )
+        .item(ServiceChoice::Container, "Container", "")
+        .item(
+            ServiceChoice::Remote(String::new()),
+            "Remote — enter URL",
+            "",
+        )
+        .item(ServiceChoice::Skip, "Skip", "")
+        .initial_value(default)
+        .interact()?;
 
     if choice == ServiceChoice::Remote(String::new()) {
-        let url: String =
-            cliclack::input("Enter docling-serve URL:").interact()?;
+        let url: String = cliclack::input("Enter docling-serve URL:").interact()?;
         choice = ServiceChoice::Remote(url);
     }
 
@@ -340,10 +313,7 @@ pub fn install_nix_packages(
         nix_install("llama-cpp", "Installing llama-server via nix...")?;
     }
     if matches!(docling, ServiceChoice::NixNative) {
-        nix_install(
-            "docling-serve",
-            "Installing docling-serve via nix...",
-        )?;
+        nix_install("docling-serve", "Installing docling-serve via nix...")?;
     }
     Ok(())
 }
@@ -355,11 +325,7 @@ fn nix_install(package: &str, message: &str) -> Result<(), OnboardingError> {
     let output = Command::new("nix")
         .args(["profile", "install", &format!("nixpkgs#{package}")])
         .output()
-        .map_err(|e| {
-            OnboardingError::NixInstall(format!(
-                "failed to run nix: {e}"
-            ))
-        })?;
+        .map_err(|e| OnboardingError::NixInstall(format!("failed to run nix: {e}")))?;
 
     if output.status.success() {
         spinner.stop(format!("{package} installed"));
@@ -378,10 +344,7 @@ fn nix_install(package: &str, message: &str) -> Result<(), OnboardingError> {
 // ---------------------------------------------------------------------------
 
 /// Build a complete docker-compose.yml from selected service fragments.
-pub fn generate_compose(
-    selections: &ServiceSelections,
-    is_linux: bool,
-) -> String {
+pub fn generate_compose(selections: &ServiceSelections, is_linux: bool) -> String {
     let mut out = String::from("services:\n");
 
     if selections.searxng {
@@ -395,9 +358,7 @@ pub fn generate_compose(
     }
 
     if !is_linux && has_any_service(selections) {
-        out.push_str(
-            "\nnetworks:\n  ghost:\n    driver: bridge\n",
-        );
+        out.push_str("\nnetworks:\n  ghost:\n    driver: bridge\n");
     }
 
     out
@@ -411,12 +372,7 @@ fn has_any_service(sel: &ServiceSelections) -> bool {
 ///
 /// `add_host_network` — on Linux, inject `network_mode: host` for this
 /// service (used for crawl4ai which needs to reach host-bound services).
-fn append_fragment(
-    out: &mut String,
-    fragment: &str,
-    is_linux: bool,
-    add_host_network: bool,
-) {
+fn append_fragment(out: &mut String, fragment: &str, is_linux: bool, add_host_network: bool) {
     for line in fragment.lines() {
         if is_linux && is_ports_line(line) {
             // On Linux with host networking, skip port bindings.
@@ -454,11 +410,7 @@ fn is_ports_line(line: &str) -> bool {
 fn is_service_name_line(line: &str) -> bool {
     let stripped = line.strip_prefix("  ");
     match stripped {
-        Some(rest) => {
-            !rest.starts_with(' ')
-                && rest.ends_with(':')
-                && !rest.is_empty()
-        }
+        Some(rest) => !rest.starts_with(' ') && rest.ends_with(':') && !rest.is_empty(),
         None => false,
     }
 }
@@ -470,18 +422,9 @@ fn is_service_name_line(line: &str) -> bool {
 /// Convert wizard state into service selections for compose generation.
 pub fn build_selections(state: &OnboardingState) -> ServiceSelections {
     ServiceSelections {
-        searxng: matches!(
-            state.search,
-            Some(SearchChoice::SearxngLocal)
-        ),
-        crawl4ai: matches!(
-            state.crawl,
-            Some(ServiceChoice::Container)
-        ),
-        docling_container: matches!(
-            state.docling,
-            Some(ServiceChoice::Container)
-        ),
+        searxng: matches!(state.search, Some(SearchChoice::SearxngLocal)),
+        crawl4ai: matches!(state.crawl, Some(ServiceChoice::Container)),
+        docling_container: matches!(state.docling, Some(ServiceChoice::Container)),
     }
 }
 
@@ -502,10 +445,7 @@ pub fn write_compose_and_configs(
     std::fs::write(services_dir.join("docker-compose.yml"), compose)?;
 
     if selections.searxng {
-        std::fs::write(
-            services_dir.join("searxng-settings.yml"),
-            SEARXNG_SETTINGS,
-        )?;
+        std::fs::write(services_dir.join("searxng-settings.yml"), SEARXNG_SETTINGS)?;
     }
 
     Ok(())

@@ -57,7 +57,11 @@ fn probe_choice(choice: &ServiceChoice, default_url: &str) -> (bool, String) {
     match choice {
         ServiceChoice::Skip => unreachable!("callers filter Skip"),
         ServiceChoice::Remote(url) => {
-            let target = if url.is_empty() { default_url } else { url.as_str() };
+            let target = if url.is_empty() {
+                default_url
+            } else {
+                url.as_str()
+            };
             (probe_url(target), target.to_string())
         }
         ServiceChoice::NixNative | ServiceChoice::Container => {
@@ -74,8 +78,7 @@ pub fn check_all_services(state: &OnboardingState) -> Vec<HealthResult> {
     // Embeddings (llama-server)
     if let Some(choice) = &state.embeddings {
         if !matches!(choice, ServiceChoice::Skip) {
-            let (ok, detail) =
-                probe_choice(choice, "http://127.0.0.1:11434/health");
+            let (ok, detail) = probe_choice(choice, "http://127.0.0.1:11434/health");
             results.push(HealthResult {
                 service: "llama-server".to_string(),
                 detail,
@@ -109,8 +112,7 @@ pub fn check_all_services(state: &OnboardingState) -> Vec<HealthResult> {
     // Crawl4AI + Chrome
     if let Some(choice) = &state.crawl {
         if !matches!(choice, ServiceChoice::Skip) {
-            let (ok, detail) =
-                probe_choice(choice, "http://127.0.0.1:11235/health");
+            let (ok, detail) = probe_choice(choice, "http://127.0.0.1:11235/health");
             results.push(HealthResult {
                 service: "Crawl4AI".to_string(),
                 detail,
@@ -119,8 +121,7 @@ pub fn check_all_services(state: &OnboardingState) -> Vec<HealthResult> {
 
             // Chrome is co-located with Crawl4AI (container or local).
             if matches!(choice, ServiceChoice::NixNative | ServiceChoice::Container) {
-                let chrome_ok =
-                    probe_url("http://127.0.0.1:9222/json/version");
+                let chrome_ok = probe_url("http://127.0.0.1:9222/json/version");
                 results.push(HealthResult {
                     service: "Chrome".to_string(),
                     detail: ":9222".to_string(),
@@ -133,8 +134,7 @@ pub fn check_all_services(state: &OnboardingState) -> Vec<HealthResult> {
     // Docling
     if let Some(choice) = &state.docling {
         if !matches!(choice, ServiceChoice::Skip) {
-            let (ok, detail) =
-                probe_choice(choice, "http://127.0.0.1:5001/health");
+            let (ok, detail) = probe_choice(choice, "http://127.0.0.1:5001/health");
             results.push(HealthResult {
                 service: "Docling".to_string(),
                 detail,
@@ -170,9 +170,7 @@ pub fn display_health_table(results: &[HealthResult]) {
 /// Ask whether to start the ghost daemon now.
 ///
 /// When `start_flag` is true (non-interactive mode), returns `true` immediately.
-pub fn prompt_start_daemon(
-    start_flag: bool,
-) -> Result<bool, OnboardingError> {
+pub fn prompt_start_daemon(start_flag: bool) -> Result<bool, OnboardingError> {
     if start_flag {
         return Ok(true);
     }
@@ -209,10 +207,7 @@ pub fn start_all_services(
     Ok(())
 }
 
-fn start_compose(
-    runtime: &ContainerRuntime,
-    workspace: &Path,
-) -> Result<(), OnboardingError> {
+fn start_compose(runtime: &ContainerRuntime, workspace: &Path) -> Result<(), OnboardingError> {
     let compose_file = workspace.join("services/docker-compose.yml");
 
     // Nothing to do if the compose file was never generated.
@@ -344,9 +339,7 @@ pub fn trigger_first_message() -> Result<(), OnboardingError> {
 
     if alive {
         spinner.stop("ghost-daemon started");
-        let _ = cliclack::log::success(
-            "✓ First message sent to Discord — check your server!",
-        );
+        let _ = cliclack::log::success("✓ First message sent to Discord — check your server!");
     } else {
         spinner.stop("ghost-daemon not responding after 30s");
         let _ = cliclack::log::warning(

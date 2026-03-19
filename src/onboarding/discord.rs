@@ -40,9 +40,7 @@ pub async fn validate_bot_token(token: &str) -> Result<(), OnboardingError> {
         .header("Authorization", format!("Bot {token}"))
         .send()
         .await
-        .map_err(|e| {
-            OnboardingError::DiscordValidation(format!("request failed: {e}"))
-        })?;
+        .map_err(|e| OnboardingError::DiscordValidation(format!("request failed: {e}")))?;
 
     if resp.status().is_success() {
         return Ok(());
