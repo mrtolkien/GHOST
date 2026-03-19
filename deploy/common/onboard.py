@@ -127,6 +127,9 @@ def write_env(
     if api_key and env_key:
         existing[env_key] = api_key
     existing["DISCORD_TOKEN"] = discord_token
+    existing.setdefault(
+        "OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318"
+    )
 
     lines = [f"{k}={v}" for k, v in existing.items()]
     env_path.write_text("\n".join(lines) + "\n")

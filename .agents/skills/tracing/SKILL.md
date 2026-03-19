@@ -3,9 +3,9 @@ name: tracing
 description: >-
   Tracing, observability, and instrumentation conventions for the Ghost codebase. MUST
   READ before adding or modifying: tracing spans, #[tracing::instrument] attributes,
-  logfire::span!() calls, OTel semantic convention fields (gen_ai.*), span hierarchy, or
-  any observability-related code. Failure to follow these conventions produces
-  inconsistent telemetry.
+  tracing::info_span!() calls, OTel semantic convention fields (gen_ai.*), span
+  hierarchy, or any observability-related code. Failure to follow these conventions
+  produces inconsistent telemetry.
 ---
 
 # Observability Conventions (NON-NEGOTIABLE)
@@ -103,13 +103,16 @@ All LLM provider calls must record these fields on the `request completion` span
 
 - Use `#[tracing::instrument(name = "verb object", skip_all, fields(key = %val))]` —
   always set an explicit `name` on info-level spans at execution boundaries
-- Use `logfire::span!("verb object", key = val)` for programmatic spans — **never
+- Use `tracing::info_span!("verb object", key = val)` for programmatic spans — **never
   interpolate dynamic values into the span name string**
 - Use `tracing::Span::current().record()` to fill response fields at span completion
-- Use `logfire::info!()` / `warn!()` / `error!()` for discrete events within spans
+- Use `tracing::info!()` / `warn!()` / `error!()` for discrete events within spans
 - Do not duplicate information between a span and a child log event
 - Log all errors with full context before propagating
 - Provider request/response bodies: logged as `gen_ai.input.messages` /
   `gen_ai.output.messages` at info level inside `request completion` spans
 - Debug-level DB/internal spans may omit `name =` (function name default is fine)
-- Default RUST_LOG: `warn,ghost=info,usvg=off,resvg=off`
+- OTLP export is conditional on the `OTEL_EXPORTER_OTLP_ENDPOINT` env var — when unset,
+  tracing emits to stderr only (no spans are exported)
+- Default RUST_LOG:
+  `warn,ghost=info,chromiumoxide=error,usvg=off,resvg=off,fontdb=off,html5ever=off`

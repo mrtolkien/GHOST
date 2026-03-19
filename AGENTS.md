@@ -112,8 +112,9 @@ before adding or modifying any instrumentation.
 
 ### Dependencies (do not change without discussion)
 
-Tokio, Axum, reqwest (rustls), SQLite (sqlx) + sqlite-vec + FTS5, serenity, logfire +
-tracing, thiserror, serde, toml, chrono, Ollama (HTTP API).
+Tokio, Axum, reqwest (rustls), SQLite (sqlx) + sqlite-vec + FTS5, serenity,
+opentelemetry + tracing-opentelemetry, thiserror, serde, toml, chrono, Ollama (HTTP
+API).
 
 ## Development Flow
 
@@ -155,7 +156,7 @@ src/
 ├── web/                 # Web search, web fetch, web cache
 ├── auth/                # Authentication helpers
 ├── embeddings/          # Embedding pipeline (Ollama)
-└── observability.rs     # Logfire setup, tracing configuration
+└── observability.rs     # OpenTelemetry setup, tracing configuration
 ```
 
 ## Formatting
