@@ -21,13 +21,15 @@ pub async fn execute(from_source: bool, version: Option<String>) -> Result<(), G
         let flake_ref = if from_source {
             format!("{FLAKE_REF}/main")
         } else {
-            let tag = version.as_deref().unwrap();
-            let tag = if tag.starts_with('v') {
-                tag.to_string()
+            let ref_name = version.as_deref().unwrap();
+            // Prepend 'v' only for version numbers (e.g. "0.3.0" → "v0.3.0").
+            // Branch names like "latest" or "main" are used as-is.
+            let ref_name = if ref_name.starts_with(|c: char| c.is_ascii_digit()) {
+                format!("v{ref_name}")
             } else {
-                format!("v{tag}")
+                ref_name.to_string()
             };
-            format!("{FLAKE_REF}/{tag}")
+            format!("{FLAKE_REF}/{ref_name}")
         };
 
         // Pre-build so the add after remove is instant
