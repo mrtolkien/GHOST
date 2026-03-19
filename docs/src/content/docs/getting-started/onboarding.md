@@ -1,29 +1,33 @@
 ---
 title: Onboarding
-description: Set up your GHOST with the interactive setup wizard.
+description: What ghost init does and how to use it.
 ---
 
-After installing the GHOST binary, run the onboarding wizard to configure
-everything:
+`ghost init` is an interactive wizard that configures everything your GHOST
+needs to run. It replaces manual config file editing with guided prompts.
 
-## Quick Start
+## What It Does
 
-```sh
-ghost init
-```
+The wizard runs in 5 phases:
 
-The wizard walks you through:
-
-1. **LLM provider** — pick a provider, enter your API key, choose a model
-2. **Discord** — create a bot and connect it to your server
-3. **Services** — set up embeddings, web search, web fetch, and document
-   processing (locally or remotely)
-
-At the end, your GHOST starts and sends you a message on Discord.
+1. **Environment detection** — checks for Nix, container runtime
+   (podman/docker), existing services, available memory
+2. **LLM provider** — pick a provider (OpenRouter, Anthropic, Kimi, or
+   ChatGPT OAuth), enter credentials, choose a model, and validate the
+   connection with a real API call
+3. **Discord** — step-by-step guide to create a bot, enter the token and
+   your user ID, validated against the Discord API
+4. **Services** — for each service (embeddings, web search, web fetch,
+   document processing): choose local install, container, remote URL, or
+   skip. Installs nix packages and generates a compose file
+5. **Write + launch** — shows a config diff, writes `config.toml` + `.env`,
+   bootstraps the workspace, installs systemd/launchd units, starts
+   services, runs health checks, and sends the first Discord message
 
 ## Non-Interactive Mode
 
-For automated deployments, pass all options as flags:
+Every prompt has a corresponding CLI flag. Pass all flags to skip prompts
+entirely — useful for automated deployments and testing:
 
 ```sh
 ghost init \
@@ -40,23 +44,17 @@ ghost init \
   --start
 ```
 
+Partial flags work too — the wizard prompts for anything not provided.
+
 ## Re-running
 
-Run `ghost init` again at any time to reconfigure. It detects your
-existing configuration and offers to update it — showing a diff of all
-changes before applying.
+Run `ghost init` again at any time. It detects your existing configuration,
+offers to update or start fresh, and pre-fills prompts with current values.
+A diff of all changes is shown before writing.
 
-## Need Help During Setup?
+## Help During Setup
 
-Press **h** at any prompt to ask the onboarding assistant for help. It
-uses your configured LLM to answer questions about the setup process
-(available after the provider step completes).
-
-## Next Steps
-
-- [Services](/getting-started/services/) — how the service stack works
-  and how your GHOST manages it
-- [Configuration](/getting-started/configuration/) — config.toml and
-  .env reference
-- [Workspace](/getting-started/workspace/) — what's in your GHOST's
-  workspace directory
+After the provider step validates successfully, type **h** at any text
+prompt to chat with an onboarding assistant. It uses your configured LLM to
+answer questions about services, tradeoffs, and configuration — then
+returns you to the wizard.

@@ -1,46 +1,84 @@
 ---
 title: Installation
-description: Overview of how to install and run GHOST.
+description: Install GHOST in three commands.
 ---
 
-GHOST runs as a set of services: the main daemon, an embedding server, a
-document processor, a web scraper, and a search engine.
+import { Steps, Aside, Code } from "@astrojs/starlight/components";
 
-| Component         | Role                    |
-| ----------------- | ----------------------- |
-| **GHOST**         | Main daemon             |
-| **llama-server**  | Embeddings (Qwen3 8B)   |
-| **docling-serve** | PDF/document processing |
-| **Crawl4AI**      | Web page extraction     |
-| **SearXNG**       | Web search              |
+<Steps>
 
-How these are deployed depends on the platform — on macOS, GPU services run
-natively for Metal acceleration; on Linux, everything can run in Docker (with
-NVIDIA GPU passthrough where available).
+1. **Install Nix** (if you don't have it)
 
-## Install Guides
+   ```bash
+   curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
+   ```
 
-Choose the guide for your platform:
+2. **Add the GHOST binary cache** (optional but recommended — skips a ~15
+   minute compile)
 
-- **[macOS (Apple Silicon)](/getting-started/install-macos/)** — recommended for
-  Mac Mini / MacBook. One-command install with Metal GPU acceleration.
-- **[Linux](/getting-started/install-linux/)** — work in progress.
-- **[From Source](/getting-started/install-source/)** — for development or
-  manual setups.
+   ```bash
+   echo 'extra-substituters = https://ghost-ai.cachix.org' | sudo tee -a /etc/nix/nix.conf
+   echo 'extra-trusted-public-keys = ghost-ai.cachix.org-1:c0BYnkFKE8rYzkusZD5+l5D5Vcl8WRQMXV1zVWjxCBI=' | sudo tee -a /etc/nix/nix.conf
+   sudo systemctl restart nix-daemon   # Linux
+   # macOS: sudo launchctl kickstart -k system/org.nixos.nix-daemon
+   ```
 
-## What You'll Need
+   <Aside type="tip" title="NixOS">
+     On NixOS, add the cache to your system configuration instead:
+     ```nix title="configuration.nix"
+     nix.settings = {
+       extra-substituters = [ "https://ghost-ai.cachix.org" ];
+       extra-trusted-public-keys = [
+         "ghost-ai.cachix.org-1:c0BYnkFKE8rYzkusZD5+l5D5Vcl8WRQMXV1zVWjxCBI="
+       ];
+     };
+     ```
+   </Aside>
 
-Before starting any install, have these ready:
+3. **Install GHOST**
 
-- An **API key** for at least one LLM provider (OpenRouter, Kimi, etc.)
-- A **Discord bot token** — see [Interfaces](/ghost/interfaces/)
+   ```bash
+   nix profile install github:mrtolkien/GHOST/latest
+   ```
 
-## After Installing
+4. **Run the onboarding wizard**
 
-Run the onboarding wizard to configure your GHOST:
+   ```bash
+   ghost init
+   ```
 
-```sh
-ghost init
+   The wizard configures your LLM provider, Discord bot, and all services.
+   See [Onboarding](/getting-started/onboarding/) for details.
+
+</Steps>
+
+## Install Channels
+
+| Command | What you get |
+| --- | --- |
+| `nix profile install github:mrtolkien/GHOST/latest` | Latest release (recommended) |
+| `nix profile install github:mrtolkien/GHOST/main` | Bleeding edge (latest commit) |
+| `nix profile install github:mrtolkien/GHOST/v0.5.0` | Pinned version |
+
+## Updating
+
+```bash
+ghost update
 ```
 
-See [Onboarding](/getting-started/onboarding/) for details.
+## From Source
+
+For development or manual setups, clone and build with Nix:
+
+```bash
+git clone https://github.com/mrtolkien/ghost.git
+cd ghost
+nix build
+./result/bin/ghost version
+```
+
+Or install directly into your profile from a local checkout:
+
+```bash
+nix profile install .
+```

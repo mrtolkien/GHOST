@@ -40,9 +40,9 @@ context_window = 250000
 enabled = true
 allowed_user_id = "123456789012345678" # Your Discord user ID
 
-# Embeddings (Ollama)
+# Embeddings (llama-server)
 [embeddings]
-url = "http://127.0.0.1:11434" # Ollama endpoint
+url = "http://127.0.0.1:11434" # llama-server endpoint
 model = "qwen3-embedding:8b" # Embedding model
 batch_size = 32 # Vectors per batch
 dimension = 1024 # Vector dimension
