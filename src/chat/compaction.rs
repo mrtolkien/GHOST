@@ -345,11 +345,11 @@ pub async fn summarize_older_messages(
 
     let conversation_text = render_messages_for_summary(to_summarize, config.mask_preview_chars);
 
-    logfire::debug!(
-        "Phase 2: summarizing older messages",
+    tracing::debug!(
         messages_to_summarize = to_summarize.len() as u64,
         messages_to_keep = to_keep.len() as u64,
-        chars = conversation_text.len() as u64
+        chars = conversation_text.len() as u64,
+        "Phase 2: summarizing older messages",
     );
 
     let system = match instructions {
@@ -396,11 +396,11 @@ pub async fn summarize_older_messages(
         .cloned()
         .unwrap_or_default();
 
-    logfire::debug!(
-        "Phase 2 complete",
+    tracing::debug!(
         compacted_count = to_summarize.len() as u64,
         summary_len = summary.len() as u64,
-        cursor_id = cursor_id.clone()
+        cursor_id = cursor_id.clone(),
+        "Phase 2 complete",
     );
 
     Ok(CompactionResult {
@@ -458,11 +458,11 @@ impl SessionChat {
             return;
         }
 
-        logfire::info!(
-            "Compaction triggered",
+        tracing::info!(
             total = budget.total_estimated as u64,
             window = budget.context_window as u64,
-            history = budget.history_tokens as u64
+            history = budget.history_tokens as u64,
+            "Compaction triggered",
         );
 
         // Phase 1: mask tool results
@@ -470,11 +470,11 @@ impl SessionChat {
         let masked = mask_tool_results(history, keep_start, compaction.mask_preview_chars);
         let masked_tokens = estimate_history_tokens(&masked);
 
-        logfire::debug!(
-            "Phase 1: observation masking complete",
+        tracing::debug!(
             before = budget.history_tokens as u64,
             after = masked_tokens as u64,
-            saved = budget.history_tokens.saturating_sub(masked_tokens) as u64
+            saved = budget.history_tokens.saturating_sub(masked_tokens) as u64,
+            "Phase 1: observation masking complete",
         );
 
         let total_after_mask = budget.system_tokens + budget.tool_tokens + masked_tokens;
@@ -487,7 +487,7 @@ impl SessionChat {
         }
 
         // Phase 2: LLM summarization
-        logfire::info!("Masking insufficient — proceeding to Phase 2");
+        tracing::info!("Masking insufficient — proceeding to Phase 2");
 
         let cache_key = session_id.to_string();
         match summarize_older_messages(
@@ -510,9 +510,9 @@ impl SessionChat {
                 )
                 .await
                 {
-                    logfire::error!(
+                    tracing::error!(
+                        error = e.to_string(),
                         "Failed to persist compaction summary",
-                        error = e.to_string()
                     );
                     *history = masked;
                     return;
@@ -522,18 +522,18 @@ impl SessionChat {
                 match self.load_provider_history(session_id).await {
                     Ok((reloaded, _ids)) => *history = reloaded,
                     Err(e) => {
-                        logfire::error!(
+                        tracing::error!(
+                            error = e.to_string(),
                             "Failed to reload history after compaction",
-                            error = e.to_string()
                         );
                         *history = masked;
                     }
                 }
             }
             Err(e) => {
-                logfire::warn!(
+                tracing::warn!(
+                    error = e.to_string(),
                     "Phase 2 summarization failed — using masked history",
-                    error = e.to_string()
                 );
                 *history = masked;
             }
@@ -590,11 +590,11 @@ impl SessionChat {
             return;
         }
 
-        logfire::info!(
-            "Compaction triggered (tool loop)",
+        tracing::info!(
             total = budget.total_estimated as u64,
             window = budget.context_window as u64,
-            history = budget.history_tokens as u64
+            history = budget.history_tokens as u64,
+            "Compaction triggered (tool loop)",
         );
 
         // Phase 1: mask tool results
@@ -602,11 +602,11 @@ impl SessionChat {
         let masked = mask_tool_results(history, keep_start, compaction.mask_preview_chars);
         let masked_tokens = estimate_history_tokens(&masked);
 
-        logfire::debug!(
-            "Phase 1 (tool loop): observation masking complete",
+        tracing::debug!(
             before = budget.history_tokens as u64,
             after = masked_tokens as u64,
-            saved = budget.history_tokens.saturating_sub(masked_tokens) as u64
+            saved = budget.history_tokens.saturating_sub(masked_tokens) as u64,
+            "Phase 1 (tool loop): observation masking complete",
         );
 
         let total_after_mask = budget.system_tokens + budget.tool_tokens + masked_tokens;
@@ -619,7 +619,7 @@ impl SessionChat {
         }
 
         // Phase 2: LLM summarization
-        logfire::info!("Masking insufficient (tool loop) — proceeding to Phase 2");
+        tracing::info!("Masking insufficient (tool loop) — proceeding to Phase 2");
 
         let model_name = match self.default_model_name() {
             Ok(m) => m,
@@ -633,9 +633,9 @@ impl SessionChat {
         let stored_ids = match db::sessions::get_session_message_ids(self.db(), session_id).await {
             Ok(ids) => ids,
             Err(e) => {
-                logfire::warn!(
+                tracing::warn!(
+                    error = e.to_string(),
                     "Failed to load message IDs for Phase 2 — using masked history",
-                    error = e.to_string()
                 );
                 *history = masked;
                 return;
@@ -689,9 +689,9 @@ impl SessionChat {
                 )
                 .await
                 {
-                    logfire::error!(
+                    tracing::error!(
+                        error = e.to_string(),
                         "Failed to persist compaction summary",
-                        error = e.to_string()
                     );
                     *history = masked;
                     return;
@@ -700,18 +700,18 @@ impl SessionChat {
                 match self.load_provider_history(session_id).await {
                     Ok((reloaded, _ids)) => *history = reloaded,
                     Err(e) => {
-                        logfire::error!(
+                        tracing::error!(
+                            error = e.to_string(),
                             "Failed to reload history after compaction",
-                            error = e.to_string()
                         );
                         *history = masked;
                     }
                 }
             }
             Err(e) => {
-                logfire::warn!(
+                tracing::warn!(
+                    error = e.to_string(),
                     "Phase 2 summarization failed (tool loop) — using masked history",
-                    error = e.to_string()
                 );
                 *history = masked;
             }

@@ -60,7 +60,7 @@ pub async fn execute(command: WebCommand) -> Result<(), GhostError> {
             };
 
             if let Err(e) = web::save_search_cache(&config.workspace, "cli", &query, &results) {
-                logfire::warn!("failed to cache search results", error = e.to_string(),);
+                tracing::warn!(error = e.to_string(), "failed to cache search results");
             }
 
             for (i, result) in results.iter().enumerate() {
@@ -100,7 +100,7 @@ pub async fn execute(command: WebCommand) -> Result<(), GhostError> {
                     eprintln!("Cached to: {}", path.display());
                 }
                 Err(e) => {
-                    logfire::warn!("failed to cache fetch result", error = e.to_string(),);
+                    tracing::warn!(error = e.to_string(), "failed to cache fetch result");
                 }
             }
 

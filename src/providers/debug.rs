@@ -52,10 +52,10 @@ pub fn save_debug_request(data: &DebugRequestData<'_>) {
     });
 
     if let Err(error) = std::fs::create_dir_all(data.dir) {
-        logfire::warn!(
-            "failed to create debug request dir",
+        tracing::warn!(
             dir = data.dir.display().to_string(),
             error = error.to_string(),
+            "failed to create debug request dir",
         );
         return;
     }
@@ -65,10 +65,10 @@ pub fn save_debug_request(data: &DebugRequestData<'_>) {
         .unwrap_or_else(|e| format!("{{\"error\": \"serialization failed: {e}\"}}"));
 
     if let Err(error) = std::fs::write(&path, &json_str) {
-        logfire::warn!(
-            "failed to write debug request file",
+        tracing::warn!(
             path = path.display().to_string(),
             error = error.to_string(),
+            "failed to write debug request file",
         );
     }
 }

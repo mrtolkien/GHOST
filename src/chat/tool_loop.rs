@@ -155,11 +155,11 @@ pub(super) async fn run_tool_loop(
                 session_chat.compaction_config().threshold,
             );
             if budget.needs_compaction {
-                logfire::warn!(
-                    "pre-send compaction triggered — history near context limit",
+                tracing::warn!(
                     total = budget.total_estimated as u64,
                     window = budget.context_window as u64,
                     threshold = session_chat.compaction_config().threshold,
+                    "pre-send compaction triggered — history near context limit",
                 );
                 handler.post_tool_iteration(history, 0).await?;
             }
@@ -196,11 +196,11 @@ pub(super) async fn run_tool_loop(
         {
             Ok(Ok(resp)) => resp,
             Ok(Err(ProviderError::ServerError { status, message })) => {
-                logfire::warn!(
-                    "provider returned server error, retrying once",
+                tracing::warn!(
                     status = status,
                     message = message.clone(),
                     iteration = iterations as u64,
+                    "provider returned server error, retrying once",
                 );
                 tokio::time::sleep(std::time::Duration::from_secs(2)).await;
                 match tokio::time::timeout(
@@ -219,10 +219,10 @@ pub(super) async fn run_tool_loop(
             }
             Ok(Err(e)) => return Err(ChatError::from(e)),
             Err(_elapsed) => {
-                logfire::warn!(
-                    "provider request timed out, retrying once",
+                tracing::warn!(
                     timeout_secs = PROVIDER_REQUEST_TIMEOUT.as_secs(),
                     iteration = iterations as u64,
+                    "provider request timed out, retrying once",
                 );
                 match tokio::time::timeout(
                     PROVIDER_REQUEST_TIMEOUT,
@@ -232,10 +232,10 @@ pub(super) async fn run_tool_loop(
                 {
                     Ok(result) => result.map_err(ChatError::from)?,
                     Err(_elapsed) => {
-                        logfire::error!(
-                            "provider request timed out twice",
+                        tracing::error!(
                             timeout_secs = PROVIDER_REQUEST_TIMEOUT.as_secs(),
                             iteration = iterations as u64,
+                            "provider request timed out twice",
                         );
                         return Err(ChatError::Provider(ProviderError::Timeout {
                             seconds: PROVIDER_REQUEST_TIMEOUT.as_secs(),
@@ -414,11 +414,11 @@ pub(super) async fn run_tool_loop(
                     let content_json = serde_json::to_string(&response.content)
                         .unwrap_or_else(|e| format!("<serialization failed: {e}>"));
                     if !retried_empty {
-                        logfire::warn!(
-                            "empty EndTurn response, injecting recovery nudge",
+                        tracing::warn!(
                             iterations = iterations as u64,
                             stop_reason = format!("{:?}", response.stop_reason),
                             content = content_json,
+                            "empty EndTurn response, injecting recovery nudge",
                         );
                         // Inject a recovery nudge to snap the model out of
                         // the empty-response state. Just retrying with the
@@ -436,11 +436,11 @@ pub(super) async fn run_tool_loop(
                         retried_empty = true;
                         continue;
                     }
-                    logfire::error!(
-                        "empty EndTurn response after recovery nudge",
+                    tracing::error!(
                         iterations = iterations as u64,
                         stop_reason = format!("{:?}", response.stop_reason),
                         content = content_json,
+                        "empty EndTurn response after recovery nudge",
                     );
                     return Err(ChatError::Provider(ProviderError::EmptyResponse {
                         detail: "provider returned empty EndTurn twice".to_string(),
@@ -454,12 +454,12 @@ pub(super) async fn run_tool_loop(
                 if progress_gate_retries < 3
                     && let Some(nudge) = handler.check_progress_gate(history).await?
                 {
-                    logfire::warn!(
-                        "progress gate triggered — model tried to end \
-                         prematurely, injecting continuation nudge",
+                    tracing::warn!(
                         iterations = iterations as u64,
                         response_len = message.len() as u64,
                         gate_retry = progress_gate_retries as u64,
+                        "progress gate triggered — model tried to end \
+                         prematurely, injecting continuation nudge",
                     );
                     history.push(ChatMessage {
                         role: Role::System,
@@ -503,12 +503,12 @@ pub(super) async fn run_tool_loop(
                     }
                 }
 
-                logfire::info!(
-                    "agent run complete",
+                tracing::info!(
                     iterations = iterations as u64,
                     stop_reason = format!("{:?}", result.stop_reason),
                     response_len = result.message.len() as u64,
                     response = &result.message,
+                    "agent run complete",
                 );
                 metadata.iterations = iterations;
                 metadata.duration = started_at.elapsed();

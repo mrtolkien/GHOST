@@ -238,9 +238,9 @@ pub(crate) fn convert_messages(request: &ChatRequest) -> Vec<OpenAiMessage> {
                     if !extracted.is_empty() {
                         text_parts.push(format!("[Previous model {original_type}]: {extracted}"));
                     } else {
-                        logfire::debug!(
-                            "chat completions: skipping RawOutput block (no extractable text)",
+                        tracing::debug!(
                             original_type = original_type.clone(),
+                            "chat completions: skipping RawOutput block (no extractable text)",
                         );
                     }
                 }

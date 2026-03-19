@@ -340,9 +340,9 @@ impl ScriptHost {
             table.get::<LuaValue>("should_trigger")?,
             LuaValue::Function(_)
         ) {
-            logfire::warn!(
-                "agent defines should_trigger which is no longer supported",
+            tracing::warn!(
                 agent_name = name.clone(),
+                "agent defines should_trigger which is no longer supported",
             );
         }
 
@@ -435,11 +435,11 @@ fn sandbox_lua(lua: &Lua) -> LuaResult<()> {
         package_table.set("loadlib", LuaValue::Nil)?;
     }
 
-    // Redirect print to logfire debug
+    // Redirect print to tracing debug
     let print_fn = lua.create_function(|_, args: LuaMultiValue| {
         let parts: Vec<String> = args.into_iter().map(|v| format!("{v:?}")).collect();
         let msg = parts.join("\t");
-        logfire::debug!("lua print: {msg}", msg = msg);
+        tracing::debug!(msg = msg, "lua print: {msg}");
         Ok(())
     })?;
     globals.set("print", print_fn)?;

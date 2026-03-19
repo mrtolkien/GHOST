@@ -37,7 +37,7 @@ impl CircuitBreaker {
 
             state.open_until = None;
             state.consecutive_failures = 0;
-            logfire::info!("provider circuit breaker closed", model = model.to_string());
+            tracing::info!(model = model.to_string(), "provider circuit breaker closed");
         }
 
         None
@@ -50,7 +50,7 @@ impl CircuitBreaker {
         {
             state.consecutive_failures = 0;
             state.open_until = None;
-            logfire::info!("provider failure streak reset", model = model.to_string());
+            tracing::info!(model = model.to_string(), "provider failure streak reset");
         }
     }
 
@@ -66,10 +66,10 @@ impl CircuitBreaker {
         if state.consecutive_failures >= self.failure_threshold {
             state.open_until = Some(now + self.cooldown);
             state.consecutive_failures = 0;
-            logfire::warn!(
-                "provider circuit breaker opened",
+            tracing::warn!(
                 model = model.to_string(),
-                cooldown_secs = self.cooldown.as_secs()
+                cooldown_secs = self.cooldown.as_secs(),
+                "provider circuit breaker opened",
             );
         }
     }

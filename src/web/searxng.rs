@@ -59,11 +59,11 @@ impl SearxngSearchProvider {
             })
             .collect();
 
-        logfire::info!(
-            "searxng search complete",
+        tracing::info!(
             query = query.to_string(),
             results = serde_json::to_string(&results).unwrap_or_default(),
             result_count = results.len() as u64,
+            "searxng search complete",
         );
 
         Ok(results)

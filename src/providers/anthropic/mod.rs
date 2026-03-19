@@ -150,7 +150,7 @@ impl AnthropicProvider {
         let request_json =
             serde_json::to_string(&body).unwrap_or_else(|e| format!("<serialization failed: {e}>"));
 
-        logfire::info!("provider request body", body = request_json.clone());
+        tracing::info!(body = request_json.clone(), "provider request body");
 
         // --- HTTP request ---
         let started = Instant::now();
@@ -194,12 +194,12 @@ impl AnthropicProvider {
         // --- Error handling ---
         if status == reqwest::StatusCode::TOO_MANY_REQUESTS {
             self.circuit_breaker.record_failure(&request.model);
-            logfire::warn!(
-                "anthropic provider rate limited",
+            tracing::warn!(
                 provider = "anthropic",
                 model = request.model.clone(),
                 retry_after_secs = retry_after_secs,
-                raw_response = response_body.clone()
+                raw_response = response_body.clone(),
+                "anthropic provider rate limited",
             );
             return Err(ProviderError::RateLimited { retry_after_secs });
         }
@@ -219,11 +219,11 @@ impl AnthropicProvider {
             });
         }
         if !status.is_success() {
-            logfire::warn!(
-                "anthropic provider non-success response",
+            tracing::warn!(
                 provider = "anthropic",
                 status = status.as_u16(),
-                raw_response = response_body.clone()
+                raw_response = response_body.clone(),
+                "anthropic provider non-success response",
             );
             return Err(ProviderError::InvalidResponse(format!(
                 "http status {status}: {}",
@@ -235,12 +235,12 @@ impl AnthropicProvider {
         let parsed =
             streaming::parse_sse_response(&response_body, &request.model, &ghost_tool_names)
                 .inspect_err(|error| {
-                    logfire::error!(
-                        "anthropic provider response parse failed",
+                    tracing::error!(
                         provider = "anthropic",
                         model = request.model.clone(),
                         error = error.to_string(),
-                        raw_response = response_body.clone()
+                        raw_response = response_body.clone(),
+                        "anthropic provider response parse failed",
                     );
                 })?;
 
@@ -249,7 +249,7 @@ impl AnthropicProvider {
         // --- OTel span recording ---
         let response_json = serde_json::to_string(&parsed.content)
             .unwrap_or_else(|e| format!("<serialization failed: {e}>"));
-        logfire::info!("provider response content", content = response_json);
+        tracing::info!(content = response_json, "provider response content");
 
         let tool_call_summary: String = parsed
             .content

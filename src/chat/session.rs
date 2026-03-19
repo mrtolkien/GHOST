@@ -491,11 +491,11 @@ impl SessionChat {
             insertions.push((insert_at, repair_record));
 
             let sid = session_id.to_string();
-            logfire::warn!(
-                "repaired orphaned tool calls",
+            tracing::warn!(
                 session_id = sid,
                 orphaned_count = orphaned_ids.len(),
                 message_index = i,
+                "repaired orphaned tool calls",
             );
         }
 
@@ -1057,10 +1057,10 @@ impl ToolLoopHandler for LuaAgentHandler<'_> {
                 }
                 Ok(None) => {}
                 Err(e) => {
-                    logfire::warn!(
-                        "lua pre_turn hook error",
+                    tracing::warn!(
                         error = e.to_string(),
                         agent = self.config.name.clone(),
+                        "lua pre_turn hook error",
                     );
                 }
             }
@@ -1087,10 +1087,10 @@ impl ToolLoopHandler for LuaAgentHandler<'_> {
             Ok(Some(msg)) => Ok(Some(format!("<system-reminder>{msg}</system-reminder>"))),
             Ok(None) => Ok(None),
             Err(e) => {
-                logfire::warn!(
-                    "lua on_end_turn hook error",
+                tracing::warn!(
                     error = e.to_string(),
                     agent = self.config.name.clone(),
+                    "lua on_end_turn hook error",
                 );
                 Ok(None)
             }

@@ -113,10 +113,10 @@ pub async fn fetch_with_crawl4ai(
             detail: "no markdown in response".to_string(),
         })?;
 
-    logfire::info!(
-        "crawl4ai fetch complete",
+    tracing::info!(
         url = page_url.to_string(),
         markdown_len = markdown.len() as u64,
+        "crawl4ai fetch complete",
     );
 
     Ok(markdown.to_string())

@@ -105,9 +105,9 @@ pub async fn fetch(
             }
             Err(_) => {
                 // HEAD failed (403, 405, timeout) — try crawl4ai directly.
-                logfire::info!(
-                    "HEAD request failed, trying crawl4ai directly",
+                tracing::info!(
                     url = url.to_string(),
+                    "HEAD request failed, trying crawl4ai directly",
                 );
                 return fetch_html_via_crawl4ai(
                     c4ai_url,
@@ -156,10 +156,10 @@ async fn fetch_html_via_crawl4ai(
     match super::crawl4ai::fetch_with_crawl4ai(c4ai_url, page_url, c4ai_options, cdp_url).await {
         Ok(markdown) => Ok(markdown_to_content(markdown, None)),
         Err(e) => {
-            logfire::warn!(
-                "crawl4ai failed, falling back to local extraction",
+            tracing::warn!(
                 url = page_url.to_string(),
                 error = e.to_string(),
+                "crawl4ai failed, falling back to local extraction",
             );
             let (html, _final_url) = fetch_raw(page_url).await?;
             Ok(extract_content(&html, page_url, fetch_options))
@@ -218,11 +218,11 @@ async fn fetch_legacy(url: &str, options: &FetchOptions) -> Result<ExtractedCont
         });
     }
 
-    logfire::info!(
-        "web fetch complete (legacy)",
+    tracing::info!(
         url = url.to_string(),
         status = status as u64,
         content_type = content_type.as_deref().unwrap_or("unknown").to_string(),
+        "web fetch complete (legacy)",
     );
 
     let bytes = response.bytes().await?;
@@ -285,9 +285,9 @@ pub(crate) fn extract_content(
         let md = html_to_markdown(html);
         // Auto-retry with readability when htmd output is oversized.
         if md.len() > MAX_EXTRACT_CHARS {
-            logfire::info!(
-                "htmd output oversized, retrying with readability",
+            tracing::info!(
                 htmd_len = md.len() as u64,
+                "htmd output oversized, retrying with readability",
             );
             let (title, text) = extract_with_readability(html, page_url);
             // If readability actually reduced the size, use it.

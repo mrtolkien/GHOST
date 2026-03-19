@@ -61,9 +61,9 @@ pub fn spawn_scheduler(
         let _watcher = match setup_watcher(&agents_dir, fs_tx) {
             Ok(w) => Some(w),
             Err(e) => {
-                logfire::warn!(
-                    "failed to start scheduler file watcher",
+                tracing::warn!(
                     error = e.to_string(),
+                    "failed to start scheduler file watcher",
                 );
                 None
             }
@@ -132,7 +132,7 @@ fn build_entries(workspace: &Path) -> (Vec<TrackedEntry>, Vec<IdleAgent>) {
     let entries = match load_crontab(workspace) {
         Ok(e) => e,
         Err(e) => {
-            logfire::warn!("scheduler: failed to load crontab", error = e.clone());
+            tracing::warn!(error = e.clone(), "scheduler: failed to load crontab");
             return (scheduled, idle_agents);
         }
     };
@@ -154,11 +154,11 @@ fn build_entries(workspace: &Path) -> (Vec<TrackedEntry>, Vec<IdleAgent>) {
                         });
                     }
                     Err(e) => {
-                        logfire::warn!(
-                            "scheduler: invalid cron for agent",
+                        tracing::warn!(
                             agent = entry.run.clone(),
                             cron = expr.clone(),
                             error = e.to_string(),
+                            "scheduler: invalid cron for agent",
                         );
                     }
                 }
@@ -189,7 +189,7 @@ async fn tick_scheduled(agent_runner: &AgentRunner, _db: &GhostDb, entries: &mut
 
         let name = &entry.entry.name;
 
-        logfire::info!("executing scheduled agent", agent_name = name.clone());
+        tracing::info!(agent_name = name.clone(), "executing scheduled agent");
 
         match agent_runner
             .run(name, "Execute the scheduled agent.", None)
@@ -197,13 +197,13 @@ async fn tick_scheduled(agent_runner: &AgentRunner, _db: &GhostDb, entries: &mut
         {
             Ok(mut result) => {
                 agent_runner.spawn_children(&mut result);
-                logfire::info!("scheduled agent completed", agent_name = name.clone());
+                tracing::info!(agent_name = name.clone(), "scheduled agent completed");
             }
             Err(e) => {
-                logfire::error!(
-                    "scheduled agent failed",
+                tracing::error!(
                     agent_name = name.clone(),
                     error = e.to_string(),
+                    "scheduled agent failed",
                 );
             }
         }
@@ -222,9 +222,9 @@ async fn tick_idle(agent_runner: &AgentRunner, db: &GhostDb, idle_agents: &[Idle
     let sessions = match db::interface_sessions::list_all_interface_sessions(db).await {
         Ok(s) => s,
         Err(e) => {
-            logfire::warn!(
-                "scheduler: failed to list interface sessions for idle check",
+            tracing::warn!(
                 error = e.to_string(),
+                "scheduler: failed to list interface sessions for idle check",
             );
             return;
         }
@@ -247,10 +247,10 @@ async fn tick_idle(agent_runner: &AgentRunner, db: &GhostDb, idle_agents: &[Idle
                 Ok(Some(ts)) => ts,
                 Ok(None) => continue,
                 Err(e) => {
-                    logfire::warn!(
-                        "scheduler: failed to get last message time",
+                    tracing::warn!(
                         session_id = record.session_id.clone(),
                         error = e.to_string(),
+                        "scheduler: failed to get last message time",
                     );
                     continue;
                 }
@@ -272,21 +272,21 @@ async fn tick_idle(agent_runner: &AgentRunner, db: &GhostDb, idle_agents: &[Idle
                 Ok(true) => continue, // already handled
                 Ok(false) => {}
                 Err(e) => {
-                    logfire::warn!(
-                        "scheduler: failed to check agent run history",
+                    tracing::warn!(
                         agent_name = agent.name.clone(),
                         session_id = record.session_id.clone(),
                         error = e.to_string(),
+                        "scheduler: failed to check agent run history",
                     );
                     continue;
                 }
             }
 
-            logfire::info!(
-                "idle threshold reached, triggering agent",
+            tracing::info!(
                 agent_name = agent.name.clone(),
                 session_id = record.session_id.clone(),
                 idle_minutes = agent.idle_minutes,
+                "idle threshold reached, triggering agent",
             );
 
             match agent_runner
@@ -299,13 +299,13 @@ async fn tick_idle(agent_runner: &AgentRunner, db: &GhostDb, idle_agents: &[Idle
             {
                 Ok(mut result) => {
                     agent_runner.spawn_children(&mut result);
-                    logfire::info!("idle agent completed", agent_name = agent.name.clone());
+                    tracing::info!(agent_name = agent.name.clone(), "idle agent completed");
                 }
                 Err(e) => {
-                    logfire::error!(
-                        "idle agent failed",
+                    tracing::error!(
                         agent_name = agent.name.clone(),
                         error = e.to_string(),
+                        "idle agent failed",
                     );
                 }
             }

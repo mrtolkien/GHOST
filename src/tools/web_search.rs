@@ -85,7 +85,7 @@ impl Tool for WebSearch {
 
         // Cache results for reflection to curate later
         if let Err(e) = save_search_cache(&ctx.workspace, &ctx.session_id, query, &results) {
-            logfire::warn!("failed to cache search results", error = e.to_string(),);
+            tracing::warn!(error = e.to_string(), "failed to cache search results");
         }
 
         // Format results for the model

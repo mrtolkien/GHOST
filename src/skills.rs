@@ -147,9 +147,9 @@ pub(crate) fn walk_skills_dir(dir: &Path, skills: &mut Vec<Skill>) {
                     });
                 }
                 None => {
-                    logfire::warn!(
-                        "Malformed skill frontmatter in {path}",
+                    tracing::warn!(
                         path = skill_path.display().to_string(),
+                        "Malformed skill frontmatter",
                     );
                 }
             }

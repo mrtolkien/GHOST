@@ -29,7 +29,7 @@ pub fn render_template(template: &str, vars: &HashMap<&str, String>) -> String {
         match vars.get(var_name) {
             Some(value) => out.push_str(value),
             None => {
-                logfire::warn!("Unknown template variable '{var_name}'");
+                tracing::warn!("Unknown template variable '{var_name}'");
             }
         }
 

@@ -33,7 +33,7 @@ pub fn spawn_watcher(
         let _watcher = match setup_watcher(&workspace, tx) {
             Ok(w) => w,
             Err(e) => {
-                logfire::error!("failed to start file watcher", error = e.to_string(),);
+                tracing::error!(error = e.to_string(), "failed to start file watcher");
                 return;
             }
         };
@@ -102,16 +102,16 @@ async fn process_batch(
             match process_change(db, workspace, path, content.as_deref(), hash.as_deref()).await {
                 Ok(req) => req,
                 Err(e) => {
-                    logfire::warn!(
-                        "embedding watcher error",
+                    tracing::warn!(
                         path = path.display().to_string(),
                         error = e.to_string(),
+                        "embedding watcher error",
                     );
                     None
                 }
             }
         }
-        .instrument(logfire::span!(
+        .instrument(tracing::info_span!(
             "process file_change",
             kind = kind,
             path = path.display().to_string(),
@@ -129,12 +129,12 @@ async fn process_batch(
             if let Err(e) =
                 crate::embeddings::pipeline::embed_sources(client, db, embed_requests).await
             {
-                logfire::warn!("batch embedding error", error = e.to_string());
+                tracing::warn!(error = e.to_string(), "batch embedding error");
             }
         } else {
-            logfire::debug!(
-                "Ollama unavailable — skipping embedding (will catch up on reconciliation)",
+            tracing::debug!(
                 sources = embed_requests.len(),
+                "Ollama unavailable — skipping embedding (will catch up on reconciliation)",
             );
         }
     }
@@ -273,7 +273,7 @@ async fn process_note_change(
         if let Ok(Some(note)) = crate::db::knowledge::find_note_by_path(db, &rel_path).await {
             crate::db::embeddings::delete_embeddings_for_source(db, &note.id).await?;
             crate::db::knowledge::delete_note(db, &note.id).await?;
-            logfire::info!("watcher: deleted note", path = rel_path);
+            tracing::info!(path = rel_path, "watcher: deleted note");
         }
         return Ok(None);
     }
@@ -300,7 +300,7 @@ async fn process_note_change(
         .and_then(|f| f.to_str())
         .unwrap_or_default()
         .to_string();
-    logfire::info!("watcher: processing note change", filename = filename,);
+    tracing::info!(filename = filename, "watcher: processing note change");
 
     // Resolve topic_id from subfolder path (e.g. "notes/dioxus/foo.md" → topic "dioxus")
     let topic_id = {
@@ -416,7 +416,7 @@ async fn process_reference_change(
         if let Ok(Some(ref_)) = crate::db::knowledge::find_reference_by_path(db, &ref_path).await {
             crate::db::embeddings::delete_embeddings_for_source(db, &ref_.id).await?;
             crate::db::knowledge::delete_reference(db, &ref_.id).await?;
-            logfire::info!("watcher: deleted reference", path = ref_path);
+            tracing::info!(path = ref_path, "watcher: deleted reference");
         }
         return Ok(None);
     }
@@ -445,9 +445,9 @@ async fn process_reference_change(
         None => "unknown".to_string(),
     };
 
-    logfire::info!(
-        "watcher: processing reference change",
+    tracing::info!(
         path = ref_path.clone(),
+        "watcher: processing reference change",
     );
 
     let (ref_id, resolved_topic_id) =
@@ -505,7 +505,7 @@ async fn process_diary_change(
         if let Ok(Some(diary)) = crate::db::knowledge::get_diary_by_date(db, &date).await {
             crate::db::embeddings::delete_embeddings_for_source(db, &diary.id).await?;
             crate::db::knowledge::delete_diary(db, &diary.id).await?;
-            logfire::info!("watcher: deleted diary", date = date);
+            tracing::info!(date = date, "watcher: deleted diary");
         }
         return Ok(None);
     }
@@ -522,7 +522,7 @@ async fn process_diary_change(
         }
     };
 
-    logfire::info!("watcher: processing diary change", date = date.clone(),);
+    tracing::info!(date = date.clone(), "watcher: processing diary change");
 
     let diary_id = match crate::db::knowledge::get_diary_by_date(db, &date).await {
         Ok(Some(d)) => {
@@ -575,7 +575,7 @@ async fn process_script_change(
         {
             crate::db::embeddings::delete_embeddings_for_source(db, &script.id).await?;
             crate::db::knowledge::delete_script(db, &script.id).await?;
-            logfire::info!("watcher: deleted script", path = script_path);
+            tracing::info!(path = script_path, "watcher: deleted script");
         }
         return Ok(None);
     }
@@ -663,7 +663,7 @@ async fn process_code_file_change(
         if let Ok(Some(cf)) = crate::db::knowledge::find_code_file(db, &repo, &code_path).await {
             crate::db::embeddings::delete_embeddings_for_source(db, &cf.id).await?;
             crate::db::knowledge::delete_code_file(db, &cf.id).await?;
-            logfire::info!("watcher: deleted code file", repo = repo, path = code_path);
+            tracing::info!(repo = repo, path = code_path, "watcher: deleted code file");
         }
         return Ok(None);
     }
@@ -733,7 +733,7 @@ pub fn spawn_reconciliation_loop(
             }
 
             if !client.is_available().await {
-                logfire::debug!("Ollama unavailable — skipping periodic reconciliation");
+                tracing::debug!("Ollama unavailable — skipping periodic reconciliation");
                 continue;
             }
 
@@ -755,9 +755,9 @@ pub fn spawn_reconciliation_loop(
                                     info!(embedded, "periodic reconciliation complete");
                                 }
                                 Err(e) => {
-                                    logfire::warn!(
-                                        "periodic embedding failed",
+                                    tracing::warn!(
                                         error = e.to_string(),
+                                        "periodic embedding failed",
                                     );
                                 }
                                 _ => {}
@@ -765,7 +765,7 @@ pub fn spawn_reconciliation_loop(
                         }
                     }
                     Err(e) => {
-                        logfire::warn!("periodic reconciliation failed", error = e.to_string(),);
+                        tracing::warn!(error = e.to_string(), "periodic reconciliation failed");
                     }
                 }
             }

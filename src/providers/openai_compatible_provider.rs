@@ -122,7 +122,7 @@ impl OpenAiCompatibleProvider {
         let request_json =
             serde_json::to_string(&body).unwrap_or_else(|e| format!("<serialization failed: {e}>"));
         let started = Instant::now();
-        logfire::info!("provider request body", body = request_json.clone());
+        tracing::info!(body = request_json.clone(), "provider request body");
         let http_response = self.client.post(&self.endpoint).json(&body).send().await?;
         let status = http_response.status();
         let retry_after_secs = parse_retry_after_secs(
@@ -182,35 +182,35 @@ impl OpenAiCompatibleProvider {
 
         let response: ChatCompletionsResponse =
             serde_json::from_str(&response_body).map_err(|error| {
-                logfire::error!(
-                    "provider response was not valid json",
+                tracing::error!(
                     provider = self.provider_name,
                     model = request.model.clone(),
                     error = error.to_string(),
-                    raw_response = response_body.clone()
+                    raw_response = response_body.clone(),
+                    "provider response was not valid json",
                 );
                 ProviderError::InvalidResponse(format!("response body is not valid json: {error}"))
             })?;
         let mut parsed = match parse_response(response) {
             Ok(parsed) => parsed,
             Err(ProviderError::EmptyResponse { detail }) => {
-                logfire::warn!(
-                    "provider response parsed as empty",
+                tracing::warn!(
                     provider = self.provider_name,
                     model = request.model.clone(),
                     status = status.as_u16() as u64,
                     detail = detail.clone(),
-                    raw_response = response_body.clone()
+                    raw_response = response_body.clone(),
+                    "provider response parsed as empty",
                 );
                 return Err(ProviderError::EmptyResponse { detail });
             }
             Err(error) => {
-                logfire::error!(
-                    "provider response parse failed",
+                tracing::error!(
                     provider = self.provider_name,
                     model = request.model.clone(),
                     error = error.to_string(),
-                    raw_response = response_body.clone()
+                    raw_response = response_body.clone(),
+                    "provider response parse failed",
                 );
                 return Err(error);
             }
@@ -223,7 +223,7 @@ impl OpenAiCompatibleProvider {
 
         let response_json = serde_json::to_string(&parsed.content)
             .unwrap_or_else(|e| format!("<serialization failed: {e}>"));
-        logfire::info!("provider response content", content = response_json);
+        tracing::info!(content = response_json, "provider response content");
 
         let tool_call_summary: String = parsed
             .content

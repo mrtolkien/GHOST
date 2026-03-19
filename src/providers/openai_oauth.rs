@@ -153,7 +153,7 @@ impl OpenAiOAuthProvider {
         let request_json =
             serde_json::to_string(&body).unwrap_or_else(|e| format!("<serialization failed: {e}>"));
 
-        logfire::info!("provider request body", body = request_json.clone());
+        tracing::info!(body = request_json.clone(), "provider request body");
 
         let started = Instant::now();
 
@@ -198,12 +198,12 @@ impl OpenAiOAuthProvider {
 
         if status == reqwest::StatusCode::TOO_MANY_REQUESTS {
             self.circuit_breaker.record_failure(&request.model);
-            logfire::warn!(
-                "oauth provider rate limited",
+            tracing::warn!(
                 provider = "openai_oauth",
                 model = request.model.clone(),
                 retry_after_secs = retry_after_secs,
-                raw_response = response_body.clone()
+                raw_response = response_body.clone(),
+                "oauth provider rate limited",
             );
             return Err(ProviderError::RateLimited { retry_after_secs });
         }
@@ -231,12 +231,12 @@ impl OpenAiOAuthProvider {
 
         let mut parsed =
             parse_codex_response(&response_body, &request.model).inspect_err(|error| {
-                logfire::error!(
-                    "oauth provider response parse failed",
+                tracing::error!(
                     provider = "openai_oauth",
                     model = request.model.clone(),
                     error = error.to_string(),
-                    raw_response = response_body.clone()
+                    raw_response = response_body.clone(),
+                    "oauth provider response parse failed",
                 );
             })?;
         parsed.turn_state = turn_state;
@@ -244,7 +244,7 @@ impl OpenAiOAuthProvider {
 
         let response_json = serde_json::to_string(&parsed.content)
             .unwrap_or_else(|e| format!("<serialization failed: {e}>"));
-        logfire::info!("provider response content", content = response_json);
+        tracing::info!(content = response_json, "provider response content");
 
         let tool_call_summary: String = parsed
             .content

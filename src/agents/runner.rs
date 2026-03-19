@@ -236,10 +236,10 @@ impl AgentRunner {
         };
         self.handles.lock().await.insert(agent_id.clone(), handle);
 
-        logfire::info!(
-            "agent started",
+        tracing::info!(
             agent_name = agent_name.to_string(),
             agent_id = agent_id.clone(),
+            "agent started",
         );
 
         Ok(agent_id)
@@ -307,10 +307,10 @@ impl AgentRunner {
             .await
             .insert(agent_id.to_string(), handle);
 
-        logfire::info!(
-            "agent resumed (background)",
+        tracing::info!(
             agent_name = agent_name.clone(),
             agent_id = agent_id.to_string(),
+            "agent resumed (background)",
         );
 
         Ok(agent_name)
@@ -404,10 +404,10 @@ impl AgentRunner {
         let agent_id_owned = agent_id.to_string();
         self.handles.lock().await.remove(agent_id);
 
-        logfire::info!(
-            "agent stopped",
+        tracing::info!(
             agent_name = agent_name.clone(),
             agent_id = agent_id_owned.clone(),
+            "agent stopped",
         );
 
         Ok(AgentStatus {
@@ -645,10 +645,10 @@ async fn run_post_completion(
         ctx.trigger_session_id = parent_session_id.map(String::from);
         let spawn_requests = ctx.spawn_requests.clone();
         if let Err(e) = script_host.call_post_completion(ctx).await {
-            logfire::warn!(
-                "post_completion hook error",
+            tracing::warn!(
                 agent_name = agent_name.to_string(),
                 error = e.to_string(),
+                "post_completion hook error",
             );
         }
         std::mem::take(&mut *spawn_requests.lock().expect("spawn_requests lock"))
@@ -694,7 +694,7 @@ async fn execute_agent(
             None,
         ) => res?,
         () = cancel_token.cancelled() => {
-            logfire::info!("agent cancelled", agent_name = agent_name.to_string());
+            tracing::info!(agent_name = agent_name.to_string(), "agent cancelled");
             return Ok(AgentResult {
                 session_id: agent_session_id.to_string(),
                 findings: last_assistant_message(db, agent_session_id).await,
@@ -762,7 +762,7 @@ async fn execute_resume(
             None,
         ) => res?,
         () = cancel_token.cancelled() => {
-            logfire::info!("agent resume cancelled", agent_name = agent_name.to_string());
+            tracing::info!(agent_name = agent_name.to_string(), "agent resume cancelled");
             return Ok(AgentResult {
                 session_id: session_id.to_string(),
                 findings: last_assistant_message(db, session_id).await,
@@ -885,10 +885,10 @@ async fn finish_background(task: BackgroundTask, result: Result<AgentResult, Age
             ("ok", agent_result.findings, Some(agent_result.metadata))
         }
         Err(e) => {
-            logfire::error!(
-                "agent failed",
+            tracing::error!(
                 agent_name = task.agent_name.clone(),
                 error = e.to_string(),
+                "agent failed",
             );
             let partial = last_assistant_message(&task.db, &task.agent_session_id).await;
             ("failed", partial, None)
@@ -897,7 +897,7 @@ async fn finish_background(task: BackgroundTask, result: Result<AgentResult, Age
 
     // Persist run record
     if let Err(e) = db::agent_runs::finish_run(&task.db, &task.run_id, status, &transcript).await {
-        logfire::error!("failed to finish agent run", error = e.to_string());
+        tracing::error!(error = e.to_string(), "failed to finish agent run");
     }
 
     // Send session event to parent (if there is a parent)
@@ -908,9 +908,9 @@ async fn finish_background(task: BackgroundTask, result: Result<AgentResult, Age
         if let Err(e) =
             db::sessions::create_message(&task.db, parent_id, "system", &system_msg).await
         {
-            logfire::error!(
-                "failed to inject agent findings into parent session",
+            tracing::error!(
                 error = e.to_string(),
+                "failed to inject agent findings into parent session",
             );
         }
 
@@ -932,10 +932,10 @@ async fn finish_background(task: BackgroundTask, result: Result<AgentResult, Age
     // Clean up handle from the map
     task.handles.lock().await.remove(&task.agent_session_id);
 
-    logfire::info!(
-        "agent finished",
+    tracing::info!(
         agent_name = task.agent_name.clone(),
         status = status,
+        "agent finished",
     );
 }
 
@@ -950,10 +950,10 @@ fn spawn_children_inner(
     let child_depth = depth + 1;
     if child_depth >= MAX_SPAWN_DEPTH {
         if !requests.is_empty() {
-            logfire::info!(
-                "dropping spawn requests at depth limit",
+            tracing::info!(
                 count = requests.len(),
                 depth = depth,
+                "dropping spawn requests at depth limit",
             );
         }
         return;
@@ -970,10 +970,10 @@ fn spawn_children_inner(
                 let agent_session_id = match db::sessions::create_agent_session(&db).await {
                     Ok(id) => id,
                     Err(e) => {
-                        logfire::error!(
-                            "failed to create session for spawned agent",
+                        tracing::error!(
                             agent = req.agent.clone(),
                             error = e.to_string(),
+                            "failed to create session for spawned agent",
                         );
                         return;
                     }
@@ -989,10 +989,10 @@ fn spawn_children_inner(
                 {
                     Ok(id) => id,
                     Err(e) => {
-                        logfire::error!(
-                            "failed to create run for spawned agent",
+                        tracing::error!(
                             agent = req.agent.clone(),
                             error = e.to_string(),
+                            "failed to create run for spawned agent",
                         );
                         return;
                     }
@@ -1000,11 +1000,11 @@ fn spawn_children_inner(
 
                 let cancel_token = CancellationToken::new();
 
-                logfire::info!(
-                    "spawning child agent",
+                tracing::info!(
                     agent = req.agent.clone(),
                     parent_session_id = parent_id.clone(),
                     depth = child_depth,
+                    "spawning child agent",
                 );
 
                 let result = execute_agent(
@@ -1031,10 +1031,10 @@ fn spawn_children_inner(
                         ("ok", agent_result.findings)
                     }
                     Err(e) => {
-                        logfire::error!(
-                            "spawned agent failed",
+                        tracing::error!(
                             agent = req.agent.clone(),
                             error = e.to_string(),
+                            "spawned agent failed",
                         );
                         let partial = last_assistant_message(&db, &agent_session_id).await;
                         ("failed", partial)
@@ -1043,7 +1043,7 @@ fn spawn_children_inner(
 
                 if let Err(e) = db::agent_runs::finish_run(&db, &run_id, status, &transcript).await
                 {
-                    logfire::error!("failed to finish spawned agent run", error = e.to_string());
+                    tracing::error!(error = e.to_string(), "failed to finish spawned agent run");
                 }
             }
             .instrument(span),
@@ -1066,14 +1066,14 @@ async fn finish_run_and_return(
     let (status, agent_result) = match result {
         Ok(r) => ("ok", r),
         Err(e) => {
-            logfire::error!(
-                "agent execution failed",
+            tracing::error!(
                 agent_name = agent_name.to_string(),
                 error = e.to_string(),
+                "agent execution failed",
             );
             let transcript = format!("Agent error: {e}");
             if let Err(fe) = db::agent_runs::finish_run(db, run_id, "failed", &transcript).await {
-                logfire::error!("failed to finish agent run", error = fe.to_string());
+                tracing::error!(error = fe.to_string(), "failed to finish agent run");
             }
             return Err(AgentError::ExecutionFailed {
                 message: transcript,
@@ -1082,7 +1082,7 @@ async fn finish_run_and_return(
     };
 
     if let Err(e) = db::agent_runs::finish_run(db, run_id, status, &agent_result.findings).await {
-        logfire::error!("failed to finish agent run", error = e.to_string());
+        tracing::error!(error = e.to_string(), "failed to finish agent run");
     }
 
     Ok(AgentResult {

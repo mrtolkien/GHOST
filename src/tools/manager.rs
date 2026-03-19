@@ -137,14 +137,14 @@ impl ToolManager {
         match &result {
             Ok(output) => {
                 let truncated: String = output.text.chars().take(2000).collect();
-                logfire::info!(
-                    "tool executed",
+                tracing::info!(
                     output_len = output.text.len() as u64,
                     output = truncated,
+                    "tool executed",
                 );
             }
             Err(err) => {
-                logfire::warn!("tool execution failed", error = err.to_string(),);
+                tracing::warn!(error = err.to_string(), "tool execution failed");
             }
         }
 

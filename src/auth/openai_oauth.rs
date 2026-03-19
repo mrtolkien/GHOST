@@ -288,7 +288,7 @@ impl TokenStore {
             return Ok(tokens.access_token);
         }
 
-        logfire::info!("oauth token expiring soon, refreshing");
+        tracing::info!("oauth token expiring soon, refreshing");
         let refreshed = oauth_client.refresh(&tokens.refresh_token).await?;
         self.save(&refreshed).await?;
         Ok(refreshed.access_token)

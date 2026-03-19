@@ -267,9 +267,9 @@ async fn try_hybrid_search(
                 match db::embeddings::vector_search(db, &vectors[0], limit, topic_ids).await {
                     Ok(hits) => hits,
                     Err(e) => {
-                        logfire::warn!(
+                        tracing::warn!(
+                            error = e.to_string(),
                             "vector search failed, falling back to BM25",
-                            error = e.to_string()
                         );
                         return fallback_bm25(bm25_hits, limit);
                     }
@@ -280,13 +280,13 @@ async fn try_hybrid_search(
             hybrid_merge(&bm25_hits, &filtered_hits, limit)
         }
         Ok(_) => {
-            logfire::warn!("embedding returned empty vectors, falling back to BM25");
+            tracing::warn!("embedding returned empty vectors, falling back to BM25");
             fallback_bm25(bm25_hits, limit)
         }
         Err(e) => {
-            logfire::warn!(
+            tracing::warn!(
+                error = e.to_string(),
                 "embedding query failed, falling back to BM25",
-                error = e.to_string()
             );
             fallback_bm25(bm25_hits, limit)
         }

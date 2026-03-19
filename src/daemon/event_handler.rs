@@ -24,7 +24,7 @@ pub fn spawn_event_handler(
     db: GhostDb,
     mut shutdown: tokio::sync::watch::Receiver<bool>,
 ) -> JoinHandle<()> {
-    logfire::info!("session event handler started");
+    tracing::info!("session event handler started");
 
     tokio::spawn(async move {
         loop {
@@ -38,7 +38,7 @@ pub fn spawn_event_handler(
                     ).await;
                 }
                 _ = shutdown.changed() => {
-                    logfire::info!("session event handler shutting down");
+                    tracing::info!("session event handler shutting down");
                     break;
                 }
             }
@@ -54,13 +54,13 @@ async fn handle_event(
 ) {
     let session_id = &event.session_id;
 
-    logfire::info!("handling session event", session_id = session_id.clone(),);
+    tracing::info!(session_id = session_id.clone(), "handling session event");
 
     // Wait for the session to be idle before triggering continuation.
     if !wait_for_idle(db, session_id).await {
-        logfire::warn!(
-            "session not idle after max polls, triggering anyway",
+        tracing::warn!(
             session_id = session_id.clone(),
+            "session not idle after max polls, triggering anyway",
         );
     }
 
@@ -90,10 +90,10 @@ async fn handle_event(
     let channel_id_str = discord_channel_id.map(|id| id.to_string());
     let chat_result = match detect_coding_session(db, session_chat, session_id).await {
         Some((working_dir, system_prompt)) => {
-            logfire::info!(
-                "triggering coding continuation",
+            tracing::info!(
                 session_id = session_id.clone(),
                 working_dir = working_dir.display().to_string(),
+                "triggering coding continuation",
             );
             session_chat
                 .chat_coding(
@@ -107,9 +107,9 @@ async fn handle_event(
                 .await
         }
         None => {
-            logfire::info!(
-                "triggering GHOST continuation",
+            tracing::info!(
                 session_id = session_id.clone(),
+                "triggering GHOST continuation",
             );
             session_chat
                 .chat(session_id, trigger, channel_id_str, None)
@@ -124,9 +124,9 @@ async fn handle_event(
         &chat_result,
         Err(crate::chat::ChatError::SessionBusy { .. })
     ) {
-        logfire::info!(
-            "session already active, skipping continuation",
+        tracing::info!(
             session_id = session_id.clone(),
+            "session already active, skipping continuation",
         );
         return;
     }
@@ -141,17 +141,17 @@ async fn handle_event(
                     .send_to_channel_with_suffix(channel_id, &result.message, &statusline)
                     .await
             {
-                logfire::error!(
-                    "failed to send event response to Discord",
+                tracing::error!(
                     error = e.to_string(),
+                    "failed to send event response to Discord",
                 );
             }
         }
         Err(e) => {
-            logfire::error!(
-                "failed to trigger chat turn after session event",
+            tracing::error!(
                 error = e.to_string(),
                 session_id = session_id.clone(),
+                "failed to trigger chat turn after session event",
             );
         }
     }

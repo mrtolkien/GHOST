@@ -114,34 +114,34 @@ pub async fn run() -> Result<(), GhostError> {
 
     loop {
         tokio::select! {
-            _ = shutdown_signal() => break,
-            _ = sighup.recv() => {
-                info!("SIGHUP received, reloading config...");
-                match crate::config::reload() {
-                    Ok(new_config) => {
-                        let current = handle.config.current();
-                        match crate::config::validate_reload(&current, &new_config) {
-                            Ok(()) => {
-                                handle.config_tx.send(Arc::new(new_config)).ok();
-                                info!("config reloaded successfully");
+                    _ = shutdown_signal() => break,
+                    _ = sighup.recv() => {
+                        info!("SIGHUP received, reloading config...");
+                        match crate::config::reload() {
+                            Ok(new_config) => {
+                                let current = handle.config.current();
+                                match crate::config::validate_reload(&current, &new_config) {
+                                    Ok(()) => {
+                                        handle.config_tx.send(Arc::new(new_config)).ok();
+                                        info!("config reloaded successfully");
+                                    }
+                                    Err(e) => {
+                                        tracing::warn!(
+                                            error = e.to_string(),
+                                            "config reload rejected",
+        );
+                                    }
+                                }
                             }
                             Err(e) => {
-                                logfire::warn!(
-                                    "config reload rejected",
+                                tracing::warn!(
                                     error = e.to_string(),
-                                );
+                                    "config reload failed",
+        );
                             }
                         }
                     }
-                    Err(e) => {
-                        logfire::warn!(
-                            "config reload failed",
-                            error = e.to_string(),
-                        );
-                    }
                 }
-            }
-        }
     }
     info!("shutting down...");
 
@@ -181,7 +181,7 @@ pub async fn boot_with_config(config: Config) -> Result<DaemonHandle, GhostError
         match crate::bundled::install_docs(&config.workspace) {
             Ok(0) => {}
             Ok(n) => info!(n, "updated bundled docs"),
-            Err(e) => logfire::warn!("failed to install bundled docs", error = e.to_string()),
+            Err(e) => tracing::warn!(error = e.to_string(), "failed to install bundled docs"),
         }
     }
 
@@ -199,7 +199,7 @@ pub async fn boot_with_config(config: Config) -> Result<DaemonHandle, GhostError
     }
 
     if let Err(e) = crate::tools::shell::rebuild_shell_env(&config.workspace).await {
-        logfire::warn!("nix shell setup failed at boot", error = e.to_string());
+        tracing::warn!(error = e.to_string(), "nix shell setup failed at boot");
     }
 
     info!("connecting to database");
@@ -237,17 +237,17 @@ pub async fn boot_with_config(config: Config) -> Result<DaemonHandle, GhostError
                             info!(embedded, "boot reconciliation complete");
                         }
                         Err(e) => {
-                            logfire::warn!("boot embedding failed", error = e.to_string(),);
+                            tracing::warn!(error = e.to_string(), "boot embedding failed");
                         }
                     }
                 }
             }
             Err(e) => {
-                logfire::warn!("boot reconciliation failed", error = e.to_string());
+                tracing::warn!(error = e.to_string(), "boot reconciliation failed");
             }
         }
     } else {
-        logfire::warn!("Ollama unavailable — skipping boot reconciliation");
+        tracing::warn!("Ollama unavailable — skipping boot reconciliation");
     }
 
     // Create shared config for hot-reload

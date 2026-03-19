@@ -231,10 +231,10 @@ pub async fn link_cited_edges(
                             match db::knowledge::find_or_create_topic(db, &topic_name).await {
                                 Ok(id) => id,
                                 Err(e) => {
-                                    logfire::warn!(
-                                        "link_cited_edges: failed to create topic",
+                                    tracing::warn!(
                                         topic = topic_name.clone(),
                                         error = e.to_string(),
+                                        "link_cited_edges: failed to create topic",
                                     );
                                     continue;
                                 }
@@ -259,10 +259,10 @@ pub async fn link_cited_edges(
                                 Err(_) => continue,
                             },
                             Err(e) => {
-                                logfire::warn!(
-                                    "link_cited_edges: failed to create reference",
+                                tracing::warn!(
                                     url = file.url.clone(),
                                     error = e.to_string(),
+                                    "link_cited_edges: failed to create reference",
                                 );
                                 continue;
                             }
@@ -271,10 +271,10 @@ pub async fn link_cited_edges(
                 }
             }
             Err(e) => {
-                logfire::warn!(
-                    "link_cited_edges: failed to find reference",
+                tracing::warn!(
                     url = file.url.clone(),
                     error = e.to_string(),
+                    "link_cited_edges: failed to find reference",
                 );
                 continue;
             }
@@ -284,10 +284,10 @@ pub async fn link_cited_edges(
         if let Err(e) =
             db::knowledge::backfill_message_source_references(db, &file.url, &ref_record.id).await
         {
-            logfire::warn!(
-                "link_cited_edges: failed to backfill message_source",
+            tracing::warn!(
                 url = file.url.clone(),
                 error = e.to_string(),
+                "link_cited_edges: failed to backfill message_source",
             );
         }
 
@@ -309,18 +309,18 @@ pub async fn link_cited_edges(
             match db::knowledge::create_cited_edge(db, &note_record.id, &ref_record.id).await {
                 Ok(_) => created += 1,
                 Err(e) => {
-                    logfire::warn!(
-                        "link_cited_edges: failed to create edge",
+                    tracing::warn!(
                         note = note_title.clone(),
                         ref_id = ref_record.id.clone(),
                         error = e.to_string(),
+                        "link_cited_edges: failed to create edge",
                     );
                 }
             }
         }
     }
 
-    logfire::info!("link_cited_edges: done", edges_created = created);
+    tracing::info!(edges_created = created, "link_cited_edges: done");
     created
 }
 
@@ -404,40 +404,40 @@ pub fn curate_references(
         if used && !file.url.is_empty() {
             match move_to_references(workspace, &cache_path, file, note_topic.as_deref()) {
                 Ok(dest) => {
-                    logfire::info!(
-                        "curate_references: moved",
+                    tracing::info!(
                         filename = file.filename.clone(),
                         dest = dest,
+                        "curate_references: moved",
                     );
                     result.moved += 1;
                 }
                 Err(e) => {
-                    logfire::warn!(
-                        "curate_references: move failed",
+                    tracing::warn!(
                         filename = file.filename.clone(),
                         error = e.to_string(),
+                        "curate_references: move failed",
                     );
                 }
             }
         } else if let Err(e) = std::fs::remove_file(&cache_path) {
-            logfire::warn!(
-                "curate_references: delete failed",
+            tracing::warn!(
                 filename = file.filename.clone(),
                 error = e.to_string(),
+                "curate_references: delete failed",
             );
         } else {
-            logfire::info!(
-                "curate_references: deleted",
+            tracing::info!(
                 filename = file.filename.clone(),
+                "curate_references: deleted",
             );
             result.deleted += 1;
         }
     }
 
-    logfire::info!(
-        "curate_references: done",
+    tracing::info!(
         moved = result.moved,
         deleted = result.deleted,
+        "curate_references: done",
     );
 
     result

@@ -98,7 +98,7 @@ impl Tool for WebFetch {
 
         // Cache for reflection to curate later
         if let Err(e) = save_fetch_cache(&ctx.workspace, &ctx.session_id, url, &content) {
-            logfire::warn!("failed to cache fetch result", error = e.to_string(),);
+            tracing::warn!(error = e.to_string(), "failed to cache fetch result");
         }
 
         // Format output

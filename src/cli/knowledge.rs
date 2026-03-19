@@ -143,13 +143,13 @@ async fn cmd_search(
                 db::knowledge::hybrid_merge(&bm25_hits, &embedding_hits, limit)
             }
             Ok(_) => {
-                logfire::warn!("embedding returned empty vectors, falling back to BM25");
+                tracing::warn!("embedding returned empty vectors, falling back to BM25");
                 fallback_bm25(bm25_hits, limit)
             }
             Err(e) => {
-                logfire::warn!(
+                tracing::warn!(
+                    error = e.to_string(),
                     "embedding query failed, falling back to BM25",
-                    error = e.to_string()
                 );
                 fallback_bm25(bm25_hits, limit)
             }

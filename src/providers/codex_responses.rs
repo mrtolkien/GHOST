@@ -270,10 +270,10 @@ fn parse_codex_json_response(
             .pointer("/error/message")
             .and_then(Value::as_str)
             .unwrap_or("unknown error");
-        logfire::error!(
-            "codex response failed",
+        tracing::error!(
             error = error_msg.to_string(),
             status = "failed",
+            "codex response failed",
         );
         return Err(ProviderError::InvalidResponse(format!(
             "codex response failed: {error_msg}"
@@ -335,7 +335,7 @@ fn parse_codex_sse_response(
                         .pointer("/response/error/message")
                         .and_then(Value::as_str)
                         .unwrap_or("unknown error");
-                    logfire::error!("codex SSE: response.failed", error = error_msg.to_string(),);
+                    tracing::error!(error = error_msg.to_string(), "codex SSE: response.failed");
                     return Err(ProviderError::InvalidResponse(format!(
                         "codex response failed: {error_msg}"
                     )));
@@ -352,10 +352,10 @@ fn parse_codex_sse_response(
 
     // Fallback: reconstruct from individual done items if terminal event was missing.
     if !done_items.is_empty() {
-        logfire::warn!(
-            "codex SSE: no terminal event, reconstructing from output_item.done events",
+        tracing::warn!(
             item_count = done_items.len() as u64,
             events = event_types_seen.join(", "),
+            "codex SSE: no terminal event, reconstructing from output_item.done events",
         );
         let synthetic = serde_json::json!({
             "model": fallback_model,
@@ -383,11 +383,11 @@ fn parse_codex_sse_response(
         "codex SSE: no terminal event, no output items, no text (events: {events}, raw_len: {})",
         raw.len()
     );
-    logfire::warn!(
-        "codex SSE: empty response — no terminal event, no output items, no text",
+    tracing::warn!(
         events = detail.clone(),
         raw_len = raw.len() as u64,
         raw_head = raw_head,
+        "codex SSE: empty response — no terminal event, no output items, no text",
     );
     Err(ProviderError::EmptyResponse { detail })
 }
@@ -482,9 +482,9 @@ pub(super) fn parse_codex_response_value(
                             input,
                         });
                     } else {
-                        logfire::warn!(
-                            "codex: malformed function_call item (missing call_id or name)",
+                        tracing::warn!(
                             item = item.to_string(),
+                            "codex: malformed function_call item (missing call_id or name)",
                         );
                         content.push(ContentBlock::RawOutput {
                             original_type: "function_call".to_string(),
@@ -506,10 +506,10 @@ pub(super) fn parse_codex_response_value(
                             .get("encrypted_content")
                             .and_then(Value::as_str)
                             .map(String::from);
-                        logfire::info!(
-                            "codex: preserving reasoning block",
+                        tracing::info!(
                             has_text = text.is_some(),
                             has_opaque = opaque_data.is_some(),
+                            "codex: preserving reasoning block",
                         );
                         content.push(ContentBlock::Thinking {
                             text,
@@ -518,10 +518,10 @@ pub(super) fn parse_codex_response_value(
                         });
                     } else {
                         let reasoning_summary = extract_reasoning_summary(item);
-                        logfire::info!(
-                            "codex: preserving opaque output item",
+                        tracing::info!(
                             item_type = other.to_string(),
                             reasoning_summary = reasoning_summary,
+                            "codex: preserving opaque output item",
                         );
                         content.push(ContentBlock::RawOutput {
                             original_type: other.to_string(),
@@ -555,13 +555,13 @@ pub(super) fn parse_codex_response_value(
         let output_text_present = value.get("output_text").is_some();
         let raw_preview: String = value.to_string().chars().take(500).collect();
         let status_owned = status.to_string();
-        logfire::warn!(
-            "codex response has no content blocks",
+        tracing::warn!(
             status = status_owned,
             model = model.clone(),
             output_items = output_len as u64,
             output_text_present = output_text_present,
             raw_preview = raw_preview,
+            "codex response has no content blocks",
         );
         return Err(ProviderError::EmptyResponse {
             detail: format!(

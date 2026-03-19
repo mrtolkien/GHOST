@@ -58,10 +58,10 @@ pub(crate) async fn fetch_crawl_manifest(
         let (html, final_url) = match web::fetch_raw(url.as_str()).await {
             Ok(r) => r,
             Err(e) => {
-                logfire::warn!(
-                    "crawl: failed to fetch page",
+                tracing::warn!(
                     url = url.as_str().to_string(),
                     error = e.to_string(),
+                    "crawl: failed to fetch page",
                 );
                 continue;
             }

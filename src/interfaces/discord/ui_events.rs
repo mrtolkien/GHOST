@@ -77,7 +77,7 @@ impl DiscordUiRenderer {
         match send_v2_message(&self.http, self.channel_id, &components, Vec::new()).await {
             Ok(msg) => self.tool_call_message_id = Some(msg.id),
             Err(e) => {
-                logfire::warn!("failed to send tool call message", error = e.to_string())
+                tracing::warn!(error = e.to_string(), "failed to send tool call message")
             }
         }
     }
@@ -103,7 +103,7 @@ impl DiscordUiRenderer {
         )];
 
         if let Err(e) = edit_v2_message(&self.http, self.channel_id, msg_id, &components).await {
-            logfire::warn!("failed to edit tool result message", error = e.to_string());
+            tracing::warn!(error = e.to_string(), "failed to edit tool result message");
         }
     }
 
@@ -116,14 +116,14 @@ impl DiscordUiRenderer {
                 if let Err(e) =
                     edit_v2_message(&self.http, self.channel_id, msg_id, &components).await
                 {
-                    logfire::warn!("failed to edit TODO message", error = e.to_string(),);
+                    tracing::warn!(error = e.to_string(), "failed to edit TODO message");
                 }
             }
             None => {
                 match send_v2_message(&self.http, self.channel_id, &components, Vec::new()).await {
                     Ok(msg) => self.todo_message_id = Some(msg.id),
                     Err(e) => {
-                        logfire::warn!("failed to send TODO message", error = e.to_string(),);
+                        tracing::warn!(error = e.to_string(), "failed to send TODO message");
                     }
                 }
             }

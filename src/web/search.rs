@@ -67,10 +67,10 @@ impl BraveSearchProvider {
                     .map(Duration::from_secs)
                     .unwrap_or(Duration::from_millis(1100));
                 if attempt < 2 {
-                    logfire::warn!(
-                        "brave search rate limited, retrying",
+                    tracing::warn!(
                         attempt = attempt + 1,
                         delay_ms = retry_after.as_millis() as u64,
+                        "brave search rate limited, retrying",
                     );
                     sleep(retry_after).await;
                     continue;
@@ -105,10 +105,10 @@ impl BraveSearchProvider {
                 })
                 .collect();
 
-            logfire::info!(
-                "brave search complete",
+            tracing::info!(
                 query = query.to_string(),
                 result_count = results.len() as u64,
+                "brave search complete",
             );
 
             return Ok(results);

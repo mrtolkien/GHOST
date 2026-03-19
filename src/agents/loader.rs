@@ -76,9 +76,9 @@ pub fn discover_agents(workspace: &Path) -> Vec<AgentInfo> {
     let mut seen = std::collections::HashSet::new();
     agents.retain(|a| {
         if seen.contains(&a.name) {
-            logfire::warn!(
-                "Duplicate agent name '{name}' — keeping agents/ version",
-                name = a.name.clone(),
+            tracing::warn!(
+                name = a.name.as_str(),
+                "Duplicate agent name — keeping agents/ version",
             );
             false
         } else {
@@ -144,10 +144,10 @@ fn try_load_agent_info(agent_dir: &Path, workspace: &Path, agents: &mut Vec<Agen
             description: config.description,
         }),
         Err(e) => {
-            logfire::warn!(
-                "Malformed agent.lua in {path}: {error}",
+            tracing::warn!(
                 path = agent_dir.display().to_string(),
                 error = e.to_string(),
+                "Malformed agent.lua",
             );
         }
     }
