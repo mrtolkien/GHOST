@@ -42,6 +42,9 @@ pub enum GhostError {
     #[error(transparent)]
     Coding(#[from] crate::coding::session::CodingError),
 
+    #[error(transparent)]
+    Onboarding(#[from] crate::onboarding::OnboardingError),
+
     #[error("{0}")]
     Other(String),
 }

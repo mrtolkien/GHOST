@@ -25,7 +25,7 @@ pub struct OnboardingState {
 }
 
 /// Must map to `config::Provider` enum string values.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ProviderChoice {
     OpenRouter,
     Anthropic,
