@@ -40,6 +40,8 @@ export default defineConfig({
                 },
               ],
             },
+            { label: "Onboarding", slug: "getting-started/onboarding" },
+            { label: "Services", slug: "getting-started/services" },
             {
               label: "Configuration",
               slug: "getting-started/configuration",
