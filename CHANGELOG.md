@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.2.2](https://github.com/mrtolkien/GHOST/compare/v0.2.1...v0.2.2) (2026-03-19)
+
+
+### Bug Fixes
+
+* only rewrite ghost entry in Cargo.lock, not all packages ([dd6a27f](https://github.com/mrtolkien/GHOST/commit/dd6a27f0f78f82b651c7ede4be176a224979015f))
+* stabilize crane deps cache across version bumps, use v* tags ([fb58a5c](https://github.com/mrtolkien/GHOST/commit/fb58a5c38532a11763e89edaa24c29903eb86c09))
+* use separate dep source in crane to avoid 11-min cache busts ([8d5d891](https://github.com/mrtolkien/GHOST/commit/8d5d891605169f405e89014042b4daa990986b47))
+
 ## [0.2.1](https://github.com/mrtolkien/GHOST/compare/ghost-v0.2.0...ghost-v0.2.1) (2026-03-19)
 
 
