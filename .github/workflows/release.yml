@@ -3,7 +3,7 @@ name: Build & Release
 on:
   push:
     branches: [main]
-    tags: ["v*"]
+    tags: ["ghost-v*"]
   workflow_dispatch:
 
 env:
@@ -38,7 +38,7 @@ jobs:
 
   # --- Cargo release binaries (tags only) ---
   build-binary:
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/ghost-v')
     strategy:
       matrix:
         include:
@@ -78,7 +78,7 @@ jobs:
   # --- Fast-forward the `latest` branch to the tagged commit ---
   update-latest:
     needs: [release, nix-cache]
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/ghost-v')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -91,7 +91,7 @@ jobs:
 
   update-lock:
     needs: [release]
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/ghost-v')
     runs-on: ubuntu-latest
     permissions:
       contents: write
