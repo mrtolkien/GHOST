@@ -16,17 +16,22 @@
           pkgs = nixpkgs.legacyPackages.${system};
           craneLib = crane.mkLib pkgs;
 
-          # Include Rust sources + non-Rust files needed by build.rs / include_str!
+          # Full source: Rust + non-Rust files needed by build.rs / include_str!
           src = pkgs.lib.cleanSourceWith {
             src = self;
             filter = path: type:
               (craneLib.filterCargoSources path type)
               || (builtins.match ".*prompts/.*" path != null)
               || (builtins.match ".*assets/.*" path != null)
+              || (builtins.match ".*templates/.*" path != null)
               || (builtins.match ".*docs/src/content/.*" path != null)
               || (builtins.match ".*tests/fixtures/.*" path != null)
               || (builtins.match ".*migrations/.*" path != null);
           };
+
+          # Deps-only source: only Cargo manifests + lock + src/ stubs.
+          # Changing assets/prompts/docs does NOT invalidate the deps cache.
+          depsSrc = craneLib.cleanCargoSource self;
 
           commonArgs = {
             pname = "ghost";
@@ -40,9 +45,11 @@
             buildInputs = with pkgs; [ openssl sqlite ];
           };
 
-          # Dependencies-only derivation — cached when Cargo.lock doesn't change
+          # Dependencies-only derivation — cached as long as Cargo.lock is stable.
+          # Uses depsSrc (Cargo files only) so asset/doc changes don't bust the cache.
           cargoArtifacts = craneLib.buildDepsOnly (commonArgs // {
             pname = "ghost-deps";
+            src = depsSrc;
           });
         in {
           default = craneLib.buildPackage (commonArgs // {
