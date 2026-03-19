@@ -383,7 +383,7 @@ impl Handler {
                 let _ = send_gateway_v2(
                     &ctx.http,
                     msg.channel_id,
-                    &format!("Error: {e}"),
+                    &format!("Error: {e}\n\nUse `/reboot` to start a new session."),
                     Some(WARNING_EMBED_COLOR),
                 )
                 .await;
@@ -509,7 +509,7 @@ impl Handler {
                 let _ = send_gateway_v2(
                     &ctx.http,
                     msg.channel_id,
-                    &format!("Error: {e}"),
+                    &format!("Error: {e}\n\nUse `/reboot` to start a new session."),
                     Some(WARNING_EMBED_COLOR),
                 )
                 .await;
