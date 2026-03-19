@@ -48,6 +48,28 @@ It replaces the Brave Search API as the primary search backend.
 
 **Used by**: `web_search` tool
 
+## SigNoz (optional)
+
+**What**: Self-hosted observability platform (traces, metrics, logs)
+**Why**: GHOST exports OpenTelemetry traces for every LLM call, tool execution, and
+agent run. SigNoz provides a web UI to explore traces, debug latency, and monitor
+token usage — all self-hosted with no cloud dependency.
+
+**Used by**: Observability pipeline (when `OTEL_EXPORTER_OTLP_ENDPOINT` is set)
+
+SigNoz runs as a separate Docker Compose stack:
+
+```bash
+docker compose -f docker-compose.signoz.yml up -d
+# UI at http://localhost:3301
+```
+
+:::tip
+SigNoz is optional. Without it, GHOST still logs to the console. You can also point
+`OTEL_EXPORTER_OTLP_ENDPOINT` at any OTLP-compatible backend (Logfire, Datadog,
+Grafana Cloud, etc.).
+:::
+
 ## SQLite + sqlite-vec + FTS5
 
 **What**: Embedded database with vector and full-text extensions

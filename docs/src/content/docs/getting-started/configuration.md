@@ -92,9 +92,35 @@ Never put API keys in `config.toml`. Use environment variables or a `.env`
 file.
 :::
 
-| Variable             | Purpose             |
-| -------------------- | ------------------- |
-| `OPENROUTER_API_KEY` | OpenRouter provider |
-| `BRAVE_API_KEY`      | Web search          |
-| `DISCORD_TOKEN`      | Discord bot         |
-| `KIMI_API_KEY`       | Kimi Code provider  |
+| Variable                        | Purpose                            |
+| ------------------------------- | ---------------------------------- |
+| `OPENROUTER_API_KEY`            | OpenRouter provider                |
+| `BRAVE_API_KEY`                 | Web search                         |
+| `DISCORD_TOKEN`                 | Discord bot                        |
+| `KIMI_API_KEY`                  | Kimi Code provider                 |
+| `OTEL_EXPORTER_OTLP_ENDPOINT`  | OTLP collector URL (enables export)|
+| `OTEL_SERVICE_NAME`             | Service name in traces (def: GHOST)|
+| `OTEL_EXPORTER_OTLP_HEADERS`   | Auth headers for remote backends   |
+
+## Observability
+
+GHOST uses standard [OpenTelemetry](https://opentelemetry.io/) for tracing. By
+default, traces go to the console only. Set `OTEL_EXPORTER_OTLP_ENDPOINT` to
+export to any OTLP-compatible backend.
+
+**Self-hosted with SigNoz** (included in the repo):
+
+```bash title=".env"
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+```
+
+**Cloud backend** (Logfire, Datadog, Grafana Cloud, etc.):
+
+```bash title=".env"
+OTEL_EXPORTER_OTLP_ENDPOINT=https://your-backend.example.com
+OTEL_EXPORTER_OTLP_HEADERS="Authorization=Bearer YOUR_TOKEN"
+```
+
+All `gen_ai.*` semantic convention fields are recorded on LLM calls (model,
+tokens, cache hits), so backends with LLM observability features (SigNoz,
+Logfire) can display them natively.

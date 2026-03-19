@@ -48,7 +48,25 @@ for contributing to GHOST or for setups where you want full control.
    docling-serve (PDF processing). GHOST auto-detects the companion services
    via container networking.
 
-4. **Configure GHOST**
+4. **Optional: Start the observability stack**
+
+   GHOST exports OpenTelemetry traces for LLM calls, tool runs, and agent
+   executions. To visualize them locally with SigNoz:
+
+   ```bash
+   docker compose -f docker-compose.signoz.yml up -d
+   ```
+
+   Then add to your `.env`:
+
+   ```bash title=".env"
+   OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+   ```
+
+   SigNoz UI is at [http://localhost:3301](http://localhost:3301). This is
+   entirely optional — without it, GHOST logs to the console as usual.
+
+5. **Configure GHOST**
 
    Create `~/.config/ghost/config.toml`:
 
