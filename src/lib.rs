@@ -20,6 +20,7 @@ pub mod interfaces;
 pub mod knowledge;
 pub mod merge3;
 pub mod observability;
+pub mod onboarding;
 pub mod projects;
 pub mod prompt;
 pub mod providers;

@@ -8,36 +8,49 @@ GHOST relies on a few external services. This page explains *why* each one exist
 it provides.
 
 :::note
-In the future, all dependencies beyond the binary itself will be managed through Nix. For
-now, you need to set them up manually — see [Installation](/getting-started/installation/)
-for setup steps.
+All dependencies beyond the binary itself are managed by `ghost init` via nix and
+podman/docker compose. See [Services](/getting-started/services/) for how to manage them
+after setup.
 :::
 
-## Ollama
+## llama-server (llama.cpp)
 
-**What**: Local LLM inference server
-**Why**: GHOST uses Ollama to generate embeddings for semantic search. The
+**What**: Local LLM inference server (llama.cpp)
+**Why**: GHOST uses llama-server to generate embeddings for semantic search. The
 `qwen3-embedding:8b` model converts knowledge entries into vectors stored in sqlite-vec,
 enabling similarity-based search alongside BM25 keyword matching.
 
 **Used by**: Knowledge indexing, hybrid search
 
-```bash
-ollama pull qwen3-embedding:8b
+Installed via nix and managed as a systemd/launchd service by `ghost init`.
+
+```sh
+systemctl --user status llama-server
 ```
 
 ## Crawl4AI
 
-**What**: Headless browser for web page extraction
+**What**: Headless browser service for web page extraction
 **Why**: Many web pages require JavaScript rendering or have complex layouts that simple
 HTTP fetching can't handle. Crawl4AI runs a headless browser that extracts clean,
 readable content from any page — even SPAs and dynamically-loaded content.
 
 **Used by**: `web_fetch` tool, deep-research agent
 
-```bash
-docker run -d -p 11235:11235 unclecode/crawl4ai
+```sh
+podman compose -f ~/GHOST/services/docker-compose.yml ps crawl4ai
 ```
+
+## Chrome (headless-shell)
+
+**What**: Headless Chrome browser
+**Why**: Crawl4AI uses Chrome's DevTools Protocol (CDP) to render JavaScript-heavy pages.
+The `chromedp/headless-shell` image provides a lightweight, CDP-compatible Chrome
+instance.
+
+**Used by**: Crawl4AI
+
+- **Port**: 9222 (CDP)
 
 ## SearXNG
 
@@ -48,6 +61,10 @@ It replaces the Brave Search API as the primary search backend.
 
 **Used by**: `web_search` tool
 
+```sh
+podman compose -f ~/GHOST/services/docker-compose.yml ps searxng
+```
+
 ## SigNoz (optional)
 
 **What**: Self-hosted observability platform (traces, metrics, logs)
@@ -57,10 +74,11 @@ token usage — all self-hosted with no cloud dependency.
 
 **Used by**: Observability pipeline (when `OTEL_EXPORTER_OTLP_ENDPOINT` is set)
 
-SigNoz runs as a separate Docker Compose stack:
+SigNoz runs as a separate Docker Compose stack. Ask your GHOST about the **services**
+skill's observability extra for setup instructions.
 
-```bash
-docker compose -f docker-compose.signoz.yml up -d
+```sh
+podman compose -f docker-compose.signoz.yml up -d
 # UI at http://localhost:3301
 ```
 

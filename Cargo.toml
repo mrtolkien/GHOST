@@ -86,6 +86,9 @@ tree-sitter-toml-ng = "0.7"
 url = "2"
 tree-sitter-md = "0.5"
 toml_edit = "0.25.4"
+cliclack = "0.3"
+dialoguer = { version = "0.11", features = ["fuzzy-select"] }
+sysinfo = "0.35"
 
 [features]
 live-tests = []
