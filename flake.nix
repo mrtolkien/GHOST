@@ -36,9 +36,10 @@
           in pkgs.runCommand "ghost-deps-src" {} ''
             cp -r ${cleaned} $out
             chmod -R u+w $out
+            # Pin root crate version so release-please bumps don't bust deps cache.
             ${pkgs.gnused}/bin/sed -i '0,/^version = ".*"/s//version = "0.0.0"/' $out/Cargo.toml
-            # Rewrite the root package version in Cargo.lock to match
-            ${pkgs.gnused}/bin/sed -i '0,/^version = "[0-9].*"/s//version = "0.0.0"/' $out/Cargo.lock
+            # Rewrite ONLY the ghost entry in Cargo.lock (name = "ghost" is followed by version =)
+            ${pkgs.gnused}/bin/sed -i '/^name = "ghost"$/{n;s/^version = ".*"/version = "0.0.0"/;}' $out/Cargo.lock
           '';
 
           commonArgs = {
