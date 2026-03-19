@@ -1,8 +1,8 @@
 # Code Embedding for the Coding Agent — Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development
-> (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps
-> use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use
+> superpowers:subagent-driven-development (recommended) or superpowers:executing-plans
+> to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Automatically embed code from repos in `code/<slug>/` and make it queryable
 through the existing `knowledge_search` tool.
@@ -22,27 +22,28 @@ Ollama embeddings.
 
 ## File Structure
 
-| Action | File | Responsibility |
-|--------|------|----------------|
-| Create | `migrations/013_code_files.sql` | code_file table + FTS5 + triggers |
-| Modify | `src/db/knowledge/records.rs` | `CodeFileRecord` struct |
-| Modify | `src/db/knowledge/crud.rs` | code_file CRUD + hash loading |
-| Modify | `src/db/knowledge/search.rs` | `search_code_files()` |
-| Modify | `src/db/knowledge/mod.rs` | re-export new functions/types |
-| Modify | `src/embeddings/chunker.rs` | add `.jsx` to `detect_code_language()` |
-| Modify | `src/embeddings/pipeline.rs` | gitignore-aware walk, code reconciliation, reverse-pass |
-| Modify | `src/daemon/watcher.rs` | watch `code/`, classify, process code changes |
-| Modify | `src/tools/knowledge_search.rs` | `"code"` category, `repo` param, dispatch |
-| Modify | `src/config_workspace.rs` | add `"code"` to bootstrap dirs |
-| Modify | `src/coding/prompt.rs` | inject `repo_slug` template var |
-| Modify | `prompts/coding-agent.md` | code search + lib docs guidance |
-| Modify | `Cargo.toml` | add `ignore` dependency |
+| Action | File                            | Responsibility                                          |
+| ------ | ------------------------------- | ------------------------------------------------------- |
+| Create | `migrations/013_code_files.sql` | code_file table + FTS5 + triggers                       |
+| Modify | `src/db/knowledge/records.rs`   | `CodeFileRecord` struct                                 |
+| Modify | `src/db/knowledge/crud.rs`      | code_file CRUD + hash loading                           |
+| Modify | `src/db/knowledge/search.rs`    | `search_code_files()`                                   |
+| Modify | `src/db/knowledge/mod.rs`       | re-export new functions/types                           |
+| Modify | `src/embeddings/chunker.rs`     | add `.jsx` to `detect_code_language()`                  |
+| Modify | `src/embeddings/pipeline.rs`    | gitignore-aware walk, code reconciliation, reverse-pass |
+| Modify | `src/daemon/watcher.rs`         | watch `code/`, classify, process code changes           |
+| Modify | `src/tools/knowledge_search.rs` | `"code"` category, `repo` param, dispatch               |
+| Modify | `src/config_workspace.rs`       | add `"code"` to bootstrap dirs                          |
+| Modify | `src/coding/prompt.rs`          | inject `repo_slug` template var                         |
+| Modify | `prompts/coding-agent.md`       | code search + lib docs guidance                         |
+| Modify | `Cargo.toml`                    | add `ignore` dependency                                 |
 
 ---
 
 ## Task 1: Migration + Data Model
 
 **Files:**
+
 - Create: `migrations/013_code_files.sql`
 - Modify: `src/db/knowledge/records.rs`
 
@@ -108,8 +109,7 @@ pub struct CodeFileRecord {
 
 - [ ] **Step 3: Run `just ci` to verify migration applies and types compile**
 
-Run: `just ci`
-Expected: PASS (migration applies, new struct compiles)
+Run: `just ci` Expected: PASS (migration applies, new struct compiles)
 
 - [ ] **Step 4: Commit**
 
@@ -122,6 +122,7 @@ feat: add code_file table, FTS5, and CodeFileRecord
 ## Task 2: Code File CRUD
 
 **Files:**
+
 - Modify: `src/db/knowledge/crud.rs`
 - Modify: `src/db/knowledge/mod.rs`
 
@@ -245,8 +246,8 @@ pub async fn delete_code_files_by_repo(
 
 - [ ] **Step 2: Write hash loading function**
 
-Add to `src/db/knowledge/crud.rs` (near `load_script_file_hashes` at line ~595).
-Returns `(repo, path)` so the reconciler can build the full workspace-relative key:
+Add to `src/db/knowledge/crud.rs` (near `load_script_file_hashes` at line ~595). Returns
+`(repo, path)` so the reconciler can build the full workspace-relative key:
 
 ```rust
 pub async fn load_code_file_hashes(
@@ -286,15 +287,14 @@ pub struct CodeFileHashRecord {
 - [ ] **Step 3: Update mod.rs re-exports**
 
 Add to `src/db/knowledge/mod.rs`:
-- In the `pub use crud::{...}` block: add `CodeFileHashRecord, create_code_file,
-  delete_code_file, delete_code_files_by_repo, find_code_file, load_code_file_hashes,
-  update_code_file`
+
+- In the `pub use crud::{...}` block: add
+  `CodeFileHashRecord, create_code_file, delete_code_file, delete_code_files_by_repo, find_code_file, load_code_file_hashes, update_code_file`
 - In the `pub use records::{...}` block: add `CodeFileRecord`
 
 - [ ] **Step 4: Run `just ci`**
 
-Run: `just ci`
-Expected: PASS
+Run: `just ci` Expected: PASS
 
 - [ ] **Step 5: Commit**
 
@@ -307,6 +307,7 @@ feat: add code_file CRUD and hash loading functions
 ## Task 3: FTS5 Search Function
 
 **Files:**
+
 - Modify: `src/db/knowledge/search.rs`
 - Modify: `src/db/knowledge/mod.rs`
 
@@ -398,8 +399,7 @@ Add `search_code_files` to the `search` use block in `src/db/knowledge/mod.rs`.
 
 - [ ] **Step 3: Run `just ci`**
 
-Run: `just ci`
-Expected: PASS
+Run: `just ci` Expected: PASS
 
 - [ ] **Step 4: Commit**
 
@@ -412,6 +412,7 @@ feat: add search_code_files FTS5 search with repo filtering
 ## Task 4: knowledge_search Tool Integration
 
 **Files:**
+
 - Modify: `src/tools/knowledge_search.rs`
 
 - [ ] **Step 1: Add `"code"` to categories enum and `repo` parameter**
@@ -521,8 +522,7 @@ In `format_results()` (line ~324), add:
 
 - [ ] **Step 6: Run `just ci`**
 
-Run: `just ci`
-Expected: PASS
+Run: `just ci` Expected: PASS
 
 - [ ] **Step 7: Commit**
 
@@ -535,12 +535,13 @@ feat: add code category and repo filter to knowledge_search tool
 ## Task 5: JSX Chunker Support
 
 **Files:**
+
 - Modify: `src/embeddings/chunker.rs`
 
 - [ ] **Step 1: Add `.jsx` to `detect_code_language()`**
 
-In `detect_code_language()` at `chunker.rs:344-361`, add `"jsx"` to the JavaScript
-match arm:
+In `detect_code_language()` at `chunker.rs:344-361`, add `"jsx"` to the JavaScript match
+arm:
 
 ```rust
 "js" | "mjs" | "cjs" | "jsx" => Some((tree_sitter_javascript::LANGUAGE.into(), "javascript")),
@@ -548,8 +549,7 @@ match arm:
 
 - [ ] **Step 2: Run `just ci`**
 
-Run: `just ci`
-Expected: PASS
+Run: `just ci` Expected: PASS
 
 - [ ] **Step 3: Commit**
 
@@ -562,6 +562,7 @@ feat: add JSX support to code chunker
 ## Task 6: Add `ignore` Dependency + Code File Utilities
 
 **Files:**
+
 - Modify: `Cargo.toml`
 - Modify: `src/embeddings/pipeline.rs` (add helper functions)
 
@@ -638,9 +639,8 @@ pub(crate) fn extract_repo_slug(workspace: &std::path::Path, path: &std::path::P
 
 - [ ] **Step 3: Run `just ci`**
 
-Run: `just ci`
-Expected: PASS (new functions unused for now — clippy may warn, add `#[allow(dead_code)]`
-temporarily or proceed to Task 7 before committing)
+Run: `just ci` Expected: PASS (new functions unused for now — clippy may warn, add
+`#[allow(dead_code)]` temporarily or proceed to Task 7 before committing)
 
 - [ ] **Step 4: Commit**
 
@@ -653,6 +653,7 @@ feat: add ignore crate and code-specific walking utilities
 ## Task 7: Workspace Bootstrap + Watcher
 
 **Files:**
+
 - Modify: `src/config_workspace.rs`
 - Modify: `src/daemon/watcher.rs`
 
@@ -809,15 +810,13 @@ async fn process_code_file_change(
 }
 ```
 
-Note: `extract_repo_slug`, `CODE_EXTENSIONS`, `MAX_CODE_FILE_SIZE`, and
-`walk_code_repo` are declared `pub(crate)` in `pipeline.rs` (Task 6). Error propagation
-uses `?` operator — `PipelineError` has `#[from] DatabaseError` so conversions are
-automatic.
+Note: `extract_repo_slug`, `CODE_EXTENSIONS`, `MAX_CODE_FILE_SIZE`, and `walk_code_repo`
+are declared `pub(crate)` in `pipeline.rs` (Task 6). Error propagation uses `?` operator
+— `PipelineError` has `#[from] DatabaseError` so conversions are automatic.
 
 - [ ] **Step 5: Run `just ci`**
 
-Run: `just ci`
-Expected: PASS
+Run: `just ci` Expected: PASS
 
 - [ ] **Step 6: Commit**
 
@@ -830,6 +829,7 @@ feat: watch code/ directory and sync code files to DB
 ## Task 8: Reconciliation — Code Phase + Reverse-Pass
 
 **Files:**
+
 - Modify: `src/embeddings/pipeline.rs`
 
 - [ ] **Step 1: Add code file hashes to `reconcile_filesystem()` Phase 1**
@@ -992,8 +992,7 @@ add:
 
 - [ ] **Step 5: Run `just ci`**
 
-Run: `just ci`
-Expected: PASS
+Run: `just ci` Expected: PASS
 
 - [ ] **Step 6: Commit**
 
@@ -1006,6 +1005,7 @@ feat: add code repo reconciliation with gitignore walk and reverse-pass cleanup
 ## Task 9: Coding Agent Prompt
 
 **Files:**
+
 - Modify: `src/coding/prompt.rs`
 - Modify: `prompts/coding-agent.md`
 
@@ -1040,23 +1040,26 @@ relevant code:
 
 Check what libraries/frameworks the repo uses (look at `Cargo.toml`, `package.json`,
 `pyproject.toml`, `go.mod`, etc.) and search for existing reference docs:
-
 ```
+
 knowledge_search(categories=["references"], topic="<library-name>")
+
 ```
 
 If docs aren't imported yet, use the shell to import them:
 
 ```
+
 ghost reference import git --url <docs-repo-url> --topic <library-name> --extensions md
 ghost reference import crawl --url <docs-url> --topic <library-name>
+
 ```
+
 ```
 
 - [ ] **Step 3: Run `just ci`**
 
-Run: `just ci`
-Expected: PASS
+Run: `just ci` Expected: PASS
 
 - [ ] **Step 4: Commit**
 
@@ -1069,6 +1072,7 @@ feat: add code search and lib docs guidance to coding agent prompt
 ## Task 10: Integration Testing
 
 **Files:**
+
 - Tests in existing test files or new test module
 
 - [ ] **Step 1: Write a unit test for code file CRUD**
@@ -1170,8 +1174,7 @@ fn walk_code_repo_respects_gitignore() {
 
 - [ ] **Step 5: Run all tests**
 
-Run: `just ci`
-Expected: All tests PASS
+Run: `just ci` Expected: All tests PASS
 
 - [ ] **Step 6: Commit**
 
@@ -1185,16 +1188,17 @@ test: add code file CRUD, search, walk, and slug extraction tests
 
 - [ ] **Step 1: Run `just ci` one final time**
 
-Run: `just ci`
-Expected: PASS — fmt, check, clippy, all tests green
+Run: `just ci` Expected: PASS — fmt, check, clippy, all tests green
 
 - [ ] **Step 2: Manual smoke test**
 
 1. Start ghost daemon
 2. Clone a small repo into `~/GHOST/code/test-repo/`
 3. Wait a few seconds for the watcher to pick up files
-4. Check DB: `ghost shell command="sqlite3 ~/GHOST/ghost.db 'SELECT repo, path FROM code_file LIMIT 5'"`
-5. Test search: send a message using the coding agent that triggers `knowledge_search(categories=["code"], repo="test-repo")`
+4. Check DB:
+   `ghost shell command="sqlite3 ~/GHOST/ghost.db 'SELECT repo, path FROM code_file LIMIT 5'"`
+5. Test search: send a message using the coding agent that triggers
+   `knowledge_search(categories=["code"], repo="test-repo")`
 
 - [ ] **Step 3: Commit any final fixes**
 
