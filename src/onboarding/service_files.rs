@@ -243,67 +243,6 @@ pub fn ensure_linger_enabled() {
 }
 
 // ---------------------------------------------------------------------------
-// Single-service installer (used by `ghost update` and legacy init path)
-// ---------------------------------------------------------------------------
-
-/// Write the daemon service file (systemd unit or launchd plist).
-///
-/// `quiet`: skip printing start instructions (used during `ghost update`).
-pub(crate) fn install_service_file(
-    config: &crate::config::Config,
-    quiet: bool,
-) -> Result<(), GhostError> {
-    let exe = stable_exe_path()?;
-
-    if cfg!(target_os = "macos") {
-        let plist_dir = dirs::home_dir()
-            .ok_or_else(|| std::io::Error::other("cannot determine home directory"))?
-            .join("Library/LaunchAgents");
-        std::fs::create_dir_all(&plist_dir)?;
-
-        let log_dir = dirs::data_dir()
-            .ok_or_else(|| std::io::Error::other("cannot determine data directory"))?
-            .join("ghost/logs");
-        std::fs::create_dir_all(&log_dir)?;
-
-        let content = generate_daemon_plist(&exe, &config.workspace.display().to_string());
-        let plist_path = plist_dir.join("com.ghost.daemon.plist");
-        std::fs::write(&plist_path, content)?;
-
-        if !quiet {
-            println!("service file written to {}", plist_path.display());
-            println!();
-            println!("start the daemon with:");
-            println!(
-                "  launchctl bootstrap gui/$(id -u) {}",
-                plist_path.display()
-            );
-        }
-    } else {
-        // Linux — systemd user unit
-        let unit_dir = dirs::config_dir()
-            .ok_or_else(|| std::io::Error::other("cannot determine config directory"))?
-            .join("systemd/user");
-        std::fs::create_dir_all(&unit_dir)?;
-
-        let content = generate_daemon_unit_systemd(&exe, &config.workspace.display().to_string());
-        let unit_path = unit_dir.join("ghost-daemon.service");
-        std::fs::write(&unit_path, content)?;
-
-        if !quiet {
-            println!("service file written to {}", unit_path.display());
-            println!();
-            println!("start the daemon with:");
-            println!("  systemctl --user enable --now ghost-daemon");
-
-            ensure_linger_enabled();
-        }
-    }
-
-    Ok(())
-}
-
-// ---------------------------------------------------------------------------
 // Bulk installer (wizard phase)
 // ---------------------------------------------------------------------------
 
