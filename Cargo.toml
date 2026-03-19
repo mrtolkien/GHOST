@@ -28,10 +28,14 @@ image = { version = "0.25", default-features = false, features = [
 ] }
 opentelemetry = "0.31"
 opentelemetry_sdk = { version = "0.31", features = ["rt-tokio"] }
+# TODO: swap reqwest-blocking-client → reqwest-client + experimental async
+# BatchSpanProcessor once opentelemetry_sdk stabilises it (see #2673, #3125).
+# Currently the default BatchSpanProcessor runs on a plain OS thread without a
+# Tokio runtime, so async reqwest panics. Blocking reqwest works around this.
 opentelemetry-otlp = { version = "0.31", default-features = false, features = [
   "trace",
   "http-proto",
-  "reqwest-client",
+  "reqwest-blocking-client",
   "reqwest-rustls",
 ] }
 tracing-opentelemetry = "0.32"
