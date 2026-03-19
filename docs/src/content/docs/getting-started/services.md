@@ -149,11 +149,3 @@ ghost init
 ```
 
 Re-runs the wizard with your existing values pre-filled.
-
-### Nix garbage collection
-
-Nix stores grow over time. Clean up old generations periodically:
-
-```sh
-nix-collect-garbage -d
-```
