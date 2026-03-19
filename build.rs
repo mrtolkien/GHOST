@@ -12,7 +12,9 @@ fn main() {
     println!("cargo::rerun-if-changed=assets");
 
     let mut entries = Vec::new();
-    walk_dir(assets_dir, assets_dir, &mut entries);
+    walk_dir(assets_dir, assets_dir, &mut entries, &["services"]);
+    // assets/services/ is excluded — those are compile-time templates
+    // used by include_str!() in onboarding, not workspace files.
     entries.sort();
 
     let mut f = fs::File::create(&dest).unwrap();
@@ -23,7 +25,7 @@ fn main() {
     println!("cargo::rerun-if-changed=docs/src/content");
 
     let mut doc_entries = Vec::new();
-    walk_dir(docs_dir, docs_dir, &mut doc_entries);
+    walk_dir(docs_dir, docs_dir, &mut doc_entries, &[]);
     doc_entries.sort();
 
     write_array(&mut f, "BUNDLED_DOCS", &doc_entries);
@@ -67,7 +69,13 @@ fn write_array(f: &mut fs::File, name: &str, entries: &[(String, String)]) {
 }
 
 /// Recursively walk a directory, collecting (workspace_path, source_path) pairs.
-fn walk_dir(base: &Path, dir: &Path, entries: &mut Vec<(String, String)>) {
+/// `skip_dirs` contains top-level directory names to exclude (e.g. "services").
+fn walk_dir(
+    base: &Path,
+    dir: &Path,
+    entries: &mut Vec<(String, String)>,
+    skip_dirs: &[&str],
+) {
     let mut children: Vec<_> = fs::read_dir(dir)
         .unwrap_or_else(|e| panic!("failed to read {}: {e}", dir.display()))
         .filter_map(|e| e.ok())
@@ -77,7 +85,14 @@ fn walk_dir(base: &Path, dir: &Path, entries: &mut Vec<(String, String)>) {
     for entry in children {
         let path = entry.path();
         if path.is_dir() {
-            walk_dir(base, &path, entries);
+            // Skip excluded top-level directories
+            if dir == base {
+                let name = entry.file_name();
+                if skip_dirs.iter().any(|s| *s == name.to_string_lossy()) {
+                    continue;
+                }
+            }
+            walk_dir(base, &path, entries, skip_dirs);
         } else {
             let rel = path.strip_prefix(base).unwrap();
             let workspace_path = rel.to_string_lossy().to_string();

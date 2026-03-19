@@ -3,7 +3,7 @@ title: Installation
 description: Install GHOST in three commands.
 ---
 
-import { Steps, Aside, Code } from "@astrojs/starlight/components";
+import { Steps, Code } from "@astrojs/starlight/components";
 
 <Steps>
 
@@ -23,17 +23,19 @@ import { Steps, Aside, Code } from "@astrojs/starlight/components";
    # macOS: sudo launchctl kickstart -k system/org.nixos.nix-daemon
    ```
 
-   <Aside type="tip" title="NixOS">
-     On NixOS, add the cache to your system configuration instead:
-     ```nix title="configuration.nix"
-     nix.settings = {
-       extra-substituters = [ "https://ghost-ai.cachix.org" ];
-       extra-trusted-public-keys = [
-         "ghost-ai.cachix.org-1:c0BYnkFKE8rYzkusZD5+l5D5Vcl8WRQMXV1zVWjxCBI="
-       ];
-     };
-     ```
-   </Aside>
+   <details>
+   <summary>NixOS</summary>
+
+   On NixOS, add the cache to your system configuration instead:
+   ```nix title="configuration.nix"
+   nix.settings = {
+     extra-substituters = [ "https://ghost-ai.cachix.org" ];
+     extra-trusted-public-keys = [
+       "ghost-ai.cachix.org-1:c0BYnkFKE8rYzkusZD5+l5D5Vcl8WRQMXV1zVWjxCBI="
+     ];
+   };
+   ```
+   </details>
 
 3. **Install GHOST**
 

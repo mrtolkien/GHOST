@@ -20,6 +20,7 @@ The workspace is your GHOST's home directory. Default: `~/GHOST/`.
 - jobs/ Cron-scheduled job files
 - skills/ Workflow definitions (agentskills.io format)
 - agents/ Agent definitions (YAML frontmatter + prompt)
+- services/ Services definitions (docker compose file)
 - .web-cache/ Cached web fetches
 - .state/ Runtime state (database, logs)
 
@@ -29,21 +30,9 @@ The workspace is your GHOST's home directory. Default: `~/GHOST/`.
 
 Running `ghost init` bootstraps the workspace with:
 
-- **Identity files** — `BOOT.md`, `SOUL.md`, `OPERATOR.md` with starter templates
-- **Default skills** — research, knowledge-navigator, note-writer, cron-job-author,
-  skill-creator
-- **Default agents** — heartbeat, chat-reflection, reflection, deep-research
+- **Identity files**: `BOOT.md`, `SOUL.md`, `OPERATOR.md` with starter templates
+- **Default skills**: research, knowledge-navigator, note-writer,
+  cron-job-author, skill-creator
+- **Default agents**: heartbeat, chat-reflection, reflection, deep-research
+- **Configured local services**: Crawl4AI, SearXNG, ...
 - **All directories** listed above
-
-## Key Directories
-
-| Directory     | Purpose                          | Managed By                     |
-| ------------- | -------------------------------- | ------------------------------ |
-| `notes/`      | Your GHOST's knowledge notes     | GHOST (via `note_write` tool)  |
-| `references/` | Source material in topic subdirs | GHOST + you                    |
-| `diary/`      | Daily timeline entries           | Reflection agent               |
-| `jobs/`       | Cron job definitions             | You (or cron-job-author skill) |
-| `skills/`     | Workflow files                   | You (or skill-creator skill)   |
-| `agents/`     | Agent definitions                | `ghost init` + you             |
-| `.web-cache/` | Cached web pages                 | Automatic                      |
-| `.state/`     | SQLite database, runtime state   | Automatic                      |

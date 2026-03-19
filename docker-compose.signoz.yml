@@ -63,7 +63,7 @@ services:
         mv histogram-quantile /var/lib/clickhouse/user_scripts/histogramQuantile
     restart: on-failure
     volumes:
-      - ./deploy/common/clickhouse/user_scripts:/var/lib/clickhouse/user_scripts/
+      - ./assets/services/clickhouse/user_scripts:/var/lib/clickhouse/user_scripts/
 
   zookeeper-1:
     <<: *common
@@ -90,11 +90,11 @@ services:
     ports:
       - "127.0.0.1:8123:8123"
     volumes:
-      - ./deploy/common/clickhouse/config.xml:/etc/clickhouse-server/config.xml
-      - ./deploy/common/clickhouse/users.xml:/etc/clickhouse-server/users.xml
-      - ./deploy/common/clickhouse/custom-function.xml:/etc/clickhouse-server/custom-function.xml
-      - ./deploy/common/clickhouse/user_scripts:/var/lib/clickhouse/user_scripts/
-      - ./deploy/common/clickhouse/cluster.xml:/etc/clickhouse-server/config.d/cluster.xml
+      - ./assets/services/clickhouse/config.xml:/etc/clickhouse-server/config.xml
+      - ./assets/services/clickhouse/users.xml:/etc/clickhouse-server/users.xml
+      - ./assets/services/clickhouse/custom-function.xml:/etc/clickhouse-server/custom-function.xml
+      - ./assets/services/clickhouse/user_scripts:/var/lib/clickhouse/user_scripts/
+      - ./assets/services/clickhouse/cluster.xml:/etc/clickhouse-server/config.d/cluster.xml
       - clickhouse:/var/lib/clickhouse/
 
   signoz:
@@ -133,8 +133,8 @@ services:
         /signoz-otel-collector migrate sync check &&
         /signoz-otel-collector --config=/etc/otel-collector-config.yaml --manager-config=/etc/manager-config.yaml --copy-path=/var/tmp/collector-config.yaml
     volumes:
-      - ./deploy/common/signoz/otel-collector-config.yaml:/etc/otel-collector-config.yaml
-      - ./deploy/common/signoz/otel-collector-opamp-config.yaml:/etc/manager-config.yaml
+      - ./assets/services/signoz/otel-collector-config.yaml:/etc/otel-collector-config.yaml
+      - ./assets/services/signoz/otel-collector-opamp-config.yaml:/etc/manager-config.yaml
     environment:
       - OTEL_RESOURCE_ATTRIBUTES=host.name=signoz-host,os.type=linux
       - LOW_CARDINAL_EXCEPTION_GROUPING=false
