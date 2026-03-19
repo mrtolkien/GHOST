@@ -89,6 +89,7 @@ live-tests-llms = ["live-tests"]
 live-tests-browser = ["live-tests"]
 live-tests-multi-browser = ["live-tests-browser"]
 live-tests-crawl4ai = ["live-tests-browser"]
+live-tests-observability = ["live-tests"]
 
 [dev-dependencies]
 chrono = "0.4"
