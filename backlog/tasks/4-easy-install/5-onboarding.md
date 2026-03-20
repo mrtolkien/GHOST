@@ -63,21 +63,23 @@ Native would be better for:
 `ghost init` becomes the single entry point for all first-run setup and reconfiguration.
 It replaces `deploy/common/onboard.py` (Python wizard) with a native Rust implementation
 that handles: LLM provider setup, Discord configuration, service installation (native +
-containers), workspace bootstrapping, daemon service file generation, and first-run health
-checks.
+containers), workspace bootstrapping, daemon service file generation, and first-run
+health checks.
 
 ### Goals
 
 - Anyone can install and run GHOST with the fewest possible commands
-- Clear, beautiful terminal UX with context at every step (what each service is, why it's
-  needed, links to learn more)
+- Clear, beautiful terminal UX with context at every step (what each service is, why
+  it's needed, links to learn more)
 - Fully scriptable for automated deployment and testing
-- Nix as the only prerequisite — everything else is installed or configured by the wizard
+- Nix as the only prerequisite — everything else is installed or configured by the
+  wizard
 
 ### Non-goals
 
 - Installing Nix itself (show the Determinate installer URL and exit)
-- Managing Tailscale or observability (documented in the services skill, not in the wizard)
+- Managing Tailscale or observability (documented in the services skill, not in the
+  wizard)
 - Live-fetching model catalogs from providers (tested and found unreliable — most
   providers don't have clean listing APIs; link to web pages instead)
 - GPU detection and optimization (llama.cpp and docling auto-detect available GPU
@@ -95,7 +97,8 @@ checks.
   - `wizard.rs` — Interactive wizard flow (phases 1–5), prompt definitions
   - `provider.rs` — Provider selection, API key validation (real LLM call)
   - `discord.rs` — Discord setup guidance and prompts
-  - `services.rs` — Per-service prompts, nix profile installation, compose file generation
+  - `services.rs` — Per-service prompts, nix profile installation, compose file
+    generation
   - `config_writer.rs` — Config diff, config.toml + .env generation
   - `service_files.rs` — systemd/launchd unit generation for daemon + native services
   - `health.rs` — Post-install health probes for all services
@@ -153,8 +156,8 @@ If `config.toml` already exists when `ghost init` runs:
 
 ### Phase 0 — Detection (~1 second, no prompts)
 
-Runs automatically before any interactive step. Probes the environment and stores results
-in a `DetectedEnvironment` struct used by all subsequent phases.
+Runs automatically before any interactive step. Probes the environment and stores
+results in a `DetectedEnvironment` struct used by all subsequent phases.
 
 ```
 ╭─────────────────────────────────────╮
@@ -172,20 +175,20 @@ in a `DetectedEnvironment` struct used by all subsequent phases.
 
 **Checks performed:**
 
-| Check | Method | Hard fail? |
-|-------|--------|------------|
-| Nix installed | `which nix` | Yes — print Determinate installer URL, exit |
-| Platform | `cfg!(target_os)` + check for systemd/launchd | No (informational) |
-| Container runtime | `which podman` then `which docker` | No (skip container services if neither) |
-| llama-server in PATH | `which llama-server` | No |
-| docling-serve in PATH | `which docling-serve` | No |
-| Ollama/llama-server on :11434 | HTTP probe | No |
-| SearXNG on :8080 | HTTP probe | No |
-| Chrome on :9222 | HTTP probe `/json/version` | No |
-| Docling on :5001 | HTTP probe | No |
-| Crawl4AI | HTTP probe | No |
-| Existing config.toml | File existence check | No |
-| Existing .env | File existence check | No |
+| Check                         | Method                                        | Hard fail?                                  |
+| ----------------------------- | --------------------------------------------- | ------------------------------------------- |
+| Nix installed                 | `which nix`                                   | Yes — print Determinate installer URL, exit |
+| Platform                      | `cfg!(target_os)` + check for systemd/launchd | No (informational)                          |
+| Container runtime             | `which podman` then `which docker`            | No (skip container services if neither)     |
+| llama-server in PATH          | `which llama-server`                          | No                                          |
+| docling-serve in PATH         | `which docling-serve`                         | No                                          |
+| Ollama/llama-server on :11434 | HTTP probe                                    | No                                          |
+| SearXNG on :8080              | HTTP probe                                    | No                                          |
+| Chrome on :9222               | HTTP probe `/json/version`                    | No                                          |
+| Docling on :5001              | HTTP probe                                    | No                                          |
+| Crawl4AI                      | HTTP probe                                    | No                                          |
+| Existing config.toml          | File existence check                          | No                                          |
+| Existing .env                 | File existence check                          | No                                          |
 
 ### Phase 1 — LLM Provider (required)
 
@@ -224,33 +227,34 @@ in a `DetectedEnvironment` struct used by all subsequent phases.
 
 **Per-provider details:**
 
-| Provider | Auth method | Catalog URL | Notes |
-|----------|------------|-------------|-------|
-| OpenRouter | API key (`OPENROUTER_API_KEY`) | https://openrouter.ai/rankings | Recommended default |
-| Anthropic | Claude platform OAuth | https://docs.anthropic.com/en/docs/about-claude/models | Reads `~/.claude/.credentials.json` (claudeAiOauth) |
-| Kimi | API key (`KIMI_API_KEY`) | https://kimi.com | |
-| ChatGPT OAuth | OpenAI device OAuth | https://developers.openai.com/codex/models | Uses `OpenAiOAuthClient` token store |
+| Provider      | Auth method                    | Catalog URL                                            | Notes                                               |
+| ------------- | ------------------------------ | ------------------------------------------------------ | --------------------------------------------------- |
+| OpenRouter    | API key (`OPENROUTER_API_KEY`) | https://openrouter.ai/rankings                         | Recommended default                                 |
+| Anthropic     | Claude platform OAuth          | https://docs.anthropic.com/en/docs/about-claude/models | Reads `~/.claude/.credentials.json` (claudeAiOauth) |
+| Kimi          | API key (`KIMI_API_KEY`)       | https://kimi.com                                       |                                                     |
+| ChatGPT OAuth | OpenAI device OAuth            | https://developers.openai.com/codex/models             | Uses `OpenAiOAuthClient` token store                |
 
 **OAuth providers have separate credential flows:**
 
 - **Anthropic**: Reads from `~/.claude/.credentials.json` (the `claudeAiOauth` section).
   These credentials come from Claude Code / Claude platform — they are NOT the same as a
   direct API key. If the credentials file doesn't exist, show a note box: "Anthropic
-  OAuth requires Claude Code credentials. Please run `claude` first to authenticate, then
-  re-run `ghost init`." On headless servers where browser-based OAuth is impossible,
-  instruct the user to authenticate on a local machine and copy
+  OAuth requires Claude Code credentials. Please run `claude` first to authenticate,
+  then re-run `ghost init`." On headless servers where browser-based OAuth is
+  impossible, instruct the user to authenticate on a local machine and copy
   `~/.claude/.credentials.json` to the server.
 - **ChatGPT OAuth**: Uses `OpenAiOAuthClient` from `src/auth/openai_oauth.rs` which
   initiates a device-code OAuth flow. The wizard runs `ghost auth codex` inline — this
-  prints a URL + code, the user authenticates in a browser, and tokens are stored locally.
-  Works on headless servers via the device-code flow (user opens URL on any device).
+  prints a URL + code, the user authenticates in a browser, and tokens are stored
+  locally. Works on headless servers via the device-code flow (user opens URL on any
+  device).
 
 **Validation call**: A real completion request — e.g. system="Reply with OK",
 user="ping". Confirms the credentials, model ID, and endpoint all work. On failure: show
 the error, offer to retry or go back.
 
-After validation succeeds, the onboarding agent becomes available (see "Onboarding Agent"
-section below).
+After validation succeeds, the onboarding agent becomes available (see "Onboarding
+Agent" section below).
 
 ### Phase 2 — Discord
 
@@ -287,13 +291,13 @@ section below).
 ```
 
 **Validation**: User ID validated as numeric (17-18 digits). Bot token validated with a
-real Discord API call (GET `/api/v10/users/@me` with `Authorization: Bot <token>`) — this
-catches typos immediately rather than failing at daemon start.
+real Discord API call (GET `/api/v10/users/@me` with `Authorization: Bot <token>`) —
+this catches typos immediately rather than failing at daemon start.
 
 ### Phase 3 — Services
 
-Each service gets: a description of what it is and why the GHOST needs it, detected state,
-and a picker. The picker options depend on what was detected in Phase 0.
+Each service gets: a description of what it is and why the GHOST needs it, detected
+state, and a picker. The picker options depend on what was detected in Phase 0.
 
 #### Embeddings (llama-server)
 
@@ -406,20 +410,20 @@ Both templates are `include_str!`'d into the binary from `assets/`.
 
 **Container runtime**: Podman is preferred and runs rootless by default (no daemon, no
 root). The wizard detects `podman` first, falls back to `docker`. All compose commands
-use whichever runtime was detected. No special rootless configuration is needed — podman's
-default mode is rootless.
+use whichever runtime was detected. No special rootless configuration is needed —
+podman's default mode is rootless.
 
 **Networking strategy**: The generated compose file uses `network_mode: host` for all
 containers on Linux (simplest — containers share the host network, all services reach
-each other on localhost). On macOS (where host networking is unavailable in Docker), use a
-bridge network with Docker DNS and `host.docker.internal` for reaching host-side services
-(llama-server, docling-serve). The compose template is platform-aware.
+each other on localhost). On macOS (where host networking is unavailable in Docker), use
+a bridge network with Docker DNS and `host.docker.internal` for reaching host-side
+services (llama-server, docling-serve). The compose template is platform-aware.
 
 **Docling in compose**: If the user selects "Local with podman" for Docling (instead of
-native nix install), Docling is included in the compose file as a container service. Both
-paths are supported — nix-native is recommended for better performance, but the container
-option exists for users who prefer a simpler setup or whose platform has nix packaging
-issues for docling.
+native nix add), Docling is included in the compose file as a container service. Both
+paths are supported — nix-native is recommended for better performance, but the
+container option exists for users who prefer a simpler setup or whose platform has nix
+packaging issues for docling.
 
 ### Phase 4 — Write Configuration + Install Services
 
@@ -475,15 +479,15 @@ issues for docling.
 
 **Files written:**
 
-| File | Content |
-|------|---------|
-| `~/.config/ghost/config.toml` | Full config from wizard answers |
-| `~/.config/ghost/.env` | API keys, tokens (secrets only) |
-| `<workspace>/services/docker-compose.yml` | Container stack (selected services) |
-| `<workspace>/services/searxng-settings.yml` | SearXNG config (if selected) |
-| `~/.config/systemd/user/ghost-daemon.service` | Daemon unit (or launchd plist) |
-| `~/.config/systemd/user/llama-server.service` | Embeddings unit (if nix-installed) |
-| `~/.config/systemd/user/docling-serve.service` | Docling unit (if nix-installed) |
+| File                                           | Content                             |
+| ---------------------------------------------- | ----------------------------------- |
+| `~/.config/ghost/config.toml`                  | Full config from wizard answers     |
+| `~/.config/ghost/.env`                         | API keys, tokens (secrets only)     |
+| `<workspace>/services/docker-compose.yml`      | Container stack (selected services) |
+| `<workspace>/services/searxng-settings.yml`    | SearXNG config (if selected)        |
+| `~/.config/systemd/user/ghost-daemon.service`  | Daemon unit (or launchd plist)      |
+| `~/.config/systemd/user/llama-server.service`  | Embeddings unit (if nix-installed)  |
+| `~/.config/systemd/user/docling-serve.service` | Docling unit (if nix-installed)     |
 
 For existing configs: the diff shows only changed/added lines. Unchanged sections are
 not shown.
@@ -495,8 +499,8 @@ not shown.
   call it. All systemd units include `TimeoutStopSec=120` to give the daemon time to
   shut down gracefully (known issue: Discord/serenity and SQLite workers can block
   shutdown past the default 90s timeout).
-- **macOS**: Write launchd plists with `KeepAlive=true` and `RunAtLoad=true`. Log
-  output to `~/Library/Application Support/ghost/logs/`.
+- **macOS**: Write launchd plists with `KeepAlive=true` and `RunAtLoad=true`. Log output
+  to `~/Library/Application Support/ghost/logs/`.
 
 **Workspace `services/` directory**: Add `services/` to the directories created by
 `config_workspace::bootstrap_workspace_dirs`. This is where the compose file and
@@ -540,14 +544,14 @@ start them manually later.
 
 **Health probes** per service:
 
-| Service | Probe | Timeout |
-|---------|-------|---------|
-| LLM provider | Already validated in Phase 1 | — |
-| llama-server | GET `http://127.0.0.1:11434/health` | 5s |
-| SearXNG | GET `http://127.0.0.1:8080` | 5s |
-| Chrome | GET `http://127.0.0.1:9222/json/version` | 5s |
-| Crawl4AI | GET `http://127.0.0.1:11235/health` | 5s |
-| Docling | GET `http://127.0.0.1:5001/health` | 5s |
+| Service      | Probe                                    | Timeout |
+| ------------ | ---------------------------------------- | ------- |
+| LLM provider | Already validated in Phase 1             | —       |
+| llama-server | GET `http://127.0.0.1:11434/health`      | 5s      |
+| SearXNG      | GET `http://127.0.0.1:8080`              | 5s      |
+| Chrome       | GET `http://127.0.0.1:9222/json/version` | 5s      |
+| Crawl4AI     | GET `http://127.0.0.1:11235/health`      | 5s      |
+| Docling      | GET `http://127.0.0.1:5001/health`       | 5s      |
 
 Services that fail health check: show warning (yellow), don't block. The daemon will
 retry connections on its own.
@@ -556,9 +560,9 @@ retry connections on its own.
 30 seconds (1s interval). Once healthy, trigger a real LLM chat turn with a user message
 like "Hello! I just finished setting up." The GHOST responds naturally — reading SOUL.md
 and OPERATOR.md — producing its first real message in the Discord channel. If the daemon
-doesn't become healthy within 30s or the chat turn fails, show a yellow warning
-("Daemon started but first message failed — check Discord manually") and continue.
-Don't fail init.
+doesn't become healthy within 30s or the chat turn fails, show a yellow warning ("Daemon
+started but first message failed — check Discord manually") and continue. Don't fail
+init.
 
 ## Onboarding Agent
 
@@ -613,9 +617,9 @@ Bundled at `assets/skills/services/`.
 ---
 name: services
 description:
-  Manage GHOST's infrastructure services. Use when you need to start, stop, restart,
-  or troubleshoot any service (containers or native), check service health, or help
-  the OPERATOR modify their service setup.
+  Manage GHOST's infrastructure services. Use when you need to start, stop, restart, or
+  troubleshoot any service (containers or native), check service health, or help the
+  OPERATOR modify their service setup.
 ---
 ```
 
@@ -630,13 +634,15 @@ Content covers:
   - `~/.config/systemd/user/*.service` — systemd units (Linux)
   - `~/Library/LaunchAgents/com.ghost.*.plist` — launchd plists (macOS)
 - **Common operations** with exact commands:
-  - Start/stop/restart containers: `podman compose -f <workspace>/services/docker-compose.yml up -d`
+  - Start/stop/restart containers:
+    `podman compose -f <workspace>/services/docker-compose.yml up -d`
   - View container logs: `podman compose ... logs -f <service>`
   - Restart native services: `systemctl --user restart llama-server`
   - Check status: `systemctl --user status ghost-daemon llama-server docling-serve`
 - **Health checking**: How to probe each service endpoint, expected responses
 - **Adding a service**: Edit the compose file, run `podman compose up -d`
-- **Removing a service**: Remove from compose file, run `podman compose up -d --remove-orphans`
+- **Removing a service**: Remove from compose file, run
+  `podman compose up -d --remove-orphans`
 - **Reconfiguring**: Run `ghost init` to re-run the wizard
 - **Nix garbage collection**: Nix store grows over time as packages are updated. Include
   instructions for setting up automatic GC (`nix-collect-garbage -d` or

@@ -13,8 +13,8 @@ import { Steps, Code } from "@astrojs/starlight/components";
    curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
    ```
 
-2. **Add the GHOST binary cache** (optional but recommended — skips a ~15
-   minute compile)
+2. **Add the GHOST binary cache** (optional but recommended — skips a ~15 minute
+   compile)
 
    If you installed Nix with the
    [Determinate Systems installer](https://install.determinate.systems/nix)
@@ -28,21 +28,24 @@ import { Steps, Code } from "@astrojs/starlight/components";
    ```
 
    <details>
-   <summary>Standard Nix (non-Determinate)</summary>
+<summary>Standard Nix (non-Determinate)</summary>
 
    If you installed Nix via the official installer, use `/etc/nix/nix.conf`
    instead:
+
    ```bash
    echo 'extra-substituters = https://ghost-ai.cachix.org' | sudo tee -a /etc/nix/nix.conf
    echo 'extra-trusted-public-keys = ghost-ai.cachix.org-1:c0BYnkFKE8rYzkusZD5+l5D5Vcl8WRQMXV1zVWjxCBI=' | sudo tee -a /etc/nix/nix.conf
    sudo systemctl restart nix-daemon
    ```
+
    </details>
 
    <details>
-   <summary>NixOS</summary>
+<summary>NixOS</summary>
 
    On NixOS, add the cache to your system configuration instead:
+
    ```nix title="configuration.nix"
    nix.settings = {
      extra-substituters = [ "https://ghost-ai.cachix.org" ];
@@ -51,12 +54,13 @@ import { Steps, Code } from "@astrojs/starlight/components";
      ];
    };
    ```
+
    </details>
 
 3. **Install GHOST**
 
    ```bash
-   nix profile install github:mrtolkien/GHOST/latest
+   nix profile add github:mrtolkien/GHOST/latest
    ```
 
 4. **Run the onboarding wizard**
@@ -65,18 +69,18 @@ import { Steps, Code } from "@astrojs/starlight/components";
    ghost init
    ```
 
-   The wizard configures your LLM provider, Discord bot, and all services.
-   See [Onboarding](/getting-started/onboarding/) for details.
+   The wizard configures your LLM provider, Discord bot, and all services. See
+   [Onboarding](/getting-started/onboarding/) for details.
 
 </Steps>
 
 ## Install Channels
 
-| Command | What you get |
-| --- | --- |
-| `nix profile install github:mrtolkien/GHOST/latest` | Latest release (recommended) |
-| `nix profile install github:mrtolkien/GHOST/main` | Bleeding edge (latest commit) |
-| `nix profile install github:mrtolkien/GHOST/v0.5.0` | Pinned version |
+| Command                                         | What you get                  |
+| ----------------------------------------------- | ----------------------------- |
+| `nix profile add github:mrtolkien/GHOST/latest` | Latest release (recommended)  |
+| `nix profile add github:mrtolkien/GHOST/main`   | Bleeding edge (latest commit) |
+| `nix profile add github:mrtolkien/GHOST/v0.5.0` | Pinned version                |
 
 ## Updating
 
