@@ -3,7 +3,7 @@ title: Installation
 description: Install GHOST in three commands.
 ---
 
-import { Steps, Aside } from "@astrojs/starlight/components";
+import { Steps } from "@astrojs/starlight/components";
 
 ## Prerequisites
 
@@ -28,12 +28,17 @@ sudo systemctl restart nix-daemon   # Linux
 # macOS: sudo launchctl kickstart -k system/org.nixos.nix-daemon
 ```
 
-<Aside type="tip" title="Standard Nix (non-Determinate)">
-  If you installed Nix via the official installer, use `/etc/nix/nix.conf`
-  instead of `nix.custom.conf`.
-</Aside>
+<details>
+<summary>Standard Nix (non-Determinate)</summary>
 
-<Aside type="tip" title="NixOS">
+If you installed Nix via the official installer, use `/etc/nix/nix.conf`
+instead of `nix.custom.conf`.
+
+</details>
+
+<details>
+<summary>NixOS</summary>
+
 Add the cache to your system configuration:
 
 ```nix title="configuration.nix"
@@ -45,7 +50,7 @@ nix.settings = {
 };
 ```
 
-</Aside>
+</details>
 
 ## Install and Run
 

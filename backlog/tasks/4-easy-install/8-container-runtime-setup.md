@@ -9,33 +9,79 @@ Several services (SearXNG, Crawl4AI, Docling) run as containers. Without a conta
 runtime, those options are unavailable and the wizard defaults to skipping them. Setting
 up podman automatically would make the full service stack accessible out of the box.
 
-## Install steps
+## Design
 
-1. `nix profile add nixpkgs#podman nixpkgs#podman-compose`
-2. Platform-specific post-install:
-   - **Debian/Ubuntu**: check for `uidmap` package (provides setuid `newuidmap`/
-     `newgidmap`). If missing, tell user to `sudo apt install uidmap`. Also verify
-     `/etc/subuid` + `/etc/subgid` entries exist for the user.
-   - **macOS**: run `podman machine init && podman machine start` (uses Apple
-     Virtualization.framework, no setuid concerns).
-   - **Arch/CachyOS**: `shadow` package usually provides the setuid helpers already.
-     Verify `/etc/subuid` + `/etc/subgid`.
-3. Verify with `podman info` or `podman run --rm hello-world`.
+New module: `src/onboarding/container_setup.rs`. Called from the wizard between
+detection display and the services phase. Non-blocking — if any step fails, warn and
+continue without a container runtime (user can still choose Remote/Skip for services).
 
-## Gotchas
+### Flow
 
-- Nix cannot install setuid binaries — `newuidmap`/`newgidmap` must come from the host
-  distro's package manager on Linux.
-- `podman-compose` is a separate nixpkgs package, not bundled with `podman`.
-- On macOS, `podman machine` must be running before any container operations work.
-- `loginctl enable-linger $USER` needed for containers to survive logout (we already do
-  this for systemd services).
+```
+◇  No container runtime found (podman or docker)
+│
+◆  Install podman via nix? (recommended for SearXNG, Crawl4AI, Docling)
+│  Yes
+│
+●  Adding podman via nix... ✓
+●  Adding podman-compose via nix... ✓
+│
+│  [Linux only, if newuidmap missing:]
+│  ⚠ newuidmap not found — needed for rootless containers
+│    Run: sudo apt install uidmap
+│
+│  ◆ Continue after installing?  Yes
+│
+│  [Linux only, if subuid/subgid missing:]
+│  ⚠ subuid/subgid entries missing for your user
+│    Run: sudo usermod --add-subuids 100000-165535 --add-subgids 100000-165535 <user>
+│
+│  ◆ Continue after running the command?  Yes
+│
+│  [macOS only:]
+│  ●  Initializing podman machine (2 CPUs, 4GB RAM, 20GB disk)... ✓
+│  ●  Starting podman machine... ✓
+│
+●  Verifying: podman info... ✓
+```
 
-## Scope
+### What nix handles
 
-Add a new step in the detection/services phase of `ghost init`:
+- `nix profile add nixpkgs#podman` — binary + all helpers (conmon, crun, netavark, etc.)
+- `nix profile add nixpkgs#podman-compose` — compose support
 
-- If no container runtime found, ask: "Install podman via nix? (recommended)"
-- If yes, run the install + platform-specific setup
-- Re-detect container runtime after install so downstream service prompts can offer
-  container options
+### What nix CANNOT handle (requires host/sudo)
+
+**Linux only** — podman rootless needs setuid `newuidmap`/`newgidmap`:
+
+| Distro        | Package               | Pre-installed? | Our action                       |
+| ------------- | --------------------- | -------------- | -------------------------------- |
+| Arch/CachyOS  | `shadow` (base)       | Yes            | Just verify                      |
+| Fedora        | `shadow-utils` (Core) | Yes            | Just verify                      |
+| Debian/Ubuntu | `uidmap`              | No             | Guide: `sudo apt install uidmap` |
+
+Also needs `/etc/subuid` + `/etc/subgid` entries — usually auto-created by `useradd`,
+but verify and guide if missing.
+
+**macOS** — `podman machine init && podman machine start`. Fully automatable, no sudo.
+
+### Error handling
+
+Every step is lenient:
+
+- Nix add fails → show error, continue without container runtime
+- Prerequisites missing and user can't fix → warn, continue without
+- Podman machine fails on macOS → show error, continue without
+- Verification fails → warn, continue without
+
+After success: update `env.container_runtime = Some(Podman)` so downstream service
+prompts offer container options.
+
+### Distro detection
+
+Read `/etc/os-release` for `ID=` and `ID_LIKE=` to determine install hint.
+
+### Container config files
+
+Generate `~/.config/containers/policy.json` and `registries.conf` if not present — some
+non-NixOS systems don't have these and podman refuses to pull without them.

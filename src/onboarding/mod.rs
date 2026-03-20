@@ -1,5 +1,6 @@
 pub mod agent;
 pub mod config_writer;
+pub mod container_setup;
 pub mod detect;
 pub mod discord;
 pub mod health;

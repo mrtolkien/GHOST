@@ -4,8 +4,8 @@ use crate::cli::init::InitArgs;
 use crate::error::GhostError;
 
 use super::{
-    OnboardingState, ServiceChoice, config_writer, detect, discord, health, provider,
-    service_files, services,
+    OnboardingState, ServiceChoice, config_writer, container_setup, detect, discord, health,
+    provider, service_files, services,
 };
 
 /// Run the full onboarding wizard.
@@ -15,7 +15,7 @@ use super::{
 /// health checks + launch.
 pub async fn run(args: InitArgs) -> Result<(), GhostError> {
     // ── Phase 0: Detection ──
-    let env = detect::detect().await;
+    let mut env = detect::detect().await;
 
     if !env.nix_installed {
         eprintln!("Nix is required but not installed.");
@@ -25,6 +25,9 @@ pub async fn run(args: InitArgs) -> Result<(), GhostError> {
 
     cliclack::intro("GHOST -- First-time setup")?;
     display_detection(&env);
+
+    // Offer to install podman if no container runtime found.
+    container_setup::prompt_container_setup(&mut env)?;
 
     let existing_toml = read_existing_config(&env)?;
 
