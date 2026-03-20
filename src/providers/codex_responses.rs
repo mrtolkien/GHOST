@@ -227,9 +227,7 @@ pub(super) fn build_codex_request_body(
         reasoning: request.reasoning_effort.map(|e| CodexReasoning {
             effort: e.as_str().to_string(),
         }),
-        text: Some(CodexText {
-            verbosity: "low".to_string(),
-        }),
+        text: None,
         prompt_cache_key: cache_key,
         prompt_cache_retention: None,
     })

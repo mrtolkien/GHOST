@@ -48,7 +48,7 @@ async fn onboarding_validation_codex() {
     }
 
     let model = std::env::var("OPENAI_OAUTH_TEST_MODEL")
-        .unwrap_or_else(|_| "gpt-5.4".to_string());
+        .unwrap_or_else(|_| "gpt-5-codex".to_string());
 
     let result = validate_provider(&ProviderKind::OpenAiOAuth, &model).await;
     assert!(
