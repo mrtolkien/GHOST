@@ -133,15 +133,6 @@ pub(crate) struct TokenDetails {
     pub(crate) cache_creation_input_tokens: Option<u32>,
 }
 
-#[derive(Debug, Deserialize)]
-pub(crate) struct ProviderErrorBody {
-    pub(crate) error: Option<ProviderErrorPayload>,
-}
-
-#[derive(Debug, Deserialize)]
-pub(crate) struct ProviderErrorPayload {
-    pub(crate) message: Option<String>,
-}
 
 pub(crate) fn build_request_body(
     request: &ChatRequest,

@@ -14,7 +14,6 @@ use std::time::Instant;
 
 use async_trait::async_trait;
 use reqwest::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE, HeaderMap, HeaderName, HeaderValue};
-use serde_json::Value;
 use tracing::Span;
 
 use self::credentials::OAuthCredentials;
@@ -205,17 +204,22 @@ impl AnthropicProvider {
         }
         if status == reqwest::StatusCode::UNAUTHORIZED || status == reqwest::StatusCode::FORBIDDEN {
             self.circuit_breaker.record_failure(&request.model);
-            return Err(ProviderError::Auth(extract_error_message(&response_body)));
+            return Err(ProviderError::Auth(format!(
+                "HTTP {status}: {response_body}"
+            )));
         }
         if status == reqwest::StatusCode::NOT_FOUND {
             self.circuit_breaker.record_failure(&request.model);
-            return Err(ProviderError::ModelNotFound(request.model.clone()));
+            return Err(ProviderError::ModelNotFound(format!(
+                "{}: HTTP {status}: {response_body}",
+                request.model
+            )));
         }
         if status.is_server_error() {
             self.circuit_breaker.record_failure(&request.model);
             return Err(ProviderError::ServerError {
                 status: status.as_u16(),
-                message: extract_error_message(&response_body),
+                message: response_body,
             });
         }
         if !status.is_success() {
@@ -226,8 +230,7 @@ impl AnthropicProvider {
                 "anthropic provider non-success response",
             );
             return Err(ProviderError::InvalidResponse(format!(
-                "http status {status}: {}",
-                extract_error_message(&response_body)
+                "HTTP {status}: {response_body}"
             )));
         }
 
@@ -352,24 +355,6 @@ fn parse_retry_after_secs(retry_after: Option<&str>) -> Option<u64> {
     retry_after.and_then(|v| v.trim().parse::<u64>().ok())
 }
 
-/// Extract error message from Anthropic error JSON format:
-/// `{"type": "error", "error": {"type": "...", "message": "..."}}`
-fn extract_error_message(raw: &str) -> String {
-    if let Ok(value) = serde_json::from_str::<Value>(raw) {
-        if let Some(message) = value
-            .get("error")
-            .and_then(|e| e.get("message"))
-            .and_then(Value::as_str)
-        {
-            return message.to_string();
-        }
-        if let Some(message) = value.get("message").and_then(Value::as_str) {
-            return message.to_string();
-        }
-    }
-    raw.to_string()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -388,14 +373,4 @@ mod tests {
         assert!(header.contains("claude-code-20250219"));
     }
 
-    #[test]
-    fn extract_error_message_anthropic_format() {
-        let raw = r#"{"type":"error","error":{"type":"invalid_request_error","message":"max_tokens: 99999 > 8096"}}"#;
-        assert_eq!(extract_error_message(raw), "max_tokens: 99999 > 8096");
-    }
-
-    #[test]
-    fn extract_error_message_fallback() {
-        assert_eq!(extract_error_message("not json at all"), "not json at all");
-    }
 }

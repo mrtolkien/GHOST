@@ -8,7 +8,7 @@ use tracing::Span;
 
 use crate::providers::circuit_breaker::CircuitBreaker;
 use crate::providers::openai_compatible::{
-    ChatCompletionsResponse, ProviderErrorBody, ProviderRouting, build_request_body, parse_response,
+    ChatCompletionsResponse, ProviderRouting, build_request_body, parse_response,
 };
 use crate::providers::types::{ChatRequest, ChatResponse, Provider, ProviderError};
 
@@ -158,25 +158,29 @@ impl OpenAiCompatibleProvider {
 
         if status == reqwest::StatusCode::UNAUTHORIZED || status == reqwest::StatusCode::FORBIDDEN {
             self.circuit_breaker.record_failure(&request.model);
-            return Err(ProviderError::Auth(extract_error_message(&response_body)));
+            return Err(ProviderError::Auth(format!(
+                "HTTP {status}: {response_body}"
+            )));
         }
 
         if status == reqwest::StatusCode::NOT_FOUND {
             self.circuit_breaker.record_failure(&request.model);
-            return Err(ProviderError::ModelNotFound(request.model.clone()));
+            return Err(ProviderError::ModelNotFound(format!(
+                "{}: HTTP {status}: {response_body}",
+                request.model
+            )));
         }
 
         if status.is_server_error() {
             self.circuit_breaker.record_failure(&request.model);
             return Err(ProviderError::ServerError {
                 status: status.as_u16(),
-                message: extract_error_message(&response_body),
+                message: response_body,
             });
         }
         if !status.is_success() {
             return Err(ProviderError::InvalidResponse(format!(
-                "http status {status}: {}",
-                extract_error_message(&response_body)
+                "HTTP {status}: {response_body}"
             )));
         }
 
@@ -279,18 +283,3 @@ fn parse_retry_after_secs(retry_after: Option<&str>) -> Option<u64> {
     retry_after.and_then(|value| value.trim().parse::<u64>().ok())
 }
 
-fn extract_error_message(body: &str) -> String {
-    if body.trim().is_empty() {
-        return "empty error response".to_string();
-    }
-
-    if let Ok(error_body) = serde_json::from_str::<ProviderErrorBody>(body)
-        && let Some(payload) = error_body.error
-        && let Some(message) = payload.message
-        && !message.trim().is_empty()
-    {
-        return message;
-    }
-
-    body.to_string()
-}

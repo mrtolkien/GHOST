@@ -209,23 +209,27 @@ impl OpenAiOAuthProvider {
         }
         if status == reqwest::StatusCode::UNAUTHORIZED || status == reqwest::StatusCode::FORBIDDEN {
             self.circuit_breaker.record_failure(&request.model);
-            return Err(ProviderError::Auth(extract_error_message(&response_body)));
+            return Err(ProviderError::Auth(format!(
+                "HTTP {status}: {response_body}"
+            )));
         }
         if status == reqwest::StatusCode::NOT_FOUND {
             self.circuit_breaker.record_failure(&request.model);
-            return Err(ProviderError::ModelNotFound(request.model.clone()));
+            return Err(ProviderError::ModelNotFound(format!(
+                "{}: HTTP {status}: {response_body}",
+                request.model
+            )));
         }
         if status.is_server_error() {
             self.circuit_breaker.record_failure(&request.model);
             return Err(ProviderError::ServerError {
                 status: status.as_u16(),
-                message: extract_error_message(&response_body),
+                message: response_body,
             });
         }
         if !status.is_success() {
             return Err(ProviderError::InvalidResponse(format!(
-                "http status {status}: {}",
-                extract_error_message(&response_body)
+                "HTTP {status}: {response_body}"
             )));
         }
 
@@ -300,25 +304,6 @@ fn parse_retry_after_secs(retry_after: Option<&str>) -> Option<u64> {
     retry_after.and_then(|value| value.trim().parse::<u64>().ok())
 }
 
-fn extract_error_message(raw: &str) -> String {
-    if let Ok(value) = serde_json::from_str::<Value>(raw) {
-        if let Some(message) = value
-            .get("error")
-            .and_then(|error| {
-                error
-                    .get("message")
-                    .or_else(|| error.get("error_description"))
-            })
-            .and_then(Value::as_str)
-        {
-            return message.to_string();
-        }
-        if let Some(message) = value.get("message").and_then(Value::as_str) {
-            return message.to_string();
-        }
-    }
-    raw.to_string()
-}
 
 fn extract_account_id(access_token: &str) -> Option<String> {
     let payload = access_token.split('.').nth(1)?;
