@@ -1,7 +1,11 @@
-use std::time::Duration;
+use std::collections::BTreeMap;
+use std::sync::Arc;
 
 use super::{OnboardingError, OnboardingState, SearchChoice, ServiceChoice};
 use crate::config::ProviderKind;
+use crate::providers::types::{
+    ChatMessage, ChatRequest, ContentBlock, Provider, Role, create_provider,
+};
 
 /// Render a human-readable label for a `ServiceChoice`.
 fn service_label(choice: &ServiceChoice) -> String {
@@ -80,202 +84,85 @@ pub fn build_state_summary(state: &OnboardingState, phase: &str) -> String {
     )
 }
 
-/// Thin wrapper around a chat completion endpoint used during onboarding.
-#[derive(Debug)]
+/// Onboarding assistant — uses the real provider abstraction.
 pub struct OnboardingAgent {
-    api_url: String,
-    api_key: Option<String>,
+    provider: Arc<dyn Provider>,
     model: String,
 }
 
-impl OnboardingAgent {
-    /// Build an agent pointing at the given provider's chat completion endpoint.
-    pub fn new(provider: &ProviderKind, api_key: Option<&str>, model: &str) -> Self {
-        let api_url = match provider {
-            ProviderKind::OpenRouter => {
-                "https://openrouter.ai/api/v1/chat/completions".to_string()
-            }
-            ProviderKind::Anthropic => "https://api.anthropic.com/v1/messages".to_string(),
-            ProviderKind::Kimi => {
-                "https://api.kimi.com/coding/v1/chat/completions".to_string()
-            }
-            ProviderKind::OpenAiOAuth => {
-                "https://api.openai.com/v1/chat/completions".to_string()
-            }
-        };
+impl std::fmt::Debug for OnboardingAgent {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("OnboardingAgent")
+            .field("model", &self.model)
+            .finish_non_exhaustive()
+    }
+}
 
-        Self {
-            api_url,
-            api_key: api_key.map(|s| s.to_string()),
+impl OnboardingAgent {
+    /// Create an agent backed by the same provider implementation the daemon uses.
+    pub fn new(kind: ProviderKind, model: &str) -> Result<Self, OnboardingError> {
+        let provider = create_provider(kind, BTreeMap::new(), None)?;
+        Ok(Self {
+            provider,
             model: model.to_string(),
-        }
+        })
     }
 
-    /// Send a single-turn chat request and return the assistant's reply.
-    ///
-    /// Uses `tokio::runtime::Handle` to block on the async HTTP call from a
-    /// sync context — the wizard loop is synchronous (`cliclack::input`).
-    pub fn chat(
+    /// Send a single-turn chat and return the assistant's reply text.
+    pub async fn chat(
         &self,
-        provider: &ProviderKind,
         state_summary: &str,
         user_input: &str,
     ) -> Result<String, OnboardingError> {
         let system_prompt = include_str!("../../assets/onboarding-agent-prompt.md");
         let full_system = format!("{system_prompt}{state_summary}");
 
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .map_err(|e| OnboardingError::InvalidInput(format!("failed to build runtime: {e}")))?;
+        let request = ChatRequest {
+            model: self.model.clone(),
+            messages: vec![
+                ChatMessage {
+                    role: Role::System,
+                    content: vec![ContentBlock::Text {
+                        text: full_system,
+                    }],
+                },
+                ChatMessage {
+                    role: Role::User,
+                    content: vec![ContentBlock::Text {
+                        text: user_input.to_string(),
+                    }],
+                },
+            ],
+            max_tokens: Some(1024),
+            ..Default::default()
+        };
 
-        rt.block_on(self.chat_async(provider, &full_system, user_input))
-    }
+        let response = self
+            .provider
+            .chat(request)
+            .await
+            .map_err(|e| OnboardingError::ProviderValidation(e.to_string()))?;
 
-    async fn chat_async(
-        &self,
-        provider: &ProviderKind,
-        system: &str,
-        user_input: &str,
-    ) -> Result<String, OnboardingError> {
-        let client = reqwest::Client::builder()
-            .timeout(Duration::from_secs(30))
-            .build()?;
-
-        match provider {
-            ProviderKind::Anthropic => {
-                self.chat_anthropic(&client, system, user_input).await
-            }
-            _ => self.chat_openai_compat(&client, system, user_input).await,
-        }
-    }
-
-    /// OpenAI-compatible chat completion (OpenRouter, Kimi, OpenAI OAuth).
-    async fn chat_openai_compat(
-        &self,
-        client: &reqwest::Client,
-        system: &str,
-        user_input: &str,
-    ) -> Result<String, OnboardingError> {
-        let body = serde_json::json!({
-            "model": self.model,
-            "messages": [
-                {"role": "system", "content": system},
-                {"role": "user", "content": user_input}
-            ]
-        });
-
-        let mut req = client.post(&self.api_url).json(&body);
-        if let Some(key) = &self.api_key {
-            req = req.bearer_auth(key);
-        }
-
-        let resp = req.send().await?;
-        let status = resp.status();
-        let text = resp.text().await?;
-
-        if !status.is_success() {
-            return Err(OnboardingError::ProviderValidation(format!(
-                "HTTP {status}: {text}"
-            )));
-        }
-
-        let doc: serde_json::Value = serde_json::from_str(&text).map_err(|e| {
-            OnboardingError::InvalidInput(format!("failed to parse response JSON: {e}"))
-        })?;
-
-        doc["choices"][0]["message"]["content"]
-            .as_str()
-            .map(|s| s.to_string())
+        // Extract the first text block from the response.
+        response
+            .content
+            .iter()
+            .find_map(|block| match block {
+                ContentBlock::Text { text } => Some(text.clone()),
+                _ => None,
+            })
             .ok_or_else(|| {
-                OnboardingError::InvalidInput(format!(
-                    "unexpected response shape (no choices[0].message.content): {text}"
-                ))
+                OnboardingError::ProviderValidation("empty response from assistant".into())
             })
     }
-
-    /// Anthropic Messages API chat completion.
-    async fn chat_anthropic(
-        &self,
-        client: &reqwest::Client,
-        system: &str,
-        user_input: &str,
-    ) -> Result<String, OnboardingError> {
-        let access_token = load_anthropic_access_token()?;
-
-        let body = serde_json::json!({
-            "model": self.model,
-            "max_tokens": 1024,
-            "system": system,
-            "messages": [
-                {"role": "user", "content": user_input}
-            ]
-        });
-
-        let resp = client
-            .post(&self.api_url)
-            .header("x-api-key", &access_token)
-            .header("anthropic-version", "2023-06-01")
-            .json(&body)
-            .send()
-            .await?;
-
-        let status = resp.status();
-        let text = resp.text().await?;
-
-        if !status.is_success() {
-            return Err(OnboardingError::ProviderValidation(format!(
-                "HTTP {status}: {text}"
-            )));
-        }
-
-        let doc: serde_json::Value = serde_json::from_str(&text).map_err(|e| {
-            OnboardingError::InvalidInput(format!("failed to parse response JSON: {e}"))
-        })?;
-
-        doc["content"][0]["text"]
-            .as_str()
-            .map(|s| s.to_string())
-            .ok_or_else(|| {
-                OnboardingError::InvalidInput(format!(
-                    "unexpected response shape (no content[0].text): {text}"
-                ))
-            })
-    }
-}
-
-/// Load the Anthropic access token from `~/.claude/.credentials.json`.
-fn load_anthropic_access_token() -> Result<String, OnboardingError> {
-    let path = dirs::home_dir()
-        .map(|h| h.join(".claude/.credentials.json"))
-        .ok_or_else(|| OnboardingError::InvalidInput("cannot determine home directory".into()))?;
-
-    let content = std::fs::read_to_string(&path).map_err(|e| {
-        OnboardingError::InvalidInput(format!("failed to read {}: {e}", path.display()))
-    })?;
-
-    let doc: serde_json::Value = serde_json::from_str(&content).map_err(|e| {
-        OnboardingError::InvalidInput(format!("failed to parse credentials: {e}"))
-    })?;
-
-    doc.get("claudeAiOauth")
-        .and_then(|o| o.get("accessToken"))
-        .and_then(|v| v.as_str())
-        .map(|s| s.to_string())
-        .ok_or_else(|| {
-            OnboardingError::InvalidInput(
-                "no claudeAiOauth.accessToken in credentials file".into(),
-            )
-        })
 }
 
 /// Run an interactive help session with the onboarding assistant.
 ///
 /// Loops until the user types "q" or submits an empty string, then returns
 /// control to the caller (wizard phase).
-pub fn run_agent_session(
+pub async fn run_agent_session(
     agent: &OnboardingAgent,
-    provider: &ProviderKind,
     state: &OnboardingState,
     phase: &str,
 ) -> Result<(), OnboardingError> {
@@ -292,7 +179,7 @@ pub fn run_agent_session(
             break;
         }
 
-        match agent.chat(provider, &state_summary, &input) {
+        match agent.chat(&state_summary, &input).await {
             Ok(reply) => {
                 let _ = cliclack::log::info(reply);
             }
