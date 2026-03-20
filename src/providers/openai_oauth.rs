@@ -304,7 +304,6 @@ fn parse_retry_after_secs(retry_after: Option<&str>) -> Option<u64> {
     retry_after.and_then(|value| value.trim().parse::<u64>().ok())
 }
 
-
 fn extract_account_id(access_token: &str) -> Option<String> {
     let payload = access_token.split('.').nth(1)?;
     let payload_bytes = URL_SAFE_NO_PAD.decode(payload).ok()?;

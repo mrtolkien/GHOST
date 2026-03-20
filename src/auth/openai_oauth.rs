@@ -112,7 +112,6 @@ struct TokenResponse {
     expires_in: i64,
 }
 
-
 #[derive(Debug, Clone)]
 pub struct OpenAiOAuthClient {
     client: reqwest::Client,
@@ -335,9 +334,7 @@ async fn parse_token_response(response: reqwest::Response) -> Result<StoredToken
     let body = response.text().await?;
 
     if !status.is_success() {
-        return Err(AuthError::OAuthServer(format!(
-            "HTTP {status}: {body}"
-        )));
+        return Err(AuthError::OAuthServer(format!("HTTP {status}: {body}")));
     }
 
     let token_response = serde_json::from_str::<TokenResponse>(&body).map_err(|source| {

@@ -282,4 +282,3 @@ impl Provider for OpenAiCompatibleProvider {
 fn parse_retry_after_secs(retry_after: Option<&str>) -> Option<u64> {
     retry_after.and_then(|value| value.trim().parse::<u64>().ok())
 }
-

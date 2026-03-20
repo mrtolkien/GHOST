@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use crate::cli::init::InitArgs;
 use crate::error::GhostError;
 
@@ -34,9 +36,31 @@ pub async fn run(args: InitArgs) -> Result<(), GhostError> {
     let model = provider::prompt_model(&provider_choice, args.model.as_deref())?;
     let context_window = provider::prompt_context_window(args.context_window)?;
 
-    let _ = cliclack::log::info("Validating provider connection...");
-    provider::validate_provider(&provider_choice, &model).await?;
-    let _ = cliclack::log::success("Provider verified -- model responded successfully");
+    // Ask before making a real API call. Retry on failure.
+    let should_test = cliclack::confirm("Test the provider connection? (makes a real API call)")
+        .initial_value(true)
+        .interact()?;
+    if should_test {
+        loop {
+            let _ = cliclack::log::info("Validating provider connection...");
+            match provider::validate_provider(&provider_choice, &model).await {
+                Ok(()) => {
+                    let _ =
+                        cliclack::log::success("Provider verified -- model responded successfully");
+                    break;
+                }
+                Err(e) => {
+                    let _ = cliclack::log::warning(format!("Provider validation failed: {e}"));
+                    let retry = cliclack::confirm("Try again?")
+                        .initial_value(true)
+                        .interact()?;
+                    if !retry {
+                        break;
+                    }
+                }
+            }
+        }
+    }
 
     // ── Phase 2: Discord ──
     let _ = cliclack::log::step("Discord");
@@ -48,13 +72,69 @@ pub async fn run(args: InitArgs) -> Result<(), GhostError> {
     // ── Phase 3: Services ──
     let _ = cliclack::log::step("Services");
 
-    let (embeddings, embedding_model) =
-        services::prompt_embeddings(&env, args.embeddings.as_deref())?;
+    // Embeddings — with inline nix add + remote probe, retry on failure.
+    let (embeddings, embedding_model) = loop {
+        let (emb, model) = services::prompt_embeddings(&env, args.embeddings.as_deref())?;
+
+        if matches!(emb, ServiceChoice::NixNative) {
+            match services::nix_add("llama-cpp", "Adding llama-server via nix...") {
+                Ok(()) => {}
+                Err(e) => {
+                    let _ = cliclack::log::warning(format!("{e}"));
+                    if args.embeddings.is_some() {
+                        return Err(GhostError::Onboarding(e));
+                    }
+                    continue;
+                }
+            }
+        }
+
+        // Test remote embeddings endpoint if configured.
+        if let ServiceChoice::Remote(ref url) = emb {
+            if !url.is_empty() {
+                let should_test = cliclack::confirm(
+                    "Test the embeddings endpoint? (sends a real embedding request)",
+                )
+                .initial_value(true)
+                .interact()?;
+                if should_test {
+                    if let Err(msg) = test_embeddings(url, model.as_deref()).await {
+                        let _ = cliclack::log::warning(msg);
+                        if args.embeddings.is_some() {
+                            break (emb, model);
+                        }
+                        continue;
+                    }
+                    let _ = cliclack::log::success(format!("Embeddings verified: {url}"));
+                }
+            }
+        }
+
+        break (emb, model);
+    };
+
     let search = services::prompt_search(&env, args.search.as_deref())?;
     let crawl = services::prompt_crawl(&env, args.crawl.as_deref())?;
-    let docling = services::prompt_docling(&env, args.docling.as_deref())?;
 
-    services::install_nix_packages(&embeddings, &docling)?;
+    // Docling — with inline nix add, retry on failure.
+    let docling = loop {
+        let doc = services::prompt_docling(&env, args.docling.as_deref())?;
+
+        if matches!(doc, ServiceChoice::NixNative) {
+            match services::nix_add("docling-serve", "Adding docling-serve via nix...") {
+                Ok(()) => {}
+                Err(e) => {
+                    let _ = cliclack::log::warning(format!("{e}"));
+                    if args.docling.is_some() {
+                        return Err(GhostError::Onboarding(e));
+                    }
+                    continue;
+                }
+            }
+        }
+
+        break doc;
+    };
 
     // Build cumulative state
     let state = OnboardingState {
@@ -103,7 +183,7 @@ pub async fn run(args: InitArgs) -> Result<(), GhostError> {
     // ── Phase 5: Health + Launch ──
     let _ = cliclack::log::step("Health Checks");
 
-    let results = health::check_all_services(&state);
+    let results = health::check_all_services(&state).await;
     health::display_health_table(&results);
 
     let should_start = health::prompt_start_daemon(args.start)?;
@@ -114,7 +194,7 @@ pub async fn run(args: InitArgs) -> Result<(), GhostError> {
             &config.workspace,
         )?;
         let _ = cliclack::log::success("Services started");
-        health::trigger_first_message()?;
+        health::trigger_first_message().await?;
     }
 
     // ── Outro ──
@@ -122,6 +202,37 @@ pub async fn run(args: InitArgs) -> Result<(), GhostError> {
     print_next_steps();
 
     Ok(())
+}
+
+/// Send a test embedding request to verify the remote endpoint works.
+async fn test_embeddings(url: &str, model: Option<&str>) -> Result<(), String> {
+    let embed_url = format!("{}/v1/embeddings", url.trim_end_matches('/'));
+    let model = model.unwrap_or("default");
+
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(15))
+        .build()
+        .map_err(|e| format!("failed to build HTTP client: {e}"))?;
+
+    let body = serde_json::json!({
+        "model": model,
+        "input": ["hello world"],
+    });
+
+    let resp = client
+        .post(&embed_url)
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| format!("could not reach {embed_url}: {e}"))?;
+
+    if resp.status().is_success() {
+        Ok(())
+    } else {
+        let status = resp.status();
+        let text = resp.text().await.unwrap_or_default();
+        Err(format!("embeddings test failed: HTTP {status}: {text}"))
+    }
 }
 
 // ---------------------------------------------------------------------------

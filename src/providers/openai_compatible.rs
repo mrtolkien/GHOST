@@ -133,7 +133,6 @@ pub(crate) struct TokenDetails {
     pub(crate) cache_creation_input_tokens: Option<u32>,
 }
 
-
 pub(crate) fn build_request_body(
     request: &ChatRequest,
     provider_routing: Option<&ProviderRouting>,

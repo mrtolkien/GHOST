@@ -1,9 +1,9 @@
 ---
 name: services
 description:
-  Manage GHOST's infrastructure services. Use when you need to start, stop, restart,
-  or troubleshoot any service (containers or native), check service health, or help
-  the OPERATOR modify their service setup.
+  Manage GHOST's infrastructure services. Use when you need to start, stop, restart, or
+  troubleshoot any service (containers or native), check service health, or help the
+  OPERATOR modify their service setup.
 ---
 
 # Services Manager
@@ -154,13 +154,13 @@ log stream --predicate 'subsystem == "com.ghost.daemon"' --level debug
 
 Use these to verify a service is up and responding before relying on it.
 
-| Service       | Endpoint                              | Expected response              |
-| ------------- | ------------------------------------- | ------------------------------ |
-| llama-server  | http://127.0.0.1:11434/health         | `{"status":"ok"}` or 200 OK    |
-| SearXNG       | http://127.0.0.1:8080                 | HTML search page (200 OK)      |
-| Chrome        | http://127.0.0.1:9222/json/version    | JSON with browser version      |
-| Crawl4AI      | http://127.0.0.1:11235/health         | `{"status":"healthy"}`         |
-| Docling       | http://127.0.0.1:5001/health          | `{"status":"ok"}` or 200 OK    |
+| Service      | Endpoint                           | Expected response           |
+| ------------ | ---------------------------------- | --------------------------- |
+| llama-server | http://127.0.0.1:11434/health      | `{"status":"ok"}` or 200 OK |
+| SearXNG      | http://127.0.0.1:8080              | HTML search page (200 OK)   |
+| Chrome       | http://127.0.0.1:9222/json/version | JSON with browser version   |
+| Crawl4AI     | http://127.0.0.1:11235/health      | `{"status":"healthy"}`      |
+| Docling      | http://127.0.0.1:5001/health       | `{"status":"ok"}` or 200 OK |
 
 Quick health check one-liner for all container services:
 
@@ -184,8 +184,8 @@ done
 cd $WORKSPACE/services && podman compose up -d
 ```
 
-Compose will start new services and leave unchanged ones alone. To remove a service
-that was deleted from the compose file:
+Compose will start new services and leave unchanged ones alone. To remove a service that
+was deleted from the compose file:
 
 ```
 cd $WORKSPACE/services && podman compose down
@@ -207,13 +207,15 @@ they need. Existing services will be reconfigured in place.
 ## SearXNG Configuration
 
 The SearXNG settings file at `$WORKSPACE/services/searxng-settings.yml` controls search
-engines, UI language, and privacy settings. Edit it directly, then restart the container:
+engines, UI language, and privacy settings. Edit it directly, then restart the
+container:
 
 ```
 cd $WORKSPACE/services && podman compose restart searxng
 ```
 
 Common adjustments:
+
 - Enable/disable specific search engines under `engines:`
 - Change `search.default_lang` for localised results
 - Set `server.secret_key` if it was not generated during init
@@ -261,8 +263,8 @@ Over time, old Nix store paths accumulate. To reclaim disk space:
 nix-collect-garbage -d
 ```
 
-This removes all generations of all profiles and deletes unreachable store paths. Run
-it when disk usage is high. After GC, verify ghost still works:
+This removes all generations of all profiles and deletes unreachable store paths. Run it
+when disk usage is high. After GC, verify ghost still works:
 
 ```
 ghost version

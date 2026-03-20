@@ -28,9 +28,9 @@ services:
     image: signoz/signoz:latest
     container_name: signoz
     ports:
-      - "3301:3301"    # Web UI
-      - "4317:4317"    # OTLP gRPC receiver
-      - "4318:4318"    # OTLP HTTP receiver
+      - "3301:3301" # Web UI
+      - "4317:4317" # OTLP gRPC receiver
+      - "4318:4318" # OTLP HTTP receiver
     volumes:
       - signoz-data:/var/lib/signoz
     restart: unless-stopped
@@ -89,15 +89,15 @@ cd ~/signoz && podman compose down
 
 When reviewing traces in the SigNoz UI, these are the most informative spans:
 
-| Span name                    | What it represents                              |
-| ---------------------------- | ----------------------------------------------- |
-| `chat.turn`                  | A single OPERATOR message + GHOST response      |
-| `tool.call.<name>`           | Execution of a specific tool (shell, search, …) |
-| `agent.run.<name>`           | A background agent tick                         |
-| `web.fetch`                  | HTTP fetch of a URL (web cache or live)         |
-| `web.search`                 | SearXNG search query                            |
-| `embeddings.upsert`          | Embedding a knowledge item                      |
-| `db.query`                   | SQLite query (appears as child of above spans)  |
+| Span name           | What it represents                              |
+| ------------------- | ----------------------------------------------- |
+| `chat.turn`         | A single OPERATOR message + GHOST response      |
+| `tool.call.<name>`  | Execution of a specific tool (shell, search, …) |
+| `agent.run.<name>`  | A background agent tick                         |
+| `web.fetch`         | HTTP fetch of a URL (web cache or live)         |
+| `web.search`        | SearXNG search query                            |
+| `embeddings.upsert` | Embedding a knowledge item                      |
+| `db.query`          | SQLite query (appears as child of above spans)  |
 
 ## Verifying Telemetry is Flowing
 
@@ -117,5 +117,5 @@ journalctl --user -u ghost-daemon --since "5 minutes ago" | grep -i otel
 
 ## Disabling Telemetry
 
-Remove or unset `OTEL_EXPORTER_OTLP_ENDPOINT` from `.env` and reload config. GHOST
-will continue running without emitting telemetry.
+Remove or unset `OTEL_EXPORTER_OTLP_ENDPOINT` from `.env` and reload config. GHOST will
+continue running without emitting telemetry.

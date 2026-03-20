@@ -10,8 +10,8 @@ or server.
   the OPERATOR's devices. No port forwarding required.
 - **No open ports** — GHOST's services (web UI, APIs) are never exposed to the public
   internet. Only authenticated Tailscale devices can reach them.
-- **MagicDNS** — each device gets a stable `<device>.tail<hash>.ts.net` hostname, so
-  the OPERATOR can reach services by name from anywhere.
+- **MagicDNS** — each device gets a stable `<device>.tail<hash>.ts.net` hostname, so the
+  OPERATOR can reach services by name from anywhere.
 - **Access controls** — fine-grained ACLs in the Tailscale admin panel control which
   devices can talk to which services.
 

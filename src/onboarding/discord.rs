@@ -60,29 +60,52 @@ pub async fn validate_bot_token(token: &str) -> Result<(), OnboardingError> {
 /// Run the Discord setup phase of the onboarding wizard.
 ///
 /// Shows a setup guide, then prompts for (or accepts via flags) a bot token
-/// and OPERATOR user ID. Both are validated before returning.
+/// and OPERATOR user ID. Both are validated before returning. Interactive
+/// prompts retry on validation failure; flag-mode fails immediately.
 pub async fn prompt_discord(
     token_flag: Option<&str>,
     user_flag: Option<&str>,
 ) -> Result<(String, String), OnboardingError> {
     cliclack::note("Discord Bot Setup", SETUP_GUIDE)?;
 
-    let token = match token_flag {
-        Some(t) => t.to_string(),
-        None => cliclack::password("Paste your bot token").interact()?,
+    // Bot token — retry until valid (interactive) or fail (flag).
+    let token = loop {
+        let t = match token_flag {
+            Some(t) => t.to_string(),
+            None => cliclack::password("Paste your bot token").interact()?,
+        };
+        match validate_bot_token(&t).await {
+            Ok(()) => break t,
+            Err(e) => {
+                let _ = cliclack::log::warning(format!("{e}"));
+                if token_flag.is_some() {
+                    return Err(e);
+                }
+            }
+        }
     };
-    validate_bot_token(&token).await?;
 
-    let user_id: String = match user_flag {
-        Some(u) => u.to_string(),
-        None => cliclack::input("Your Discord user ID")
-            .placeholder(
-                "Enable Developer Mode in Settings → Advanced, \
-                 then right-click your name → Copy User ID",
-            )
-            .interact()?,
+    // User ID — retry until valid (interactive) or fail (flag).
+    let user_id = loop {
+        let u: String = match user_flag {
+            Some(u) => u.to_string(),
+            None => cliclack::input("Your Discord user ID")
+                .placeholder(
+                    "Enable Developer Mode in Settings → Advanced, \
+                     then right-click your name → Copy User ID",
+                )
+                .interact()?,
+        };
+        match validate_user_id(&u) {
+            Ok(()) => break u,
+            Err(e) => {
+                let _ = cliclack::log::warning(format!("{e}"));
+                if user_flag.is_some() {
+                    return Err(e);
+                }
+            }
+        }
     };
-    validate_user_id(&user_id)?;
 
     Ok((token, user_id))
 }

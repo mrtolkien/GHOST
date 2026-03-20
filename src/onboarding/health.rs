@@ -6,23 +6,20 @@ use super::detect::{ContainerRuntime, Platform};
 use super::{OnboardingError, OnboardingState, SearchChoice, ServiceChoice};
 
 // ---------------------------------------------------------------------------
-// Async helpers (run inside the existing Tokio runtime)
+// Async helpers
 // ---------------------------------------------------------------------------
 
-/// Probe a URL with a 5-second timeout using the ambient Tokio runtime.
+/// Probe a URL with a 5-second timeout.
 ///
 /// Returns `true` if the server responds with any HTTP status code.
-fn probe_url(url: &str) -> bool {
-    let url = url.to_string();
-    tokio::runtime::Handle::current().block_on(async move {
-        let client = reqwest::Client::builder()
-            .timeout(Duration::from_secs(5))
-            .build();
-        match client {
-            Ok(c) => c.get(&url).send().await.is_ok(),
-            Err(_) => false,
-        }
-    })
+pub async fn probe_url(url: &str) -> bool {
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(5))
+        .build();
+    match client {
+        Ok(c) => c.get(url).send().await.is_ok(),
+        Err(_) => false,
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -53,7 +50,7 @@ impl HealthResult {
 // ---------------------------------------------------------------------------
 
 /// Derive the health-probe URL for a service at a given default endpoint.
-fn probe_choice(choice: &ServiceChoice, default_url: &str) -> (bool, String) {
+async fn probe_choice(choice: &ServiceChoice, default_url: &str) -> (bool, String) {
     match choice {
         ServiceChoice::Skip => unreachable!("callers filter Skip"),
         ServiceChoice::Remote(url) => {
@@ -62,23 +59,23 @@ fn probe_choice(choice: &ServiceChoice, default_url: &str) -> (bool, String) {
             } else {
                 url.as_str()
             };
-            (probe_url(target), target.to_string())
+            (probe_url(target).await, target.to_string())
         }
         ServiceChoice::NixNative | ServiceChoice::Container => {
-            (probe_url(default_url), default_url.to_string())
+            (probe_url(default_url).await, default_url.to_string())
         }
     }
 }
 
 /// Probe all services configured in `state` and return one `HealthResult` per
 /// non-Skip service.
-pub fn check_all_services(state: &OnboardingState) -> Vec<HealthResult> {
+pub async fn check_all_services(state: &OnboardingState) -> Vec<HealthResult> {
     let mut results = Vec::new();
 
     // Embeddings (llama-server)
     if let Some(choice) = &state.embeddings {
         if !matches!(choice, ServiceChoice::Skip) {
-            let (ok, detail) = probe_choice(choice, "http://127.0.0.1:11434/health");
+            let (ok, detail) = probe_choice(choice, "http://127.0.0.1:11434/health").await;
             results.push(HealthResult {
                 service: "llama-server".to_string(),
                 detail,
@@ -104,7 +101,7 @@ pub fn check_all_services(state: &OnboardingState) -> Vec<HealthResult> {
             results.push(HealthResult {
                 service: "SearXNG".to_string(),
                 detail: label,
-                healthy: probe_url(&url),
+                healthy: probe_url(&url).await,
             });
         }
     }
@@ -112,7 +109,7 @@ pub fn check_all_services(state: &OnboardingState) -> Vec<HealthResult> {
     // Crawl4AI + Chrome
     if let Some(choice) = &state.crawl {
         if !matches!(choice, ServiceChoice::Skip) {
-            let (ok, detail) = probe_choice(choice, "http://127.0.0.1:11235/health");
+            let (ok, detail) = probe_choice(choice, "http://127.0.0.1:11235/health").await;
             results.push(HealthResult {
                 service: "Crawl4AI".to_string(),
                 detail,
@@ -121,7 +118,7 @@ pub fn check_all_services(state: &OnboardingState) -> Vec<HealthResult> {
 
             // Chrome is co-located with Crawl4AI (container or local).
             if matches!(choice, ServiceChoice::NixNative | ServiceChoice::Container) {
-                let chrome_ok = probe_url("http://127.0.0.1:9222/json/version");
+                let chrome_ok = probe_url("http://127.0.0.1:9222/json/version").await;
                 results.push(HealthResult {
                     service: "Chrome".to_string(),
                     detail: ":9222".to_string(),
@@ -134,7 +131,7 @@ pub fn check_all_services(state: &OnboardingState) -> Vec<HealthResult> {
     // Docling
     if let Some(choice) = &state.docling {
         if !matches!(choice, ServiceChoice::Skip) {
-            let (ok, detail) = probe_choice(choice, "http://127.0.0.1:5001/health");
+            let (ok, detail) = probe_choice(choice, "http://127.0.0.1:5001/health").await;
             results.push(HealthResult {
                 service: "Docling".to_string(),
                 detail,
@@ -321,7 +318,7 @@ fn run_launchctl(plist_path: &str) {
 ///
 /// This is intentionally lightweight: the actual first-chat-turn trigger will
 /// be wired in once the wizard is fully integrated with the daemon boot path.
-pub fn trigger_first_message() -> Result<(), OnboardingError> {
+pub async fn trigger_first_message() -> Result<(), OnboardingError> {
     const DAEMON_HEALTH: &str = "http://127.0.0.1:7432/health";
     const MAX_POLLS: u32 = 30;
 
@@ -330,11 +327,11 @@ pub fn trigger_first_message() -> Result<(), OnboardingError> {
 
     let mut alive = false;
     for _ in 0..MAX_POLLS {
-        if probe_url(DAEMON_HEALTH) {
+        if probe_url(DAEMON_HEALTH).await {
             alive = true;
             break;
         }
-        std::thread::sleep(Duration::from_secs(1));
+        tokio::time::sleep(Duration::from_secs(1)).await;
     }
 
     if alive {

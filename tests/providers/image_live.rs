@@ -41,7 +41,7 @@ fn image_describe_request(model: &str, image_path: &std::path::Path) -> ChatRequ
         cache_key: "test".to_string(),
         turn_state: None,
         debug_context: None,
-            text_verbosity: None,
+        text_verbosity: None,
     }
 }
 

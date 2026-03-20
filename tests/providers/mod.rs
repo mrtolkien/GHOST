@@ -12,10 +12,10 @@ mod codex_turn_state_live;
 #[cfg(feature = "live-tests-llms")]
 mod image_live;
 #[cfg(feature = "live-tests-llms")]
+mod onboarding_validation_live;
+#[cfg(feature = "live-tests-llms")]
 mod openai_oauth_live;
 #[cfg(feature = "live-tests-llms")]
 mod reasoning_live;
 #[cfg(feature = "live-tests-llms")]
 mod tool_use_live;
-#[cfg(feature = "live-tests-llms")]
-mod onboarding_validation_live;

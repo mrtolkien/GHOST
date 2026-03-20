@@ -43,6 +43,7 @@ provider, use the `Provider` trait and `create_provider()`. If you need a config
 check if one exists before inventing a parallel one.
 
 **Concrete rules:**
+
 - Never hand-roll HTTP requests to a service that already has a provider/client
   implementation. You WILL get the URL, headers, auth, or request format wrong.
 - Never create a parallel enum that mirrors an existing one. If `config::ProviderKind`

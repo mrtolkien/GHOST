@@ -372,5 +372,4 @@ mod tests {
         assert!(header.contains(INTERLEAVED_THINKING_BETA));
         assert!(header.contains("claude-code-20250219"));
     }
-
 }

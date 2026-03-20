@@ -83,8 +83,8 @@ pub enum OnboardingError {
     ProviderValidation(String),
     #[error("discord validation failed: {0}")]
     DiscordValidation(String),
-    #[error("nix install failed: {0}")]
-    NixInstall(String),
+    #[error("nix add failed: {0}")]
+    NixAdd(String),
     #[error("service health check failed: {0}")]
     HealthCheck(String),
     #[error(transparent)]

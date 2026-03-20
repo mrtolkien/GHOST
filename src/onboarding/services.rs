@@ -5,8 +5,7 @@ use super::detect::DetectedEnvironment;
 use super::{OnboardingError, OnboardingState, SearchChoice, ServiceChoice};
 
 const SEARXNG_FRAGMENT: &str = include_str!("../../assets/services/docker-compose.searxng.yml");
-const CRAWL4AI_FRAGMENT: &str =
-    include_str!("../../assets/services/docker-compose.crawl4ai.yml");
+const CRAWL4AI_FRAGMENT: &str = include_str!("../../assets/services/docker-compose.crawl4ai.yml");
 const DOCLING_FRAGMENT: &str = include_str!("../../assets/services/docker-compose.docling.yml");
 const SEARXNG_SETTINGS: &str = include_str!("../../assets/services/searxng-settings.yml");
 
@@ -151,12 +150,8 @@ pub fn prompt_search(
     }
 }
 
-fn prompt_search_interactive(env: &DetectedEnvironment) -> Result<SearchChoice, OnboardingError> {
-    let default = if env.container_runtime.is_some() {
-        SearchChoice::SearxngLocal
-    } else {
-        SearchChoice::Skip
-    };
+fn prompt_search_interactive(_env: &DetectedEnvironment) -> Result<SearchChoice, OnboardingError> {
+    let default = SearchChoice::SearxngLocal;
 
     let mut choice = cliclack::select("How should GHOST search the web?")
         .item(
@@ -304,37 +299,24 @@ fn prompt_docling_interactive(env: &DetectedEnvironment) -> Result<ServiceChoice
 // Nix installation
 // ---------------------------------------------------------------------------
 
-/// Install nix packages for services configured as `NixNative`.
-pub fn install_nix_packages(
-    embeddings: &ServiceChoice,
-    docling: &ServiceChoice,
-) -> Result<(), OnboardingError> {
-    if matches!(embeddings, ServiceChoice::NixNative) {
-        nix_install("llama-cpp", "Installing llama-server via nix...")?;
-    }
-    if matches!(docling, ServiceChoice::NixNative) {
-        nix_install("docling-serve", "Installing docling-serve via nix...")?;
-    }
-    Ok(())
-}
-
-fn nix_install(package: &str, message: &str) -> Result<(), OnboardingError> {
+/// Add a nix package via `nix profile add`.
+pub fn nix_add(package: &str, message: &str) -> Result<(), OnboardingError> {
     let spinner = cliclack::spinner();
     spinner.start(message);
 
     let output = Command::new("nix")
-        .args(["profile", "install", &format!("nixpkgs#{package}")])
+        .args(["profile", "add", &format!("nixpkgs#{package}")])
         .output()
-        .map_err(|e| OnboardingError::NixInstall(format!("failed to run nix: {e}")))?;
+        .map_err(|e| OnboardingError::NixAdd(format!("failed to run nix: {e}")))?;
 
     if output.status.success() {
-        spinner.stop(format!("{package} installed"));
+        spinner.stop(format!("{package} added"));
         Ok(())
     } else {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        spinner.stop(format!("{package} install failed"));
-        Err(OnboardingError::NixInstall(format!(
-            "nix profile install nixpkgs#{package} failed: {stderr}"
+        spinner.stop(format!("{package} add failed"));
+        Err(OnboardingError::NixAdd(format!(
+            "nix profile add nixpkgs#{package} failed: {stderr}"
         )))
     }
 }

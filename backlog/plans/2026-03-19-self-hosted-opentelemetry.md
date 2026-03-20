@@ -1,8 +1,8 @@
 # Self-Hosted OpenTelemetry with SigNoz — Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development
-> (recommended) or superpowers:executing-plans to implement this plan task-by-task.
-> Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use
+> superpowers:subagent-driven-development (recommended) or superpowers:executing-plans
+> to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Replace the `logfire` crate with standard OpenTelemetry OTLP export and add
 SigNoz to the Docker Compose stack as a self-hosted observability backend.
@@ -13,8 +13,9 @@ two-layer: console output (always on, via `tracing_subscriber::fmt`) and OTLP ex
 (conditional, via `OTEL_EXPORTER_OTLP_ENDPOINT`). SigNoz runs in a separate Docker
 Compose file as the self-hosted OTel backend.
 
-**Tech Stack:** `opentelemetry 0.31`, `opentelemetry_sdk 0.31`, `opentelemetry-otlp 0.31`
-(HTTP/protobuf + reqwest), `tracing-opentelemetry 0.32`, SigNoz v0.116+
+**Tech Stack:** `opentelemetry 0.31`, `opentelemetry_sdk 0.31`,
+`opentelemetry-otlp 0.31` (HTTP/protobuf + reqwest), `tracing-opentelemetry 0.32`,
+SigNoz v0.116+
 
 **Spec:** `backlog/tasks/4-easy-install/3-opentelemetry.md`
 
@@ -22,25 +23,26 @@ Compose file as the self-hosted OTel backend.
 
 ## File Map
 
-| Action | File | Purpose |
-|--------|------|---------|
-| Create | `docker-compose.signoz.yml` | SigNoz services (6 containers) |
-| Create | `deploy/common/signoz/otel-collector-config.yaml` | OTel collector pipeline config |
-| Modify | `Cargo.toml` | Swap logfire → opentelemetry stack |
-| Rewrite | `src/observability.rs` | New OTel pipeline setup |
-| Modify | 33 src/ files | `logfire::` → `tracing::` macros |
-| Modify | `CLAUDE.md` + `AGENTS.md` | Update dependencies list (identical files) |
-| Rewrite | `.agents/skills/tracing/SKILL.md` | Remove logfire references |
-| Delete | `.agents/skills/logfire/SKILL.md` | No longer applicable |
-| Modify | `.claude/settings.local.json` | Remove mcp\_\_logfire\_\_ entries |
-| Modify | `Cargo.toml` [features] | Add `live-tests-observability` |
-| Create | `tests/observability_live.rs` | Live test: OTLP export to SigNoz |
+| Action  | File                                              | Purpose                                    |
+| ------- | ------------------------------------------------- | ------------------------------------------ |
+| Create  | `docker-compose.signoz.yml`                       | SigNoz services (6 containers)             |
+| Create  | `deploy/common/signoz/otel-collector-config.yaml` | OTel collector pipeline config             |
+| Modify  | `Cargo.toml`                                      | Swap logfire → opentelemetry stack         |
+| Rewrite | `src/observability.rs`                            | New OTel pipeline setup                    |
+| Modify  | 33 src/ files                                     | `logfire::` → `tracing::` macros           |
+| Modify  | `CLAUDE.md` + `AGENTS.md`                         | Update dependencies list (identical files) |
+| Rewrite | `.agents/skills/tracing/SKILL.md`                 | Remove logfire references                  |
+| Delete  | `.agents/skills/logfire/SKILL.md`                 | No longer applicable                       |
+| Modify  | `.claude/settings.local.json`                     | Remove mcp\_\_logfire\_\_ entries          |
+| Modify  | `Cargo.toml` [features]                           | Add `live-tests-observability`             |
+| Create  | `tests/observability_live.rs`                     | Live test: OTLP export to SigNoz           |
 
 ---
 
 ## Task 1: SigNoz Docker Compose Stack
 
 **Files:**
+
 - Create: `docker-compose.signoz.yml`
 - Create: `deploy/common/signoz/otel-collector-config.yaml`
 
@@ -98,8 +100,9 @@ service:
 - [ ] **Step 2: Create the SigNoz Docker Compose file**
 
 Create `docker-compose.signoz.yml` at the project root. Reference SigNoz's official
-compose at `https://github.com/SigNoz/signoz/blob/main/deploy/docker/docker-compose.yaml`
-for exact image tags and health checks.
+compose at
+`https://github.com/SigNoz/signoz/blob/main/deploy/docker/docker-compose.yaml` for exact
+image tags and health checks.
 
 ```yaml
 # SigNoz observability stack (optional — start separately from core sidecars)
@@ -202,8 +205,8 @@ services:
     image: signoz/signoz-otel-collector:v0.144.2
     restart: unless-stopped
     ports:
-      - "127.0.0.1:4317:4317"    # OTLP gRPC
-      - "127.0.0.1:4318:4318"    # OTLP HTTP
+      - "127.0.0.1:4317:4317" # OTLP gRPC
+      - "127.0.0.1:4318:4318" # OTLP HTTP
     environment:
       - SIGNOZ_CLICKHOUSE_HOST=clickhouse
       - SIGNOZ_CLICKHOUSE_PORT=9000
@@ -225,18 +228,18 @@ volumes:
 ```
 
 > **Implementation note**: The `init-clickhouse` and `signoz-telemetrystore-migrator`
-> services are required for first boot — they set up ClickHouse schemas and download
-> the histogram quantile UDF binary. Without them, the otel-collector will fail to
-> export because `signoz_traces`/`signoz_logs` databases won't exist. If the migrator
-> command flags don't match the image version, check the SigNoz official compose at
+> services are required for first boot — they set up ClickHouse schemas and download the
+> histogram quantile UDF binary. Without them, the otel-collector will fail to export
+> because `signoz_traces`/`signoz_logs` databases won't exist. If the migrator command
+> flags don't match the image version, check the SigNoz official compose at
 > `https://github.com/SigNoz/signoz/blob/main/deploy/docker/docker-compose.yaml`.
 
 - [ ] **Step 3: Validate the compose file**
 
 Run: `docker compose -f docker-compose.signoz.yml config`
 
-Expected: YAML parsed successfully, no errors. Don't start the stack yet — we'll
-test end-to-end after the Rust changes are done.
+Expected: YAML parsed successfully, no errors. Don't start the stack yet — we'll test
+end-to-end after the Rust changes are done.
 
 - [ ] **Step 4: Commit**
 
@@ -250,6 +253,7 @@ git commit -m "feat: add SigNoz Docker Compose stack for self-hosted observabili
 ## Task 2: Swap Cargo.toml Dependencies
 
 **Files:**
+
 - Modify: `Cargo.toml`
 
 - [ ] **Step 1: Update dependencies**
@@ -257,11 +261,13 @@ git commit -m "feat: add SigNoz Docker Compose stack for self-hosted observabili
 In `Cargo.toml`, remove `logfire` and add the OpenTelemetry stack:
 
 Remove line 29:
+
 ```toml
 logfire = "0.9"
 ```
 
 Add in the `[dependencies]` section (alphabetical placement):
+
 ```toml
 opentelemetry = "0.31"
 opentelemetry_sdk = { version = "0.31", features = ["rt-tokio"] }
@@ -279,10 +285,10 @@ tracing-opentelemetry = "0.32"
 > `http-proto` + `reqwest-client` (async) + `reqwest-rustls`. This avoids pulling in
 > `tonic`/`prost`/`h2` (the full gRPC stack). Ghost already has `reqwest` with `rustls`.
 >
-> **Before writing code**: Verify the exact feature flag names against `opentelemetry-otlp`
-> 0.31's `Cargo.toml` using `@context7`. Feature names have changed between versions
-> (e.g., `reqwest-client` vs `reqwest`, `http-proto` vs `http`). Wrong names will either
-> fail to compile or silently pull in the wrong transport.
+> **Before writing code**: Verify the exact feature flag names against
+> `opentelemetry-otlp` 0.31's `Cargo.toml` using `@context7`. Feature names have changed
+> between versions (e.g., `reqwest-client` vs `reqwest`, `http-proto` vs `http`). Wrong
+> names will either fail to compile or silently pull in the wrong transport.
 
 - [ ] **Step 2: Verify dependencies resolve**
 
@@ -304,6 +310,7 @@ git commit -m "chore: swap logfire for opentelemetry-otlp + tracing-opentelemetr
 ## Task 3: Rewrite `src/observability.rs`
 
 **Files:**
+
 - Rewrite: `src/observability.rs`
 
 This is the critical task. The file goes from 154 lines (logfire-based) to ~155 lines
@@ -557,11 +564,14 @@ fn set_default_rust_log_filter_for_tests() {
 ```
 
 > **Key differences from old code:**
-> - `logfire::configure()` → `SdkTracerProvider::builder()` + `tracing_subscriber::registry()`
+>
+> - `logfire::configure()` → `SdkTracerProvider::builder()` +
+>   `tracing_subscriber::registry()`
 > - `logfire::ShutdownGuard` → `SdkTracerProvider` held in struct, `shutdown()` on Drop
 > - `logfire::config::ConsoleOptions` → `tracing_subscriber::fmt` layer
 > - `set_default_logfire_environment()` → removed (replaced by resource attribute)
-> - `logfire::config::SendToLogfire::IfTokenPresent` → `OTEL_EXPORTER_OTLP_ENDPOINT` env check
+> - `logfire::config::SendToLogfire::IfTokenPresent` → `OTEL_EXPORTER_OTLP_ENDPOINT` env
+>   check
 > - Panic handler: `with_install_panic_handler(true)` → explicit `std::panic::set_hook`
 > - The `build_tracer_provider()` helper DRYs the shared logic between `init()` and
 >   `init_for_live_tests()`
@@ -573,11 +583,10 @@ Run: `cargo check 2>&1 | head -50`
 Expected: `src/observability.rs` compiles. Remaining errors are all in other files
 referencing `logfire::info!`, `logfire::warn!`, etc. — those are fixed in Task 4.
 
-> **If `SpanExporter::builder().with_http().build()` doesn't compile**: The HTTP
-> builder method name may differ. Check the docs with `@context7` for
-> `opentelemetry-otlp` 0.31. The builder might need `.with_http_client(reqwest::Client::new())`
-> or the feature flag might auto-select the transport. Consult
-> `opentelemetry_otlp::SpanExporter` docs.
+> **If `SpanExporter::builder().with_http().build()` doesn't compile**: The HTTP builder
+> method name may differ. Check the docs with `@context7` for `opentelemetry-otlp` 0.31.
+> The builder might need `.with_http_client(reqwest::Client::new())` or the feature flag
+> might auto-select the transport. Consult `opentelemetry_otlp::SpanExporter` docs.
 
 - [ ] **Step 3: Commit**
 
@@ -591,6 +600,7 @@ git commit -m "feat: rewrite observability pipeline — logfire → standard Ope
 ## Task 4: Macro Migration (159 Call Sites, 33 Files)
 
 **Files:**
+
 - Modify: 33 files in `src/` (see file list in spec section 4)
 
 This is a mechanical find-and-replace. All `logfire::` macros map 1:1 to `tracing::`
@@ -601,16 +611,16 @@ changes.
 
 Run these replacements across all files in `src/`:
 
-| Find | Replace |
-|------|---------|
-| `logfire::info!` | `tracing::info!` |
-| `logfire::warn!` | `tracing::warn!` |
-| `logfire::error!` | `tracing::error!` |
-| `logfire::debug!` | `tracing::debug!` |
-| `logfire::span!` | `tracing::info_span!` |
+| Find              | Replace               |
+| ----------------- | --------------------- |
+| `logfire::info!`  | `tracing::info!`      |
+| `logfire::warn!`  | `tracing::warn!`      |
+| `logfire::error!` | `tracing::error!`     |
+| `logfire::debug!` | `tracing::debug!`     |
+| `logfire::span!`  | `tracing::info_span!` |
 
-There is exactly **1** `logfire::span!` call site in `src/daemon/watcher.rs:114`.
-The rest are info/warn/error/debug.
+There is exactly **1** `logfire::span!` call site in `src/daemon/watcher.rs:114`. The
+rest are info/warn/error/debug.
 
 > **Important**: After replacing `logfire::span!` with `tracing::info_span!`, verify
 > that the `.instrument()` call on the same line still works. `tracing::info_span!`
@@ -637,7 +647,9 @@ Run: `cargo check`
 Expected: Clean compilation with zero errors. All `logfire::` references are gone.
 
 If there are errors:
-- **"unresolved import `logfire`"** — a file still has a `use logfire::...` line. Remove it.
+
+- **"unresolved import `logfire`"** — a file still has a `use logfire::...` line. Remove
+  it.
 - **"cannot find macro `logfire`"** — a call site was missed. Replace it.
 - **Type mismatch on `.instrument()`** — the `logfire::span!` replacement may need
   adjustment. `tracing::info_span!` returns `tracing::Span`; ensure the call site uses
@@ -662,6 +674,7 @@ git commit -m "refactor: migrate 159 logfire:: macro calls to standard tracing::
 ## Task 5: Live Test — OTLP Export to SigNoz
 
 **Files:**
+
 - Modify: `Cargo.toml` (add `live-tests-observability` feature)
 - Create: `tests/observability_live.rs`
 
@@ -823,14 +836,15 @@ async fn console_only_mode_no_errors() {
 }
 ```
 
-> **Note on the SigNoz API**: The `/api/v1/services` endpoint returns services that
-> have sent traces. The exact response format may vary by SigNoz version. If the API
-> shape is different, check `curl http://localhost:3301/api/v1/services?start=0&end=999999999999999999`
-> to see the actual format and adjust the assertion.
+> **Note on the SigNoz API**: The `/api/v1/services` endpoint returns services that have
+> sent traces. The exact response format may vary by SigNoz version. If the API shape is
+> different, check
+> `curl http://localhost:3301/api/v1/services?start=0&end=999999999999999999` to see the
+> actual format and adjust the assertion.
 >
 > **If the test can't find the service**: The batch exporter has a default flush
-> interval. `provider.shutdown()` should force a flush, but if SigNoz is slow to
-> ingest, increase the sleep duration. Also check that the collector is healthy
+> interval. `provider.shutdown()` should force a flush, but if SigNoz is slow to ingest,
+> increase the sleep duration. Also check that the collector is healthy
 > (`curl http://localhost:13133/`).
 
 - [ ] **Step 4: Run the test**
@@ -865,6 +879,7 @@ docker compose -f docker-compose.signoz.yml down
 ## Task 6: Update Documentation and Skills
 
 **Files:**
+
 - Modify: `.agents/skills/tracing/SKILL.md`
 - Delete: `.agents/skills/logfire/SKILL.md`
 - Modify: `CLAUDE.md` and `AGENTS.md` (identical content)
@@ -879,19 +894,25 @@ In `.agents/skills/tracing/SKILL.md`, make these changes:
    `tracing::info_span!() calls`
 
 2. **Line 106**: Replace:
+
    ```
    - Use `logfire::span!("verb object", key = val)` for programmatic spans
    ```
+
    With:
+
    ```
    - Use `tracing::info_span!("verb object", key = val)` for programmatic spans
    ```
 
 3. **Line 109**: Replace:
+
    ```
    - Use `logfire::info!()` / `warn!()` / `error!()` for discrete events within spans
    ```
+
    With:
+
    ```
    - Use `tracing::info!()` / `warn!()` / `error!()` for discrete events within spans
    ```
@@ -919,10 +940,13 @@ should be auto-discovered from the filesystem, so deleting the file is sufficien
 - [ ] **Step 3: Update CLAUDE.md and AGENTS.md dependencies**
 
 Both files have identical content. In each, find the line (around line 115):
+
 ```
 logfire +
 ```
+
 Replace with:
+
 ```
 opentelemetry + tracing-opentelemetry +
 ```
@@ -930,6 +954,7 @@ opentelemetry + tracing-opentelemetry +
 - [ ] **Step 4: Clean up settings.local.json**
 
 In `.claude/settings.local.json`, remove these 7 lines from the `allow` array:
+
 ```json
 "mcp__logfire__token_info",
 "mcp__logfire__query_schema_reference",
@@ -962,8 +987,8 @@ git commit -m "docs: update skills and config for logfire → opentelemetry migr
 
 Run: `just ci`
 
-This runs `cargo fmt --check`, `cargo check`, `cargo clippy`, and `cargo test`.
-All must pass.
+This runs `cargo fmt --check`, `cargo check`, `cargo clippy`, and `cargo test`. All must
+pass.
 
 Expected: Clean pass. If clippy warns about anything in the new `observability.rs`
 (unused imports, redundant clones, etc.), fix them.

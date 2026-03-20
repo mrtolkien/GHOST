@@ -616,11 +616,7 @@ impl SessionChat {
     /// The resolved config for the default model alias.
     pub(super) fn model_config(&self) -> Option<crate::config::ModelConfig> {
         let config = self.config.current();
-        config
-            .models
-            .aliases
-            .get(&config.models.default)
-            .cloned()
+        config.models.aliases.get(&config.models.default).cloned()
     }
 
     /// Context window size (in tokens) from the default model alias.

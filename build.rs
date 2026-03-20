@@ -70,12 +70,7 @@ fn write_array(f: &mut fs::File, name: &str, entries: &[(String, String)]) {
 
 /// Recursively walk a directory, collecting (workspace_path, source_path) pairs.
 /// `skip_dirs` contains top-level directory names to exclude (e.g. "services").
-fn walk_dir(
-    base: &Path,
-    dir: &Path,
-    entries: &mut Vec<(String, String)>,
-    skip_dirs: &[&str],
-) {
+fn walk_dir(base: &Path, dir: &Path, entries: &mut Vec<(String, String)>, skip_dirs: &[&str]) {
     // Gracefully handle missing directories (e.g. during buildDepsOnly where
     // only Cargo sources are present — assets/ and docs/ won't exist).
     let mut children: Vec<_> = match fs::read_dir(dir) {

@@ -302,8 +302,7 @@ pub fn provider_for_alias(
             Ok(Arc::new(p))
         }
         ProviderKind::Kimi => {
-            let mut p =
-                crate::providers::kimi_code::KimiCodeProvider::new(model.headers.clone())?;
+            let mut p = crate::providers::kimi_code::KimiCodeProvider::new(model.headers.clone())?;
             p.set_debug(debug.0, debug.1);
             Ok(Arc::new(p))
         }
@@ -314,8 +313,7 @@ pub fn provider_for_alias(
             Ok(Arc::new(p))
         }
         ProviderKind::Anthropic => {
-            let mut p =
-                crate::providers::anthropic::AnthropicProvider::new(model.headers.clone())?;
+            let mut p = crate::providers::anthropic::AnthropicProvider::new(model.headers.clone())?;
             p.set_debug(debug.0, debug.1);
             Ok(Arc::new(p))
         }

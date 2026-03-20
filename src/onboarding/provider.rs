@@ -14,9 +14,8 @@ pub fn catalog_url(provider: &ProviderKind) -> &'static str {
 /// Ask the user to pick an LLM provider, or parse from a CLI flag.
 pub fn prompt_provider(flag: Option<&str>) -> Result<ProviderKind, OnboardingError> {
     if let Some(value) = flag {
-        return ProviderKind::from_cli_flag(value).ok_or_else(|| {
-            OnboardingError::InvalidInput(format!("unknown provider: {value}"))
-        });
+        return ProviderKind::from_cli_flag(value)
+            .ok_or_else(|| OnboardingError::InvalidInput(format!("unknown provider: {value}")));
     }
 
     let choice = cliclack::select("Which LLM provider do you want to use?")
@@ -53,10 +52,8 @@ pub async fn prompt_credentials(
         ProviderKind::OpenRouter | ProviderKind::Kimi => {
             let key = match flag {
                 Some(k) => k.to_string(),
-                None => {
-                    cliclack::password(format!("Paste your {} API key:", provider.as_str()))
-                        .interact()?
-                }
+                None => cliclack::password(format!("Paste your {} API key:", provider.as_str()))
+                    .interact()?,
             };
             Ok(Some(key))
         }
@@ -152,9 +149,7 @@ pub async fn validate_provider(
     provider: &ProviderKind,
     model: &str,
 ) -> Result<(), OnboardingError> {
-    use crate::providers::types::{
-        ChatMessage, ChatRequest, ContentBlock, Role, create_provider,
-    };
+    use crate::providers::types::{ChatMessage, ChatRequest, ContentBlock, Role, create_provider};
     use std::collections::BTreeMap;
 
     let p = create_provider(*provider, BTreeMap::new(), None)?;

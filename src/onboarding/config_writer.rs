@@ -174,18 +174,84 @@ pub fn compute_config_diff(old: &str, new: &str) -> String {
     out
 }
 
-/// Show the config.toml diff and prompt the operator to confirm.
+/// Show the config.toml diff with syntax highlighting and prompt to confirm.
 pub fn display_diff_and_confirm(
     old_config: &str,
     new_config: &str,
 ) -> Result<bool, OnboardingError> {
     let diff = compute_config_diff(old_config, new_config);
-    cliclack::note("Changes to config.toml", &diff)
+    let colored = colorize_diff_toml(&diff);
+    cliclack::note("Changes to config.toml", &colored)
         .map_err(|e| OnboardingError::Io(std::io::Error::other(e.to_string())))?;
     let confirmed = cliclack::confirm("Apply these changes?")
         .interact()
         .map_err(|e| OnboardingError::Io(std::io::Error::other(e.to_string())))?;
     Ok(confirmed)
+}
+
+// ---------------------------------------------------------------------------
+// TOML syntax highlighting with diff colors
+// ---------------------------------------------------------------------------
+
+/// Colorize a unified diff of TOML content.
+///
+/// Added lines get a dark green background, deleted lines dark red. TOML
+/// syntax (section headers, key/value pairs) is highlighted on top.
+fn colorize_diff_toml(diff: &str) -> String {
+    let mut out = String::new();
+    for line in diff.lines() {
+        match line.chars().next() {
+            Some('+') => {
+                // Dark green background, TOML highlighting with fg-only resets.
+                out.push_str("\x1b[48;5;22m+");
+                out.push_str(&highlight_toml(&line[1..], true));
+                out.push_str("\x1b[0m\n");
+            }
+            Some('-') => {
+                // Dark red background, TOML highlighting with fg-only resets.
+                out.push_str("\x1b[48;5;52m-");
+                out.push_str(&highlight_toml(&line[1..], true));
+                out.push_str("\x1b[0m\n");
+            }
+            Some(' ') => {
+                out.push(' ');
+                out.push_str(&highlight_toml(&line[1..], false));
+                out.push('\n');
+            }
+            _ => {
+                out.push_str(line);
+                out.push('\n');
+            }
+        }
+    }
+    out
+}
+
+/// Apply TOML syntax coloring to a single line.
+///
+/// When `preserve_bg` is true, resets only affect foreground (so diff
+/// background color is preserved).
+fn highlight_toml(line: &str, preserve_bg: bool) -> String {
+    let reset = if preserve_bg {
+        "\x1b[39;22m"
+    } else {
+        "\x1b[0m"
+    };
+    let trimmed = line.trim();
+
+    // Section headers: [section] or [[section]]
+    if (trimmed.starts_with('[') && trimmed.ends_with(']'))
+        || (trimmed.starts_with("[[") && trimmed.ends_with("]]"))
+    {
+        return format!("\x1b[1;36m{line}{reset}");
+    }
+
+    // Key = value pairs
+    if let Some((key, value)) = line.split_once(" = ") {
+        return format!("{key} = \x1b[33m{value}{reset}");
+    }
+
+    line.to_string()
 }
 
 /// Write config.toml and .env to `config_dir`.

@@ -1,9 +1,8 @@
 # `ghost init` Onboarding Wizard — Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use
-> superpowers:subagent-driven-development (recommended) or
-> superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox
-> (`- [ ]`) syntax for tracking.
+> superpowers:subagent-driven-development (recommended) or superpowers:executing-plans
+> to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Replace the Python onboarding wizard with a native Rust `ghost init` that
 walks users through LLM provider setup, Discord configuration, service installation
@@ -15,8 +14,8 @@ services, config writing, service file generation, health checks, and an on-dema
 assistant. A bundled `services` skill teaches the GHOST how to manage its infrastructure
 post-install.
 
-**Tech Stack:** Rust, cliclack (wizard UX), dialoguer (FuzzySelect fallback), clap
-(CLI flags), toml_edit (config diffing), reqwest (health probes + API validation).
+**Tech Stack:** Rust, cliclack (wizard UX), dialoguer (FuzzySelect fallback), clap (CLI
+flags), toml_edit (config diffing), reqwest (health probes + API validation).
 
 **Spec:** `backlog/tasks/4-easy-install/5-onboarding.md` (design spec section)
 
@@ -29,54 +28,55 @@ stepwise/daemon tests. Read `/tracing` before adding instrumentation.
 
 ### New files
 
-| File | Responsibility |
-|------|---------------|
-| `src/onboarding/mod.rs` | Barrel: re-exports, `OnboardingState` struct, `OnboardingError` type, choice enums |
-| `src/onboarding/wizard.rs` | Main wizard orchestration — phases 0-5, existing config handling, retry loops, `[h]` hotkey wiring |
-| `src/onboarding/detect.rs` | `DetectedEnvironment` struct + `detect()` — probes nix, platform, container runtime, running services, existing config, nix packages, system memory |
-| `src/onboarding/provider.rs` | Provider picker, API key/OAuth prompts, real validation call |
-| `src/onboarding/discord.rs` | Discord setup guidance box, token + user ID prompts, token validation |
-| `src/onboarding/services.rs` | Per-service prompts (embeddings, search, crawl, docling), nix profile install, compose file generation |
-| `src/onboarding/config_writer.rs` | Build `config.toml` + `.env` from wizard answers, diff display, write |
-| `src/onboarding/service_files.rs` | systemd/launchd unit templates for daemon + native services, install + enable |
-| `src/onboarding/health.rs` | HTTP health probes per service, status table display |
-| `src/onboarding/agent.rs` | On-demand onboarding AI assistant (`[h]` hotkey), mini chat in terminal |
-| `assets/skills/services/skill.md` | Bundled skill: service management (main) |
-| `assets/skills/services/observability.md` | Skill extra: SigNoz OTEL stack |
-| `assets/skills/services/tailscale.md` | Skill extra: Tailscale setup |
-| `assets/onboarding-agent-prompt.md` | System prompt for the onboarding assistant |
-| `assets/services/docker-compose.searxng.yml` | SearXNG compose template fragment |
-| `assets/services/docker-compose.crawl4ai.yml` | Crawl4AI + Chrome compose template fragment |
-| `assets/services/docker-compose.docling.yml` | Docling compose template fragment (optional) |
-| `assets/services/searxng-settings.yml` | SearXNG config (moved from `deploy/common/`) |
+| File                                          | Responsibility                                                                                                                                      |
+| --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/onboarding/mod.rs`                       | Barrel: re-exports, `OnboardingState` struct, `OnboardingError` type, choice enums                                                                  |
+| `src/onboarding/wizard.rs`                    | Main wizard orchestration — phases 0-5, existing config handling, retry loops, `[h]` hotkey wiring                                                  |
+| `src/onboarding/detect.rs`                    | `DetectedEnvironment` struct + `detect()` — probes nix, platform, container runtime, running services, existing config, nix packages, system memory |
+| `src/onboarding/provider.rs`                  | Provider picker, API key/OAuth prompts, real validation call                                                                                        |
+| `src/onboarding/discord.rs`                   | Discord setup guidance box, token + user ID prompts, token validation                                                                               |
+| `src/onboarding/services.rs`                  | Per-service prompts (embeddings, search, crawl, docling), nix profile install, compose file generation                                              |
+| `src/onboarding/config_writer.rs`             | Build `config.toml` + `.env` from wizard answers, diff display, write                                                                               |
+| `src/onboarding/service_files.rs`             | systemd/launchd unit templates for daemon + native services, install + enable                                                                       |
+| `src/onboarding/health.rs`                    | HTTP health probes per service, status table display                                                                                                |
+| `src/onboarding/agent.rs`                     | On-demand onboarding AI assistant (`[h]` hotkey), mini chat in terminal                                                                             |
+| `assets/skills/services/skill.md`             | Bundled skill: service management (main)                                                                                                            |
+| `assets/skills/services/observability.md`     | Skill extra: SigNoz OTEL stack                                                                                                                      |
+| `assets/skills/services/tailscale.md`         | Skill extra: Tailscale setup                                                                                                                        |
+| `assets/onboarding-agent-prompt.md`           | System prompt for the onboarding assistant                                                                                                          |
+| `assets/services/docker-compose.searxng.yml`  | SearXNG compose template fragment                                                                                                                   |
+| `assets/services/docker-compose.crawl4ai.yml` | Crawl4AI + Chrome compose template fragment                                                                                                         |
+| `assets/services/docker-compose.docling.yml`  | Docling compose template fragment (optional)                                                                                                        |
+| `assets/services/searxng-settings.yml`        | SearXNG config (moved from `deploy/common/`)                                                                                                        |
 
 ### Modified files
 
-| File | Changes |
-|------|---------|
-| `src/cli/init.rs` | Rewrite: parse new CLI flags (clap), delegate to `src/onboarding/` |
-| `src/main.rs:17` | Update `Init` variant to hold new `InitArgs` struct |
-| `src/lib.rs` | Add `pub mod onboarding;` declaration |
-| `src/config_workspace.rs:8-36` | Add `services/` to `bootstrap_workspace_dirs` |
-| `Cargo.toml` | Add `cliclack`, `dialoguer`, `sysinfo` dependencies |
+| File                           | Changes                                                            |
+| ------------------------------ | ------------------------------------------------------------------ |
+| `src/cli/init.rs`              | Rewrite: parse new CLI flags (clap), delegate to `src/onboarding/` |
+| `src/main.rs:17`               | Update `Init` variant to hold new `InitArgs` struct                |
+| `src/lib.rs`                   | Add `pub mod onboarding;` declaration                              |
+| `src/config_workspace.rs:8-36` | Add `services/` to `bootstrap_workspace_dirs`                      |
+| `Cargo.toml`                   | Add `cliclack`, `dialoguer`, `sysinfo` dependencies                |
 
 ### Not modified (read-only references)
 
-| File | Used for |
-|------|----------|
-| `src/config.rs:74-87` | `Settings` struct shape — wizard must produce valid config |
-| `src/config.rs:305-314` | `Provider` enum — must match wizard provider choices |
-| `src/config_cli.rs:25-60` | `set_value_in_dir` — may reuse for config writing |
-| `src/providers/anthropic/credentials.rs` | OAuth credential path (`~/.claude/.credentials.json`) |
-| `src/auth/openai_oauth.rs` | OpenAI OAuth device-code flow |
-| `deploy/common/onboard.py` | Reference for what config sections to write |
-| `deploy/common/searxng-settings.yml` | Template for SearXNG config |
+| File                                     | Used for                                                   |
+| ---------------------------------------- | ---------------------------------------------------------- |
+| `src/config.rs:74-87`                    | `Settings` struct shape — wizard must produce valid config |
+| `src/config.rs:305-314`                  | `Provider` enum — must match wizard provider choices       |
+| `src/config_cli.rs:25-60`                | `set_value_in_dir` — may reuse for config writing          |
+| `src/providers/anthropic/credentials.rs` | OAuth credential path (`~/.claude/.credentials.json`)      |
+| `src/auth/openai_oauth.rs`               | OpenAI OAuth device-code flow                              |
+| `deploy/common/onboard.py`               | Reference for what config sections to write                |
+| `deploy/common/searxng-settings.yml`     | Template for SearXNG config                                |
 
 ---
 
 ## Task 1: Add dependencies + module skeleton
 
 **Files:**
+
 - Modify: `Cargo.toml:6-88`
 - Modify: `src/lib.rs:1-30`
 - Create: `src/onboarding/mod.rs`
@@ -93,8 +93,8 @@ sysinfo = "0.35"
 
 **NOTE: These require discussion per CLAUDE.md dependency rules.** All three are
 onboarding-only (not used by the daemon runtime). `sysinfo` is for memory detection
-(smart defaults on low-RAM systems). If `sysinfo` is rejected as too heavy, fall back
-to reading `/proc/meminfo` on Linux and `sysctl hw.memsize` on macOS directly.
+(smart defaults on low-RAM systems). If `sysinfo` is rejected as too heavy, fall back to
+reading `/proc/meminfo` on Linux and `sysctl hw.memsize` on macOS directly.
 
 - [ ] **Step 2: Declare the onboarding module in lib.rs**
 
@@ -226,9 +226,8 @@ pub enum OnboardingError {
 
 - [ ] **Step 4: Verify it compiles**
 
-Run: `cargo check`
-Expected: compiles with no errors (module is declared but has only types, no
-dependencies on other modules yet).
+Run: `cargo check` Expected: compiles with no errors (module is declared but has only
+types, no dependencies on other modules yet).
 
 - [ ] **Step 5: Commit**
 
@@ -242,13 +241,14 @@ git commit -m "feat: add onboarding module skeleton and dependencies"
 ## Task 2: Environment detection (`detect.rs`)
 
 **Files:**
+
 - Create: `src/onboarding/detect.rs`
 - Modify: `src/onboarding/mod.rs` (add `pub mod detect;` — already in Task 1)
 
 - [ ] **Step 1: Write test for detection logic**
 
-Create unit tests at the bottom of `detect.rs`. These test the pure logic (parsing
-probe results), not the actual system probes:
+Create unit tests at the bottom of `detect.rs`. These test the pure logic (parsing probe
+results), not the actual system probes:
 
 ```rust
 #[cfg(test)]
@@ -295,8 +295,8 @@ mod tests {
 
 - [ ] **Step 2: Run test — verify it fails**
 
-Run: `cargo test --lib onboarding::detect`
-Expected: FAIL — `detect` module doesn't have the types/functions yet.
+Run: `cargo test --lib onboarding::detect` Expected: FAIL — `detect` module doesn't have
+the types/functions yet.
 
 - [ ] **Step 3: Implement `detect.rs`**
 
@@ -468,14 +468,13 @@ async fn probe_http(client: &reqwest::Client, url: &str) -> bool {
 
 - [ ] **Step 4: Run tests — verify they pass**
 
-Run: `cargo test --lib onboarding::detect`
-Expected: all 5 tests pass.
+Run: `cargo test --lib onboarding::detect` Expected: all 5 tests pass.
 
 - [ ] **Step 5: Run `cargo check` for the full crate**
 
-Run: `cargo check`
-Expected: compiles. `detect()` references `crate::config::config_dir()` — verify this
-function exists (it does, in `src/config.rs`). If the function name is different, adjust.
+Run: `cargo check` Expected: compiles. `detect()` references
+`crate::config::config_dir()` — verify this function exists (it does, in
+`src/config.rs`). If the function name is different, adjust.
 
 - [ ] **Step 6: Commit**
 
@@ -489,6 +488,7 @@ git commit -m "feat: add environment detection for onboarding wizard"
 ## Task 3: CLI flags + wizard entry point (`init.rs` rewrite)
 
 **Files:**
+
 - Modify: `src/cli/init.rs` (full rewrite)
 - Modify: `src/main.rs:17` (update `Init` variant)
 
@@ -617,13 +617,13 @@ Commands::Init(args) => ghost::cli::init::execute(args).await,
 
 - [ ] **Step 3: Verify it compiles**
 
-Run: `cargo check`
-Expected: compiles. The wizard is a skeleton that only runs Phase 0 detection.
+Run: `cargo check` Expected: compiles. The wizard is a skeleton that only runs Phase 0
+detection.
 
 - [ ] **Step 4: Manual smoke test**
 
-Run: `cargo run -- init --help`
-Expected: shows all the new `--provider`, `--api-key`, etc. flags.
+Run: `cargo run -- init --help` Expected: shows all the new `--provider`, `--api-key`,
+etc. flags.
 
 - [ ] **Step 5: Commit**
 
@@ -637,14 +637,15 @@ git commit -m "feat: rewrite ghost init with CLI flags and detection phase"
 ## Task 4: Provider setup (`provider.rs`)
 
 **Files:**
+
 - Create: `src/onboarding/provider.rs`
 - Modify: `src/onboarding/mod.rs` (add `pub mod provider;`)
 
 - [ ] **Step 1: Write test for provider validation call**
 
-At the bottom of `provider.rs`, add a test that the validation function returns an
-error for an invalid API key (this can be a unit test with a mock or a simple
-format-check test):
+At the bottom of `provider.rs`, add a test that the validation function returns an error
+for an invalid API key (this can be a unit test with a mock or a simple format-check
+test):
 
 ```rust
 #[cfg(test)]
@@ -692,24 +693,24 @@ mod tests {
 
 - [ ] **Step 2: Run test — verify it fails**
 
-Run: `cargo test --lib onboarding::provider`
-Expected: FAIL
+Run: `cargo test --lib onboarding::provider` Expected: FAIL
 
 - [ ] **Step 3: Implement `provider.rs`**
 
 Core functions (all `from_flag` methods are already on `ProviderChoice` in `mod.rs`):
+
 - `catalog_url(provider: &ProviderChoice) -> &'static str` — return provider's model
   catalog URL
 - `prompt_provider(flag: Option<&str>) -> Result<ProviderChoice>` — interactive picker
   or parse flag
 - `prompt_credentials(provider: &ProviderChoice, flag: Option<&str>) -> Result<Option<String>>`
-  — for API key providers (OpenRouter, Kimi): password prompt or flag.
-  For Anthropic: check `~/.claude/.credentials.json` exists, read `claudeAiOauth`
-  section (reuse `crate::providers::anthropic::credentials::load_credentials()`).
-  If file missing → show note "Run `claude` first to authenticate" and return error.
-  For OpenAiOAuth: check for existing tokens, if missing → run device-code OAuth flow
-  inline (call `crate::auth::openai_oauth::run_codex_auth_flow()` or equivalent).
-  On headless servers: device-code flow prints URL + code for remote auth.
+  — for API key providers (OpenRouter, Kimi): password prompt or flag. For Anthropic:
+  check `~/.claude/.credentials.json` exists, read `claudeAiOauth` section (reuse
+  `crate::providers::anthropic::credentials::load_credentials()`). If file missing →
+  show note "Run `claude` first to authenticate" and return error. For OpenAiOAuth:
+  check for existing tokens, if missing → run device-code OAuth flow inline (call
+  `crate::auth::openai_oauth::run_codex_auth_flow()` or equivalent). On headless
+  servers: device-code flow prints URL + code for remote auth.
 - `prompt_model(provider: &ProviderChoice, flag: Option<&str>) -> Result<String>` — show
   catalog URL in a `cliclack::note()` box, text input
 - `prompt_context_window(flag: Option<u32>) -> Result<u32>` — text input with default
@@ -718,23 +719,24 @@ Core functions (all `from_flag` methods are already on `ProviderChoice` in `mod.
   On failure: show error, offer retry (up to 3 attempts) or go back to provider select.
 
 The validation call is a minimal chat completion:
+
 ```json
 {
   "model": "<model_id>",
   "messages": [
-    {"role": "system", "content": "Reply with OK"},
-    {"role": "user", "content": "ping"}
+    { "role": "system", "content": "Reply with OK" },
+    { "role": "user", "content": "ping" }
   ],
   "max_tokens": 5
 }
 ```
+
 Sent to the provider's API endpoint. For OAuth providers, load credentials from the
 appropriate path first.
 
 - [ ] **Step 4: Run tests — verify they pass**
 
-Run: `cargo test --lib onboarding::provider`
-Expected: PASS
+Run: `cargo test --lib onboarding::provider` Expected: PASS
 
 - [ ] **Step 5: Wire into `execute()` in `init.rs`**
 
@@ -764,6 +766,7 @@ git commit -m "feat: add provider selection and validation to onboarding"
 ## Task 5: Discord setup (`discord.rs`)
 
 **Files:**
+
 - Create: `src/onboarding/discord.rs`
 - Modify: `src/onboarding/mod.rs` (add `pub mod discord;`)
 
@@ -792,15 +795,16 @@ mod tests {
 - [ ] **Step 2: Implement `discord.rs`**
 
 Core functions:
+
 - `validate_user_id(id: &str) -> Result<()>` — numeric, 17-18 digits
-- `validate_bot_token(token: &str) -> Result<()>` — real Discord API call:
-  GET `https://discord.com/api/v10/users/@me` with `Authorization: Bot <token>`
+- `validate_bot_token(token: &str) -> Result<()>` — real Discord API call: GET
+  `https://discord.com/api/v10/users/@me` with `Authorization: Bot <token>`
 - `prompt_discord(token_flag: Option<&str>, user_flag: Option<&str>) -> Result<(String, String)>`
   — shows the beautiful setup guide box via `cliclack::note()`, then prompts for token
   (password input) and user ID (text input)
 
-The `cliclack::note()` call renders the Discord setup guide (steps 1-5 from the spec)
-in a styled box.
+The `cliclack::note()` call renders the Discord setup guide (steps 1-5 from the spec) in
+a styled box.
 
 - [ ] **Step 3: Run tests — verify they pass**
 
@@ -830,6 +834,7 @@ git commit -m "feat: add Discord setup to onboarding wizard"
 ## Task 6: Compose file templates + SearXNG config
 
 **Files:**
+
 - Create: `assets/services/docker-compose.searxng.yml`
 - Create: `assets/services/docker-compose.crawl4ai.yml`
 - Create: `assets/services/docker-compose.docling.yml`
@@ -840,7 +845,8 @@ embed them at compile time.
 
 - [ ] **Step 1: Create SearXNG settings**
 
-Copy from `deploy/common/searxng-settings.yml` to `assets/services/searxng-settings.yml`.
+Copy from `deploy/common/searxng-settings.yml` to
+`assets/services/searxng-settings.yml`.
 
 - [ ] **Step 2: Create compose template fragments**
 
@@ -858,8 +864,8 @@ install logic skips these paths. The wizard writes the composed result to
 
 - [ ] **Step 3: Verify bundling exclusion**
 
-Check `build.rs` — if `assets/services/` would be bundled, add an exclusion. The
-compose fragments are compile-time resources only.
+Check `build.rs` — if `assets/services/` would be bundled, add an exclusion. The compose
+fragments are compile-time resources only.
 
 - [ ] **Step 4: Commit**
 
@@ -873,6 +879,7 @@ git commit -m "feat: add compose templates and SearXNG config to assets"
 ## Task 7: Service setup (`services.rs`)
 
 **Files:**
+
 - Create: `src/onboarding/services.rs`
 - Modify: `src/onboarding/mod.rs` (already has `pub mod services;` from Task 1)
 
@@ -964,6 +971,7 @@ pub struct ServiceSelections {
 ```
 
 Functions:
+
 - `prompt_embeddings(env: &DetectedEnvironment, flag: Option<&str>) -> Result<(ServiceChoice, Option<String>)>`
   — shows description + detection state, offers nix/remote/skip (or "Use existing" if
   detected on :11434). Smart default: skip if low_memory. If not skipped, prompts for
@@ -984,6 +992,7 @@ Functions:
   — writes `services/docker-compose.yml` and `services/searxng-settings.yml`.
 
 Each prompt function displays:
+
 1. Section header with service name
 2. 2-3 sentence description of what the service does and why the GHOST needs it
 3. Link to project homepage
@@ -1021,6 +1030,7 @@ git commit -m "feat: add service setup and compose generation to onboarding"
 ## Task 7: Config writing + diff display (`config_writer.rs`)
 
 **Files:**
+
 - Create: `src/onboarding/config_writer.rs`
 - Modify: `src/onboarding/mod.rs` (add `pub mod config_writer;`)
 
@@ -1088,14 +1098,15 @@ mod tests {
 - [ ] **Step 2: Implement `config_writer.rs`**
 
 Core functions:
+
 - `generate_config_toml(state: &OnboardingState) -> String` — builds config.toml from
   wizard state. Maps `ServiceChoice`/`SearchChoice` to the correct TOML sections
   (`[embeddings]`, `[web.search]`, `[web]`, `[[web.browsers]]`, `[docling]`).
-- `generate_env(state: &OnboardingState) -> String` — builds .env with only secrets
-  (API keys, tokens). Maps provider to correct env var name.
-- `compute_config_diff(old: &str, new: &str) -> String` — line-by-line diff with
-  `+`/`-` prefixes for display. Uses `similar` crate (already in Cargo.toml) for the
-  diff algorithm.
+- `generate_env(state: &OnboardingState) -> String` — builds .env with only secrets (API
+  keys, tokens). Maps provider to correct env var name.
+- `compute_config_diff(old: &str, new: &str) -> String` — line-by-line diff with `+`/`-`
+  prefixes for display. Uses `similar` crate (already in Cargo.toml) for the diff
+  algorithm.
 - `display_diff_and_confirm(old_config: &str, new_config: &str) -> Result<bool>` — shows
   diff in terminal, asks "Apply these changes?".
 - `write_config_files(config_dir: &Path, config_toml: &str, env: &str) -> Result<()>` —
@@ -1117,6 +1128,7 @@ git commit -m "feat: add config generation and diff display to onboarding"
 ## Task 8: Service file generation (`service_files.rs`)
 
 **Files:**
+
 - Create: `src/onboarding/service_files.rs`
 - Modify: `src/onboarding/mod.rs` (add `pub mod service_files;`)
 - Modify: `src/config_workspace.rs:8-36` (add `services/` directory)
@@ -1157,6 +1169,7 @@ mod tests {
 - [ ] **Step 2: Implement `service_files.rs`**
 
 Functions:
+
 - `generate_daemon_unit_systemd(exe: &str, workspace: &str) -> String` — ghost-daemon
   unit with `TimeoutStopSec=120`, `Restart=on-failure`, PATH including nix profile
 - `generate_llama_server_unit_systemd(exe: &str, model: &str) -> String` — llama-server
@@ -1165,7 +1178,8 @@ Functions:
 - `generate_daemon_plist(exe: &str, workspace: &str) -> String` — macOS launchd plist
   with KeepAlive + RunAtLoad
 - (Similar plist generators for llama-server and docling)
-- `install_service_files(platform: &Platform, state: &OnboardingState, exe: &str, workspace: &str) -> Result<Vec<String>>` — writes all applicable service files, returns list of installed file paths
+- `install_service_files(platform: &Platform, state: &OnboardingState, exe: &str, workspace: &str) -> Result<Vec<String>>`
+  — writes all applicable service files, returns list of installed file paths
 - `ensure_linger_enabled() -> Result<()>` — moved from old `init.rs`, runs
   `loginctl enable-linger`
 - `stable_exe_path() -> Result<String>` — moved from old `init.rs`, resolves binary path
@@ -1189,6 +1203,7 @@ git commit -m "feat: add service file generation (systemd/launchd) to onboarding
 ## Task 9: Health checks (`health.rs`)
 
 **Files:**
+
 - Create: `src/onboarding/health.rs`
 - Modify: `src/onboarding/mod.rs` (add `pub mod health;`)
 
@@ -1216,16 +1231,17 @@ mod tests {
 - [ ] **Step 2: Implement `health.rs`**
 
 Types and functions:
+
 - `HealthResult { service: String, detail: String, healthy: bool }`
 - `check_all_services(state: &OnboardingState) -> Vec<HealthResult>` — probes each
   configured service (skip those set to Skip/Remote). 5s timeout per probe.
-- `display_health_table(results: &[HealthResult])` — renders the status table with
-  green checks / yellow warnings via cliclack.
+- `display_health_table(results: &[HealthResult])` — renders the status table with green
+  checks / yellow warnings via cliclack.
 - `prompt_start_daemon(flag: bool) -> Result<bool>` — "Start the ghost daemon now?"
   confirm prompt.
 - `start_all_services(platform: &Platform, runtime: Option<&ContainerRuntime>, workspace: &Path) -> Result<()>`
-  — starts native services (systemctl/launchctl) + container stack (compose up -d).
-  Also `systemctl --user enable` for boot persistence.
+  — starts native services (systemctl/launchctl) + container stack (compose up -d). Also
+  `systemctl --user enable` for boot persistence.
 - `trigger_first_message() -> Result<()>` — polls daemon health for up to 30s, then
   sends a chat turn via the daemon API or CLI. Warns but doesn't fail on error.
 
@@ -1245,18 +1261,19 @@ git commit -m "feat: add health checks and service launcher to onboarding"
 ## Task 10: Wizard orchestration (`wizard.rs`) + wire into `init.rs`
 
 **Files:**
+
 - Create: `src/onboarding/wizard.rs`
 - Modify: `src/cli/init.rs`
 
-The main orchestration lives in `wizard.rs` (not `init.rs`) to keep `init.rs` thin
-(CLI parsing only) and `wizard.rs` under the 500 LoC guideline. `wizard.rs` owns the
-phase sequencing, existing config pre-fill, retry loops, and the `[h]` hotkey.
+The main orchestration lives in `wizard.rs` (not `init.rs`) to keep `init.rs` thin (CLI
+parsing only) and `wizard.rs` under the 500 LoC guideline. `wizard.rs` owns the phase
+sequencing, existing config pre-fill, retry loops, and the `[h]` hotkey.
 
 **Existing config pre-fill**: When updating an existing config, load it via
 `crate::config::load()` and pass the resolved `Config` to each prompt function. Prompt
 functions accept an `Option<&str>` for the pre-filled value (from existing config) in
-addition to the `Option<&str>` for the CLI flag. CLI flag takes precedence over pre-fill.
-Pre-filled values shown as defaults the user can accept with Enter.
+addition to the `Option<&str>` for the CLI flag. CLI flag takes precedence over
+pre-fill. Pre-filled values shown as defaults the user can accept with Enter.
 
 **`[h]` hotkey**: cliclack's `Select` and `Input` prompts don't natively support
 arbitrary hotkeys. Implementation approach: wrap each prompt in a loop that catches a
@@ -1345,8 +1362,8 @@ Expected: compiles with all phases wired.
 
 - [ ] **Step 3: Manual smoke test**
 
-Run: `cargo run -- init --help`
-Then: `cargo run -- init` (interactive mode) — verify the full flow works end to end.
+Run: `cargo run -- init --help` Then: `cargo run -- init` (interactive mode) — verify
+the full flow works end to end.
 
 - [ ] **Step 4: Commit**
 
@@ -1360,16 +1377,16 @@ git commit -m "feat: wire all onboarding phases together in ghost init"
 ## Task 11: Services skill + extras
 
 **Files:**
+
 - Create: `assets/skills/services/skill.md`
 - Create: `assets/skills/services/observability.md`
 - Create: `assets/skills/services/tailscale.md`
 
 - [ ] **Step 1: Write the main services skill**
 
-Create `assets/skills/services/skill.md` following agentskills.io format.
-Content covers architecture, file layout, common operations, health checking,
-adding/removing services, reconfiguring, and nix garbage collection. See spec for full
-content outline.
+Create `assets/skills/services/skill.md` following agentskills.io format. Content covers
+architecture, file layout, common operations, health checking, adding/removing services,
+reconfiguring, and nix garbage collection. See spec for full content outline.
 
 - [ ] **Step 2: Write the observability extra**
 
@@ -1384,8 +1401,8 @@ installation link, setup commands, exposing services, ACL considerations.
 
 - [ ] **Step 4: Verify bundling works**
 
-Run: `cargo build`
-Expected: `build.rs` picks up new files in `assets/skills/services/` and bundles them.
+Run: `cargo build` Expected: `build.rs` picks up new files in `assets/skills/services/`
+and bundles them.
 
 - [ ] **Step 5: Commit**
 
@@ -1399,6 +1416,7 @@ git commit -m "feat: add services skill with observability and tailscale extras"
 ## Task 12: Onboarding agent (`agent.rs`)
 
 **Files:**
+
 - Create: `src/onboarding/agent.rs`
 - Create: `assets/onboarding-agent-prompt.md`
 - Modify: `src/onboarding/mod.rs` (add `pub mod agent;`)
@@ -1408,18 +1426,17 @@ git commit -m "feat: add services skill with observability and tailscale extras"
 Create `assets/onboarding-agent-prompt.md`:
 
 ```markdown
-You are the GHOST onboarding assistant. Your role is to help the user
-understand the setup process and make decisions about their configuration.
+You are the GHOST onboarding assistant. Your role is to help the user understand the
+setup process and make decisions about their configuration.
 
-You are embedded in the `ghost init` wizard. The user pressed [h] to ask
-for help. Answer their question, then they'll press [q] to return to the
-wizard.
+You are embedded in the `ghost init` wizard. The user pressed [h] to ask for help.
+Answer their question, then they'll press [q] to return to the wizard.
 
 ## What You Know
 
 - GHOST is a personal AI agent that communicates via Discord
-- It uses several services: LLM providers, embeddings (llama.cpp), web search
-  (SearXNG), web fetch (Crawl4AI + Chrome), and document processing (Docling)
+- It uses several services: LLM providers, embeddings (llama.cpp), web search (SearXNG),
+  web fetch (Crawl4AI + Chrome), and document processing (Docling)
 - Services can be local (nix-installed or container) or remote
 - Configuration lives in ~/.config/ghost/config.toml and .env
 
@@ -1428,8 +1445,8 @@ wizard.
 - Be concise — the user is in the middle of setup, not a chat session
 - Explain what each service does and why the GHOST needs it
 - Help with tradeoffs: local vs remote, resource requirements
-- If asked about something outside onboarding, briefly answer and suggest
-  they revisit after setup is complete
+- If asked about something outside onboarding, briefly answer and suggest they revisit
+  after setup is complete
 - Do NOT modify any files or run any commands
 ```
 
@@ -1466,6 +1483,7 @@ mod tests {
 - [ ] **Step 3: Implement `agent.rs`**
 
 Functions:
+
 - `OnboardingAgent::new(provider: &ProviderChoice, api_key: Option<&str>, model: &str) -> Self`
   — initializes with validated provider credentials from Phase 1.
 - `OnboardingAgent::chat(&self, state_summary: &str, user_input: &str) -> Result<String>`
@@ -1489,12 +1507,13 @@ git commit -m "feat: add on-demand onboarding assistant"
 ## Task 13: Integration test (non-interactive mode)
 
 **Files:**
+
 - Create: test in appropriate location (see @testing skill for conventions)
 
 - [ ] **Step 1: Write an integration test for non-interactive `ghost init`**
 
-This test exercises the full flow with all CLI flags, verifying it produces valid
-config files without any interactive prompts. It should:
+This test exercises the full flow with all CLI flags, verifying it produces valid config
+files without any interactive prompts. It should:
 
 1. Set up a temp directory for config and workspace
 2. Run `ghost init` with all flags via the Rust API (not subprocess)
@@ -1503,8 +1522,8 @@ config files without any interactive prompts. It should:
 5. Assert `services/docker-compose.yml` was written
 6. Assert service file locations are correct
 
-This test should be gated behind `#[cfg(feature = "live-tests")]` since it touches
-the filesystem and potentially nix. Read @testing skill for test harness conventions.
+This test should be gated behind `#[cfg(feature = "live-tests")]` since it touches the
+filesystem and potentially nix. Read @testing skill for test harness conventions.
 
 - [ ] **Step 2: Run the test**
 
@@ -1522,6 +1541,7 @@ git commit -m "test: add integration test for non-interactive ghost init"
 ## Task 14: Documentation
 
 **Files:**
+
 - Create: `docs/src/content/docs/getting-started/onboarding.md`
 - Create: `docs/src/content/docs/getting-started/services.md`
 - Modify: `docs/astro.config.mjs:30-48` (add sidebar entries)
@@ -1543,8 +1563,7 @@ title: Onboarding
 description: Set up your GHOST with the interactive setup wizard.
 ---
 
-After installing the GHOST binary, run the onboarding wizard to configure
-everything:
+After installing the GHOST binary, run the onboarding wizard to configure everything:
 
 ## Quick Start
 
@@ -1554,8 +1573,8 @@ The wizard walks you through:
 
 1. **LLM provider** — pick a provider, enter your API key, choose a model
 2. **Discord** — create a bot and connect it to your server
-3. **Services** — set up embeddings, web search, web fetch, and document
-   processing (locally or remotely)
+3. **Services** — set up embeddings, web search, web fetch, and document processing
+   (locally or remotely)
 
 At the end, your GHOST starts and sends you a message on Discord.
 
@@ -1578,24 +1597,21 @@ For automated deployments, pass all options as flags:
 
 ## Re-running
 
-Run `ghost init` again at any time to reconfigure. It detects your
-existing configuration and offers to update it — showing a diff of all
-changes before applying.
+Run `ghost init` again at any time to reconfigure. It detects your existing
+configuration and offers to update it — showing a diff of all changes before applying.
 
 ## Need Help During Setup?
 
-Press **h** at any prompt to ask the onboarding assistant for help. It
-uses your configured LLM to answer questions about the setup process
-(available after the provider step completes).
+Press **h** at any prompt to ask the onboarding assistant for help. It uses your
+configured LLM to answer questions about the setup process (available after the provider
+step completes).
 
 ## Next Steps
 
-- [Services](/getting-started/services/) — how the service stack works
-  and how your GHOST manages it
-- [Configuration](/getting-started/configuration/) — config.toml and
-  .env reference
-- [Workspace](/getting-started/workspace/) — what's in your GHOST's
-  workspace directory
+- [Services](/getting-started/services/) — how the service stack works and how your
+  GHOST manages it
+- [Configuration](/getting-started/configuration/) — config.toml and .env reference
+- [Workspace](/getting-started/workspace/) — what's in your GHOST's workspace directory
 ```
 
 Keep it short. The wizard itself provides all the context the user needs.
@@ -1608,13 +1624,11 @@ Create `docs/src/content/docs/getting-started/services.md`:
 ---
 title: Services
 description:
-  How GHOST's service stack works — native services, containers, and
-  how to manage them.
+  How GHOST's service stack works — native services, containers, and how to manage them.
 ---
 
-Your GHOST relies on several services to function. The onboarding wizard
-(`ghost init`) sets them up, but this page explains how they work and how
-to manage them afterward.
+Your GHOST relies on several services to function. The onboarding wizard (`ghost init`)
+sets them up, but this page explains how they work and how to manage them afterward.
 
 ## Architecture
 
@@ -1624,11 +1638,11 @@ Services come in two flavors:
 
 Installed via `nix profile install` and managed as system services.
 
-| Service | Binary | Purpose |
-| --- | --- | --- |
-| **ghost-daemon** | `ghost` | The GHOST itself |
-| **llama-server** | `llama-server` | Embedding generation (llama.cpp) |
-| **docling-serve** | `docling-serve` | PDF/document processing |
+| Service           | Binary          | Purpose                          |
+| ----------------- | --------------- | -------------------------------- |
+| **ghost-daemon**  | `ghost`         | The GHOST itself                 |
+| **llama-server**  | `llama-server`  | Embedding generation (llama.cpp) |
+| **docling-serve** | `docling-serve` | PDF/document processing          |
 
 On Linux, these run as systemd user services:
 
@@ -1641,14 +1655,13 @@ On macOS, they run as launchd agents:
 
 ### Container Services (podman/docker)
 
-Managed via a single Docker Compose file at
-`<workspace>/services/docker-compose.yml`.
+Managed via a single Docker Compose file at `<workspace>/services/docker-compose.yml`.
 
-| Service | Image | Purpose |
-| --- | --- | --- |
-| **SearXNG** | `searxng/searxng` | Web search (meta search engine) |
-| **Crawl4AI** | `unclecode/crawl4ai` | Web page extraction |
-| **Chrome** | `chromedp/headless-shell` | Headless browser for Crawl4AI |
+| Service      | Image                     | Purpose                         |
+| ------------ | ------------------------- | ------------------------------- |
+| **SearXNG**  | `searxng/searxng`         | Web search (meta search engine) |
+| **Crawl4AI** | `unclecode/crawl4ai`      | Web page extraction             |
+| **Chrome**   | `chromedp/headless-shell` | Headless browser for Crawl4AI   |
 
 Common operations:
 
@@ -1683,9 +1696,8 @@ Common operations:
 
 ### Embeddings (llama-server)
 
-Converts text into numerical vectors for semantic search. Your GHOST
-uses these vectors to find relevant notes and references even when exact
-words don't match.
+Converts text into numerical vectors for semantic search. Your GHOST uses these vectors
+to find relevant notes and references even when exact words don't match.
 
 - **Model**: `qwen3-embedding:8b` (configurable in `config.toml`)
 - **Port**: 11434
@@ -1693,8 +1705,8 @@ words don't match.
 
 ### Web Search (SearXNG)
 
-Self-hosted meta search engine. Aggregates results from Google, Bing,
-DuckDuckGo, and others — no API keys needed.
+Self-hosted meta search engine. Aggregates results from Google, Bing, DuckDuckGo, and
+others — no API keys needed.
 
 - **Port**: 8080
 - **Config section**: `[web.search]`
@@ -1702,8 +1714,8 @@ DuckDuckGo, and others — no API keys needed.
 
 ### Web Fetch (Crawl4AI + Chrome)
 
-Reads web pages and converts them to clean markdown. Crawl4AI renders
-JavaScript-heavy pages using a headless Chrome instance.
+Reads web pages and converts them to clean markdown. Crawl4AI renders JavaScript-heavy
+pages using a headless Chrome instance.
 
 - **Crawl4AI port**: 11235
 - **Chrome port**: 9222 (CDP)
@@ -1711,18 +1723,17 @@ JavaScript-heavy pages using a headless Chrome instance.
 
 ### Document Processing (Docling)
 
-Converts PDFs, Word documents, and presentations to markdown. Handles
-OCR, table extraction, and complex layouts.
+Converts PDFs, Word documents, and presentations to markdown. Handles OCR, table
+extraction, and complex layouts.
 
 - **Port**: 5001
 - **Config section**: `[docling]`
 
 ## Optional: Observability (SigNoz)
 
-SigNoz gives you distributed tracing, metrics, and logs for your GHOST
-via OpenTelemetry. It's not set up by the wizard, but your GHOST knows
-how to help — ask it about the **services** skill's observability
-extra.
+SigNoz gives you distributed tracing, metrics, and logs for your GHOST via
+OpenTelemetry. It's not set up by the wizard, but your GHOST knows how to help — ask it
+about the **services** skill's observability extra.
 
 Quick setup:
 
@@ -1732,9 +1743,8 @@ Quick setup:
 
 ## Optional: Tailscale
 
-Tailscale provides secure remote access to your GHOST without opening
-ports. Your GHOST can help — ask it about the **services** skill's
-tailscale extra.
+Tailscale provides secure remote access to your GHOST without opening ports. Your GHOST
+can help — ask it about the **services** skill's tailscale extra.
 
 ## Troubleshooting
 
@@ -1763,8 +1773,8 @@ Nix stores grow over time. Clean up old generations periodically:
 
 - [ ] **Step 3: Add sidebar entries to `astro.config.mjs`**
 
-In the `Getting Started` sidebar section, add the two new pages after the
-Installation group and before Configuration:
+In the `Getting Started` sidebar section, add the two new pages after the Installation
+group and before Configuration:
 
 ```javascript
 {
@@ -1806,6 +1816,7 @@ See [Onboarding](/getting-started/onboarding/) for details.
 
 Update `docs/src/content/docs/reference/dependencies.md` to reflect the new service
 management approach:
+
 - Replace "Ollama" section with "llama-server (llama.cpp)" — installed via nix, not
   standalone Ollama
 - Update the note at top: services are now managed by `ghost init` via nix and
@@ -1815,9 +1826,8 @@ management approach:
 
 - [ ] **Step 6: Build and verify docs**
 
-Run: `cd docs && npm run build`
-Expected: builds with no errors. Check the sidebar shows the new pages in the right
-order.
+Run: `cd docs && npm run build` Expected: builds with no errors. Check the sidebar shows
+the new pages in the right order.
 
 - [ ] **Step 7: Commit**
 
@@ -1832,12 +1842,12 @@ git commit -m "docs: add onboarding and services pages"
 
 - [ ] **Step 1: Run `just ci`**
 
-Run: `just ci`
-Expected: all format, check, clippy, and test checks pass.
+Run: `just ci` Expected: all format, check, clippy, and test checks pass.
 
 - [ ] **Step 2: Manual end-to-end test**
 
 Run `cargo run -- init` interactively and verify:
+
 - Phase 0 detection shows correct results
 - Provider picker works, API validation succeeds
 - Discord guide box renders beautifully

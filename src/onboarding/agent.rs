@@ -35,11 +35,7 @@ pub fn build_state_summary(state: &OnboardingState, phase: &str) -> String {
         .map(|p| p.as_str().to_string())
         .unwrap_or_else(|| "not set".to_string());
 
-    let model = state
-        .model
-        .as_deref()
-        .unwrap_or("not set")
-        .to_string();
+    let model = state.model.as_deref().unwrap_or("not set").to_string();
 
     let discord = if state.discord_token.is_some() {
         "configured".to_string()
@@ -122,9 +118,7 @@ impl OnboardingAgent {
             messages: vec![
                 ChatMessage {
                     role: Role::System,
-                    content: vec![ContentBlock::Text {
-                        text: full_system,
-                    }],
+                    content: vec![ContentBlock::Text { text: full_system }],
                 },
                 ChatMessage {
                     role: Role::User,
