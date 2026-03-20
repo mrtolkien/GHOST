@@ -56,8 +56,12 @@
 
           # Dependencies-only derivation — cached as long as Cargo.lock is stable.
           # Uses depsSrc (Cargo files only) so asset/doc changes don't bust the cache.
+          # version and GIT_COMMIT_HASH are pinned to constants so the derivation
+          # hash stays the same across commits (they change in commonArgs via shortRev).
           cargoArtifacts = craneLib.buildDepsOnly (commonArgs // {
             pname = "ghost-deps";
+            version = "0.0.0";
+            GIT_COMMIT_HASH = "deps";
             src = depsSrc;
           });
         in {

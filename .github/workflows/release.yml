@@ -44,15 +44,19 @@ jobs:
       matrix:
         include:
           - runner: ubuntu-latest
-            arch: x86_64
+            arch: x86_64-linux
           - runner: ubuntu-24.04-arm
-            arch: aarch64
+            arch: aarch64-linux
+          - runner: macos-14
+            arch: aarch64-darwin
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - run: sudo apt-get update && sudo apt-get install -y pkg-config cmake
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y pkg-config cmake
       - run: cargo build --release && strip target/release/ghost
       - uses: actions/upload-artifact@v7
         with:
@@ -67,9 +71,10 @@ jobs:
     steps:
       - uses: actions/download-artifact@v8
       - run: |
-          mkdir -p ghost-bin/x86_64 ghost-bin/aarch64
-          cp ghost-x86_64/ghost ghost-bin/x86_64/ghost
-          cp ghost-aarch64/ghost ghost-bin/aarch64/ghost
+          mkdir -p ghost-bin/x86_64-linux ghost-bin/aarch64-linux ghost-bin/aarch64-darwin
+          cp ghost-x86_64-linux/ghost ghost-bin/x86_64-linux/ghost
+          cp ghost-aarch64-linux/ghost ghost-bin/aarch64-linux/ghost
+          cp ghost-aarch64-darwin/ghost ghost-bin/aarch64-darwin/ghost
           chmod +x ghost-bin/*/ghost
           tar czf ghost-bin.tar.gz -C ghost-bin .
       - uses: softprops/action-gh-release@v2
