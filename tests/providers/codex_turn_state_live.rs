@@ -98,6 +98,7 @@ async fn codex_turn_state_cache() {
         cache_key: cache_key.clone(),
         turn_state: None,
         debug_context: None,
+            text_verbosity: None,
     };
     let response1 = provider.chat(request1).await.expect("turn 1 failed");
     log_usage(&response1, 1);
@@ -126,6 +127,7 @@ async fn codex_turn_state_cache() {
         cache_key: cache_key.clone(),
         turn_state: turn_state.clone(),
         debug_context: None,
+            text_verbosity: None,
     };
     let response2 = provider.chat(request2).await.expect("turn 2 failed");
     log_usage(&response2, 2);
@@ -151,6 +153,7 @@ async fn codex_turn_state_cache() {
         cache_key: cache_key.clone(),
         turn_state: turn_state3,
         debug_context: None,
+            text_verbosity: None,
     };
     let response3 = provider.chat(request3).await.expect("turn 3 failed");
     log_usage(&response3, 3);

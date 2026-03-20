@@ -38,6 +38,7 @@ async fn openai_oauth_multi_turn_with_history() {
         cache_key: "test".to_string(),
         turn_state: None,
         debug_context: None,
+            text_verbosity: None,
     };
 
     let response1 = provider.chat(request1).await.expect("turn 1 chat response");
@@ -84,6 +85,7 @@ async fn openai_oauth_multi_turn_with_history() {
         cache_key: "test".to_string(),
         turn_state: None,
         debug_context: None,
+            text_verbosity: None,
     };
 
     let response2 = provider.chat(request2).await.expect("turn 2 chat response");

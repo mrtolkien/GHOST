@@ -28,6 +28,7 @@ fn cache_test_request(model: &str, system: &str, history: Vec<ChatMessage>) -> C
         cache_key: "cache-test".to_string(),
         turn_state: None,
         debug_context: None,
+            text_verbosity: None,
     }
 }
 

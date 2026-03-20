@@ -42,6 +42,7 @@ async fn reasoning_effort_high_produces_thinking_block() {
         cache_key: "reasoning-test".to_string(),
         turn_state: None,
         debug_context: None,
+            text_verbosity: None,
     };
 
     let response = provider.chat(request).await.expect("turn 1 chat response");
@@ -108,6 +109,7 @@ async fn reasoning_effort_high_produces_thinking_block() {
         cache_key: "reasoning-test".to_string(),
         turn_state: None,
         debug_context: None,
+            text_verbosity: None,
     };
 
     let response2 = provider

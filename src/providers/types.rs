@@ -82,6 +82,10 @@ pub struct ChatRequest {
     pub turn_state: Option<String>,
     #[serde(skip)]
     pub debug_context: Option<DebugContext>,
+    /// Codex text output verbosity. Default "low"; override to "medium" for
+    /// models like gpt-5-codex that don't support "low".
+    #[serde(skip)]
+    pub text_verbosity: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

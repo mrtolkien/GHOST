@@ -129,6 +129,7 @@ mod tests {
             cache_key: "test".to_string(),
             turn_state: None,
             debug_context: None,
+            text_verbosity: None,
         }
     }
 

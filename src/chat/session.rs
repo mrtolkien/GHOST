@@ -613,13 +613,19 @@ impl SessionChat {
         self.config.current()
     }
 
-    /// Context window size (in tokens) from the default model alias.
-    pub(super) fn model_context_window(&self) -> usize {
+    /// The resolved config for the default model alias.
+    pub(super) fn model_config(&self) -> Option<crate::config::ModelConfig> {
         let config = self.config.current();
         config
             .models
             .aliases
             .get(&config.models.default)
+            .cloned()
+    }
+
+    /// Context window size (in tokens) from the default model alias.
+    pub(super) fn model_context_window(&self) -> usize {
+        self.model_config()
             .map(|m| m.context_window as usize)
             .unwrap_or(200_000)
     }

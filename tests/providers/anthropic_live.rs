@@ -32,6 +32,7 @@ async fn anthropic_simple_chat() {
             cache_key: String::new(),
             turn_state: None,
             debug_context: None,
+            text_verbosity: None,
         })
         .await
         .expect("chat request");
@@ -91,6 +92,7 @@ async fn anthropic_tool_use() {
             cache_key: String::new(),
             turn_state: None,
             debug_context: None,
+            text_verbosity: None,
         })
         .await
         .expect("chat request");
@@ -136,6 +138,7 @@ async fn anthropic_multi_turn_with_history() {
             cache_key: String::new(),
             turn_state: None,
             debug_context: None,
+            text_verbosity: None,
         })
         .await
         .expect("turn 1 chat response");
@@ -168,6 +171,7 @@ async fn anthropic_multi_turn_with_history() {
             cache_key: String::new(),
             turn_state: None,
             debug_context: None,
+            text_verbosity: None,
         })
         .await
         .expect("turn 2 chat response");
@@ -221,6 +225,7 @@ async fn anthropic_tool_use_with_full_ghost_toolset() {
             cache_key: String::new(),
             turn_state: None,
             debug_context: None,
+            text_verbosity: None,
         })
         .await
         .expect("chat request with full Ghost toolset");
@@ -284,6 +289,7 @@ async fn anthropic_thinking_block_round_trip() {
             cache_key: String::new(),
             turn_state: None,
             debug_context: None,
+            text_verbosity: None,
         })
         .await
         .expect("turn 1 chat response");
@@ -353,6 +359,7 @@ async fn anthropic_thinking_block_round_trip() {
             cache_key: String::new(),
             turn_state: None,
             debug_context: None,
+            text_verbosity: None,
         })
         .await
         .expect("turn 2 chat response (thinking round-trip)");

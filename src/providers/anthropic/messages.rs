@@ -458,6 +458,7 @@ mod tests {
             cache_key: String::new(),
             turn_state: None,
             debug_context: None,
+            text_verbosity: None,
         }
     }
 

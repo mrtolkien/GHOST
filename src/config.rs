@@ -104,6 +104,9 @@ pub struct ModelSettings {
     pub reasoning_effort: Option<ReasoningEffort>,
     /// OpenRouter provider routing preferences (only/ignore/order).
     pub provider_routing: Option<ProviderRouting>,
+    /// Codex text output verbosity (default: "low"). Set to "medium" for
+    /// models like gpt-5-codex that don't support "low".
+    pub text_verbosity: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -240,6 +243,8 @@ pub struct ModelConfig {
     pub reasoning_effort: Option<ReasoningEffort>,
     /// OpenRouter provider routing preferences (only/ignore/order).
     pub provider_routing: Option<ProviderRouting>,
+    /// Codex text output verbosity (default: "low").
+    pub text_verbosity: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -365,6 +370,7 @@ impl Config {
                         headers: model.headers,
                         reasoning_effort: model.reasoning_effort,
                         provider_routing: model.provider_routing,
+                        text_verbosity: model.text_verbosity,
                     },
                 )
             })
@@ -766,6 +772,7 @@ pub fn test_config(workspace: &std::path::Path) -> Config {
             headers: BTreeMap::new(),
             reasoning_effort: None,
             provider_routing: None,
+            text_verbosity: None,
         },
     );
     Config {

@@ -228,7 +228,10 @@ pub(super) fn build_codex_request_body(
             effort: e.as_str().to_string(),
         }),
         text: Some(CodexText {
-            verbosity: "low".to_string(),
+            verbosity: request
+                .text_verbosity
+                .clone()
+                .unwrap_or_else(|| "low".to_string()),
         }),
         prompt_cache_key: cache_key,
         prompt_cache_retention: None,
@@ -671,6 +674,7 @@ mod tests {
             cache_key: "test".to_string(),
             turn_state: None,
             debug_context: None,
+            text_verbosity: None,
         };
 
         let body = build_codex_request_body(&request).expect("request body");
@@ -707,6 +711,7 @@ mod tests {
             cache_key: "test".to_string(),
             turn_state: None,
             debug_context: None,
+            text_verbosity: None,
         };
 
         let body = build_codex_request_body(&request).expect("request body");
@@ -755,6 +760,7 @@ mod tests {
             cache_key: "test".to_string(),
             turn_state: None,
             debug_context: None,
+            text_verbosity: None,
         };
 
         let body = build_codex_request_body(&request).expect("request body");
@@ -937,6 +943,7 @@ mod tests {
             cache_key: "test".to_string(),
             turn_state: None,
             debug_context: None,
+            text_verbosity: None,
         };
 
         let body = build_codex_request_body(&request).expect("request body");
@@ -989,6 +996,7 @@ mod tests {
             cache_key: "test".to_string(),
             turn_state: None,
             debug_context: None,
+            text_verbosity: None,
         };
 
         let body = build_codex_request_body(&request).expect("request body");
@@ -1015,6 +1023,7 @@ mod tests {
             cache_key: "test".to_string(),
             turn_state: None,
             debug_context: None,
+            text_verbosity: None,
         };
 
         let body = build_codex_request_body(&request).expect("request body");
@@ -1040,6 +1049,7 @@ mod tests {
             cache_key: "test".to_string(),
             turn_state: None,
             debug_context: None,
+            text_verbosity: None,
         };
 
         let body = build_codex_request_body(&request).expect("request body");

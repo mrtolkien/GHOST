@@ -187,6 +187,9 @@ pub(super) async fn run_tool_loop(
                 session_id: session_id.to_string(),
                 iteration: iterations,
             }),
+            text_verbosity: session_chat
+                .model_config()
+                .and_then(|m| m.text_verbosity.clone()),
         };
         let response = match tokio::time::timeout(
             PROVIDER_REQUEST_TIMEOUT,

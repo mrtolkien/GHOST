@@ -374,6 +374,7 @@ pub async fn summarize_older_messages(
             cache_key: cache_key.to_string(),
             turn_state: None,
             debug_context: None,
+            text_verbosity: None,
         })
         .await?;
 
