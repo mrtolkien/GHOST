@@ -35,7 +35,7 @@ pub async fn run(args: InitArgs) -> Result<(), GhostError> {
     let context_window = provider::prompt_context_window(args.context_window)?;
 
     let _ = cliclack::log::info("Validating provider connection...");
-    provider::validate_provider(&provider_choice, api_key.as_deref(), &model).await?;
+    provider::validate_provider(&provider_choice, &model).await?;
     let _ = cliclack::log::success("Provider verified -- model responded successfully");
 
     // ── Phase 2: Discord ──

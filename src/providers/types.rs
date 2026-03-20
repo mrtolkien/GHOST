@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::config::{Config, ModelConfig};
+use crate::config::{Config, ModelConfig, ProviderKind};
 
 /// Reasoning effort level for models that support it.
 ///
@@ -255,43 +255,66 @@ pub fn model_from_alias<'a>(
     Ok((alias, model))
 }
 
+/// Create a provider from its kind and connection parameters.
+///
+/// This is the single factory for all provider construction — used by both
+/// `provider_for_alias` (daemon runtime) and onboarding validation.
+pub fn create_provider(
+    kind: ProviderKind,
+    headers: std::collections::BTreeMap<String, String>,
+    routing: Option<crate::providers::openai_compatible::ProviderRouting>,
+) -> Result<Arc<dyn Provider>, ProviderInitError> {
+    match kind {
+        ProviderKind::OpenRouter => Ok(Arc::new(
+            crate::providers::openrouter::OpenRouterProvider::new(headers, routing)?,
+        )),
+        ProviderKind::Kimi => Ok(Arc::new(
+            crate::providers::kimi_code::KimiCodeProvider::new(headers)?,
+        )),
+        ProviderKind::OpenAiOAuth => Ok(Arc::new(
+            crate::providers::openai_oauth::OpenAiOAuthProvider::new(headers)?,
+        )),
+        ProviderKind::Anthropic => Ok(Arc::new(
+            crate::providers::anthropic::AnthropicProvider::new(headers)?,
+        )),
+    }
+}
+
 #[tracing::instrument(skip_all, fields(alias = alias.unwrap_or(&config.models.default)))]
 pub fn provider_for_alias(
     config: &Config,
     alias: Option<&str>,
 ) -> Result<Arc<dyn Provider>, ProviderInitError> {
     let (_alias, model) = model_from_alias(config, alias)?;
+    let debug = (config.debug.save_requests, config.workspace.as_path());
 
-    match model.provider.as_str() {
-        "openrouter" => {
-            let mut provider = crate::providers::openrouter::OpenRouterProvider::new(
+    match model.provider {
+        ProviderKind::OpenRouter => {
+            let mut p = crate::providers::openrouter::OpenRouterProvider::new(
                 model.headers.clone(),
                 model.provider_routing.clone(),
             )?;
-            provider.set_debug(config.debug.save_requests, &config.workspace);
-            Ok(Arc::new(provider))
+            p.set_debug(debug.0, debug.1);
+            Ok(Arc::new(p))
         }
-        "kimi_code" | "kimi" => {
-            let mut provider =
+        ProviderKind::Kimi => {
+            let mut p =
                 crate::providers::kimi_code::KimiCodeProvider::new(model.headers.clone())?;
-            provider.set_debug(config.debug.save_requests, &config.workspace);
-            Ok(Arc::new(provider))
+            p.set_debug(debug.0, debug.1);
+            Ok(Arc::new(p))
         }
-        "openai_oauth" => {
-            let mut provider =
+        ProviderKind::OpenAiOAuth => {
+            let mut p =
                 crate::providers::openai_oauth::OpenAiOAuthProvider::new(model.headers.clone())?;
-            provider.set_debug(config.debug.save_requests, &config.workspace);
-            Ok(Arc::new(provider))
+            p.set_debug(debug.0, debug.1);
+            Ok(Arc::new(p))
         }
-        "anthropic" => {
-            let mut provider =
+        ProviderKind::Anthropic => {
+            let mut p =
                 crate::providers::anthropic::AnthropicProvider::new(model.headers.clone())?;
-            provider.set_debug(config.debug.save_requests, &config.workspace);
-            Ok(Arc::new(provider))
+            p.set_debug(debug.0, debug.1);
+            Ok(Arc::new(p))
         }
-        unsupported => Err(ProviderInitError::UnsupportedProvider {
-            provider: unsupported.to_string(),
-        }),
     }
 }
 

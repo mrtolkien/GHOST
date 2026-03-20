@@ -8,10 +8,12 @@ pub mod service_files;
 pub mod services;
 pub mod wizard;
 
+use crate::config::ProviderKind;
+
 /// Tracks cumulative wizard state across phases.
 #[derive(Debug, Default)]
 pub struct OnboardingState {
-    pub provider: Option<ProviderChoice>,
+    pub provider: Option<ProviderKind>,
     pub api_key: Option<String>,
     pub model: Option<String>,
     pub context_window: Option<u32>,
@@ -22,40 +24,6 @@ pub struct OnboardingState {
     pub search: Option<SearchChoice>,
     pub crawl: Option<ServiceChoice>,
     pub docling: Option<ServiceChoice>,
-}
-
-/// Must map to `config::Provider` enum string values.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ProviderChoice {
-    OpenRouter,
-    Anthropic,
-    Kimi,
-    OpenAiOAuth,
-}
-
-impl ProviderChoice {
-    /// Parse from CLI flag value.
-    pub fn from_flag(s: &str) -> Result<Self, OnboardingError> {
-        match s {
-            "openrouter" => Ok(Self::OpenRouter),
-            "anthropic" => Ok(Self::Anthropic),
-            "kimi" => Ok(Self::Kimi),
-            "openai-oauth" | "chatgpt-oauth" | "openai_oauth" => Ok(Self::OpenAiOAuth),
-            _ => Err(OnboardingError::InvalidInput(format!(
-                "unknown provider: {s}"
-            ))),
-        }
-    }
-
-    /// Config-compatible string (matches `Provider::as_str()` in config.rs).
-    pub fn as_config_str(&self) -> &'static str {
-        match self {
-            Self::OpenRouter => "openrouter",
-            Self::Anthropic => "anthropic",
-            Self::Kimi => "kimi",
-            Self::OpenAiOAuth => "openai_oauth",
-        }
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -123,4 +91,6 @@ pub enum OnboardingError {
     Io(#[from] std::io::Error),
     #[error(transparent)]
     Request(#[from] reqwest::Error),
+    #[error(transparent)]
+    ProviderInit(#[from] crate::providers::types::ProviderInitError),
 }

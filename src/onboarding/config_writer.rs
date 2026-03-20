@@ -2,7 +2,8 @@ use std::path::Path;
 
 use similar::{ChangeTag, TextDiff};
 
-use super::{OnboardingError, OnboardingState, ProviderChoice, SearchChoice, ServiceChoice};
+use super::{OnboardingError, OnboardingState, SearchChoice, ServiceChoice};
+use crate::config::ProviderKind;
 
 /// Keys managed by the onboarding wizard in the .env file.
 const MANAGED_ENV_KEYS: &[&str] = &[
@@ -26,7 +27,7 @@ pub fn generate_config_toml(state: &OnboardingState) -> String {
     // [models.primary]
     out.push_str("[models.primary]\n");
     if let Some(provider) = &state.provider {
-        out.push_str(&format!("provider = \"{}\"\n", provider.as_config_str()));
+        out.push_str(&format!("provider = \"{}\"\n", provider.as_str()));
     }
     if let Some(model) = &state.model {
         out.push_str(&format!("model = \"{model}\"\n"));
@@ -144,11 +145,11 @@ pub fn generate_env(state: &OnboardingState) -> String {
 
 /// Returns the env-var name for the provider's API key, or `None` for OAuth
 /// providers that don't use a static key.
-fn provider_env_key(provider: &ProviderChoice) -> Option<&'static str> {
+fn provider_env_key(provider: &ProviderKind) -> Option<&'static str> {
     match provider {
-        ProviderChoice::OpenRouter => Some("OPENROUTER_API_KEY"),
-        ProviderChoice::Kimi => Some("KIMI_API_KEY"),
-        ProviderChoice::Anthropic | ProviderChoice::OpenAiOAuth => None,
+        ProviderKind::OpenRouter => Some("OPENROUTER_API_KEY"),
+        ProviderKind::Kimi => Some("KIMI_API_KEY"),
+        ProviderKind::Anthropic | ProviderKind::OpenAiOAuth => None,
     }
 }
 
@@ -271,7 +272,7 @@ mod tests {
     #[test]
     fn generates_valid_config_toml() {
         let state = OnboardingState {
-            provider: Some(ProviderChoice::OpenRouter),
+            provider: Some(ProviderKind::OpenRouter),
             api_key: Some("sk-test".into()),
             model: Some("anthropic/claude-sonnet-4".into()),
             context_window: Some(200_000),
@@ -302,7 +303,7 @@ mod tests {
     #[test]
     fn generates_env_file() {
         let state = OnboardingState {
-            provider: Some(ProviderChoice::OpenRouter),
+            provider: Some(ProviderKind::OpenRouter),
             api_key: Some("sk-or-test-123".into()),
             discord_token: Some("discord-token-123".into()),
             ..Default::default()
@@ -323,7 +324,7 @@ mod tests {
     #[test]
     fn env_kimi_provider() {
         let state = OnboardingState {
-            provider: Some(ProviderChoice::Kimi),
+            provider: Some(ProviderKind::Kimi),
             api_key: Some("kimi-key".into()),
             discord_token: Some("tok".into()),
             ..Default::default()
@@ -336,7 +337,7 @@ mod tests {
     #[test]
     fn env_oauth_no_api_key() {
         let state = OnboardingState {
-            provider: Some(ProviderChoice::Anthropic),
+            provider: Some(ProviderKind::Anthropic),
             discord_token: Some("tok".into()),
             ..Default::default()
         };
@@ -359,7 +360,7 @@ mod tests {
     #[test]
     fn brave_search_writes_provider_only() {
         let state = OnboardingState {
-            provider: Some(ProviderChoice::OpenRouter),
+            provider: Some(ProviderKind::OpenRouter),
             api_key: Some("k".into()),
             discord_token: Some("t".into()),
             discord_user_id: Some("1".into()),

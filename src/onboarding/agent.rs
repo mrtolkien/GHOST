@@ -1,6 +1,7 @@
 use std::time::Duration;
 
-use super::{OnboardingError, OnboardingState, ProviderChoice, SearchChoice, ServiceChoice};
+use super::{OnboardingError, OnboardingState, SearchChoice, ServiceChoice};
+use crate::config::ProviderKind;
 
 /// Render a human-readable label for a `ServiceChoice`.
 fn service_label(choice: &ServiceChoice) -> String {
@@ -27,7 +28,7 @@ pub fn build_state_summary(state: &OnboardingState, phase: &str) -> String {
     let provider = state
         .provider
         .as_ref()
-        .map(|p| p.as_config_str().to_string())
+        .map(|p| p.as_str().to_string())
         .unwrap_or_else(|| "not set".to_string());
 
     let model = state
@@ -89,16 +90,16 @@ pub struct OnboardingAgent {
 
 impl OnboardingAgent {
     /// Build an agent pointing at the given provider's chat completion endpoint.
-    pub fn new(provider: &ProviderChoice, api_key: Option<&str>, model: &str) -> Self {
+    pub fn new(provider: &ProviderKind, api_key: Option<&str>, model: &str) -> Self {
         let api_url = match provider {
-            ProviderChoice::OpenRouter => {
+            ProviderKind::OpenRouter => {
                 "https://openrouter.ai/api/v1/chat/completions".to_string()
             }
-            ProviderChoice::Anthropic => "https://api.anthropic.com/v1/messages".to_string(),
-            ProviderChoice::Kimi => {
+            ProviderKind::Anthropic => "https://api.anthropic.com/v1/messages".to_string(),
+            ProviderKind::Kimi => {
                 "https://api.kimi.com/coding/v1/chat/completions".to_string()
             }
-            ProviderChoice::OpenAiOAuth => {
+            ProviderKind::OpenAiOAuth => {
                 "https://api.openai.com/v1/chat/completions".to_string()
             }
         };
@@ -116,7 +117,7 @@ impl OnboardingAgent {
     /// sync context — the wizard loop is synchronous (`cliclack::input`).
     pub fn chat(
         &self,
-        provider: &ProviderChoice,
+        provider: &ProviderKind,
         state_summary: &str,
         user_input: &str,
     ) -> Result<String, OnboardingError> {
@@ -133,7 +134,7 @@ impl OnboardingAgent {
 
     async fn chat_async(
         &self,
-        provider: &ProviderChoice,
+        provider: &ProviderKind,
         system: &str,
         user_input: &str,
     ) -> Result<String, OnboardingError> {
@@ -142,7 +143,7 @@ impl OnboardingAgent {
             .build()?;
 
         match provider {
-            ProviderChoice::Anthropic => {
+            ProviderKind::Anthropic => {
                 self.chat_anthropic(&client, system, user_input).await
             }
             _ => self.chat_openai_compat(&client, system, user_input).await,
@@ -274,7 +275,7 @@ fn load_anthropic_access_token() -> Result<String, OnboardingError> {
 /// control to the caller (wizard phase).
 pub fn run_agent_session(
     agent: &OnboardingAgent,
-    provider: &ProviderChoice,
+    provider: &ProviderKind,
     state: &OnboardingState,
     phase: &str,
 ) -> Result<(), OnboardingError> {
@@ -313,7 +314,7 @@ mod tests {
     #[test]
     fn state_summary_includes_configured_fields() {
         let state = OnboardingState {
-            provider: Some(ProviderChoice::OpenRouter),
+            provider: Some(ProviderKind::OpenRouter),
             model: Some("test-model".into()),
             ..Default::default()
         };

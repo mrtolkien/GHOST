@@ -1,37 +1,38 @@
-use std::time::Duration;
-
-use super::{OnboardingError, ProviderChoice};
+use super::OnboardingError;
+use crate::config::ProviderKind;
 
 /// Returns the URL where users can browse available models for a provider.
-pub fn catalog_url(provider: &ProviderChoice) -> &'static str {
+pub fn catalog_url(provider: &ProviderKind) -> &'static str {
     match provider {
-        ProviderChoice::OpenRouter => "https://openrouter.ai/rankings",
-        ProviderChoice::Anthropic => "https://docs.anthropic.com/en/docs/about-claude/models",
-        ProviderChoice::Kimi => "https://kimi.com",
-        ProviderChoice::OpenAiOAuth => "https://developers.openai.com/codex/models",
+        ProviderKind::OpenRouter => "https://openrouter.ai/rankings",
+        ProviderKind::Anthropic => "https://docs.anthropic.com/en/docs/about-claude/models",
+        ProviderKind::Kimi => "https://kimi.com",
+        ProviderKind::OpenAiOAuth => "https://developers.openai.com/codex/models",
     }
 }
 
 /// Ask the user to pick an LLM provider, or parse from a CLI flag.
-pub fn prompt_provider(flag: Option<&str>) -> Result<ProviderChoice, OnboardingError> {
+pub fn prompt_provider(flag: Option<&str>) -> Result<ProviderKind, OnboardingError> {
     if let Some(value) = flag {
-        return ProviderChoice::from_flag(value);
+        return ProviderKind::from_cli_flag(value).ok_or_else(|| {
+            OnboardingError::InvalidInput(format!("unknown provider: {value}"))
+        });
     }
 
     let choice = cliclack::select("Which LLM provider do you want to use?")
         .item(
-            ProviderChoice::OpenRouter,
+            ProviderKind::OpenRouter,
             "OpenRouter",
             "recommended — aggregates many models",
         )
         .item(
-            ProviderChoice::Anthropic,
+            ProviderKind::Anthropic,
             "Anthropic (Claude Code OAuth)",
             "uses Claude Code credentials",
         )
-        .item(ProviderChoice::Kimi, "Kimi", "Moonshot AI")
+        .item(ProviderKind::Kimi, "Kimi", "Moonshot AI")
         .item(
-            ProviderChoice::OpenAiOAuth,
+            ProviderKind::OpenAiOAuth,
             "OpenAI (OAuth / Codex)",
             "device-code OAuth flow",
         )
@@ -45,25 +46,25 @@ pub fn prompt_provider(flag: Option<&str>) -> Result<ProviderChoice, OnboardingE
 /// Returns `Some(api_key)` for key-based providers (OpenRouter, Kimi),
 /// or `None` for OAuth providers (Anthropic, OpenAiOAuth).
 pub async fn prompt_credentials(
-    provider: &ProviderChoice,
+    provider: &ProviderKind,
     flag: Option<&str>,
 ) -> Result<Option<String>, OnboardingError> {
     match provider {
-        ProviderChoice::OpenRouter | ProviderChoice::Kimi => {
+        ProviderKind::OpenRouter | ProviderKind::Kimi => {
             let key = match flag {
                 Some(k) => k.to_string(),
                 None => {
-                    cliclack::password(format!("Paste your {} API key:", provider.as_config_str()))
+                    cliclack::password(format!("Paste your {} API key:", provider.as_str()))
                         .interact()?
                 }
             };
             Ok(Some(key))
         }
-        ProviderChoice::Anthropic => {
+        ProviderKind::Anthropic => {
             prompt_anthropic_credentials()?;
             Ok(None)
         }
-        ProviderChoice::OpenAiOAuth => {
+        ProviderKind::OpenAiOAuth => {
             prompt_openai_oauth_credentials().await?;
             Ok(None)
         }
@@ -114,7 +115,7 @@ async fn prompt_openai_oauth_credentials() -> Result<(), OnboardingError> {
 
 /// Ask the user for a model ID, or accept from a CLI flag.
 pub fn prompt_model(
-    provider: &ProviderChoice,
+    provider: &ProviderKind,
     flag: Option<&str>,
 ) -> Result<String, OnboardingError> {
     if let Some(m) = flag {
@@ -148,188 +149,78 @@ pub fn prompt_context_window(flag: Option<u32>) -> Result<u32, OnboardingError> 
 
 /// Make a minimal test request to the provider's API to verify credentials.
 pub async fn validate_provider(
-    provider: &ProviderChoice,
-    api_key: Option<&str>,
+    provider: &ProviderKind,
     model: &str,
 ) -> Result<(), OnboardingError> {
-    let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(15))
-        .build()?;
-
-    let result = match provider {
-        ProviderChoice::OpenRouter => validate_openrouter(&client, api_key, model).await,
-        ProviderChoice::Kimi => validate_kimi(&client, api_key, model).await,
-        ProviderChoice::Anthropic => validate_anthropic(&client, model).await,
-        ProviderChoice::OpenAiOAuth => validate_openai_oauth(&client, model).await,
+    use crate::providers::types::{
+        ChatMessage, ChatRequest, ContentBlock, Role, create_provider,
     };
+    use std::collections::BTreeMap;
 
-    result.map_err(|msg| OnboardingError::ProviderValidation(msg))
-}
-
-/// Standard OpenAI-compatible chat completion body.
-fn chat_completion_body(model: &str) -> serde_json::Value {
-    serde_json::json!({
-        "model": model,
-        "max_tokens": 5,
-        "messages": [
-            {"role": "system", "content": "Reply with OK"},
-            {"role": "user", "content": "ping"}
-        ]
-    })
-}
-
-async fn validate_openrouter(
-    client: &reqwest::Client,
-    api_key: Option<&str>,
-    model: &str,
-) -> Result<(), String> {
-    let key = api_key.ok_or("OpenRouter requires an API key")?;
-    let resp = client
-        .post("https://openrouter.ai/api/v1/chat/completions")
-        .bearer_auth(key)
-        .json(&chat_completion_body(model))
-        .send()
-        .await
-        .map_err(|e| format!("request failed: {e}"))?;
-
-    check_response(resp).await
-}
-
-async fn validate_kimi(
-    client: &reqwest::Client,
-    api_key: Option<&str>,
-    model: &str,
-) -> Result<(), String> {
-    let key = api_key.ok_or("Kimi requires an API key")?;
-    let resp = client
-        .post("https://api.kimi.com/coding/v1/chat/completions")
-        .bearer_auth(key)
-        .json(&chat_completion_body(model))
-        .send()
-        .await
-        .map_err(|e| format!("request failed: {e}"))?;
-
-    check_response(resp).await
-}
-
-async fn validate_anthropic(client: &reqwest::Client, model: &str) -> Result<(), String> {
-    let access_token = load_anthropic_access_token()?;
-
-    let body = serde_json::json!({
-        "model": model,
-        "max_tokens": 5,
-        "messages": [
-            {"role": "user", "content": "ping"}
+    let p = create_provider(*provider, BTreeMap::new(), None)?;
+    let request = ChatRequest {
+        model: model.to_string(),
+        messages: vec![
+            ChatMessage {
+                role: Role::System,
+                content: vec![ContentBlock::Text {
+                    text: "Reply with OK".to_string(),
+                }],
+            },
+            ChatMessage {
+                role: Role::User,
+                content: vec![ContentBlock::Text {
+                    text: "ping".to_string(),
+                }],
+            },
         ],
-        "system": "Reply with OK"
-    });
-
-    let resp = client
-        .post("https://api.anthropic.com/v1/messages")
-        .header("x-api-key", &access_token)
-        .header("anthropic-version", "2023-06-01")
-        .json(&body)
-        .send()
+        max_tokens: Some(5),
+        ..Default::default()
+    };
+    p.chat(request)
         .await
-        .map_err(|e| format!("request failed: {e}"))?;
-
-    check_response(resp).await
-}
-
-/// Read the Anthropic access token from `~/.claude/.credentials.json`.
-fn load_anthropic_access_token() -> Result<String, String> {
-    let path = dirs::home_dir()
-        .map(|h| h.join(".claude/.credentials.json"))
-        .ok_or("cannot determine home directory")?;
-
-    let content = std::fs::read_to_string(&path)
-        .map_err(|e| format!("failed to read {}: {e}", path.display()))?;
-
-    let doc: serde_json::Value =
-        serde_json::from_str(&content).map_err(|e| format!("failed to parse credentials: {e}"))?;
-
-    doc.get("claudeAiOauth")
-        .and_then(|o| o.get("accessToken"))
-        .and_then(|v| v.as_str())
-        .map(|s| s.to_string())
-        .ok_or_else(|| "no claudeAiOauth.accessToken in credentials file".to_string())
-}
-
-async fn validate_openai_oauth(client: &reqwest::Client, model: &str) -> Result<(), String> {
-    let store = crate::auth::openai_oauth::TokenStore::default_openai_store()
-        .map_err(|e| format!("failed to open token store: {e}"))?;
-    let oauth_client = crate::auth::openai_oauth::OpenAiOAuthClient::new()
-        .map_err(|e| format!("failed to create OAuth client: {e}"))?;
-    let access_token = store
-        .get_valid_access_token(&oauth_client)
-        .await
-        .map_err(|e| format!("failed to get access token: {e}"))?;
-
-    let resp = client
-        .post("https://api.openai.com/v1/chat/completions")
-        .bearer_auth(&access_token)
-        .json(&chat_completion_body(model))
-        .send()
-        .await
-        .map_err(|e| format!("request failed: {e}"))?;
-
-    check_response(resp).await
-}
-
-/// Check that an HTTP response indicates success.
-async fn check_response(resp: reqwest::Response) -> Result<(), String> {
-    let status = resp.status();
-    if status.is_success() {
-        return Ok(());
-    }
-
-    let body = resp
-        .text()
-        .await
-        .unwrap_or_else(|_| "<unreadable body>".to_string());
-
-    Err(format!("HTTP {status}: {body}"))
+        .map_err(|e| OnboardingError::ProviderValidation(e.to_string()))?;
+    Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::onboarding::ProviderChoice;
 
     #[test]
-    fn parse_provider_choice_from_flag() {
+    fn parse_provider_kind_from_flag() {
         assert!(matches!(
-            ProviderChoice::from_flag("openrouter"),
-            Ok(ProviderChoice::OpenRouter)
+            ProviderKind::from_cli_flag("openrouter"),
+            Some(ProviderKind::OpenRouter)
         ));
         assert!(matches!(
-            ProviderChoice::from_flag("anthropic"),
-            Ok(ProviderChoice::Anthropic)
+            ProviderKind::from_cli_flag("anthropic"),
+            Some(ProviderKind::Anthropic)
         ));
         assert!(matches!(
-            ProviderChoice::from_flag("openai-oauth"),
-            Ok(ProviderChoice::OpenAiOAuth)
+            ProviderKind::from_cli_flag("openai-oauth"),
+            Some(ProviderKind::OpenAiOAuth)
         ));
         assert!(matches!(
-            ProviderChoice::from_flag("chatgpt-oauth"),
-            Ok(ProviderChoice::OpenAiOAuth)
+            ProviderKind::from_cli_flag("chatgpt-oauth"),
+            Some(ProviderKind::OpenAiOAuth)
         ));
-        assert!(ProviderChoice::from_flag("invalid").is_err());
+        assert!(ProviderKind::from_cli_flag("invalid").is_none());
     }
 
     #[test]
     fn provider_config_string_matches_config_rs() {
-        assert_eq!(ProviderChoice::OpenRouter.as_config_str(), "openrouter");
-        assert_eq!(ProviderChoice::Kimi.as_config_str(), "kimi");
-        assert_eq!(ProviderChoice::OpenAiOAuth.as_config_str(), "openai_oauth");
-        assert_eq!(ProviderChoice::Anthropic.as_config_str(), "anthropic");
+        assert_eq!(ProviderKind::OpenRouter.as_str(), "openrouter");
+        assert_eq!(ProviderKind::Kimi.as_str(), "kimi_code");
+        assert_eq!(ProviderKind::OpenAiOAuth.as_str(), "openai_oauth");
+        assert_eq!(ProviderKind::Anthropic.as_str(), "anthropic");
     }
 
     #[test]
     fn catalog_url_per_provider() {
-        assert!(catalog_url(&ProviderChoice::OpenRouter).contains("openrouter.ai"));
-        assert!(catalog_url(&ProviderChoice::Kimi).contains("kimi.com"));
-        assert!(catalog_url(&ProviderChoice::Anthropic).contains("anthropic.com"));
-        assert!(catalog_url(&ProviderChoice::OpenAiOAuth).contains("developers.openai.com"));
+        assert!(catalog_url(&ProviderKind::OpenRouter).contains("openrouter.ai"));
+        assert!(catalog_url(&ProviderKind::Kimi).contains("kimi.com"));
+        assert!(catalog_url(&ProviderKind::Anthropic).contains("anthropic.com"));
+        assert!(catalog_url(&ProviderKind::OpenAiOAuth).contains("developers.openai.com"));
     }
 }

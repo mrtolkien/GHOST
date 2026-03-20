@@ -96,7 +96,7 @@ pub struct ModelsSettings {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct ModelSettings {
-    pub provider: Provider,
+    pub provider: ProviderKind,
     pub model: String,
     pub context_window: u32,
     #[serde(default)]
@@ -233,7 +233,7 @@ pub struct ModelsConfig {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct ModelConfig {
-    pub provider: String,
+    pub provider: ProviderKind,
     pub model: String,
     pub context_window: u32,
     pub headers: BTreeMap<String, String>,
@@ -302,9 +302,9 @@ pub struct DebugConfig {
     pub save_requests: bool,
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
-pub enum Provider {
+pub enum ProviderKind {
     OpenRouter,
     #[serde(alias = "kimi_code")]
     Kimi,
@@ -313,13 +313,26 @@ pub enum Provider {
     Anthropic,
 }
 
-impl Provider {
-    fn as_str(self) -> &'static str {
+impl ProviderKind {
+    /// Stable string for serialization to config.toml.
+    #[must_use]
+    pub fn as_str(self) -> &'static str {
         match self {
             Self::OpenRouter => "openrouter",
             Self::Kimi => "kimi_code",
             Self::OpenAiOAuth => "openai_oauth",
             Self::Anthropic => "anthropic",
+        }
+    }
+
+    /// Parse from a CLI flag value (user-facing aliases).
+    pub fn from_cli_flag(s: &str) -> Option<Self> {
+        match s {
+            "openrouter" => Some(Self::OpenRouter),
+            "anthropic" => Some(Self::Anthropic),
+            "kimi" | "kimi_code" => Some(Self::Kimi),
+            "openai-oauth" | "chatgpt-oauth" | "openai_oauth" => Some(Self::OpenAiOAuth),
+            _ => None,
         }
     }
 }
@@ -346,7 +359,7 @@ impl Config {
                 (
                     name,
                     ModelConfig {
-                        provider: model.provider.as_str().to_string(),
+                        provider: model.provider,
                         model: model.model,
                         context_window: model.context_window,
                         headers: model.headers,
@@ -747,7 +760,7 @@ pub fn test_config(workspace: &std::path::Path) -> Config {
     aliases.insert(
         "primary".to_string(),
         ModelConfig {
-            provider: "openrouter".to_string(),
+            provider: ProviderKind::OpenRouter,
             model: "test/model".to_string(),
             context_window: 200_000,
             headers: BTreeMap::new(),
