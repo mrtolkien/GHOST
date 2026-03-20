@@ -34,6 +34,32 @@ a hack "for now" without explicitly flagging it and getting user approval. Causi
 regressions in existing behavior through careless, rushed changes is worse than slower
 delivery.
 
+### Use Existing Abstractions — Never Reimplement
+
+Before writing any code that talks to an external service (LLM provider, Discord, HTTP
+endpoint, database), **search for an existing abstraction that already does it**. The
+codebase has traits, factories, and typed enums for a reason. If you need to call an LLM
+provider, use the `Provider` trait and `create_provider()`. If you need a config enum,
+check if one exists before inventing a parallel one.
+
+**Concrete rules:**
+- Never hand-roll HTTP requests to a service that already has a provider/client
+  implementation. You WILL get the URL, headers, auth, or request format wrong.
+- Never create a parallel enum that mirrors an existing one. If `config::ProviderKind`
+  exists, use it — don't create `onboarding::ProviderChoice`.
+- Never convert a typed enum to a string for matching. If you find yourself writing
+  `match thing.as_str() { "foo" => ... }`, the match should be on the enum directly.
+- When adding a new module that needs to interact with existing subsystems, read the
+  existing traits and factories first. The 10 minutes you spend reading saves hours of
+  debugging divergent reimplementations.
+
+### Typed Enums Over String Matching
+
+Use enums for anything that has a fixed set of variants. Match on the enum, not on
+stringified versions of it. Strings are for serialization boundaries (TOML, JSON, CLI
+flags) — once parsed, everything should be typed. If you see `match s { "foo" => ... }`,
+ask whether an enum exists or should be created.
+
 ## Project Overview
 
 GHOST is a personal AI agent platform. A single binary (`ghost`) runs one GHOST for one
