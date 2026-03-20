@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.2.4](https://github.com/mrtolkien/GHOST/compare/v0.2.3...v0.2.4) (2026-03-20)
+
+
+### Bug Fixes
+
+* restructure installation.mdx to fix MDX build error ([7ee8ed5](https://github.com/mrtolkien/GHOST/commit/7ee8ed5a5922ba6273ac46fe1009d5faf8231cd2))
+
+
+### Refactoring
+
+* replace ProviderChoice with ProviderKind, use real provider for validation ([673a9d7](https://github.com/mrtolkien/GHOST/commit/673a9d75b9152f5f374465f644762b77672855c8))
+* use real provider for onboarding agent, delete hand-rolled HTTP ([51554da](https://github.com/mrtolkien/GHOST/commit/51554dad7871225fbf373259b1dbbc0e619fae7c))
+
+
+### Documentation
+
+* add CLAUDE.md rules for using existing abstractions and typed enums ([c854685](https://github.com/mrtolkien/GHOST/commit/c8546853572e1fb12978539ad7f9c77c985bf31b))
+* update commands with nix add instead of nix install ([a185e9c](https://github.com/mrtolkien/GHOST/commit/a185e9cf50d795a9bbf0ddd92f340e6fec8701ed))
+
 ## [0.2.3](https://github.com/mrtolkien/GHOST/compare/v0.2.2...v0.2.3) (2026-03-20)
 
 
