@@ -3,67 +3,61 @@ title: Installation
 description: Install GHOST in three commands.
 ---
 
-import { Steps, Code } from "@astrojs/starlight/components";
+import { Steps, Aside } from "@astrojs/starlight/components";
+
+## Prerequisites
+
+Install [Nix](https://nixos.org/) if you don't have it:
+
+```bash
+curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
+```
+
+## Binary Cache (recommended)
+
+Adding the GHOST binary cache avoids a ~15 minute compile from source.
+
+If you installed Nix with the
+[Determinate Systems installer](https://install.determinate.systems/nix)
+(recommended), add to `/etc/nix/nix.custom.conf`:
+
+```bash
+echo 'extra-substituters = https://ghost-ai.cachix.org' | sudo tee -a /etc/nix/nix.custom.conf
+echo 'extra-trusted-public-keys = ghost-ai.cachix.org-1:c0BYnkFKE8rYzkusZD5+l5D5Vcl8WRQMXV1zVWjxCBI=' | sudo tee -a /etc/nix/nix.custom.conf
+sudo systemctl restart nix-daemon   # Linux
+# macOS: sudo launchctl kickstart -k system/org.nixos.nix-daemon
+```
+
+<Aside type="tip" title="Standard Nix (non-Determinate)">
+  If you installed Nix via the official installer, use `/etc/nix/nix.conf`
+  instead of `nix.custom.conf`.
+</Aside>
+
+<Aside type="tip" title="NixOS">
+Add the cache to your system configuration:
+
+```nix title="configuration.nix"
+nix.settings = {
+  extra-substituters = [ "https://ghost-ai.cachix.org" ];
+  extra-trusted-public-keys = [
+    "ghost-ai.cachix.org-1:c0BYnkFKE8rYzkusZD5+l5D5Vcl8WRQMXV1zVWjxCBI="
+  ];
+};
+```
+
+</Aside>
+
+## Install and Run
 
 <Steps>
 
-1. **Install Nix** (if you don't have it)
+1. **Install GHOST**
 
    ```bash
-   curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
+   nix profile add github:mrtolkien/GHOST/latest --refresh
    ```
 
-2. **Add the GHOST binary cache** (optional but recommended — skips a ~15 minute
-   compile)
-
-   If you installed Nix with the
-   [Determinate Systems installer](https://install.determinate.systems/nix)
-   (recommended above), add to `/etc/nix/nix.custom.conf`:
-
-   ```bash
-   echo 'extra-substituters = https://ghost-ai.cachix.org' | sudo tee -a /etc/nix/nix.custom.conf
-   echo 'extra-trusted-public-keys = ghost-ai.cachix.org-1:c0BYnkFKE8rYzkusZD5+l5D5Vcl8WRQMXV1zVWjxCBI=' | sudo tee -a /etc/nix/nix.custom.conf
-   sudo systemctl restart nix-daemon   # Linux
-   # macOS: sudo launchctl kickstart -k system/org.nixos.nix-daemon
-   ```
-
-   <details>
-<summary>Standard Nix (non-Determinate)</summary>
-
-   If you installed Nix via the official installer, use `/etc/nix/nix.conf`
-   instead:
-
-   ```bash
-   echo 'extra-substituters = https://ghost-ai.cachix.org' | sudo tee -a /etc/nix/nix.conf
-   echo 'extra-trusted-public-keys = ghost-ai.cachix.org-1:c0BYnkFKE8rYzkusZD5+l5D5Vcl8WRQMXV1zVWjxCBI=' | sudo tee -a /etc/nix/nix.conf
-   sudo systemctl restart nix-daemon
-   ```
-
-   </details>
-
-   <details>
-<summary>NixOS</summary>
-
-   On NixOS, add the cache to your system configuration instead:
-
-   ```nix title="configuration.nix"
-   nix.settings = {
-     extra-substituters = [ "https://ghost-ai.cachix.org" ];
-     extra-trusted-public-keys = [
-       "ghost-ai.cachix.org-1:c0BYnkFKE8rYzkusZD5+l5D5Vcl8WRQMXV1zVWjxCBI="
-     ];
-   };
-   ```
-
-   </details>
-
-3. **Install GHOST**
-
-   ```bash
-   nix profile add github:mrtolkien/GHOST/latest
-   ```
-
-4. **Run the onboarding wizard**
+2. **Run the onboarding wizard**
 
    ```bash
    ghost init
@@ -76,11 +70,11 @@ import { Steps, Code } from "@astrojs/starlight/components";
 
 ## Install Channels
 
-| Command                                         | What you get                  |
-| ----------------------------------------------- | ----------------------------- |
-| `nix profile add github:mrtolkien/GHOST/latest` | Latest release (recommended)  |
-| `nix profile add github:mrtolkien/GHOST/main`   | Bleeding edge (latest commit) |
-| `nix profile add github:mrtolkien/GHOST/v0.5.0` | Pinned version                |
+| Command                                                   | What you get                  |
+| --------------------------------------------------------- | ----------------------------- |
+| `nix profile add github:mrtolkien/GHOST/latest --refresh` | Latest release (recommended)  |
+| `nix profile add github:mrtolkien/GHOST/main --refresh`   | Bleeding edge (latest commit) |
+| `nix profile add github:mrtolkien/GHOST/v0.5.0 --refresh` | Pinned version                |
 
 ## Updating
 
