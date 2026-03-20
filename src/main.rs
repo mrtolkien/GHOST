@@ -4,7 +4,7 @@ use ghost::error::GhostError;
 
 #[derive(Debug, Parser)]
 #[command(name = "ghost")]
-#[command(version)]
+#[command(version = concat!(env!("CARGO_PKG_VERSION"), " (", env!("GIT_COMMIT_HASH"), ")"))]
 #[command(about = "GHOST personal AI agent")]
 struct Cli {
     #[command(subcommand)]
