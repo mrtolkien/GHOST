@@ -115,7 +115,7 @@ fn config_set_can_create_new_model_alias_on_first_write() {
         .get("experimental")
         .expect("experimental alias exists");
 
-    assert_eq!(model.provider, "openrouter");
+    assert_eq!(model.provider, ghost::config::ProviderKind::OpenRouter);
     assert_eq!(model.model, "anthropic/claude-sonnet-4-5-20250929");
 }
 
@@ -190,7 +190,7 @@ context_window = 1000000\n",
     let config = config::load().expect("load config with anthropic provider");
     assert_eq!(config.models.default, "claude");
     let model = config.models.aliases.get("claude").expect("claude alias");
-    assert_eq!(model.provider, "anthropic");
+    assert_eq!(model.provider, ghost::config::ProviderKind::Anthropic);
     assert_eq!(model.model, "claude-sonnet-4-6");
     assert_eq!(model.context_window, 1_000_000);
 

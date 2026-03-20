@@ -12,6 +12,9 @@ env:
 jobs:
   # --- Nix build + Cachix push (main + tags, all platforms) ---
   nix-cache:
+    permissions:
+      id-token: write
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -26,7 +29,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: DeterminateSystems/nix-installer-action@v21
-      - uses: DeterminateSystems/magic-nix-cache-action@v9
+      - uses: DeterminateSystems/magic-nix-cache-action@v13
       - uses: cachix/cachix-action@v17
         with:
           name: ghost-ai

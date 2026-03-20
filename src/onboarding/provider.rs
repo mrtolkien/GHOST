@@ -160,20 +160,13 @@ pub async fn validate_provider(
     let p = create_provider(*provider, BTreeMap::new(), None)?;
     let request = ChatRequest {
         model: model.to_string(),
-        messages: vec![
-            ChatMessage {
-                role: Role::System,
-                content: vec![ContentBlock::Text {
-                    text: "Reply with OK".to_string(),
-                }],
-            },
-            ChatMessage {
-                role: Role::User,
-                content: vec![ContentBlock::Text {
-                    text: "ping".to_string(),
-                }],
-            },
-        ],
+        system: Some("Reply with OK".to_string()),
+        messages: vec![ChatMessage {
+            role: Role::User,
+            content: vec![ContentBlock::Text {
+                text: "ping".to_string(),
+            }],
+        }],
         max_tokens: Some(5),
         ..Default::default()
     };

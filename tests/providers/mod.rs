@@ -17,3 +17,5 @@ mod openai_oauth_live;
 mod reasoning_live;
 #[cfg(feature = "live-tests-llms")]
 mod tool_use_live;
+#[cfg(feature = "live-tests-llms")]
+mod onboarding_validation_live;
