@@ -47,8 +47,13 @@
           in pkgs.runCommand "ghost-deps-src" {} ''
             cp -r ${cargoOnly} $out
             chmod -R u+w $out
+            # Pin crate version so release-please bumps don't change the hash
             ${pkgs.gnused}/bin/sed -i '0,/^version = ".*"/s//version = "0.0.0"/' $out/Cargo.toml
             ${pkgs.gnused}/bin/sed -i '/^name = "ghost"$/{n;s/^version = ".*"/version = "0.0.0"/;}' $out/Cargo.lock
+            # Create stub source files — cargo needs at least lib.rs or main.rs
+            mkdir -p $out/src
+            echo "" > $out/src/lib.rs
+            echo "fn main() {}" > $out/src/main.rs
           '';
 
           commonArgs = {
