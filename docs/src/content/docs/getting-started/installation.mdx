@@ -16,12 +16,28 @@ import { Steps, Code } from "@astrojs/starlight/components";
 2. **Add the GHOST binary cache** (optional but recommended — skips a ~15
    minute compile)
 
+   If you installed Nix with the
+   [Determinate Systems installer](https://install.determinate.systems/nix)
+   (recommended above), add to `/etc/nix/nix.custom.conf`:
+
    ```bash
-   echo 'extra-substituters = https://ghost-ai.cachix.org' | sudo tee -a /etc/nix/nix.conf
-   echo 'extra-trusted-public-keys = ghost-ai.cachix.org-1:c0BYnkFKE8rYzkusZD5+l5D5Vcl8WRQMXV1zVWjxCBI=' | sudo tee -a /etc/nix/nix.conf
+   echo 'extra-substituters = https://ghost-ai.cachix.org' | sudo tee -a /etc/nix/nix.custom.conf
+   echo 'extra-trusted-public-keys = ghost-ai.cachix.org-1:c0BYnkFKE8rYzkusZD5+l5D5Vcl8WRQMXV1zVWjxCBI=' | sudo tee -a /etc/nix/nix.custom.conf
    sudo systemctl restart nix-daemon   # Linux
    # macOS: sudo launchctl kickstart -k system/org.nixos.nix-daemon
    ```
+
+   <details>
+   <summary>Standard Nix (non-Determinate)</summary>
+
+   If you installed Nix via the official installer, use `/etc/nix/nix.conf`
+   instead:
+   ```bash
+   echo 'extra-substituters = https://ghost-ai.cachix.org' | sudo tee -a /etc/nix/nix.conf
+   echo 'extra-trusted-public-keys = ghost-ai.cachix.org-1:c0BYnkFKE8rYzkusZD5+l5D5Vcl8WRQMXV1zVWjxCBI=' | sudo tee -a /etc/nix/nix.conf
+   sudo systemctl restart nix-daemon
+   ```
+   </details>
 
    <details>
    <summary>NixOS</summary>
