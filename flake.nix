@@ -28,17 +28,26 @@
               || (builtins.match ".*migrations/.*" path != null);
           };
 
-          # Deps-only source: Cargo files with the root crate version pinned
-          # to "0.0.0" so release-please version bumps don't bust the cache.
-          # Only actual dependency changes (Cargo.lock entries) trigger a rebuild.
+          # Deps-only source: only Cargo manifests, lockfile, and build.rs.
+          # .rs source files are excluded so code edits don't change the hash.
+          # The crate version is pinned to "0.0.0" so release-please bumps
+          # don't bust the cache either. mkDummySrc handles creating .rs stubs
+          # internally when buildDepsOnly consumes this.
           depsSrc = let
-            cleaned = craneLib.cleanCargoSource self;
+            cargoOnly = pkgs.lib.cleanSourceWith {
+              src = self;
+              filter = path: type:
+                let base = builtins.baseNameOf path; in
+                type == "directory"
+                || base == "Cargo.toml"
+                || base == "Cargo.lock"
+                || base == "build.rs"
+                || (pkgs.lib.hasInfix ".cargo" path);
+            };
           in pkgs.runCommand "ghost-deps-src" {} ''
-            cp -r ${cleaned} $out
+            cp -r ${cargoOnly} $out
             chmod -R u+w $out
-            # Pin root crate version so release-please bumps don't bust deps cache.
             ${pkgs.gnused}/bin/sed -i '0,/^version = ".*"/s//version = "0.0.0"/' $out/Cargo.toml
-            # Rewrite ONLY the ghost entry in Cargo.lock (name = "ghost" is followed by version =)
             ${pkgs.gnused}/bin/sed -i '/^name = "ghost"$/{n;s/^version = ".*"/version = "0.0.0"/;}' $out/Cargo.lock
           '';
 
