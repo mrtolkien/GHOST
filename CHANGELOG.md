@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.2.3](https://github.com/mrtolkien/GHOST/compare/v0.2.2...v0.2.3) (2026-03-20)
+
+
+### Bug Fixes
+
+* allow branch names in ghost update --version ([10a1a60](https://github.com/mrtolkien/GHOST/commit/10a1a603389508ee621094d262aac5e0df490443))
+* disable cachix auto-push daemon, push only final binary ([46be7c1](https://github.com/mrtolkien/GHOST/commit/46be7c1bb3160ee4e48aa47df655f1274a65cbd6))
+
+
+### Documentation
+
+* fix binary cache setup for Determinate Nix ([45b9d4e](https://github.com/mrtolkien/GHOST/commit/45b9d4e7217dfaf9e845505d58b1f49d5a54d225))
+
 ## [0.2.2](https://github.com/mrtolkien/GHOST/compare/v0.2.1...v0.2.2) (2026-03-19)
 
 
