@@ -15,6 +15,11 @@ curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix 
 
 ## Binary Cache (recommended)
 
+:::note
+Once GHOST lands in nixpkgs, the binary cache will no longer be needed — Nix will fetch
+pre-built binaries from the official cache automatically.
+:::
+
 Adding the GHOST binary cache avoids a ~15 minute compile from source.
 
 If you installed Nix with the
