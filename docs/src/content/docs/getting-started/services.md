@@ -142,6 +142,14 @@ GHOST about the **services** skill's tailscale extra.
 
 ## Troubleshooting
 
+### Check service health
+
+```sh
+ghost status
+```
+
+Shows config validity, daemon status, and whether each service is reachable. Run this first when something isn't working.
+
 ### Reconfigure everything
 
 ```sh

@@ -14,6 +14,7 @@ pub mod reload;
 pub mod send;
 pub mod session;
 pub mod shell;
+pub mod status;
 pub mod topics;
 pub mod update;
 pub mod web;

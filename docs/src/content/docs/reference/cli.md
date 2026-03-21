@@ -230,6 +230,20 @@ ghost web fetch <url> --readability              # Article mode
 ghost web fetch <url> --raw                      # Raw HTML
 ```
 
+## ghost status
+
+Show config validity, daemon status, and service health at a glance.
+
+```bash
+ghost status
+```
+
+Checks:
+
+- **Config** — loads and validates `config.toml`, reports parse errors
+- **Daemon** — checks whether `ghost-daemon` is active via systemd/launchd and probes its health endpoint
+- **Services** — probes each configured service URL (embeddings, search, Crawl4AI, Docling, browsers)
+
 ## ghost version
 
 Print the GHOST version.

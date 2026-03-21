@@ -81,6 +81,8 @@ enum Commands {
         #[arg(long)]
         caption: Option<String>,
     },
+    /// Show config, daemon, and service health
+    Status,
     /// Gracefully restart the running daemon
     Reboot,
     /// Manage the nix shell environment
@@ -130,6 +132,7 @@ async fn dispatch(command: Commands) -> Result<(), GhostError> {
             ghost::cli::send::execute_send_image(path, caption).await
         }
         Commands::Attach { path, caption } => ghost::cli::send::execute_attach(path, caption).await,
+        Commands::Status => ghost::cli::status::execute().await,
         Commands::Reboot => ghost::cli::reboot::execute(),
         Commands::Shell { command } => ghost::cli::shell::execute(command).await,
         Commands::Update {
