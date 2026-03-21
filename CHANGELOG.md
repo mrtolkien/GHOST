@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.3.0](https://github.com/mrtolkien/GHOST/compare/v0.2.4...v0.3.0) (2026-03-21)
+
+
+### Features
+
+* add ghost update + mini docs update ([9718417](https://github.com/mrtolkien/GHOST/commit/97184176cfa504c36fa0b378afc1817d7febcfeb))
+* container onboarding too! ([2a1ef19](https://github.com/mrtolkien/GHOST/commit/2a1ef190441a03ad2f5b17654e8ab4c1193073fc))
+
+
+### Bug Fixes
+
+* add stub src/lib.rs and src/main.rs to deps source ([59ae32c](https://github.com/mrtolkien/GHOST/commit/59ae32c6c3548e016735b0d1345246e311c009ee))
+* always show HTTP status + full body in provider error messages ([440cad1](https://github.com/mrtolkien/GHOST/commit/440cad1db3e7b783c335e17017ea5c46e2bd776a))
+* ghost --version also shows hash ([1406651](https://github.com/mrtolkien/GHOST/commit/1406651f60053182a43c19b4185a53b8c0b6974f))
+* make Codex text_verbosity configurable, default "low" ([f4f7e65](https://github.com/mrtolkien/GHOST/commit/f4f7e6528e29e4aa78661fd495cc27a7baf82b6f))
+* many small onboard wizard fixes ([d028502](https://github.com/mrtolkien/GHOST/commit/d028502a3a225f1711368a0b9c4448b7b102d224))
+* remove hardcoded text.verbosity from Codex requests ([868058f](https://github.com/mrtolkien/GHOST/commit/868058fd9c05313191c1fffeebfe8e0a6a9d81c6))
+* use cargo-only source filter for crane deps to avoid rebuilds ([a26c082](https://github.com/mrtolkien/GHOST/commit/a26c082df1d73c31050a0d04182b24b5a001558b))
+* use request.system for validation ping, add live tests, fix test breakage ([7c38f5d](https://github.com/mrtolkien/GHOST/commit/7c38f5ddf2fc5f35ad02057a0672c6e1a9a51be6))
+
+
+### Documentation
+
+* nixpkgs note ([52da68b](https://github.com/mrtolkien/GHOST/commit/52da68b7282126f9f7c984bf98fdf3c7a3db09b5))
+* remove pointless --refresh flag ([19e2d1a](https://github.com/mrtolkien/GHOST/commit/19e2d1a62d657b30e04b9b71ddc1047a999c641b))
+
 ## [0.2.4](https://github.com/mrtolkien/GHOST/compare/v0.2.3...v0.2.4) (2026-03-20)
 
 ### Bug Fixes
