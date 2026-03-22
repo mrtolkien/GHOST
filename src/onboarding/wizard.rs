@@ -93,23 +93,22 @@ pub async fn run(args: InitArgs) -> Result<(), GhostError> {
         }
 
         // Test remote embeddings endpoint if configured.
-        if let ServiceChoice::Remote(ref url) = sel.choice {
-            if !url.is_empty() {
-                let should_test = cliclack::confirm(
-                    "Test the embeddings endpoint? (sends a real embedding request)",
-                )
-                .initial_value(true)
-                .interact()?;
-                if should_test {
-                    if let Err(msg) = test_embeddings(url, sel.model.as_deref()).await {
-                        let _ = cliclack::log::warning(msg);
-                        if args.embeddings.is_some() {
-                            break (sel.choice, sel.model, sel.hf_repo);
-                        }
-                        continue;
+        if let ServiceChoice::Remote(ref url) = sel.choice
+            && !url.is_empty()
+        {
+            let should_test =
+                cliclack::confirm("Test the embeddings endpoint? (sends a real embedding request)")
+                    .initial_value(true)
+                    .interact()?;
+            if should_test {
+                if let Err(msg) = test_embeddings(url, sel.model.as_deref()).await {
+                    let _ = cliclack::log::warning(msg);
+                    if args.embeddings.is_some() {
+                        break (sel.choice, sel.model, sel.hf_repo);
                     }
-                    let _ = cliclack::log::success(format!("Embeddings verified: {url}"));
+                    continue;
                 }
+                let _ = cliclack::log::success(format!("Embeddings verified: {url}"));
             }
         }
 
@@ -194,7 +193,12 @@ pub async fn run(args: InitArgs) -> Result<(), GhostError> {
         )?;
         let _ = cliclack::log::success("Services started");
 
-        // Health check after services have had a chance to start.
+        // Give containers a moment to boot before probing health endpoints.
+        let warmup = cliclack::spinner();
+        warmup.start("Waiting for services to come up…");
+        tokio::time::sleep(Duration::from_secs(5)).await;
+        warmup.stop("Ready");
+
         let _ = cliclack::log::step("Health Checks");
         let results = health::check_all_services(&state).await;
         health::display_health_table(&results);
@@ -335,13 +339,14 @@ fn install_service_files(
         None
     };
 
-    let llama_server = llama_info.as_ref().map(|(exe, repo, model)| {
-        service_files::LlamaServerInfo {
-            exe,
-            hf_repo: repo,
-            alias: model,
-        }
-    });
+    let llama_server =
+        llama_info
+            .as_ref()
+            .map(|(exe, repo, model)| service_files::LlamaServerInfo {
+                exe,
+                hf_repo: repo,
+                alias: model,
+            });
 
     let docling_exe = if matches!(state.docling, Some(ServiceChoice::NixNative)) {
         Some(format!("{home_str}/.nix-profile/bin/docling-serve"))

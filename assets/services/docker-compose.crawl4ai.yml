@@ -1,5 +1,7 @@
 crawl4ai:
   image: unclecode/crawl4ai:latest
+  ports:
+    - "127.0.0.1:11235:11235"
   restart: unless-stopped
 
 chrome:

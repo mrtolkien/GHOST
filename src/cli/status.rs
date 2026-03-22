@@ -2,8 +2,6 @@ use crate::config::{Config, SearchProviderConfig};
 use crate::error::GhostError;
 use crate::health::{HealthResult, display_health_table, probe_url};
 
-const DAEMON_HEALTH: &str = "http://127.0.0.1:7432/health";
-
 /// Print system status: config validity, daemon status, and service health.
 pub async fn execute() -> Result<(), GhostError> {
     let config = check_config();
@@ -50,30 +48,15 @@ fn check_config() -> Option<Config> {
 async fn check_daemon() {
     let _ = cliclack::log::step("Daemon");
 
-    let unit_active = is_service_active();
-    let health_ok = probe_url(DAEMON_HEALTH).await;
-
-    let result = match (unit_active, health_ok) {
-        (true, true) => HealthResult {
-            service: "ghost-daemon".to_string(),
-            detail: "running".to_string(),
-            healthy: true,
+    let active = is_service_active();
+    let result = HealthResult {
+        service: "ghost-daemon".to_string(),
+        detail: if active {
+            "running".to_string()
+        } else {
+            "not running".to_string()
         },
-        (true, false) => HealthResult {
-            service: "ghost-daemon".to_string(),
-            detail: "service active but health endpoint not responding".to_string(),
-            healthy: false,
-        },
-        (false, true) => HealthResult {
-            service: "ghost-daemon".to_string(),
-            detail: "health endpoint reachable (not managed by service manager)".to_string(),
-            healthy: true,
-        },
-        (false, false) => HealthResult {
-            service: "ghost-daemon".to_string(),
-            detail: "not running".to_string(),
-            healthy: false,
-        },
+        healthy: active,
     };
 
     display_health_table(&[result]);
@@ -172,14 +155,27 @@ async fn check_services(config: &Config) {
         });
     }
 
-    // Browsers
+    // Browsers — CDP URLs use ws:// but we probe via HTTP /json/version.
     for browser in &config.web.browsers {
+        let probe = cdp_health_url(&browser.cdp_url);
         results.push(HealthResult {
             service: format!("Browser ({})", browser.name),
             detail: browser.cdp_url.clone(),
-            healthy: probe_url(&browser.cdp_url).await,
+            healthy: probe_url(&probe).await,
         });
     }
 
     display_health_table(&results);
+}
+
+/// Convert a CDP WebSocket URL to an HTTP health-probe URL.
+///
+/// `ws://host:port` or `ws://host:port/path` → `http://host:port/json/version`
+/// Already-HTTP URLs get `/json/version` appended.
+fn cdp_health_url(cdp_url: &str) -> String {
+    let http = cdp_url
+        .replace("wss://", "https://")
+        .replace("ws://", "http://");
+    let base = http.split('/').take(3).collect::<Vec<_>>().join("/");
+    format!("{base}/json/version")
 }

@@ -44,13 +44,12 @@ pub fn prompt_container_setup(env: &mut DetectedEnvironment) -> Result<(), Onboa
             let _ = cliclack::log::warning(format!("{e}"));
             let _ = cliclack::log::info("Podman may not work correctly for rootless containers");
         }
-    } else if env.platform.is_macos() {
-        if let Err(e) = setup_macos_podman_machine() {
-            let _ = cliclack::log::warning(format!("{e}"));
-            let _ = cliclack::log::info(
-                "Run 'podman machine init && podman machine start' manually later",
-            );
-        }
+    } else if env.platform.is_macos()
+        && let Err(e) = setup_macos_podman_machine()
+    {
+        let _ = cliclack::log::warning(format!("{e}"));
+        let _ =
+            cliclack::log::info("Run 'podman machine init && podman machine start' manually later");
     }
 
     // ── Generate container config files ──
@@ -206,10 +205,10 @@ fn has_setuid_or_caps(path: &std::path::Path) -> bool {
     use std::os::unix::fs::MetadataExt;
 
     // Check setuid bit (mode & 0o4000).
-    if let Ok(meta) = std::fs::metadata(path) {
-        if meta.mode() & 0o4000 != 0 {
-            return true;
-        }
+    if let Ok(meta) = std::fs::metadata(path)
+        && meta.mode() & 0o4000 != 0
+    {
+        return true;
     }
 
     // Check file capabilities (Fedora-style: cap_setuid+ep).

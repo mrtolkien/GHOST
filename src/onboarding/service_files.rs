@@ -76,6 +76,10 @@ pub fn generate_daemon_plist(exe: &str, workspace: &str) -> String {
         .unwrap_or_else(|| std::path::PathBuf::from("/tmp"))
         .join("ghost/logs");
     let log_dir = log_dir.display().to_string();
+    let home = dirs::home_dir()
+        .unwrap_or_else(|| std::path::PathBuf::from("/tmp"))
+        .display()
+        .to_string();
     let _ = workspace; // workspace stored in config, not needed in plist
     format!(
         r#"<?xml version="1.0" encoding="UTF-8"?>
@@ -89,6 +93,11 @@ pub fn generate_daemon_plist(exe: &str, workspace: &str) -> String {
     <string>{exe}</string>
     <string>daemon</string>
   </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/nix/var/nix/profiles/default/bin:{home}/.nix-profile/bin:/usr/local/bin:/usr/bin:/bin</string>
+  </dict>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>
   <key>StandardOutPath</key>
@@ -107,6 +116,10 @@ pub fn generate_llama_server_plist(exe: &str, hf_repo: &str, alias: &str) -> Str
         .unwrap_or_else(|| std::path::PathBuf::from("/tmp"))
         .join("ghost/logs");
     let log_dir = log_dir.display().to_string();
+    let home = dirs::home_dir()
+        .unwrap_or_else(|| std::path::PathBuf::from("/tmp"))
+        .display()
+        .to_string();
     format!(
         r#"<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
@@ -125,6 +138,11 @@ pub fn generate_llama_server_plist(exe: &str, hf_repo: &str, alias: &str) -> Str
     <string>--port</string>
     <string>11434</string>
   </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/nix/var/nix/profiles/default/bin:{home}/.nix-profile/bin:/usr/local/bin:/usr/bin:/bin</string>
+  </dict>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>
   <key>StandardOutPath</key>
@@ -143,6 +161,10 @@ pub fn generate_docling_plist(exe: &str) -> String {
         .unwrap_or_else(|| std::path::PathBuf::from("/tmp"))
         .join("ghost/logs");
     let log_dir = log_dir.display().to_string();
+    let home = dirs::home_dir()
+        .unwrap_or_else(|| std::path::PathBuf::from("/tmp"))
+        .display()
+        .to_string();
     format!(
         r#"<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
@@ -154,6 +176,11 @@ pub fn generate_docling_plist(exe: &str) -> String {
   <array>
     <string>{exe}</string>
   </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/nix/var/nix/profiles/default/bin:{home}/.nix-profile/bin:/usr/local/bin:/usr/bin:/bin</string>
+  </dict>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>
   <key>StandardOutPath</key>
@@ -288,7 +315,10 @@ pub fn install_all_service_files(
             // llama-server
             if let Some(ls) = llama_server {
                 let path = plist_dir.join("com.ghost.llama-server.plist");
-                std::fs::write(&path, generate_llama_server_plist(ls.exe, ls.hf_repo, ls.alias))?;
+                std::fs::write(
+                    &path,
+                    generate_llama_server_plist(ls.exe, ls.hf_repo, ls.alias),
+                )?;
                 written.push(path.display().to_string());
             }
 

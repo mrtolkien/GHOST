@@ -34,15 +34,15 @@ pub async fn check_all_services(state: &OnboardingState) -> Vec<HealthResult> {
     let mut results = Vec::new();
 
     // Embeddings (llama-server)
-    if let Some(choice) = &state.embeddings {
-        if !matches!(choice, ServiceChoice::Skip) {
-            let (ok, detail) = probe_choice(choice, "http://127.0.0.1:11434/health").await;
-            results.push(HealthResult {
-                service: "llama-server".to_string(),
-                detail,
-                healthy: ok,
-            });
-        }
+    if let Some(choice) = &state.embeddings
+        && !matches!(choice, ServiceChoice::Skip)
+    {
+        let (ok, detail) = probe_choice(choice, "http://127.0.0.1:11434/health").await;
+        results.push(HealthResult {
+            service: "llama-server".to_string(),
+            detail,
+            healthy: ok,
+        });
     }
 
     // Search (SearXNG)
@@ -68,37 +68,37 @@ pub async fn check_all_services(state: &OnboardingState) -> Vec<HealthResult> {
     }
 
     // Crawl4AI + Chrome
-    if let Some(choice) = &state.crawl {
-        if !matches!(choice, ServiceChoice::Skip) {
-            let (ok, detail) = probe_choice(choice, "http://127.0.0.1:11235/health").await;
-            results.push(HealthResult {
-                service: "Crawl4AI".to_string(),
-                detail,
-                healthy: ok,
-            });
+    if let Some(choice) = &state.crawl
+        && !matches!(choice, ServiceChoice::Skip)
+    {
+        let (ok, detail) = probe_choice(choice, "http://127.0.0.1:11235/health").await;
+        results.push(HealthResult {
+            service: "Crawl4AI".to_string(),
+            detail,
+            healthy: ok,
+        });
 
-            // Chrome is co-located with Crawl4AI (container or local).
-            if matches!(choice, ServiceChoice::NixNative | ServiceChoice::Container) {
-                let chrome_ok = probe_url("http://127.0.0.1:9222/json/version").await;
-                results.push(HealthResult {
-                    service: "Chrome".to_string(),
-                    detail: ":9222".to_string(),
-                    healthy: chrome_ok,
-                });
-            }
+        // Chrome is co-located with Crawl4AI (container or local).
+        if matches!(choice, ServiceChoice::NixNative | ServiceChoice::Container) {
+            let chrome_ok = probe_url("http://127.0.0.1:9222/json/version").await;
+            results.push(HealthResult {
+                service: "Chrome".to_string(),
+                detail: ":9222".to_string(),
+                healthy: chrome_ok,
+            });
         }
     }
 
     // Docling
-    if let Some(choice) = &state.docling {
-        if !matches!(choice, ServiceChoice::Skip) {
-            let (ok, detail) = probe_choice(choice, "http://127.0.0.1:5001/health").await;
-            results.push(HealthResult {
-                service: "Docling".to_string(),
-                detail,
-                healthy: ok,
-            });
-        }
+    if let Some(choice) = &state.docling
+        && !matches!(choice, ServiceChoice::Skip)
+    {
+        let (ok, detail) = probe_choice(choice, "http://127.0.0.1:5001/health").await;
+        results.push(HealthResult {
+            service: "Docling".to_string(),
+            detail,
+            healthy: ok,
+        });
     }
 
     results
@@ -159,7 +159,7 @@ fn start_compose(runtime: &ContainerRuntime, workspace: &Path) -> Result<(), Onb
     let spinner = cliclack::spinner();
     spinner.start("Starting container stack…");
 
-    let status = Command::new(runtime.compose_command())
+    let output = Command::new(runtime.compose_command())
         .args([
             "compose",
             "-f",
@@ -167,7 +167,9 @@ fn start_compose(runtime: &ContainerRuntime, workspace: &Path) -> Result<(), Onb
             "up",
             "-d",
         ])
-        .status()
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .output()
         .map_err(|e| {
             OnboardingError::HealthCheck(format!(
                 "failed to run {} compose: {e}",
@@ -175,13 +177,14 @@ fn start_compose(runtime: &ContainerRuntime, workspace: &Path) -> Result<(), Onb
             ))
         })?;
 
-    if status.success() {
+    if output.status.success() {
         spinner.stop("Container stack started");
         Ok(())
     } else {
         spinner.stop("Container stack failed to start");
+        let stderr = String::from_utf8_lossy(&output.stderr);
         Err(OnboardingError::HealthCheck(format!(
-            "{} compose up -d exited with status {status}",
+            "{} compose up -d failed:\n{stderr}",
             runtime.compose_command()
         )))
     }
@@ -257,13 +260,10 @@ fn run_launchctl(plist_path: &str) {
 // First message trigger
 // ---------------------------------------------------------------------------
 
-/// Poll the ghost daemon health endpoint for up to 30 seconds, then log
-/// success.
+/// Poll the service manager until the ghost daemon is active (up to 30s).
 ///
-/// This is intentionally lightweight: the actual first-chat-turn trigger will
-/// be wired in once the wizard is fully integrated with the daemon boot path.
+/// On macOS checks launchctl, on Linux checks systemctl.
 pub async fn trigger_first_message() -> Result<(), OnboardingError> {
-    const DAEMON_HEALTH: &str = "http://127.0.0.1:7432/health";
     const MAX_POLLS: u32 = 30;
 
     let spinner = cliclack::spinner();
@@ -271,7 +271,7 @@ pub async fn trigger_first_message() -> Result<(), OnboardingError> {
 
     let mut alive = false;
     for _ in 0..MAX_POLLS {
-        if probe_url(DAEMON_HEALTH).await {
+        if is_daemon_active() {
             alive = true;
             break;
         }
@@ -280,13 +280,42 @@ pub async fn trigger_first_message() -> Result<(), OnboardingError> {
 
     if alive {
         spinner.stop("ghost-daemon started");
-        let _ = cliclack::log::success("✓ First message sent to Discord — check your server!");
+        let _ = cliclack::log::success("First message sent to Discord — check your server!");
     } else {
         spinner.stop("ghost-daemon not responding after 30s");
         let _ = cliclack::log::warning(
-            "⚠ Daemon did not come up in time — start manually with: ghost daemon",
+            "Daemon did not come up in time — start manually with: ghost daemon",
         );
     }
 
     Ok(())
+}
+
+/// Check whether the ghost-daemon service is active via the platform service
+/// manager.
+fn is_daemon_active() -> bool {
+    if cfg!(target_os = "macos") {
+        let uid = Command::new("id")
+            .arg("-u")
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .unwrap_or_default();
+        let uid = uid.trim();
+        Command::new("launchctl")
+            .args(["print", &format!("gui/{uid}/com.ghost.daemon")])
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status()
+            .map(|s| s.success())
+            .unwrap_or(false)
+    } else {
+        Command::new("systemctl")
+            .args(["--user", "is-active", "ghost-daemon"])
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status()
+            .map(|s| s.success())
+            .unwrap_or(false)
+    }
 }

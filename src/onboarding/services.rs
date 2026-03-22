@@ -310,11 +310,7 @@ fn prompt_docling_interactive(env: &DetectedEnvironment) -> Result<ServiceChoice
     };
 
     let mut choice = cliclack::select("How should GHOST process documents?")
-        .item(
-            ServiceChoice::Container,
-            "Container (recommended)",
-            "",
-        )
+        .item(ServiceChoice::Container, "Container (recommended)", "")
         .item(
             ServiceChoice::NixNative,
             "Install docling-serve via nix",
@@ -642,9 +638,14 @@ mod tests {
         let yaml = generate_compose(&sel, true);
         let doc = parse_compose(&yaml);
 
-        let services = doc["services"].as_mapping().expect("services should be a mapping");
+        let services = doc["services"]
+            .as_mapping()
+            .expect("services should be a mapping");
         assert!(services.contains_key("searxng"), "missing searxng service");
-        assert!(services.contains_key("crawl4ai"), "missing crawl4ai service");
+        assert!(
+            services.contains_key("crawl4ai"),
+            "missing crawl4ai service"
+        );
         assert!(services.contains_key("chrome"), "missing chrome service");
         assert!(
             services.contains_key("docling-serve"),
@@ -652,7 +653,10 @@ mod tests {
         );
 
         // crawl4ai should have network_mode: host on Linux
-        assert_eq!(doc["services"]["crawl4ai"]["network_mode"].as_str(), Some("host"));
+        assert_eq!(
+            doc["services"]["crawl4ai"]["network_mode"].as_str(),
+            Some("host")
+        );
 
         // Ports should be stripped on Linux
         assert!(doc["services"]["searxng"].get("ports").is_none());
@@ -668,9 +672,14 @@ mod tests {
         let yaml = generate_compose(&sel, false);
         let doc = parse_compose(&yaml);
 
-        let services = doc["services"].as_mapping().expect("services should be a mapping");
+        let services = doc["services"]
+            .as_mapping()
+            .expect("services should be a mapping");
         assert!(services.contains_key("searxng"), "missing searxng service");
-        assert!(services.contains_key("crawl4ai"), "missing crawl4ai service");
+        assert!(
+            services.contains_key("crawl4ai"),
+            "missing crawl4ai service"
+        );
         assert!(services.contains_key("chrome"), "missing chrome service");
         assert!(
             services.contains_key("docling-serve"),

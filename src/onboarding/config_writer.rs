@@ -45,19 +45,19 @@ pub fn generate_config_toml(state: &OnboardingState) -> String {
     out.push('\n');
 
     // [embeddings]
-    if let Some(emb) = &state.embeddings {
-        if *emb != ServiceChoice::Skip {
-            out.push_str("[embeddings]\n");
-            let url = match emb {
-                ServiceChoice::Remote(u) => u.as_str(),
-                _ => "http://127.0.0.1:11434",
-            };
-            out.push_str(&format!("url = \"{url}\"\n"));
-            if let Some(m) = &state.embedding_model {
-                out.push_str(&format!("model = \"{m}\"\n"));
-            }
-            out.push('\n');
+    if let Some(emb) = &state.embeddings
+        && *emb != ServiceChoice::Skip
+    {
+        out.push_str("[embeddings]\n");
+        let url = match emb {
+            ServiceChoice::Remote(u) => u.as_str(),
+            _ => "http://127.0.0.1:11434",
+        };
+        out.push_str(&format!("url = \"{url}\"\n"));
+        if let Some(m) = &state.embedding_model {
+            out.push_str(&format!("model = \"{m}\"\n"));
         }
+        out.push('\n');
     }
 
     // [web.search]
@@ -81,29 +81,29 @@ pub fn generate_config_toml(state: &OnboardingState) -> String {
     }
 
     // [web] crawl section
-    if let Some(crawl) = &state.crawl {
-        if *crawl != ServiceChoice::Skip {
-            let crawl_url = match crawl {
-                ServiceChoice::Remote(u) => u.as_str(),
-                _ => "http://127.0.0.1:11235",
-            };
-            out.push_str(&format!("[web]\ncrawl4ai_url = \"{crawl_url}\"\n\n"));
-            // [[web.browsers]]
-            out.push_str(
-                "[[web.browsers]]\nname = \"chrome\"\ncdp_url = \"http://127.0.0.1:9222\"\n\n",
-            );
-        }
+    if let Some(crawl) = &state.crawl
+        && *crawl != ServiceChoice::Skip
+    {
+        let crawl_url = match crawl {
+            ServiceChoice::Remote(u) => u.as_str(),
+            _ => "http://127.0.0.1:11235",
+        };
+        out.push_str(&format!("[web]\ncrawl4ai_url = \"{crawl_url}\"\n\n"));
+        // [[web.browsers]]
+        out.push_str(
+            "[[web.browsers]]\nname = \"chrome\"\ncdp_url = \"http://127.0.0.1:9222\"\n\n",
+        );
     }
 
     // [docling]
-    if let Some(docling) = &state.docling {
-        if *docling != ServiceChoice::Skip {
-            let docling_url = match docling {
-                ServiceChoice::Remote(u) => u.as_str(),
-                _ => "http://127.0.0.1:5001",
-            };
-            out.push_str(&format!("[docling]\nurl = \"{docling_url}\"\n\n"));
-        }
+    if let Some(docling) = &state.docling
+        && *docling != ServiceChoice::Skip
+    {
+        let docling_url = match docling {
+            ServiceChoice::Remote(u) => u.as_str(),
+            _ => "http://127.0.0.1:5001",
+        };
+        out.push_str(&format!("[docling]\nurl = \"{docling_url}\"\n\n"));
     }
 
     // Trim trailing newline — one final newline is canonical.
@@ -123,13 +123,11 @@ pub fn generate_env(state: &OnboardingState) -> String {
         lines.push(format!("DISCORD_BOT_TOKEN={token}"));
     }
 
-    if let Some(provider) = &state.provider {
-        let key_name = provider_env_key(provider);
-        if let Some(key_name) = key_name {
-            if let Some(api_key) = &state.api_key {
-                lines.push(format!("{key_name}={api_key}"));
-            }
-        }
+    if let Some(provider) = &state.provider
+        && let Some(key_name) = provider_env_key(provider)
+        && let Some(api_key) = &state.api_key
+    {
+        lines.push(format!("{key_name}={api_key}"));
     }
 
     if let Some(SearchChoice::BraveApi(brave_key)) = &state.search {
@@ -184,6 +182,7 @@ pub fn display_diff_and_confirm(
     cliclack::note("Changes to config.toml", &colored)
         .map_err(|e| OnboardingError::Io(std::io::Error::other(e.to_string())))?;
     let confirmed = cliclack::confirm("Apply these changes?")
+        .initial_value(true)
         .interact()
         .map_err(|e| OnboardingError::Io(std::io::Error::other(e.to_string())))?;
     Ok(confirmed)
@@ -283,10 +282,10 @@ fn merge_env(existing: &str, new_content: &str) -> String {
     // Parse new key=value pairs for managed keys.
     let mut new_managed: std::collections::HashMap<&str, &str> = std::collections::HashMap::new();
     for line in new_content.lines() {
-        if let Some((k, v)) = line.split_once('=') {
-            if MANAGED_ENV_KEYS.contains(&k) {
-                new_managed.insert(k, v);
-            }
+        if let Some((k, v)) = line.split_once('=')
+            && MANAGED_ENV_KEYS.contains(&k)
+        {
+            new_managed.insert(k, v);
         }
     }
 
