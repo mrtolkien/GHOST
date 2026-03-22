@@ -229,11 +229,43 @@ fn has_setuid_or_caps(_path: &std::path::Path) -> bool {
 }
 
 // ---------------------------------------------------------------------------
+// macOS: Rosetta 2
+// ---------------------------------------------------------------------------
+
+/// Install Rosetta 2 on Apple Silicon Macs (required by podman machine).
+fn install_rosetta() {
+    let spinner = cliclack::spinner();
+    spinner.start("Installing Rosetta 2 (required for containers on Apple Silicon)…");
+
+    let result = Command::new("softwareupdate")
+        .args(["--install-rosetta", "--agree-to-license"])
+        .output();
+
+    match result {
+        Ok(output) if output.status.success() => {
+            spinner.stop("Rosetta 2 installed");
+        }
+        Ok(_) => {
+            // Non-zero exit can mean "already installed" — not fatal.
+            spinner.stop("Rosetta 2 already installed or install skipped");
+        }
+        Err(e) => {
+            spinner.stop(format!("Rosetta 2 install failed: {e}"));
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // macOS: podman machine
 // ---------------------------------------------------------------------------
 
 /// Initialize and start a podman machine on macOS.
 fn setup_macos_podman_machine() -> Result<(), OnboardingError> {
+    // Rosetta 2 is required for podman on Apple Silicon.
+    if cfg!(target_arch = "aarch64") {
+        install_rosetta();
+    }
+
     let spinner = cliclack::spinner();
     spinner.start("Initializing podman machine (4 CPUs, 6GB RAM, 20GB disk)…");
 

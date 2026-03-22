@@ -195,27 +195,27 @@ pub fn display_diff_and_confirm(
 
 /// Colorize a unified diff of TOML content.
 ///
-/// Added lines get a dark green background, deleted lines dark red. TOML
-/// syntax (section headers, key/value pairs) is highlighted on top.
+/// Only the `+`/`-` prefix symbol is colored (green/red). The rest of the
+/// line gets normal TOML syntax highlighting.
 fn colorize_diff_toml(diff: &str) -> String {
     let mut out = String::new();
     for line in diff.lines() {
         match line.chars().next() {
             Some('+') => {
-                // Dark green background, TOML highlighting with fg-only resets.
-                out.push_str("\x1b[48;5;22m+");
-                out.push_str(&highlight_toml(&line[1..], true));
-                out.push_str("\x1b[0m\n");
+                // Green `+`, then normal TOML highlighting.
+                out.push_str("\x1b[32m+\x1b[0m");
+                out.push_str(&highlight_toml(&line[1..]));
+                out.push('\n');
             }
             Some('-') => {
-                // Dark red background, TOML highlighting with fg-only resets.
-                out.push_str("\x1b[48;5;52m-");
-                out.push_str(&highlight_toml(&line[1..], true));
-                out.push_str("\x1b[0m\n");
+                // Red `-`, then normal TOML highlighting.
+                out.push_str("\x1b[31m-\x1b[0m");
+                out.push_str(&highlight_toml(&line[1..]));
+                out.push('\n');
             }
             Some(' ') => {
                 out.push(' ');
-                out.push_str(&highlight_toml(&line[1..], false));
+                out.push_str(&highlight_toml(&line[1..]));
                 out.push('\n');
             }
             _ => {
@@ -228,27 +228,19 @@ fn colorize_diff_toml(diff: &str) -> String {
 }
 
 /// Apply TOML syntax coloring to a single line.
-///
-/// When `preserve_bg` is true, resets only affect foreground (so diff
-/// background color is preserved).
-fn highlight_toml(line: &str, preserve_bg: bool) -> String {
-    let reset = if preserve_bg {
-        "\x1b[39;22m"
-    } else {
-        "\x1b[0m"
-    };
+fn highlight_toml(line: &str) -> String {
     let trimmed = line.trim();
 
     // Section headers: [section] or [[section]]
     if (trimmed.starts_with('[') && trimmed.ends_with(']'))
         || (trimmed.starts_with("[[") && trimmed.ends_with("]]"))
     {
-        return format!("\x1b[1;36m{line}{reset}");
+        return format!("\x1b[1;36m{line}\x1b[0m");
     }
 
     // Key = value pairs
     if let Some((key, value)) = line.split_once(" = ") {
-        return format!("{key} = \x1b[33m{value}{reset}");
+        return format!("{key} = \x1b[33m{value}\x1b[0m");
     }
 
     line.to_string()
@@ -346,6 +338,7 @@ mod tests {
             discord_user_id: Some("123456789012345678".into()),
             embeddings: Some(ServiceChoice::NixNative),
             embedding_model: Some("qwen3-embedding:8b".into()),
+            embedding_hf_repo: Some("Qwen/Qwen3-Embedding-8B-GGUF:Q8_0".into()),
             search: Some(SearchChoice::SearxngLocal),
             crawl: Some(ServiceChoice::Container),
             docling: Some(ServiceChoice::NixNative),

@@ -76,10 +76,10 @@ pub async fn run(args: InitArgs) -> Result<(), GhostError> {
     let _ = cliclack::log::step("Services");
 
     // Embeddings — with inline nix add + remote probe, retry on failure.
-    let (embeddings, embedding_model) = loop {
-        let (emb, model) = services::prompt_embeddings(&env, args.embeddings.as_deref())?;
+    let (embeddings, embedding_model, embedding_hf_repo) = loop {
+        let sel = services::prompt_embeddings(&env, args.embeddings.as_deref())?;
 
-        if matches!(emb, ServiceChoice::NixNative) {
+        if matches!(sel.choice, ServiceChoice::NixNative) {
             match services::nix_add("llama-cpp", "Adding llama-server via nix...") {
                 Ok(()) => {}
                 Err(e) => {
@@ -93,7 +93,7 @@ pub async fn run(args: InitArgs) -> Result<(), GhostError> {
         }
 
         // Test remote embeddings endpoint if configured.
-        if let ServiceChoice::Remote(ref url) = emb {
+        if let ServiceChoice::Remote(ref url) = sel.choice {
             if !url.is_empty() {
                 let should_test = cliclack::confirm(
                     "Test the embeddings endpoint? (sends a real embedding request)",
@@ -101,10 +101,10 @@ pub async fn run(args: InitArgs) -> Result<(), GhostError> {
                 .initial_value(true)
                 .interact()?;
                 if should_test {
-                    if let Err(msg) = test_embeddings(url, model.as_deref()).await {
+                    if let Err(msg) = test_embeddings(url, sel.model.as_deref()).await {
                         let _ = cliclack::log::warning(msg);
                         if args.embeddings.is_some() {
-                            break (emb, model);
+                            break (sel.choice, sel.model, sel.hf_repo);
                         }
                         continue;
                     }
@@ -113,7 +113,7 @@ pub async fn run(args: InitArgs) -> Result<(), GhostError> {
             }
         }
 
-        break (emb, model);
+        break (sel.choice, sel.model, sel.hf_repo);
     };
 
     let search = services::prompt_search(&env, args.search.as_deref())?;
@@ -149,6 +149,7 @@ pub async fn run(args: InitArgs) -> Result<(), GhostError> {
         discord_user_id: Some(discord_user_id),
         embeddings: Some(embeddings),
         embedding_model,
+        embedding_hf_repo,
         search: Some(search),
         crawl: Some(crawl),
         docling: Some(docling),
@@ -183,12 +184,7 @@ pub async fn run(args: InitArgs) -> Result<(), GhostError> {
 
     install_service_files(&env, &state, &config)?;
 
-    // ── Phase 5: Health + Launch ──
-    let _ = cliclack::log::step("Health Checks");
-
-    let results = health::check_all_services(&state).await;
-    health::display_health_table(&results);
-
+    // ── Phase 5: Launch + Health ──
     let should_start = health::prompt_start_daemon(args.start)?;
     if should_start {
         health::start_all_services(
@@ -197,6 +193,12 @@ pub async fn run(args: InitArgs) -> Result<(), GhostError> {
             &config.workspace,
         )?;
         let _ = cliclack::log::success("Services started");
+
+        // Health check after services have had a chance to start.
+        let _ = cliclack::log::step("Health Checks");
+        let results = health::check_all_services(&state).await;
+        health::display_health_table(&results);
+
         health::trigger_first_message().await?;
     }
 
@@ -322,11 +324,24 @@ fn install_service_files(
         .map(|h| h.display().to_string())
         .unwrap_or_default();
 
-    let llama_exe = if matches!(state.embeddings, Some(ServiceChoice::NixNative)) {
-        Some(format!("{home_str}/.nix-profile/bin/llama-server"))
+    let llama_info = if matches!(state.embeddings, Some(ServiceChoice::NixNative)) {
+        let exe_path = format!("{home_str}/.nix-profile/bin/llama-server");
+        Some((
+            exe_path,
+            state.embedding_hf_repo.clone().unwrap_or_default(),
+            state.embedding_model.clone().unwrap_or_default(),
+        ))
     } else {
         None
     };
+
+    let llama_server = llama_info.as_ref().map(|(exe, repo, model)| {
+        service_files::LlamaServerInfo {
+            exe,
+            hf_repo: repo,
+            alias: model,
+        }
+    });
 
     let docling_exe = if matches!(state.docling, Some(ServiceChoice::NixNative)) {
         Some(format!("{home_str}/.nix-profile/bin/docling-serve"))
@@ -338,7 +353,7 @@ fn install_service_files(
         &env.platform,
         &exe,
         &workspace,
-        llama_exe.as_deref(),
+        llama_server.as_ref(),
         docling_exe.as_deref(),
     )?;
 

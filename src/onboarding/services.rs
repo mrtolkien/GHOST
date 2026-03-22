@@ -42,11 +42,18 @@ fn show_section(
 // Embeddings
 // ---------------------------------------------------------------------------
 
+/// Result of the embeddings prompt: choice, model name, and optional HF repo.
+pub struct EmbeddingSelection {
+    pub choice: ServiceChoice,
+    pub model: Option<String>,
+    pub hf_repo: Option<String>,
+}
+
 /// Prompt the user for how to provide embeddings (llama-server).
 pub fn prompt_embeddings(
     env: &DetectedEnvironment,
     flag: Option<&str>,
-) -> Result<(ServiceChoice, Option<String>), OnboardingError> {
+) -> Result<EmbeddingSelection, OnboardingError> {
     show_section(
         "Embeddings (llama-server)",
         "Your GHOST converts text into vectors for semantic search. \
@@ -64,11 +71,28 @@ pub fn prompt_embeddings(
     };
 
     if matches!(choice, ServiceChoice::Skip) {
-        return Ok((choice, None));
+        return Ok(EmbeddingSelection {
+            choice,
+            model: None,
+            hf_repo: None,
+        });
     }
 
-    let model = prompt_embedding_model(flag.is_some())?;
-    Ok((choice, Some(model)))
+    let from_flag = flag.is_some();
+
+    // For NixNative (llama-server), ask for the HuggingFace repo first.
+    let hf_repo = if matches!(choice, ServiceChoice::NixNative) {
+        Some(prompt_hf_repo(from_flag)?)
+    } else {
+        None
+    };
+
+    let model = prompt_embedding_model(from_flag)?;
+    Ok(EmbeddingSelection {
+        choice,
+        model: Some(model),
+        hf_repo,
+    })
 }
 
 fn prompt_embeddings_interactive(
@@ -114,13 +138,27 @@ fn prompt_embeddings_interactive(
     Ok(choice)
 }
 
-fn prompt_embedding_model(from_flag: bool) -> Result<String, OnboardingError> {
+const DEFAULT_EMBEDDING_HF_REPO: &str = "Qwen/Qwen3-Embedding-8B-GGUF:Q8_0";
+const DEFAULT_EMBEDDING_MODEL: &str = "qwen3-embedding:8b";
+
+fn prompt_hf_repo(from_flag: bool) -> Result<String, OnboardingError> {
     if from_flag {
-        return Ok("qwen3-embedding:8b".to_string());
+        return Ok(DEFAULT_EMBEDDING_HF_REPO.to_string());
     }
 
-    let model: String = cliclack::input("Embedding model:")
-        .default_input("qwen3-embedding:8b")
+    let repo: String = cliclack::input("HuggingFace model repo (user/model[:quant]):")
+        .default_input(DEFAULT_EMBEDDING_HF_REPO)
+        .interact()?;
+    Ok(repo)
+}
+
+fn prompt_embedding_model(from_flag: bool) -> Result<String, OnboardingError> {
+    if from_flag {
+        return Ok(DEFAULT_EMBEDDING_MODEL.to_string());
+    }
+
+    let model: String = cliclack::input("Embedding model name (used in API requests):")
+        .default_input(DEFAULT_EMBEDDING_MODEL)
         .interact()?;
     Ok(model)
 }
@@ -268,16 +306,20 @@ fn prompt_docling_interactive(env: &DetectedEnvironment) -> Result<ServiceChoice
     let default = if env.low_memory {
         ServiceChoice::Skip
     } else {
-        ServiceChoice::NixNative
+        ServiceChoice::Container
     };
 
     let mut choice = cliclack::select("How should GHOST process documents?")
         .item(
-            ServiceChoice::NixNative,
-            "Install docling-serve via nix (recommended)",
+            ServiceChoice::Container,
+            "Container (recommended)",
             "",
         )
-        .item(ServiceChoice::Container, "Container", "")
+        .item(
+            ServiceChoice::NixNative,
+            "Install docling-serve via nix",
+            "may be broken in nixpkgs",
+        )
         .item(
             ServiceChoice::Remote(String::new()),
             "Remote — enter URL",
@@ -352,25 +394,36 @@ fn has_any_service(sel: &ServiceSelections) -> bool {
 
 /// Append a YAML fragment, adjusting networking for the target platform.
 ///
+/// Each fragment line is indented by 2 spaces so that service definitions
+/// sit properly under the top-level `services:` key.
+///
 /// `add_host_network` — on Linux, inject `network_mode: host` for this
 /// service (used for crawl4ai which needs to reach host-bound services).
 fn append_fragment(out: &mut String, fragment: &str, is_linux: bool, add_host_network: bool) {
     for line in fragment.lines() {
-        if is_linux && is_ports_line(line) {
+        // Indent fragment lines by 2 spaces to nest under `services:`.
+        // Keep blank lines blank.
+        let indented = if line.is_empty() {
+            String::new()
+        } else {
+            format!("  {line}")
+        };
+
+        if is_linux && is_ports_line(&indented) {
             // On Linux with host networking, skip port bindings.
             continue;
         }
-        out.push_str(line);
+        out.push_str(&indented);
         out.push('\n');
 
         // On Linux, inject network_mode after the service name line (top-level
         // service key, indented 2 spaces with a colon).
-        if is_linux && add_host_network && is_service_name_line(line) {
+        if is_linux && add_host_network && is_service_name_line(&indented) {
             out.push_str("    network_mode: host\n");
         }
 
         // On macOS, inject extra_hosts + network after the service name line.
-        if !is_linux && is_service_name_line(line) {
+        if !is_linux && is_service_name_line(&indented) {
             out.push_str(
                 "    extra_hosts:\n\
                  \x20     - \"host.docker.internal:host-gateway\"\n\
@@ -570,5 +623,120 @@ mod tests {
         assert!(is_service_name_line("  crawl4ai:"));
         assert!(!is_service_name_line("    image: foo"));
         assert!(!is_service_name_line("services:"));
+    }
+
+    /// Parse compose output as YAML and return the `services` mapping.
+    fn parse_compose(yaml: &str) -> serde_yaml::Value {
+        serde_yaml::from_str(yaml).unwrap_or_else(|e| {
+            panic!("generated compose is not valid YAML:\n{yaml}\n\nerror: {e}")
+        })
+    }
+
+    #[test]
+    fn compose_linux_all_services_valid_yaml() {
+        let sel = ServiceSelections {
+            searxng: true,
+            crawl4ai: true,
+            docling_container: true,
+        };
+        let yaml = generate_compose(&sel, true);
+        let doc = parse_compose(&yaml);
+
+        let services = doc["services"].as_mapping().expect("services should be a mapping");
+        assert!(services.contains_key("searxng"), "missing searxng service");
+        assert!(services.contains_key("crawl4ai"), "missing crawl4ai service");
+        assert!(services.contains_key("chrome"), "missing chrome service");
+        assert!(
+            services.contains_key("docling-serve"),
+            "missing docling-serve service"
+        );
+
+        // crawl4ai should have network_mode: host on Linux
+        assert_eq!(doc["services"]["crawl4ai"]["network_mode"].as_str(), Some("host"));
+
+        // Ports should be stripped on Linux
+        assert!(doc["services"]["searxng"].get("ports").is_none());
+    }
+
+    #[test]
+    fn compose_macos_all_services_valid_yaml() {
+        let sel = ServiceSelections {
+            searxng: true,
+            crawl4ai: true,
+            docling_container: true,
+        };
+        let yaml = generate_compose(&sel, false);
+        let doc = parse_compose(&yaml);
+
+        let services = doc["services"].as_mapping().expect("services should be a mapping");
+        assert!(services.contains_key("searxng"), "missing searxng service");
+        assert!(services.contains_key("crawl4ai"), "missing crawl4ai service");
+        assert!(services.contains_key("chrome"), "missing chrome service");
+        assert!(
+            services.contains_key("docling-serve"),
+            "missing docling-serve service"
+        );
+
+        // All services should have extra_hosts on macOS
+        for name in &["searxng", "crawl4ai", "chrome", "docling-serve"] {
+            let svc = &doc["services"][name];
+            assert!(
+                svc.get("extra_hosts").is_some(),
+                "{name} missing extra_hosts on macOS"
+            );
+            assert!(
+                svc.get("networks").is_some(),
+                "{name} missing networks on macOS"
+            );
+        }
+
+        // Should have bridge network definition
+        assert_eq!(doc["networks"]["ghost"]["driver"].as_str(), Some("bridge"));
+
+        // Ports should be preserved on macOS
+        assert!(doc["services"]["searxng"].get("ports").is_some());
+    }
+
+    #[test]
+    fn compose_single_service_valid_yaml() {
+        // Each service fragment alone should produce valid YAML.
+        for (label, sel) in [
+            (
+                "searxng-only",
+                ServiceSelections {
+                    searxng: true,
+                    crawl4ai: false,
+                    docling_container: false,
+                },
+            ),
+            (
+                "crawl4ai-only",
+                ServiceSelections {
+                    searxng: false,
+                    crawl4ai: true,
+                    docling_container: false,
+                },
+            ),
+            (
+                "docling-only",
+                ServiceSelections {
+                    searxng: false,
+                    crawl4ai: false,
+                    docling_container: true,
+                },
+            ),
+        ] {
+            for is_linux in [true, false] {
+                let platform = if is_linux { "linux" } else { "macos" };
+                let yaml = generate_compose(&sel, is_linux);
+                let doc: serde_yaml::Value = serde_yaml::from_str(&yaml).unwrap_or_else(|e| {
+                    panic!("{label}/{platform} is not valid YAML:\n{yaml}\n\nerror: {e}")
+                });
+                assert!(
+                    doc["services"].as_mapping().is_some(),
+                    "{label}/{platform} missing services mapping"
+                );
+            }
+        }
     }
 }

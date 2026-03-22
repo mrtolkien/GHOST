@@ -22,6 +22,9 @@ pub struct OnboardingState {
     pub discord_user_id: Option<String>,
     pub embeddings: Option<ServiceChoice>,
     pub embedding_model: Option<String>,
+    /// HuggingFace repo for llama-server (e.g. `Qwen/Qwen3-Embedding-8B-GGUF:Q8_0`).
+    /// Only used when embeddings is `NixNative`.
+    pub embedding_hf_repo: Option<String>,
     pub search: Option<SearchChoice>,
     pub crawl: Option<ServiceChoice>,
     pub docling: Option<ServiceChoice>,

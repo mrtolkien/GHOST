@@ -31,14 +31,14 @@ WantedBy=default.target
 }
 
 /// Generate a systemd user unit for the llama-server embedding service.
-pub fn generate_llama_server_unit_systemd(exe: &str, model: &str) -> String {
+pub fn generate_llama_server_unit_systemd(exe: &str, hf_repo: &str, alias: &str) -> String {
     format!(
         r#"[Unit]
 Description=llama-server embedding service
 After=network-online.target
 
 [Service]
-ExecStart={exe} --embedding --model {model} --port 11434
+ExecStart={exe} --embedding --hf-repo {hf_repo} --alias {alias} --port 11434
 Restart=on-failure
 RestartSec=5
 TimeoutStopSec=30
@@ -102,7 +102,7 @@ pub fn generate_daemon_plist(exe: &str, workspace: &str) -> String {
 }
 
 /// Generate a launchd plist for the llama-server embedding service.
-pub fn generate_llama_server_plist(exe: &str, model: &str) -> String {
+pub fn generate_llama_server_plist(exe: &str, hf_repo: &str, alias: &str) -> String {
     let log_dir = dirs::data_dir()
         .unwrap_or_else(|| std::path::PathBuf::from("/tmp"))
         .join("ghost/logs");
@@ -118,8 +118,10 @@ pub fn generate_llama_server_plist(exe: &str, model: &str) -> String {
   <array>
     <string>{exe}</string>
     <string>--embedding</string>
-    <string>--model</string>
-    <string>{model}</string>
+    <string>--hf-repo</string>
+    <string>{hf_repo}</string>
+    <string>--alias</string>
+    <string>{alias}</string>
     <string>--port</string>
     <string>11434</string>
   </array>
@@ -246,15 +248,22 @@ pub fn ensure_linger_enabled() {
 // Bulk installer (wizard phase)
 // ---------------------------------------------------------------------------
 
+/// llama-server installation info: executable path, HF repo, and API alias.
+pub struct LlamaServerInfo<'a> {
+    pub exe: &'a str,
+    pub hf_repo: &'a str,
+    pub alias: &'a str,
+}
+
 /// Install all applicable service files and return the list of paths written.
 ///
 /// Always installs the ghost daemon unit. Installs llama-server and docling
-/// units when executables are provided. On Linux, enables systemd linger.
+/// units when provided. On Linux, enables systemd linger.
 pub fn install_all_service_files(
     platform: &detect::Platform,
     exe: &str,
     workspace: &str,
-    llama_server_exe: Option<&str>,
+    llama_server: Option<&LlamaServerInfo<'_>>,
     docling_exe: Option<&str>,
 ) -> Result<Vec<String>, OnboardingError> {
     let mut written = Vec::new();
@@ -277,10 +286,9 @@ pub fn install_all_service_files(
             written.push(path.display().to_string());
 
             // llama-server
-            if let Some(ls_exe) = llama_server_exe {
-                let model = "qwen3-embedding:8b";
+            if let Some(ls) = llama_server {
                 let path = plist_dir.join("com.ghost.llama-server.plist");
-                std::fs::write(&path, generate_llama_server_plist(ls_exe, model))?;
+                std::fs::write(&path, generate_llama_server_plist(ls.exe, ls.hf_repo, ls.alias))?;
                 written.push(path.display().to_string());
             }
 
@@ -303,10 +311,12 @@ pub fn install_all_service_files(
             written.push(path.display().to_string());
 
             // llama-server
-            if let Some(ls_exe) = llama_server_exe {
-                let model = "qwen3-embedding:8b";
+            if let Some(ls) = llama_server {
                 let path = unit_dir.join("llama-server.service");
-                std::fs::write(&path, generate_llama_server_unit_systemd(ls_exe, model))?;
+                std::fs::write(
+                    &path,
+                    generate_llama_server_unit_systemd(ls.exe, ls.hf_repo, ls.alias),
+                )?;
                 written.push(path.display().to_string());
             }
 
@@ -344,11 +354,13 @@ mod tests {
     fn llama_server_unit() {
         let unit = generate_llama_server_unit_systemd(
             "/home/user/.nix-profile/bin/llama-server",
+            "Qwen/Qwen3-Embedding-8B-GGUF:Q8_0",
             "qwen3-embedding:8b",
         );
         assert!(unit.contains("llama-server"));
         assert!(unit.contains("--embedding"));
-        assert!(unit.contains("qwen3-embedding:8b"));
+        assert!(unit.contains("--hf-repo Qwen/Qwen3-Embedding-8B-GGUF:Q8_0"));
+        assert!(unit.contains("--alias qwen3-embedding:8b"));
     }
 
     #[test]
