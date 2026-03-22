@@ -65,6 +65,8 @@ pub async fn validate_bot_token(token: &str) -> Result<(), OnboardingError> {
 pub async fn prompt_discord(
     token_flag: Option<&str>,
     user_flag: Option<&str>,
+    existing_token: Option<&str>,
+    existing_user_id: Option<&str>,
 ) -> Result<(String, String), OnboardingError> {
     cliclack::note("Discord Bot Setup", SETUP_GUIDE)?;
 
@@ -72,6 +74,16 @@ pub async fn prompt_discord(
     let token = loop {
         let t = match token_flag {
             Some(t) => t.to_string(),
+            None if existing_token.is_some() => {
+                let keep = cliclack::confirm("Keep existing bot token?")
+                    .initial_value(true)
+                    .interact()?;
+                if keep {
+                    existing_token.unwrap().to_string()
+                } else {
+                    cliclack::password("Paste your bot token").interact()?
+                }
+            }
             None => cliclack::password("Paste your bot token").interact()?,
         };
         match validate_bot_token(&t).await {
@@ -81,6 +93,11 @@ pub async fn prompt_discord(
                 if token_flag.is_some() {
                     return Err(e);
                 }
+                // If we were keeping existing and it failed, force re-entry.
+                if existing_token.is_some() {
+                    let _ =
+                        cliclack::log::info("Existing token is invalid, please enter a new one");
+                }
             }
         }
     };
@@ -89,12 +106,18 @@ pub async fn prompt_discord(
     let user_id = loop {
         let u: String = match user_flag {
             Some(u) => u.to_string(),
-            None => cliclack::input("Your Discord user ID")
-                .placeholder(
-                    "Enable Developer Mode in Settings → Advanced, \
-                     then right-click your name → Copy User ID",
-                )
-                .interact()?,
+            None => {
+                let mut input = cliclack::input("Your Discord user ID");
+                if let Some(uid) = existing_user_id {
+                    input = input.default_input(uid);
+                } else {
+                    input = input.placeholder(
+                        "Enable Developer Mode in Settings → Advanced, \
+                         then right-click your name → Copy User ID",
+                    );
+                }
+                input.interact()?
+            }
         };
         match validate_user_id(&u) {
             Ok(()) => break u,

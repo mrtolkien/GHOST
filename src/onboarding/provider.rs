@@ -12,11 +12,16 @@ pub fn catalog_url(provider: &ProviderKind) -> &'static str {
 }
 
 /// Ask the user to pick an LLM provider, or parse from a CLI flag.
-pub fn prompt_provider(flag: Option<&str>) -> Result<ProviderKind, OnboardingError> {
+pub fn prompt_provider(
+    flag: Option<&str>,
+    existing: Option<ProviderKind>,
+) -> Result<ProviderKind, OnboardingError> {
     if let Some(value) = flag {
         return ProviderKind::from_cli_flag(value)
             .ok_or_else(|| OnboardingError::InvalidInput(format!("unknown provider: {value}")));
     }
+
+    let default = existing.unwrap_or(ProviderKind::OpenRouter);
 
     let choice = cliclack::select("Which LLM provider do you want to use?")
         .item(
@@ -35,6 +40,7 @@ pub fn prompt_provider(flag: Option<&str>) -> Result<ProviderKind, OnboardingErr
             "OpenAI (OAuth / Codex)",
             "device-code OAuth flow",
         )
+        .initial_value(default)
         .interact()?;
 
     Ok(choice)
@@ -47,11 +53,23 @@ pub fn prompt_provider(flag: Option<&str>) -> Result<ProviderKind, OnboardingErr
 pub async fn prompt_credentials(
     provider: &ProviderKind,
     flag: Option<&str>,
+    existing: Option<&str>,
 ) -> Result<Option<String>, OnboardingError> {
     match provider {
         ProviderKind::OpenRouter | ProviderKind::Kimi => {
             let key = match flag {
                 Some(k) => k.to_string(),
+                None if existing.is_some() => {
+                    let keep = cliclack::confirm("Keep existing API key?")
+                        .initial_value(true)
+                        .interact()?;
+                    if keep {
+                        existing.unwrap().to_string()
+                    } else {
+                        cliclack::password(format!("Paste your {} API key:", provider.as_str()))
+                            .interact()?
+                    }
+                }
                 None => cliclack::password(format!("Paste your {} API key:", provider.as_str()))
                     .interact()?,
             };
@@ -114,6 +132,7 @@ async fn prompt_openai_oauth_credentials() -> Result<(), OnboardingError> {
 pub fn prompt_model(
     provider: &ProviderKind,
     flag: Option<&str>,
+    existing: Option<&str>,
 ) -> Result<String, OnboardingError> {
     if let Some(m) = flag {
         return Ok(m.to_string());
@@ -122,21 +141,29 @@ pub fn prompt_model(
     let url = catalog_url(provider);
     cliclack::note("Model catalog", format!("Browse models at: {url}"))?;
 
-    let model: String = cliclack::input("Enter the model ID:")
-        .placeholder("e.g. anthropic/claude-sonnet-4")
-        .interact()?;
+    let mut input = cliclack::input("Enter the model ID:");
+    if let Some(m) = existing {
+        input = input.default_input(m);
+    } else {
+        input = input.placeholder("e.g. anthropic/claude-sonnet-4");
+    }
+    let model: String = input.interact()?;
 
     Ok(model)
 }
 
 /// Ask the user for the context window size, or accept from a CLI flag.
-pub fn prompt_context_window(flag: Option<u32>) -> Result<u32, OnboardingError> {
+pub fn prompt_context_window(
+    flag: Option<u32>,
+    existing: Option<u32>,
+) -> Result<u32, OnboardingError> {
     if let Some(v) = flag {
         return Ok(v);
     }
 
+    let default = existing.unwrap_or(200_000).to_string();
     let raw: String = cliclack::input("Context window size (tokens):")
-        .default_input("200000")
+        .default_input(&default)
         .interact()?;
 
     raw.parse::<u32>().map_err(|_| {

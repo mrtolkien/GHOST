@@ -11,6 +11,18 @@ pub mod wizard;
 
 use crate::config::ProviderKind;
 
+/// Values extracted from an existing config.toml + .env, used to pre-fill
+/// wizard prompts when the user selects "Update existing config".
+#[derive(Debug, Default)]
+pub struct ExistingValues {
+    pub provider: Option<ProviderKind>,
+    pub model: Option<String>,
+    pub context_window: Option<u32>,
+    pub api_key: Option<String>,
+    pub discord_token: Option<String>,
+    pub discord_user_id: Option<String>,
+}
+
 /// Tracks cumulative wizard state across phases.
 #[derive(Debug, Default)]
 pub struct OnboardingState {

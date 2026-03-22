@@ -4,8 +4,8 @@ use crate::cli::init::InitArgs;
 use crate::error::GhostError;
 
 use super::{
-    OnboardingState, ServiceChoice, config_writer, container_setup, detect, discord, health,
-    provider, service_files, services,
+    ExistingValues, OnboardingState, ServiceChoice, config_writer, container_setup, detect,
+    discord, health, provider, service_files, services,
 };
 
 /// Run the full onboarding wizard.
@@ -29,15 +29,27 @@ pub async fn run(args: InitArgs) -> Result<(), GhostError> {
     // Offer to install podman if no container runtime found.
     container_setup::prompt_container_setup(&mut env)?;
 
-    let existing_toml = read_existing_config(&env)?;
+    let (existing_toml, existing) = read_existing_config(&env)?;
+    let ex = existing.as_ref();
 
     // ── Phase 1: Provider ──
     let _ = cliclack::log::step("LLM Provider");
 
-    let provider_choice = provider::prompt_provider(args.provider.as_deref())?;
-    let api_key = provider::prompt_credentials(&provider_choice, args.api_key.as_deref()).await?;
-    let model = provider::prompt_model(&provider_choice, args.model.as_deref())?;
-    let context_window = provider::prompt_context_window(args.context_window)?;
+    let provider_choice =
+        provider::prompt_provider(args.provider.as_deref(), ex.and_then(|e| e.provider))?;
+    let api_key = provider::prompt_credentials(
+        &provider_choice,
+        args.api_key.as_deref(),
+        ex.and_then(|e| e.api_key.as_deref()),
+    )
+    .await?;
+    let model = provider::prompt_model(
+        &provider_choice,
+        args.model.as_deref(),
+        ex.and_then(|e| e.model.as_deref()),
+    )?;
+    let context_window =
+        provider::prompt_context_window(args.context_window, ex.and_then(|e| e.context_window))?;
 
     // Ask before making a real API call. Retry on failure.
     let should_test = cliclack::confirm("Test the provider connection? (makes a real API call)")
@@ -68,9 +80,13 @@ pub async fn run(args: InitArgs) -> Result<(), GhostError> {
     // ── Phase 2: Discord ──
     let _ = cliclack::log::step("Discord");
 
-    let (discord_token, discord_user_id) =
-        discord::prompt_discord(args.discord_token.as_deref(), args.discord_user.as_deref())
-            .await?;
+    let (discord_token, discord_user_id) = discord::prompt_discord(
+        args.discord_token.as_deref(),
+        args.discord_user.as_deref(),
+        ex.and_then(|e| e.discord_token.as_deref()),
+        ex.and_then(|e| e.discord_user_id.as_deref()),
+    )
+    .await?;
 
     // ── Phase 3: Services ──
     let _ = cliclack::log::step("Services");
@@ -249,15 +265,18 @@ async fn test_embeddings(url: &str, model: Option<&str>) -> Result<(), String> {
 // ---------------------------------------------------------------------------
 
 /// Read existing config.toml (if any), offering update/fresh/cancel when
-/// non-empty.
-fn read_existing_config(env: &detect::DetectedEnvironment) -> Result<String, GhostError> {
+/// non-empty. Returns the raw TOML (for diff) and parsed existing values
+/// (for pre-filling prompts).
+fn read_existing_config(
+    env: &detect::DetectedEnvironment,
+) -> Result<(String, Option<ExistingValues>), GhostError> {
     let Some(ref path) = env.existing_config else {
-        return Ok(String::new());
+        return Ok((String::new(), None));
     };
 
     let content = std::fs::read_to_string(path).unwrap_or_default();
     if content.is_empty() {
-        return Ok(String::new());
+        return Ok((String::new(), None));
     }
 
     let action: &str = cliclack::select("Existing config.toml found")
@@ -275,9 +294,46 @@ fn read_existing_config(env: &detect::DetectedEnvironment) -> Result<String, Gho
             cliclack::outro("Setup cancelled.")?;
             std::process::exit(0);
         }
-        "fresh" => Ok(String::new()),
-        _ => Ok(content),
+        "fresh" => Ok((String::new(), None)),
+        _ => {
+            let existing = parse_existing_values(path);
+            Ok((content, Some(existing)))
+        }
     }
+}
+
+/// Parse existing config.toml + .env into pre-fill values for the wizard.
+fn parse_existing_values(config_path: &std::path::Path) -> ExistingValues {
+    let mut vals = ExistingValues::default();
+
+    // Parse config.toml via the normal config loader.
+    if let Ok(config) = crate::config::load() {
+        let primary = config.models.aliases.get(&config.models.default);
+        if let Some(m) = primary {
+            vals.provider = Some(m.provider);
+            vals.model = Some(m.model.clone());
+            vals.context_window = Some(m.context_window);
+        }
+        vals.discord_user_id = config.discord.allowed_user_ids.into_iter().next();
+    }
+
+    // Parse .env for secrets (sibling to config.toml).
+    let env_path = config_path.with_file_name(".env");
+    if let Ok(content) = std::fs::read_to_string(env_path) {
+        for line in content.lines() {
+            if let Some((k, v)) = line.split_once('=') {
+                match k {
+                    "DISCORD_BOT_TOKEN" => vals.discord_token = Some(v.to_string()),
+                    "OPENROUTER_API_KEY" | "KIMI_API_KEY" => {
+                        vals.api_key = Some(v.to_string());
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+
+    vals
 }
 
 /// Display environment detection results.
