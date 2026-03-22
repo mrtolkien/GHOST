@@ -20,35 +20,33 @@
 
 ---
 
-A single Rust binary that runs your own AI agent with persistent memory,
-background jobs, and multi-interface communication.
+A single Rust binary that runs your own AI agent with persistent memory, background
+jobs, and multi-interface communication.
 
 > **Extremely early and experimental.** See the
 > [project status](https://ghost.tolki.dev/disclaimer/) page before diving in.
 
 ## What it does
 
-- **Plain text workspace** — identity, agents, skills, and knowledge are
-  editable files in `~/GHOST/`. `git diff` your GHOST.
-- **Knowledge graph** — notes, references, diary with `[[typed>wiki links]]`,
-  hybrid BM25 + embedding search, and reflection agents that learn from idle
-  conversations.
-- **Lua agents** — background workers with cron/idle triggers, restricted
-  tools, and their own system prompts. Ships with deep-research and
-  chat-reflection.
+- **Plain text workspace** — identity, agents, skills, and knowledge are editable files
+  in `~/GHOST/`. `git diff` your GHOST.
+- **Knowledge graph** — notes, references, diary with `[[typed>wiki links]]`, hybrid
+  BM25 + embedding search, and reflection agents that learn from idle conversations.
+- **Lua agents** — background workers with cron/idle triggers, restricted tools, and
+  their own system prompts. Ships with deep-research and chat-reflection.
 - **GHOST HACK** — a coding agent that loads project context, reads code, asks
   questions, runs tests, and commits.
-- **Token efficiency** — minimal tools, minimal prompt, minimal context. Why
-  use many tokens when few do trick?
+- **Token efficiency** — minimal tools, minimal prompt, minimal context. Why use many
+  tokens when few do trick?
 
 ## Getting started
 
 Full installation and setup instructions are in the
 **[docs](https://ghost.tolki.dev/getting-started/installation/)**.
 
-GHOST installs via Nix with a binary cache so you don't have to compile from
-source. The docs walk you through prerequisites, onboarding, and configuring
-providers and interfaces.
+GHOST installs via Nix with a binary cache so you don't have to compile from source. The
+docs walk you through prerequisites, onboarding, and configuring providers and
+interfaces.
 
 ## Architecture
 
@@ -64,15 +62,15 @@ ghost daemon
 
 ## Similar projects
 
-GHOST was born out of daily-driving [OpenClaw](https://github.com/openclaw/openclaw)
-and wanting something different. If GHOST isn't your thing, check out:
+GHOST was born out of daily-driving [OpenClaw](https://github.com/openclaw/openclaw) and
+wanting something different. If GHOST isn't your thing, check out:
 
-- **[pi-mono](https://github.com/pi-mono/pi)** — the coding agent that
-  inspired GHOST HACK.
-- **[OpenClaw](https://github.com/openclaw/openclaw)** — the OG open-source
-  AI agent platform.
-- **[ZeroClaw](https://github.com/zeroclaw-labs/zeroclaw)** — clean Rust
-  implementation with great provider and interface abstractions.
+- **[pi-mono](https://github.com/pi-mono/pi)** — the coding agent that inspired GHOST
+  HACK.
+- **[OpenClaw](https://github.com/openclaw/openclaw)** — the OG open-source AI agent
+  platform.
+- **[ZeroClaw](https://github.com/zeroclaw-labs/zeroclaw)** — clean Rust implementation
+  with great provider and interface abstractions.
 
 ## License
 
