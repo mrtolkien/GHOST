@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.4.0](https://github.com/mrtolkien/GHOST/compare/v0.3.0...v0.4.0) (2026-03-22)
+
+
+### Features
+
+* add ghost reset ([dc3507c](https://github.com/mrtolkien/GHOST/commit/dc3507c1894b624fa4c2a690bf05845c09e21b0d))
+
+
+### Bug Fixes
+
+* ghost init with existing config actually pre-fills ([a8fdb3c](https://github.com/mrtolkien/GHOST/commit/a8fdb3c9db65883ebf83f96314a88174698af35a))
+* lots of small onboarding/status fixes ([e02ec81](https://github.com/mrtolkien/GHOST/commit/e02ec812ea6c1b2d67bd2e74bed64aa5103aeec3))
+* onboarding bugs — compose YAML, llama-server model, health ordering, diff UI ([7f9ba3a](https://github.com/mrtolkien/GHOST/commit/7f9ba3a224ede7d4d4d7fea9ba78df713fc172cf))
+
+
+### Documentation
+
+* Add Contributor Covenant Code of Conduct ([c77f68c](https://github.com/mrtolkien/GHOST/commit/c77f68c99feed94d080c3d784866db6b9e141c94))
+* Add MIT License to the project ([be3bcf8](https://github.com/mrtolkien/GHOST/commit/be3bcf81b3c2b25a49835cd37c1990c8279f6d3f))
+* disclaimer + README update ([52d2a9f](https://github.com/mrtolkien/GHOST/commit/52d2a9f11a3128b09ab1b1603f38278b05d182b7))
+* some wording changes + reviewing TODO for install ([7f342e1](https://github.com/mrtolkien/GHOST/commit/7f342e148d696d7c7fd2deced47251a44ad9b747))
+
 ## [0.3.0](https://github.com/mrtolkien/GHOST/compare/v0.2.4...v0.3.0) (2026-03-21)
 
 ### Features
