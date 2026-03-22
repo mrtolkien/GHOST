@@ -85,6 +85,8 @@ enum Commands {
     Status,
     /// Gracefully restart the running daemon
     Reboot,
+    /// Stop all services and delete workspace (inverse of init)
+    Reset(ghost::cli::reset::ResetArgs),
     /// Manage the nix shell environment
     Shell {
         #[command(subcommand)]
@@ -134,6 +136,7 @@ async fn dispatch(command: Commands) -> Result<(), GhostError> {
         Commands::Attach { path, caption } => ghost::cli::send::execute_attach(path, caption).await,
         Commands::Status => ghost::cli::status::execute().await,
         Commands::Reboot => ghost::cli::reboot::execute(),
+        Commands::Reset(args) => ghost::cli::reset::execute(args).await,
         Commands::Shell { command } => ghost::cli::shell::execute(command).await,
         Commands::Update {
             from_source,

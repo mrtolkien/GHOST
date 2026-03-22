@@ -11,6 +11,7 @@ pub mod project;
 pub mod reboot;
 pub mod reference;
 pub mod reload;
+pub mod reset;
 pub mod send;
 pub mod session;
 pub mod shell;
