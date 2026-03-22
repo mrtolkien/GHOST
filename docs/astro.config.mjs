@@ -24,7 +24,7 @@ export default defineConfig({
       },
       sidebar: [
         { label: "Introduction", slug: "" },
-        { label: "Concepts", slug: "concepts" },
+        { label: "Project Status", slug: "disclaimer" },
         {
           label: "Getting Started",
           items: [

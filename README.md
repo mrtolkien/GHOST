@@ -1,47 +1,54 @@
-# GHOST
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/public/logo-light.svg">
+    <source media="(prefers-color-scheme: light)" srcset="docs/public/logo-dark.svg">
+    <img src="docs/public/logo-dark.svg" alt="GHOST logo" width="96" height="96">
+  </picture>
+</p>
 
-> Personal AI agent platform. One GHOST, one OPERATOR.
+<h1 align="center">GHOST</h1>
 
-A single binary that runs your own AI companion with persistent memory, background jobs,
-and multi-interface communication.
+<p align="center">
+  <strong>Personal AI agent platform. One GHOST, one OPERATOR.</strong>
+</p>
 
-## Features
+<p align="center">
+  <a href="https://ghost.tolki.dev"><img alt="Docs" src="https://img.shields.io/badge/docs-ghost.tolki.dev-blue"></a>
+  <a href="https://github.com/mrtolkien/GHOST/releases/latest"><img alt="GitHub Release" src="https://img.shields.io/github/v/release/mrtolkien/GHOST"></a>
+  <a href="https://github.com/mrtolkien/GHOST/blob/main/LICENSE"><img alt="License: MIT" src="https://img.shields.io/github/license/mrtolkien/GHOST"></a>
+</p>
 
-- **Persistent knowledge** — notes, references, and diary with graph edges and semantic
-  search (SQLite + sqlite-vec + Ollama embeddings)
-- **Background agents** — autonomous workers for research, reflection, and proactive
-  check-ins
-- **Cron jobs** — scheduled tasks defined as markdown files
-- **Skills** — teachable workflows your GHOST learns from text files
-- **Identity** — configurable personality, values, and behavioral instructions
-- **Multiple LLM providers** — OpenRouter, Kimi Code, OpenAI OAuth (Codex)
-- **Discord interface** — chat with your GHOST in Discord threads
+---
 
-## Quick Start
+A single Rust binary that runs your own AI agent with persistent memory,
+background jobs, and multi-interface communication.
 
-```bash
-# Install
-cargo install --path .
+> **Extremely early and experimental.** See the
+> [project status](https://ghost.tolki.dev/disclaimer/) page before diving in.
 
-# Bootstrap workspace and config
-ghost init
+## What it does
 
-# Pull embedding model
-ollama pull qwen3-embedding:8b
+- **Plain text workspace** — identity, agents, skills, and knowledge are
+  editable files in `~/GHOST/`. `git diff` your GHOST.
+- **Knowledge graph** — notes, references, diary with `[[typed>wiki links]]`,
+  hybrid BM25 + embedding search, and reflection agents that learn from idle
+  conversations.
+- **Lua agents** — background workers with cron/idle triggers, restricted
+  tools, and their own system prompts. Ships with deep-research and
+  chat-reflection.
+- **GHOST HACK** — a coding agent that loads project context, reads code, asks
+  questions, runs tests, and commits.
+- **Token efficiency** — minimal tools, minimal prompt, minimal context. Why
+  use many tokens when few do trick?
 
-# Set secrets
-export OPENROUTER_API_KEY=sk-or-...
-export DISCORD_TOKEN=...
-export BRAVE_API_KEY=BSA...
+## Getting started
 
-# Run
-ghost daemon
-```
+Full installation and setup instructions are in the
+**[docs](https://ghost.tolki.dev/getting-started/installation/)**.
 
-## Documentation
-
-Full docs: **[ghost docs](https://tolki.github.io/ghost/)** (or `mdbook serve docs/`
-locally)
+GHOST installs via Nix with a binary cache so you don't have to compile from
+source. The docs walk you through prerequisites, onboarding, and configuring
+providers and interfaces.
 
 ## Architecture
 
@@ -55,6 +62,18 @@ ghost daemon
 └── Workspace files      (identity, skills, agents, jobs)
 ```
 
+## Similar projects
+
+GHOST was born out of daily-driving [OpenClaw](https://github.com/openclaw/openclaw)
+and wanting something different. If GHOST isn't your thing, check out:
+
+- **[pi-mono](https://github.com/pi-mono/pi)** — the coding agent that
+  inspired GHOST HACK.
+- **[OpenClaw](https://github.com/openclaw/openclaw)** — the OG open-source
+  AI agent platform.
+- **[ZeroClaw](https://github.com/zeroclaw-labs/zeroclaw)** — clean Rust
+  implementation with great provider and interface abstractions.
+
 ## License
 
-MIT
+[MIT](LICENSE)
