@@ -21,7 +21,7 @@ use crate::db;
 use crate::db::GhostDb;
 use crate::providers::ContentBlock;
 
-use super::components_v2::{container, send_v2_message, text_display};
+use super::components_v2::{action_row, button, container, send_v2_message, text_display};
 use super::feedback;
 use super::send::{WARNING_EMBED_COLOR, send_assistant_v2_with_suffix, send_gateway_v2};
 
@@ -351,14 +351,16 @@ impl Handler {
                 }
 
                 if result.stop_reason == ChatStopReason::MaxIterations {
-                    let _ = send_gateway_v2(
-                        &ctx.http,
-                        msg.channel_id,
-                        "Reached tool iteration limit. Send another \
-                         message to continue.",
+                    let buttons = action_row(vec![
+                        button("Continue", &format!("continue_{session_id}"), 1),
+                        button("Stop", &format!("stop_{session_id}"), 2),
+                    ]);
+                    let components = vec![container(
+                        vec![text_display("Reached tool iteration limit."), buttons],
                         Some(WARNING_EMBED_COLOR),
-                    )
-                    .await;
+                    )];
+                    let _ =
+                        send_v2_message(&ctx.http, msg.channel_id, &components, Vec::new()).await;
                 }
 
                 if result.stop_reason == ChatStopReason::Stopped {
@@ -575,6 +577,91 @@ impl EventHandler for Handler {
                     if let Some((_, sender)) = self.pending_confirmations.remove(uuid) {
                         let _ = sender.send(choice.to_string());
                     }
+                } else if let Some(session_id) = custom_id.strip_prefix("continue_") {
+                    let session_id = session_id.to_string();
+                    let span_session_id = session_id.clone();
+                    let channel_id = component.channel_id;
+                    let http = Arc::clone(&ctx.http);
+                    let session_chat = Arc::clone(&self.session_chat);
+                    tokio::spawn(
+                        async move {
+                            let _typing = TimedTyping::start(channel_id, &http);
+
+                            let (event_tx, event_rx) = tokio::sync::mpsc::unbounded_channel();
+                            let renderer =
+                                DiscordUiRenderer::new(event_rx, Arc::clone(&http), channel_id);
+                            let renderer_handle = tokio::spawn(renderer.run());
+
+                            let chat_result = session_chat
+                                .continue_session(
+                                    &session_id,
+                                    Some(channel_id.to_string()),
+                                    Some(&event_tx),
+                                )
+                                .await;
+
+                            drop(event_tx);
+                            let _ = renderer_handle.await;
+
+                            match chat_result {
+                                Ok((result, metadata)) => {
+                                    let statusline = format_statusline(&metadata);
+                                    let _ = send_assistant_v2_with_suffix(
+                                        &http,
+                                        channel_id,
+                                        &result.message,
+                                        &statusline,
+                                    )
+                                    .await;
+
+                                    if result.stop_reason == ChatStopReason::MaxIterations {
+                                        let buttons = action_row(vec![
+                                            button(
+                                                "Continue",
+                                                &format!("continue_{session_id}"),
+                                                1,
+                                            ),
+                                            button("Stop", &format!("stop_{session_id}"), 2),
+                                        ]);
+                                        let components = vec![container(
+                                            vec![
+                                                text_display("Reached tool iteration limit."),
+                                                buttons,
+                                            ],
+                                            Some(WARNING_EMBED_COLOR),
+                                        )];
+                                        let _ = send_v2_message(
+                                            &http,
+                                            channel_id,
+                                            &components,
+                                            Vec::new(),
+                                        )
+                                        .await;
+                                    }
+                                }
+                                Err(e) => {
+                                    error!(
+                                        session_id = %session_id,
+                                        error = %e,
+                                        "Continue session error"
+                                    );
+                                    let _ = send_gateway_v2(
+                                        &http,
+                                        channel_id,
+                                        &format!("Failed to continue: {e}"),
+                                        Some(WARNING_EMBED_COLOR),
+                                    )
+                                    .await;
+                                }
+                            }
+                        }
+                        .instrument(tracing::info_span!(
+                            "continue session from button",
+                            session_id = %span_session_id,
+                        )),
+                    );
+                } else if custom_id.starts_with("stop_") {
+                    // Stop button — acknowledge only, buttons disappear.
                 }
             }
             .instrument(tracing::info_span!("handle component interaction"))

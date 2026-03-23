@@ -254,6 +254,69 @@ impl SessionChat {
         result
     }
 
+    /// Continue the tool loop for a session without creating a new user message.
+    ///
+    /// Used when the previous turn hit `MaxIterations` and the user wants to
+    /// resume. Loads existing history and re-enters the tool loop from where
+    /// it left off (iteration counter resets, giving a fresh budget).
+    #[tracing::instrument(name = "continue session", skip_all, fields(session_id = session_id))]
+    pub async fn continue_session(
+        &self,
+        session_id: &str,
+        channel_id: Option<String>,
+        event_tx: Option<&EventSender>,
+    ) -> Result<(ChatResult, RunMetadata), ChatError> {
+        let session_thing = parse_session_thing(session_id)?;
+        db::sessions::get_session(&self.db, &session_thing).await?;
+        db::sessions::update_activity(&self.db, &session_thing).await?;
+
+        // Atomic session guard — prevent concurrent tool loops.
+        let (int_tx, int_rx) = super::interrupt::channel();
+        {
+            use dashmap::mapref::entry::Entry;
+            match self.active_sessions.entry(session_id.to_string()) {
+                Entry::Occupied(_) => {
+                    return Err(ChatError::SessionBusy {
+                        session_id: session_id.to_string(),
+                    });
+                }
+                Entry::Vacant(entry) => {
+                    entry.insert(int_tx);
+                }
+            }
+        }
+
+        let (mut history, stored_ids) = self.load_provider_history(&session_thing).await?;
+        self.compact_if_needed(&session_thing, &mut history, &stored_ids)
+            .await;
+
+        let model = self.default_model_name()?;
+        let effort = resolve_reasoning_effort(None, None, self.model_reasoning_effort());
+        let mut handler = ChatHandler {
+            session_chat: self,
+            session_thing: &session_thing,
+            event_tx,
+            pending_todo_update: false,
+        };
+
+        let result = run_tool_loop(
+            self,
+            session_id,
+            &model,
+            self.max_tool_iterations,
+            effort,
+            &mut handler,
+            &mut history,
+            event_tx,
+            Some(int_rx),
+            channel_id,
+        )
+        .await;
+
+        self.active_sessions.remove(session_id);
+        result
+    }
+
     /// Chat in a coding session with a custom system prompt and working directory.
     #[tracing::instrument(name = "orchestrate coding response", skip_all, fields(session_id = session_id))]
     pub async fn chat_coding(
@@ -759,9 +822,7 @@ impl ToolLoopHandler for ChatHandler<'_> {
             .session_chat
             .compact_in_tool_loop(self.session_thing, history)
             .await;
-        if compacted
-            && let Some(tx) = self.event_tx
-        {
+        if compacted && let Some(tx) = self.event_tx {
             let _ = tx.send(ToolLoopEvent::Compacted);
         }
 
@@ -905,9 +966,7 @@ impl ToolLoopHandler for CodingHandler<'_> {
             .session_chat
             .compact_in_tool_loop_with_config(self.session_thing, history, &self.compaction)
             .await;
-        if compacted
-            && let Some(tx) = self.event_tx
-        {
+        if compacted && let Some(tx) = self.event_tx {
             let _ = tx.send(ToolLoopEvent::Compacted);
         }
 
@@ -1040,9 +1099,7 @@ impl ToolLoopHandler for LuaAgentHandler<'_> {
             .session_chat
             .compact_in_tool_loop(self.session_thing, history)
             .await;
-        if compacted
-            && let Some(tx) = self.event_tx
-        {
+        if compacted && let Some(tx) = self.event_tx {
             let _ = tx.send(ToolLoopEvent::Compacted);
         }
 
