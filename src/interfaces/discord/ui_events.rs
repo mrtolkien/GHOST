@@ -15,6 +15,9 @@ const TOOL_CALL_COLOR: u32 = 0x6C_70_86;
 /// Neon Mauve — accent for TODO progress messages.
 const TODO_COLOR: u32 = 0xA9_4D_FF;
 
+/// Muted grey for compaction notices.
+const COMPACTION_COLOR: u32 = 0x58_5B_70;
+
 /// Renders tool loop events as Discord messages.
 ///
 /// Each provider response (= each `ToolCalls` event) becomes its own
@@ -53,6 +56,9 @@ impl DiscordUiRenderer {
                 }
                 ToolLoopEvent::TodoUpdated { items } => {
                     self.handle_todo_updated(&items).await;
+                }
+                ToolLoopEvent::Compacted => {
+                    self.handle_compacted().await;
                 }
             }
         }
@@ -127,6 +133,24 @@ impl DiscordUiRenderer {
                     }
                 }
             }
+        }
+    }
+
+    async fn handle_compacted(&self) {
+        let components = vec![container(
+            vec![text_display(
+                "context compacted — older conversation was summarized \
+                 to fit the model's context window",
+            )],
+            Some(COMPACTION_COLOR),
+        )];
+        if let Err(e) =
+            send_v2_message(&self.http, self.channel_id, &components, Vec::new()).await
+        {
+            tracing::warn!(
+                error = e.to_string(),
+                "failed to send compaction message"
+            );
         }
     }
 }

@@ -755,10 +755,15 @@ impl ToolLoopHandler for ChatHandler<'_> {
         history: &mut Vec<ChatMessage>,
         _last_input_tokens: u32,
     ) -> Result<(), ChatError> {
-        let _compacted = self
+        let compacted = self
             .session_chat
             .compact_in_tool_loop(self.session_thing, history)
             .await;
+        if compacted
+            && let Some(tx) = self.event_tx
+        {
+            let _ = tx.send(ToolLoopEvent::Compacted);
+        }
 
         // Emit TodoUpdated UI event (no injection — main chat has no TODO nudge)
         if self.pending_todo_update {
@@ -896,10 +901,15 @@ impl ToolLoopHandler for CodingHandler<'_> {
         history: &mut Vec<ChatMessage>,
         _last_input_tokens: u32,
     ) -> Result<(), ChatError> {
-        let _compacted = self
+        let compacted = self
             .session_chat
             .compact_in_tool_loop_with_config(self.session_thing, history, &self.compaction)
             .await;
+        if compacted
+            && let Some(tx) = self.event_tx
+        {
+            let _ = tx.send(ToolLoopEvent::Compacted);
+        }
 
         if self.pending_todo_update {
             let todo_items =
@@ -1026,10 +1036,15 @@ impl ToolLoopHandler for LuaAgentHandler<'_> {
         last_input_tokens: u32,
     ) -> Result<(), ChatError> {
         self.last_input_tokens = last_input_tokens;
-        let _compacted = self
+        let compacted = self
             .session_chat
             .compact_in_tool_loop(self.session_thing, history)
             .await;
+        if compacted
+            && let Some(tx) = self.event_tx
+        {
+            let _ = tx.send(ToolLoopEvent::Compacted);
+        }
 
         // Fetch TODO items for Lua state and UI events (injection is in Lua nudges)
         let todo_items =
