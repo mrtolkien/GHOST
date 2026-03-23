@@ -192,7 +192,7 @@ async fn fetch_text_via_reqwest(url: &str) -> Result<ExtractedContent, WebError>
 }
 
 /// Legacy path: reqwest GET + local extraction (no crawl4ai).
-/// Used by import_page (passes crawl4ai_url=None) and offline mode.
+/// Used by offline mode (passes crawl4ai_url=None).
 async fn fetch_legacy(url: &str, options: &FetchOptions) -> Result<ExtractedContent, WebError> {
     let parsed = Url::parse(url).map_err(|_| WebError::InvalidUrl {
         url: url.to_string(),

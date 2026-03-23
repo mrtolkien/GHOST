@@ -15,8 +15,10 @@ Import documents (PDF, DOCX, etc.) as topic-scoped references via docling-serve.
 
 1. **Search first**: `knowledge_search(query="<topic>", categories=["references"])`. If
    results exist, use them. Done.
-2. **URL source**: use `ghost document import url --url <url> --topic <name>` with
-   `background: true`.
+2. **URL source**: download the file locally first, then import it:
+   - Use `web_fetch` or `curl -L -o uploads/<filename> <url>` to save the file.
+   - Then import with `ghost document import file --path uploads/<filename> --topic <name>`
+     with `background: true`.
 3. **File upload**: if the OPERATOR uploaded a file, import with
    `ghost document import file --path uploads/<filename> --topic <name>` with
    `background: true`.
@@ -25,10 +27,15 @@ Import documents (PDF, DOCX, etc.) as topic-scoped references via docling-serve.
    automatically when the import completes — you'll see the `[shell-command completed]`
    system message. Search the imported refs and answer.
 
-## CLI Commands
+## Why download first?
+
+Many sites serve consent pages, CAPTCHAs, or redirects instead of the actual file.
+Downloading first lets you verify the file is real (check size, file type) before
+importing. It also keeps the original file on disk in `uploads/` for re-import if needed.
+
+## CLI Command
 
 ```
-ghost document import url --url <url> --topic <name>
 ghost document import file --path <path> --topic <name>
 ```
 
@@ -51,13 +58,34 @@ Document imports can take 1-2 minutes for a typical PDF. **Always use background
 
 ```json
 {
-  "command": "ghost document import url --url https://example.com/rulebook.pdf --topic boardgames/arknova",
+  "command": "ghost document import file --path uploads/rulebook.pdf --topic boardgames/arknova",
   "background": true
 }
 ```
 
 Tell the OPERATOR: _"I'm importing the document in the background — I'll search it once
 the import finishes."_ Then **end your turn**.
+
+## Downloading from a URL
+
+When the source is a URL, download the file first:
+
+```json
+{
+  "command": "curl -L -o uploads/rulebook.pdf 'https://example.com/rulebook.pdf'",
+  "background": false
+}
+```
+
+Verify the download succeeded (check file size, not just exit code — some sites return
+HTML error pages with HTTP 200). Then import:
+
+```json
+{
+  "command": "ghost document import file --path uploads/rulebook.pdf --topic boardgames/arknova",
+  "background": true
+}
+```
 
 ## File Import (Uploaded Files)
 

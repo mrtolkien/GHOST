@@ -86,11 +86,10 @@ impl Tool for WebFetch {
             Err(WebError::UnsupportedContentType { content_type }) => {
                 return Err(ToolError::ExecutionFailed(format!(
                     "This URL returned {content_type} which web_fetch cannot read. \
-                     Import it directly with: \
-                     `ghost document import url --url '{url}' --topic <name>` \
-                     (run with background: true). \
-                     Do NOT curl the file — document import handles PDFs and binary \
-                     documents via docling automatically."
+                     Download the file first with: \
+                     `curl -L -o uploads/<filename> '{url}'`, then import with: \
+                     `ghost document import file --path uploads/<filename> --topic <name>` \
+                     (run the import with background: true)."
                 )));
             }
             Err(e) => return Err(ToolError::ExecutionFailed(e.to_string())),
