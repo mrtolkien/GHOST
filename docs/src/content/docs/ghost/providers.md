@@ -67,13 +67,51 @@ This maps directly to the OpenRouter
 [provider preferences](https://openrouter.ai/docs/guides/routing/provider-selection)
 request field. It is ignored by other providers.
 
-## Multiple Models
+## Model Chains (Fallback)
 
-Different features can use different models:
+Model references can be a single alias or an ordered list. When configured as a list,
+GHOST tries each model in order — if the first fails with a retryable error (rate limit,
+server error, timeout), it automatically falls through to the next.
 
-- **Chat sessions** use the default model
-- **Jobs** specify their own model alias in frontmatter
-- **Agents** can override the model in their definition
+```toml title="~/.config/ghost/config.toml"
+[models]
+# Single alias (standard)
+default = "primary"
+
+# Or a chain with automatic fallback
+default = ["primary", "fallback", "tertiary"]
+
+[models.primary]
+provider = "anthropic"
+model = "claude-sonnet-4-6"
+context_window = 1000000
+
+[models.fallback]
+provider = "openrouter"
+model = "anthropic/claude-sonnet-4-6"
+context_window = 200000
+
+[models.tertiary]
+provider = "openrouter"
+model = "google/gemini-2.0-flash"
+context_window = 128000
+```
+
+Permanent errors (authentication, model not found) stop the chain immediately — there is
+no point trying a fallback for a credentials problem.
+
+Each provider in the chain has its own circuit breaker (3 consecutive failures → skip for
+60 seconds), so known-bad models are skipped quickly.
+
+Agents can also use chains:
+
+```lua
+return {
+    name = "my-agent",
+    model = {"primary", "fallback"},
+    -- ...
+}
+```
 
 ## Anthropic Provider Setup
 
