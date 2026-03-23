@@ -13,8 +13,8 @@ Review deployment:
 
 Notes:
 
-- Containers should use podman rootless
-- Nix should setup garbage collection
+- [x] Containers should use podman rootless
+- [x] Nix should setup garbage collection
 - **`loginctl enable-linger <user>` is REQUIRED** on Linux for systemd user services.
   Without it, systemd kills all user services (including ghost-daemon) when the last
   login session ends. `ghost init` should run this automatically or at least warn.
