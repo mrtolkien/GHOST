@@ -13,11 +13,15 @@ preservation.
 
 ## Two-Phase Approach
 
-### Phase 1: Tool Result Masking
+The boundary between "old" and "current" is the **current turn** — everything from the
+last user text message onward is preserved in full.
+
+### Phase 1: Masking (pre-turn content)
 
 When estimated token usage exceeds the configured threshold (default: 85% of the context
-window), GHOST replaces verbose tool result blocks outside the "keep window" with compact
-placeholders like `[tool_result: web_search — first 100 chars... (truncated)]`.
+window), GHOST masks tool results **and** tool call inputs for all messages before the
+current turn. Masked entries become compact placeholders like
+`[tool_result: web_search — first 100 chars... (truncated)]`.
 
 This is free (no LLM call), introduces zero hallucination risk, and recovers thousands
 of tokens from large tool outputs. Anthropic recommends this as the first step before
@@ -25,13 +29,13 @@ any summarization.
 
 ### Phase 2: LLM Summarization
 
-If masking alone isn't sufficient, GHOST summarizes the oldest messages into a structured
-summary block via a single LLM call. The summary uses mandatory sections (Task,
-Decisions, State, Files, Context) that act as checklists preventing silent information
-drops.
+If masking alone isn't sufficient, GHOST summarizes the masked pre-turn content into a
+structured summary block via a single LLM call. The summarization input is capped at
+50,000 characters. The summary uses mandatory sections (Task, Decisions, State, Files,
+Context) that act as checklists preventing silent information drops.
 
-The most recent messages (the "keep window") are always preserved in full. Phase 2
-errors are logged and gracefully degraded — the masked history is used as a fallback.
+Phase 2 errors are logged and gracefully degraded — the masked history is used as a
+fallback. Context overflow errors trigger automatic compaction followed by a retry.
 
 ## Structured Summaries
 
@@ -53,7 +57,6 @@ poorly on artifact tracking (2.19–2.45/5.0) without explicit file path section
 ```toml title="~/.config/ghost/config.toml"
 [compaction]
 threshold = 0.85          # Trigger at 85% context usage
-keep_window = 20          # Keep last 20 messages intact
 mask_preview_chars = 100  # Characters to preview in masked results
 instructions = "Always preserve code snippets in full."  # Optional
 ```
@@ -61,30 +64,27 @@ instructions = "Always preserve code snippets in full."  # Optional
 | Key                  | Default | Description                                    |
 | -------------------- | ------- | ---------------------------------------------- |
 | `threshold`          | `0.85`  | Context usage ratio that triggers compaction    |
-| `keep_window`        | `20`    | Number of recent messages kept in full          |
 | `mask_preview_chars` | `100`   | Characters shown in masked tool result previews |
 | `instructions`       | —       | Extra text appended to the compaction prompt    |
 
 ## Agent Compaction
 
-Agents get different defaults than chat (keep_window=10 vs 20) and full Phase 1 + Phase
-2 compaction during tool loops. Agents can override compaction parameters in their Lua
-config:
+Agents use the same two-phase compaction during tool loops. Agents can override
+compaction parameters in their Lua config:
 
 ```lua title="agents/my-agent/agent.lua"
 return {
     name = "my-agent",
     -- ...
     compaction = {
-        keep_window = 8,
         instructions = "Preserve all URLs and the current TODO list. "
             .. "Drop verbose page content.",
     },
 }
 ```
 
-Available overrides: `threshold`, `keep_window`, `mask_preview_chars`, `instructions`.
-Any field not specified falls back to the agent default (not the chat default).
+Available overrides: `threshold`, `mask_preview_chars`, `instructions`.
+Any field not specified falls back to the default.
 
 ## Design Rationale & Sources
 

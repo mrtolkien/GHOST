@@ -58,7 +58,6 @@ scheduler_tick_seconds = 10 # Cron scheduler poll interval
 # Compaction (context window management)
 [compaction]
 threshold = 0.85 # Compact when context is 85% full
-keep_window = 20 # Messages to keep after compaction
 mask_preview_chars = 100 # Preview chars for compacted messages
 
 # Coding agent

@@ -1107,7 +1107,7 @@ fn prompt_args(prompt: &str) -> HashMap<String, String> {
 }
 
 /// Build an agent-specific `CompactionConfig` by layering:
-/// 1. Agent defaults (keep_window=10, threshold=0.90)
+/// 1. Agent defaults (threshold=0.90)
 /// 2. Lua overrides from `agent_config.compaction` (any field present wins)
 /// 3. Global config `instructions` as fallback if the agent didn't specify any
 fn build_agent_compaction_config(
@@ -1117,7 +1117,6 @@ fn build_agent_compaction_config(
     // Agent defaults differ from chat defaults
     let mut cfg = CompactionConfig {
         threshold: 0.90,
-        keep_window: 10,
         mask_preview_chars: 100,
         instructions: global.instructions.clone(),
     };
@@ -1125,9 +1124,6 @@ fn build_agent_compaction_config(
     if let Some(o) = overrides {
         if let Some(t) = o.threshold {
             cfg.threshold = t;
-        }
-        if let Some(kw) = o.keep_window {
-            cfg.keep_window = kw;
         }
         if let Some(mpc) = o.mask_preview_chars {
             cfg.mask_preview_chars = mpc;
@@ -1174,7 +1170,6 @@ mod tests {
     fn global_config() -> CompactionConfig {
         CompactionConfig {
             threshold: 0.90,
-            keep_window: 20,
             mask_preview_chars: 100,
             instructions: None,
         }
@@ -1184,7 +1179,6 @@ mod tests {
     fn agent_compaction_defaults_without_overrides() {
         let cfg = build_agent_compaction_config(&global_config(), None);
 
-        assert_eq!(cfg.keep_window, 10, "agent default differs from chat");
         assert_eq!(cfg.threshold, 0.90);
         assert_eq!(cfg.mask_preview_chars, 100);
         assert!(cfg.instructions.is_none());
@@ -1193,7 +1187,6 @@ mod tests {
     #[test]
     fn agent_compaction_lua_overrides_win() {
         let overrides = AgentCompactionOverrides {
-            keep_window: Some(8),
             threshold: Some(0.70),
             mask_preview_chars: None,
             instructions: Some("Keep all URLs.".into()),
@@ -1201,7 +1194,6 @@ mod tests {
 
         let cfg = build_agent_compaction_config(&global_config(), Some(&overrides));
 
-        assert_eq!(cfg.keep_window, 8);
         assert_eq!(cfg.threshold, 0.70);
         assert_eq!(cfg.mask_preview_chars, 100, "unset fields keep defaults");
         assert_eq!(cfg.instructions.as_deref(), Some("Keep all URLs."));

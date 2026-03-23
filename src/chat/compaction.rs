@@ -1,10 +1,11 @@
 //! Context window compaction for long conversations.
 //!
 //! Two-phase approach:
-//! - Phase 1 (tool result masking): Replace verbose `ToolResult` blocks outside
-//!   the "keep window" with compact placeholders. Free, no LLM call.
-//! - Phase 2 (LLM summarization): Summarize the oldest messages into a single
-//!   summary block when masking alone isn't sufficient.
+//! - Phase 1 (tool interaction masking): Replace verbose `ToolResult` and
+//!   `ToolUse` blocks before the current turn with compact placeholders.
+//!   Free, no LLM call.
+//! - Phase 2 (LLM summarization): Summarize the masked pre-turn messages
+//!   into a single summary block when masking alone isn't sufficient.
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -129,7 +130,30 @@ pub fn compute_budget(
 }
 
 // ---------------------------------------------------------------------------
-// Phase 1: Tool result masking
+// Current-turn boundary
+// ---------------------------------------------------------------------------
+
+/// Find the index of the last user message that contains actual text
+/// (not just tool results). Everything from this index onward is the
+/// "current turn" and should be preserved verbatim during compaction.
+#[must_use]
+pub fn find_current_turn_start(messages: &[ChatMessage]) -> usize {
+    for (i, msg) in messages.iter().enumerate().rev() {
+        if msg.role != Role::User {
+            continue;
+        }
+        let has_text = msg.content.iter().any(|block| {
+            matches!(block, ContentBlock::Text { text } if !text.is_empty())
+        });
+        if has_text {
+            return i;
+        }
+    }
+    0
+}
+
+// ---------------------------------------------------------------------------
+// Phase 1: Tool interaction masking
 // ---------------------------------------------------------------------------
 
 /// Build an index mapping `tool_use_id` → `tool_name` from message history.
@@ -157,18 +181,18 @@ fn safe_truncate(s: &str, max_bytes: usize) -> usize {
     end
 }
 
-/// Phase 1: Replace `ToolResult` blocks outside the keep window with
-/// compact placeholders.
+/// Phase 1: Replace `ToolUse` inputs and `ToolResult` blocks outside the keep
+/// window with compact placeholders.
 ///
-/// Messages at index `>= keep_start` are left untouched. Older `ToolResult`
-/// blocks are replaced with `[tool_result: {name}{error} — {preview}
-/// (truncated)]`.
+/// Messages at index `>= keep_start` are left untouched. Older `ToolUse`
+/// blocks have their `input` replaced with `{}`. Older `ToolResult` blocks
+/// are replaced with `[tool_result: {name}{error} — {preview} (truncated)]`.
 #[tracing::instrument(skip_all, level = "debug", fields(
     total_messages = messages.len(),
     keep_start = keep_start,
     preview_chars = preview_chars,
 ))]
-pub fn mask_tool_results(
+pub fn mask_tool_interactions(
     messages: &[ChatMessage],
     keep_start: usize,
     preview_chars: usize,
@@ -187,6 +211,11 @@ pub fn mask_tool_results(
                 .content
                 .iter()
                 .map(|block| match block {
+                    ContentBlock::ToolUse { id, name, .. } => ContentBlock::ToolUse {
+                        id: id.clone(),
+                        name: name.clone(),
+                        input: serde_json::json!({}),
+                    },
                     ContentBlock::ToolResult {
                         tool_use_id,
                         content,
@@ -328,7 +357,6 @@ fn render_messages_for_summary(messages: &[ChatMessage], preview_chars: usize) -
 /// prompt as an "Additional instructions" section.
 #[tracing::instrument(skip_all, level = "debug", fields(
     total_messages = messages.len(),
-    keep_window = config.keep_window,
 ))]
 pub async fn summarize_older_messages(
     provider: &Arc<dyn Provider>,
@@ -339,11 +367,26 @@ pub async fn summarize_older_messages(
     config: &CompactionConfig,
     instructions: Option<&str>,
 ) -> Result<CompactionResult, CompactionError> {
-    let split = messages.len().saturating_sub(config.keep_window);
+    let split = find_current_turn_start(messages);
     let to_summarize = &messages[..split];
     let to_keep = &messages[split..];
 
     let conversation_text = render_messages_for_summary(to_summarize, config.mask_preview_chars);
+
+    const MAX_SUMMARIZATION_INPUT_CHARS: usize = 50_000;
+
+    let conversation_text = if conversation_text.len() > MAX_SUMMARIZATION_INPUT_CHARS {
+        let mut start = conversation_text.len() - MAX_SUMMARIZATION_INPUT_CHARS;
+        while start < conversation_text.len() && !conversation_text.is_char_boundary(start) {
+            start += 1;
+        }
+        format!(
+            "[earlier conversation truncated]\n\n{}",
+            &conversation_text[start..]
+        )
+    } else {
+        conversation_text
+    };
 
     tracing::debug!(
         messages_to_summarize = to_summarize.len() as u64,
@@ -466,9 +509,9 @@ impl SessionChat {
             "Compaction triggered",
         );
 
-        // Phase 1: mask tool results
-        let keep_start = history.len().saturating_sub(compaction.keep_window);
-        let masked = mask_tool_results(history, keep_start, compaction.mask_preview_chars);
+        // Phase 1: mask tool interactions
+        let keep_start = find_current_turn_start(history);
+        let masked = mask_tool_interactions(history, keep_start, compaction.mask_preview_chars);
         let masked_tokens = estimate_history_tokens(&masked);
 
         tracing::debug!(
@@ -541,23 +584,6 @@ impl SessionChat {
         }
     }
 
-    /// Lightweight Phase 1 masking during tool loops (no LLM call).
-    #[tracing::instrument(skip_all, level = "debug")]
-    pub(super) fn apply_masking_if_needed(&self, history: &mut Vec<ChatMessage>) {
-        let context_window = self.model_context_window();
-        let compaction = self.compaction_config();
-        let tools = self.tool_manager().all_tool_schemas();
-
-        let budget = compute_budget(context_window, "", &tools, history, compaction.threshold);
-
-        if !budget.needs_compaction {
-            return;
-        }
-
-        let keep_start = history.len().saturating_sub(compaction.keep_window);
-        *history = mask_tool_results(history, keep_start, compaction.mask_preview_chars);
-    }
-
     /// Full compaction (Phase 1 + Phase 2) for use during tool loops.
     ///
     /// Unlike `compact_if_needed` (called once per chat turn with pre-loaded
@@ -568,27 +594,30 @@ impl SessionChat {
         &self,
         session_id: &str,
         history: &mut Vec<ChatMessage>,
-    ) {
+    ) -> bool {
         let compaction = self.compaction_config();
         self.compact_in_tool_loop_with_config(session_id, history, &compaction)
-            .await;
+            .await
     }
 
     /// Like `compact_in_tool_loop` but with an explicit compaction config.
+    ///
+    /// Returns `true` when Phase 2 summarization ran successfully, `false`
+    /// in all other cases.
     #[tracing::instrument(skip_all, level = "debug", fields(session_id = %session_id))]
     pub(super) async fn compact_in_tool_loop_with_config(
         &self,
         session_id: &str,
         history: &mut Vec<ChatMessage>,
         compaction: &CompactionConfig,
-    ) {
+    ) -> bool {
         let context_window = self.model_context_window();
         let tools = self.tool_manager().all_tool_schemas();
 
         let budget = compute_budget(context_window, "", &tools, history, compaction.threshold);
 
         if !budget.needs_compaction {
-            return;
+            return false;
         }
 
         tracing::info!(
@@ -598,9 +627,9 @@ impl SessionChat {
             "Compaction triggered (tool loop)",
         );
 
-        // Phase 1: mask tool results
-        let keep_start = history.len().saturating_sub(compaction.keep_window);
-        let masked = mask_tool_results(history, keep_start, compaction.mask_preview_chars);
+        // Phase 1: mask tool interactions
+        let keep_start = find_current_turn_start(history);
+        let masked = mask_tool_interactions(history, keep_start, compaction.mask_preview_chars);
         let masked_tokens = estimate_history_tokens(&masked);
 
         tracing::debug!(
@@ -616,7 +645,7 @@ impl SessionChat {
 
         if !still_over {
             *history = masked;
-            return;
+            return false;
         }
 
         // Phase 2: LLM summarization
@@ -626,7 +655,7 @@ impl SessionChat {
             Ok(m) => m,
             Err(_) => {
                 *history = masked;
-                return;
+                return false;
             }
         };
 
@@ -639,7 +668,7 @@ impl SessionChat {
                     "Failed to load message IDs for Phase 2 — using masked history",
                 );
                 *history = masked;
-                return;
+                return false;
             }
         };
 
@@ -650,7 +679,7 @@ impl SessionChat {
             Ok(s) => s,
             Err(_) => {
                 *history = masked;
-                return;
+                return false;
             }
         };
 
@@ -695,7 +724,7 @@ impl SessionChat {
                         "Failed to persist compaction summary",
                     );
                     *history = masked;
-                    return;
+                    return false;
                 }
 
                 match self.load_provider_history(session_id).await {
@@ -708,6 +737,7 @@ impl SessionChat {
                         *history = masked;
                     }
                 }
+                true
             }
             Err(e) => {
                 tracing::warn!(
@@ -715,6 +745,7 @@ impl SessionChat {
                     "Phase 2 summarization failed (tool loop) — using masked history",
                 );
                 *history = masked;
+                false
             }
         }
     }
@@ -862,11 +893,47 @@ mod tests {
     }
 
     // -----------------------------------------------------------------------
-    // Phase 1: tool result masking
+    // Current-turn boundary
     // -----------------------------------------------------------------------
 
     #[test]
-    fn mask_preserves_keep_window() {
+    fn find_current_turn_start_after_last_user_text() {
+        let messages = vec![
+            user_text("Hello"),                                     // 0
+            assistant_text("Hi"),                                   // 1
+            user_text("Search for X"),                              // 2
+            assistant_with_tool("Searching", "tu_1", "web_search"), // 3
+            tool_result("tu_1", "results..."),                      // 4
+            assistant_with_tool("Fetching", "tu_2", "web_fetch"),   // 5
+            tool_result("tu_2", "page content..."),                 // 6
+        ];
+        assert_eq!(find_current_turn_start(&messages), 2);
+    }
+
+    #[test]
+    fn find_current_turn_start_no_user_message() {
+        let messages = vec![assistant_text("Hi")];
+        assert_eq!(find_current_turn_start(&messages), 0);
+    }
+
+    #[test]
+    fn find_current_turn_start_tool_result_only_user_messages() {
+        let messages = vec![
+            user_text("Do something"),
+            assistant_with_tool("OK", "tu_1", "shell"),
+            tool_result("tu_1", "output"),
+            assistant_with_tool("More", "tu_2", "shell"),
+            tool_result("tu_2", "output2"),
+        ];
+        assert_eq!(find_current_turn_start(&messages), 0);
+    }
+
+    // -----------------------------------------------------------------------
+    // Phase 1: tool interaction masking
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn mask_preserves_current_turn() {
         let messages = vec![
             user_text("Hello"),
             assistant_with_tool("Let me search", "tu_1", "web_search"),
@@ -876,7 +943,7 @@ mod tests {
 
         // keep_start=0 means all messages are at index >= keep_start, so
         // none get masked.
-        let masked = mask_tool_results(&messages, 0, 100);
+        let masked = mask_tool_interactions(&messages, 0, 100);
         if let ContentBlock::ToolResult { content, .. } = &masked[2].content[0] {
             assert_eq!(content.len(), 500); // unchanged
         } else {
@@ -898,7 +965,7 @@ mod tests {
 
         // keep last 3 messages (indices 4,5,6)
         let keep_start = messages.len() - 3;
-        let masked = mask_tool_results(&messages, keep_start, 50);
+        let masked = mask_tool_interactions(&messages, keep_start, 50);
 
         // tu_1 result (index 2) should be masked
         if let ContentBlock::ToolResult { content, .. } = &masked[2].content[0] {
@@ -926,7 +993,7 @@ mod tests {
         ];
 
         let keep_start = messages.len() - 1;
-        let masked = mask_tool_results(&messages, keep_start, 20);
+        let masked = mask_tool_interactions(&messages, keep_start, 20);
         if let ContentBlock::ToolResult { content, .. } = &masked[1].content[0] {
             assert!(content.contains("knowledge_search"));
         } else {
@@ -943,7 +1010,7 @@ mod tests {
         ];
 
         let keep_start = messages.len() - 1;
-        let masked = mask_tool_results(&messages, keep_start, 100);
+        let masked = mask_tool_interactions(&messages, keep_start, 100);
         if let ContentBlock::ToolResult { content, .. } = &masked[1].content[0] {
             assert!(content.contains("(error)"));
             assert!(content.contains("shell"));
@@ -961,12 +1028,35 @@ mod tests {
         ];
 
         let keep_start = messages.len() - 1;
-        let masked = mask_tool_results(&messages, keep_start, 100);
+        let masked = mask_tool_interactions(&messages, keep_start, 100);
         if let ContentBlock::ToolResult { content, .. } = &masked[1].content[0] {
             assert!(content.contains("OK"));
             assert!(content.contains("shell"));
         } else {
             panic!("expected tool result");
+        }
+    }
+
+    #[test]
+    fn mask_includes_tool_use_inputs() {
+        let messages = vec![
+            user_text("Hello"),
+            assistant_with_tool("Let me search", "tu_1", "web_search"),
+            tool_result("tu_1", &"x".repeat(500)),
+            user_text("Thanks"),
+        ];
+        let masked = mask_tool_interactions(&messages, 3, 100);
+        // Tool result masked
+        if let ContentBlock::ToolResult { content, .. } = &masked[2].content[0] {
+            assert!(content.contains("[tool_result:"));
+        } else {
+            panic!("expected tool result");
+        }
+        // Tool use input replaced with {}
+        if let ContentBlock::ToolUse { input, .. } = &masked[1].content[1] {
+            assert_eq!(input.to_string(), "{}");
+        } else {
+            panic!("expected tool use at index 1 content 1");
         }
     }
 

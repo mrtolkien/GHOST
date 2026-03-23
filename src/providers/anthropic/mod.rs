@@ -229,9 +229,11 @@ impl AnthropicProvider {
                 raw_response = response_body.clone(),
                 "anthropic provider non-success response",
             );
-            return Err(ProviderError::InvalidResponse(format!(
-                "HTTP {status}: {response_body}"
-            )));
+            let err_msg = format!("HTTP {status}: {response_body}");
+            if ProviderError::is_context_overflow_message(&response_body) {
+                return Err(ProviderError::ContextOverflow(err_msg));
+            }
+            return Err(ProviderError::InvalidResponse(err_msg));
         }
 
         // --- Parse SSE response ---

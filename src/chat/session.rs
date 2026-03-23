@@ -755,7 +755,15 @@ impl ToolLoopHandler for ChatHandler<'_> {
         history: &mut Vec<ChatMessage>,
         _last_input_tokens: u32,
     ) -> Result<(), ChatError> {
-        self.session_chat.apply_masking_if_needed(history);
+        let compacted = self
+            .session_chat
+            .compact_in_tool_loop(self.session_thing, history)
+            .await;
+        if compacted
+            && let Some(tx) = self.event_tx
+        {
+            let _ = tx.send(ToolLoopEvent::Compacted);
+        }
 
         // Emit TodoUpdated UI event (no injection — main chat has no TODO nudge)
         if self.pending_todo_update {
@@ -778,12 +786,10 @@ impl ToolLoopHandler for ChatHandler<'_> {
 
 /// Build a compaction config tuned for coding sessions.
 ///
-/// Uses a larger keep window (12 messages) and coding-specific instructions
-/// that preserve plan/TODO state, files modified, test results, and OPERATOR
-/// decisions across compaction boundaries.
+/// Uses coding-specific instructions that preserve plan/TODO state, files
+/// modified, test results, and OPERATOR decisions across compaction boundaries.
 fn coding_compaction_config(base: &config::CompactionConfig) -> config::CompactionConfig {
     config::CompactionConfig {
-        keep_window: 12,
         instructions: Some(
             "Preserve the following across compaction:\n\
              - The current plan and TODO checklist status\n\
@@ -895,9 +901,15 @@ impl ToolLoopHandler for CodingHandler<'_> {
         history: &mut Vec<ChatMessage>,
         _last_input_tokens: u32,
     ) -> Result<(), ChatError> {
-        self.session_chat
+        let compacted = self
+            .session_chat
             .compact_in_tool_loop_with_config(self.session_thing, history, &self.compaction)
             .await;
+        if compacted
+            && let Some(tx) = self.event_tx
+        {
+            let _ = tx.send(ToolLoopEvent::Compacted);
+        }
 
         if self.pending_todo_update {
             let todo_items =
@@ -1024,9 +1036,15 @@ impl ToolLoopHandler for LuaAgentHandler<'_> {
         last_input_tokens: u32,
     ) -> Result<(), ChatError> {
         self.last_input_tokens = last_input_tokens;
-        self.session_chat
+        let compacted = self
+            .session_chat
             .compact_in_tool_loop(self.session_thing, history)
             .await;
+        if compacted
+            && let Some(tx) = self.event_tx
+        {
+            let _ = tx.send(ToolLoopEvent::Compacted);
+        }
 
         // Fetch TODO items for Lua state and UI events (injection is in Lua nudges)
         let todo_items =
@@ -1322,7 +1340,8 @@ impl SessionChat {
                 }],
             });
         }
-        self.apply_masking_if_needed(&mut history);
+        self.compact_in_tool_loop(&session_thing, &mut history)
+            .await;
 
         let model = self.default_model_name()?;
         let effort =

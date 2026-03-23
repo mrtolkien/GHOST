@@ -313,12 +313,10 @@ impl ScriptHost {
         let compaction = match table.get::<LuaValue>("compaction")? {
             LuaValue::Table(t) => {
                 let threshold: Option<f64> = t.get("threshold")?;
-                let keep_window: Option<usize> = t.get("keep_window")?;
                 let mask_preview_chars: Option<usize> = t.get("mask_preview_chars")?;
                 let instructions: Option<String> = t.get("instructions")?;
                 Some(super::types::AgentCompactionOverrides {
                     threshold,
-                    keep_window,
                     mask_preview_chars,
                     instructions,
                 })

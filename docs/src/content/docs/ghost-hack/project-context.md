@@ -81,14 +81,8 @@ its behavior (e.g., reasoning budget, output length).
 ## Compaction
 
 Long sessions accumulate context. The Puppet Master uses a tighter
-[compaction](/chat/compaction/) config than normal GHOST chat:
-
-| Setting        | GHOST chat | Puppet Master |
-| -------------- | ---------- | ------------- |
-| `keep_window`  | 20         | 12            |
-| `instructions` | generic    | code-aware    |
-
-The code-aware compaction instructions preserve:
+[compaction](/chat/compaction/) config than normal GHOST chat, with code-aware
+compaction instructions that preserve:
 
 - The current plan and TODO checklist status
 - All files created, modified, or deleted

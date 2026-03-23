@@ -86,6 +86,7 @@ pub enum ToolLoopEvent {
     ToolCalls { calls: Vec<ToolCallInfo> },
     ToolResults { results: Vec<ToolResultInfo> },
     TodoUpdated { items: Vec<TodoItem> },
+    Compacted,
 }
 
 /// Convenience alias for the event sender.

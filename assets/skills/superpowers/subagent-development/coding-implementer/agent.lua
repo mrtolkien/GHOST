@@ -7,7 +7,6 @@ return {
     max_iterations = 50,
 
     compaction = {
-        keep_window = 10,
         instructions = "Preserve: current task text, files modified, test results, "
             .. "decisions made. Drop: verbose file contents, raw shell output from "
             .. "successful commands.",

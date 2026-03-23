@@ -219,8 +219,31 @@ pub enum ProviderError {
     #[error("server error (HTTP {status}): {message}")]
     ServerError { status: u16, message: String },
 
+    #[error("context overflow: {0}")]
+    ContextOverflow(String),
+
     #[error("invalid response: {0}")]
     InvalidResponse(String),
+}
+
+impl ProviderError {
+    /// Check whether an error message indicates the request exceeded the
+    /// model's context window. Provider-agnostic — covers patterns from
+    /// OpenAI, Anthropic, OpenRouter, and other OpenAI-compatible APIs.
+    pub fn is_context_overflow_message(msg: &str) -> bool {
+        let lower = msg.to_lowercase();
+        lower.contains("exceeds the context window")
+            || lower.contains("context window of this model")
+            || lower.contains("maximum context length")
+            || lower.contains("context_length_exceeded")
+            || lower.contains("context length exceeded")
+            || lower.contains("too many tokens")
+            || lower.contains("token limit exceeded")
+            || lower.contains("prompt is too long")
+            || lower.contains("input is too long")
+            || lower.contains("prompt_length exceeded")
+            || lower.contains("input tokens exceed")
+    }
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -386,5 +409,29 @@ mod tests {
         assert_eq!(json, "\"high\"");
         let parsed: ReasoningEffort = serde_json::from_str(&json).unwrap();
         assert_eq!(parsed, ReasoningEffort::High);
+    }
+
+    #[test]
+    fn is_context_overflow_detects_known_patterns() {
+        assert!(ProviderError::is_context_overflow_message(
+            "Your input exceeds the context window of this model"
+        ));
+        assert!(ProviderError::is_context_overflow_message(
+            "This model's maximum context length is 128000 tokens"
+        ));
+        assert!(ProviderError::is_context_overflow_message(
+            "prompt_length exceeded maximum of 200000"
+        ));
+        assert!(ProviderError::is_context_overflow_message("too many tokens"));
+        assert!(ProviderError::is_context_overflow_message("prompt is too long"));
+        assert!(ProviderError::is_context_overflow_message(
+            "input tokens exceed the configured limit"
+        ));
+        assert!(ProviderError::is_context_overflow_message("context_length_exceeded"));
+        assert!(ProviderError::is_context_overflow_message("context length exceeded"));
+        assert!(ProviderError::is_context_overflow_message("token limit exceeded"));
+        assert!(ProviderError::is_context_overflow_message("input is too long"));
+        assert!(!ProviderError::is_context_overflow_message("rate limited"));
+        assert!(!ProviderError::is_context_overflow_message("invalid api key"));
     }
 }
