@@ -356,6 +356,50 @@ pub fn provider_for_alias(
     }
 }
 
+/// Create a provider for a chain of model aliases.
+///
+/// For single-element chains, returns the inner provider directly
+/// (no wrapping). For multi-element chains, returns a `ChainProvider`.
+pub fn provider_for_chain(
+    config: &Config,
+    aliases: &[String],
+) -> Result<Arc<dyn Provider>, ProviderInitError> {
+    assert!(!aliases.is_empty(), "model chain cannot be empty");
+
+    if aliases.len() == 1 {
+        return provider_for_alias(config, Some(&aliases[0]));
+    }
+
+    let mut providers = Vec::with_capacity(aliases.len());
+    for alias in aliases {
+        let (_, model_config) = model_from_alias(config, Some(alias))?;
+        let model_name = model_config.model.clone();
+        let provider = provider_for_alias(config, Some(alias))?;
+        providers.push((alias.clone(), provider, model_name));
+    }
+
+    Ok(Arc::new(crate::providers::chain::ChainProvider::new(
+        providers,
+    )))
+}
+
+/// Create a provider from a `StringOrList` model reference.
+///
+/// This is the primary entry point for all provider creation at
+/// runtime. Dispatches to `provider_for_alias` (single string) or
+/// `provider_for_chain` (list).
+pub fn provider_for_model_ref(
+    config: &Config,
+    model_ref: &crate::config::StringOrList,
+) -> Result<Arc<dyn Provider>, ProviderInitError> {
+    let aliases = model_ref.as_slice();
+    if aliases.len() == 1 {
+        provider_for_alias(config, Some(&aliases[0]))
+    } else {
+        provider_for_chain(config, aliases)
+    }
+}
+
 #[must_use]
 pub fn user_message(content: impl Into<String>) -> ChatMessage {
     ChatMessage {

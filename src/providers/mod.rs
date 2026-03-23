@@ -18,5 +18,6 @@ pub use openrouter::OpenRouterProvider;
 pub use types::{
     ChatMessage, ChatRequest, ChatResponse, ContentBlock, Provider, ProviderError,
     ProviderInitError, ReasoningEffort, Role, StopReason, ToolDefinition, Usage, model_from_alias,
-    provider_for_alias, resolve_reasoning_effort, user_message,
+    provider_for_alias, provider_for_chain, provider_for_model_ref, resolve_reasoning_effort,
+    user_message,
 };
