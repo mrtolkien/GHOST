@@ -9,7 +9,6 @@ return {
     max_iterations = 30,
 
     compaction = {
-        keep_window = 8,
         instructions = "Preserve all URLs found during research, the current TODO list "
             .. "with completion status, search query history, and key findings. "
             .. "Drop verbose page content and raw search result listings.",

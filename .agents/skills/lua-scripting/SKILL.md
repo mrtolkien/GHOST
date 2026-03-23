@@ -117,7 +117,7 @@ Registered via `register_ctx()` when an agent has a database connection. Availab
 - Hook presence: `has_build`, `has_pre_turn`, `has_on_end_turn`, `has_post_completion`,
   `has_on_resume` — set by checking if the function exists
 - `compaction` — optional `AgentCompactionOverrides` table (fields: `threshold`,
-  `keep_window`, `mask_preview_chars`, `instructions`)
+  `mask_preview_chars`, `instructions`)
 
 Hook functions are stored as Lua registry keys, not extracted as values.
 
