@@ -22,7 +22,6 @@ pub struct LuaToolDef {
 #[derive(Debug, Clone, Default)]
 pub struct AgentCompactionOverrides {
     pub threshold: Option<f64>,
-    pub keep_window: Option<usize>,
     pub mask_preview_chars: Option<usize>,
     pub instructions: Option<String>,
 }
