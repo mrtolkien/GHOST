@@ -268,7 +268,26 @@ impl ScriptHost {
         let name: String = table.get("name")?;
         let description: String = table.get("description")?;
 
-        let model: Option<String> = table.get("model")?;
+        let model: Option<crate::config::StringOrList> = match table.get::<LuaValue>("model")? {
+            LuaValue::String(s) => Some(crate::config::StringOrList::from(s.to_str()?.to_string())),
+            LuaValue::Table(t) => {
+                let mut v = Vec::new();
+                for item in t.sequence_values::<String>() {
+                    v.push(item?);
+                }
+                if v.is_empty() {
+                    None
+                } else {
+                    Some(crate::config::StringOrList::from_vec(v))
+                }
+            }
+            LuaValue::Nil => None,
+            _ => {
+                return Err(LuaError::external(
+                    "model must be a string or table of strings",
+                ));
+            }
+        };
         let reasoning_effort: Option<String> = table.get("reasoning_effort")?;
         let reasoning_effort = reasoning_effort.and_then(|s| match s.as_str() {
             "xhigh" => Some(ReasoningEffort::Xhigh),
@@ -686,7 +705,7 @@ mod tests {
         let config = host.load_config().unwrap();
 
         assert_eq!(config.name, "deep-research");
-        assert_eq!(config.model.as_deref(), Some("fast"));
+        assert_eq!(config.model.as_ref().and_then(|m| m.first()), Some("fast"));
         assert_eq!(config.reasoning_effort, Some(ReasoningEffort::High));
         assert_eq!(config.max_iterations, 30);
         assert!(config.has_build);

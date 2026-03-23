@@ -8,7 +8,7 @@ use crate::config::{self, Config, SharedConfig, SharedConfigExt};
 use crate::db;
 use crate::prompt::{PromptContext, PromptRenderer};
 use crate::providers::{
-    ChatMessage, ContentBlock, Provider, ReasoningEffort, Role, StopReason, provider_for_alias,
+    ChatMessage, ContentBlock, Provider, ReasoningEffort, Role, StopReason, provider_for_chain,
     resolve_reasoning_effort,
 };
 use crate::scripting::ScriptHost;
@@ -54,7 +54,7 @@ impl SessionChat {
     #[tracing::instrument(name = "create session_chat", skip_all)]
     pub fn from_config(db: GhostDb, config: SharedConfig) -> Result<Self, ChatError> {
         let cfg = config.current();
-        let provider = provider_for_alias(&cfg, None)?;
+        let provider = provider_for_chain(&cfg, &cfg.models.default_chain)?;
         let mut tool_manager = ToolManager::for_chat();
         tool_manager.with_browser();
 

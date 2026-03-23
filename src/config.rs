@@ -77,6 +77,12 @@ impl From<String> for StringOrList {
     }
 }
 
+impl From<Vec<String>> for StringOrList {
+    fn from(v: Vec<String>) -> Self {
+        Self(v)
+    }
+}
+
 pub const CONFIG_DIR_ENV: &str = "GHOST_CONFIG_DIR";
 const CONFIG_FILE_NAME: &str = "config.toml";
 const DEFAULT_WORKSPACE: &str = "~/GHOST";

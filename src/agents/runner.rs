@@ -12,7 +12,7 @@ use crate::chat::{RunMetadata, SessionChat};
 use crate::config::{CompactionConfig, Config, SharedConfig, SharedConfigExt};
 use crate::db;
 use crate::db::GhostDb;
-use crate::providers::provider_for_alias;
+use crate::providers::{provider_for_chain, provider_for_model_ref};
 use crate::scripting::AgentContext;
 use crate::scripting::LuaMessage;
 use crate::scripting::ScriptHost;
@@ -481,7 +481,10 @@ async fn setup_agent(
                 message: format!("build hook failed: {e}"),
             })?;
 
-    let provider = provider_for_alias(&config, agent_config.model.as_deref())?;
+    let provider = match &agent_config.model {
+        Some(model_ref) => provider_for_model_ref(&config, model_ref)?,
+        None => provider_for_chain(&config, &config.models.default_chain)?,
+    };
 
     let mut tools = agent_config.tools.clone();
     if !agent_config.skills.is_empty() && !tools.iter().any(|t| t == "file_read") {

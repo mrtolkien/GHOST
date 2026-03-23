@@ -31,7 +31,7 @@ pub struct AgentCompactionOverrides {
 pub struct AgentConfig {
     pub name: String,
     pub description: String,
-    pub model: Option<String>,
+    pub model: Option<crate::config::StringOrList>,
     pub reasoning_effort: Option<ReasoningEffort>,
     pub max_iterations: usize,
     pub tools: Vec<String>,
