@@ -220,6 +220,37 @@ pub(super) async fn run_tool_loop(
                     }
                 }
             }
+            Ok(Err(ProviderError::ContextOverflow(msg))) => {
+                tracing::warn!(
+                    error = msg.as_str(),
+                    iteration = iterations as u64,
+                    "context overflow — forcing compaction and retrying",
+                );
+                handler.post_tool_iteration(history, 0).await?;
+
+                // Rebuild request with the compacted history. The original
+                // `request` still holds the pre-compaction messages.
+                let retry_request = ChatRequest {
+                    messages: history.clone(),
+                    ..request
+                };
+                match tokio::time::timeout(
+                    PROVIDER_REQUEST_TIMEOUT,
+                    session_chat.provider().chat(retry_request),
+                )
+                .await
+                {
+                    Ok(result) => result.map_err(ChatError::from)?,
+                    Err(_elapsed) => {
+                        return Err(ChatError::Provider(
+                            ProviderError::Timeout {
+                                seconds: PROVIDER_REQUEST_TIMEOUT
+                                    .as_secs(),
+                            },
+                        ));
+                    }
+                }
+            }
             Ok(Err(e)) => return Err(ChatError::from(e)),
             Err(_elapsed) => {
                 tracing::warn!(
