@@ -57,10 +57,11 @@ For PDFs, DOCX, XLSX, PPTX, and images. Requires a running
 instance for conversion.
 
 ```bash
-# From a URL
-ghost document import url --url https://example.com/paper.pdf --topic papers/ml
+# Download first, then import
+curl -L -o uploads/paper.pdf https://example.com/paper.pdf
+ghost document import file --path uploads/paper.pdf --topic papers/ml
 
-# From a local file
+# From a local/uploaded file
 ghost document import file --path uploads/rulebook.pdf --topic boardgames/arknova
 ```
 

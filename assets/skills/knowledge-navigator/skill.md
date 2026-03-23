@@ -70,7 +70,7 @@ CLI:
 - `ghost topics list` — list all topics with note and reference counts
 - `ghost topics search "query"` — search topics by name
 - `ghost reference import git --url <url> --topic <name>` — import git references
-- `ghost document import url --url <url> --topic <name>` — import documents
+- `ghost document import file --path <path> --topic <name>` — import documents
 
 ## Direct SQL Access
 

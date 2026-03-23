@@ -15,11 +15,6 @@ pub enum ImportSource {
         extensions: Vec<String>,
         git_ref: Option<String>,
     },
-    Page {
-        url: String,
-        no_ocr: bool,
-        page_range: Option<(u32, u32)>,
-    },
     Crawl {
         url: String,
         max_depth: usize,
@@ -144,15 +139,6 @@ impl From<&ImportConfig> for ImportConfigJson {
                 extensions: vec![],
                 max_depth: Some(*max_depth),
                 max_pages: Some(*max_pages),
-            },
-            ImportSource::Page { url, .. } => ImportConfigJson {
-                source_type: "page".into(),
-                source_url: url.clone(),
-                git_ref: None,
-                paths: vec![],
-                extensions: vec![],
-                max_depth: None,
-                max_pages: None,
             },
             ImportSource::File { path, .. } => ImportConfigJson {
                 source_type: "file".into(),

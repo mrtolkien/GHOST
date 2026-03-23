@@ -206,9 +206,11 @@ Import documents (PDF, DOCX, etc.) via docling-serve. See
 [Reference Import](/knowledge/reference-import/) for details.
 
 ```bash
-ghost document import url --url <url> --topic <name>
 ghost document import file --path <path> --topic <name>
 ```
+
+For URLs, download the file first (`curl -L -o uploads/doc.pdf <url>`), then
+import with the command above.
 
 Optional flags (use only when explicitly needed):
 
