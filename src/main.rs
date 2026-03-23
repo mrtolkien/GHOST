@@ -65,6 +65,11 @@ enum Commands {
         #[command(subcommand)]
         command: ghost::cli::browsers::BrowsersCommand,
     },
+    /// Manage registered services
+    Services {
+        #[command(subcommand)]
+        command: ghost::cli::services::ServicesCommand,
+    },
     /// Send an image to the OPERATOR
     SendImage {
         /// Path to the image file
@@ -130,6 +135,7 @@ async fn dispatch(command: Commands) -> Result<(), GhostError> {
         Commands::Topics { command } => ghost::cli::topics::execute(command).await,
         Commands::Web { command } => ghost::cli::web::execute(command).await,
         Commands::Browsers { command } => ghost::cli::browsers::execute(command).await,
+        Commands::Services { command } => ghost::cli::services::execute(command).await,
         Commands::SendImage { path, caption } => {
             ghost::cli::send::execute_send_image(path, caption).await
         }
