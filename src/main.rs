@@ -65,6 +65,11 @@ enum Commands {
         #[command(subcommand)]
         command: ghost::cli::browsers::BrowsersCommand,
     },
+    /// Manage registered services
+    Services {
+        #[command(subcommand)]
+        command: ghost::cli::services::ServicesCommand,
+    },
     /// Send an image to the OPERATOR
     SendImage {
         /// Path to the image file
@@ -81,6 +86,10 @@ enum Commands {
         #[arg(long)]
         caption: Option<String>,
     },
+    /// Start all services and the daemon
+    Start,
+    /// Stop the daemon and all services
+    Stop,
     /// Show config, daemon, and service health
     Status,
     /// Gracefully restart the running daemon
@@ -130,10 +139,13 @@ async fn dispatch(command: Commands) -> Result<(), GhostError> {
         Commands::Topics { command } => ghost::cli::topics::execute(command).await,
         Commands::Web { command } => ghost::cli::web::execute(command).await,
         Commands::Browsers { command } => ghost::cli::browsers::execute(command).await,
+        Commands::Services { command } => ghost::cli::services::execute(command).await,
         Commands::SendImage { path, caption } => {
             ghost::cli::send::execute_send_image(path, caption).await
         }
         Commands::Attach { path, caption } => ghost::cli::send::execute_attach(path, caption).await,
+        Commands::Start => ghost::cli::start_stop::execute_start().await,
+        Commands::Stop => ghost::cli::start_stop::execute_stop().await,
         Commands::Status => ghost::cli::status::execute().await,
         Commands::Reboot => ghost::cli::reboot::execute(),
         Commands::Reset(args) => ghost::cli::reset::execute(args).await,

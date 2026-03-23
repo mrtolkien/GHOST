@@ -45,6 +45,9 @@ pub enum GhostError {
     #[error(transparent)]
     Onboarding(#[from] crate::onboarding::OnboardingError),
 
+    #[error(transparent)]
+    ServiceRegistry(#[from] crate::services::ServiceRegistryError),
+
     #[error("{0}")]
     Other(String),
 }

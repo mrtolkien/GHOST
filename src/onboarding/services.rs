@@ -1,8 +1,9 @@
 use std::path::Path;
 use std::process::Command;
 
-use super::detect::DetectedEnvironment;
+use super::detect::{ContainerRuntime, DetectedEnvironment, Platform};
 use super::{OnboardingError, OnboardingState, SearchChoice, ServiceChoice};
+use crate::services::{ServiceEntry, ServiceRegistry};
 
 const SEARXNG_FRAGMENT: &str = include_str!("../../assets/services/docker-compose.searxng.yml");
 const CRAWL4AI_FRAGMENT: &str = include_str!("../../assets/services/docker-compose.crawl4ai.yml");
@@ -480,6 +481,136 @@ pub fn write_compose_and_configs(
     }
 
     Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// services.toml generation
+// ---------------------------------------------------------------------------
+
+/// Build a `ServiceRegistry` reflecting the user's service choices.
+///
+/// Container entries are grouped under a single `[containers]` key.
+/// NixNative services (llama-server, docling-serve) get individual entries
+/// with platform-specific systemd or launchd commands baked in as absolute paths.
+pub fn build_services_toml(
+    state: &OnboardingState,
+    platform: &Platform,
+    workspace: &Path,
+    container_runtime: Option<&ContainerRuntime>,
+) -> ServiceRegistry {
+    let mut registry = ServiceRegistry::default();
+
+    // ── Container services ──────────────────────────────────────────────────
+    let selections = build_selections(state);
+    let has_containers =
+        selections.searxng || selections.crawl4ai || selections.docling_container;
+
+    if has_containers {
+        let runtime = container_runtime
+            .map(|r| r.compose_command())
+            .unwrap_or("docker");
+        let compose_file = workspace.join("services").join("docker-compose.yml");
+        let compose_path = compose_file.display().to_string();
+
+        let start = format!("{runtime} compose -f {compose_path} up -d");
+        let stop = format!("{runtime} compose -f {compose_path} down");
+        let update = format!(
+            "{runtime} compose -f {compose_path} pull && {runtime} compose -f {compose_path} up -d"
+        );
+
+        // `add` only errors on duplicate name or empty entry — neither applies here.
+        let _ = registry.add(
+            "containers".to_string(),
+            ServiceEntry {
+                start: Some(start),
+                stop: Some(stop),
+                update: Some(update),
+                status: None,
+            },
+        );
+    }
+
+    // ── llama-server (NixNative embeddings) ─────────────────────────────────
+    if matches!(state.embeddings, Some(ServiceChoice::NixNative)) {
+        let entry = native_service_entry(platform, "llama-server", "llama-cpp");
+        let _ = registry.add("llama-server".to_string(), entry);
+    }
+
+    // ── docling-serve (NixNative docling) ───────────────────────────────────
+    if matches!(state.docling, Some(ServiceChoice::NixNative)) {
+        let entry = native_service_entry(platform, "docling-serve", "docling-serve");
+        let _ = registry.add("docling-serve".to_string(), entry);
+    }
+
+    registry
+}
+
+/// Build platform-specific start/stop/update/status commands for a nix-installed
+/// service managed by systemd (Linux) or launchd (macOS).
+///
+/// `service_name` — the unit name (e.g. `llama-server`)
+/// `nix_package`  — the nixpkgs attribute to upgrade (e.g. `llama-cpp`)
+fn native_service_entry(platform: &Platform, service_name: &str, nix_package: &str) -> ServiceEntry {
+    match platform {
+        Platform::Linux => ServiceEntry {
+            start: Some(format!("systemctl --user start {service_name}")),
+            stop: Some(format!("systemctl --user disable --now {service_name}")),
+            update: Some(format!("nix profile upgrade nixpkgs#{nix_package}")),
+            status: Some(format!("systemctl --user is-active {service_name}")),
+        },
+        Platform::MacOs => {
+            let uid = get_uid();
+            let home = dirs::home_dir()
+                .map(|h| h.display().to_string())
+                .unwrap_or_else(|| "/Users/user".to_string());
+            let label = format!("com.ghost.{service_name}");
+            let plist = format!("{home}/Library/LaunchAgents/{label}.plist");
+
+            ServiceEntry {
+                start: Some(format!("launchctl bootstrap gui/{uid} {plist}")),
+                stop: Some(format!("launchctl bootout gui/{uid}/{label}")),
+                update: Some(format!("nix profile upgrade nixpkgs#{nix_package}")),
+                status: Some(format!("launchctl print gui/{uid}/{label}")),
+            }
+        }
+        Platform::Other(_) => ServiceEntry {
+            start: Some(format!("echo 'start {service_name}'")),
+            stop: Some(format!("echo 'stop {service_name}'")),
+            update: Some(format!("nix profile upgrade nixpkgs#{nix_package}")),
+            status: None,
+        },
+    }
+}
+
+/// Obtain the current user's numeric UID via `id -u`.
+fn get_uid() -> u32 {
+    Command::new("id")
+        .arg("-u")
+        .output()
+        .ok()
+        .and_then(|o| {
+            String::from_utf8(o.stdout)
+                .ok()
+                .and_then(|s| s.trim().parse().ok())
+        })
+        .unwrap_or(501) // macOS default UID for first user
+}
+
+/// Generate and write `$WORKSPACE/services/services.toml` from wizard state.
+///
+/// Always writes the file (empty registry is a valid state). The services dir is
+/// expected to already exist from `write_compose_and_configs`.
+pub fn write_services_toml(
+    state: &OnboardingState,
+    platform: &Platform,
+    workspace: &Path,
+    container_runtime: Option<&ContainerRuntime>,
+) -> Result<(), OnboardingError> {
+    let registry = build_services_toml(state, platform, workspace, container_runtime);
+    let path = workspace.join("services").join("services.toml");
+    registry
+        .save(&path)
+        .map_err(|e| OnboardingError::Io(std::io::Error::other(e.to_string())))
 }
 
 // ---------------------------------------------------------------------------
