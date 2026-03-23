@@ -224,6 +224,19 @@ pub enum ProviderError {
 
     #[error("invalid response: {0}")]
     InvalidResponse(String),
+
+    #[error("{}", format_chain_exhausted(errors))]
+    ChainExhausted {
+        errors: Vec<(String, Box<ProviderError>)>,
+    },
+}
+
+fn format_chain_exhausted(errors: &[(String, Box<ProviderError>)]) -> String {
+    let details: Vec<String> = errors
+        .iter()
+        .map(|(alias, err)| format!("{alias} ({err})"))
+        .collect();
+    format!("all models in chain failed: {}", details.join(", "))
 }
 
 impl ProviderError {
