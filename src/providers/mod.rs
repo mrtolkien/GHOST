@@ -1,4 +1,5 @@
 pub mod anthropic;
+pub mod chain;
 pub mod circuit_breaker;
 mod codex_responses;
 pub mod debug;
