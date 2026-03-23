@@ -364,7 +364,11 @@ pub fn provider_for_chain(
     config: &Config,
     aliases: &[String],
 ) -> Result<Arc<dyn Provider>, ProviderInitError> {
-    assert!(!aliases.is_empty(), "model chain cannot be empty");
+    if aliases.is_empty() {
+        return Err(ProviderInitError::UnknownAlias {
+            alias: "<empty chain>".to_string(),
+        });
+    }
 
     if aliases.len() == 1 {
         return provider_for_alias(config, Some(&aliases[0]));
