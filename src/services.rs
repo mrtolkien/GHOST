@@ -1,4 +1,5 @@
 use std::path::Path;
+use std::process::Command;
 
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
@@ -121,6 +122,94 @@ impl ServiceRegistry {
         }
         std::fs::write(path, doc.to_string())
             .map_err(|e| ServiceRegistryError::Io(path.to_path_buf(), e))
+    }
+}
+
+/// Which command field to run.
+#[derive(Debug, Clone, Copy)]
+pub enum ServiceField {
+    Start,
+    Stop,
+    Update,
+    Status,
+}
+
+impl ServiceField {
+    fn get(self, entry: &ServiceEntry) -> &Option<String> {
+        match self {
+            Self::Start => &entry.start,
+            Self::Stop => &entry.stop,
+            Self::Update => &entry.update,
+            Self::Status => &entry.status,
+        }
+    }
+}
+
+/// Result of running a service command.
+#[derive(Debug)]
+pub struct RunResult {
+    pub service: String,
+    pub success: bool,
+    pub output: String,
+}
+
+impl ServiceRegistry {
+    /// Run a field for each entry.
+    /// `stop_on_failure` — if true, abort on first failure.
+    /// `reverse` — if true, iterate entries bottom-to-top.
+    pub fn run_field(
+        &self,
+        field: ServiceField,
+        stop_on_failure: bool,
+        reverse: bool,
+    ) -> Vec<RunResult> {
+        let entries: Vec<_> = self.entries.iter().collect();
+        let iter: Box<dyn Iterator<Item = &(&String, &ServiceEntry)>> = if reverse {
+            Box::new(entries.iter().rev())
+        } else {
+            Box::new(entries.iter())
+        };
+
+        let mut results = Vec::new();
+        for (name, entry) in iter {
+            let cmd = field.get(entry);
+            let Some(cmd) = cmd else { continue };
+
+            let result = run_shell_command(name, cmd);
+            let failed = !result.success;
+            results.push(result);
+
+            if failed && stop_on_failure {
+                break;
+            }
+        }
+        results
+    }
+}
+
+fn run_shell_command(service: &str, cmd: &str) -> RunResult {
+    let output = Command::new("sh").args(["-c", cmd]).output();
+
+    match output {
+        Ok(o) => {
+            let stdout = String::from_utf8_lossy(&o.stdout);
+            let stderr = String::from_utf8_lossy(&o.stderr);
+            let combined = if stderr.is_empty() {
+                stdout.to_string()
+            } else {
+                format!("{stdout}{stderr}")
+            };
+            RunResult {
+                service: service.to_string(),
+                success: o.status.success(),
+                output: combined.trim().to_string(),
+            }
+        }
+        Err(e) => RunResult {
+            service: service.to_string(),
+            success: false,
+            output: format!("failed to execute: {e}"),
+        },
     }
 }
 
