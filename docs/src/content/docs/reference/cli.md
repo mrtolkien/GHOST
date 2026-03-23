@@ -232,6 +232,42 @@ ghost web fetch <url> --readability              # Article mode
 ghost web fetch <url> --raw                      # Raw HTML
 ```
 
+## ghost start
+
+Start all registered services (top-to-bottom), then start the GHOST daemon via the OS
+service manager.
+
+```bash
+ghost start
+```
+
+Stops on first service failure — the daemon is not started if any service fails to come
+up. Shows `ghost status` output at the end.
+
+## ghost stop
+
+Stop the GHOST daemon, then stop all registered services (bottom-to-top, best-effort).
+
+```bash
+ghost stop
+```
+
+Always attempts all service stops even if some fail. Shows `ghost status` output at the
+end.
+
+## ghost services
+
+Manage the service registry (`services.toml`). Generated during `ghost init`, editable
+via these commands.
+
+```bash
+ghost services list                                      # Show registered services
+ghost services add --name <n> [--start ".."] [--stop ".."] [--update ".."] [--status ".."]
+ghost services remove <name>                             # Unregister a service
+ghost services update                                    # Run update commands (stops on first failure)
+ghost services status                                    # Check process-level status
+```
+
 ## ghost status
 
 Show config validity, daemon status, and service health at a glance.
@@ -243,8 +279,11 @@ ghost status
 Checks:
 
 - **Config** — loads and validates `config.toml`, reports parse errors
-- **Daemon** — checks whether `ghost-daemon` is active via systemd/launchd and probes its health endpoint
+- **Daemon** — checks whether `ghost-daemon` is active via systemd/launchd
 - **Services** — probes each configured service URL (embeddings, search, Crawl4AI, Docling, browsers)
+
+Complementary to `ghost services status` — this checks HTTP health, while
+`ghost services status` checks process-level status.
 
 ## ghost version
 

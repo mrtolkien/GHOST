@@ -29,6 +29,27 @@ On CPU-only systems (small VPS), llama-server still works — embedding models a
 enough for CPU inference, just slower. If performance is unacceptable, point
 `[embeddings].url` at a remote instance instead.
 
+## Managing Services
+
+All services are registered in `<workspace>/services/services.toml`, generated during
+`ghost init`. Use the CLI to manage the full stack:
+
+```sh
+ghost start                  # Start all services + daemon
+ghost stop                   # Stop daemon + all services
+ghost services list          # See what's registered
+ghost services status        # Process-level health checks
+ghost services update        # Pull updates for all services
+ghost status                 # Config + HTTP health probes
+```
+
+You can also add or remove services manually:
+
+```sh
+ghost services add --name myservice --start "..." --stop "..."
+ghost services remove myservice
+```
+
 ## Native Services (nix + systemd/launchd)
 
 Installed via `nix profile install` and managed as system services.
@@ -38,21 +59,6 @@ Installed via `nix profile install` and managed as system services.
 | **ghost-daemon**  | `ghost`         | —            |
 | **llama-server**  | `llama-server`  | 11434        |
 | **docling-serve** | `docling-serve` | 5001         |
-
-On Linux (systemd):
-
-```sh
-systemctl --user status ghost-daemon llama-server docling-serve
-systemctl --user restart llama-server
-journalctl --user -u llama-server -f
-```
-
-On macOS (launchd):
-
-```sh
-launchctl list | grep com.ghost
-launchctl kickstart -k gui/$(id -u)/com.ghost.llama-server
-```
 
 ## Container Services (podman/docker)
 
@@ -64,20 +70,6 @@ Managed via a single compose file at `<workspace>/services/docker-compose.yml`.
 | **Crawl4AI** | `unclecode/crawl4ai`      | 11235        |
 | **Chrome**   | `chromedp/headless-shell` | 9222         |
 
-```sh
-# Status
-podman compose -f ~/GHOST/services/docker-compose.yml ps
-
-# Restart
-podman compose -f ~/GHOST/services/docker-compose.yml restart
-
-# Logs
-podman compose -f ~/GHOST/services/docker-compose.yml logs -f searxng
-
-# Stop
-podman compose -f ~/GHOST/services/docker-compose.yml down
-```
-
 ## File Layout
 
 ```
@@ -86,6 +78,7 @@ podman compose -f ~/GHOST/services/docker-compose.yml down
 └── .env                     # Secrets (API keys, tokens)
 
 ~/GHOST/services/
+├── services.toml            # Service registry (start/stop/update commands)
 ├── docker-compose.yml       # Container stack
 └── searxng-settings.yml     # SearXNG configuration
 
