@@ -9,6 +9,74 @@ use thiserror::Error;
 use crate::providers::openai_compatible::ProviderRouting;
 use crate::providers::types::ReasoningEffort;
 
+/// Accepts either a single string or a list of strings in TOML/serde.
+/// Normalized internally to `Vec<String>`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct StringOrList(Vec<String>);
+
+impl StringOrList {
+    pub fn as_slice(&self) -> &[String] {
+        &self.0
+    }
+
+    pub fn first(&self) -> Option<&str> {
+        self.0.first().map(String::as_str)
+    }
+
+    pub fn into_vec(self) -> Vec<String> {
+        self.0
+    }
+
+    pub fn from_vec(v: Vec<String>) -> Self {
+        Self(v)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for StringOrList {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        use serde::de;
+
+        struct Visitor;
+
+        impl<'de> de::Visitor<'de> for Visitor {
+            type Value = StringOrList;
+
+            fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+                f.write_str("a string or list of strings")
+            }
+
+            fn visit_str<E: de::Error>(self, v: &str) -> Result<StringOrList, E> {
+                Ok(StringOrList(vec![v.to_string()]))
+            }
+
+            fn visit_seq<A: de::SeqAccess<'de>>(
+                self,
+                mut seq: A,
+            ) -> Result<StringOrList, A::Error> {
+                let mut v = Vec::new();
+                while let Some(s) = seq.next_element::<String>()? {
+                    v.push(s);
+                }
+                if v.is_empty() {
+                    return Err(de::Error::custom("model chain cannot be empty"));
+                }
+                Ok(StringOrList(v))
+            }
+        }
+
+        deserializer.deserialize_any(Visitor)
+    }
+}
+
+impl From<String> for StringOrList {
+    fn from(s: String) -> Self {
+        Self(vec![s])
+    }
+}
+
 pub const CONFIG_DIR_ENV: &str = "GHOST_CONFIG_DIR";
 const CONFIG_FILE_NAME: &str = "config.toml";
 const DEFAULT_WORKSPACE: &str = "~/GHOST";
@@ -88,7 +156,7 @@ pub struct Settings {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ModelsSettings {
-    pub default: Option<String>,
+    pub default: Option<StringOrList>,
     #[serde(flatten)]
     pub aliases: BTreeMap<String, ModelSettings>,
 }
@@ -228,7 +296,10 @@ pub struct Config {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct ModelsConfig {
+    /// First alias in the chain -- used for context window, metadata, etc.
     pub default: String,
+    /// Full ordered chain of aliases for fallback.
+    pub default_chain: Vec<String>,
     #[serde(flatten)]
     pub aliases: BTreeMap<String, ModelConfig>,
 }
@@ -374,32 +445,39 @@ impl Config {
             })
             .collect::<BTreeMap<_, _>>();
 
-        let default_model_alias = settings
+        let default_chain: Vec<String> = settings
             .models
             .as_ref()
             .and_then(|m| m.default.clone())
+            .map(|sol| sol.into_vec())
             .unwrap_or_else(|| {
                 if resolved_aliases.len() == 1 {
-                    resolved_aliases.keys().next().cloned().unwrap_or_default()
+                    vec![resolved_aliases.keys().next().cloned().unwrap_or_default()]
                 } else {
-                    String::new()
+                    vec![]
                 }
             });
+
+        let default_model_alias = default_chain.first().cloned().unwrap_or_default();
 
         if default_model_alias.is_empty() {
             return Err(ConfigError::MissingDefaultModelAlias);
         }
 
-        if !resolved_aliases.contains_key(&default_model_alias) {
-            return Err(ConfigError::UnknownDefaultModelAlias {
-                alias: default_model_alias,
-            });
+        // Validate ALL aliases in the chain exist
+        for alias in &default_chain {
+            if !resolved_aliases.contains_key(alias) {
+                return Err(ConfigError::UnknownDefaultModelAlias {
+                    alias: alias.clone(),
+                });
+            }
         }
 
         Ok(Self {
             workspace,
             models: ModelsConfig {
                 default: default_model_alias,
+                default_chain,
                 aliases: resolved_aliases,
             },
             discord: DiscordConfig {
@@ -772,6 +850,7 @@ pub fn test_config(workspace: &std::path::Path) -> Config {
         workspace: workspace.to_path_buf(),
         models: ModelsConfig {
             default: "primary".to_string(),
+            default_chain: vec!["primary".to_string()],
             aliases,
         },
         discord: DiscordConfig {
@@ -858,5 +937,88 @@ mod reload_tests {
         let (_tx, rx) = tokio::sync::watch::channel(Arc::new(config.clone()));
         let snapshot = rx.current();
         assert_eq!(snapshot.workspace, config.workspace);
+    }
+
+    #[test]
+    fn string_or_list_from_single_string() {
+        let toml = r#"value = "primary""#;
+
+        #[derive(Deserialize)]
+        struct T {
+            value: StringOrList,
+        }
+
+        let t: T = toml::from_str(toml).unwrap();
+        assert_eq!(t.value.as_slice(), &["primary"]);
+    }
+
+    #[test]
+    fn string_or_list_from_list() {
+        let toml = r#"value = ["primary", "fallback"]"#;
+
+        #[derive(Deserialize)]
+        struct T {
+            value: StringOrList,
+        }
+
+        let t: T = toml::from_str(toml).unwrap();
+        assert_eq!(t.value.as_slice(), &["primary", "fallback"]);
+    }
+
+    #[test]
+    fn config_default_model_single_string() {
+        let toml = r#"
+        [models]
+        default = "primary"
+
+        [models.primary]
+        provider = "openrouter"
+        model = "anthropic/claude-sonnet-4"
+        context_window = 200000
+        "#;
+
+        let settings: Settings = toml::from_str(toml).unwrap();
+        let config = Config::from_settings(settings).unwrap();
+        assert_eq!(config.models.default_chain, vec!["primary"]);
+        assert_eq!(config.models.default, "primary");
+    }
+
+    #[test]
+    fn config_default_model_chain() {
+        let toml = r#"
+        [models]
+        default = ["primary", "fallback"]
+
+        [models.primary]
+        provider = "openrouter"
+        model = "anthropic/claude-sonnet-4"
+        context_window = 200000
+
+        [models.fallback]
+        provider = "openrouter"
+        model = "google/gemini-flash"
+        context_window = 128000
+        "#;
+
+        let settings: Settings = toml::from_str(toml).unwrap();
+        let config = Config::from_settings(settings).unwrap();
+        assert_eq!(config.models.default_chain, vec!["primary", "fallback"]);
+        assert_eq!(config.models.default, "primary");
+    }
+
+    #[test]
+    fn config_default_model_chain_unknown_alias_fails() {
+        let toml = r#"
+        [models]
+        default = ["primary", "nonexistent"]
+
+        [models.primary]
+        provider = "openrouter"
+        model = "anthropic/claude-sonnet-4"
+        context_window = 200000
+        "#;
+
+        let settings: Settings = toml::from_str(toml).unwrap();
+        assert!(Config::from_settings(settings).is_err());
     }
 }
