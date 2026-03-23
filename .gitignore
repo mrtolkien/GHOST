@@ -48,6 +48,9 @@ CLAUDE.md
 .mcp.json
 /scripts/tmp
 
+# Vendored upstream skills (synced via scripts/sync-vendor.py)
+/vendor
+
 # Tasks
 backlog/completed
 backlog/archive
