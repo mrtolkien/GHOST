@@ -4,6 +4,7 @@ use std::process::Command;
 use clap::Args;
 
 use crate::error::GhostError;
+use crate::services::{ServiceField, ServiceRegistry};
 
 /// CLI arguments for `ghost reset`.
 #[derive(Debug, Args)]
@@ -63,13 +64,49 @@ pub async fn execute(args: ResetArgs) -> Result<(), GhostError> {
 fn stop_services(workspace: &Path) {
     println!("Stopping services…");
 
-    // Stop daemon
+    // Always stop the daemon via the platform service manager — this is not
+    // managed by services.toml because it must be shut down before we can
+    // attempt any registry-based teardown.
     if cfg!(target_os = "macos") {
         stop_launchd("com.ghost.daemon");
+    } else {
+        stop_systemd("ghost-daemon");
+    }
+
+    // Try registry-based shutdown first.  If the registry exists and has
+    // entries, use it; otherwise fall back to the hardcoded behaviour so
+    // that installations created before services.toml was introduced still
+    // work correctly.
+    let services_toml = workspace.join("services/services.toml");
+    match ServiceRegistry::load_or_empty(&services_toml) {
+        Ok(reg) if !reg.entries.is_empty() => {
+            let results = reg.run_field(ServiceField::Stop, false, true);
+            for r in results {
+                if r.success {
+                    println!("  Stopped {}", r.service);
+                } else {
+                    eprintln!("  Warning: stopping {} failed: {}", r.service, r.output);
+                }
+            }
+        }
+        Ok(_) => {
+            // Registry missing or empty — use hardcoded fallback.
+            stop_services_legacy(workspace);
+        }
+        Err(e) => {
+            eprintln!("  Warning: could not read services.toml ({e}); falling back to legacy shutdown");
+            stop_services_legacy(workspace);
+        }
+    }
+}
+
+/// Legacy (pre-services.toml) shutdown: stops known native services and the
+/// container stack.  Kept as a fallback for older installations.
+fn stop_services_legacy(workspace: &Path) {
+    if cfg!(target_os = "macos") {
         stop_launchd("com.ghost.llama-server");
         stop_launchd("com.ghost.docling-serve");
     } else {
-        stop_systemd("ghost-daemon");
         stop_systemd("llama-server");
         stop_systemd("docling-serve");
     }
