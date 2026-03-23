@@ -17,8 +17,9 @@ Import documents (PDF, DOCX, etc.) as topic-scoped references via docling-serve.
    results exist, use them. Done.
 2. **URL source**: download the file locally first, then import it:
    - Use `web_fetch` or `curl -L -o uploads/<filename> <url>` to save the file.
-   - Then import with `ghost document import file --path uploads/<filename> --topic <name>`
-     with `background: true`.
+   - Then import with
+     `ghost document import file --path uploads/<filename> --topic <name>` with
+     `background: true`.
 3. **File upload**: if the OPERATOR uploaded a file, import with
    `ghost document import file --path uploads/<filename> --topic <name>` with
    `background: true`.
@@ -31,7 +32,8 @@ Import documents (PDF, DOCX, etc.) as topic-scoped references via docling-serve.
 
 Many sites serve consent pages, CAPTCHAs, or redirects instead of the actual file.
 Downloading first lets you verify the file is real (check size, file type) before
-importing. It also keeps the original file on disk in `uploads/` for re-import if needed.
+importing. It also keeps the original file on disk in `uploads/` for re-import if
+needed.
 
 ## CLI Command
 

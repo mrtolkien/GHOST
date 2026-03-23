@@ -242,12 +242,9 @@ pub(super) async fn run_tool_loop(
                 {
                     Ok(result) => result.map_err(ChatError::from)?,
                     Err(_elapsed) => {
-                        return Err(ChatError::Provider(
-                            ProviderError::Timeout {
-                                seconds: PROVIDER_REQUEST_TIMEOUT
-                                    .as_secs(),
-                            },
-                        ));
+                        return Err(ChatError::Provider(ProviderError::Timeout {
+                            seconds: PROVIDER_REQUEST_TIMEOUT.as_secs(),
+                        }));
                     }
                 }
             }

@@ -502,8 +502,7 @@ pub fn build_services_toml(
 
     // ── Container services ──────────────────────────────────────────────────
     let selections = build_selections(state);
-    let has_containers =
-        selections.searxng || selections.crawl4ai || selections.docling_container;
+    let has_containers = selections.searxng || selections.crawl4ai || selections.docling_container;
 
     if has_containers {
         let runtime = container_runtime
@@ -550,7 +549,11 @@ pub fn build_services_toml(
 ///
 /// `service_name` — the unit name (e.g. `llama-server`)
 /// `nix_package`  — the nixpkgs attribute to upgrade (e.g. `llama-cpp`)
-fn native_service_entry(platform: &Platform, service_name: &str, nix_package: &str) -> ServiceEntry {
+fn native_service_entry(
+    platform: &Platform,
+    service_name: &str,
+    nix_package: &str,
+) -> ServiceEntry {
     match platform {
         Platform::Linux => ServiceEntry {
             start: Some(format!("systemctl --user start {service_name}")),

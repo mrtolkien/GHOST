@@ -37,7 +37,8 @@ To reconfigure ports, credentials, or which services are enabled: `ghost init`.
 
 ## Health Checks
 
-`ghost status` runs these probes automatically. Use the table for manual troubleshooting.
+`ghost status` runs these probes automatically. Use the table for manual
+troubleshooting.
 
 | Service      | Endpoint                           | Expected response           |
 | ------------ | ---------------------------------- | --------------------------- |

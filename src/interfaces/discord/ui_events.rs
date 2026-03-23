@@ -144,13 +144,9 @@ impl DiscordUiRenderer {
             )],
             Some(COMPACTION_COLOR),
         )];
-        if let Err(e) =
-            send_v2_message(&self.http, self.channel_id, &components, Vec::new()).await
+        if let Err(e) = send_v2_message(&self.http, self.channel_id, &components, Vec::new()).await
         {
-            tracing::warn!(
-                error = e.to_string(),
-                "failed to send compaction message"
-            );
+            tracing::warn!(error = e.to_string(), "failed to send compaction message");
         }
     }
 }

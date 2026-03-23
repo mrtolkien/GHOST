@@ -12,8 +12,8 @@ query, mutate, run commands). CLI commands in `src/cli/services.rs` and
 `src/cli/start_stop.rs` are thin wrappers that load the registry and call its methods.
 `ghost init` generates the file. `ghost reset` reads it for shutdown.
 
-**Tech Stack:** Rust, toml/toml_edit (parse/preserve formatting), clap (CLI), std::process::Command
-(execute service commands).
+**Tech Stack:** Rust, toml/toml_edit (parse/preserve formatting), clap (CLI),
+std::process::Command (execute service commands).
 
 **Spec:** `backlog/tasks/4-easy-install/7-ghost-update-services.md`
 
@@ -25,28 +25,29 @@ query, mutate, run commands). CLI commands in `src/cli/services.rs` and
 
 ### New files
 
-| File                      | Responsibility                                                  |
-| ------------------------- | --------------------------------------------------------------- |
-| `src/services.rs`         | `ServiceEntry`, `ServiceRegistry` — parse, query, mutate, run   |
-| `src/cli/services.rs`     | `ghost services list/add/remove/update/status` subcommands      |
-| `src/cli/start_stop.rs`   | `ghost start` and `ghost stop` commands                         |
+| File                    | Responsibility                                                |
+| ----------------------- | ------------------------------------------------------------- |
+| `src/services.rs`       | `ServiceEntry`, `ServiceRegistry` — parse, query, mutate, run |
+| `src/cli/services.rs`   | `ghost services list/add/remove/update/status` subcommands    |
+| `src/cli/start_stop.rs` | `ghost start` and `ghost stop` commands                       |
 
 ### Modified files
 
-| File                              | Changes                                                          |
-| --------------------------------- | ---------------------------------------------------------------- |
-| `src/main.rs`                     | Add `Services`, `Start`, `Stop` to `Commands` enum + dispatch    |
-| `src/cli/mod.rs`                  | Add `pub mod services;` and `pub mod start_stop;`                |
-| `src/lib.rs`                      | Add `pub mod services;`                                          |
-| `src/onboarding/wizard.rs:196-200`| Call `generate_services_toml()` after compose + service files     |
-| `src/cli/reset.rs:63-91`          | Replace hardcoded `stop_services()` with registry-based shutdown |
-| `assets/skills/services/skill.md` | Rewrite: document CLI commands, remove redundant manual examples |
+| File                               | Changes                                                          |
+| ---------------------------------- | ---------------------------------------------------------------- |
+| `src/main.rs`                      | Add `Services`, `Start`, `Stop` to `Commands` enum + dispatch    |
+| `src/cli/mod.rs`                   | Add `pub mod services;` and `pub mod start_stop;`                |
+| `src/lib.rs`                       | Add `pub mod services;`                                          |
+| `src/onboarding/wizard.rs:196-200` | Call `generate_services_toml()` after compose + service files    |
+| `src/cli/reset.rs:63-91`           | Replace hardcoded `stop_services()` with registry-based shutdown |
+| `assets/skills/services/skill.md`  | Rewrite: document CLI commands, remove redundant manual examples |
 
 ---
 
 ## Task 1: ServiceRegistry core — parse and query
 
 **Files:**
+
 - Create: `src/services.rs`
 - Modify: `src/lib.rs`
 
@@ -211,8 +212,8 @@ indexmap = { version = "2", features = ["serde"] }
 
 - [ ] **Step 5: Run tests**
 
-Run: `cargo test --lib services -- --nocapture`
-Expected: All pass (IndexMap preserves insertion order).
+Run: `cargo test --lib services -- --nocapture` Expected: All pass (IndexMap preserves
+insertion order).
 
 - [ ] **Step 6: Commit**
 
@@ -226,6 +227,7 @@ git commit -m "feat: add ServiceRegistry type for services.toml parsing"
 ## Task 2: ServiceRegistry mutations — add, remove, save
 
 **Files:**
+
 - Modify: `src/services.rs`
 
 - [ ] **Step 1: Add mutation methods**
@@ -277,12 +279,14 @@ impl ServiceRegistry {
 ```
 
 Add a `Serialize` error variant to `ServiceRegistryError`:
+
 ```rust
 #[error("cannot serialize services: {0}")]
 Serialize(#[from] toml::ser::Error),
 ```
 
 And fix `save` to use it:
+
 ```rust
 pub fn save(&self, path: &Path) -> Result<(), ServiceRegistryError> {
     let content = toml::to_string_pretty(self)?;
@@ -353,8 +357,7 @@ fn save_roundtrip() {
 
 - [ ] **Step 3: Run tests**
 
-Run: `cargo test --lib services -- --nocapture`
-Expected: All pass.
+Run: `cargo test --lib services -- --nocapture` Expected: All pass.
 
 - [ ] **Step 4: Commit**
 
@@ -368,6 +371,7 @@ git commit -m "feat: add ServiceRegistry add/remove/save mutations"
 ## Task 3: ServiceRegistry command execution
 
 **Files:**
+
 - Modify: `src/services.rs`
 
 - [ ] **Step 1: Add command runner**
@@ -485,6 +489,7 @@ git commit -m "feat: add ServiceRegistry command runner"
 ## Task 4: ghost services CLI commands
 
 **Files:**
+
 - Create: `src/cli/services.rs`
 - Modify: `src/cli/mod.rs`
 - Modify: `src/main.rs`
@@ -670,6 +675,7 @@ fn execute_status() -> Result<(), GhostError> {
 - [ ] **Step 3: Wire into `src/main.rs`**
 
 Add to the `Commands` enum:
+
 ```rust
 /// Manage registered services
 Services {
@@ -679,6 +685,7 @@ Services {
 ```
 
 Add to the `dispatch` match:
+
 ```rust
 Commands::Services { command } => ghost::cli::services::execute(command).await,
 ```
@@ -686,6 +693,7 @@ Commands::Services { command } => ghost::cli::services::execute(command).await,
 - [ ] **Step 4: Add `ServiceRegistryError` variant to `GhostError`**
 
 In `src/error.rs`, add a variant so the CLI can use `?` directly:
+
 ```rust
 #[error(transparent)]
 ServiceRegistry(#[from] crate::services::ServiceRegistryError),
@@ -707,6 +715,7 @@ git commit -m "feat: add ghost services CLI commands"
 ## Task 5: ghost start / ghost stop
 
 **Files:**
+
 - Create: `src/cli/start_stop.rs`
 - Modify: `src/cli/mod.rs`
 - Modify: `src/main.rs`
@@ -714,8 +723,10 @@ git commit -m "feat: add ghost services CLI commands"
 - [ ] **Step 1: Create start/stop module**
 
 Key behavior:
-- `ghost start`: run service `start` commands (top-to-bottom, **stop on first failure**),
-  then start daemon via service manager, then call `crate::cli::status::execute()`.
+
+- `ghost start`: run service `start` commands (top-to-bottom, **stop on first
+  failure**), then start daemon via service manager, then call
+  `crate::cli::status::execute()`.
 - `ghost stop`: stop daemon via service manager, then run service `stop` commands
   (bottom-to-top, **best-effort — don't stop on failure**), then call
   `crate::cli::status::execute()`.
@@ -724,6 +735,7 @@ Key behavior:
 Platform-specific daemon control (reference `src/cli/reset.rs:94-127`):
 
 **Linux (systemd):**
+
 ```rust
 // Start
 Command::new("systemctl").args(["--user", "start", "ghost-daemon"]).status()
@@ -732,6 +744,7 @@ Command::new("systemctl").args(["--user", "disable", "--now", "ghost-daemon"]).s
 ```
 
 **macOS (launchd):**
+
 ```rust
 // Get UID first
 let uid = Command::new("id").arg("-u").output()...;
@@ -757,6 +770,7 @@ restarts an already-loaded service.
 - [ ] **Step 3: Wire into `src/main.rs`**
 
 Add to `Commands` enum:
+
 ```rust
 /// Start all services and the daemon
 Start,
@@ -765,6 +779,7 @@ Stop,
 ```
 
 Add to `dispatch`:
+
 ```rust
 Commands::Start => ghost::cli::start_stop::execute_start().await,
 Commands::Stop => ghost::cli::start_stop::execute_stop().await,
@@ -786,15 +801,18 @@ git commit -m "feat: add ghost start/stop commands"
 ## Task 6: ghost init — generate services.toml
 
 **Files:**
+
 - Modify: `src/onboarding/wizard.rs`
 
 - [ ] **Step 1: Add services.toml generation function**
 
-Add a function in `src/onboarding/wizard.rs` (or a helper in `src/onboarding/services.rs`)
-that takes the `OnboardingState`, `detect::Platform`, workspace path, and container
-runtime, and builds a `ServiceRegistry` with the correct entries.
+Add a function in `src/onboarding/wizard.rs` (or a helper in
+`src/onboarding/services.rs`) that takes the `OnboardingState`, `detect::Platform`,
+workspace path, and container runtime, and builds a `ServiceRegistry` with the correct
+entries.
 
 The function should:
+
 - Check which services were selected (not skipped or remote-only)
 - For container services (searxng, crawl4ai, docling container): add a single
   `[containers]` entry with compose start/stop/update commands using the detected
@@ -819,8 +837,8 @@ Run: `cargo check`
 
 - [ ] **Step 4: Manual test**
 
-Run `ghost init` (with flags for speed) and verify `services.toml` is generated
-with correct platform-specific commands.
+Run `ghost init` (with flags for speed) and verify `services.toml` is generated with
+correct platform-specific commands.
 
 - [ ] **Step 5: Commit**
 
@@ -834,13 +852,16 @@ git commit -m "feat: generate services.toml during ghost init"
 ## Task 7: ghost reset — use services.toml for shutdown
 
 **Files:**
+
 - Modify: `src/cli/reset.rs`
 
 - [ ] **Step 1: Replace hardcoded stop with registry-based shutdown**
 
 In `reset.rs`, modify `stop_services()` to:
+
 1. Try to load `services.toml` from the workspace
-2. If found: use `reg.run_field(ServiceField::Stop, false, true)` (best-effort, reverse order)
+2. If found: use `reg.run_field(ServiceField::Stop, false, true)` (best-effort, reverse
+   order)
 3. If not found: fall back to the current hardcoded behavior (for backwards compat)
 
 Keep the existing hardcoded functions as the fallback path.
@@ -861,6 +882,7 @@ git commit -m "refactor: ghost reset uses services.toml for shutdown"
 ## Task 8: Update services skill
 
 **Files:**
+
 - Modify: `assets/skills/services/skill.md`
 
 - [ ] **Step 1: Rewrite the skill**
@@ -869,10 +891,12 @@ Replace the bulk of the manual systemctl/launchctl/compose examples with the new
 commands. Keep it short and concise per the spec. Structure:
 
 1. Architecture overview (brief — native vs container tiers)
-2. CLI commands: `ghost start`, `ghost stop`, `ghost services list/add/remove/update/status`
-3. Health checks: `ghost status` for HTTP probes, `ghost services status` for process checks
-4. Troubleshooting: keep port conflict and log viewing sections (these are still useful),
-   trim everything that's now covered by CLI commands
+2. CLI commands: `ghost start`, `ghost stop`,
+   `ghost services list/add/remove/update/status`
+3. Health checks: `ghost status` for HTTP probes, `ghost services status` for process
+   checks
+4. Troubleshooting: keep port conflict and log viewing sections (these are still
+   useful), trim everything that's now covered by CLI commands
 5. Optional extras: keep links to observability.md and tailscale.md
 
 - [ ] **Step 2: Commit**
@@ -888,8 +912,7 @@ git commit -m "docs: update services skill with new CLI commands"
 
 - [ ] **Step 1: Run full CI**
 
-Run: `just ci`
-Expected: All checks pass (fmt, check, clippy, tests).
+Run: `just ci` Expected: All checks pass (fmt, check, clippy, tests).
 
 - [ ] **Step 2: Fix any issues**
 

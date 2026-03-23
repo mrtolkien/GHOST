@@ -347,8 +347,8 @@ start = "c"
             },
         )
         .unwrap();
-        assert!(reg
-            .add(
+        assert!(
+            reg.add(
                 "foo".into(),
                 ServiceEntry {
                     start: Some("y".into()),
@@ -357,7 +357,8 @@ start = "c"
                     status: None,
                 },
             )
-            .is_err());
+            .is_err()
+        );
     }
 
     #[test]
@@ -369,8 +370,8 @@ start = "c"
     #[test]
     fn add_empty_entry_errors() {
         let mut reg = ServiceRegistry::default();
-        assert!(reg
-            .add(
+        assert!(
+            reg.add(
                 "foo".into(),
                 ServiceEntry {
                     start: None,
@@ -379,7 +380,8 @@ start = "c"
                     status: None,
                 },
             )
-            .is_err());
+            .is_err()
+        );
     }
 
     #[test]

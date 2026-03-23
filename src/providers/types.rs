@@ -422,16 +422,30 @@ mod tests {
         assert!(ProviderError::is_context_overflow_message(
             "prompt_length exceeded maximum of 200000"
         ));
-        assert!(ProviderError::is_context_overflow_message("too many tokens"));
-        assert!(ProviderError::is_context_overflow_message("prompt is too long"));
+        assert!(ProviderError::is_context_overflow_message(
+            "too many tokens"
+        ));
+        assert!(ProviderError::is_context_overflow_message(
+            "prompt is too long"
+        ));
         assert!(ProviderError::is_context_overflow_message(
             "input tokens exceed the configured limit"
         ));
-        assert!(ProviderError::is_context_overflow_message("context_length_exceeded"));
-        assert!(ProviderError::is_context_overflow_message("context length exceeded"));
-        assert!(ProviderError::is_context_overflow_message("token limit exceeded"));
-        assert!(ProviderError::is_context_overflow_message("input is too long"));
+        assert!(ProviderError::is_context_overflow_message(
+            "context_length_exceeded"
+        ));
+        assert!(ProviderError::is_context_overflow_message(
+            "context length exceeded"
+        ));
+        assert!(ProviderError::is_context_overflow_message(
+            "token limit exceeded"
+        ));
+        assert!(ProviderError::is_context_overflow_message(
+            "input is too long"
+        ));
         assert!(!ProviderError::is_context_overflow_message("rate limited"));
-        assert!(!ProviderError::is_context_overflow_message("invalid api key"));
+        assert!(!ProviderError::is_context_overflow_message(
+            "invalid api key"
+        ));
     }
 }

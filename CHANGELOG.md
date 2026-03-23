@@ -2,60 +2,78 @@
 
 ## [0.5.0](https://github.com/mrtolkien/GHOST/compare/v0.4.0...v0.5.0) (2026-03-23)
 
-
 ### Features
 
-* add ContextOverflow error variant with provider-agnostic detection ([860e489](https://github.com/mrtolkien/GHOST/commit/860e489dfff58dd333c93a5c2e2218697ac68caf))
-* add ghost services CLI commands ([3e6a7b1](https://github.com/mrtolkien/GHOST/commit/3e6a7b19330dc900b6b286d9c0483fc6c8a1e1aa))
-* add ghost start/stop commands ([9a87e38](https://github.com/mrtolkien/GHOST/commit/9a87e380f0ea3f778625b9cb91255d6eba96246d))
-* add ServiceRegistry add/remove/save mutations ([054a613](https://github.com/mrtolkien/GHOST/commit/054a6131c821929deccf1cea62e2b1d1866add9f))
-* add ServiceRegistry command runner ([cfbfd32](https://github.com/mrtolkien/GHOST/commit/cfbfd3280dd656c4d7f2fbfed979d713d224e139))
-* add ServiceRegistry type for services.toml parsing ([0ee4e03](https://github.com/mrtolkien/GHOST/commit/0ee4e031bccb87c69a3a28943c95301b4c90bbb1))
-* catch context overflow errors and retry after compaction ([cfbf124](https://github.com/mrtolkien/GHOST/commit/cfbf1242dee23fa788664f856477f9d201d9c28b))
-* emit Compacted event from tool loop + Discord notification ([a6778e3](https://github.com/mrtolkien/GHOST/commit/a6778e373b453bcc839c2d46ebec16a9da8edf62))
-* generate services.toml during ghost init ([9d75669](https://github.com/mrtolkien/GHOST/commit/9d756699fa1d45a5e69daa5a12cbed87a3c9dda8))
-
+- add ContextOverflow error variant with provider-agnostic detection
+  ([860e489](https://github.com/mrtolkien/GHOST/commit/860e489dfff58dd333c93a5c2e2218697ac68caf))
+- add ghost services CLI commands
+  ([3e6a7b1](https://github.com/mrtolkien/GHOST/commit/3e6a7b19330dc900b6b286d9c0483fc6c8a1e1aa))
+- add ghost start/stop commands
+  ([9a87e38](https://github.com/mrtolkien/GHOST/commit/9a87e380f0ea3f778625b9cb91255d6eba96246d))
+- add ServiceRegistry add/remove/save mutations
+  ([054a613](https://github.com/mrtolkien/GHOST/commit/054a6131c821929deccf1cea62e2b1d1866add9f))
+- add ServiceRegistry command runner
+  ([cfbfd32](https://github.com/mrtolkien/GHOST/commit/cfbfd3280dd656c4d7f2fbfed979d713d224e139))
+- add ServiceRegistry type for services.toml parsing
+  ([0ee4e03](https://github.com/mrtolkien/GHOST/commit/0ee4e031bccb87c69a3a28943c95301b4c90bbb1))
+- catch context overflow errors and retry after compaction
+  ([cfbf124](https://github.com/mrtolkien/GHOST/commit/cfbf1242dee23fa788664f856477f9d201d9c28b))
+- emit Compacted event from tool loop + Discord notification
+  ([a6778e3](https://github.com/mrtolkien/GHOST/commit/a6778e373b453bcc839c2d46ebec16a9da8edf62))
+- generate services.toml during ghost init
+  ([9d75669](https://github.com/mrtolkien/GHOST/commit/9d756699fa1d45a5e69daa5a12cbed87a3c9dda8))
 
 ### Bug Fixes
 
-* remove `document import url`, require download-first workflow ([bf2c7b5](https://github.com/mrtolkien/GHOST/commit/bf2c7b5917b7893ffe2c423d30a307f15b100682))
-* remove `document import url`, require download-first workflow ([66477fc](https://github.com/mrtolkien/GHOST/commit/66477fc3e08718f65708ef1d68542135aa1b7675))
-* review fixes — error on missing services.toml, banner ordering, dedupe path helper ([63fcef1](https://github.com/mrtolkien/GHOST/commit/63fcef18212ac613bb0a812cdb78eb7e78ffc1a1))
-
+- remove `document import url`, require download-first workflow
+  ([bf2c7b5](https://github.com/mrtolkien/GHOST/commit/bf2c7b5917b7893ffe2c423d30a307f15b100682))
+- remove `document import url`, require download-first workflow
+  ([66477fc](https://github.com/mrtolkien/GHOST/commit/66477fc3e08718f65708ef1d68542135aa1b7675))
+- review fixes — error on missing services.toml, banner ordering, dedupe path helper
+  ([63fcef1](https://github.com/mrtolkien/GHOST/commit/63fcef18212ac613bb0a812cdb78eb7e78ffc1a1))
 
 ### Refactoring
 
-* ghost reset uses services.toml for shutdown ([2e41d30](https://github.com/mrtolkien/GHOST/commit/2e41d3052c1c9e40b0903a16ae0174996d52a30b))
-* replace fixed keep_window with dynamic current-turn boundary ([c02afea](https://github.com/mrtolkien/GHOST/commit/c02afeac2fce33b733c77e36bc334d03a0be15c6))
-
+- ghost reset uses services.toml for shutdown
+  ([2e41d30](https://github.com/mrtolkien/GHOST/commit/2e41d3052c1c9e40b0903a16ae0174996d52a30b))
+- replace fixed keep_window with dynamic current-turn boundary
+  ([c02afea](https://github.com/mrtolkien/GHOST/commit/c02afeac2fce33b733c77e36bc334d03a0be15c6))
 
 ### Documentation
 
-* add ghost start/stop/services to CLI reference and services page ([db11413](https://github.com/mrtolkien/GHOST/commit/db1141340f394a9facb985d6a1f0bac4ab9fa2e2))
-* remove stale keep_window references from configs and docs ([d0217f6](https://github.com/mrtolkien/GHOST/commit/d0217f61f51006ce8a92deab74e4e71ff87828f3))
-* update services skill with new CLI commands ([d59b611](https://github.com/mrtolkien/GHOST/commit/d59b611220dc6f6da4aa2b5513a01366e8b800b0))
+- add ghost start/stop/services to CLI reference and services page
+  ([db11413](https://github.com/mrtolkien/GHOST/commit/db1141340f394a9facb985d6a1f0bac4ab9fa2e2))
+- remove stale keep_window references from configs and docs
+  ([d0217f6](https://github.com/mrtolkien/GHOST/commit/d0217f61f51006ce8a92deab74e4e71ff87828f3))
+- update services skill with new CLI commands
+  ([d59b611](https://github.com/mrtolkien/GHOST/commit/d59b611220dc6f6da4aa2b5513a01366e8b800b0))
 
 ## [0.4.0](https://github.com/mrtolkien/GHOST/compare/v0.3.0...v0.4.0) (2026-03-22)
 
-
 ### Features
 
-* add ghost reset ([dc3507c](https://github.com/mrtolkien/GHOST/commit/dc3507c1894b624fa4c2a690bf05845c09e21b0d))
-
+- add ghost reset
+  ([dc3507c](https://github.com/mrtolkien/GHOST/commit/dc3507c1894b624fa4c2a690bf05845c09e21b0d))
 
 ### Bug Fixes
 
-* ghost init with existing config actually pre-fills ([a8fdb3c](https://github.com/mrtolkien/GHOST/commit/a8fdb3c9db65883ebf83f96314a88174698af35a))
-* lots of small onboarding/status fixes ([e02ec81](https://github.com/mrtolkien/GHOST/commit/e02ec812ea6c1b2d67bd2e74bed64aa5103aeec3))
-* onboarding bugs — compose YAML, llama-server model, health ordering, diff UI ([7f9ba3a](https://github.com/mrtolkien/GHOST/commit/7f9ba3a224ede7d4d4d7fea9ba78df713fc172cf))
-
+- ghost init with existing config actually pre-fills
+  ([a8fdb3c](https://github.com/mrtolkien/GHOST/commit/a8fdb3c9db65883ebf83f96314a88174698af35a))
+- lots of small onboarding/status fixes
+  ([e02ec81](https://github.com/mrtolkien/GHOST/commit/e02ec812ea6c1b2d67bd2e74bed64aa5103aeec3))
+- onboarding bugs — compose YAML, llama-server model, health ordering, diff UI
+  ([7f9ba3a](https://github.com/mrtolkien/GHOST/commit/7f9ba3a224ede7d4d4d7fea9ba78df713fc172cf))
 
 ### Documentation
 
-* Add Contributor Covenant Code of Conduct ([c77f68c](https://github.com/mrtolkien/GHOST/commit/c77f68c99feed94d080c3d784866db6b9e141c94))
-* Add MIT License to the project ([be3bcf8](https://github.com/mrtolkien/GHOST/commit/be3bcf81b3c2b25a49835cd37c1990c8279f6d3f))
-* disclaimer + README update ([52d2a9f](https://github.com/mrtolkien/GHOST/commit/52d2a9f11a3128b09ab1b1603f38278b05d182b7))
-* some wording changes + reviewing TODO for install ([7f342e1](https://github.com/mrtolkien/GHOST/commit/7f342e148d696d7c7fd2deced47251a44ad9b747))
+- Add Contributor Covenant Code of Conduct
+  ([c77f68c](https://github.com/mrtolkien/GHOST/commit/c77f68c99feed94d080c3d784866db6b9e141c94))
+- Add MIT License to the project
+  ([be3bcf8](https://github.com/mrtolkien/GHOST/commit/be3bcf81b3c2b25a49835cd37c1990c8279f6d3f))
+- disclaimer + README update
+  ([52d2a9f](https://github.com/mrtolkien/GHOST/commit/52d2a9f11a3128b09ab1b1603f38278b05d182b7))
+- some wording changes + reviewing TODO for install
+  ([7f342e1](https://github.com/mrtolkien/GHOST/commit/7f342e148d696d7c7fd2deced47251a44ad9b747))
 
 ## [0.3.0](https://github.com/mrtolkien/GHOST/compare/v0.2.4...v0.3.0) (2026-03-21)
 

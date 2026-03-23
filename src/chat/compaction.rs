@@ -142,9 +142,10 @@ pub fn find_current_turn_start(messages: &[ChatMessage]) -> usize {
         if msg.role != Role::User {
             continue;
         }
-        let has_text = msg.content.iter().any(|block| {
-            matches!(block, ContentBlock::Text { text } if !text.is_empty())
-        });
+        let has_text = msg
+            .content
+            .iter()
+            .any(|block| matches!(block, ContentBlock::Text { text } if !text.is_empty()));
         if has_text {
             return i;
         }

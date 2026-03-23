@@ -6,15 +6,16 @@ The current compaction system uses a fixed 20-message keep window. This causes t
 issues:
 
 1. **Keep window too large**: 20 messages can span multiple tool-calling turns with huge
-   tool results, wasting context budget on old tool outputs that should have been masked.
+   tool results, wasting context budget on old tool outputs that should have been
+   masked.
 2. **Keep window too rigid**: Messages just outside the window get summarized, but their
    tool results were already masked by Phase 1 — so the summarizer receives very little
    useful input.
 3. **ChatHandler bug**: The main Discord chat path (`ChatHandler`) only runs Phase 1
    masking during tool loops, never escalating to Phase 2 summarization. The other
    handlers (`CodingHandler`, `JobHandler`) use full compaction.
-4. **No overflow recovery**: When a provider returns `context_length_exceeded`, the error
-   propagates as a chat failure. No retry, no compaction attempt.
+4. **No overflow recovery**: When a provider returns `context_length_exceeded`, the
+   error propagates as a chat failure. No retry, no compaction attempt.
 
 ## Design
 
@@ -57,13 +58,13 @@ Re-check token estimate. If under threshold, done.
 - **Cap the rendered text** at `MAX_SUMMARIZATION_INPUT_CHARS` (e.g. 50,000 chars ~12K
   tokens) to prevent the summarizer call itself from overflowing. Truncate from the
   beginning (keep the most recent pre-turn content).
-- Send to LLM with compaction prompt (max 2048 output tokens, temperature 0.3,
-  reasoning effort low)
+- Send to LLM with compaction prompt (max 2048 output tokens, temperature 0.3, reasoning
+  effort low)
 - Persist summary + cursor to DB. The cursor points to the message just before the
   current turn boundary (`split = find_current_turn_start(messages)`).
 - Reload history from DB (summary + current turn)
-- Emit a `ToolLoopEvent::CompactionCompleted` event via the existing `EventSender`.
-  The Discord interface renders it as a system message:
+- Emit a `ToolLoopEvent::CompactionCompleted` event via the existing `EventSender`. The
+  Discord interface renders it as a system message:
   `[context compacted — older conversation was summarized to fit the model's context window]`
 
 ### Context overflow recovery
@@ -93,9 +94,8 @@ HTTP 400, OpenAI Compatible HTTP 400, Anthropic HTTP 400, Anthropic SSE errors.
 ### Where compaction runs
 
 - Before first request of a new turn (`compact_if_needed`)
-- Before every request in the tool loop (pre-send check). Yes, this can trigger a
-  Phase 2 LLM call — intentionally. A summarization call is cheaper than a failed
-  request.
+- Before every request in the tool loop (pre-send check). Yes, this can trigger a Phase
+  2 LLM call — intentionally. A summarization call is cheaper than a failed request.
 - After every tool iteration (`post_tool_iteration` — now full compaction for ALL
   handlers, fixing the ChatHandler bug)
 - On `ContextOverflow` error (forced, then retry)

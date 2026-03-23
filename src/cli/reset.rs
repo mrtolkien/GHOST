@@ -94,7 +94,9 @@ fn stop_services(workspace: &Path) {
             stop_services_legacy(workspace);
         }
         Err(e) => {
-            eprintln!("  Warning: could not read services.toml ({e}); falling back to legacy shutdown");
+            eprintln!(
+                "  Warning: could not read services.toml ({e}); falling back to legacy shutdown"
+            );
             stop_services_legacy(workspace);
         }
     }

@@ -1,41 +1,53 @@
 # Compaction Overhaul: Dynamic Turn Boundary + Context Overflow Recovery
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use
+> superpowers:subagent-driven-development (recommended) or superpowers:executing-plans
+> to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Make compaction use the current turn as its boundary (not a fixed 20-message window), mask tool call inputs, and gracefully recover from context overflow errors instead of crashing.
+**Goal:** Make compaction use the current turn as its boundary (not a fixed 20-message
+window), mask tool call inputs, and gracefully recover from context overflow errors
+instead of crashing.
 
-**Architecture:** Four changes to the existing compaction system: (1) replace fixed `keep_window` with dynamic "current turn" detection, (2) extend masking to cover tool call inputs, (3) wire all chat handlers to use full compaction, (4) add `ContextOverflow` error detection + retry. The two-phase approach (mask → summarize) stays — only the split point and masking scope change.
+**Architecture:** Four changes to the existing compaction system: (1) replace fixed
+`keep_window` with dynamic "current turn" detection, (2) extend masking to cover tool
+call inputs, (3) wire all chat handlers to use full compaction, (4) add
+`ContextOverflow` error detection + retry. The two-phase approach (mask → summarize)
+stays — only the split point and masking scope change.
 
 **Design spec:** `backlog/tasks/2026-03-23-compaction-overhaul-design.md`
 
-**Tech Stack:** Rust, existing compaction infrastructure in `src/chat/compaction.rs`, provider error types in `src/providers/types.rs`
+**Tech Stack:** Rust, existing compaction infrastructure in `src/chat/compaction.rs`,
+provider error types in `src/providers/types.rs`
 
 ---
 
 ## File Map
 
-| File | Action | Responsibility |
-|------|--------|---------------|
-| `src/providers/types.rs` | Modify | Add `ContextOverflow` variant + `is_context_overflow_message()` |
-| `src/providers/codex_responses.rs` | Modify | Detect context overflow in SSE + JSON error paths |
-| `src/providers/openai_oauth.rs` | Modify | Detect context overflow in HTTP 400 path |
-| `src/providers/openai_compatible_provider.rs` | Modify | Detect context overflow in HTTP 400 path |
-| `src/providers/anthropic/mod.rs` | Modify | Detect context overflow in HTTP 400 path |
-| `src/providers/anthropic/streaming.rs` | Modify | Detect context overflow in SSE error events |
-| `src/chat/compaction.rs` | Modify | Replace `keep_window` with `find_current_turn_start()`, rename masking fn, add tool input masking, cap summarization input, remove `apply_masking_if_needed`, return bool from `compact_in_tool_loop_with_config` |
-| `src/chat/session.rs` | Modify | `ChatHandler.post_tool_iteration` → full compaction, remove `keep_window` from `coding_compaction_config`, replace `apply_masking_if_needed` in agent pre-run (~line 1325), emit `Compacted` event |
-| `src/chat/tool_loop.rs` | Modify | Catch `ContextOverflow`, rebuild request after compaction, retry once |
-| `src/chat/types.rs` | Modify | Add `ToolLoopEvent::Compacted` variant |
-| `src/interfaces/discord/ui_events.rs` | Modify | Render compaction event as Discord message |
-| `src/config.rs` | Modify | Remove `keep_window` from `CompactionConfig`, `CompactionSettings`, `load()` default, and `test_config()` |
+| File                                          | Action | Responsibility                                                                                                                                                                                                    |
+| --------------------------------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/providers/types.rs`                      | Modify | Add `ContextOverflow` variant + `is_context_overflow_message()`                                                                                                                                                   |
+| `src/providers/codex_responses.rs`            | Modify | Detect context overflow in SSE + JSON error paths                                                                                                                                                                 |
+| `src/providers/openai_oauth.rs`               | Modify | Detect context overflow in HTTP 400 path                                                                                                                                                                          |
+| `src/providers/openai_compatible_provider.rs` | Modify | Detect context overflow in HTTP 400 path                                                                                                                                                                          |
+| `src/providers/anthropic/mod.rs`              | Modify | Detect context overflow in HTTP 400 path                                                                                                                                                                          |
+| `src/providers/anthropic/streaming.rs`        | Modify | Detect context overflow in SSE error events                                                                                                                                                                       |
+| `src/chat/compaction.rs`                      | Modify | Replace `keep_window` with `find_current_turn_start()`, rename masking fn, add tool input masking, cap summarization input, remove `apply_masking_if_needed`, return bool from `compact_in_tool_loop_with_config` |
+| `src/chat/session.rs`                         | Modify | `ChatHandler.post_tool_iteration` → full compaction, remove `keep_window` from `coding_compaction_config`, replace `apply_masking_if_needed` in agent pre-run (~line 1325), emit `Compacted` event                |
+| `src/chat/tool_loop.rs`                       | Modify | Catch `ContextOverflow`, rebuild request after compaction, retry once                                                                                                                                             |
+| `src/chat/types.rs`                           | Modify | Add `ToolLoopEvent::Compacted` variant                                                                                                                                                                            |
+| `src/interfaces/discord/ui_events.rs`         | Modify | Render compaction event as Discord message                                                                                                                                                                        |
+| `src/config.rs`                               | Modify | Remove `keep_window` from `CompactionConfig`, `CompactionSettings`, `load()` default, and `test_config()`                                                                                                         |
 
 ---
 
 ### Task 1: Add `ContextOverflow` error variant and detection
 
-Detect context overflow from all providers using string matching on error messages inside each provider at parse time. Produces a typed `ProviderError::ContextOverflow` variant.
+Detect context overflow from all providers using string matching on error messages
+inside each provider at parse time. Produces a typed `ProviderError::ContextOverflow`
+variant.
 
 **Files:**
+
 - Modify: `src/providers/types.rs:193-224`
 - Modify: `src/providers/codex_responses.rs:271-284,336-345`
 - Modify: `src/providers/openai_oauth.rs:229-233`
@@ -82,7 +94,8 @@ mod tests {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cargo test --lib providers::types::tests::is_context_overflow_detects_known_patterns`
+Run:
+`cargo test --lib providers::types::tests::is_context_overflow_detects_known_patterns`
 Expected: FAIL — `is_context_overflow_message` does not exist.
 
 - [ ] **Step 3: Add `ContextOverflow` variant and detection function**
@@ -119,15 +132,16 @@ impl ProviderError {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cargo test --lib providers::types::tests`
-Expected: PASS
+Run: `cargo test --lib providers::types::tests` Expected: PASS
 
 - [ ] **Step 5: Wire detection into all provider error paths**
 
 In each provider, at the point where `ProviderError::InvalidResponse` is returned for
 HTTP 400 or failed-response errors, check the message first:
 
-**`src/providers/codex_responses.rs`** — two places (line ~281 JSON path, line ~342 SSE path):
+**`src/providers/codex_responses.rs`** — two places (line ~281 JSON path, line ~342 SSE
+path):
+
 ```rust
 let err_msg = format!("codex response failed: {error_msg}");
 if ProviderError::is_context_overflow_message(error_msg) {
@@ -136,7 +150,10 @@ if ProviderError::is_context_overflow_message(error_msg) {
 return Err(ProviderError::InvalidResponse(err_msg));
 ```
 
-**`src/providers/openai_oauth.rs`** line ~231, **`src/providers/openai_compatible_provider.rs`** line ~182, **`src/providers/anthropic/mod.rs`** line ~232:
+**`src/providers/openai_oauth.rs`** line ~231,
+**`src/providers/openai_compatible_provider.rs`** line ~182,
+**`src/providers/anthropic/mod.rs`** line ~232:
+
 ```rust
 let err_msg = format!("HTTP {status}: {response_body}");
 if ProviderError::is_context_overflow_message(&response_body) {
@@ -146,6 +163,7 @@ return Err(ProviderError::InvalidResponse(err_msg));
 ```
 
 **`src/providers/anthropic/streaming.rs`** line ~162 (SSE error event):
+
 ```rust
 if ProviderError::is_context_overflow_message(&msg) {
     return Err(ProviderError::ContextOverflow(msg.to_string()));
@@ -155,8 +173,7 @@ return Err(ProviderError::InvalidResponse(msg.to_string()));
 
 - [ ] **Step 6: Run full test suite**
 
-Run: `cargo test`
-Expected: All existing tests pass.
+Run: `cargo test` Expected: All existing tests pass.
 
 - [ ] **Step 7: Commit**
 
@@ -171,13 +188,15 @@ git commit -m "feat: add ContextOverflow error variant with provider-agnostic de
 
 Replace the split point, extend masking to tool inputs, cap summarization input size,
 remove `apply_masking_if_needed`, remove `keep_window` from config. Have
-`compact_in_tool_loop_with_config` return a `bool` indicating whether Phase 2 ran (needed
-for Discord notification in Task 3).
+`compact_in_tool_loop_with_config` return a `bool` indicating whether Phase 2 ran
+(needed for Discord notification in Task 3).
 
 **Files:**
+
 - Modify: `src/chat/compaction.rs`
 - Modify: `src/config.rs:142-145,271-278,457-463,798-802`
-- Modify: `src/chat/session.rs:784-798` (`coding_compaction_config`), `~1325` (agent pre-run)
+- Modify: `src/chat/session.rs:784-798` (`coding_compaction_config`), `~1325` (agent
+  pre-run)
 - Test: `src/chat/compaction.rs` (inline tests)
 
 - [ ] **Step 1: Write test for `find_current_turn_start`**
@@ -220,8 +239,8 @@ fn find_current_turn_start_tool_result_only_user_messages() {
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `cargo test --lib chat::compaction::tests::find_current_turn_start`
-Expected: FAIL — function does not exist.
+Run: `cargo test --lib chat::compaction::tests::find_current_turn_start` Expected: FAIL
+— function does not exist.
 
 - [ ] **Step 3: Implement `find_current_turn_start`**
 
@@ -248,8 +267,7 @@ pub fn find_current_turn_start(messages: &[ChatMessage]) -> usize {
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `cargo test --lib chat::compaction::tests::find_current_turn_start`
-Expected: PASS
+Run: `cargo test --lib chat::compaction::tests::find_current_turn_start` Expected: PASS
 
 - [ ] **Step 5: Write test for tool input masking**
 
@@ -284,10 +302,11 @@ fn mask_includes_tool_use_inputs() {
 
 - [ ] **Step 6: Run test to verify it fails**
 
-Run: `cargo test --lib chat::compaction::tests::mask_includes_tool_use_inputs`
-Expected: FAIL — `mask_tool_interactions` does not exist.
+Run: `cargo test --lib chat::compaction::tests::mask_includes_tool_use_inputs` Expected:
+FAIL — `mask_tool_interactions` does not exist.
 
-- [ ] **Step 7: Rename `mask_tool_results` → `mask_tool_interactions`, add `ToolUse` masking**
+- [ ] **Step 7: Rename `mask_tool_results` → `mask_tool_interactions`, add `ToolUse`
+      masking**
 
 Rename the function and add a `ToolUse` arm that replaces `input` with `json!({})`:
 
@@ -303,20 +322,25 @@ The rest of the function body stays the same (ToolResult masking, Image masking,
 `other => other.clone()` passthrough).
 
 Update the 2 remaining call sites that use `mask_tool_results`:
+
 - `compact_if_needed` (~line 471)
 - `compact_in_tool_loop_with_config` (~line 603)
 
 Delete `apply_masking_if_needed` entirely (~lines 544-559) — it's replaced by
 `compact_in_tool_loop` everywhere:
+
 - `ChatHandler::post_tool_iteration` at session.rs:758 (rewired in Task 3)
 - Agent pre-run at session.rs:1325 — replace with:
+
   ```rust
   self.compact_in_tool_loop(&session_thing, &mut history).await;
   ```
 
-- [ ] **Step 8: Replace `keep_window` with `find_current_turn_start` in all 3 locations**
+- [ ] **Step 8: Replace `keep_window` with `find_current_turn_start` in all 3
+      locations**
 
 **Location 1** — `compact_if_needed` (~line 470):
+
 ```rust
 // Before:
 let keep_start = history.len().saturating_sub(compaction.keep_window);
@@ -325,6 +349,7 @@ let keep_start = find_current_turn_start(history);
 ```
 
 **Location 2** — `compact_in_tool_loop_with_config` (~line 602):
+
 ```rust
 // Before:
 let keep_start = history.len().saturating_sub(compaction.keep_window);
@@ -333,6 +358,7 @@ let keep_start = find_current_turn_start(history);
 ```
 
 **Location 3** — `summarize_older_messages` (~line 342):
+
 ```rust
 // Before:
 let split = messages.len().saturating_sub(config.keep_window);
@@ -341,6 +367,7 @@ let split = find_current_turn_start(messages);
 ```
 
 Also fix the `#[tracing::instrument]` on `summarize_older_messages` (~line 329):
+
 ```rust
 // Before:
 fields(total_messages = messages.len(), keep_window = config.keep_window)
@@ -367,14 +394,15 @@ let conversation_text = if conversation_text.len() > MAX_SUMMARIZATION_INPUT_CHA
 
 - [ ] **Step 10: Make `compact_in_tool_loop_with_config` return `bool`**
 
-Change the return type from `()` to `bool`. Return `true` when Phase 2 summarization
-ran successfully, `false` otherwise (including when compaction wasn't needed, or Phase 1
-was sufficient, or Phase 2 failed).
+Change the return type from `()` to `bool`. Return `true` when Phase 2 summarization ran
+successfully, `false` otherwise (including when compaction wasn't needed, or Phase 1 was
+sufficient, or Phase 2 failed).
 
 Update `compact_in_tool_loop` wrapper to also return `bool` (pass through the inner
 return value).
 
 Update callers that currently ignore the return value:
+
 - `CodingHandler::post_tool_iteration` (~session.rs:899) — capture but ignore (or emit
   Compacted event, same as ChatHandler in Task 3)
 - `LuaAgentHandler::post_tool_iteration` (~session.rs:1028) — capture but ignore
@@ -383,19 +411,21 @@ Update callers that currently ignore the return value:
 - [ ] **Step 11: Remove `keep_window` from config**
 
 In `src/config.rs`, remove `keep_window` from:
+
 1. `CompactionSettings` struct (line 144): remove `pub keep_window: Option<usize>`
 2. `CompactionConfig` struct (line 273): remove `pub keep_window: usize`
 3. `load()` default construction (~line 459-463): remove the `keep_window:` field
 4. `test_config()` (~line 800): remove `keep_window: 20` from the `CompactionConfig`
 
-In `src/chat/session.rs`, update `coding_compaction_config()` (~line 784-798):
-remove `keep_window: 12`, keep the `instructions` override.
+In `src/chat/session.rs`, update `coding_compaction_config()` (~line 784-798): remove
+`keep_window: 12`, keep the `instructions` override.
 
 - [ ] **Step 12: Run full test suite and fix compilation issues**
 
 Run: `cargo test`
 
 Expected breakages and fixes:
+
 - Tests that call `mask_tool_results` → rename to `mask_tool_interactions`
 - Tests that construct `CompactionConfig` with `keep_window` → remove the field
 - `test_config()` in `config.rs` — remove `keep_window` from the constructed config
@@ -420,6 +450,7 @@ the apply_masking_if_needed method."
 Fix the `ChatHandler` bug and add the compaction event for Discord.
 
 **Files:**
+
 - Modify: `src/chat/session.rs:753-776`
 - Modify: `src/chat/types.rs:85-89`
 - Modify: `src/interfaces/discord/ui_events.rs:46-58`
@@ -447,8 +478,8 @@ ToolLoopEvent::Compacted => {
 }
 ```
 
-Add the handler method (follows the `handle_tool_calls` pattern — uses
-`send_v2_message` with `container` + `text_display`):
+Add the handler method (follows the `handle_tool_calls` pattern — uses `send_v2_message`
+with `container` + `text_display`):
 
 ```rust
 /// Muted grey for compaction notices.
@@ -467,13 +498,17 @@ async fn handle_compacted(&self) {
 }
 ```
 
-- [ ] **Step 3: Replace `apply_masking_if_needed` with `compact_in_tool_loop` in `ChatHandler`**
+- [ ] **Step 3: Replace `apply_masking_if_needed` with `compact_in_tool_loop` in
+      `ChatHandler`**
 
 In `ChatHandler::post_tool_iteration` (session.rs ~line 753-776), replace:
+
 ```rust
 self.session_chat.apply_masking_if_needed(history);
 ```
+
 with:
+
 ```rust
 let compacted = self.session_chat
     .compact_in_tool_loop(self.session_thing, history)
@@ -492,8 +527,7 @@ return and emit the event.
 
 - [ ] **Step 4: Run tests**
 
-Run: `cargo test`
-Expected: PASS
+Run: `cargo test` Expected: PASS
 
 - [ ] **Step 5: Commit**
 
@@ -514,6 +548,7 @@ When the provider returns `ContextOverflow`, force full compaction, rebuild the 
 with the compacted history, and retry once.
 
 **Files:**
+
 - Modify: `src/chat/tool_loop.rs:194-249`
 
 - [ ] **Step 1: Add `ContextOverflow` arm in the response match**
@@ -557,8 +592,7 @@ Ok(Err(ProviderError::ContextOverflow(msg))) => {
 
 - [ ] **Step 2: Run tests**
 
-Run: `cargo test`
-Expected: PASS
+Run: `cargo test` Expected: PASS
 
 - [ ] **Step 3: Commit**
 
