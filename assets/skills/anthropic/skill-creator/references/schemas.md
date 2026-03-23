@@ -17,16 +17,14 @@ Defines the evals for a skill. Located at `evals/evals.json` within the skill di
       "prompt": "User's example prompt",
       "expected_output": "Description of expected result",
       "files": ["evals/files/sample1.pdf"],
-      "expectations": [
-        "The output includes X",
-        "The skill used script Y"
-      ]
+      "expectations": ["The output includes X", "The skill used script Y"]
     }
   ]
 }
 ```
 
 **Fields:**
+
 - `skill_name`: Name matching the skill's frontmatter
 - `evals[].id`: Unique integer identifier
 - `evals[].prompt`: The task to execute
@@ -72,6 +70,7 @@ Tracks version progression in Improve mode. Located at workspace root.
 ```
 
 **Fields:**
+
 - `started_at`: ISO timestamp of when improvement started
 - `skill_name`: Name of the skill being improved
 - `current_best`: Version identifier of the best performer
@@ -150,13 +149,15 @@ Output from the grader agent. Located at `<run-dir>/grading.json`.
 ```
 
 **Fields:**
+
 - `expectations[]`: Graded expectations with evidence
 - `summary`: Aggregate pass/fail counts
 - `execution_metrics`: Tool usage and output size (from executor's metrics.json)
 - `timing`: Wall clock timing (from timing.json)
 - `claims`: Extracted and verified claims from the output
 - `user_notes_summary`: Issues flagged by the executor
-- `eval_feedback`: (optional) Improvement suggestions for the evals, only present when the grader identifies issues worth raising
+- `eval_feedback`: (optional) Improvement suggestions for the evals, only present when
+  the grader identifies issues worth raising
 
 ---
 
@@ -184,6 +185,7 @@ Output from the executor agent. Located at `<run-dir>/outputs/metrics.json`.
 ```
 
 **Fields:**
+
 - `tool_calls`: Count per tool type
 - `total_tool_calls`: Sum of all tool calls
 - `total_steps`: Number of major execution steps
@@ -198,7 +200,9 @@ Output from the executor agent. Located at `<run-dir>/outputs/metrics.json`.
 
 Wall clock timing for a run. Located at `<run-dir>/timing.json`.
 
-**How to capture:** When a subagent task completes, the task notification includes `total_tokens` and `duration_ms`. Save these immediately — they are not persisted anywhere else and cannot be recovered after the fact.
+**How to capture:** When a subagent task completes, the task notification includes
+`total_tokens` and `duration_ms`. Save these immediately — they are not persisted
+anywhere else and cannot be recovered after the fact.
 
 ```json
 {
@@ -248,9 +252,7 @@ Output from Benchmark mode. Located at `benchmarks/<timestamp>/benchmark.json`.
         "tool_calls": 18,
         "errors": 0
       },
-      "expectations": [
-        {"text": "...", "passed": true, "evidence": "..."}
-      ],
+      "expectations": [{ "text": "...", "passed": true, "evidence": "..." }],
       "notes": [
         "Used 2023 data, may be stale",
         "Fell back to text overlay for non-fillable fields"
@@ -260,14 +262,14 @@ Output from Benchmark mode. Located at `benchmarks/<timestamp>/benchmark.json`.
 
   "run_summary": {
     "with_skill": {
-      "pass_rate": {"mean": 0.85, "stddev": 0.05, "min": 0.80, "max": 0.90},
-      "time_seconds": {"mean": 45.0, "stddev": 12.0, "min": 32.0, "max": 58.0},
-      "tokens": {"mean": 3800, "stddev": 400, "min": 3200, "max": 4100}
+      "pass_rate": { "mean": 0.85, "stddev": 0.05, "min": 0.8, "max": 0.9 },
+      "time_seconds": { "mean": 45.0, "stddev": 12.0, "min": 32.0, "max": 58.0 },
+      "tokens": { "mean": 3800, "stddev": 400, "min": 3200, "max": 4100 }
     },
     "without_skill": {
-      "pass_rate": {"mean": 0.35, "stddev": 0.08, "min": 0.28, "max": 0.45},
-      "time_seconds": {"mean": 32.0, "stddev": 8.0, "min": 24.0, "max": 42.0},
-      "tokens": {"mean": 2100, "stddev": 300, "min": 1800, "max": 2500}
+      "pass_rate": { "mean": 0.35, "stddev": 0.08, "min": 0.28, "max": 0.45 },
+      "time_seconds": { "mean": 32.0, "stddev": 8.0, "min": 24.0, "max": 42.0 },
+      "tokens": { "mean": 2100, "stddev": 300, "min": 1800, "max": 2500 }
     },
     "delta": {
       "pass_rate": "+0.50",
@@ -286,6 +288,7 @@ Output from Benchmark mode. Located at `benchmarks/<timestamp>/benchmark.json`.
 ```
 
 **Fields:**
+
 - `metadata`: Information about the benchmark run
   - `skill_name`: Name of the skill
   - `timestamp`: When the benchmark was run
@@ -294,15 +297,21 @@ Output from Benchmark mode. Located at `benchmarks/<timestamp>/benchmark.json`.
 - `runs[]`: Individual run results
   - `eval_id`: Numeric eval identifier
   - `eval_name`: Human-readable eval name (used as section header in the viewer)
-  - `configuration`: Must be `"with_skill"` or `"without_skill"` (the viewer uses this exact string for grouping and color coding)
+  - `configuration`: Must be `"with_skill"` or `"without_skill"` (the viewer uses this
+    exact string for grouping and color coding)
   - `run_number`: Integer run number (1, 2, 3...)
-  - `result`: Nested object with `pass_rate`, `passed`, `total`, `time_seconds`, `tokens`, `errors`
+  - `result`: Nested object with `pass_rate`, `passed`, `total`, `time_seconds`,
+    `tokens`, `errors`
 - `run_summary`: Statistical aggregates per configuration
-  - `with_skill` / `without_skill`: Each contains `pass_rate`, `time_seconds`, `tokens` objects with `mean` and `stddev` fields
+  - `with_skill` / `without_skill`: Each contains `pass_rate`, `time_seconds`, `tokens`
+    objects with `mean` and `stddev` fields
   - `delta`: Difference strings like `"+0.50"`, `"+13.0"`, `"+1700"`
 - `notes`: Freeform observations from the analyzer
 
-**Important:** The viewer reads these field names exactly. Using `config` instead of `configuration`, or putting `pass_rate` at the top level of a run instead of nested under `result`, will cause the viewer to show empty/zero values. Always reference this schema when generating benchmark.json manually.
+**Important:** The viewer reads these field names exactly. Using `config` instead of
+`configuration`, or putting `pass_rate` at the top level of a run instead of nested
+under `result`, will cause the viewer to show empty/zero values. Always reference this
+schema when generating benchmark.json manually.
 
 ---
 
@@ -355,25 +364,25 @@ Output from blind comparator. Located at `<grading-dir>/comparison-N.json`.
     "B": {
       "score": 5,
       "strengths": ["Readable output", "Correct basic structure"],
-      "weaknesses": ["Missing date field", "Formatting inconsistencies", "Partial data extraction"]
+      "weaknesses": [
+        "Missing date field",
+        "Formatting inconsistencies",
+        "Partial data extraction"
+      ]
     }
   },
   "expectation_results": {
     "A": {
       "passed": 4,
       "total": 5,
-      "pass_rate": 0.80,
-      "details": [
-        {"text": "Output includes name", "passed": true}
-      ]
+      "pass_rate": 0.8,
+      "details": [{ "text": "Output includes name", "passed": true }]
     },
     "B": {
       "passed": 3,
       "total": 5,
-      "pass_rate": 0.60,
-      "details": [
-        {"text": "Output includes name", "passed": true}
-      ]
+      "pass_rate": 0.6,
+      "details": [{ "text": "Output includes name", "passed": true }]
     }
   }
 }

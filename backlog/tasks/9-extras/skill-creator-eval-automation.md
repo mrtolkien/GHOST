@@ -1,10 +1,10 @@
 Implement automated skill description optimization for GHOST.
 
 The vendored Anthropic `skill-creator` skill includes a description optimization
-pipeline that programmatically tests whether a skill triggers for various queries,
-then uses an LLM to iteratively improve the description. We bundled the skill writing
-guide and eval viewer but not the automation scripts, because they depend on
-`claude -p` (Claude Code's headless CLI mode).
+pipeline that programmatically tests whether a skill triggers for various queries, then
+uses an LLM to iteratively improve the description. We bundled the skill writing guide
+and eval viewer but not the automation scripts, because they depend on `claude -p`
+(Claude Code's headless CLI mode).
 
 ## What the upstream pipeline does
 
@@ -23,14 +23,15 @@ guide and eval viewer but not the automation scripts, because they depend on
   - Returns whether the skill was triggered (and optionally the full response)
   - Runs headlessly with structured output (JSON)
 - Port `run_eval.py` to call `ghost eval-skill` instead of `claude -p`
-- Port `improve_description.py` to call the GHOST provider API directly
-  (or use `ghost eval-skill` with a meta-prompt)
+- Port `improve_description.py` to call the GHOST provider API directly (or use
+  `ghost eval-skill` with a meta-prompt)
 - Port `run_loop.py` to orchestrate the above
 - Port `generate_report.py` (already bundled, just needs the loop output)
 
 ## Upstream reference
 
 The original scripts are vendored at `vendor/anthropic-skills/skill-creator/scripts/`:
+
 - `run_eval.py` — spawns parallel `claude -p` subprocesses, parses stream JSON
 - `run_loop.py` — eval+improve loop with train/test split
 - `improve_description.py` — calls `claude -p` to generate improved descriptions
