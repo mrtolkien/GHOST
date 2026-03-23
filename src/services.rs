@@ -2,6 +2,7 @@ use std::path::Path;
 
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
+use toml_edit::{DocumentMut, Item, Table, value};
 
 /// A single service entry from services.toml.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -70,6 +71,57 @@ impl ServiceRegistry {
     pub fn names(&self) -> Vec<&str> {
         self.entries.keys().map(|s| s.as_str()).collect()
     }
+
+    /// Add a new service entry. Errors if name already exists.
+    pub fn add(&mut self, name: String, entry: ServiceEntry) -> Result<(), ServiceRegistryError> {
+        if entry.start.is_none()
+            && entry.stop.is_none()
+            && entry.update.is_none()
+            && entry.status.is_none()
+        {
+            return Err(ServiceRegistryError::EmptyEntry);
+        }
+        if self.entries.contains_key(&name) {
+            return Err(ServiceRegistryError::AlreadyExists(name));
+        }
+        self.entries.insert(name, entry);
+        Ok(())
+    }
+
+    /// Remove a service entry by name. Errors if not found.
+    pub fn remove(&mut self, name: &str) -> Result<(), ServiceRegistryError> {
+        if self.entries.shift_remove(name).is_none() {
+            return Err(ServiceRegistryError::NotFound(name.to_string()));
+        }
+        Ok(())
+    }
+
+    /// Write the registry back to a TOML file.
+    ///
+    /// Uses `toml_edit` to produce top-level `[name]` tables (matching the load
+    /// format), rather than nested `[entries.name]` tables that `toml::to_string_pretty`
+    /// would emit given the `entries` field name.
+    pub fn save(&self, path: &Path) -> Result<(), ServiceRegistryError> {
+        let mut doc = DocumentMut::new();
+        for (name, entry) in &self.entries {
+            let mut table = Table::new();
+            if let Some(ref cmd) = entry.start {
+                table.insert("start", value(cmd.as_str()));
+            }
+            if let Some(ref cmd) = entry.stop {
+                table.insert("stop", value(cmd.as_str()));
+            }
+            if let Some(ref cmd) = entry.update {
+                table.insert("update", value(cmd.as_str()));
+            }
+            if let Some(ref cmd) = entry.status {
+                table.insert("status", value(cmd.as_str()));
+            }
+            doc.insert(name, Item::Table(table));
+        }
+        std::fs::write(path, doc.to_string())
+            .map_err(|e| ServiceRegistryError::Io(path.to_path_buf(), e))
+    }
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -84,6 +136,8 @@ pub enum ServiceRegistryError {
     NotFound(String),
     #[error("at least one command field is required")]
     EmptyEntry,
+    #[error("cannot serialize services: {0}")]
+    Serialize(#[from] toml::ser::Error),
     #[error("{service}: command failed (exit {code})\n{stderr}")]
     CommandFailed {
         service: String,
@@ -171,5 +225,91 @@ start = "c"
     fn parse_malformed_toml() {
         let f = write_toml("not valid [[ toml");
         assert!(ServiceRegistry::load(f.path()).is_err());
+    }
+
+    #[test]
+    fn add_and_remove() {
+        let mut reg = ServiceRegistry::default();
+        reg.add(
+            "foo".into(),
+            ServiceEntry {
+                start: Some("start-foo".into()),
+                stop: None,
+                update: None,
+                status: None,
+            },
+        )
+        .unwrap();
+        assert_eq!(reg.names(), vec!["foo"]);
+        reg.remove("foo").unwrap();
+        assert!(reg.entries.is_empty());
+    }
+
+    #[test]
+    fn add_duplicate_errors() {
+        let mut reg = ServiceRegistry::default();
+        reg.add(
+            "foo".into(),
+            ServiceEntry {
+                start: Some("x".into()),
+                stop: None,
+                update: None,
+                status: None,
+            },
+        )
+        .unwrap();
+        assert!(reg
+            .add(
+                "foo".into(),
+                ServiceEntry {
+                    start: Some("y".into()),
+                    stop: None,
+                    update: None,
+                    status: None,
+                },
+            )
+            .is_err());
+    }
+
+    #[test]
+    fn remove_missing_errors() {
+        let mut reg = ServiceRegistry::default();
+        assert!(reg.remove("nope").is_err());
+    }
+
+    #[test]
+    fn add_empty_entry_errors() {
+        let mut reg = ServiceRegistry::default();
+        assert!(reg
+            .add(
+                "foo".into(),
+                ServiceEntry {
+                    start: None,
+                    stop: None,
+                    update: None,
+                    status: None,
+                },
+            )
+            .is_err());
+    }
+
+    #[test]
+    fn save_roundtrip() {
+        let mut reg = ServiceRegistry::default();
+        reg.add(
+            "svc".into(),
+            ServiceEntry {
+                start: Some("start-cmd".into()),
+                stop: Some("stop-cmd".into()),
+                update: None,
+                status: None,
+            },
+        )
+        .unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("services.toml");
+        reg.save(&path).unwrap();
+        let loaded = ServiceRegistry::load(&path).unwrap();
+        assert_eq!(loaded.entries["svc"].start.as_deref(), Some("start-cmd"));
     }
 }
