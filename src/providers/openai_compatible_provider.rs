@@ -179,9 +179,11 @@ impl OpenAiCompatibleProvider {
             });
         }
         if !status.is_success() {
-            return Err(ProviderError::InvalidResponse(format!(
-                "HTTP {status}: {response_body}"
-            )));
+            let err_msg = format!("HTTP {status}: {response_body}");
+            if ProviderError::is_context_overflow_message(&response_body) {
+                return Err(ProviderError::ContextOverflow(err_msg));
+            }
+            return Err(ProviderError::InvalidResponse(err_msg));
         }
 
         let response: ChatCompletionsResponse =

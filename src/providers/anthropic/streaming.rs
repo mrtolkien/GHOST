@@ -159,6 +159,9 @@ pub(crate) fn parse_sse_response(
                     .as_str()
                     .or_else(|| v["message"].as_str())
                     .unwrap_or("unknown error");
+                if ProviderError::is_context_overflow_message(msg) {
+                    return Err(ProviderError::ContextOverflow(msg.to_string()));
+                }
                 return Err(ProviderError::InvalidResponse(msg.to_string()));
             }
             // ping, message_stop, unknown — ignore

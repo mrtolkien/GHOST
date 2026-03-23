@@ -278,9 +278,11 @@ fn parse_codex_json_response(
             status = "failed",
             "codex response failed",
         );
-        return Err(ProviderError::InvalidResponse(format!(
-            "codex response failed: {error_msg}"
-        )));
+        let err_msg = format!("codex response failed: {error_msg}");
+        if ProviderError::is_context_overflow_message(error_msg) {
+            return Err(ProviderError::ContextOverflow(err_msg));
+        }
+        return Err(ProviderError::InvalidResponse(err_msg));
     }
 
     parse_codex_response_value(&value, fallback_model)
@@ -339,9 +341,11 @@ fn parse_codex_sse_response(
                         .and_then(Value::as_str)
                         .unwrap_or("unknown error");
                     tracing::error!(error = error_msg.to_string(), "codex SSE: response.failed");
-                    return Err(ProviderError::InvalidResponse(format!(
-                        "codex response failed: {error_msg}"
-                    )));
+                    let err_msg = format!("codex response failed: {error_msg}");
+                    if ProviderError::is_context_overflow_message(error_msg) {
+                        return Err(ProviderError::ContextOverflow(err_msg));
+                    }
+                    return Err(ProviderError::InvalidResponse(err_msg));
                 }
                 _ => {}
             }
