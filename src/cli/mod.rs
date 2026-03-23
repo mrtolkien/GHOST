@@ -14,6 +14,7 @@ pub mod reload;
 pub mod reset;
 pub mod send;
 pub mod services;
+pub mod start_stop;
 pub mod session;
 pub mod shell;
 pub mod status;
