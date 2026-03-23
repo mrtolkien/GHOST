@@ -1287,6 +1287,7 @@ dependencies = [
  "htmd",
  "ignore",
  "image",
+ "indexmap",
  "libsqlite3-sys",
  "mlua",
  "notify",
