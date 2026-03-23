@@ -21,9 +21,7 @@ pub enum ServicesCommand {
         status: Option<String>,
     },
     /// Remove a service entry
-    Remove {
-        name: String,
-    },
+    Remove { name: String },
     /// Run update commands for all services
     Update,
     /// Check status of all services
@@ -46,14 +44,14 @@ pub async fn execute(command: ServicesCommand) -> Result<(), GhostError> {
     }
 }
 
-fn services_toml_path() -> Result<std::path::PathBuf, GhostError> {
+pub(crate) fn services_toml_path() -> Result<std::path::PathBuf, GhostError> {
     let config = crate::config::load()?;
     Ok(config.workspace.join("services/services.toml"))
 }
 
 fn execute_list() -> Result<(), GhostError> {
     let path = services_toml_path()?;
-    let registry = ServiceRegistry::load_or_empty(&path)?;
+    let registry = ServiceRegistry::load(&path)?;
 
     if registry.entries.is_empty() {
         println!("No services registered.");
@@ -61,7 +59,10 @@ fn execute_list() -> Result<(), GhostError> {
         return Ok(());
     }
 
-    println!("{:<25} {:<8} {:<8} {:<8} {:<8}", "NAME", "START", "STOP", "UPDATE", "STATUS");
+    println!(
+        "{:<25} {:<8} {:<8} {:<8} {:<8}",
+        "NAME", "START", "STOP", "UPDATE", "STATUS"
+    );
     println!("{}", "-".repeat(61));
     for (name, entry) in &registry.entries {
         let present = |opt: &Option<String>| if opt.is_some() { "✓" } else { "-" };
@@ -113,7 +114,7 @@ fn execute_remove(name: &str) -> Result<(), GhostError> {
 
 fn execute_update() -> Result<(), GhostError> {
     let path = services_toml_path()?;
-    let registry = ServiceRegistry::load_or_empty(&path)?;
+    let registry = ServiceRegistry::load(&path)?;
     let results = registry.run_field(ServiceField::Update, true, false);
 
     if results.is_empty() {
@@ -132,7 +133,9 @@ fn execute_update() -> Result<(), GhostError> {
     }
 
     if results.iter().any(|r| !r.success) {
-        return Err(GhostError::Other("one or more services failed to update".into()));
+        return Err(GhostError::Other(
+            "one or more services failed to update".into(),
+        ));
     }
 
     Ok(())
@@ -140,7 +143,7 @@ fn execute_update() -> Result<(), GhostError> {
 
 fn execute_status() -> Result<(), GhostError> {
     let path = services_toml_path()?;
-    let registry = ServiceRegistry::load_or_empty(&path)?;
+    let registry = ServiceRegistry::load(&path)?;
     let results = registry.run_field(ServiceField::Status, false, false);
 
     if results.is_empty() {

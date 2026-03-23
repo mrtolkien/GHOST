@@ -3,21 +3,19 @@ use std::process::Command;
 use crate::error::GhostError;
 use crate::services::{ServiceField, ServiceRegistry};
 
-fn services_toml_path() -> Result<std::path::PathBuf, GhostError> {
-    let config = crate::config::load()?;
-    Ok(config.workspace.join("services/services.toml"))
-}
-
 /// Start all registered services (top-to-bottom, stop on first failure),
 /// then start the daemon, then print status.
 pub async fn execute_start() -> Result<(), GhostError> {
-    let path = services_toml_path()?;
+    let path = super::services::services_toml_path()?;
     let registry = ServiceRegistry::load_or_empty(&path)?;
+
+    if !registry.entries.is_empty() {
+        println!("Starting services…");
+    }
 
     let results = registry.run_field(ServiceField::Start, true, false);
 
     if !results.is_empty() {
-        println!("Starting services…");
         for r in &results {
             if r.success {
                 println!("  ✓ {}", r.service);
@@ -45,13 +43,16 @@ pub async fn execute_stop() -> Result<(), GhostError> {
     println!("Stopping daemon…");
     stop_daemon();
 
-    let path = services_toml_path()?;
+    let path = super::services::services_toml_path()?;
     let registry = ServiceRegistry::load_or_empty(&path)?;
+
+    if !registry.entries.is_empty() {
+        println!("Stopping services…");
+    }
 
     let results = registry.run_field(ServiceField::Stop, false, true);
 
     if !results.is_empty() {
-        println!("Stopping services…");
         for r in &results {
             if r.success {
                 println!("  ✓ {}", r.service);
@@ -76,7 +77,11 @@ fn start_daemon() -> Result<(), GhostError> {
         .join("Library/LaunchAgents/com.ghost.daemon.plist");
 
     let status = Command::new("launchctl")
-        .args(["bootstrap", &format!("gui/{uid}"), &plist.display().to_string()])
+        .args([
+            "bootstrap",
+            &format!("gui/{uid}"),
+            &plist.display().to_string(),
+        ])
         .status()
         .map_err(|e| std::io::Error::new(e.kind(), format!("failed to run launchctl: {e}")))?;
 
@@ -121,7 +126,9 @@ fn stop_daemon() {
         .is_ok_and(|s| s.success());
 
     if !ok {
-        eprintln!("  Warning: launchctl bootout may have failed (daemon may not have been running)");
+        eprintln!(
+            "  Warning: launchctl bootout may have failed (daemon may not have been running)"
+        );
     }
 }
 
