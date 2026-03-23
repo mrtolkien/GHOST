@@ -199,6 +199,14 @@ pub async fn run(args: InitArgs) -> Result<(), GhostError> {
 
     install_service_files(&env, &state, &config)?;
 
+    services::write_services_toml(
+        &state,
+        &env.platform,
+        &config.workspace,
+        env.container_runtime.as_ref(),
+    )?;
+    let _ = cliclack::log::success("services.toml written");
+
     // ── Phase 5: Launch + Health ──
     let should_start = health::prompt_start_daemon(args.start)?;
     if should_start {
