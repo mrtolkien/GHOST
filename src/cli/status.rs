@@ -68,18 +68,8 @@ fn is_service_active() -> bool {
     if cfg!(target_os = "macos") {
         is_launchd_active()
     } else {
-        is_systemd_active()
+        crate::systemd::is_unit_active("ghost-daemon")
     }
-}
-
-fn is_systemd_active() -> bool {
-    std::process::Command::new("systemctl")
-        .args(["--user", "is-active", "ghost-daemon"])
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .status()
-        .map(|s| s.success())
-        .unwrap_or(false)
 }
 
 fn is_launchd_active() -> bool {
