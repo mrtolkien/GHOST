@@ -414,8 +414,9 @@ fn append_fragment(out: &mut String, fragment: &str, is_linux: bool, add_host_ne
             format!("  {line}")
         };
 
-        if is_linux && is_ports_line(&indented) {
-            // On Linux with host networking, skip port bindings.
+        if is_linux && add_host_network && is_ports_line(&indented) {
+            // On Linux with host networking, skip port bindings — the
+            // service binds directly to the host's network namespace.
             continue;
         }
         out.push_str(&indented);
@@ -746,15 +747,15 @@ mod tests {
     }
 
     #[test]
-    fn compose_linux_strips_ports() {
+    fn compose_linux_keeps_ports_for_non_host_network() {
         let sel = ServiceSelections {
             searxng: true,
             crawl4ai: false,
             docling_container: false,
         };
         let compose = generate_compose(&sel, true);
-        // On Linux, port bindings are stripped.
-        assert!(!compose.contains("127.0.0.1:8080:8080"));
+        // SearXNG doesn't use host networking, so ports must be preserved.
+        assert!(compose.contains("127.0.0.1:8080:8080"));
     }
 
     #[test]
@@ -802,8 +803,8 @@ mod tests {
             Some("host")
         );
 
-        // Ports should be stripped on Linux
-        assert!(doc["services"]["searxng"].get("ports").is_none());
+        // Ports should be preserved for non-host-network services on Linux
+        assert!(doc["services"]["searxng"].get("ports").is_some());
     }
 
     #[test]
