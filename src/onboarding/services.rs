@@ -676,7 +676,7 @@ mod tests {
         let state = OnboardingState {
             search: Some(SearchChoice::SearxngLocal),
             crawl: Some(ServiceChoice::Container),
-            docling: Some(ServiceChoice::NixNative),
+            docling: Some(ServiceChoice::Native),
             ..Default::default()
         };
         let sel = build_selections(&state);

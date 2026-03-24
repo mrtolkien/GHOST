@@ -328,9 +328,8 @@ mod tests {
     use super::*;
     use crate::onboarding::*;
 
-    #[test]
-    fn generates_valid_config_toml() {
-        let state = OnboardingState {
+    fn minimal_state() -> OnboardingState {
+        OnboardingState {
             provider: Some(ProviderKind::OpenRouter),
             api_key: Some("sk-test".into()),
             model: Some("anthropic/claude-sonnet-4".into()),
@@ -342,8 +341,13 @@ mod tests {
             embedding_hf_repo: Some("Qwen/Qwen3-Embedding-8B-GGUF:Q8_0".into()),
             search: Some(SearchChoice::SearxngLocal),
             crawl: Some(ServiceChoice::Container),
-            docling: Some(ServiceChoice::NixNative),
-        };
+            docling: Some(ServiceChoice::Native),
+        }
+    }
+
+    #[test]
+    fn generates_valid_config_toml() {
+        let state = minimal_state();
         let toml_str = generate_config_toml(&state);
         let parsed: toml::Value = toml::from_str(&toml_str).expect("valid TOML");
         assert_eq!(
@@ -357,6 +361,32 @@ mod tests {
         assert_eq!(
             parsed["embeddings"]["model"].as_str(),
             Some("qwen3-embedding:8b")
+        );
+        // Native docling produces no [docling] section.
+        assert!(!toml_str.contains("[docling]"));
+    }
+
+    #[test]
+    fn native_docling_writes_no_url() {
+        let state = OnboardingState {
+            docling: Some(ServiceChoice::Native),
+            ..minimal_state()
+        };
+        let toml_str = generate_config_toml(&state);
+        assert!(!toml_str.contains("[docling]"));
+    }
+
+    #[test]
+    fn container_docling_writes_localhost_url() {
+        let state = OnboardingState {
+            docling: Some(ServiceChoice::Container),
+            ..minimal_state()
+        };
+        let toml_str = generate_config_toml(&state);
+        let parsed: toml::Value = toml::from_str(&toml_str).expect("valid TOML");
+        assert_eq!(
+            parsed["docling"]["url"].as_str(),
+            Some("http://127.0.0.1:5001")
         );
     }
 
