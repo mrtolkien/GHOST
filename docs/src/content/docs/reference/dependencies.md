@@ -13,6 +13,20 @@ podman/docker compose. See [Services](/getting-started/services/) for how to man
 after setup.
 :::
 
+### Container runtime (podman or docker)
+
+Several services (SearXNG, Crawl4AI, Chrome, Docling) run as containers. GHOST supports
+both podman and docker — whichever is available on your system.
+
+**On macOS**, `ghost init` can install podman via nix automatically. After a one-time
+Rosetta 2 install on Apple Silicon, it works out of the box.
+
+**On Linux**, installing Docker via your distribution's package manager is currently the
+simplest path. Podman via nix works but requires extra system-level setup (`newuidmap`
+with setuid privileges, `/etc/subuid` and `/etc/subgid` entries, container config files)
+that nix cannot manage on its own. If you already have Docker installed, GHOST will
+detect and use it — no extra steps needed.
+
 ## llama-server (llama.cpp)
 
 **What**: Local LLM inference server (llama.cpp)

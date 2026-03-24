@@ -14,11 +14,18 @@ pub fn prompt_container_setup(env: &mut DetectedEnvironment) -> Result<(), Onboa
         return Ok(());
     }
 
+    if env.platform.is_linux() {
+        let _ = cliclack::log::info(
+            "On Linux, installing Docker via your package manager is the simplest option.\n  \
+             Podman via nix works but needs extra system-level setup (subuid/subgid, newuidmap).",
+        );
+    }
+
     let should_install = cliclack::confirm(
         "No container runtime found. Install podman via nix? \
          (recommended for SearXNG, Crawl4AI, Docling)",
     )
-    .initial_value(true)
+    .initial_value(!env.platform.is_linux())
     .interact()?;
 
     if !should_install {
