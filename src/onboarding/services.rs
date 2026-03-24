@@ -560,10 +560,14 @@ fn native_service_entry(
 ) -> ServiceEntry {
     match platform {
         Platform::Linux => ServiceEntry {
-            start: Some(format!("systemctl --user start {service_name}")),
-            stop: Some(format!("systemctl --user disable --now {service_name}")),
+            start: Some(crate::systemd::systemctl_shell_cmd(&format!("start {service_name}"))),
+            stop: Some(crate::systemd::systemctl_shell_cmd(&format!(
+                "disable --now {service_name}"
+            ))),
             update: Some(format!("nix profile upgrade nixpkgs#{nix_package}")),
-            status: Some(format!("systemctl --user is-active {service_name}")),
+            status: Some(crate::systemd::systemctl_shell_cmd(&format!(
+                "is-active {service_name}"
+            ))),
         },
         Platform::MacOs => {
             let uid = get_uid();
