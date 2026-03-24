@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.1](https://github.com/mrtolkien/GHOST/compare/v0.6.0...v0.6.1) (2026-03-24)
+
+
+### Bug Fixes
+
+* add link to user guide on first boot ([4315d03](https://github.com/mrtolkien/GHOST/commit/4315d039975b6ed0096da9b656af5ef61db51129))
+
 ## [0.6.0](https://github.com/mrtolkien/GHOST/compare/v0.5.0...v0.6.0) (2026-03-24)
 
 
