@@ -6,11 +6,25 @@ use crate::error::GhostError;
 // Unit/plist generators
 // ---------------------------------------------------------------------------
 
-/// Generate a systemd user unit for the ghost daemon.
+/// Generate a systemd unit for the ghost daemon.
 ///
 /// Includes `TimeoutStopSec=120` to give in-flight operations a chance to
 /// finish before the service manager kills the process.
-pub fn generate_daemon_unit_systemd(exe: &str, workspace: &str) -> String {
+///
+/// When `system_level` is true (running as root), the actual home path is
+/// substituted for `%h` (which is not supported in system units) and
+/// `WantedBy` is set to `multi-user.target`.
+pub fn generate_daemon_unit_systemd(exe: &str, workspace: &str, system_level: bool) -> String {
+    let (home, target) = if system_level {
+        let home = dirs::home_dir()
+            .unwrap_or_else(|| std::path::PathBuf::from("/root"))
+            .display()
+            .to_string();
+        (home, "multi-user.target")
+    } else {
+        ("%h".to_string(), "default.target")
+    };
+
     format!(
         r#"[Unit]
 Description=GHOST AI Agent Daemon
@@ -19,19 +33,38 @@ After=network-online.target
 [Service]
 ExecStart={exe} daemon
 WorkingDirectory={workspace}
-Environment=PATH=/nix/var/nix/profiles/default/bin:%h/.nix-profile/bin:/usr/local/bin:/usr/bin:/bin
+Environment=PATH=/nix/var/nix/profiles/default/bin:{home}/.nix-profile/bin:/usr/local/bin:/usr/bin:/bin
 Restart=always
 RestartSec=2
 TimeoutStopSec=120
 
 [Install]
-WantedBy=default.target
+WantedBy={target}
 "#
     )
 }
 
-/// Generate a systemd user unit for the llama-server embedding service.
-pub fn generate_llama_server_unit_systemd(exe: &str, hf_repo: &str, alias: &str) -> String {
+/// Generate a systemd unit for the llama-server embedding service.
+///
+/// When `system_level` is true (running as root), the actual home path is
+/// substituted for `%h` (which is not supported in system units) and
+/// `WantedBy` is set to `multi-user.target`.
+pub fn generate_llama_server_unit_systemd(
+    exe: &str,
+    hf_repo: &str,
+    alias: &str,
+    system_level: bool,
+) -> String {
+    let (home, target) = if system_level {
+        let home = dirs::home_dir()
+            .unwrap_or_else(|| std::path::PathBuf::from("/root"))
+            .display()
+            .to_string();
+        (home, "multi-user.target")
+    } else {
+        ("%h".to_string(), "default.target")
+    };
+
     format!(
         r#"[Unit]
 Description=llama-server embedding service
@@ -42,10 +75,10 @@ ExecStart={exe} --embedding --hf-repo {hf_repo} --alias {alias} --port 11434
 Restart=on-failure
 RestartSec=5
 TimeoutStopSec=30
-Environment=PATH=/nix/var/nix/profiles/default/bin:%h/.nix-profile/bin:/usr/local/bin:/usr/bin:/bin
+Environment=PATH=/nix/var/nix/profiles/default/bin:{home}/.nix-profile/bin:/usr/local/bin:/usr/bin:/bin
 
 [Install]
-WantedBy=default.target
+WantedBy={target}
 "#
     )
 }
@@ -264,14 +297,15 @@ pub fn install_all_service_files(
             }
         }
         detect::Platform::Linux | detect::Platform::Other(_) => {
-            let unit_dir = dirs::config_dir()
-                .ok_or_else(|| std::io::Error::other("cannot determine config directory"))?
-                .join("systemd/user");
+            let unit_dir = crate::systemd::unit_dir()?;
             std::fs::create_dir_all(&unit_dir)?;
 
             // Ghost daemon
             let path = unit_dir.join("ghost-daemon.service");
-            std::fs::write(&path, generate_daemon_unit_systemd(exe, workspace))?;
+            std::fs::write(
+                &path,
+                generate_daemon_unit_systemd(exe, workspace, crate::systemd::is_root()),
+            )?;
             written.push(path.display().to_string());
 
             // llama-server
@@ -279,12 +313,19 @@ pub fn install_all_service_files(
                 let path = unit_dir.join("llama-server.service");
                 std::fs::write(
                     &path,
-                    generate_llama_server_unit_systemd(ls.exe, ls.hf_repo, ls.alias),
+                    generate_llama_server_unit_systemd(
+                        ls.exe,
+                        ls.hf_repo,
+                        ls.alias,
+                        crate::systemd::is_root(),
+                    ),
                 )?;
                 written.push(path.display().to_string());
             }
 
-            ensure_linger_enabled();
+            if !crate::systemd::is_root() {
+                ensure_linger_enabled();
+            }
         }
     }
 
@@ -301,7 +342,7 @@ mod tests {
 
     #[test]
     fn daemon_unit_has_timeout() {
-        let unit = generate_daemon_unit_systemd("/usr/bin/ghost", "/home/user/GHOST");
+        let unit = generate_daemon_unit_systemd("/usr/bin/ghost", "/home/user/GHOST", false);
         assert!(unit.contains("TimeoutStopSec=120"));
         assert!(unit.contains("ExecStart=/usr/bin/ghost daemon"));
         assert!(unit.contains("WorkingDirectory=/home/user/GHOST"));
@@ -313,11 +354,31 @@ mod tests {
             "/home/user/.nix-profile/bin/llama-server",
             "Qwen/Qwen3-Embedding-8B-GGUF:Q8_0",
             "qwen3-embedding:8b",
+            false,
         );
         assert!(unit.contains("llama-server"));
         assert!(unit.contains("--embedding"));
         assert!(unit.contains("--hf-repo Qwen/Qwen3-Embedding-8B-GGUF:Q8_0"));
         assert!(unit.contains("--alias qwen3-embedding:8b"));
+    }
+
+    #[test]
+    fn daemon_unit_system_level() {
+        let unit = generate_daemon_unit_systemd("/usr/bin/ghost", "/home/user/GHOST", true);
+        assert!(unit.contains("WantedBy=multi-user.target"));
+        assert!(!unit.contains("%h"));
+    }
+
+    #[test]
+    fn llama_server_unit_system_level() {
+        let unit = generate_llama_server_unit_systemd(
+            "/usr/bin/llama-server",
+            "Qwen/Qwen3-Embedding-8B-GGUF:Q8_0",
+            "qwen3-embedding:8b",
+            true,
+        );
+        assert!(unit.contains("WantedBy=multi-user.target"));
+        assert!(!unit.contains("%h"));
     }
 
     #[test]
