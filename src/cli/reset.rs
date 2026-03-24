@@ -69,8 +69,10 @@ fn stop_services(workspace: &Path) {
     // attempt any registry-based teardown.
     if cfg!(target_os = "macos") {
         stop_launchd("com.ghost.daemon");
-    } else {
-        stop_systemd("ghost-daemon");
+    } else if crate::systemd::systemctl_status(&["disable", "--now", "ghost-daemon"])
+        .is_ok_and(|s| s.success())
+    {
+        println!("  Stopped ghost-daemon");
     }
 
     // Try registry-based shutdown first.  If the registry exists and has
@@ -109,8 +111,16 @@ fn stop_services_legacy(workspace: &Path) {
         stop_launchd("com.ghost.llama-server");
         stop_launchd("com.ghost.docling-serve");
     } else {
-        stop_systemd("llama-server");
-        stop_systemd("docling-serve");
+        if crate::systemd::systemctl_status(&["disable", "--now", "llama-server"])
+            .is_ok_and(|s| s.success())
+        {
+            println!("  Stopped llama-server");
+        }
+        if crate::systemd::systemctl_status(&["disable", "--now", "docling-serve"])
+            .is_ok_and(|s| s.success())
+        {
+            println!("  Stopped docling-serve");
+        }
     }
 
     // Stop container stack
@@ -151,20 +161,6 @@ fn stop_launchd(label: &str) {
     }
 }
 
-fn stop_systemd(unit: &str) {
-    // Disable so it doesn't restart on next login.
-    let ok = Command::new("systemctl")
-        .args(["--user", "disable", "--now", unit])
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .status()
-        .is_ok_and(|s| s.success());
-
-    if ok {
-        println!("  Stopped {unit}");
-    }
-}
-
 // ---------------------------------------------------------------------------
 // Service file removal
 // ---------------------------------------------------------------------------
@@ -185,9 +181,8 @@ fn remove_service_files() {
             remove_file_logged(&agents_dir.join(format!("{label}.plist")));
         }
     } else {
-        let unit_dir = dirs::config_dir()
-            .unwrap_or_else(|| PathBuf::from("/etc/xdg"))
-            .join("systemd/user");
+        let unit_dir = crate::systemd::unit_dir()
+            .unwrap_or_else(|_| PathBuf::from("/etc/xdg/systemd/user"));
 
         for unit in [
             "ghost-daemon.service",
@@ -198,9 +193,7 @@ fn remove_service_files() {
         }
 
         // Reload unit files so systemd forgets removed units.
-        let _ = Command::new("systemctl")
-            .args(["--user", "daemon-reload"])
-            .status();
+        crate::systemd::daemon_reload();
     }
 }
 
