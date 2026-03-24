@@ -28,6 +28,7 @@ pub mod providers;
 pub mod reference_import;
 pub mod scripting;
 pub mod services;
+pub mod systemd;
 pub mod skills;
 pub mod tools;
 pub mod web;

@@ -1288,6 +1288,7 @@ dependencies = [
  "ignore",
  "image",
  "indexmap",
+ "libc",
  "libsqlite3-sys",
  "mlua",
  "notify",
