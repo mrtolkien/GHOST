@@ -95,8 +95,7 @@ fn start_daemon() -> Result<(), GhostError> {
 
 #[cfg(not(target_os = "macos"))]
 fn start_daemon() -> Result<(), GhostError> {
-    crate::systemd::start("ghost-daemon")
-        .map_err(|msg| GhostError::Other(msg.into()))
+    crate::systemd::start("ghost-daemon").map_err(GhostError::Other)
 }
 
 #[cfg(target_os = "macos")]
