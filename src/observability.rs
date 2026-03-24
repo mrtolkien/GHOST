@@ -135,10 +135,14 @@ pub fn init_for_live_tests() -> Result<DaemonObservability, ObservabilityError> 
 fn build_tracer_provider(environment: &str) -> Result<SdkTracerProvider, ObservabilityError> {
     let service_name = std::env::var("OTEL_SERVICE_NAME").unwrap_or_else(|_| "GHOST".to_owned());
 
+    let hostname = gethostname::gethostname();
+    let hostname = hostname.to_string_lossy().into_owned();
+
     let resource = Resource::builder()
         .with_attributes([
             KeyValue::new("service.name", service_name),
             KeyValue::new("deployment.environment.name", environment.to_owned()),
+            KeyValue::new("host.name", hostname),
         ])
         .build();
 
