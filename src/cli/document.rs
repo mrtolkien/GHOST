@@ -10,6 +10,11 @@ use crate::reference_import::{ImportConfig, ImportSource};
 #[derive(Debug, Subcommand)]
 pub enum DocumentCommand {
     /// Import a document (PDF, DOCX, etc.)
+    ///
+    /// Conversion is handled by the Python script at:
+    ///   assets/services/docling/convert.py
+    ///
+    /// When [docling].url is configured, uses a remote docling-serve instead.
     Import {
         #[command(subcommand)]
         command: DocumentImportCommand,
