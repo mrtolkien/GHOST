@@ -16,21 +16,6 @@ pub fn is_root() -> bool {
     unsafe { libc::getuid() == 0 }
 }
 
-/// Run `systemctl` with the correct scope (system or `--user`).
-///
-/// When root, runs system-level; otherwise runs `--user`. Returns the
-/// `std::process::Output` or an IO error.
-pub fn systemctl_run(args: &[&str]) -> std::io::Result<std::process::Output> {
-    let mut cmd = Command::new("systemctl");
-    if !is_root() {
-        cmd.arg("--user");
-    }
-    cmd.args(args)
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped())
-        .output()
-}
-
 /// Run `systemctl` with the correct scope, returning just the exit status.
 ///
 /// Suppresses stdout/stderr — use for fire-and-forget operations.
@@ -57,11 +42,6 @@ pub fn enable_now(unit: &str) {
     let _ = systemctl_status(&["enable", "--now", unit]);
 }
 
-/// Disable and stop a systemd unit. Best-effort — ignores failures.
-pub fn disable_now(unit: &str) {
-    let _ = systemctl_status(&["disable", "--now", unit]);
-}
-
 /// Reload the systemd daemon so it picks up new/removed unit files.
 pub fn daemon_reload() {
     let _ = systemctl_status(&["daemon-reload"]);
@@ -69,8 +49,8 @@ pub fn daemon_reload() {
 
 /// Start a systemd unit. Returns an error message on failure.
 pub fn start(unit: &str) -> Result<(), String> {
-    let status = systemctl_status(&["start", unit])
-        .map_err(|e| format!("failed to run systemctl: {e}"))?;
+    let status =
+        systemctl_status(&["start", unit]).map_err(|e| format!("failed to run systemctl: {e}"))?;
     if status.success() {
         Ok(())
     } else {
