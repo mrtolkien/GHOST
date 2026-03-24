@@ -181,8 +181,8 @@ fn remove_service_files() {
             remove_file_logged(&agents_dir.join(format!("{label}.plist")));
         }
     } else {
-        let unit_dir = crate::systemd::unit_dir()
-            .unwrap_or_else(|_| PathBuf::from("/etc/xdg/systemd/user"));
+        let unit_dir =
+            crate::systemd::unit_dir().unwrap_or_else(|_| PathBuf::from("/etc/xdg/systemd/user"));
 
         for unit in [
             "ghost-daemon.service",

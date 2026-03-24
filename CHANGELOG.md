@@ -2,44 +2,56 @@
 
 ## [0.6.1](https://github.com/mrtolkien/GHOST/compare/v0.6.0...v0.6.1) (2026-03-24)
 
-
 ### Bug Fixes
 
-* add link to user guide on first boot ([4315d03](https://github.com/mrtolkien/GHOST/commit/4315d039975b6ed0096da9b656af5ef61db51129))
+- add link to user guide on first boot
+  ([4315d03](https://github.com/mrtolkien/GHOST/commit/4315d039975b6ed0096da9b656af5ef61db51129))
 
 ## [0.6.0](https://github.com/mrtolkien/GHOST/compare/v0.5.0...v0.6.0) (2026-03-24)
 
-
 ### Features
 
-* add `ghost skills` CLI command (list, coding, show) ([4b03e3b](https://github.com/mrtolkien/GHOST/commit/4b03e3bed7121c35e7e1557e687c59e4bf79e5b9))
-* add ChainExhausted variant to ProviderError ([3a0621c](https://github.com/mrtolkien/GHOST/commit/3a0621c7440563b0e286b6f046dedbdff7fae855))
-* add provider_for_chain and provider_for_model_ref factories ([d3d67a5](https://github.com/mrtolkien/GHOST/commit/d3d67a5d129db0d934bf25fcf4ca6214c5ba10ff))
-* add StringOrList config type for model chain fallback ([86fb810](https://github.com/mrtolkien/GHOST/commit/86fb810fa306e73bd7810283a238e5f17aec9097))
-* create skill-creator skill ([356cac4](https://github.com/mrtolkien/GHOST/commit/356cac4a1d031b8604b7fab6cd27e8a7b7b47823))
-* implement ChainProvider for model fallback chains ([a2dc5fc](https://github.com/mrtolkien/GHOST/commit/a2dc5fc53960d643e0dd127b9a7b85415eaaf977))
-* show Continue/Stop buttons in Discord on tool iteration limit ([5864274](https://github.com/mrtolkien/GHOST/commit/58642740ab070ec2f61f43c81462930320493ca3))
-* wire model chain fallback into session and agent creation ([982e5b0](https://github.com/mrtolkien/GHOST/commit/982e5b0364ce0e78f719e557b2d53ad8a701f594))
-
+- add `ghost skills` CLI command (list, coding, show)
+  ([4b03e3b](https://github.com/mrtolkien/GHOST/commit/4b03e3bed7121c35e7e1557e687c59e4bf79e5b9))
+- add ChainExhausted variant to ProviderError
+  ([3a0621c](https://github.com/mrtolkien/GHOST/commit/3a0621c7440563b0e286b6f046dedbdff7fae855))
+- add provider_for_chain and provider_for_model_ref factories
+  ([d3d67a5](https://github.com/mrtolkien/GHOST/commit/d3d67a5d129db0d934bf25fcf4ca6214c5ba10ff))
+- add StringOrList config type for model chain fallback
+  ([86fb810](https://github.com/mrtolkien/GHOST/commit/86fb810fa306e73bd7810283a238e5f17aec9097))
+- create skill-creator skill
+  ([356cac4](https://github.com/mrtolkien/GHOST/commit/356cac4a1d031b8604b7fab6cd27e8a7b7b47823))
+- implement ChainProvider for model fallback chains
+  ([a2dc5fc](https://github.com/mrtolkien/GHOST/commit/a2dc5fc53960d643e0dd127b9a7b85415eaaf977))
+- show Continue/Stop buttons in Discord on tool iteration limit
+  ([5864274](https://github.com/mrtolkien/GHOST/commit/58642740ab070ec2f61f43c81462930320493ca3))
+- wire model chain fallback into session and agent creation
+  ([982e5b0](https://github.com/mrtolkien/GHOST/commit/982e5b0364ce0e78f719e557b2d53ad8a701f594))
 
 ### Bug Fixes
 
-* replace assert! with proper error return in provider_for_chain ([2b57710](https://github.com/mrtolkien/GHOST/commit/2b57710ad06154f7d298f7e3bfcee419daf2f1cb))
-* skill creator is OF COURSE generic, Claude pls ([31313fc](https://github.com/mrtolkien/GHOST/commit/31313fce953a6212a6beb7b809583733b4962a4c))
-* tell update to run in the background ([e7a2c64](https://github.com/mrtolkien/GHOST/commit/e7a2c64a8e92111d4372dc7faf216b64098b63cf))
-
+- replace assert! with proper error return in provider_for_chain
+  ([2b57710](https://github.com/mrtolkien/GHOST/commit/2b57710ad06154f7d298f7e3bfcee419daf2f1cb))
+- skill creator is OF COURSE generic, Claude pls
+  ([31313fc](https://github.com/mrtolkien/GHOST/commit/31313fce953a6212a6beb7b809583733b4962a4c))
+- tell update to run in the background
+  ([e7a2c64](https://github.com/mrtolkien/GHOST/commit/e7a2c64a8e92111d4372dc7faf216b64098b63cf))
 
 ### Documentation
 
-* add a short user guide ([2698fea](https://github.com/mrtolkien/GHOST/commit/2698feadde6b78c93e516faae0ca836af600abe3))
-* add provider integration disclaimer ([cf021c6](https://github.com/mrtolkien/GHOST/commit/cf021c6f3f7f4c78477f08ff0f9ff3a6b86d2bd7))
-* better index ([2b4fa78](https://github.com/mrtolkien/GHOST/commit/2b4fa786559b573fd7fa296d640e10c3571a9555))
-* document model chain fallback in providers page ([352d9a3](https://github.com/mrtolkien/GHOST/commit/352d9a39a6b90b1347ed1ef46f5e18d14b09a3d5))
-
+- add a short user guide
+  ([2698fea](https://github.com/mrtolkien/GHOST/commit/2698feadde6b78c93e516faae0ca836af600abe3))
+- add provider integration disclaimer
+  ([cf021c6](https://github.com/mrtolkien/GHOST/commit/cf021c6f3f7f4c78477f08ff0f9ff3a6b86d2bd7))
+- better index
+  ([2b4fa78](https://github.com/mrtolkien/GHOST/commit/2b4fa786559b573fd7fa296d640e10c3571a9555))
+- document model chain fallback in providers page
+  ([352d9a3](https://github.com/mrtolkien/GHOST/commit/352d9a39a6b90b1347ed1ef46f5e18d14b09a3d5))
 
 ### Tests
 
-* integration test for ChainProvider fallback ([bb2aac8](https://github.com/mrtolkien/GHOST/commit/bb2aac86d31ab099add6532183eaa62be92962a0))
+- integration test for ChainProvider fallback
+  ([bb2aac8](https://github.com/mrtolkien/GHOST/commit/bb2aac86d31ab099add6532183eaa62be92962a0))
 
 ## [0.5.0](https://github.com/mrtolkien/GHOST/compare/v0.4.0...v0.5.0) (2026-03-23)
 

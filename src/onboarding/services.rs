@@ -560,7 +560,9 @@ fn native_service_entry(
 ) -> ServiceEntry {
     match platform {
         Platform::Linux => ServiceEntry {
-            start: Some(crate::systemd::systemctl_shell_cmd(&format!("start {service_name}"))),
+            start: Some(crate::systemd::systemctl_shell_cmd(&format!(
+                "start {service_name}"
+            ))),
             stop: Some(crate::systemd::systemctl_shell_cmd(&format!(
                 "disable --now {service_name}"
             ))),

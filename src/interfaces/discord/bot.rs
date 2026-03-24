@@ -939,8 +939,9 @@ impl EventHandler for Handler {
         // Send boot notification to allowed users via DM
         let version = env!("CARGO_PKG_VERSION");
         let commit = env!("GIT_COMMIT_HASH");
-        let first_boot =
-            db::sessions::list_recent_sessions(&self.db, 1).await.map_or(false, |s| s.is_empty());
+        let first_boot = db::sessions::list_recent_sessions(&self.db, 1)
+            .await
+            .map_or(false, |s| s.is_empty());
         let mut content = String::new();
         if first_boot {
             content.push_str(
