@@ -19,8 +19,8 @@ description:
 This swaps the ghost binary in the nix profile and reboots the daemon. The shell tools
 (git, python, etc.) are NOT affected — they come from the workspace flake.
 
-**Before running `ghost update`**, tell the OPERATOR there will be a brief downtime
-while you restart.
+Run `ghost update` **in the background**, then tell the OPERATOR there will be a brief
+downtime while you restart.
 
 ## Workspace flake
 
