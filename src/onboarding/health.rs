@@ -197,25 +197,17 @@ fn start_systemd_services() {
     spinner.start("Starting systemd user services…");
 
     // Ghost daemon — always present after onboarding.
-    run_systemctl("ghost-daemon");
+    crate::systemd::enable_now("ghost-daemon");
 
     // Optional units — only enable if the unit file was installed.
-    let unit_dir = dirs::config_dir()
-        .unwrap_or_else(|| std::path::PathBuf::from("/etc/xdg"))
-        .join("systemd/user");
+    let unit_dir = crate::systemd::unit_dir()
+        .unwrap_or_else(|_| std::path::PathBuf::from("/etc/xdg/systemd/user"));
 
     if unit_dir.join("llama-server.service").exists() {
-        run_systemctl("llama-server");
+        crate::systemd::enable_now("llama-server");
     }
 
     spinner.stop("Systemd services started");
-}
-
-/// Enable and start a single systemd user unit; ignores failures (best-effort).
-fn run_systemctl(unit: &str) {
-    let _ = Command::new("systemctl")
-        .args(["--user", "enable", "--now", unit])
-        .status();
 }
 
 fn start_launchd_services() {
@@ -305,12 +297,6 @@ fn is_daemon_active() -> bool {
             .map(|s| s.success())
             .unwrap_or(false)
     } else {
-        Command::new("systemctl")
-            .args(["--user", "is-active", "ghost-daemon"])
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .status()
-            .map(|s| s.success())
-            .unwrap_or(false)
+        crate::systemd::is_unit_active("ghost-daemon")
     }
 }
