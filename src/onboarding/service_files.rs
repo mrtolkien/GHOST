@@ -25,6 +25,14 @@ pub fn generate_daemon_unit_systemd(exe: &str, workspace: &str, system_level: bo
         ("%h".to_string(), "default.target")
     };
 
+    // System-level units don't inherit HOME — dirs::home_dir() / dirs::config_dir()
+    // will return None at runtime without it.
+    let home_env = if system_level {
+        format!("\nEnvironment=HOME={home}")
+    } else {
+        String::new()
+    };
+
     format!(
         r#"[Unit]
 Description=GHOST AI Agent Daemon
@@ -33,7 +41,7 @@ After=network-online.target
 [Service]
 ExecStart={exe} daemon
 WorkingDirectory={workspace}
-Environment=PATH=/nix/var/nix/profiles/default/bin:{home}/.nix-profile/bin:/usr/local/bin:/usr/bin:/bin
+Environment=PATH=/nix/var/nix/profiles/default/bin:{home}/.nix-profile/bin:/usr/local/bin:/usr/bin:/bin{home_env}
 Restart=always
 RestartSec=2
 TimeoutStopSec=120
@@ -65,6 +73,12 @@ pub fn generate_llama_server_unit_systemd(
         ("%h".to_string(), "default.target")
     };
 
+    let home_env = if system_level {
+        format!("\nEnvironment=HOME={home}")
+    } else {
+        String::new()
+    };
+
     format!(
         r#"[Unit]
 Description=llama-server embedding service
@@ -75,7 +89,7 @@ ExecStart={exe} --embedding --hf-repo {hf_repo} --alias {alias} --port 11434
 Restart=on-failure
 RestartSec=5
 TimeoutStopSec=30
-Environment=PATH=/nix/var/nix/profiles/default/bin:{home}/.nix-profile/bin:/usr/local/bin:/usr/bin:/bin
+Environment=PATH=/nix/var/nix/profiles/default/bin:{home}/.nix-profile/bin:/usr/local/bin:/usr/bin:/bin{home_env}
 
 [Install]
 WantedBy={target}
@@ -367,6 +381,7 @@ mod tests {
         let unit = generate_daemon_unit_systemd("/usr/bin/ghost", "/home/user/GHOST", true);
         assert!(unit.contains("WantedBy=multi-user.target"));
         assert!(!unit.contains("%h"));
+        assert!(unit.contains("Environment=HOME="));
     }
 
     #[test]
@@ -379,6 +394,14 @@ mod tests {
         );
         assert!(unit.contains("WantedBy=multi-user.target"));
         assert!(!unit.contains("%h"));
+        assert!(unit.contains("Environment=HOME="));
+    }
+
+    #[test]
+    fn daemon_unit_user_level_no_home_env() {
+        let unit = generate_daemon_unit_systemd("/usr/bin/ghost", "/home/user/GHOST", false);
+        assert!(!unit.contains("Environment=HOME="));
+        assert!(unit.contains("WantedBy=default.target"));
     }
 
     #[test]
