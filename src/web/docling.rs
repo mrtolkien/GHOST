@@ -191,14 +191,15 @@ async fn convert_script(
     };
 
     // Check uv is available
-    if tokio::process::Command::new("uv")
+    let uv_ok = tokio::process::Command::new("uv")
         .arg("--version")
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
         .status()
         .await
-        .is_err()
-    {
+        .map(|s| s.success())
+        .unwrap_or(false);
+    if !uv_ok {
         return Err(WebError::Docling(
             "uv is not installed — install it from https://docs.astral.sh/uv/ \
              or configure [docling].url to use a remote docling-serve"

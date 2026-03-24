@@ -498,8 +498,8 @@ pub fn write_compose_and_configs(
 /// Build a `ServiceRegistry` reflecting the user's service choices.
 ///
 /// Container entries are grouped under a single `[containers]` key.
-/// NixNative services (llama-server, docling-serve) get individual entries
-/// with platform-specific systemd or launchd commands baked in as absolute paths.
+/// NixNative services (e.g. llama-server) get individual entries with
+/// platform-specific systemd or launchd commands baked in as absolute paths.
 pub fn build_services_toml(
     state: &OnboardingState,
     platform: &Platform,

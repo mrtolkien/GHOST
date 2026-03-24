@@ -207,9 +207,6 @@ fn start_systemd_services() {
     if unit_dir.join("llama-server.service").exists() {
         run_systemctl("llama-server");
     }
-    if unit_dir.join("docling-serve.service").exists() {
-        run_systemctl("docling-serve");
-    }
 
     spinner.stop("Systemd services started");
 }
@@ -228,11 +225,7 @@ fn start_launchd_services() {
     let home = dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from("/tmp"));
     let agents_dir = home.join("Library/LaunchAgents");
 
-    for label in &[
-        "com.ghost.daemon",
-        "com.ghost.llama-server",
-        "com.ghost.docling-serve",
-    ] {
+    for label in &["com.ghost.daemon", "com.ghost.llama-server"] {
         let plist = agents_dir.join(format!("{label}.plist"));
         if plist.exists() {
             run_launchctl(&plist.display().to_string());
