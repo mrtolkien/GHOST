@@ -31,9 +31,7 @@ pub fn execute() -> Result<(), GhostError> {
             .into());
         }
     } else {
-        let status = std::process::Command::new("systemctl")
-            .args(["--user", "kill", "--signal=SIGHUP", "ghost-daemon"])
-            .status()
+        let status = crate::systemd::systemctl_status(&["kill", "--signal=SIGHUP", "ghost-daemon"])
             .map_err(|e| std::io::Error::new(e.kind(), format!("failed to run systemctl: {e}")))?;
 
         if !status.success() {
