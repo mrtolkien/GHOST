@@ -5,7 +5,6 @@ description:
   Use when the OPERATOR wants to create a skill from scratch, edit or optimize an
   existing skill, run evals to test a skill, or benchmark skill performance with
   variance analysis.
-available: coding
 ---
 
 # Skill Creator
