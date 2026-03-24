@@ -939,7 +939,18 @@ impl EventHandler for Handler {
         // Send boot notification to allowed users via DM
         let version = env!("CARGO_PKG_VERSION");
         let commit = env!("GIT_COMMIT_HASH");
-        let content = format!("### BOOT SEQUENCE COMPLETE\nghost v{version} ({commit})");
+        let first_boot =
+            db::sessions::list_recent_sessions(&self.db, 1).await.map_or(false, |s| s.is_empty());
+        let mut content = String::new();
+        if first_boot {
+            content.push_str(
+                "### WELCOME\nRead the user guide to get started: \
+                 https://ghost.tolki.dev/user-guide/\n",
+            );
+        }
+        content.push_str(&format!(
+            "### BOOT SEQUENCE COMPLETE\nghost v{version} ({commit})"
+        ));
         let cfg = self.config.current();
         for user_id_str in &cfg.discord.allowed_user_ids {
             let Ok(uid) = user_id_str.parse::<u64>() else {
