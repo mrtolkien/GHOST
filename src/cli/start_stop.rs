@@ -1,3 +1,4 @@
+#[cfg(target_os = "macos")]
 use std::process::Command;
 
 use crate::error::GhostError;
@@ -94,18 +95,8 @@ fn start_daemon() -> Result<(), GhostError> {
 
 #[cfg(not(target_os = "macos"))]
 fn start_daemon() -> Result<(), GhostError> {
-    let status = Command::new("systemctl")
-        .args(["--user", "start", "ghost-daemon"])
-        .status()
-        .map_err(|e| std::io::Error::new(e.kind(), format!("failed to run systemctl: {e}")))?;
-
-    if !status.success() {
-        return Err(GhostError::Other(
-            "systemctl start ghost-daemon failed".into(),
-        ));
-    }
-
-    Ok(())
+    crate::systemd::start("ghost-daemon")
+        .map_err(|msg| GhostError::Other(msg.into()))
 }
 
 #[cfg(target_os = "macos")]
@@ -134,11 +125,7 @@ fn stop_daemon() {
 
 #[cfg(not(target_os = "macos"))]
 fn stop_daemon() {
-    let ok = Command::new("systemctl")
-        .args(["--user", "disable", "--now", "ghost-daemon"])
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .status()
+    let ok = crate::systemd::systemctl_status(&["disable", "--now", "ghost-daemon"])
         .is_ok_and(|s| s.success());
 
     if !ok {
