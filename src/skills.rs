@@ -160,6 +160,56 @@ pub(crate) fn walk_skills_dir(dir: &Path, skills: &mut Vec<Skill>) {
     }
 }
 
+/// Discover repo-local skills from a `.agents/skills/` directory.
+/// Each immediate subdirectory with a `skill.md` is treated as a skill.
+pub fn discover_repo_skills(skills_dir: &Path) -> Vec<Skill> {
+    let entries = match fs::read_dir(skills_dir) {
+        Ok(e) => e,
+        Err(_) => return Vec::new(),
+    };
+
+    let mut found = Vec::new();
+    for entry in entries.flatten() {
+        if entry.file_name().to_string_lossy().starts_with('.') {
+            continue;
+        }
+        let skill_path = entry.path().join("skill.md");
+        let content = match fs::read_to_string(&skill_path) {
+            Ok(c) => c,
+            Err(_) => continue,
+        };
+        if let Some(fm) = parse_frontmatter(&content) {
+            found.push(Skill {
+                name: fm.name,
+                description: fm.description,
+                available: fm.available,
+                source: fm.source,
+                path: skill_path,
+            });
+        }
+    }
+    found.sort_by(|a, b| a.name.cmp(&b.name));
+    found
+}
+
+/// Strip YAML frontmatter from skill content, returning the body.
+pub fn strip_frontmatter_body(content: &str) -> String {
+    let trimmed = content.trim_start();
+    if !trimmed.starts_with("---") {
+        return content.to_string();
+    }
+
+    let after_open = &trimmed[3..];
+    if let Some(close) = after_open.find("\n---") {
+        let body_start = close + 4;
+        after_open[body_start..]
+            .trim_start_matches('\n')
+            .to_string()
+    } else {
+        content.to_string()
+    }
+}
+
 /// Collect extra files in a skill directory for the `<extra-files>` block.
 ///
 /// Walks `skill_dir` recursively, returning `./`-relative paths for all

@@ -16,6 +16,7 @@ pub mod send;
 pub mod services;
 pub mod session;
 pub mod shell;
+pub mod skills;
 pub mod start_stop;
 pub mod status;
 pub mod topics;

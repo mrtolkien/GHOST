@@ -44,7 +44,7 @@ fn build_coding_skills(workspace: &Path, working_dir: &Path) -> String {
     // Also discover repo-local skills from .agents/skills/
     let repo_skills_dir = working_dir.join(".agents").join("skills");
     if repo_skills_dir.is_dir() {
-        let repo_skills = discover_repo_skills(&repo_skills_dir);
+        let repo_skills = skills::discover_repo_skills(&repo_skills_dir);
         all_skills.extend(repo_skills);
     }
 
@@ -76,36 +76,6 @@ fn build_coding_skills(workspace: &Path, working_dir: &Path) -> String {
          <available_skills>\n{}\n</available_skills>",
         entries.join("\n"),
     )
-}
-
-fn discover_repo_skills(skills_dir: &Path) -> Vec<skills::Skill> {
-    let entries = match fs::read_dir(skills_dir) {
-        Ok(e) => e,
-        Err(_) => return Vec::new(),
-    };
-
-    let mut found = Vec::new();
-    for entry in entries.flatten() {
-        if entry.file_name().to_string_lossy().starts_with('.') {
-            continue;
-        }
-        let skill_path = entry.path().join("skill.md");
-        let content = match fs::read_to_string(&skill_path) {
-            Ok(c) => c,
-            Err(_) => continue,
-        };
-        if let Some(fm) = skills::parse_frontmatter(&content) {
-            found.push(skills::Skill {
-                name: fm.name,
-                description: fm.description,
-                available: fm.available,
-                source: fm.source,
-                path: skill_path,
-            });
-        }
-    }
-    found.sort_by(|a, b| a.name.cmp(&b.name));
-    found
 }
 
 fn build_model_info(config: &Config) -> String {

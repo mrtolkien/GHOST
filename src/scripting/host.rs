@@ -550,20 +550,7 @@ fn register_host_functions(lua: &Lua, agent_dir: &Path, workspace: &Path) -> Lua
 
 /// Strip YAML frontmatter (--- ... ---) from content.
 fn strip_yaml_frontmatter(content: &str) -> String {
-    let trimmed = content.trim_start();
-    if !trimmed.starts_with("---") {
-        return content.to_string();
-    }
-
-    let after_open = &trimmed[3..];
-    if let Some(close) = after_open.find("\n---") {
-        let body_start = close + 4;
-        after_open[body_start..]
-            .trim_start_matches('\n')
-            .to_string()
-    } else {
-        content.to_string()
-    }
+    crate::skills::strip_frontmatter_body(content)
 }
 
 /// Convert a Lua value to a serde_json Value.
