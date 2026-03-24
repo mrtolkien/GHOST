@@ -12,6 +12,7 @@ env:
 jobs:
   # --- Nix build + Cachix push (main + tags, all platforms) ---
   nix-cache:
+    timeout-minutes: 30
     permissions:
       id-token: write
       contents: read
@@ -42,6 +43,7 @@ jobs:
 
   # --- Cargo release binaries (tags only) ---
   build-binary:
+    timeout-minutes: 30
     if: startsWith(github.ref, 'refs/tags/v')
     strategy:
       matrix:
