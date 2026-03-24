@@ -13,7 +13,9 @@ pub use crate::health::{HealthResult, display_health_table, probe_url};
 /// Derive the health-probe URL for a service at a given default endpoint.
 async fn probe_choice(choice: &ServiceChoice, default_url: &str) -> (bool, String) {
     match choice {
-        ServiceChoice::Skip => unreachable!("callers filter Skip"),
+        ServiceChoice::Skip | ServiceChoice::Native => {
+            unreachable!("callers filter Skip and Native")
+        }
         ServiceChoice::Remote(url) => {
             let target = if url.is_empty() {
                 default_url
@@ -89,9 +91,9 @@ pub async fn check_all_services(state: &OnboardingState) -> Vec<HealthResult> {
         }
     }
 
-    // Docling
+    // Docling — Native runs on-demand (no persistent service to probe).
     if let Some(choice) = &state.docling
-        && !matches!(choice, ServiceChoice::Skip)
+        && !matches!(choice, ServiceChoice::Skip | ServiceChoice::Native)
     {
         let (ok, detail) = probe_choice(choice, "http://127.0.0.1:5001/health").await;
         results.push(HealthResult {
@@ -205,9 +207,6 @@ fn start_systemd_services() {
     if unit_dir.join("llama-server.service").exists() {
         run_systemctl("llama-server");
     }
-    if unit_dir.join("docling-serve.service").exists() {
-        run_systemctl("docling-serve");
-    }
 
     spinner.stop("Systemd services started");
 }
@@ -226,11 +225,7 @@ fn start_launchd_services() {
     let home = dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from("/tmp"));
     let agents_dir = home.join("Library/LaunchAgents");
 
-    for label in &[
-        "com.ghost.daemon",
-        "com.ghost.llama-server",
-        "com.ghost.docling-serve",
-    ] {
+    for label in &["com.ghost.daemon", "com.ghost.llama-server"] {
         let plist = agents_dir.join(format!("{label}.plist"));
         if plist.exists() {
             run_launchctl(&plist.display().to_string());

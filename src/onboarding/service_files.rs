@@ -50,26 +50,6 @@ WantedBy=default.target
     )
 }
 
-/// Generate a systemd user unit for the docling-serve document processing service.
-pub fn generate_docling_unit_systemd(exe: &str) -> String {
-    format!(
-        r#"[Unit]
-Description=docling-serve document processing
-After=network-online.target
-
-[Service]
-ExecStart={exe}
-Restart=on-failure
-RestartSec=5
-TimeoutStopSec=30
-Environment=PATH=/nix/var/nix/profiles/default/bin:%h/.nix-profile/bin:/usr/local/bin:/usr/bin:/bin
-
-[Install]
-WantedBy=default.target
-"#
-    )
-}
-
 /// Generate a launchd plist for the ghost daemon.
 pub fn generate_daemon_plist(exe: &str, workspace: &str) -> String {
     let log_dir = dirs::data_dir()
@@ -149,44 +129,6 @@ pub fn generate_llama_server_plist(exe: &str, hf_repo: &str, alias: &str) -> Str
   <string>{log_dir}/llama-server.log</string>
   <key>StandardErrorPath</key>
   <string>{log_dir}/llama-server.err</string>
-</dict>
-</plist>
-"#
-    )
-}
-
-/// Generate a launchd plist for the docling-serve document processing service.
-pub fn generate_docling_plist(exe: &str) -> String {
-    let log_dir = dirs::data_dir()
-        .unwrap_or_else(|| std::path::PathBuf::from("/tmp"))
-        .join("ghost/logs");
-    let log_dir = log_dir.display().to_string();
-    let home = dirs::home_dir()
-        .unwrap_or_else(|| std::path::PathBuf::from("/tmp"))
-        .display()
-        .to_string();
-    format!(
-        r#"<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
-  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>Label</key><string>com.ghost.docling-serve</string>
-  <key>ProgramArguments</key>
-  <array>
-    <string>{exe}</string>
-  </array>
-  <key>EnvironmentVariables</key>
-  <dict>
-    <key>PATH</key>
-    <string>/nix/var/nix/profiles/default/bin:{home}/.nix-profile/bin:/usr/local/bin:/usr/bin:/bin</string>
-  </dict>
-  <key>RunAtLoad</key><true/>
-  <key>KeepAlive</key><true/>
-  <key>StandardOutPath</key>
-  <string>{log_dir}/docling-serve.log</string>
-  <key>StandardErrorPath</key>
-  <string>{log_dir}/docling-serve.err</string>
 </dict>
 </plist>
 "#
@@ -284,14 +226,13 @@ pub struct LlamaServerInfo<'a> {
 
 /// Install all applicable service files and return the list of paths written.
 ///
-/// Always installs the ghost daemon unit. Installs llama-server and docling
-/// units when provided. On Linux, enables systemd linger.
+/// Always installs the ghost daemon unit. Installs llama-server unit when
+/// provided. On Linux, enables systemd linger.
 pub fn install_all_service_files(
     platform: &detect::Platform,
     exe: &str,
     workspace: &str,
     llama_server: Option<&LlamaServerInfo<'_>>,
-    docling_exe: Option<&str>,
 ) -> Result<Vec<String>, OnboardingError> {
     let mut written = Vec::new();
 
@@ -321,13 +262,6 @@ pub fn install_all_service_files(
                 )?;
                 written.push(path.display().to_string());
             }
-
-            // docling-serve
-            if let Some(dl_exe) = docling_exe {
-                let path = plist_dir.join("com.ghost.docling-serve.plist");
-                std::fs::write(&path, generate_docling_plist(dl_exe))?;
-                written.push(path.display().to_string());
-            }
         }
         detect::Platform::Linux | detect::Platform::Other(_) => {
             let unit_dir = dirs::config_dir()
@@ -347,13 +281,6 @@ pub fn install_all_service_files(
                     &path,
                     generate_llama_server_unit_systemd(ls.exe, ls.hf_repo, ls.alias),
                 )?;
-                written.push(path.display().to_string());
-            }
-
-            // docling-serve
-            if let Some(dl_exe) = docling_exe {
-                let path = unit_dir.join("docling-serve.service");
-                std::fs::write(&path, generate_docling_unit_systemd(dl_exe))?;
                 written.push(path.display().to_string());
             }
 
@@ -391,13 +318,6 @@ mod tests {
         assert!(unit.contains("--embedding"));
         assert!(unit.contains("--hf-repo Qwen/Qwen3-Embedding-8B-GGUF:Q8_0"));
         assert!(unit.contains("--alias qwen3-embedding:8b"));
-    }
-
-    #[test]
-    fn docling_unit() {
-        let unit = generate_docling_unit_systemd("/home/user/.nix-profile/bin/docling-serve");
-        assert!(unit.contains("docling-serve"));
-        assert!(unit.contains("Restart=on-failure"));
     }
 
     #[test]

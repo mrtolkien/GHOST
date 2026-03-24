@@ -11,6 +11,7 @@ use crate::providers::types::{
 fn service_label(choice: &ServiceChoice) -> String {
     match choice {
         ServiceChoice::NixNative => "nix (local)".to_string(),
+        ServiceChoice::Native => "native (uv script)".to_string(),
         ServiceChoice::Container => "container".to_string(),
         ServiceChoice::Remote(url) => format!("remote ({url})"),
         ServiceChoice::Skip => "skipped".to_string(),

@@ -77,7 +77,6 @@ pub struct DetectedEnvironment {
     pub platform: Platform,
     pub container_runtime: Option<ContainerRuntime>,
     pub llama_server_in_path: bool,
-    pub docling_serve_in_path: bool,
     pub services_running: RunningServices,
     pub existing_config: Option<PathBuf>,
     pub existing_env: Option<PathBuf>,
@@ -123,7 +122,6 @@ pub async fn detect() -> DetectedEnvironment {
     let podman_in_path = which_exists("podman");
     let docker_in_path = which_exists("docker");
     let llama_server_in_path = which_exists("llama-server");
-    let docling_serve_in_path = which_exists("docling-serve");
 
     let container_runtime = ContainerRuntime::from_which_results(podman_in_path, docker_in_path);
 
@@ -167,7 +165,6 @@ pub async fn detect() -> DetectedEnvironment {
         platform,
         container_runtime,
         llama_server_in_path,
-        docling_serve_in_path,
         services_running,
         existing_config,
         existing_env,

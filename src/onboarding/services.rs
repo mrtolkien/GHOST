@@ -298,7 +298,15 @@ pub fn prompt_docling(
     );
 
     match flag {
-        Some(f) => ServiceChoice::from_flag(f),
+        Some(f) => {
+            let choice = ServiceChoice::from_flag(f)?;
+            // NixNative docling is deprecated — map to Native (uv script).
+            if choice == ServiceChoice::NixNative {
+                Ok(ServiceChoice::Native)
+            } else {
+                Ok(choice)
+            }
+        }
         None => prompt_docling_interactive(env),
     }
 }
@@ -307,16 +315,16 @@ fn prompt_docling_interactive(env: &DetectedEnvironment) -> Result<ServiceChoice
     let default = if env.low_memory {
         ServiceChoice::Skip
     } else {
-        ServiceChoice::Container
+        ServiceChoice::Native
     };
 
     let mut choice = cliclack::select("How should GHOST process documents?")
-        .item(ServiceChoice::Container, "Container (recommended)", "")
         .item(
-            ServiceChoice::NixNative,
-            "Install docling-serve via nix",
-            "may be broken in nixpkgs",
+            ServiceChoice::Native,
+            "Native (uv script, recommended)",
+            "runs docling via Python — no container needed",
         )
+        .item(ServiceChoice::Container, "Container", "")
         .item(
             ServiceChoice::Remote(String::new()),
             "Remote — enter URL",
@@ -490,8 +498,8 @@ pub fn write_compose_and_configs(
 /// Build a `ServiceRegistry` reflecting the user's service choices.
 ///
 /// Container entries are grouped under a single `[containers]` key.
-/// NixNative services (llama-server, docling-serve) get individual entries
-/// with platform-specific systemd or launchd commands baked in as absolute paths.
+/// NixNative services (e.g. llama-server) get individual entries with
+/// platform-specific systemd or launchd commands baked in as absolute paths.
 pub fn build_services_toml(
     state: &OnboardingState,
     platform: &Platform,
@@ -535,11 +543,7 @@ pub fn build_services_toml(
         let _ = registry.add("llama-server".to_string(), entry);
     }
 
-    // ── docling-serve (NixNative docling) ───────────────────────────────────
-    if matches!(state.docling, Some(ServiceChoice::NixNative)) {
-        let entry = native_service_entry(platform, "docling-serve", "docling-serve");
-        let _ = registry.add("docling-serve".to_string(), entry);
-    }
+    // Native docling does not need a service entry — it is invoked on demand.
 
     registry
 }
@@ -672,7 +676,7 @@ mod tests {
         let state = OnboardingState {
             search: Some(SearchChoice::SearxngLocal),
             crawl: Some(ServiceChoice::Container),
-            docling: Some(ServiceChoice::NixNative),
+            docling: Some(ServiceChoice::Native),
             ..Default::default()
         };
         let sel = build_selections(&state);

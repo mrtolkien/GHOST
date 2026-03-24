@@ -96,14 +96,16 @@ pub fn generate_config_toml(state: &OnboardingState) -> String {
     }
 
     // [docling]
-    if let Some(docling) = &state.docling
-        && *docling != ServiceChoice::Skip
-    {
-        let docling_url = match docling {
-            ServiceChoice::Remote(u) => u.as_str(),
-            _ => "http://127.0.0.1:5001",
-        };
-        out.push_str(&format!("[docling]\nurl = \"{docling_url}\"\n\n"));
+    if let Some(docling) = &state.docling {
+        match docling {
+            ServiceChoice::Skip | ServiceChoice::Native | ServiceChoice::NixNative => {}
+            ServiceChoice::Container => {
+                out.push_str("[docling]\nurl = \"http://127.0.0.1:5001\"\n\n");
+            }
+            ServiceChoice::Remote(u) => {
+                out.push_str(&format!("[docling]\nurl = \"{u}\"\n\n"));
+            }
+        }
     }
 
     // Trim trailing newline — one final newline is canonical.
@@ -326,9 +328,8 @@ mod tests {
     use super::*;
     use crate::onboarding::*;
 
-    #[test]
-    fn generates_valid_config_toml() {
-        let state = OnboardingState {
+    fn minimal_state() -> OnboardingState {
+        OnboardingState {
             provider: Some(ProviderKind::OpenRouter),
             api_key: Some("sk-test".into()),
             model: Some("anthropic/claude-sonnet-4".into()),
@@ -340,8 +341,13 @@ mod tests {
             embedding_hf_repo: Some("Qwen/Qwen3-Embedding-8B-GGUF:Q8_0".into()),
             search: Some(SearchChoice::SearxngLocal),
             crawl: Some(ServiceChoice::Container),
-            docling: Some(ServiceChoice::NixNative),
-        };
+            docling: Some(ServiceChoice::Native),
+        }
+    }
+
+    #[test]
+    fn generates_valid_config_toml() {
+        let state = minimal_state();
         let toml_str = generate_config_toml(&state);
         let parsed: toml::Value = toml::from_str(&toml_str).expect("valid TOML");
         assert_eq!(
@@ -355,6 +361,32 @@ mod tests {
         assert_eq!(
             parsed["embeddings"]["model"].as_str(),
             Some("qwen3-embedding:8b")
+        );
+        // Native docling produces no [docling] section.
+        assert!(!toml_str.contains("[docling]"));
+    }
+
+    #[test]
+    fn native_docling_writes_no_url() {
+        let state = OnboardingState {
+            docling: Some(ServiceChoice::Native),
+            ..minimal_state()
+        };
+        let toml_str = generate_config_toml(&state);
+        assert!(!toml_str.contains("[docling]"));
+    }
+
+    #[test]
+    fn container_docling_writes_localhost_url() {
+        let state = OnboardingState {
+            docling: Some(ServiceChoice::Container),
+            ..minimal_state()
+        };
+        let toml_str = generate_config_toml(&state);
+        let parsed: toml::Value = toml::from_str(&toml_str).expect("valid TOML");
+        assert_eq!(
+            parsed["docling"]["url"].as_str(),
+            Some("http://127.0.0.1:5001")
         );
     }
 

@@ -31,18 +31,34 @@ impl Default for ConvertOptions {
 }
 
 /// Single entry point for docling conversion (file or URL -> markdown).
+///
+/// Backend selection:
+/// - `config.url` is `Some(url)` → HTTP to remote docling-serve
+/// - `config.url` is `None` → local uv script (file sources only)
+///
+/// URL sources (e.g. from web imports) require a remote docling-serve.
+/// The local script backend only supports file paths.
 #[tracing::instrument(name = "docling convert", skip_all)]
 pub async fn convert(
     config: &DoclingConfig,
     source: DoclingSource<'_>,
     options: &ConvertOptions,
 ) -> Result<String, WebError> {
-    let base_url = config
-        .url
-        .as_deref()
-        .ok_or_else(|| WebError::Docling("docling URL not configured ([docling].url)".into()))?;
     let timeout = Duration::from_secs(config.timeout);
 
+    match &config.url {
+        Some(url) => convert_http(url, timeout, source, options).await,
+        None => convert_script(source, options, timeout).await,
+    }
+}
+
+/// HTTP backend: submit → poll → fetch via docling-serve REST API.
+async fn convert_http(
+    base_url: &str,
+    timeout: Duration,
+    source: DoclingSource<'_>,
+    options: &ConvertOptions,
+) -> Result<String, WebError> {
     // Build source JSON
     let source_json = match &source {
         DoclingSource::File { path } => {
@@ -106,7 +122,7 @@ pub async fn convert(
     loop {
         if tokio::time::Instant::now() >= deadline {
             return Err(WebError::DoclingTimeout {
-                seconds: config.timeout,
+                seconds: timeout.as_secs(),
             });
         }
 
@@ -155,6 +171,125 @@ pub async fn convert(
         .map_err(|e| WebError::Docling(format!("invalid result JSON: {e}")))?;
 
     extract_markdown_from_response(&body)
+}
+
+/// Script backend: shell out to `uv run convert.py`.
+///
+/// Only supports `DoclingSource::File` — URL sources require a remote
+/// docling-serve (`[docling].url` must be configured).
+async fn convert_script(
+    source: DoclingSource<'_>,
+    options: &ConvertOptions,
+    timeout: Duration,
+) -> Result<String, WebError> {
+    let DoclingSource::File { path } = &source else {
+        return Err(WebError::Docling(
+            "URL sources require [docling].url to be configured — \
+             the local script backend only supports file sources"
+                .into(),
+        ));
+    };
+
+    // Check uv is available
+    let uv_ok = tokio::process::Command::new("uv")
+        .arg("--version")
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .await
+        .map(|s| s.success())
+        .unwrap_or(false);
+    if !uv_ok {
+        return Err(WebError::Docling(
+            "uv is not installed — install it from https://docs.astral.sh/uv/ \
+             or configure [docling].url to use a remote docling-serve"
+                .into(),
+        ));
+    }
+
+    let script = find_convert_script()?;
+
+    // Use a temp directory with a known filename to avoid NamedTempFile
+    // platform issues (exclusive file locks on some OSes).
+    let tmp_dir = tempfile::tempdir()
+        .map_err(|e| WebError::Docling(format!("failed to create temp dir: {e}")))?;
+    let output_path = tmp_dir.path().join("output.md");
+
+    let mut cmd = tokio::process::Command::new("uv");
+    cmd.arg("run")
+        .arg(&script)
+        .arg("--path")
+        .arg(path.as_os_str())
+        .arg("--output")
+        .arg(&output_path);
+
+    if !options.ocr {
+        cmd.arg("--no-ocr");
+    }
+    if let Some((start, end)) = options.page_range {
+        cmd.arg("--page-range").arg(format!("{start}-{end}"));
+    }
+
+    tracing::info!("spawning docling conversion via uv script");
+
+    let child = cmd
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .map_err(|e| WebError::Docling(format!("failed to spawn uv: {e}")))?;
+
+    let result = tokio::time::timeout(timeout, child.wait_with_output())
+        .await
+        .map_err(|_| WebError::DoclingTimeout {
+            seconds: timeout.as_secs(),
+        })?
+        .map_err(|e| WebError::Docling(format!("uv process failed: {e}")))?;
+
+    if !result.status.success() {
+        let stderr = String::from_utf8_lossy(&result.stderr);
+        return Err(WebError::DoclingTaskFailed {
+            detail: stderr.to_string(),
+        });
+    }
+
+    // Log script stdout (progress messages) at debug level
+    let stdout = String::from_utf8_lossy(&result.stdout);
+    if !stdout.is_empty() {
+        tracing::debug!(output = %stdout, "docling script output");
+    }
+
+    tokio::fs::read_to_string(&output_path)
+        .await
+        .map_err(|e| WebError::Docling(format!("failed to read output: {e}")))
+    // tmp_dir is dropped here, cleaning up the temp directory
+}
+
+/// Locate convert.py — checks exe-relative paths first (production), then
+/// CARGO_MANIFEST_DIR (development).
+fn find_convert_script() -> Result<std::path::PathBuf, WebError> {
+    // 1. Production: relative to the binary (nix store or share/)
+    if let Ok(exe) = std::env::current_exe()
+        && let Some(parent) = exe.parent()
+    {
+        let candidate = parent.join("../share/ghost/services/docling/convert.py");
+        if candidate.exists() {
+            return Ok(candidate);
+        }
+    }
+
+    // 2. Development: relative to repo root (compile-time path)
+    let dev_path =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/services/docling/convert.py");
+    if dev_path.exists() {
+        return Ok(dev_path);
+    }
+
+    Err(WebError::Docling(
+        "cannot find convert.py — expected in assets/services/docling/. \
+         If running a packaged build, ensure the script is installed to \
+         share/ghost/services/docling/convert.py"
+            .into(),
+    ))
 }
 
 fn extract_markdown_from_response(body: &serde_json::Value) -> Result<String, WebError> {
