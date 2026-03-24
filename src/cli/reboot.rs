@@ -20,13 +20,9 @@ pub fn execute() -> Result<(), GhostError> {
         println!("restarting ghost daemon via launchctl");
     } else {
         // Reload unit files in case the service file was regenerated
-        let _ = std::process::Command::new("systemctl")
-            .args(["--user", "daemon-reload"])
-            .status();
+        crate::systemd::daemon_reload();
 
-        let status = std::process::Command::new("systemctl")
-            .args(["--user", "restart", "ghost-daemon"])
-            .status()
+        let status = crate::systemd::systemctl_status(&["restart", "ghost-daemon"])
             .map_err(|e| std::io::Error::new(e.kind(), format!("failed to run systemctl: {e}")))?;
 
         if !status.success() {
