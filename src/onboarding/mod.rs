@@ -46,6 +46,8 @@ pub struct OnboardingState {
 pub enum ServiceChoice {
     /// Install via nix profile and run as systemd/launchd service.
     NixNative,
+    /// Run natively on the host (e.g. via uv script), no service file needed.
+    Native,
     /// Run in the container stack (podman/docker compose).
     Container,
     /// Use an existing remote endpoint.
@@ -58,6 +60,7 @@ impl ServiceChoice {
     pub fn from_flag(s: &str) -> Result<Self, OnboardingError> {
         match s {
             "local" | "nix" => Ok(Self::NixNative),
+            "native" => Ok(Self::Native),
             "container" | "docker" | "podman" => Ok(Self::Container),
             "skip" => Ok(Self::Skip),
             s if s.starts_with("remote:") => Ok(Self::Remote(s[7..].to_string())),

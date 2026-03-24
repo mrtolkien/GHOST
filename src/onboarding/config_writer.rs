@@ -96,14 +96,16 @@ pub fn generate_config_toml(state: &OnboardingState) -> String {
     }
 
     // [docling]
-    if let Some(docling) = &state.docling
-        && *docling != ServiceChoice::Skip
-    {
-        let docling_url = match docling {
-            ServiceChoice::Remote(u) => u.as_str(),
-            _ => "http://127.0.0.1:5001",
-        };
-        out.push_str(&format!("[docling]\nurl = \"{docling_url}\"\n\n"));
+    if let Some(docling) = &state.docling {
+        match docling {
+            ServiceChoice::Skip | ServiceChoice::Native | ServiceChoice::NixNative => {}
+            ServiceChoice::Container => {
+                out.push_str("[docling]\nurl = \"http://127.0.0.1:5001\"\n\n");
+            }
+            ServiceChoice::Remote(u) => {
+                out.push_str(&format!("[docling]\nurl = \"{u}\"\n\n"));
+            }
+        }
     }
 
     // Trim trailing newline — one final newline is canonical.

@@ -134,25 +134,7 @@ pub async fn run(args: InitArgs) -> Result<(), GhostError> {
     let search = services::prompt_search(&env, args.search.as_deref())?;
     let crawl = services::prompt_crawl(&env, args.crawl.as_deref())?;
 
-    // Docling — with inline nix add, retry on failure.
-    let docling = loop {
-        let doc = services::prompt_docling(&env, args.docling.as_deref())?;
-
-        if matches!(doc, ServiceChoice::NixNative) {
-            match services::nix_add("docling-serve", "Adding docling-serve via nix...") {
-                Ok(()) => {}
-                Err(e) => {
-                    let _ = cliclack::log::warning(format!("{e}"));
-                    if args.docling.is_some() {
-                        return Err(GhostError::Onboarding(e));
-                    }
-                    continue;
-                }
-            }
-        }
-
-        break doc;
-    };
+    let docling = services::prompt_docling(&env, args.docling.as_deref())?;
 
     // Build cumulative state
     let state = OnboardingState {
@@ -367,12 +349,6 @@ fn display_detection(env: &detect::DetectedEnvironment) {
         let _ = cliclack::log::info("llama-server not found in PATH");
     }
 
-    if env.docling_serve_in_path {
-        let _ = cliclack::log::success("docling-serve found in PATH");
-    } else {
-        let _ = cliclack::log::info("docling-serve not found in PATH");
-    }
-
     if env.existing_config.is_some() {
         let _ = cliclack::log::info("Existing config.toml detected");
     }
@@ -412,18 +388,11 @@ fn install_service_files(
                 alias: model,
             });
 
-    let docling_exe = if matches!(state.docling, Some(ServiceChoice::NixNative)) {
-        Some(format!("{home_str}/.nix-profile/bin/docling-serve"))
-    } else {
-        None
-    };
-
     let installed = service_files::install_all_service_files(
         &env.platform,
         &exe,
         &workspace,
         llama_server.as_ref(),
-        docling_exe.as_deref(),
     )?;
 
     for path in &installed {
