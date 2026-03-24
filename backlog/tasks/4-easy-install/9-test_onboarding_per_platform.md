@@ -2,7 +2,6 @@ Review deployment:
 
 - [ ] Installing and running on a Mac should be extremely easy, with GPU acceleration
       for llama.cpp + docling
-  - Needs to be tested!
 - [ ] Secondary target should be small Linux servers with GPUs -> like mine with a GTX
       1060
 - [ ] Third target should be small VPSs without a GPU and low RAM: in that case, there

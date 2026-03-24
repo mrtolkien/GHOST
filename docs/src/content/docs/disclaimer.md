@@ -21,6 +21,16 @@ I'm daily-driving GHOST and focusing exclusively on the core feature set:
 
 Everything else is secondary until these are solid.
 
+## Provider integration quality
+
+At the moment only OpenRouter is a "clean" provider integration. While OpenAI Codex,
+Kimi Code, and Claude Code are available, they are against the ToS of those providers
+and regularly have issues.
+
+If an inference provider somedays offers both a flat monthly cost, decent limits, _and_
+proper API access, please contact me and I'll add it. I have not found a provider
+working that way at the moment.
+
 ## What's not in scope yet
 
 More interfaces (Telegram, Slack, a web app), more LLM providers, plugin systems,
