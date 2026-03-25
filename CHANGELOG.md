@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.8.1](https://github.com/mrtolkien/GHOST/compare/v0.8.0...v0.8.1) (2026-03-25)
+
+
+### Bug Fixes
+
+* add common Linux fonts to table renderer and bundle DejaVu via Nix ([33758e4](https://github.com/mrtolkien/GHOST/commit/33758e40ccae2c08487aa26e0f736ea556027be9))
+
+
+### Documentation
+
+* document docling config, vision fallback, and local-first conversion ([4e6f632](https://github.com/mrtolkien/GHOST/commit/4e6f63221fb7aa1fe79240063f9d2a2af9423a33))
+
 ## [0.8.0](https://github.com/mrtolkien/GHOST/compare/v0.7.1...v0.8.0) (2026-03-25)
 
 ### Features
