@@ -79,11 +79,26 @@
             GIT_COMMIT_HASH = "deps";
             src = depsSrc;
           });
-        in {
-          default = craneLib.buildPackage (commonArgs // {
+          # Font config for SVG table rendering — ensures DejaVu Sans is
+          # always discoverable by fontdb even on headless servers.
+          fontsConf = pkgs.makeFontsConf {
+            fontDirectories = [ pkgs.dejavu_fonts ];
+          };
+
+          unwrapped = craneLib.buildPackage (commonArgs // {
             inherit cargoArtifacts;
             doCheck = false;
           });
+        in {
+          default = pkgs.symlinkJoin {
+            name = "ghost";
+            paths = [ unwrapped ];
+            nativeBuildInputs = [ pkgs.makeWrapper ];
+            postBuild = ''
+              wrapProgram $out/bin/ghost \
+                --set FONTCONFIG_FILE ${fontsConf}
+            '';
+          };
         }
       );
     };

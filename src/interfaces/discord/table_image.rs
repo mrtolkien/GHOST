@@ -44,7 +44,7 @@ const BORDER_COLOR: &str = "#3B3D44";
 // ---------------------------------------------------------------------------
 // Font stack — proportional for readability, bold actually renders
 // ---------------------------------------------------------------------------
-const FONT_FAMILY: &str = "'Inter', 'Segoe UI', 'Helvetica Neue', 'Arial', 'Noto Sans', sans-serif";
+const FONT_FAMILY: &str = "'Inter', 'Segoe UI', 'Helvetica Neue', 'Arial', 'Noto Sans', 'DejaVu Sans', 'Liberation Sans', 'Nimbus Sans', sans-serif";
 
 static SVG_OPTIONS: LazyLock<usvg::Options> = LazyLock::new(|| {
     let mut opt = usvg::Options::default();
@@ -569,6 +569,21 @@ fn xml_escape(s: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn font_family_includes_common_linux_fonts() {
+        // FONT_FAMILY must include fonts commonly available on headless Linux
+        // servers (DejaVu Sans, Liberation Sans, etc.). Without them, resvg
+        // silently renders invisible text — table structure appears but cells
+        // are empty.
+        let family = FONT_FAMILY.to_lowercase();
+        let linux_fonts = ["dejavu sans", "liberation sans", "nimbus sans"];
+        assert!(
+            linux_fonts.iter().any(|f| family.contains(f)),
+            "FONT_FAMILY must include at least one common Linux font to avoid \
+             invisible text on headless servers. Current: {FONT_FAMILY}"
+        );
+    }
 
     #[test]
     fn empty_table_returns_none() {
