@@ -100,8 +100,8 @@ context_window = 128000
 Permanent errors (authentication, model not found) stop the chain immediately — there is
 no point trying a fallback for a credentials problem.
 
-Each provider in the chain has its own circuit breaker (3 consecutive failures → skip for
-60 seconds), so known-bad models are skipped quickly.
+Each provider in the chain has its own circuit breaker (3 consecutive failures → skip
+for 60 seconds), so known-bad models are skipped quickly.
 
 Agents can also use chains:
 
@@ -153,23 +153,14 @@ Available models include `claude-sonnet-4-6`, `claude-opus-4-6`, and
 [Anthropic's model docs](https://docs.anthropic.com/en/docs/about-claude/models) for the
 full list.
 
-### 3. Optional: enable extended thinking
+:::note
 
-```toml title="~/.config/ghost/config.toml"
-[models.claude-thinking]
-provider = "anthropic"
-model = "claude-opus-4-6"
-context_window = 1000000
-reasoning_effort = "high"
-```
+Token refresh is automatic. GHOST reads `~/.claude/.credentials.json`, refreshes expired
+tokens, and writes updated credentials back with file locking to avoid races with Claude
+Code. You can also set the `ANTHROPIC_OAUTH_TOKEN` env var to use a token directly (no
+refresh).
 
-Sonnet 4.6 and Opus 4.6 use adaptive thinking (the model decides how much to think).
-Older models use budget-based thinking.
-
-:::note Token refresh is automatic. GHOST reads `~/.claude/.credentials.json`, refreshes
-expired tokens, and writes updated credentials back with file locking to avoid races
-with Claude Code. You can also set the `ANTHROPIC_OAUTH_TOKEN` env var to use a token
-directly (no refresh). :::
+:::
 
 ## OpenAI OAuth Setup
 
