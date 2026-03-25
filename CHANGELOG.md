@@ -2,51 +2,65 @@
 
 ## [0.7.1](https://github.com/mrtolkien/GHOST/compare/v0.7.0...v0.7.1) (2026-03-24)
 
-
 ### Bug Fixes
 
-* chunk long components v2 messages ([fb11591](https://github.com/mrtolkien/GHOST/commit/fb11591127638f2c5ddd9d35e879368f61d9f5f6))
-* preserve SearXNG port bindings on Linux ([af46f47](https://github.com/mrtolkien/GHOST/commit/af46f472137c68e6b7ba6dad95928948bee920aa))
-* set HOME env var in system-level systemd units ([45047e9](https://github.com/mrtolkien/GHOST/commit/45047e97bb95e96e87902ad699c7d2799505945e))
+- chunk long components v2 messages
+  ([fb11591](https://github.com/mrtolkien/GHOST/commit/fb11591127638f2c5ddd9d35e879368f61d9f5f6))
+- preserve SearXNG port bindings on Linux
+  ([af46f47](https://github.com/mrtolkien/GHOST/commit/af46f472137c68e6b7ba6dad95928948bee920aa))
+- set HOME env var in system-level systemd units
+  ([45047e9](https://github.com/mrtolkien/GHOST/commit/45047e97bb95e96e87902ad699c7d2799505945e))
 
 ## [0.7.0](https://github.com/mrtolkien/GHOST/compare/v0.6.1...v0.7.0) (2026-03-24)
 
-
 ### Features
 
-* add docling uv conversion script ([f8859d5](https://github.com/mrtolkien/GHOST/commit/f8859d5acd0a01a3ff318fab3d2757db5ed399bb))
-* add systemd helpers for root/system-level support ([2892b10](https://github.com/mrtolkien/GHOST/commit/2892b1021219a26e39e8d28862daf374219d5b70))
-* add uv script backend for docling conversion ([2dc0ee6](https://github.com/mrtolkien/GHOST/commit/2dc0ee675830c1364f0c41b5ee3ca407fcf2d3a2))
-* replace NixNative with Native (uv script) for docling onboarding ([0d49b1b](https://github.com/mrtolkien/GHOST/commit/0d49b1b689f90df66a4b1e8272251f78b68f6160))
-* support system-level systemd units when running as root ([92618e1](https://github.com/mrtolkien/GHOST/commit/92618e1ff0657c4c9b0e386d85a22d170b277381))
-
+- add docling uv conversion script
+  ([f8859d5](https://github.com/mrtolkien/GHOST/commit/f8859d5acd0a01a3ff318fab3d2757db5ed399bb))
+- add systemd helpers for root/system-level support
+  ([2892b10](https://github.com/mrtolkien/GHOST/commit/2892b1021219a26e39e8d28862daf374219d5b70))
+- add uv script backend for docling conversion
+  ([2dc0ee6](https://github.com/mrtolkien/GHOST/commit/2dc0ee675830c1364f0c41b5ee3ca407fcf2d3a2))
+- replace NixNative with Native (uv script) for docling onboarding
+  ([0d49b1b](https://github.com/mrtolkien/GHOST/commit/0d49b1b689f90df66a4b1e8272251f78b68f6160))
+- support system-level systemd units when running as root
+  ([92618e1](https://github.com/mrtolkien/GHOST/commit/92618e1ff0657c4c9b0e386d85a22d170b277381))
 
 ### Bug Fixes
 
-* add hostname to traces ([3f7f23c](https://github.com/mrtolkien/GHOST/commit/3f7f23c6dcae85f6090b9ab01627be133bcb9548))
-* clean up stale docling-serve references and harden uv check ([53bee0d](https://github.com/mrtolkien/GHOST/commit/53bee0d262af7a46c57b8aec00c034eb3e4ae8aa))
-* generate root-aware systemctl commands in services.toml ([bd14a0f](https://github.com/mrtolkien/GHOST/commit/bd14a0fe969b8b7f85aeb2910e790542e36ec4d7))
-
+- add hostname to traces
+  ([3f7f23c](https://github.com/mrtolkien/GHOST/commit/3f7f23c6dcae85f6090b9ab01627be133bcb9548))
+- clean up stale docling-serve references and harden uv check
+  ([53bee0d](https://github.com/mrtolkien/GHOST/commit/53bee0d262af7a46c57b8aec00c034eb3e4ae8aa))
+- generate root-aware systemctl commands in services.toml
+  ([bd14a0f](https://github.com/mrtolkien/GHOST/commit/bd14a0fe969b8b7f85aeb2910e790542e36ec4d7))
 
 ### Refactoring
 
-* use systemd helpers in onboarding health checks ([0299949](https://github.com/mrtolkien/GHOST/commit/0299949225e282b7596bbe3c759f58b6d0221226))
-* use systemd helpers in reboot command ([8ecebe8](https://github.com/mrtolkien/GHOST/commit/8ecebe80bb7754841b36fe837bb93b43b840b99d))
-* use systemd helpers in reload command ([3f6c00c](https://github.com/mrtolkien/GHOST/commit/3f6c00c2fbe824aec56dc70197732ece90621caa))
-* use systemd helpers in reset command ([f30f82f](https://github.com/mrtolkien/GHOST/commit/f30f82f02102344924ea5b2aaf1e50b68c37dd7c))
-* use systemd helpers in start/stop commands ([dc260c6](https://github.com/mrtolkien/GHOST/commit/dc260c6804150d5a3463675f39c4c581a506e572))
-* use systemd helpers in status command ([56033f7](https://github.com/mrtolkien/GHOST/commit/56033f7e67f6bb789c3fb4b46e8cb9646f2a7f9a))
-
+- use systemd helpers in onboarding health checks
+  ([0299949](https://github.com/mrtolkien/GHOST/commit/0299949225e282b7596bbe3c759f58b6d0221226))
+- use systemd helpers in reboot command
+  ([8ecebe8](https://github.com/mrtolkien/GHOST/commit/8ecebe80bb7754841b36fe837bb93b43b840b99d))
+- use systemd helpers in reload command
+  ([3f6c00c](https://github.com/mrtolkien/GHOST/commit/3f6c00c2fbe824aec56dc70197732ece90621caa))
+- use systemd helpers in reset command
+  ([f30f82f](https://github.com/mrtolkien/GHOST/commit/f30f82f02102344924ea5b2aaf1e50b68c37dd7c))
+- use systemd helpers in start/stop commands
+  ([dc260c6](https://github.com/mrtolkien/GHOST/commit/dc260c6804150d5a3463675f39c4c581a506e572))
+- use systemd helpers in status command
+  ([56033f7](https://github.com/mrtolkien/GHOST/commit/56033f7e67f6bb789c3fb4b46e8cb9646f2a7f9a))
 
 ### Documentation
 
-* document that podman is a bit of a mess right now ([3d548a2](https://github.com/mrtolkien/GHOST/commit/3d548a2479d89b2271d1cc8802eebf7b56e097eb))
-* show conversion script path in document import help ([09ce70d](https://github.com/mrtolkien/GHOST/commit/09ce70d223ec8155de3f512e35d4aa092b66d58f))
-
+- document that podman is a bit of a mess right now
+  ([3d548a2](https://github.com/mrtolkien/GHOST/commit/3d548a2479d89b2271d1cc8802eebf7b56e097eb))
+- show conversion script path in document import help
+  ([09ce70d](https://github.com/mrtolkien/GHOST/commit/09ce70d223ec8155de3f512e35d4aa092b66d58f))
 
 ### Tests
 
-* update onboarding tests for Native docling option ([dc3e88f](https://github.com/mrtolkien/GHOST/commit/dc3e88f8775446b55411ffebaf48f900ccd8fb91))
+- update onboarding tests for Native docling option
+  ([dc3e88f](https://github.com/mrtolkien/GHOST/commit/dc3e88f8775446b55411ffebaf48f900ccd8fb91))
 
 ## [0.6.1](https://github.com/mrtolkien/GHOST/compare/v0.6.0...v0.6.1) (2026-03-24)
 

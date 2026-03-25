@@ -3,6 +3,7 @@
 # requires-python = ">=3.10"
 # dependencies = [
 #     "docling>=2.70.0",
+#     "onnxruntime",
 # ]
 # ///
 """
