@@ -222,6 +222,13 @@ pub enum ProviderError {
     #[error("context overflow: {0}")]
     ContextOverflow(String),
 
+    #[error(
+        "this session contains thinking/reasoning blocks from a different model \
+         that are incompatible with the current one. \
+         Switch back to the previous model or /reboot to start a new session."
+    )]
+    IncompatibleHistory(String),
+
     #[error("invalid response: {0}")]
     InvalidResponse(String),
 
@@ -256,6 +263,18 @@ impl ProviderError {
             || lower.contains("input is too long")
             || lower.contains("prompt_length exceeded")
             || lower.contains("input tokens exceed")
+    }
+
+    /// Check whether an error indicates incompatible thinking/reasoning
+    /// blocks from a different model in the conversation history.
+    /// Provider-agnostic — covers Anthropic `redacted_thinking` and
+    /// OpenAI/Codex reasoning block errors.
+    pub fn is_thinking_block_incompatible(msg: &str) -> bool {
+        let lower = msg.to_lowercase();
+        lower.contains("redacted_thinking")
+            || lower.contains("invalid data in redacted")
+            || (lower.contains("thinking") && lower.contains("invalid"))
+            || (lower.contains("reasoning") && lower.contains("encrypted_content"))
     }
 }
 

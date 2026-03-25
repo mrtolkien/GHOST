@@ -282,6 +282,9 @@ fn parse_codex_json_response(
         if ProviderError::is_context_overflow_message(error_msg) {
             return Err(ProviderError::ContextOverflow(err_msg));
         }
+        if ProviderError::is_thinking_block_incompatible(error_msg) {
+            return Err(ProviderError::IncompatibleHistory(err_msg));
+        }
         return Err(ProviderError::InvalidResponse(err_msg));
     }
 
@@ -344,6 +347,9 @@ fn parse_codex_sse_response(
                     let err_msg = format!("codex response failed: {error_msg}");
                     if ProviderError::is_context_overflow_message(error_msg) {
                         return Err(ProviderError::ContextOverflow(err_msg));
+                    }
+                    if ProviderError::is_thinking_block_incompatible(error_msg) {
+                        return Err(ProviderError::IncompatibleHistory(err_msg));
                     }
                     return Err(ProviderError::InvalidResponse(err_msg));
                 }

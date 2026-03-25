@@ -162,6 +162,9 @@ pub(crate) fn parse_sse_response(
                 if ProviderError::is_context_overflow_message(msg) {
                     return Err(ProviderError::ContextOverflow(msg.to_string()));
                 }
+                if ProviderError::is_thinking_block_incompatible(msg) {
+                    return Err(ProviderError::IncompatibleHistory(msg.to_string()));
+                }
                 return Err(ProviderError::InvalidResponse(msg.to_string()));
             }
             // ping, message_stop, unknown — ignore

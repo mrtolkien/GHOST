@@ -183,6 +183,9 @@ impl OpenAiCompatibleProvider {
             if ProviderError::is_context_overflow_message(&response_body) {
                 return Err(ProviderError::ContextOverflow(err_msg));
             }
+            if ProviderError::is_thinking_block_incompatible(&response_body) {
+                return Err(ProviderError::IncompatibleHistory(err_msg));
+            }
             return Err(ProviderError::InvalidResponse(err_msg));
         }
 

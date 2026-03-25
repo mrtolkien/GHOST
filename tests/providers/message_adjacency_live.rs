@@ -460,3 +460,49 @@ async fn full_mixed_session() {
 
     assert!(!response.trim().is_empty());
 }
+
+/// Stale `redacted_thinking` blocks from a previous model (e.g. Codex or
+/// a prior Anthropic session) cause the API to reject with "Invalid data
+/// in redacted_thinking block". The error must surface as
+/// `IncompatibleHistory` with a clear message telling the OPERATOR to
+/// switch models or /reboot.
+#[tokio::test]
+async fn stale_redacted_thinking_surfaces_incompatible_history_error() {
+    unsafe { std::env::set_var("GHOST_E2E_MODEL", ANTHROPIC_MODEL) };
+    let env = common::live_test_database("adj_stale_thinking").await;
+    let session_id = env.create_session().await;
+
+    db::sessions::create_message(&env.db, &session_id, "user", "Hello")
+        .await
+        .unwrap();
+
+    // Assistant with stale redacted_thinking from a different model.
+    db::sessions::create_message_with_metadata(
+        &env.db,
+        &session_id,
+        "assistant",
+        "Hi there!",
+        None,
+        None,
+        Some(vec![json!({
+            "original_type": "redacted_thinking",
+            "opaque_data": "gAAAAABpwVA0_FAKE_STALE_DATA_FROM_PREVIOUS_SESSION_xyzzy"
+        })]),
+        None,
+    )
+    .await
+    .unwrap();
+
+    let chat = env.chat();
+    let result = chat.chat(&session_id, "Say OK", None, None).await;
+
+    match result {
+        Err(ghost::chat::ChatError::Provider(
+            ghost::providers::ProviderError::IncompatibleHistory(_),
+        )) => {
+            // Expected: clear error about incompatible thinking blocks.
+        }
+        Err(e) => panic!("expected IncompatibleHistory, got: {e}"),
+        Ok(_) => panic!("expected error, but chat succeeded"),
+    }
+}
