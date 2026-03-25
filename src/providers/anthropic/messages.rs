@@ -224,27 +224,42 @@ fn convert_messages(
     Ok(output)
 }
 
-/// Check whether message at `idx` is a user message whose tool_result IDs
-/// cover at least one of the given `tool_use_ids`.
+/// Check whether any message from `idx` onward (up to the next assistant
+/// message) is a user message whose tool_result IDs cover at least one of
+/// the given `tool_use_ids`.
+///
+/// Skips system messages so that injected notifications (e.g. from
+/// `send-image`) between assistant tool_use and user tool_result don't
+/// cause false orphan detection.
 fn has_matching_tool_results(
     messages: &[ChatMessage],
     idx: usize,
     tool_use_ids: &[String],
 ) -> bool {
-    if idx >= messages.len() {
-        return false;
-    }
-    let msg = &messages[idx];
-    if msg.role != Role::User {
-        return false;
-    }
-    msg.content.iter().any(|b| match b {
-        ContentBlock::ToolResult { tool_use_id, .. } => {
-            let normalized = normalize_tool_call_id(tool_use_id);
-            tool_use_ids.contains(&normalized)
+    for msg in &messages[idx..] {
+        match msg.role {
+            // Next assistant turn — stop scanning.
+            Role::Assistant => return false,
+            // System messages (e.g. "[sent image: …]") can appear between
+            // an assistant tool_use and its user tool_result — skip them.
+            Role::System => continue,
+            Role::User => {
+                let found = msg.content.iter().any(|b| match b {
+                    ContentBlock::ToolResult { tool_use_id, .. } => {
+                        let normalized = normalize_tool_call_id(tool_use_id);
+                        tool_use_ids.contains(&normalized)
+                    }
+                    _ => false,
+                });
+                if found {
+                    return true;
+                }
+                // User message without matching results (e.g. text-only) —
+                // keep scanning in case the results are in a later message.
+            }
         }
-        _ => false,
-    })
+    }
+    false
 }
 
 /// Returns true if all blocks in the message are `ToolResult`.
@@ -781,6 +796,80 @@ mod tests {
                 .unwrap()
                 .contains("conversation summary"),
         );
+    }
+
+    /// Regression: system messages injected between assistant tool_use and
+    /// user tool_result (e.g. from `ghost send-image`) must not cause
+    /// synthetic orphan results. See: tool_use → system → tool_result.
+    #[test]
+    fn system_message_between_tool_use_and_result_not_orphaned() {
+        let req = simple_request(vec![
+            ChatMessage {
+                role: Role::User,
+                content: vec![ContentBlock::Text { text: "hi".into() }],
+            },
+            ChatMessage {
+                role: Role::Assistant,
+                content: vec![ContentBlock::ToolUse {
+                    id: "call_abc".into(),
+                    name: "shell".into(),
+                    input: json!({"command": "send-image"}),
+                }],
+            },
+            // System message injected between tool_use and tool_result
+            ChatMessage {
+                role: Role::System,
+                content: vec![ContentBlock::Text {
+                    text: "[sent image: photo.png]".into(),
+                }],
+            },
+            ChatMessage {
+                role: Role::User,
+                content: vec![ContentBlock::ToolResult {
+                    tool_use_id: "call_abc".into(),
+                    content: "Exit code: 0".into(),
+                    is_error: false,
+                }],
+            },
+            ChatMessage {
+                role: Role::Assistant,
+                content: vec![ContentBlock::Text {
+                    text: "Sent.".into(),
+                }],
+            },
+        ]);
+        let body = build_request_body(&req, &[]).unwrap();
+        let messages = body["messages"].as_array().unwrap();
+
+        // No message should contain a synthetic "interrupted" error result.
+        for msg in messages {
+            if let Some(content) = msg["content"].as_array() {
+                for block in content {
+                    if block["type"] == "tool_result" {
+                        assert_ne!(
+                            block["content"].as_str().unwrap_or(""),
+                            "Tool execution was interrupted.",
+                            "system message between tool_use/result caused false orphan"
+                        );
+                    }
+                }
+            }
+        }
+
+        // The real tool_result for call_abc must be present.
+        let has_real_result = messages.iter().any(|msg| {
+            msg["content"]
+                .as_array()
+                .map(|blocks| {
+                    blocks.iter().any(|b| {
+                        b["type"] == "tool_result"
+                            && b["tool_use_id"] == "call_abc"
+                            && b["content"] == "Exit code: 0"
+                    })
+                })
+                .unwrap_or(false)
+        });
+        assert!(has_real_result, "real tool_result must be present");
     }
 
     #[test]
