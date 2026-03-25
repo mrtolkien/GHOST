@@ -14,8 +14,8 @@ when given the page as a PNG.
 
 Make PDF import autonomous and reliable by adding per-page quality assessment and an LLM
 vision fallback for pages that Docling fails on. The rest of the system (DB, embeddings,
-file watcher, references) sees no change — it still receives a single markdown string per
-imported file.
+file watcher, references) sees no change — it still receives a single markdown string
+per imported file.
 
 ## Approach: Docling-first with per-page LLM fallback
 
@@ -194,28 +194,28 @@ map (same pattern as the `default` chain validation).
 
 ### Modified files
 
-| File                               | Change                                                                                                          |
-| ---------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `assets/services/docling/convert.py` | Output DoclingDocument JSON instead of markdown                                                                 |
-| `src/reference_import/file.rs`     | Gains `Option<Arc<dyn Provider>>` param; orchestrates quality check → fallback → stitch                        |
-| `src/config.rs`                    | Add optional `vision` field to models config                                                                    |
-| `src/cli/document.rs`              | Resolve vision provider and pass it to import                                                                   |
+| File                                 | Change                                                                                  |
+| ------------------------------------ | --------------------------------------------------------------------------------------- |
+| `assets/services/docling/convert.py` | Output DoclingDocument JSON instead of markdown                                         |
+| `src/reference_import/file.rs`       | Gains `Option<Arc<dyn Provider>>` param; orchestrates quality check → fallback → stitch |
+| `src/config.rs`                      | Add optional `vision` field to models config                                            |
+| `src/cli/document.rs`                | Resolve vision provider and pass it to import                                           |
 
 ### New files
 
-| File                                    | Purpose                                                   |
-| --------------------------------------- | --------------------------------------------------------- |
-| `src/docling/mod.rs`                    | Re-exports, `DoclingSource`, `ConvertOptions`             |
-| `src/docling/convert.rs`               | Local script + HTTP backend (both return JSON)            |
-| `src/docling/document.rs`              | `DoclingDocument` serde types                             |
-| `src/docling/markdown.rs`              | Tree walk → per-page markdown generation                  |
-| `src/docling/quality.rs`               | Per-page quality assessment                               |
-| `assets/services/docling/render_page.py` | PyMuPDF: `(pdf, page_no, output)` → 300dpi PNG           |
+| File                                     | Purpose                                        |
+| ---------------------------------------- | ---------------------------------------------- |
+| `src/docling/mod.rs`                     | Re-exports, `DoclingSource`, `ConvertOptions`  |
+| `src/docling/convert.rs`                 | Local script + HTTP backend (both return JSON) |
+| `src/docling/document.rs`                | `DoclingDocument` serde types                  |
+| `src/docling/markdown.rs`                | Tree walk → per-page markdown generation       |
+| `src/docling/quality.rs`                 | Per-page quality assessment                    |
+| `assets/services/docling/render_page.py` | PyMuPDF: `(pdf, page_no, output)` → 300dpi PNG |
 
 ### Removed files
 
-| File              | Reason                          |
-| ----------------- | ------------------------------- |
+| File                 | Reason                         |
+| -------------------- | ------------------------------ |
 | `src/web/docling.rs` | Moved to `src/docling/` module |
 
 ### What doesn't change
@@ -266,9 +266,9 @@ src/onboarding/
 └── ...
 ```
 
-Then remove the `"services"` exclusion from `build.rs`. `assets/` becomes purely
-"things that go to `$WORKSPACE/`", no exceptions. `convert.py` and `render_page.py`
-naturally end up at `$WORKSPACE/services/docling/`.
+Then remove the `"services"` exclusion from `build.rs`. `assets/` becomes purely "things
+that go to `$WORKSPACE/`", no exceptions. `convert.py` and `render_page.py` naturally
+end up at `$WORKSPACE/services/docling/`.
 
 **Runtime lookup**: Replace `find_convert_script()` with
 `workspace.join("services/docling/convert.py")`. No more binary-relative path
@@ -292,18 +292,18 @@ resolution.
 
 ## Implementation notes
 
-The `DoclingDocument` serde types are non-trivial. The JSON uses `$ref` pointers
-(e.g., `#/texts/0`) that need resolution, nested children, and ~30 label variants.
-Design the serde types iteratively against actual Docling output — a representative
-JSON sample from the lotion PDF is in `tmp/` from the investigation session.
+The `DoclingDocument` serde types are non-trivial. The JSON uses `$ref` pointers (e.g.,
+`#/texts/0`) that need resolution, nested children, and ~30 label variants. Design the
+serde types iteratively against actual Docling output — a representative JSON sample
+from the lotion PDF is in `tmp/` from the investigation session.
 
 The `convert.py` output file should use `.json` extension (was `.md`) to avoid
 confusion. `convert_script()` return type changes from `Result<String, _>` to
 `Result<DoclingDocument, DoclingError>`.
 
-The HTTP backend switches from `to_formats: ["md"]` to `to_formats: ["json"]` and
-reads `json_content` instead of `md_content`. The `extract_markdown_from_response()`
-function is removed.
+The HTTP backend switches from `to_formats: ["md"]` to `to_formats: ["json"]` and reads
+`json_content` instead of `md_content`. The `extract_markdown_from_response()` function
+is removed.
 
 ## Future work (backlog)
 
