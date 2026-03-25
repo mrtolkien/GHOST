@@ -1,8 +1,10 @@
 use std::path::Path;
+use std::sync::Arc;
 
 use crate::config::DoclingConfig;
 use crate::db;
 use crate::db::GhostDb;
+use crate::providers::types::Provider;
 
 use super::topic::ensure_topic_hierarchy;
 use super::types::{ImportConfig, ImportConfigJson, ImportError, ImportResult, ImportSource};
@@ -13,6 +15,8 @@ pub async fn import_file(
     workspace: &Path,
     docling_config: &DoclingConfig,
     config: &ImportConfig,
+    vision_provider: Option<Arc<dyn Provider>>,
+    vision_model: Option<String>,
 ) -> Result<ImportResult, ImportError> {
     let ImportSource::File {
         path: file_path,
@@ -90,20 +94,20 @@ pub async fn import_file(
     )
     .await?;
 
-    // Convert via docling
+    // Convert via docling with hybrid vision fallback
     let convert_opts = crate::docling::ConvertOptions {
         ocr: !no_ocr,
         page_range: *page_range,
     };
-    let doc = crate::docling::convert(
+    let markdown = crate::docling::convert_hybrid(
         docling_config,
         workspace,
         crate::docling::DoclingSource::File { path: &source_path },
         &convert_opts,
+        vision_provider.as_ref(),
+        vision_model.as_deref(),
     )
     .await?;
-
-    let markdown = crate::docling::generate_markdown(&doc, None);
 
     // Preserve original
     let originals_dir = workspace

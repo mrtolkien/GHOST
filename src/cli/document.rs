@@ -71,6 +71,16 @@ pub async fn execute(command: DocumentCommand) -> Result<(), GhostError> {
                     },
                     topic: topic.clone(),
                 };
+                // Resolve vision provider and model name
+                let vision_alias = config.models.vision.as_deref();
+                let vision_provider: Option<std::sync::Arc<dyn crate::providers::types::Provider>> =
+                    vision_alias.and_then(|alias| {
+                        crate::providers::types::provider_for_alias(&config, Some(alias)).ok()
+                    });
+                let vision_model: Option<String> = vision_alias
+                    .and_then(|alias| config.models.aliases.get(alias))
+                    .map(|m| m.model.clone());
+
                 println!("Importing document from file: {path}");
                 println!("Topic: {topic}");
                 let result = crate::reference_import::import_file(
@@ -78,6 +88,8 @@ pub async fn execute(command: DocumentCommand) -> Result<(), GhostError> {
                     workspace,
                     &docling_config,
                     &import_config,
+                    vision_provider,
+                    vision_model,
                 )
                 .await?;
                 print_result(&topic, result);
