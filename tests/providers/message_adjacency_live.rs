@@ -3,6 +3,7 @@
 ///
 /// Anthropic requires:
 /// - `tool_result` must be in the message immediately after `tool_use`
+/// - The user message after tool_use must contain ONLY tool_result blocks
 /// - No consecutive same-role messages
 ///
 /// These tests seed a session DB with problematic message patterns, then
@@ -10,12 +11,21 @@
 /// convert_messages → Anthropic API). A 200 response proves the structure
 /// is valid.
 ///
+/// IMPORTANT: These tests MUST hit the Anthropic API directly (not
+/// OpenRouter or Codex) because only the native Anthropic endpoint
+/// enforces strict tool_use/tool_result adjacency constraints.
+///
 /// ```sh
 /// cargo test --features live-tests-llms message_adjacency -- --nocapture
 /// ```
 use super::common;
 use ghost::db;
 use serde_json::json;
+
+/// Model alias that maps to `provider = "anthropic"` in the local config.
+/// The test config must have a `[models.test]` entry using the anthropic
+/// provider — not openrouter or codex.
+const ANTHROPIC_MODEL: &str = "test";
 
 type MessageTuple<'a> = (
     &'a str,
@@ -27,6 +37,8 @@ type MessageTuple<'a> = (
 /// Helper: seed a session with messages, then chat. Returns the response text
 /// or panics with the Anthropic error.
 async fn seed_and_chat(test_name: &str, messages: &[MessageTuple<'_>], user_prompt: &str) -> String {
+    // Force the Anthropic provider regardless of the config default.
+    unsafe { std::env::set_var("GHOST_E2E_MODEL", ANTHROPIC_MODEL) };
     let env = common::live_test_database(test_name).await;
     let session_id = env.create_session().await;
 
