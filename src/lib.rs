@@ -12,6 +12,7 @@ pub mod config_cli;
 pub mod config_workspace;
 pub mod daemon;
 pub mod db;
+pub mod docling;
 pub mod embeddings;
 pub mod error;
 pub mod events;
