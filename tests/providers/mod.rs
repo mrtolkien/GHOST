@@ -18,4 +18,6 @@ mod openai_oauth_live;
 #[cfg(feature = "live-tests-llms")]
 mod reasoning_live;
 #[cfg(feature = "live-tests-llms")]
+mod message_adjacency_live;
+#[cfg(feature = "live-tests-llms")]
 mod tool_use_live;
