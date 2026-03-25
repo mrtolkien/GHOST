@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.7.1](https://github.com/mrtolkien/GHOST/compare/v0.7.0...v0.7.1) (2026-03-24)
+
+
+### Bug Fixes
+
+* chunk long components v2 messages ([fb11591](https://github.com/mrtolkien/GHOST/commit/fb11591127638f2c5ddd9d35e879368f61d9f5f6))
+* preserve SearXNG port bindings on Linux ([af46f47](https://github.com/mrtolkien/GHOST/commit/af46f472137c68e6b7ba6dad95928948bee920aa))
+* set HOME env var in system-level systemd units ([45047e9](https://github.com/mrtolkien/GHOST/commit/45047e97bb95e96e87902ad699c7d2799505945e))
+
 ## [0.7.0](https://github.com/mrtolkien/GHOST/compare/v0.6.1...v0.7.0) (2026-03-24)
 
 
