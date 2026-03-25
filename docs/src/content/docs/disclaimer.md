@@ -14,10 +14,13 @@ I'm daily-driving GHOST and focusing exclusively on the core feature set:
 - **Chat** — fast, token-efficient conversations with compaction and session management.
 - **Knowledge** — notes, references, diary, wiki-link graph, hybrid BM25 + embedding
   search.
-- **Coding** — GHOST HACK: a coding agent that loads project context, reads code, asks
-  questions, runs tests, and commits.
-- **Extensibility** — Lua agents, skills as plain text files, cron jobs.
-- **Automation** — background agents for deep research, reflection, and proactive work.
+- **Coding** — GHOST HACK: a coding agent inspired by pi-mono.
+- **Security** - The shell tool is full YOLO at the moment, which is a bit too YOLO even
+  for me.
+- **Extensibility** — Autonomous creation of Lua agents, skills, cron jobs.
+- **Communication** - I want there to be some way to let trusted GHOST instances
+  communicate to share knowledge and workflows. This will be the last big feature before
+  1.0.
 
 Everything else is secondary until these are solid.
 
@@ -33,13 +36,13 @@ working that way at the moment.
 
 ## What's not in scope yet
 
-More interfaces (Telegram, Slack, a web app), more LLM providers, plugin systems,
-multi-user setups — all of that is on the roadmap but **none of it is being actively
-worked on**. I don't have the bandwidth to review and validate contributions in those
-areas while the foundation is still moving, so PRs adding new interfaces or providers
-will likely sit unmerged for a while.
+More interfaces (web app first, then Slack, Telegram, ...), more LLM providers, plugin
+systems, multi-user setups — all of that is on the roadmap but **none of it is being
+actively worked on**. I don't have the bandwidth to review and validate contributions in
+those areas while the foundation is still moving, so PRs adding new interfaces or
+providers will likely sit unmerged for a while.
 
 ## When 1.0
 
 Once I'm happy with daily-driving GHOST across all five core areas above, I'll release
-v1.0 and start adding those secondary features and merging PRs related to them.
+v1.0 and start expanding the goals again.
