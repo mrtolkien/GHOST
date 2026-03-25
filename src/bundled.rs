@@ -12,7 +12,7 @@ use std::path::Path;
 
 /// A file bundled into the ghost binary via `include_str!`.
 pub struct BundledFile {
-    /// Workspace-relative path, e.g. "skills/nix-shell/skill.md"
+    /// Workspace-relative path, e.g. "skills/system-management/skill.md"
     pub path: &'static str,
     /// File content (from include_str!)
     pub content: &'static str,

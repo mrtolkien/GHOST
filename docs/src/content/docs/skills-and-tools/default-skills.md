@@ -112,12 +112,7 @@ automatically during GHOST HACK coding sessions and cover:
 
 ## Infrastructure
 
-### nix-shell
+### system-management
 
-Managing the workspace shell environment via Nix — installing tools,
-updating GHOST itself.
-
-### services
-
-Starting, stopping, restarting, and troubleshooting GHOST's infrastructure
-services.
+Shell environment (Nix flake), services (start/stop/debug), and self-update.
+Merges the former `nix-shell` and `services` skills.

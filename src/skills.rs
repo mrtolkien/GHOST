@@ -470,7 +470,7 @@ name: no-desc
         assert!(skills.join("agent-creator/skill.md").exists());
         assert!(skills.join("coding/skill.md").exists());
         assert!(skills.join("deep-research/skill.md").exists());
-        assert!(skills.join("nix-shell/skill.md").exists());
+        assert!(skills.join("system-management/skill.md").exists());
 
         // Verify skill files have frontmatter
         let content = fs::read_to_string(skills.join("coding/skill.md")).unwrap();
