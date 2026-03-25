@@ -62,6 +62,9 @@ pub enum ImportError {
 
     #[error("config error: {0}")]
     Config(String),
+
+    #[error("docling error: {0}")]
+    Docling(#[from] crate::docling::DoclingError),
 }
 
 /// Serializable snapshot of an `ImportConfig` for storage in DB and TOML.

@@ -91,17 +91,19 @@ pub async fn import_file(
     .await?;
 
     // Convert via docling
-    let convert_opts = crate::web::docling::ConvertOptions {
+    let convert_opts = crate::docling::ConvertOptions {
         ocr: !no_ocr,
         page_range: *page_range,
     };
-    let markdown = crate::web::docling::convert(
+    let doc = crate::docling::convert(
         docling_config,
-        crate::web::docling::DoclingSource::File { path: &source_path },
+        workspace,
+        crate::docling::DoclingSource::File { path: &source_path },
         &convert_opts,
     )
-    .await
-    .map_err(|e| ImportError::Fetch(e.to_string()))?;
+    .await?;
+
+    let markdown = crate::docling::generate_markdown(&doc, None);
 
     // Preserve original
     let originals_dir = workspace

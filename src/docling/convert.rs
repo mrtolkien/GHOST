@@ -6,7 +6,7 @@ use serde_json::json;
 
 use crate::config::DoclingConfig;
 
-use super::WebError;
+use super::{DoclingDocument, DoclingError};
 
 /// What to convert.
 pub enum DoclingSource<'a> {
@@ -30,41 +30,42 @@ impl Default for ConvertOptions {
     }
 }
 
-/// Single entry point for docling conversion (file or URL -> markdown).
+/// Single entry point for docling conversion (file or URL -> DoclingDocument).
 ///
 /// Backend selection:
-/// - `config.url` is `Some(url)` → HTTP to remote docling-serve
-/// - `config.url` is `None` → local uv script (file sources only)
+/// - `config.url` is `Some(url)` -> HTTP to remote docling-serve
+/// - `config.url` is `None` -> local uv script (file sources only)
 ///
 /// URL sources (e.g. from web imports) require a remote docling-serve.
 /// The local script backend only supports file paths.
 #[tracing::instrument(name = "docling convert", skip_all)]
 pub async fn convert(
     config: &DoclingConfig,
+    workspace: &Path,
     source: DoclingSource<'_>,
     options: &ConvertOptions,
-) -> Result<String, WebError> {
+) -> Result<DoclingDocument, DoclingError> {
     let timeout = Duration::from_secs(config.timeout);
 
     match &config.url {
         Some(url) => convert_http(url, timeout, source, options).await,
-        None => convert_script(source, options, timeout).await,
+        None => convert_script(workspace, source, options, timeout).await,
     }
 }
 
-/// HTTP backend: submit → poll → fetch via docling-serve REST API.
+/// HTTP backend: submit -> poll -> fetch via docling-serve REST API.
 async fn convert_http(
     base_url: &str,
     timeout: Duration,
     source: DoclingSource<'_>,
     options: &ConvertOptions,
-) -> Result<String, WebError> {
+) -> Result<DoclingDocument, DoclingError> {
     // Build source JSON
     let source_json = match &source {
         DoclingSource::File { path } => {
             let file_bytes = tokio::fs::read(path)
                 .await
-                .map_err(|e| WebError::Docling(format!("failed to read file: {e}")))?;
+                .map_err(|e| DoclingError::Conversion(format!("failed to read file: {e}")))?;
             let b64 = base64::engine::general_purpose::STANDARD.encode(&file_bytes);
             let filename = path.file_name().and_then(|n| n.to_str()).unwrap_or("file");
             json!({"kind": "file", "base64_string": b64, "filename": filename})
@@ -76,7 +77,7 @@ async fn convert_http(
 
     // Build options JSON
     let mut opts = json!({
-        "to_formats": ["md"],
+        "to_formats": ["json"],
         "image_export_mode": "placeholder",
         "pipeline": "standard",
         "do_ocr": options.ocr,
@@ -100,28 +101,30 @@ async fn convert_http(
         .json(&payload)
         .send()
         .await
-        .map_err(|e| WebError::Docling(format!("submit failed: {e}")))?;
+        .map_err(|e| DoclingError::Conversion(format!("submit failed: {e}")))?;
 
     if !resp.status().is_success() {
         let status = resp.status();
         let body = resp.text().await.unwrap_or_default();
-        return Err(WebError::Docling(format!("submit HTTP {status}: {body}")));
+        return Err(DoclingError::Conversion(format!(
+            "submit HTTP {status}: {body}"
+        )));
     }
 
     let submit_body: serde_json::Value = resp
         .json()
         .await
-        .map_err(|e| WebError::Docling(format!("invalid submit response: {e}")))?;
+        .map_err(|e| DoclingError::Conversion(format!("invalid submit response: {e}")))?;
     let task_id = submit_body["task_id"]
         .as_str()
-        .ok_or_else(|| WebError::Docling("missing task_id in submit response".into()))?
+        .ok_or_else(|| DoclingError::Conversion("missing task_id in submit response".into()))?
         .to_string();
 
     // 2. Poll until terminal
     let deadline = tokio::time::Instant::now() + timeout;
     loop {
         if tokio::time::Instant::now() >= deadline {
-            return Err(WebError::DoclingTimeout {
+            return Err(DoclingError::Timeout {
                 seconds: timeout.as_secs(),
             });
         }
@@ -130,12 +133,12 @@ async fn convert_http(
             .get(format!("{base_url}/v1/status/poll/{task_id}?wait=5"))
             .send()
             .await
-            .map_err(|e| WebError::Docling(format!("poll failed: {e}")))?;
+            .map_err(|e| DoclingError::Conversion(format!("poll failed: {e}")))?;
 
         let poll_body: serde_json::Value = poll_resp
             .json()
             .await
-            .map_err(|e| WebError::Docling(format!("invalid poll response: {e}")))?;
+            .map_err(|e| DoclingError::Conversion(format!("invalid poll response: {e}")))?;
 
         let status = poll_body["task_status"].as_str().unwrap_or("unknown");
 
@@ -146,7 +149,7 @@ async fn convert_http(
                     .as_str()
                     .unwrap_or("unknown error")
                     .to_string();
-                return Err(WebError::DoclingTaskFailed { detail });
+                return Err(DoclingError::TaskFailed { detail });
             }
             _ => continue, // "pending", "started", etc.
         }
@@ -157,20 +160,22 @@ async fn convert_http(
         .get(format!("{base_url}/v1/result/{task_id}"))
         .send()
         .await
-        .map_err(|e| WebError::Docling(format!("result fetch failed: {e}")))?;
+        .map_err(|e| DoclingError::Conversion(format!("result fetch failed: {e}")))?;
 
     if !result_resp.status().is_success() {
         let status = result_resp.status();
         let body = result_resp.text().await.unwrap_or_default();
-        return Err(WebError::Docling(format!("result HTTP {status}: {body}")));
+        return Err(DoclingError::Conversion(format!(
+            "result HTTP {status}: {body}"
+        )));
     }
 
     let body: serde_json::Value = result_resp
         .json()
         .await
-        .map_err(|e| WebError::Docling(format!("invalid result JSON: {e}")))?;
+        .map_err(|e| DoclingError::Conversion(format!("invalid result JSON: {e}")))?;
 
-    extract_markdown_from_response(&body)
+    extract_document_from_response(&body)
 }
 
 /// Script backend: shell out to `uv run convert.py`.
@@ -178,12 +183,13 @@ async fn convert_http(
 /// Only supports `DoclingSource::File` — URL sources require a remote
 /// docling-serve (`[docling].url` must be configured).
 async fn convert_script(
+    workspace: &Path,
     source: DoclingSource<'_>,
     options: &ConvertOptions,
     timeout: Duration,
-) -> Result<String, WebError> {
+) -> Result<DoclingDocument, DoclingError> {
     let DoclingSource::File { path } = &source else {
-        return Err(WebError::Docling(
+        return Err(DoclingError::Conversion(
             "URL sources require [docling].url to be configured — \
              the local script backend only supports file sources"
                 .into(),
@@ -200,20 +206,26 @@ async fn convert_script(
         .map(|s| s.success())
         .unwrap_or(false);
     if !uv_ok {
-        return Err(WebError::Docling(
+        return Err(DoclingError::Conversion(
             "uv is not installed — install it from https://docs.astral.sh/uv/ \
              or configure [docling].url to use a remote docling-serve"
                 .into(),
         ));
     }
 
-    let script = find_convert_script()?;
+    let script = workspace.join("services/docling/convert.py");
+    if !script.exists() {
+        return Err(DoclingError::Conversion(format!(
+            "convert.py not found at {} — run `ghost setup` to install workspace services",
+            script.display()
+        )));
+    }
 
     // Use a temp directory with a known filename to avoid NamedTempFile
     // platform issues (exclusive file locks on some OSes).
     let tmp_dir = tempfile::tempdir()
-        .map_err(|e| WebError::Docling(format!("failed to create temp dir: {e}")))?;
-    let output_path = tmp_dir.path().join("output.md");
+        .map_err(|e| DoclingError::Conversion(format!("failed to create temp dir: {e}")))?;
+    let output_path = tmp_dir.path().join("output.json");
 
     let mut cmd = tokio::process::Command::new("uv");
     cmd.arg("run")
@@ -236,18 +248,18 @@ async fn convert_script(
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
         .spawn()
-        .map_err(|e| WebError::Docling(format!("failed to spawn uv: {e}")))?;
+        .map_err(|e| DoclingError::Conversion(format!("failed to spawn uv: {e}")))?;
 
     let result = tokio::time::timeout(timeout, child.wait_with_output())
         .await
-        .map_err(|_| WebError::DoclingTimeout {
+        .map_err(|_| DoclingError::Timeout {
             seconds: timeout.as_secs(),
         })?
-        .map_err(|e| WebError::Docling(format!("uv process failed: {e}")))?;
+        .map_err(|e| DoclingError::Conversion(format!("uv process failed: {e}")))?;
 
     if !result.status.success() {
         let stderr = String::from_utf8_lossy(&result.stderr);
-        return Err(WebError::DoclingTaskFailed {
+        return Err(DoclingError::TaskFailed {
             detail: stderr.to_string(),
         });
     }
@@ -258,57 +270,29 @@ async fn convert_script(
         tracing::debug!(output = %stdout, "docling script output");
     }
 
-    tokio::fs::read_to_string(&output_path)
+    let json_str = tokio::fs::read_to_string(&output_path)
         .await
-        .map_err(|e| WebError::Docling(format!("failed to read output: {e}")))
+        .map_err(|e| DoclingError::Conversion(format!("failed to read output: {e}")))?;
+
+    serde_json::from_str(&json_str)
+        .map_err(|e| DoclingError::Parse(format!("failed to parse DoclingDocument: {e}")))
     // tmp_dir is dropped here, cleaning up the temp directory
 }
 
-/// Locate convert.py — checks exe-relative paths first (production), then
-/// CARGO_MANIFEST_DIR (development).
-fn find_convert_script() -> Result<std::path::PathBuf, WebError> {
-    // 1. Production: relative to the binary (nix store or share/)
-    if let Ok(exe) = std::env::current_exe()
-        && let Some(parent) = exe.parent()
-    {
-        let candidate = parent.join("../share/ghost/services/docling/convert.py");
-        if candidate.exists() {
-            return Ok(candidate);
-        }
+fn extract_document_from_response(
+    body: &serde_json::Value,
+) -> Result<DoclingDocument, DoclingError> {
+    // Try /document/json_content
+    if let Some(json_doc) = body.pointer("/document/json_content") {
+        return serde_json::from_value(json_doc.clone())
+            .map_err(|e| DoclingError::Parse(e.to_string()));
     }
-
-    // 2. Development: relative to repo root (compile-time path)
-    let dev_path =
-        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/services/docling/convert.py");
-    if dev_path.exists() {
-        return Ok(dev_path);
+    // Try /output/documents/0/json_content (async multi-doc response)
+    if let Some(json_doc) = body.pointer("/output/documents/0/json_content") {
+        return serde_json::from_value(json_doc.clone())
+            .map_err(|e| DoclingError::Parse(e.to_string()));
     }
-
-    Err(WebError::Docling(
-        "cannot find convert.py — expected in assets/services/docling/. \
-         If running a packaged build, ensure the script is installed to \
-         share/ghost/services/docling/convert.py"
-            .into(),
+    Err(DoclingError::Conversion(
+        "could not extract json_content from response".into(),
     ))
-}
-
-fn extract_markdown_from_response(body: &serde_json::Value) -> Result<String, WebError> {
-    // Try /document/md_content (single-doc response)
-    if let Some(md) = body
-        .pointer("/document/md_content")
-        .and_then(|v| v.as_str())
-    {
-        return Ok(md.to_string());
-    }
-    // Try /output/documents/0/md_content (async multi-doc response)
-    if let Some(md) = body
-        .pointer("/output/documents/0/md_content")
-        .and_then(|v| v.as_str())
-    {
-        return Ok(md.to_string());
-    }
-    Err(WebError::Docling(format!(
-        "could not extract markdown from response: {}",
-        serde_json::to_string_pretty(body).unwrap_or_default()
-    )))
 }
