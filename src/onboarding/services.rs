@@ -5,10 +5,10 @@ use super::detect::{ContainerRuntime, DetectedEnvironment, Platform};
 use super::{OnboardingError, OnboardingState, SearchChoice, ServiceChoice};
 use crate::services::{ServiceEntry, ServiceRegistry};
 
-const SEARXNG_FRAGMENT: &str = include_str!("../../assets/services/docker-compose.searxng.yml");
-const CRAWL4AI_FRAGMENT: &str = include_str!("../../assets/services/docker-compose.crawl4ai.yml");
-const DOCLING_FRAGMENT: &str = include_str!("../../assets/services/docker-compose.docling.yml");
-const SEARXNG_SETTINGS: &str = include_str!("../../assets/services/searxng-settings.yml");
+const SEARXNG_FRAGMENT: &str = include_str!("templates/docker-compose.searxng.yml");
+const CRAWL4AI_FRAGMENT: &str = include_str!("templates/docker-compose.crawl4ai.yml");
+const DOCLING_FRAGMENT: &str = include_str!("templates/docker-compose.docling.yml");
+const SEARXNG_SETTINGS: &str = include_str!("templates/searxng-settings.yml");
 
 /// Which container services to include in the compose file.
 #[derive(Debug, Default)]

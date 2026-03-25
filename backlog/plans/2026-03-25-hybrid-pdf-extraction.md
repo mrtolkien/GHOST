@@ -1,8 +1,8 @@
 # Hybrid PDF Extraction Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development
-> (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps
-> use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use
+> superpowers:subagent-driven-development (recommended) or superpowers:executing-plans
+> to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add per-page quality assessment and LLM vision fallback to the PDF import
 pipeline so image-only / garbled pages are re-extracted via a vision model.
@@ -17,23 +17,29 @@ Provider trait for LLM calls.
 
 **Spec:** `backlog/tasks/2026-03-25-hybrid-pdf-extraction-design.md`
 
-**Test PDF:** `tmp/1774335624_200mL-1.pdf` (lotion product sheet — image-only,
-Japanese text, zero text layer). Copy to test fixtures as needed.
+**Test PDF:** `tmp/1774335624_200mL-1.pdf` (lotion product sheet — image-only, Japanese
+text, zero text layer). Copy to test fixtures as needed.
 
-**Reference JSON:** `tmp/docling_full_json.json` — actual DoclingDocument output from the
-lotion PDF. Use this to design serde types.
+**Reference JSON:** `tmp/docling_full_json.json` — actual DoclingDocument output from
+the lotion PDF. Use this to design serde types.
 
 ---
 
 ### Task 1: Move onboarding templates out of `assets/services/`
 
-Unblock the `build.rs` change so `assets/services/docling/` gets bundled to `$WORKSPACE`.
+Unblock the `build.rs` change so `assets/services/docling/` gets bundled to
+`$WORKSPACE`.
 
 **Files:**
-- Move: `assets/services/docker-compose.searxng.yml` → `src/onboarding/templates/docker-compose.searxng.yml`
-- Move: `assets/services/docker-compose.crawl4ai.yml` → `src/onboarding/templates/docker-compose.crawl4ai.yml`
-- Move: `assets/services/docker-compose.docling.yml` → `src/onboarding/templates/docker-compose.docling.yml`
-- Move: `assets/services/searxng-settings.yml` → `src/onboarding/templates/searxng-settings.yml`
+
+- Move: `assets/services/docker-compose.searxng.yml` →
+  `src/onboarding/templates/docker-compose.searxng.yml`
+- Move: `assets/services/docker-compose.crawl4ai.yml` →
+  `src/onboarding/templates/docker-compose.crawl4ai.yml`
+- Move: `assets/services/docker-compose.docling.yml` →
+  `src/onboarding/templates/docker-compose.docling.yml`
+- Move: `assets/services/searxng-settings.yml` →
+  `src/onboarding/templates/searxng-settings.yml`
 - Modify: `src/onboarding/services.rs:8-11` (update `include_str!` paths)
 - Modify: `build.rs:15` (remove `"services"` exclusion)
 
@@ -101,6 +107,7 @@ templates used by include_str!() move next to the Rust code that uses them."
 ### Task 2: Create `render_page.py` script
 
 **Files:**
+
 - Create: `assets/services/docling/render_page.py`
 
 Read the @uv-scripts skill before writing.
@@ -190,6 +197,7 @@ git commit -m "feat: add render_page.py for PDF page → PNG conversion"
 ### Task 3: Update `convert.py` to output JSON
 
 **Files:**
+
 - Modify: `assets/services/docling/convert.py`
 
 - [ ] **Step 1: Modify `convert.py`**
@@ -241,6 +249,7 @@ git commit -m "feat: convert.py outputs DoclingDocument JSON instead of markdown
 ### Task 4: Add `vision` field to config
 
 **Files:**
+
 - Modify: `src/config.rs`
 
 - [ ] **Step 1: Add `vision` to `ModelsSettings`**
@@ -301,9 +310,9 @@ ModelsConfig {
 }
 ```
 
-Also update `test_config()` (around line 857) — add `vision: None` to the
-`ModelsConfig` construction. This function is used by many test files; missing this
-will cause compile errors across the test suite.
+Also update `test_config()` (around line 857) — add `vision: None` to the `ModelsConfig`
+construction. This function is used by many test files; missing this will cause compile
+errors across the test suite.
 
 - [ ] **Step 4: Add test for vision config**
 
@@ -363,6 +372,7 @@ git commit -m "feat: add models.vision config for LLM vision fallback"
 This is the core new module. Start with types that everything else depends on.
 
 **Files:**
+
 - Create: `src/docling/mod.rs`
 - Create: `src/docling/error.rs`
 - Create: `src/docling/document.rs`
@@ -579,6 +589,7 @@ git commit -m "feat: add docling module with DoclingDocument serde types and err
 ### Task 6: Quality assessment
 
 **Files:**
+
 - Create: `src/docling/quality.rs`
 - Modify: `src/docling/mod.rs` (add re-export)
 
@@ -724,6 +735,7 @@ git commit -m "feat: per-page quality assessment for DoclingDocument"
 ### Task 7: Markdown generation from DoclingDocument
 
 **Files:**
+
 - Create: `src/docling/markdown.rs`
 - Modify: `src/docling/mod.rs`
 
@@ -849,6 +861,7 @@ Migrate the existing conversion logic from `src/web/docling.rs` to the new modul
 updating it to return `DoclingDocument` instead of a markdown string.
 
 **Files:**
+
 - Create: `src/docling/convert.rs`
 - Modify: `src/web/mod.rs` (remove `pub mod docling;`)
 - Delete: `src/web/docling.rs`
@@ -902,10 +915,9 @@ pub use quality::{PageQuality, assess_pages};
 
 - [ ] **Step 3: Remove docling from `src/web/`**
 
-Delete `src/web/docling.rs`. Remove `pub mod docling;` from `src/web/mod.rs`.
-Remove `Docling`, `DoclingTimeout`, `DoclingTaskFailed` variants from
-`src/web/types.rs`. Run `grep -r 'WebError::Docling' src/` to verify no other
-references remain.
+Delete `src/web/docling.rs`. Remove `pub mod docling;` from `src/web/mod.rs`. Remove
+`Docling`, `DoclingTimeout`, `DoclingTaskFailed` variants from `src/web/types.rs`. Run
+`grep -r 'WebError::Docling' src/` to verify no other references remain.
 
 - [ ] **Step 4: Add `#[from] DoclingError` to `ImportError`**
 
@@ -918,8 +930,8 @@ Docling(#[from] crate::docling::DoclingError),
 
 - [ ] **Step 5: Update `src/reference_import/file.rs`**
 
-Change the import and call site. The function now calls
-`crate::docling::convert()` which returns a `DoclingDocument`. Then use
+Change the import and call site. The function now calls `crate::docling::convert()`
+which returns a `DoclingDocument`. Then use
 `crate::docling::generate_markdown(&doc, None)` to get the full markdown.
 
 The `workspace` parameter is already available. Update the call:
@@ -962,6 +974,7 @@ git commit -m "refactor: move docling to src/docling/ module, return DoclingDocu
 This is the core feature: bad pages get re-extracted via a vision model.
 
 **Files:**
+
 - Create: `src/docling/vision.rs`
 - Modify: `src/docling/mod.rs`
 - Modify: `src/reference_import/file.rs`
@@ -1092,6 +1105,7 @@ async fn render_page(
 ```
 
 Update the caller in `extract_page_with_vision` to keep the guard:
+
 ```rust
 let (png_path, _tmp_guard) = render_page(workspace, pdf_path, page_no).await?;
 // _tmp_guard keeps the temp dir alive until this scope exits
@@ -1100,8 +1114,8 @@ let (png_path, _tmp_guard) = render_page(workspace, pdf_path, page_no).await?;
 Remove the manual `tokio::fs::remove_file` cleanup — the TempDir drop handles it.
 
 Note: the exact `ChatRequest` fields depend on the current struct definition. The
-implementer must check `src/providers/types.rs` for `ChatRequest` fields and adjust.
-The key fields are `model` and `messages`. Set other fields to defaults.
+implementer must check `src/providers/types.rs` for `ChatRequest` fields and adjust. The
+key fields are `model` and `messages`. Set other fields to defaults.
 
 - [ ] **Step 2: Write the hybrid orchestrator**
 
@@ -1166,8 +1180,8 @@ pub async fn convert_hybrid(
 Add `vision_provider: Option<Arc<dyn Provider>>` parameter. Replace the direct
 `docling::convert()` + `generate_markdown()` call with `docling::convert_hybrid()`.
 
-The vision model name comes from config — passed through or resolved in the CLI.
-Add a `vision_model: Option<&str>` parameter or resolve it before calling.
+The vision model name comes from config — passed through or resolved in the CLI. Add a
+`vision_model: Option<&str>` parameter or resolve it before calling.
 
 - [ ] **Step 4: Update `src/cli/document.rs`**
 
@@ -1182,8 +1196,8 @@ let vision_model = config.models.aliases.get(vision_alias)
     .map(|m| m.model.clone());
 ```
 
-Pass `vision_provider` and `vision_model.as_deref()` to `import_file()`.
-The `import_file()` function threads these through to `convert_hybrid()`.
+Pass `vision_provider` and `vision_model.as_deref()` to `import_file()`. The
+`import_file()` function threads these through to `convert_hybrid()`.
 
 - [ ] **Step 5: Run full build**
 
@@ -1207,6 +1221,7 @@ Model configured via models.vision (falls back to models.default)."
 ### Task 10: Live tests
 
 **Files:**
+
 - Create: `tests/fixtures/lotion_docling.json` (if not already created in Task 5)
 - Copy: `tmp/1774335624_200mL-1.pdf` → `tests/fixtures/lotion.pdf`
 - Create: `tests/docling_live.rs` (new top-level test file for docling pipeline tests)

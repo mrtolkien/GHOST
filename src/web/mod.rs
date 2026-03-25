@@ -2,7 +2,6 @@ pub mod browser;
 mod cache;
 mod crawl4ai;
 pub mod curation;
-pub mod docling;
 mod fetch;
 mod search;
 mod searxng;
