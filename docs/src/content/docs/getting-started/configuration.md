@@ -18,6 +18,7 @@ workspace = "~/GHOST"
 # Model aliases — define one or more (keys are flattened under [models])
 [models]
 default = "primary" # Which alias to use by default
+# vision = "fast"   # Optional: model for PDF vision fallback (falls back to default)
 
 [models.primary]
 provider = "openrouter"
@@ -63,6 +64,11 @@ mask_preview_chars = 100 # Preview chars for compacted messages
 # Coding agent
 [coding]
 # model = "fast"  # Optional: use a different model alias for coding
+
+# Document conversion (Docling)
+[docling]
+# url = "http://127.0.0.1:5001" # Remote docling-serve URL (omit for local uv script)
+# timeout = 600                  # Conversion timeout in seconds
 
 # Web
 [web]
