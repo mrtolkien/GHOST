@@ -180,22 +180,37 @@ fn convert_messages(
             continue;
         }
 
-        // Prepend any deferred system blocks to this user message.
-        let content_blocks = if msg.role == Role::User && !deferred_system_blocks.is_empty() {
-            let mut merged = std::mem::take(&mut deferred_system_blocks);
-            merged.extend(content_blocks);
-            merged
-        } else {
-            // If we reach a non-user message and still have deferred
-            // blocks, emit them as a separate user message first.
-            if !deferred_system_blocks.is_empty() {
+        // Flush deferred system blocks into the right place.
+        // They CANNOT go into a tool_result-only user message — Anthropic
+        // rejects text blocks mixed with tool_result after a tool_use.
+        // Instead, hold them until a non-tool-result user message or
+        // emit them before a new assistant message.
+        if !deferred_system_blocks.is_empty() {
+            let is_tool_result_user = msg.role == Role::User && is_tool_result_only(&msg.content);
+            if !is_tool_result_user {
+                // Safe to emit: either this is a text-bearing user
+                // message (merge in) or an assistant message (emit
+                // as separate user message before it).
+                if msg.role == Role::User {
+                    // Merge into this user text message.
+                    let mut merged = std::mem::take(&mut deferred_system_blocks);
+                    merged.extend(content_blocks);
+                    // Jump to push + continue below with merged blocks.
+                    output.push(json!({
+                        "role": role_str,
+                        "content": merged,
+                    }));
+                    i += 1;
+                    continue;
+                }
+                // Non-user (assistant): flush as separate user message.
                 output.push(json!({
                     "role": "user",
                     "content": std::mem::take(&mut deferred_system_blocks),
                 }));
             }
-            content_blocks
-        };
+            // If tool_result_user: keep deferred blocks for later.
+        }
 
         output.push(json!({
             "role": role_str,
@@ -849,8 +864,9 @@ mod tests {
     }
 
     /// Regression: system messages injected between assistant tool_use and
-    /// user tool_result (e.g. from `ghost send-image`) must be deferred so
-    /// tool_result is immediately adjacent. See: tool_use → system → tool_result.
+    /// user tool_result (e.g. from `ghost send-image`) must be deferred
+    /// past the tool_result. Anthropic requires the user message after
+    /// tool_use to contain ONLY tool_result blocks — no text allowed.
     #[test]
     fn system_message_between_tool_use_and_result_deferred() {
         let req = simple_request(vec![
@@ -893,29 +909,22 @@ mod tests {
 
         // messages[0] = user "hi"
         // messages[1] = assistant tool_use
-        // messages[2] = user [deferred system text + tool_result]
-        // messages[3] = assistant "Sent."
-        assert_eq!(messages.len(), 4, "expected 4 messages, got {messages:?}");
+        // messages[2] = user [tool_result ONLY — no text!]
+        // messages[3] = user [deferred system text]
+        // messages[4] = assistant "Sent."
+        assert_eq!(messages.len(), 5, "expected 5 messages, got {messages:?}");
 
-        // The message right after the assistant tool_use must be user
-        // and must contain the tool_result — Anthropic requires strict adjacency.
-        let after_tool_use = &messages[2];
-        assert_eq!(after_tool_use["role"], "user");
-        let content = after_tool_use["content"].as_array().unwrap();
-
-        // Deferred system text is prepended, tool_result follows.
+        // The message right after tool_use must have ONLY tool_result blocks.
+        let tool_result_msg = &messages[2];
+        assert_eq!(tool_result_msg["role"], "user");
+        let content = tool_result_msg["content"].as_array().unwrap();
         assert!(
-            content
-                .iter()
-                .any(|b| b["type"] == "text"
-                    && b["text"].as_str().unwrap_or("").contains("sent image")),
-            "deferred system text must be in the tool_result message"
+            content.iter().all(|b| b["type"] == "tool_result"),
+            "tool_result message must contain ONLY tool_result blocks, got {content:?}"
         );
         assert!(
-            content
-                .iter()
-                .any(|b| b["type"] == "tool_result" && b["tool_use_id"] == "call_abc"),
-            "tool_result must be in the same message"
+            content.iter().any(|b| b["tool_use_id"] == "call_abc"),
+            "tool_result for call_abc must be present"
         );
 
         // No synthetic "interrupted" results anywhere.

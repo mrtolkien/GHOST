@@ -17,13 +17,16 @@ use super::common;
 use ghost::db;
 use serde_json::json;
 
+type MessageTuple<'a> = (
+    &'a str,
+    &'a str,
+    Option<Vec<serde_json::Value>>,
+    Option<Vec<serde_json::Value>>,
+);
+
 /// Helper: seed a session with messages, then chat. Returns the response text
 /// or panics with the Anthropic error.
-async fn seed_and_chat(
-    test_name: &str,
-    messages: &[(&str, &str, Option<Vec<serde_json::Value>>, Option<Vec<serde_json::Value>>)],
-    user_prompt: &str,
-) -> String {
+async fn seed_and_chat(test_name: &str, messages: &[MessageTuple<'_>], user_prompt: &str) -> String {
     let env = common::live_test_database(test_name).await;
     let session_id = env.create_session().await;
 
@@ -158,12 +161,7 @@ async fn consecutive_user_from_system_and_text() {
         "adj_consec_user",
         &[
             ("user", "Research standing desks in Japan", None, None),
-            (
-                "assistant",
-                "Started deep research on this.",
-                None,
-                None,
-            ),
+            ("assistant", "Started deep research on this.", None, None),
             (
                 "system",
                 "[agent:deep-research completed]\n{\"report\": \"KOKUYO is the best\"}",
@@ -218,7 +216,12 @@ async fn two_send_image_calls_in_same_session() {
                 })]),
             ),
             ("assistant", "Sent the QR code.", None, None),
-            ("user", "Can't see it fully, try again with a larger viewport", None, None),
+            (
+                "user",
+                "Can't see it fully, try again with a larger viewport",
+                None,
+                None,
+            ),
             // Browser interactions
             (
                 "assistant",
@@ -251,7 +254,12 @@ async fn two_send_image_calls_in_same_session() {
                 })]),
                 None,
             ),
-            ("system", "[sent image: qr2.png — QR code reframed]", None, None),
+            (
+                "system",
+                "[sent image: qr2.png — QR code reframed]",
+                None,
+                None,
+            ),
             (
                 "user",
                 "",
@@ -286,7 +294,12 @@ async fn system_message_not_between_tool_pair() {
         &[
             ("user", "Start a background task", None, None),
             ("assistant", "Started the task.", None, None),
-            ("system", "[agent:task-runner completed] Success.", None, None),
+            (
+                "system",
+                "[agent:task-runner completed] Success.",
+                None,
+                None,
+            ),
             ("user", "[system] Background task completed.", None, None),
             ("assistant", "The task finished successfully.", None, None),
         ],
@@ -367,7 +380,12 @@ async fn full_mixed_session() {
                 })]),
                 None,
             ),
-            ("system", "[sent image: qr.png — reservation QR]", None, None),
+            (
+                "system",
+                "[sent image: qr.png — reservation QR]",
+                None,
+                None,
+            ),
             (
                 "user",
                 "",
@@ -403,9 +421,19 @@ async fn full_mixed_session() {
             ),
             ("assistant", "Started deep research.", None, None),
             // Agent completion as system message
-            ("system", "[agent:deep-research completed]\n{\"report\": \"KOKUYO SEQUENCE\"}", None, None),
+            (
+                "system",
+                "[agent:deep-research completed]\n{\"report\": \"KOKUYO SEQUENCE\"}",
+                None,
+                None,
+            ),
             ("user", "[system] Background task completed.", None, None),
-            ("assistant", "KOKUYO SEQUENCE is the best option.", None, None),
+            (
+                "assistant",
+                "KOKUYO SEQUENCE is the best option.",
+                None,
+                None,
+            ),
             // Ping/pong
             ("user", "ping", None, None),
             ("assistant", "pong", None, None),
