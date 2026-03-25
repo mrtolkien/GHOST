@@ -25,7 +25,8 @@
               || (builtins.match ".*assets/.*" path != null)
               || (builtins.match ".*docs/src/content/.*" path != null)
               || (builtins.match ".*tests/fixtures/.*" path != null)
-              || (builtins.match ".*migrations/.*" path != null);
+              || (builtins.match ".*migrations/.*" path != null)
+              || (builtins.match ".*src/onboarding/templates/.*" path != null);
           };
 
           # Deps-only source: only Cargo manifests, lockfile, and build.rs.
