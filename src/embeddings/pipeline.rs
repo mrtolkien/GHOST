@@ -140,10 +140,7 @@ pub async fn embed_sources(
     let file_details: String = requests
         .iter()
         .map(|req| {
-            let label = req
-                .path
-                .as_deref()
-                .unwrap_or_else(|| &req.source_id);
+            let label = req.path.as_deref().unwrap_or_else(|| &req.source_id);
             format!("{} [{}] ({})", label, req.source_table, req.reason)
         })
         .collect::<Vec<_>>()

@@ -442,6 +442,8 @@ impl SessionChat {
             ids.push(msg_id);
         }
 
+        relocate_system_messages_between_tool_pairs(&mut messages);
+
         Ok((messages, ids))
     }
 
@@ -1442,6 +1444,101 @@ impl SessionChat {
     }
 }
 
+/// Relocate system messages that appear between an assistant tool_use and
+/// the corresponding user tool_result.
+///
+/// Many providers require the user message immediately after an assistant
+/// tool_use to contain only tool_result blocks. System messages injected
+/// between them (e.g. by `ghost send-image`) violate this constraint.
+///
+/// This function removes such system messages in-place and merges their
+/// text content into the next suitable user message (one that is not
+/// tool-result-only). If no such message exists before the next assistant
+/// turn, the text is emitted as a standalone system message before that
+/// assistant turn.
+fn relocate_system_messages_between_tool_pairs(messages: &mut Vec<ChatMessage>) {
+    fn has_tool_use(msg: &ChatMessage) -> bool {
+        msg.role == Role::Assistant
+            && msg
+                .content
+                .iter()
+                .any(|b| matches!(b, ContentBlock::ToolUse { .. }))
+    }
+
+    fn is_tool_result_only(msg: &ChatMessage) -> bool {
+        msg.role == Role::User
+            && !msg.content.is_empty()
+            && msg
+                .content
+                .iter()
+                .all(|b| matches!(b, ContentBlock::ToolResult { .. }))
+    }
+
+    let mut deferred: Vec<ContentBlock> = Vec::new();
+    let mut result: Vec<ChatMessage> = Vec::with_capacity(messages.len());
+
+    for msg in messages.drain(..) {
+        if msg.role == Role::System && !deferred.is_empty() {
+            // We have deferred content and this is another system message
+            // — keep deferring.
+            deferred.extend(msg.content);
+            continue;
+        }
+
+        if msg.role == Role::System {
+            // Check if previous message is an assistant with tool_use.
+            let prev_has_tool_use = result.last().is_some_and(has_tool_use);
+            if prev_has_tool_use {
+                deferred.extend(msg.content);
+                continue;
+            }
+            // Not between tool pairs — emit normally.
+            result.push(msg);
+            continue;
+        }
+
+        // Non-system message: flush deferred content if appropriate.
+        if !deferred.is_empty() {
+            if is_tool_result_only(&msg) {
+                // Can't merge into a tool-result-only message — keep
+                // deferring past it.
+                result.push(msg);
+                continue;
+            }
+
+            if msg.role == Role::User {
+                // Merge deferred text into this user message.
+                let mut merged_content = std::mem::take(&mut deferred);
+                merged_content.extend(msg.content);
+                result.push(ChatMessage {
+                    role: Role::User,
+                    content: merged_content,
+                });
+                continue;
+            }
+
+            // Next message is assistant — flush deferred as a
+            // standalone system message before it.
+            result.push(ChatMessage {
+                role: Role::System,
+                content: std::mem::take(&mut deferred),
+            });
+        }
+
+        result.push(msg);
+    }
+
+    // Flush any remaining deferred content at the end of the history.
+    if !deferred.is_empty() {
+        result.push(ChatMessage {
+            role: Role::System,
+            content: deferred,
+        });
+    }
+
+    *messages = result;
+}
+
 /// Advance an RFC 3339 timestamp by 1 millisecond so a repair message sorts
 /// right after its anchor message in `ORDER BY created_at ASC` queries.
 fn bump_timestamp(ts: &str) -> String {
@@ -1450,5 +1547,204 @@ fn bump_timestamp(ts: &str) -> String {
     } else {
         // Fallback: append a 'z' so it lexicographically sorts just after.
         format!("{ts}+")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn user_text(text: &str) -> ChatMessage {
+        ChatMessage {
+            role: Role::User,
+            content: vec![ContentBlock::Text {
+                text: text.to_string(),
+            }],
+        }
+    }
+
+    fn assistant_tool_use(id: &str) -> ChatMessage {
+        ChatMessage {
+            role: Role::Assistant,
+            content: vec![ContentBlock::ToolUse {
+                id: id.to_string(),
+                name: "shell".to_string(),
+                input: json!({}),
+            }],
+        }
+    }
+
+    fn user_tool_result(tool_use_id: &str) -> ChatMessage {
+        ChatMessage {
+            role: Role::User,
+            content: vec![ContentBlock::ToolResult {
+                tool_use_id: tool_use_id.to_string(),
+                content: "ok".to_string(),
+                is_error: false,
+            }],
+        }
+    }
+
+    fn assistant_text(text: &str) -> ChatMessage {
+        ChatMessage {
+            role: Role::Assistant,
+            content: vec![ContentBlock::Text {
+                text: text.to_string(),
+            }],
+        }
+    }
+
+    fn system_text(text: &str) -> ChatMessage {
+        ChatMessage {
+            role: Role::System,
+            content: vec![ContentBlock::Text {
+                text: text.to_string(),
+            }],
+        }
+    }
+
+    #[test]
+    fn relocate_system_between_tool_use_and_result() {
+        let mut msgs = vec![
+            user_text("hi"),
+            assistant_tool_use("call_1"),
+            system_text("[sent image]"),
+            user_tool_result("call_1"),
+            assistant_text("Sent."),
+        ];
+        relocate_system_messages_between_tool_pairs(&mut msgs);
+
+        // System message should be gone from between tool_use/result.
+        assert_eq!(msgs[0].role, Role::User); // "hi"
+        assert_eq!(msgs[1].role, Role::Assistant); // tool_use
+        assert_eq!(msgs[2].role, Role::User); // tool_result
+        assert!(
+            msgs[2]
+                .content
+                .iter()
+                .all(|b| matches!(b, ContentBlock::ToolResult { .. })),
+            "tool_result message must be pure tool_results"
+        );
+        // System text should be flushed before the next assistant.
+        assert_eq!(msgs[3].role, Role::System);
+        assert!(
+            matches!(&msgs[3].content[0], ContentBlock::Text { text } if text.contains("sent image"))
+        );
+        assert_eq!(msgs[4].role, Role::Assistant); // "Sent."
+    }
+
+    #[test]
+    fn relocate_multiple_system_messages() {
+        let mut msgs = vec![
+            user_text("hi"),
+            assistant_tool_use("call_1"),
+            system_text("[image 1]"),
+            system_text("[image 2]"),
+            user_tool_result("call_1"),
+            assistant_text("Done."),
+        ];
+        relocate_system_messages_between_tool_pairs(&mut msgs);
+
+        assert_eq!(msgs[1].role, Role::Assistant); // tool_use
+        assert_eq!(msgs[2].role, Role::User); // tool_result only
+        assert!(
+            msgs[2]
+                .content
+                .iter()
+                .all(|b| matches!(b, ContentBlock::ToolResult { .. }))
+        );
+        // Both system texts flushed before assistant.
+        assert_eq!(msgs[3].role, Role::System);
+        assert_eq!(msgs[3].content.len(), 2);
+    }
+
+    #[test]
+    fn relocate_merges_into_next_user_text() {
+        let mut msgs = vec![
+            user_text("hi"),
+            assistant_tool_use("call_1"),
+            system_text("[sent image]"),
+            user_tool_result("call_1"),
+            assistant_text("Sent."),
+            user_text("thanks"),
+        ];
+        relocate_system_messages_between_tool_pairs(&mut msgs);
+
+        // System text should be flushed before the assistant "Sent."
+        // (since the user "thanks" comes after the assistant).
+        assert_eq!(msgs[2].role, Role::User); // tool_result
+        assert_eq!(msgs[3].role, Role::System); // deferred system
+        assert_eq!(msgs[4].role, Role::Assistant); // "Sent."
+        assert_eq!(msgs[5].role, Role::User); // "thanks"
+    }
+
+    #[test]
+    fn no_relocation_when_system_not_between_tool_pairs() {
+        let mut msgs = vec![
+            user_text("hi"),
+            assistant_text("Started."),
+            system_text("[agent completed]"),
+            user_text("Background done."),
+            assistant_text("Great."),
+        ];
+        let original_len = msgs.len();
+        relocate_system_messages_between_tool_pairs(&mut msgs);
+
+        // Nothing should move.
+        assert_eq!(msgs.len(), original_len);
+        assert_eq!(msgs[2].role, Role::System);
+        assert!(
+            matches!(&msgs[2].content[0], ContentBlock::Text { text } if text.contains("agent completed"))
+        );
+    }
+
+    #[test]
+    fn relocate_two_tool_pairs_with_system_messages() {
+        let mut msgs = vec![
+            user_text("hi"),
+            assistant_tool_use("call_1"),
+            system_text("[image 1]"),
+            user_tool_result("call_1"),
+            assistant_text("Sent 1."),
+            user_text("again"),
+            assistant_tool_use("call_2"),
+            system_text("[image 2]"),
+            user_tool_result("call_2"),
+            assistant_text("Sent 2."),
+        ];
+        relocate_system_messages_between_tool_pairs(&mut msgs);
+
+        // Both tool_result messages should be pure.
+        for msg in &msgs {
+            if msg.role == Role::User
+                && msg
+                    .content
+                    .iter()
+                    .any(|b| matches!(b, ContentBlock::ToolResult { .. }))
+            {
+                assert!(
+                    msg.content
+                        .iter()
+                        .all(|b| matches!(b, ContentBlock::ToolResult { .. })),
+                    "tool_result user messages must be pure"
+                );
+            }
+        }
+        // No system messages should be between any assistant tool_use and
+        // the following user tool_result.
+        for (i, msg) in msgs.iter().enumerate() {
+            if msg.role == Role::System && i > 0 {
+                let prev_is_tool_use = msgs[i - 1].role == Role::Assistant
+                    && msgs[i - 1]
+                        .content
+                        .iter()
+                        .any(|b| matches!(b, ContentBlock::ToolUse { .. }));
+                assert!(
+                    !prev_is_tool_use,
+                    "system message at index {i} is still between tool_use and tool_result"
+                );
+            }
+        }
     }
 }

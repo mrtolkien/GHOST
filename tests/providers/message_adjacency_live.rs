@@ -36,7 +36,11 @@ type MessageTuple<'a> = (
 
 /// Helper: seed a session with messages, then chat. Returns the response text
 /// or panics with the Anthropic error.
-async fn seed_and_chat(test_name: &str, messages: &[MessageTuple<'_>], user_prompt: &str) -> String {
+async fn seed_and_chat(
+    test_name: &str,
+    messages: &[MessageTuple<'_>],
+    user_prompt: &str,
+) -> String {
     // Force the Anthropic provider regardless of the config default.
     unsafe { std::env::set_var("GHOST_E2E_MODEL", ANTHROPIC_MODEL) };
     let env = common::live_test_database(test_name).await;
