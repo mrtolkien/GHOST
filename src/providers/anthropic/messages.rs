@@ -113,20 +113,20 @@ fn convert_messages(
     let mut output: Vec<Value> = Vec::new();
     let len = messages.len();
 
+    // System messages that appear between an assistant tool_use and
+    // the user tool_result must be deferred — Anthropic requires the
+    // tool_result to be in the *immediately next* message after
+    // tool_use. Deferred blocks are prepended to the next user message.
+    let mut deferred_system_blocks: Vec<Value> = Vec::new();
+
     let mut i = 0;
     while i < len {
         let msg = &messages[i];
-        let role_str = match msg.role {
-            // Anthropic doesn't accept system in messages array.
-            Role::System => "user",
-            _ => role_str(&msg.role),
-        };
 
-        let content_blocks = if msg.role == Role::System {
-            // Convert system messages (e.g. compaction summaries) to
-            // user text blocks -- Anthropic requires system in
-            // top-level param only.
-            msg.content
+        // --- System messages: defer if inside a tool-use/result pair ---
+        if msg.role == Role::System {
+            let blocks: Vec<Value> = msg
+                .content
                 .iter()
                 .filter_map(|b| match b {
                     ContentBlock::Text { text } => {
@@ -145,15 +145,57 @@ fn convert_messages(
                     }
                     _ => None,
                 })
-                .collect::<Vec<_>>()
-        } else {
-            convert_content_blocks(&msg.content, ghost_tool_names)
-        };
+                .collect();
+
+            if !blocks.is_empty() {
+                // Check if the previous output message is an assistant
+                // with tool_use — if so we must defer this system text
+                // so the tool_result can be adjacent.
+                let prev_is_tool_use = output.last().is_some_and(|m| {
+                    m["role"] == "assistant"
+                        && m["content"]
+                            .as_array()
+                            .is_some_and(|arr| arr.iter().any(|b| b["type"] == "tool_use"))
+                });
+
+                if prev_is_tool_use {
+                    deferred_system_blocks.extend(blocks);
+                } else {
+                    output.push(json!({
+                        "role": "user",
+                        "content": blocks,
+                    }));
+                }
+            }
+            i += 1;
+            continue;
+        }
+
+        let role_str = role_str(&msg.role);
+
+        let content_blocks = convert_content_blocks(&msg.content, ghost_tool_names);
 
         if content_blocks.is_empty() {
             i += 1;
             continue;
         }
+
+        // Prepend any deferred system blocks to this user message.
+        let content_blocks = if msg.role == Role::User && !deferred_system_blocks.is_empty() {
+            let mut merged = std::mem::take(&mut deferred_system_blocks);
+            merged.extend(content_blocks);
+            merged
+        } else {
+            // If we reach a non-user message and still have deferred
+            // blocks, emit them as a separate user message first.
+            if !deferred_system_blocks.is_empty() {
+                output.push(json!({
+                    "role": "user",
+                    "content": std::mem::take(&mut deferred_system_blocks),
+                }));
+            }
+            content_blocks
+        };
 
         output.push(json!({
             "role": role_str,
@@ -216,6 +258,14 @@ fn convert_messages(
         }
 
         i += 1;
+    }
+
+    // Flush any remaining deferred system blocks.
+    if !deferred_system_blocks.is_empty() {
+        output.push(json!({
+            "role": "user",
+            "content": deferred_system_blocks,
+        }));
     }
 
     // --- Cache control on last user message's last content block ---
@@ -799,10 +849,10 @@ mod tests {
     }
 
     /// Regression: system messages injected between assistant tool_use and
-    /// user tool_result (e.g. from `ghost send-image`) must not cause
-    /// synthetic orphan results. See: tool_use → system → tool_result.
+    /// user tool_result (e.g. from `ghost send-image`) must be deferred so
+    /// tool_result is immediately adjacent. See: tool_use → system → tool_result.
     #[test]
-    fn system_message_between_tool_use_and_result_not_orphaned() {
+    fn system_message_between_tool_use_and_result_deferred() {
         let req = simple_request(vec![
             ChatMessage {
                 role: Role::User,
@@ -841,7 +891,34 @@ mod tests {
         let body = build_request_body(&req, &[]).unwrap();
         let messages = body["messages"].as_array().unwrap();
 
-        // No message should contain a synthetic "interrupted" error result.
+        // messages[0] = user "hi"
+        // messages[1] = assistant tool_use
+        // messages[2] = user [deferred system text + tool_result]
+        // messages[3] = assistant "Sent."
+        assert_eq!(messages.len(), 4, "expected 4 messages, got {messages:?}");
+
+        // The message right after the assistant tool_use must be user
+        // and must contain the tool_result — Anthropic requires strict adjacency.
+        let after_tool_use = &messages[2];
+        assert_eq!(after_tool_use["role"], "user");
+        let content = after_tool_use["content"].as_array().unwrap();
+
+        // Deferred system text is prepended, tool_result follows.
+        assert!(
+            content
+                .iter()
+                .any(|b| b["type"] == "text"
+                    && b["text"].as_str().unwrap_or("").contains("sent image")),
+            "deferred system text must be in the tool_result message"
+        );
+        assert!(
+            content
+                .iter()
+                .any(|b| b["type"] == "tool_result" && b["tool_use_id"] == "call_abc"),
+            "tool_result must be in the same message"
+        );
+
+        // No synthetic "interrupted" results anywhere.
         for msg in messages {
             if let Some(content) = msg["content"].as_array() {
                 for block in content {
@@ -855,21 +932,6 @@ mod tests {
                 }
             }
         }
-
-        // The real tool_result for call_abc must be present.
-        let has_real_result = messages.iter().any(|msg| {
-            msg["content"]
-                .as_array()
-                .map(|blocks| {
-                    blocks.iter().any(|b| {
-                        b["type"] == "tool_result"
-                            && b["tool_use_id"] == "call_abc"
-                            && b["content"] == "Exit code: 0"
-                    })
-                })
-                .unwrap_or(false)
-        });
-        assert!(has_real_result, "real tool_result must be present");
     }
 
     #[test]
