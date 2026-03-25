@@ -104,7 +104,7 @@ async fn hybrid_extraction_produces_readable_text() {
         .models
         .vision
         .as_deref()
-        .expect("models.vision must be configured for this test");
+        .unwrap_or(&config.models.default);
 
     let vision_provider =
         provider_for_alias(&config, Some(vision_alias)).expect("vision provider should resolve");
@@ -145,11 +145,14 @@ async fn hybrid_extraction_produces_readable_text() {
     eprintln!("--- Extracted markdown ---\n{markdown}\n--- End ---");
 
     // The lotion PDF is a Japanese skincare product. The vision model should
-    // extract at least one of these recognizable strings.
+    // extract recognizable strings that do NOT appear in Docling's garbled output.
+    // "化粧水" appears even in the garbled OCR, so we check for longer strings
+    // that require successful vision extraction.
     let expected_fragments = [
         "ヘパリン類似物質", // key ingredient (heparinoid)
         "健栄製薬",         // manufacturer name
-        "化粧水",           // "lotion" in Japanese
+        "グリチルリチン",   // active ingredient
+        "ル・マイルド",     // product name in full
     ];
 
     let found_any = expected_fragments

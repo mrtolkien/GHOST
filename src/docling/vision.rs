@@ -28,6 +28,7 @@ pub async fn extract_page_with_vision(
 
     let request = ChatRequest {
         model: model.to_string(),
+        system: Some(VISION_PROMPT.to_string()),
         messages: vec![ChatMessage {
             role: Role::User,
             content: vec![
@@ -37,7 +38,7 @@ pub async fn extract_page_with_vision(
                     filename: format!("page_{page_no}.png"),
                 },
                 ContentBlock::Text {
-                    text: VISION_PROMPT.to_string(),
+                    text: "Extract all text from this document page.".to_string(),
                 },
             ],
         }],
