@@ -163,6 +163,7 @@ pub struct Settings {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ModelsSettings {
     pub default: Option<StringOrList>,
+    pub vision: Option<String>,
     #[serde(flatten)]
     pub aliases: BTreeMap<String, ModelSettings>,
 }
@@ -306,6 +307,8 @@ pub struct ModelsConfig {
     pub default: String,
     /// Full ordered chain of aliases for fallback.
     pub default_chain: Vec<String>,
+    /// Optional alias for the model used in LLM vision extraction fallback.
+    pub vision: Option<String>,
     #[serde(flatten)]
     pub aliases: BTreeMap<String, ModelConfig>,
 }
@@ -479,11 +482,22 @@ impl Config {
             }
         }
 
+        let vision = settings.models.as_ref().and_then(|m| m.vision.clone());
+
+        if let Some(ref alias) = vision {
+            if !resolved_aliases.contains_key(alias.as_str()) {
+                return Err(ConfigError::UnknownDefaultModelAlias {
+                    alias: alias.clone(),
+                });
+            }
+        }
+
         Ok(Self {
             workspace,
             models: ModelsConfig {
                 default: default_model_alias,
                 default_chain,
+                vision,
                 aliases: resolved_aliases,
             },
             discord: DiscordConfig {
@@ -857,6 +871,7 @@ pub fn test_config(workspace: &std::path::Path) -> Config {
         models: ModelsConfig {
             default: "primary".to_string(),
             default_chain: vec!["primary".to_string()],
+            vision: None,
             aliases,
         },
         discord: DiscordConfig {
@@ -1026,5 +1041,37 @@ mod reload_tests {
 
         let settings: Settings = toml::from_str(toml).unwrap();
         assert!(Config::from_settings(settings).is_err());
+    }
+
+    #[test]
+    fn config_vision_model_alias() {
+        let toml = r#"
+            [models]
+            default = "primary"
+            vision = "primary"
+            [models.primary]
+            provider = "openrouter"
+            model = "test-model"
+            context_window = 100000
+        "#;
+        let settings: Settings = toml::from_str(toml).unwrap();
+        let config = Config::from_settings(settings).unwrap();
+        assert_eq!(config.models.vision, Some("primary".to_string()));
+    }
+
+    #[test]
+    fn config_vision_model_unknown_alias_fails() {
+        let toml = r#"
+            [models]
+            default = "primary"
+            vision = "nonexistent"
+            [models.primary]
+            provider = "openrouter"
+            model = "test-model"
+            context_window = 100000
+        "#;
+        let settings: Settings = toml::from_str(toml).unwrap();
+        let err = Config::from_settings(settings).unwrap_err();
+        assert!(err.to_string().contains("nonexistent"));
     }
 }
