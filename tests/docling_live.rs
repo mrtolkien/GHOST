@@ -41,8 +41,9 @@ async fn hybrid_extraction_calls_vision_for_bad_page() {
         .expect("copy render_page.py");
 
     // Use the HTTP backend (docling-serve) so we don't need convert.py locally.
+    let docling_url = std::env::var("DOCLING_URL").expect("DOCLING_URL must be set for live tests");
     let docling_config = DoclingConfig {
-        url: Some("http://192.168.1.10:5001".to_string()),
+        url: Some(docling_url),
         timeout: 600,
     };
 

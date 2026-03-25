@@ -14,10 +14,10 @@ Feedback is saved on the running GHOST instance, not locally. To retrieve it:
 
 ```bash
 # SSH to the GHOST server and list available feedback
-ssh root@192.168.1.13 'ls ~/GHOST/feedback/'
+ssh root@192.168.1.3 'ls ~/GHOST/feedback/'
 
 # Copy the feedback folder locally
-scp -r root@192.168.1.13:~/GHOST/feedback/<folder-name>/ /tmp/ghost-feedback/
+scp -r root@192.168.1.3:~/GHOST/feedback/<folder-name>/ /tmp/ghost-feedback/
 ```
 
 The user will typically give you the folder name. Each folder contains `feedback.md`,

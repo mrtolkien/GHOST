@@ -6,7 +6,7 @@ use ghost::config::SearchProviderConfig;
 use ghost::web::{SearxngSearchProvider, format_search_metadata};
 
 fn searxng_url() -> String {
-    std::env::var("SEARXNG_URL").unwrap_or_else(|_| "http://192.168.1.10:8888".to_string())
+    std::env::var("SEARXNG_URL").expect("SEARXNG_URL must be set for live tests")
 }
 
 #[tokio::test]

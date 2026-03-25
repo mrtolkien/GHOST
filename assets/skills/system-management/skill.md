@@ -1,9 +1,9 @@
 ---
 name: system-management
 description:
-  Use when a CLI tool is missing or a command fails with "not found", when services
-  need starting, stopping, or debugging, when updating GHOST to a newer version, or
-  when managing the Nix shell environment.
+  Use when a CLI tool is missing or a command fails with "not found", when services need
+  starting, stopping, or debugging, when updating GHOST to a newer version, or when
+  managing the Nix shell environment.
 ---
 
 # System Management
@@ -16,13 +16,13 @@ Manage GHOST's shell environment, services, and self-update mechanism.
 
 When a tool is needed, decide based on expected reuse:
 
-- **Recurring tool** (build tool, linter, language runtime, CLI used across sessions)
-  -- add to the flake permanently.
+- **Recurring tool** (build tool, linter, language runtime, CLI used across sessions) --
+  add to the flake permanently.
 - **Rare/one-off binary** (single-use converter, one-time migration tool) -- use
   `nix shell` for a temporary run.
 
-When unsure, install permanently. Removing a package later is trivial; losing time to
-a missing tool in the next session is not.
+When unsure, install permanently. Removing a package later is trivial; losing time to a
+missing tool in the next session is not.
 
 ```dot
 digraph shell_decision {
@@ -37,12 +37,12 @@ digraph shell_decision {
 }
 ```
 
-| Rationalization                                     | Reality                                                                                      |
-| --------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| "I'll just try running it natively"                 | If it's not on PATH, it's not installed. Add it to the flake or use `nix shell`. Never guess. |
-| "`nix shell` / `nix run` is faster than the flake"  | 30 seconds now vs the same missing-tool failure next session. Install it.                     |
-| "Let me ask the OPERATOR first"                     | Permanent is the default for recurring tools. Only ask for genuinely ambiguous cases.         |
-| "I don't know the nixpkgs package name"             | Run `nix search nixpkgs <query>` to find it. Never skip installation because of this.        |
+| Rationalization                                    | Reality                                                                                       |
+| -------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| "I'll just try running it natively"                | If it's not on PATH, it's not installed. Add it to the flake or use `nix shell`. Never guess. |
+| "`nix shell` / `nix run` is faster than the flake" | 30 seconds now vs the same missing-tool failure next session. Install it.                     |
+| "Let me ask the OPERATOR first"                    | Permanent is the default for recurring tools. Only ask for genuinely ambiguous cases.         |
+| "I don't know the nixpkgs package name"            | Run `nix search nixpkgs <query>` to find it. Never skip installation because of this.         |
 
 ### Adding Packages
 
@@ -88,8 +88,8 @@ The ghost binary is NOT in this flake -- it is installed system-wide via
 ## Services
 
 GHOST's infrastructure has two tiers: **native services** (ghost-daemon, llama-server,
-docling-serve) managed by the OS process supervisor, and **container services** (searxng,
-crawl4ai, chrome) managed by Podman/Docker Compose.
+docling-serve) managed by the OS process supervisor, and **container services**
+(searxng, crawl4ai, chrome) managed by Podman/Docker Compose.
 
 Prefer `ghost` CLI commands over raw systemctl/launchctl/compose:
 
@@ -119,8 +119,8 @@ Update and restart GHOST:
     ghost update --from-source       # build from main
     ghost update --version v0.3.0    # specific tag
 
-This swaps the ghost binary in the nix profile and reboots the daemon. Shell tools
-are NOT affected -- they come from the workspace flake.
+This swaps the ghost binary in the nix profile and reboots the daemon. Shell tools are
+NOT affected -- they come from the workspace flake.
 
 Run `ghost update` **in the background**, then tell the OPERATOR there will be a brief
 downtime while restarting.
@@ -135,5 +135,6 @@ Reclaim disk space when store usage is high:
 ## Additional References
 
 - **`references/services.md`** -- health check endpoints, troubleshooting, log commands
-- **`references/observability.md`** -- SigNoz traces, metrics, and logs via OpenTelemetry
+- **`references/observability.md`** -- SigNoz traces, metrics, and logs via
+  OpenTelemetry
 - **`references/tailscale.md`** -- secure remote access to GHOST services over Tailscale

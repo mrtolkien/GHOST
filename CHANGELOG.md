@@ -2,47 +2,64 @@
 
 ## [0.8.0](https://github.com/mrtolkien/GHOST/compare/v0.7.1...v0.8.0) (2026-03-25)
 
-
 ### Features
 
-* add docling module with DoclingDocument serde types and error enum ([774148a](https://github.com/mrtolkien/GHOST/commit/774148a34f87a791c7f9da9ba982716145e2b65b))
-* add models.vision config for LLM vision fallback ([9f2995d](https://github.com/mrtolkien/GHOST/commit/9f2995ddba2c6180a52c3bf123f27a44478cfdc4))
-* add render_page.py for PDF page → PNG conversion ([4081c88](https://github.com/mrtolkien/GHOST/commit/4081c88bc48f2932faedbb6f0812b023ea5b1da8))
-* convert.py outputs DoclingDocument JSON instead of markdown ([b16ef64](https://github.com/mrtolkien/GHOST/commit/b16ef648e74ef3138dc54d4e57d4e0f096d28054))
-* detect incompatible thinking blocks and show clear error ([5c5782f](https://github.com/mrtolkien/GHOST/commit/5c5782f0da3e4628214f9ea98824f5d1c97e7931))
-* LLM vision fallback for bad PDF pages ([7e3b968](https://github.com/mrtolkien/GHOST/commit/7e3b96833a597359655ba58735e87695f6418b70))
-* log file list and reasons in embed sources span ([2081779](https://github.com/mrtolkien/GHOST/commit/2081779e61141e69c6c349a1cb214785b1775f6e))
-* markdown generation from DoclingDocument tree ([5eec757](https://github.com/mrtolkien/GHOST/commit/5eec7577d9c862e4a4f4b87027a1535259fe9cd8))
-* per-page quality assessment for DoclingDocument ([ee65c99](https://github.com/mrtolkien/GHOST/commit/ee65c99cc951679c94e28bd627ccbd79adaa90dd))
-
+- add docling module with DoclingDocument serde types and error enum
+  ([774148a](https://github.com/mrtolkien/GHOST/commit/774148a34f87a791c7f9da9ba982716145e2b65b))
+- add models.vision config for LLM vision fallback
+  ([9f2995d](https://github.com/mrtolkien/GHOST/commit/9f2995ddba2c6180a52c3bf123f27a44478cfdc4))
+- add render_page.py for PDF page → PNG conversion
+  ([4081c88](https://github.com/mrtolkien/GHOST/commit/4081c88bc48f2932faedbb6f0812b023ea5b1da8))
+- convert.py outputs DoclingDocument JSON instead of markdown
+  ([b16ef64](https://github.com/mrtolkien/GHOST/commit/b16ef648e74ef3138dc54d4e57d4e0f096d28054))
+- detect incompatible thinking blocks and show clear error
+  ([5c5782f](https://github.com/mrtolkien/GHOST/commit/5c5782f0da3e4628214f9ea98824f5d1c97e7931))
+- LLM vision fallback for bad PDF pages
+  ([7e3b968](https://github.com/mrtolkien/GHOST/commit/7e3b96833a597359655ba58735e87695f6418b70))
+- log file list and reasons in embed sources span
+  ([2081779](https://github.com/mrtolkien/GHOST/commit/2081779e61141e69c6c349a1cb214785b1775f6e))
+- markdown generation from DoclingDocument tree
+  ([5eec757](https://github.com/mrtolkien/GHOST/commit/5eec7577d9c862e4a4f4b87027a1535259fe9cd8))
+- per-page quality assessment for DoclingDocument
+  ([ee65c99](https://github.com/mrtolkien/GHOST/commit/ee65c99cc951679c94e28bd627ccbd79adaa90dd))
 
 ### Bug Fixes
 
-* defer system messages between tool_use and tool_result for Anthropic ([de4d50c](https://github.com/mrtolkien/GHOST/commit/de4d50cf28f4392be4e98fd5a197c155f07f3629))
-* defer system messages between tool_use and tool_result for Anthropic ([a390964](https://github.com/mrtolkien/GHOST/commit/a3909648292710fd4d29819b1c807852e772805a))
-* force Anthropic provider in message adjacency tests ([90d5eb4](https://github.com/mrtolkien/GHOST/commit/90d5eb48bbc9883095ea1f1ee214b4bb53916252))
-* skip system messages when detecting orphaned tool calls ([574eb51](https://github.com/mrtolkien/GHOST/commit/574eb5193dac2c986334c788a6b8a779288785d7))
-* vision extraction requires system prompt for Codex backend ([70813d1](https://github.com/mrtolkien/GHOST/commit/70813d11c348fcd00090c0e9a715e0d2c3137a12))
-
+- defer system messages between tool_use and tool_result for Anthropic
+  ([de4d50c](https://github.com/mrtolkien/GHOST/commit/de4d50cf28f4392be4e98fd5a197c155f07f3629))
+- defer system messages between tool_use and tool_result for Anthropic
+  ([a390964](https://github.com/mrtolkien/GHOST/commit/a3909648292710fd4d29819b1c807852e772805a))
+- force Anthropic provider in message adjacency tests
+  ([90d5eb4](https://github.com/mrtolkien/GHOST/commit/90d5eb48bbc9883095ea1f1ee214b4bb53916252))
+- skip system messages when detecting orphaned tool calls
+  ([574eb51](https://github.com/mrtolkien/GHOST/commit/574eb5193dac2c986334c788a6b8a779288785d7))
+- vision extraction requires system prompt for Codex backend
+  ([70813d1](https://github.com/mrtolkien/GHOST/commit/70813d11c348fcd00090c0e9a715e0d2c3137a12))
 
 ### Refactoring
 
-* merge nix-shell and services skills into system-management ([da02e73](https://github.com/mrtolkien/GHOST/commit/da02e73b2c765087bc496b27dc8611907196fe2c))
-* move docling to src/docling/ module, return DoclingDocument JSON ([d2d35d7](https://github.com/mrtolkien/GHOST/commit/d2d35d779298ee342e917c1ea2c6983a62d481b0))
-* move onboarding templates to src/onboarding/templates/ ([1a8a383](https://github.com/mrtolkien/GHOST/commit/1a8a3830e9639f9951e7c0678ef12621697c5379))
-* move system message relocation to provider-agnostic layer ([127a7f3](https://github.com/mrtolkien/GHOST/commit/127a7f3355c825f6774d3bd7425bc0d239510fff))
-
+- merge nix-shell and services skills into system-management
+  ([da02e73](https://github.com/mrtolkien/GHOST/commit/da02e73b2c765087bc496b27dc8611907196fe2c))
+- move docling to src/docling/ module, return DoclingDocument JSON
+  ([d2d35d7](https://github.com/mrtolkien/GHOST/commit/d2d35d779298ee342e917c1ea2c6983a62d481b0))
+- move onboarding templates to src/onboarding/templates/
+  ([1a8a383](https://github.com/mrtolkien/GHOST/commit/1a8a3830e9639f9951e7c0678ef12621697c5379))
+- move system message relocation to provider-agnostic layer
+  ([127a7f3](https://github.com/mrtolkien/GHOST/commit/127a7f3355c825f6774d3bd7425bc0d239510fff))
 
 ### Documentation
 
-* hybrid PDF extraction design spec and implementation plan ([7bc62e2](https://github.com/mrtolkien/GHOST/commit/7bc62e2c008e3c760f93ba82d4880cc748f12f02))
-* update claude code ([4bfc707](https://github.com/mrtolkien/GHOST/commit/4bfc707f7707cdc2d81b47bd88dd99a2a5752000))
-
+- hybrid PDF extraction design spec and implementation plan
+  ([7bc62e2](https://github.com/mrtolkien/GHOST/commit/7bc62e2c008e3c760f93ba82d4880cc748f12f02))
+- update claude code
+  ([4bfc707](https://github.com/mrtolkien/GHOST/commit/4bfc707f7707cdc2d81b47bd88dd99a2a5752000))
 
 ### Tests
 
-* live tests for Anthropic message adjacency constraints ([1031949](https://github.com/mrtolkien/GHOST/commit/103194952d7b68bf43f7aff60381c37731cd68f4))
-* live tests for hybrid PDF extraction pipeline ([ca8e8e4](https://github.com/mrtolkien/GHOST/commit/ca8e8e4cfc216a67e4a087b6ac5bb92485f8eb20))
+- live tests for Anthropic message adjacency constraints
+  ([1031949](https://github.com/mrtolkien/GHOST/commit/103194952d7b68bf43f7aff60381c37731cd68f4))
+- live tests for hybrid PDF extraction pipeline
+  ([ca8e8e4](https://github.com/mrtolkien/GHOST/commit/ca8e8e4cfc216a67e4a087b6ac5bb92485f8eb20))
 
 ## [0.7.1](https://github.com/mrtolkien/GHOST/compare/v0.7.0...v0.7.1) (2026-03-24)
 
