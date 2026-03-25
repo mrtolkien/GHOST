@@ -12,9 +12,8 @@ fn main() {
     println!("cargo::rerun-if-changed=assets");
 
     let mut entries = Vec::new();
-    walk_dir(assets_dir, assets_dir, &mut entries, &["services"]);
-    // assets/services/ is excluded — those are compile-time templates
-    // used by include_str!() in onboarding, not workspace files.
+    walk_dir(assets_dir, assets_dir, &mut entries, &[]);
+    // All assets are bundled to $WORKSPACE/.
     entries.sort();
 
     let mut f = fs::File::create(&dest).unwrap();
