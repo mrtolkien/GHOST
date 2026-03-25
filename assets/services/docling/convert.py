@@ -7,13 +7,14 @@
 # ]
 # ///
 """
-Convert documents to Markdown using docling.
+Convert documents to DoclingDocument JSON using docling.
 
 Usage:
-    uv run convert.py --path input.pdf --output output.md [--no-ocr] [--page-range 1-10] [--device auto|cpu|cuda|mps]
+    uv run convert.py --path input.pdf --output output.json [--no-ocr] [--page-range 1-10] [--device auto|cpu|cuda|mps]
 """
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -50,7 +51,7 @@ def main():
     parser.add_argument(
         "--output",
         required=True,
-        help="Path to write the output Markdown file",
+        help="Path to write the output JSON file",
     )
     parser.add_argument(
         "--no-ocr",
@@ -130,10 +131,12 @@ def main():
         print(f"Error converting document: {e}", file=sys.stderr)
         sys.exit(1)
 
-    markdown = result.document.export_to_markdown()
+    doc_dict = result.document.export_to_dict()
 
     try:
-        output_path.write_text(markdown, encoding="utf-8")
+        output_path.write_text(
+            json.dumps(doc_dict, ensure_ascii=False), encoding="utf-8"
+        )
     except OSError as e:
         print(f"Error writing output file: {e}", file=sys.stderr)
         sys.exit(1)
