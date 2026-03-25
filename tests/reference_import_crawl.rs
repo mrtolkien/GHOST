@@ -93,6 +93,7 @@ async fn crawl_import_small_site() {
                 tags: vec![],
                 topic_id: Some(topic.id.clone()),
                 path: Some(r.path),
+                reason: ghost::embeddings::pipeline::EmbedReason::New,
             })
             .collect();
         let embedded = ghost::embeddings::pipeline::embed_sources(&client, &env.db, embed_requests)

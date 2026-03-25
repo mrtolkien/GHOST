@@ -11,7 +11,7 @@ use tracing::{Instrument, info};
 use crate::config::{SharedConfig, SharedConfigExt};
 use crate::db::GhostDb;
 use crate::embeddings::EmbeddingClient;
-use crate::embeddings::pipeline::{EmbedRequest, PipelineError};
+use crate::embeddings::pipeline::{EmbedReason, EmbedRequest, PipelineError};
 use crate::knowledge;
 
 /// Spawn the file watcher. Returns a `JoinHandle` that runs until the
@@ -385,6 +385,7 @@ async fn process_note_change(
         tags: parsed.front.tags,
         topic_id,
         path: None,
+        reason: EmbedReason::Changed,
     }))
 }
 
@@ -482,6 +483,7 @@ async fn process_reference_change(
         tags: vec![],
         topic_id: Some(resolved_topic_id),
         path: Some(embed_path),
+        reason: EmbedReason::Changed,
     }))
 }
 
@@ -542,6 +544,7 @@ async fn process_diary_change(
         tags: vec![],
         topic_id: None,
         path: None,
+        reason: EmbedReason::Changed,
     }))
 }
 
@@ -612,6 +615,7 @@ async fn process_script_change(
         tags: vec![],
         topic_id: None,
         path: Some(fs_rel),
+        reason: EmbedReason::Changed,
     }))
 }
 
@@ -706,6 +710,7 @@ async fn process_code_file_change(
         tags: vec![],
         topic_id: Some(topic_id),
         path: Some(fs_rel),
+        reason: EmbedReason::Changed,
     }))
 }
 

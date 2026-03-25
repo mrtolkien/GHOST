@@ -113,6 +113,7 @@ async fn import_and_query_git_references() {
                 tags: vec![],
                 topic_id: Some(topic.id.clone()),
                 path: Some(r.path),
+                reason: ghost::embeddings::pipeline::EmbedReason::New,
             })
             .collect();
         let embedded = ghost::embeddings::pipeline::embed_sources(&client, &db, embed_requests)

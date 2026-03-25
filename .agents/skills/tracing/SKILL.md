@@ -39,7 +39,7 @@ describes the action; the object describes what is acted upon. This keeps span n
 | `create session_chat`        | —                                             |
 | `embed batch`                | `model`, `batch_size`                         |
 | `embed source`               | `source_table`, `source_id`                   |
-| `embed sources`              | —                                             |
+| `embed sources`              | `sources`, `embedded`, `skipped` + info event with file list |
 | `execute agent`              | `gen_ai.agent.name`, `gen_ai.agent.id`        |
 | `execute resume`             | —                                             |
 | `fetch url crawl4ai`         | `url`                                         |

@@ -78,6 +78,7 @@ async fn embed_source_pipeline_stores_and_searches() {
         tags: vec!["dioxus".into()],
         topic_id: None,
         path: None,
+        reason: ghost::embeddings::pipeline::EmbedReason::New,
     }];
     let chunks = embed_sources(&client, &db, requests)
         .await

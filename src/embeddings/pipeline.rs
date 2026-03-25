@@ -81,6 +81,27 @@ async fn embed_chunks(
     Ok(all_vectors)
 }
 
+/// Why a source needs (re-)embedding.
+#[derive(Debug, Clone, Copy)]
+pub enum EmbedReason {
+    /// File is new (not previously in the database).
+    New,
+    /// File content changed (hash differs from stored).
+    Changed,
+    /// File unchanged but embeddings are missing.
+    MissingEmbeddings,
+}
+
+impl std::fmt::Display for EmbedReason {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::New => write!(f, "new"),
+            Self::Changed => write!(f, "changed"),
+            Self::MissingEmbeddings => write!(f, "missing_embeddings"),
+        }
+    }
+}
+
 /// A request to embed a single knowledge source, used for cross-file batching.
 #[derive(Debug)]
 pub struct EmbedRequest {
@@ -92,6 +113,7 @@ pub struct EmbedRequest {
     /// File path for code chunking (e.g. "src/main.rs"). When set, the
     /// pipeline tries tree-sitter AST chunking before falling back to text.
     pub path: Option<String>,
+    pub reason: EmbedReason,
 }
 
 /// Embed multiple knowledge sources in a single batched Ollama call.
@@ -113,6 +135,20 @@ pub async fn embed_sources(
     if requests.is_empty() {
         return Ok(0);
     }
+
+    // Log which files will be embedded and why
+    let file_details: String = requests
+        .iter()
+        .map(|req| {
+            let label = req
+                .path
+                .as_deref()
+                .unwrap_or_else(|| &req.source_id);
+            format!("{} [{}] ({})", label, req.source_table, req.reason)
+        })
+        .collect::<Vec<_>>()
+        .join(", ");
+    tracing::info!(files = %file_details, "embedding batch files");
 
     // Phase 1: chunk all sources
     struct PreparedSource {
@@ -274,14 +310,22 @@ pub async fn reconcile_filesystem(
                 Some((Some(stored_hash), true)) if *stored_hash == hash => continue,
                 // Hash matches but missing embeddings -> re-embed only (no DB upsert)
                 Some((Some(stored_hash), false)) if *stored_hash == hash => {
-                    if let Some(req) =
+                    if let Some(mut req) =
                         build_embed_request_from_db(db, workspace, &file_path, &raw).await
                     {
+                        if req.path.is_none() {
+                            req.path = Some(rel_str.clone());
+                        }
                         embed_requests.push(req);
                     }
                 }
                 // Hash differs or missing -> full process
                 _ => {
+                    let reason = if known.contains_key(&rel_str) {
+                        EmbedReason::Changed
+                    } else {
+                        EmbedReason::New
+                    };
                     match crate::daemon::watcher::process_change(
                         db,
                         workspace,
@@ -291,7 +335,11 @@ pub async fn reconcile_filesystem(
                     )
                     .await
                     {
-                        Ok(Some(req)) => {
+                        Ok(Some(mut req)) => {
+                            req.reason = reason;
+                            if req.path.is_none() {
+                                req.path = Some(rel_str.clone());
+                            }
                             embed_requests.push(req);
                             discovered += 1;
                         }
@@ -344,6 +392,11 @@ pub async fn reconcile_filesystem(
                             }
                         }
                         _ => {
+                            let reason = if known.contains_key(&rel_str) {
+                                EmbedReason::Changed
+                            } else {
+                                EmbedReason::New
+                            };
                             match crate::daemon::watcher::process_change(
                                 db,
                                 workspace,
@@ -353,7 +406,11 @@ pub async fn reconcile_filesystem(
                             )
                             .await
                             {
-                                Ok(Some(req)) => {
+                                Ok(Some(mut req)) => {
+                                    req.reason = reason;
+                                    if req.path.is_none() {
+                                        req.path = Some(rel_str.clone());
+                                    }
                                     embed_requests.push(req);
                                     discovered += 1;
                                 }
@@ -430,6 +487,7 @@ async fn build_embed_request_from_db(
             tags,
             topic_id: note.topic_id,
             path: None,
+            reason: EmbedReason::MissingEmbeddings,
         })
     } else if rel_str.starts_with("references/") {
         let ref_path = rel_str.strip_prefix("references/").unwrap_or(&rel_str);
@@ -443,6 +501,7 @@ async fn build_embed_request_from_db(
             tags: vec![],
             topic_id: Some(reference.topic_id),
             path: Some(rel_str.to_string()),
+            reason: EmbedReason::MissingEmbeddings,
         })
     } else if rel_str.starts_with("diary/") {
         let date = file_path.file_stem()?.to_str()?;
@@ -454,6 +513,7 @@ async fn build_embed_request_from_db(
             tags: vec![],
             topic_id: None,
             path: None,
+            reason: EmbedReason::MissingEmbeddings,
         })
     } else if rel_str.starts_with("scripts/") {
         let script_path = rel_str.strip_prefix("scripts/").unwrap_or(&rel_str);
@@ -467,6 +527,7 @@ async fn build_embed_request_from_db(
             tags: vec![],
             topic_id: None,
             path: Some(rel_str.to_string()),
+            reason: EmbedReason::MissingEmbeddings,
         })
     } else if rel_str.starts_with("code/") {
         let slug = extract_repo_slug(workspace, file_path)?;
@@ -487,6 +548,7 @@ async fn build_embed_request_from_db(
             tags: vec![],
             topic_id: Some(topic_id),
             path: Some(rel_str.to_string()),
+            reason: EmbedReason::MissingEmbeddings,
         })
     } else {
         None
