@@ -97,3 +97,16 @@ impl From<DatabaseError> for ChatError {
         ChatError::Database(Box::new(e))
     }
 }
+
+impl ChatError {
+    /// True when the error means the session ID doesn't exist in this
+    /// instance's database — useful for multi-instance setups where only one
+    /// instance owns the session.
+    pub fn is_session_not_found(&self) -> bool {
+        matches!(
+            self,
+            ChatError::Database(db)
+                if matches!(**db, DatabaseError::MissingRow { table: "session", .. })
+        )
+    }
+}

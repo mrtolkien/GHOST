@@ -639,6 +639,10 @@ impl EventHandler for Handler {
                                         .await;
                                     }
                                 }
+                                Err(e) if e.is_session_not_found() => {
+                                    // Multi-instance: this session belongs to
+                                    // a different GHOST instance. Stay silent.
+                                }
                                 Err(e) => {
                                     error!(
                                         session_id = %session_id,
