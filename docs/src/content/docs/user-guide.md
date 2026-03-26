@@ -9,7 +9,7 @@ what it can do and how to get the best results.
 
 ## What your GHOST can do
 
-Your GHOST is not a chatbot trapped in a text box. It has access to:
+Your GHOST has a shell. It has access to:
 
 - **A full terminal** — it can run commands, install software, manage files, and execute
   scripts on your machine.
@@ -21,7 +21,7 @@ Your GHOST is not a chatbot trapped in a text box. It has access to:
   while staying responsive to you.
 
 You don't need to explain your entire situation every time. Your GHOST remembers core
-information from past conversations and web research.
+information from past conversations _and_ information it fetched online.
 
 ## Skills: how your GHOST learns
 
@@ -33,7 +33,7 @@ Your GHOST ships with a set of default skills, but the real power is that **you 
 it to create new ones**. If you find yourself repeating the same kind of request, just
 say:
 
-> "Create a skill for how I like my weekly summaries done"
+> "Create a skill to make a reservation at my favorite restaurant"
 
 and your GHOST will write a reusable skill it can follow every time.
 
@@ -151,11 +151,9 @@ Just ask, and _normally_ the GHOST should manage to update itself!
 
 ## General tips
 
-- **Be direct.** You don't need to be polite or formal. "Find me a good recipe for
-  sourdough bread" works great.
 - **Give context when it matters.** Your GHOST remembers a lot, but if you're starting
   something new, a sentence of context goes a long way.
-- **Ask it to remember things.** "Remember that I'm allergic to shellfish" — and it
-  will, across all future conversations.
-- **Ask it to create skills** when you notice a pattern. That's the fastest way to make
-  your GHOST better at the things you care about.
+- **Ask it to remember things.** While the reflection process should capture important
+  information, it helps to be directive.
+- **Ask it to create skills** when you know you are asking it to perform a task that you
+  will ask it to perform again in the future.
