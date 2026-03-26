@@ -41,6 +41,13 @@ pub struct DiscordSender {
 }
 
 impl DiscordSender {
+    /// Create a sender from a raw bot token (for tests / CLI).
+    pub fn from_token(token: &str) -> Self {
+        Self {
+            http: Arc::new(Http::new(token)),
+        }
+    }
+
     pub fn http(&self) -> &Arc<Http> {
         &self.http
     }

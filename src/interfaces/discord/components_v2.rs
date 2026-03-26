@@ -4,6 +4,14 @@
 /// construct raw JSON payloads and send them via `Http::send_message()`.
 /// The v2 flag (`1 << 15` in message flags) tells Discord to interpret the
 /// `components` array as layout blocks rather than legacy action rows.
+///
+/// For messages **with file attachments** (table images), serenity's
+/// `Http::send_message()` is bypassed in favour of a direct reqwest
+/// multipart upload. Serenity 0.12 sets `CreateAttachment.id = 0` on
+/// every file (the field is `pub(crate)`) so all uploads share the
+/// `files[0]` multipart key and Discord only sees the first one.
+/// Building the form ourselves lets us assign sequential IDs and include
+/// the `attachments` JSON array that Discord requires.
 use serenity::builder::CreateAttachment;
 use serenity::http::Http;
 use serenity::model::id::ChannelId;
@@ -103,29 +111,36 @@ pub async fn send_v2_message(
     components: &[serde_json::Value],
     attachments: Vec<CreateAttachment>,
 ) -> serenity::Result<serenity::model::channel::Message> {
-    let capped = if components.len() > MAX_V2_COMPONENTS {
-        warn!(
-            "v2 message has {} components, capping at {}",
-            components.len(),
-            MAX_V2_COMPONENTS
-        );
-        &components[..MAX_V2_COMPONENTS]
-    } else {
-        components
-    };
-
-    let payload = serde_json::json!({
-        "flags": V2_FLAG,
-        "components": capped,
-    });
-
-    http.send_message(channel_id, attachments, &payload).await
+    send_v2(http, channel_id, V2_FLAG, components, attachments).await
 }
 
 /// Send a Components v2 message with URL auto-embeds suppressed.
 pub async fn send_v2_message_suppress_embeds(
     http: &Http,
     channel_id: ChannelId,
+    components: &[serde_json::Value],
+    attachments: Vec<CreateAttachment>,
+) -> serenity::Result<serenity::model::channel::Message> {
+    send_v2(
+        http,
+        channel_id,
+        V2_FLAG | SUPPRESS_EMBEDS,
+        components,
+        attachments,
+    )
+    .await
+}
+
+/// Shared implementation for v2 message sends.
+///
+/// When `attachments` is empty, delegates to serenity's `Http::send_message`.
+/// When files are present, builds a raw reqwest multipart form so that each
+/// file gets a unique `files[N]` key and the JSON payload includes the
+/// `attachments` array that Discord requires for `attachment://` resolution.
+async fn send_v2(
+    http: &Http,
+    channel_id: ChannelId,
+    flags: u64,
     components: &[serde_json::Value],
     attachments: Vec<CreateAttachment>,
 ) -> serenity::Result<serenity::model::channel::Message> {
@@ -140,12 +155,67 @@ pub async fn send_v2_message_suppress_embeds(
         components
     };
 
+    if attachments.is_empty() {
+        let payload = serde_json::json!({
+            "flags": flags,
+            "components": capped,
+        });
+        return http.send_message(channel_id, Vec::new(), &payload).await;
+    }
+
+    // Build attachments metadata for the JSON payload.
+    let attachments_meta: Vec<serde_json::Value> = attachments
+        .iter()
+        .enumerate()
+        .map(|(i, f)| serde_json::json!({"id": i, "filename": &f.filename}))
+        .collect();
+
     let payload = serde_json::json!({
-        "flags": V2_FLAG | SUPPRESS_EMBEDS,
+        "flags": flags,
         "components": capped,
+        "attachments": attachments_meta,
     });
 
-    http.send_message(channel_id, attachments, &payload).await
+    // Build multipart form with correctly indexed file parts.
+    let mut form = reqwest::multipart::Form::new().text("payload_json", payload.to_string());
+
+    for (i, file) in attachments.into_iter().enumerate() {
+        let part = reqwest::multipart::Part::bytes(file.data)
+            .file_name(file.filename)
+            .mime_str("image/png")
+            .expect("image/png is a valid MIME");
+        form = form.part(format!("files[{i}]"), part);
+    }
+
+    let url = format!(
+        "https://discord.com/api/v10/channels/{}/messages",
+        channel_id
+    );
+
+    let response = reqwest::Client::new()
+        .post(&url)
+        .header("Authorization", http.token())
+        .multipart(form)
+        .send()
+        .await
+        .map_err(|e| {
+            warn!(error = %e, "v2 multipart upload failed");
+            serenity::Error::Other("v2 multipart request failed")
+        })?;
+
+    let status = response.status();
+    let body = response.bytes().await.map_err(|e| {
+        warn!(error = %e, "v2 multipart response read failed");
+        serenity::Error::Other("v2 multipart response read failed")
+    })?;
+
+    if status.is_success() {
+        serde_json::from_slice(&body).map_err(serenity::Error::from)
+    } else {
+        let body_str = String::from_utf8_lossy(&body);
+        warn!(status = %status, body = %body_str, "v2 multipart upload rejected");
+        Err(serenity::Error::Other("v2 multipart upload rejected"))
+    }
 }
 
 /// Edit an existing Components v2 message.

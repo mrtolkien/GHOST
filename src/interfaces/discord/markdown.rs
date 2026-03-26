@@ -445,4 +445,37 @@ mod tests {
         let text = "Just an answer.";
         assert_eq!(clean_citation_section(text), text);
     }
+
+    #[test]
+    fn multiple_tables_get_distinct_filenames() {
+        let input = "\
+            Intro\n\
+            | A | B |\n|---|---|\n| 1 | 2 |\n\
+            Middle\n\
+            | C | D |\n|---|---|\n| 3 | 4 |\n\
+            End";
+        let out = markdown_to_v2_components(input);
+
+        // Count MediaGallery (type 12) or code-block fallback components.
+        let table_components: Vec<_> = out
+            .components
+            .iter()
+            .filter(|c| {
+                c["type"] == 12
+                    || (c["type"] == 10
+                        && c["content"].as_str().is_some_and(|s| s.starts_with("```")))
+            })
+            .collect();
+        assert_eq!(table_components.len(), 2, "should have 2 table components");
+
+        if out.attachments.len() == 2 {
+            // PNG rendering succeeded: filenames must be distinct.
+            assert_eq!(out.attachments[0].filename, "table_0.png");
+            assert_eq!(out.attachments[1].filename, "table_1.png");
+            assert_ne!(
+                out.attachments[0].data, out.attachments[1].data,
+                "different tables should produce different PNGs"
+            );
+        }
+    }
 }
