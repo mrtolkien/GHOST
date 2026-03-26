@@ -37,9 +37,9 @@ pub enum BrowsersCommand {
         /// Browser command (auto-detected if omitted)
         #[arg(long)]
         browser: Option<String>,
-        /// Profile directory
-        #[arg(long, default_value = "~/.config/ghost/browser-profile")]
-        profile: String,
+        /// Profile directory (default: <config-dir>/browser-profile)
+        #[arg(long)]
+        profile: Option<String>,
     },
 }
 
@@ -164,7 +164,7 @@ async fn execute_serve(
     port: u16,
     bind: Option<String>,
     browser_cmd: Option<String>,
-    profile: String,
+    profile: Option<String>,
 ) -> Result<(), GhostError> {
     use std::net::SocketAddr;
     use std::time::Duration;
@@ -185,13 +185,17 @@ async fn execute_serve(
             })?,
     };
 
-    // 2. Resolve profile path (expand ~).
-    let profile_path = if let Some(rest) = profile.strip_prefix("~/") {
-        let home = std::env::var("HOME")
-            .map_err(|_| GhostError::Other("HOME not set, cannot expand ~".into()))?;
-        format!("{home}/{rest}")
-    } else {
-        profile
+    // 2. Resolve profile path.
+    let profile_path = match profile {
+        Some(p) => p,
+        None => {
+            let config = crate::config::config_dir()
+                .map_err(|e| GhostError::Other(format!("cannot resolve config dir: {e}")))?;
+            config
+                .join("browser-profile")
+                .to_string_lossy()
+                .into_owned()
+        }
     };
     std::fs::create_dir_all(&profile_path)
         .map_err(|e| GhostError::Other(format!("failed to create profile dir: {e}")))?;
