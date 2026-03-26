@@ -300,7 +300,13 @@ fn tool_calls_to_json(content: &[ContentBlock]) -> Option<String> {
     if calls.is_empty() {
         None
     } else {
-        Some(serde_json::to_string(&calls).unwrap_or_default())
+        match serde_json::to_string(&calls) {
+            Ok(json) => Some(json),
+            Err(e) => {
+                tracing::warn!(error = %e, "Failed to serialize tool calls for compaction");
+                None
+            }
+        }
     }
 }
 
@@ -324,7 +330,13 @@ fn tool_results_to_json(content: &[ContentBlock]) -> Option<String> {
     if results.is_empty() {
         None
     } else {
-        Some(serde_json::to_string(&results).unwrap_or_default())
+        match serde_json::to_string(&results) {
+            Ok(json) => Some(json),
+            Err(e) => {
+                tracing::warn!(error = %e, "Failed to serialize tool results for compaction");
+                None
+            }
+        }
     }
 }
 

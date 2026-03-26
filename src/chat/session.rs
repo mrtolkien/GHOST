@@ -453,7 +453,7 @@ impl SessionChat {
             compacted_flags.push(is_compacted);
         }
 
-        relocate_system_messages_between_tool_pairs(&mut messages);
+        relocate_system_messages_between_tool_pairs(&mut messages, &mut ids, &mut compacted_flags);
 
         Ok((messages, ids, compacted_flags))
     }
@@ -1468,7 +1468,11 @@ impl SessionChat {
 /// tool-result-only). If no such message exists before the next assistant
 /// turn, the text is emitted as a standalone system message before that
 /// assistant turn.
-fn relocate_system_messages_between_tool_pairs(messages: &mut Vec<ChatMessage>) {
+fn relocate_system_messages_between_tool_pairs(
+    messages: &mut Vec<ChatMessage>,
+    ids: &mut Vec<String>,
+    compacted_flags: &mut Vec<bool>,
+) {
     fn has_tool_use(msg: &ChatMessage) -> bool {
         msg.role == Role::Assistant
             && msg
@@ -1488,11 +1492,17 @@ fn relocate_system_messages_between_tool_pairs(messages: &mut Vec<ChatMessage>) 
 
     let mut deferred: Vec<ContentBlock> = Vec::new();
     let mut result: Vec<ChatMessage> = Vec::with_capacity(messages.len());
+    let mut result_ids: Vec<String> = Vec::with_capacity(ids.len());
+    let mut result_flags: Vec<bool> = Vec::with_capacity(compacted_flags.len());
 
-    for msg in messages.drain(..) {
+    for ((msg, id), flag) in messages
+        .drain(..)
+        .zip(ids.drain(..))
+        .zip(compacted_flags.drain(..))
+    {
         if msg.role == Role::System && !deferred.is_empty() {
             // We have deferred content and this is another system message
-            // — keep deferring.
+            // — keep deferring. The id/flag are dropped (merged away).
             deferred.extend(msg.content);
             continue;
         }
@@ -1506,6 +1516,8 @@ fn relocate_system_messages_between_tool_pairs(messages: &mut Vec<ChatMessage>) 
             }
             // Not between tool pairs — emit normally.
             result.push(msg);
+            result_ids.push(id);
+            result_flags.push(flag);
             continue;
         }
 
@@ -1515,6 +1527,8 @@ fn relocate_system_messages_between_tool_pairs(messages: &mut Vec<ChatMessage>) 
                 // Can't merge into a tool-result-only message — keep
                 // deferring past it.
                 result.push(msg);
+                result_ids.push(id);
+                result_flags.push(flag);
                 continue;
             }
 
@@ -1526,6 +1540,8 @@ fn relocate_system_messages_between_tool_pairs(messages: &mut Vec<ChatMessage>) 
                     role: Role::User,
                     content: merged_content,
                 });
+                result_ids.push(id);
+                result_flags.push(flag);
                 continue;
             }
 
@@ -1535,9 +1551,13 @@ fn relocate_system_messages_between_tool_pairs(messages: &mut Vec<ChatMessage>) 
                 role: Role::System,
                 content: std::mem::take(&mut deferred),
             });
+            result_ids.push(String::new());
+            result_flags.push(false);
         }
 
         result.push(msg);
+        result_ids.push(id);
+        result_flags.push(flag);
     }
 
     // Flush any remaining deferred content at the end of the history.
@@ -1546,9 +1566,13 @@ fn relocate_system_messages_between_tool_pairs(messages: &mut Vec<ChatMessage>) 
             role: Role::System,
             content: deferred,
         });
+        result_ids.push(String::new());
+        result_flags.push(false);
     }
 
     *messages = result;
+    *ids = result_ids;
+    *compacted_flags = result_flags;
 }
 
 /// Advance an RFC 3339 timestamp by 1 millisecond so a repair message sorts
@@ -1625,7 +1649,9 @@ mod tests {
             user_tool_result("call_1"),
             assistant_text("Sent."),
         ];
-        relocate_system_messages_between_tool_pairs(&mut msgs);
+        let mut ids: Vec<String> = (0..msgs.len()).map(|i| i.to_string()).collect();
+        let mut flags = vec![false; msgs.len()];
+        relocate_system_messages_between_tool_pairs(&mut msgs, &mut ids, &mut flags);
 
         // System message should be gone from between tool_use/result.
         assert_eq!(msgs[0].role, Role::User); // "hi"
@@ -1656,7 +1682,9 @@ mod tests {
             user_tool_result("call_1"),
             assistant_text("Done."),
         ];
-        relocate_system_messages_between_tool_pairs(&mut msgs);
+        let mut ids: Vec<String> = (0..msgs.len()).map(|i| i.to_string()).collect();
+        let mut flags = vec![false; msgs.len()];
+        relocate_system_messages_between_tool_pairs(&mut msgs, &mut ids, &mut flags);
 
         assert_eq!(msgs[1].role, Role::Assistant); // tool_use
         assert_eq!(msgs[2].role, Role::User); // tool_result only
@@ -1681,7 +1709,9 @@ mod tests {
             assistant_text("Sent."),
             user_text("thanks"),
         ];
-        relocate_system_messages_between_tool_pairs(&mut msgs);
+        let mut ids: Vec<String> = (0..msgs.len()).map(|i| i.to_string()).collect();
+        let mut flags = vec![false; msgs.len()];
+        relocate_system_messages_between_tool_pairs(&mut msgs, &mut ids, &mut flags);
 
         // System text should be flushed before the assistant "Sent."
         // (since the user "thanks" comes after the assistant).
@@ -1701,7 +1731,9 @@ mod tests {
             assistant_text("Great."),
         ];
         let original_len = msgs.len();
-        relocate_system_messages_between_tool_pairs(&mut msgs);
+        let mut ids: Vec<String> = (0..msgs.len()).map(|i| i.to_string()).collect();
+        let mut flags = vec![false; msgs.len()];
+        relocate_system_messages_between_tool_pairs(&mut msgs, &mut ids, &mut flags);
 
         // Nothing should move.
         assert_eq!(msgs.len(), original_len);
@@ -1725,7 +1757,9 @@ mod tests {
             user_tool_result("call_2"),
             assistant_text("Sent 2."),
         ];
-        relocate_system_messages_between_tool_pairs(&mut msgs);
+        let mut ids: Vec<String> = (0..msgs.len()).map(|i| i.to_string()).collect();
+        let mut flags = vec![false; msgs.len()];
+        relocate_system_messages_between_tool_pairs(&mut msgs, &mut ids, &mut flags);
 
         // Both tool_result messages should be pure.
         for msg in &msgs {
