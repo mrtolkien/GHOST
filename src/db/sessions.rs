@@ -181,19 +181,17 @@ pub async fn update_message_compacted(
     tool_calls: Option<&str>,
     tool_results: Option<&str>,
 ) -> Result<(), DatabaseError> {
-    sqlx::query(
-        "UPDATE message SET tool_calls = ?, tool_results = ?, compacted = 1 WHERE id = ?",
-    )
-    .bind(tool_calls)
-    .bind(tool_results)
-    .bind(message_id)
-    .execute(db)
-    .await
-    .map_err(|source| DatabaseError::Query {
-        table: "message",
-        operation: "update_message_compacted",
-        source,
-    })?;
+    sqlx::query("UPDATE message SET tool_calls = ?, tool_results = ?, compacted = 1 WHERE id = ?")
+        .bind(tool_calls)
+        .bind(tool_results)
+        .bind(message_id)
+        .execute(db)
+        .await
+        .map_err(|source| DatabaseError::Query {
+            table: "message",
+            operation: "update_message_compacted",
+            source,
+        })?;
     Ok(())
 }
 

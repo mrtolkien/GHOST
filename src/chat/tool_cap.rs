@@ -83,9 +83,7 @@ pub(super) async fn cap_content_blocks(
                 is_error,
             } => {
                 let content = match cap_tool_result(&content, max_bytes) {
-                    Some(capped) => {
-                        write_overflow_file(workspace, &tool_use_id, capped).await
-                    }
+                    Some(capped) => write_overflow_file(workspace, &tool_use_id, capped).await,
                     None => content,
                 };
                 result.push(ContentBlock::ToolResult {

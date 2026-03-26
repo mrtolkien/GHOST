@@ -601,14 +601,18 @@ impl SessionChat {
     ) -> bool {
         // Load IDs and compacted flags from DB — messages were persisted
         // before this call.
-        let id_flag_pairs =
-            match db::sessions::get_session_message_ids_and_compacted(self.db(), session_id).await {
-                Ok(pairs) => pairs,
-                Err(e) => {
-                    tracing::warn!(error = %e, "Failed to load message IDs for compaction");
-                    return false;
-                }
-            };
+        let id_flag_pairs = match db::sessions::get_session_message_ids_and_compacted(
+            self.db(),
+            session_id,
+        )
+        .await
+        {
+            Ok(pairs) => pairs,
+            Err(e) => {
+                tracing::warn!(error = %e, "Failed to load message IDs for compaction");
+                return false;
+            }
+        };
 
         // Build parallel IDs and compacted flags matching the in-memory
         // history structure.
@@ -1217,8 +1221,7 @@ mod tests {
         ];
 
         let compacted_flags = vec![false, false, true, false];
-        let masked =
-            mask_tool_interactions_with_compacted(&messages, 3, 100, &compacted_flags);
+        let masked = mask_tool_interactions_with_compacted(&messages, 3, 100, &compacted_flags);
 
         // The already-compacted tool result at index 2 should be passed
         // through unchanged.
@@ -1242,8 +1245,7 @@ mod tests {
 
         // Only index 2 (first tool result) is already compacted
         let compacted_flags = vec![false, false, true, false, false, false];
-        let masked =
-            mask_tool_interactions_with_compacted(&messages, 5, 50, &compacted_flags);
+        let masked = mask_tool_interactions_with_compacted(&messages, 5, 50, &compacted_flags);
 
         // Index 2 should be passed through (compacted)
         if let ContentBlock::ToolResult { content, .. } = &masked[2].content[0] {
