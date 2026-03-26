@@ -308,6 +308,7 @@ mod tests {
             ),
             images: None,
             created_at: "2026-01-01T00:00:00Z".into(),
+            compacted: false,
         };
         let msg = convert_stored_message_to_provider_message(record);
         match &msg.content[0] {
@@ -348,6 +349,7 @@ mod tests {
             raw_output: Some(serde_json::to_string(&values).unwrap()),
             images: None,
             created_at: "2026-01-01T00:00:00Z".into(),
+            compacted: false,
         };
         let msg = convert_stored_message_to_provider_message(record);
         match &msg.content[0] {
@@ -397,6 +399,7 @@ mod tests {
             ),
             images: None,
             created_at: "2026-01-01T00:00:00Z".into(),
+            compacted: false,
         };
         let msg = convert_stored_message_to_provider_message(record);
         match &msg.content[0] {

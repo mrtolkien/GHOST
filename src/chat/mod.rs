@@ -3,6 +3,7 @@ mod compaction;
 mod convert;
 pub mod interrupt;
 mod session;
+mod tool_cap;
 mod tool_loop;
 pub mod transcript;
 mod types;

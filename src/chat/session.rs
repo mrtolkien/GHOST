@@ -549,6 +549,7 @@ impl SessionChat {
                 raw_output: None,
                 images: None,
                 created_at: repair_ts,
+                compacted: false,
             };
 
             // Insert right after the last result message (or the assistant).

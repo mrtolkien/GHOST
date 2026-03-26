@@ -117,6 +117,7 @@ mod tests {
             raw_output: None,
             images: None,
             created_at: crate::db::now(),
+            compacted: false,
         }
     }
 
