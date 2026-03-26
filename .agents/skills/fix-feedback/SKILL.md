@@ -2,10 +2,10 @@
 name: fix-feedback
 description: >-
   Triage and fix issues reported via Ghost's /feedback command. MUST READ when the user
-  points you to a feedback folder, mentions a feedback report, or asks you to investigate
-  a bug that happened during a GHOST session. Covers: retrieving feedback from remote
-  servers, reading transcripts and debug request dumps, root-cause categorization, and
-  the fix workflow.
+  points you to a feedback folder, mentions a feedback report, or asks you to
+  investigate a bug that happened during a GHOST session. Covers: retrieving feedback
+  from remote servers, reading transcripts and debug request dumps, root-cause
+  categorization, and the fix workflow.
 ---
 
 # Fix Feedback
@@ -26,11 +26,11 @@ scp -r root@192.168.1.X:~/GHOST/feedback/<folder-name>/ /tmp/ghost-feedback/
 
 Each feedback folder contains:
 
-| File              | Contents                                              |
-| ----------------- | ----------------------------------------------------- |
-| `feedback.md`     | Issue description, session ID, operator comment        |
-| `transcript.md`   | Last 10 messages with tool calls and results           |
-| `ghost.db`        | Full SQLite database snapshot (sessions, messages, knowledge) |
+| File            | Contents                                                      |
+| --------------- | ------------------------------------------------------------- |
+| `feedback.md`   | Issue description, session ID, operator comment               |
+| `transcript.md` | Last 10 messages with tool calls and results                  |
+| `ghost.db`      | Full SQLite database snapshot (sessions, messages, knowledge) |
 
 ## Process
 
@@ -91,8 +91,11 @@ Each JSON file contains:
 ```
 
 **When to check debug dumps:**
-- Empty or nonsensical GHOST responses (check if the API returned an error or empty content)
-- Suspiciously wrong tool calls (check if the request included the right tools/system prompt)
+
+- Empty or nonsensical GHOST responses (check if the API returned an error or empty
+  content)
+- Suspiciously wrong tool calls (check if the request included the right tools/system
+  prompt)
 - Rate limiting or timeout issues (check `status` and `duration_ms`)
 - Model mismatch suspicions (check `model` vs what was configured)
 
