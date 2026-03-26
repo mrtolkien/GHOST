@@ -488,6 +488,29 @@ pub async fn get_session_message_ids(
         })
 }
 
+/// Fetch all message IDs and compacted flags for a session, ordered by creation time.
+///
+/// Like [`get_session_message_ids`] but also returns the `compacted` flag
+/// for each message so the compaction pipeline can skip already-masked messages.
+#[tracing::instrument(skip_all, level = "debug", fields(session_id = %session_id))]
+pub async fn get_session_message_ids_and_compacted(
+    db: &SqlitePool,
+    session_id: &str,
+) -> Result<Vec<(String, bool)>, DatabaseError> {
+    let rows: Vec<(String, bool)> = sqlx::query_as(
+        "SELECT id, compacted FROM message WHERE session_id = ? ORDER BY created_at ASC",
+    )
+    .bind(session_id)
+    .fetch_all(db)
+    .await
+    .map_err(|source| DatabaseError::Query {
+        table: "message",
+        operation: "get_session_message_ids_and_compacted",
+        source,
+    })?;
+    Ok(rows)
+}
+
 #[tracing::instrument(skip_all, level = "debug", fields(session_id = %session_id))]
 pub async fn get_interface_for_session(
     db: &SqlitePool,

@@ -198,13 +198,34 @@ pub fn mask_tool_interactions(
     keep_start: usize,
     preview_chars: usize,
 ) -> Vec<ChatMessage> {
+    let no_compacted = vec![false; messages.len()];
+    mask_tool_interactions_with_compacted(messages, keep_start, preview_chars, &no_compacted)
+}
+
+/// Phase 1 masking that skips already-compacted messages.
+///
+/// Messages where `compacted[i]` is `true` are cloned as-is (their content
+/// was already masked and persisted in a previous compaction run).
+/// Messages at index `>= keep_start` are also cloned as-is (current turn).
+#[tracing::instrument(skip_all, level = "debug", fields(
+    total_messages = messages.len(),
+    keep_start = keep_start,
+    preview_chars = preview_chars,
+))]
+pub fn mask_tool_interactions_with_compacted(
+    messages: &[ChatMessage],
+    keep_start: usize,
+    preview_chars: usize,
+    compacted: &[bool],
+) -> Vec<ChatMessage> {
     let tool_names = build_tool_name_index(messages);
 
     messages
         .iter()
         .enumerate()
         .map(|(i, msg)| {
-            if i >= keep_start {
+            // Already compacted or in the current turn — pass through
+            if i >= keep_start || compacted.get(i).copied().unwrap_or(false) {
                 return msg.clone();
             }
 
@@ -257,6 +278,54 @@ pub fn mask_tool_interactions(
             }
         })
         .collect()
+}
+
+// ---------------------------------------------------------------------------
+// JSON serialization helpers for persisting masked content
+// ---------------------------------------------------------------------------
+
+/// Serialize tool call blocks to JSON string (same format as DB storage).
+fn tool_calls_to_json(content: &[ContentBlock]) -> Option<String> {
+    let calls: Vec<serde_json::Value> = content
+        .iter()
+        .filter_map(|b| match b {
+            ContentBlock::ToolUse { id, name, input } => Some(serde_json::json!({
+                "id": id,
+                "name": name,
+                "input": input,
+            })),
+            _ => None,
+        })
+        .collect();
+    if calls.is_empty() {
+        None
+    } else {
+        Some(serde_json::to_string(&calls).unwrap_or_default())
+    }
+}
+
+/// Serialize tool result blocks to JSON string (same format as DB storage).
+fn tool_results_to_json(content: &[ContentBlock]) -> Option<String> {
+    let results: Vec<serde_json::Value> = content
+        .iter()
+        .filter_map(|b| match b {
+            ContentBlock::ToolResult {
+                tool_use_id,
+                content,
+                is_error,
+            } => Some(serde_json::json!({
+                "tool_use_id": tool_use_id,
+                "content": content,
+                "is_error": is_error,
+            })),
+            _ => None,
+        })
+        .collect();
+    if results.is_empty() {
+        None
+    } else {
+        Some(serde_json::to_string(&results).unwrap_or_default())
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -479,10 +548,17 @@ impl SessionChat {
         session_id: &str,
         history: &mut Vec<ChatMessage>,
         stored_message_ids: &[String],
+        compacted_flags: &[bool],
     ) {
         let compaction = self.compaction_config();
-        self.run_compaction(session_id, history, stored_message_ids, &compaction)
-            .await;
+        self.run_compaction(
+            session_id,
+            history,
+            stored_message_ids,
+            compacted_flags,
+            &compaction,
+        )
+        .await;
     }
 
     /// Compaction for use during tool loops (default config).
@@ -499,9 +575,9 @@ impl SessionChat {
 
     /// Compaction for use during tool loops with an explicit config.
     ///
-    /// Loads stored message IDs from DB and verifies they match the
-    /// in-memory history length. Falls back to Phase 1 masking only
-    /// when IDs don't match (prevents the empty-cursor bug).
+    /// Loads stored message IDs and compacted flags from DB and verifies
+    /// they match the in-memory history length. Falls back to Phase 1
+    /// masking only when IDs don't match (prevents the empty-cursor bug).
     ///
     /// Returns `true` when Phase 2 summarization ran successfully.
     #[tracing::instrument(skip_all, level = "debug", fields(session_id = %session_id))]
@@ -511,33 +587,39 @@ impl SessionChat {
         history: &mut Vec<ChatMessage>,
         compaction: &CompactionConfig,
     ) -> bool {
-        // Load IDs from DB — messages were persisted before this call.
-        let stored_ids = match db::sessions::get_session_message_ids(self.db(), session_id).await {
-            Ok(ids) => ids,
-            Err(e) => {
-                tracing::warn!(error = %e, "Failed to load message IDs for compaction");
-                return false;
-            }
-        };
+        // Load IDs and compacted flags from DB — messages were persisted
+        // before this call.
+        let id_flag_pairs =
+            match db::sessions::get_session_message_ids_and_compacted(self.db(), session_id).await {
+                Ok(pairs) => pairs,
+                Err(e) => {
+                    tracing::warn!(error = %e, "Failed to load message IDs for compaction");
+                    return false;
+                }
+            };
 
-        // Build parallel IDs matching the in-memory history structure.
+        // Build parallel IDs and compacted flags matching the in-memory
+        // history structure.
         let session = match db::sessions::get_session(self.db(), session_id).await {
             Ok(s) => s,
             Err(_) => return false,
         };
 
         let mut parallel_ids = Vec::with_capacity(history.len());
+        let mut compacted_flags = Vec::with_capacity(history.len());
         if session.compaction_summary.is_some() {
             parallel_ids.push(String::new());
+            compacted_flags.push(false);
         }
         let cursor = session.compaction_cursor_id.filter(|c| !c.is_empty());
         let mut include = cursor.is_none();
-        for id in &stored_ids {
+        for (id, compacted) in &id_flag_pairs {
             if !include {
                 include = Some(id.clone()) == cursor;
                 continue;
             }
             parallel_ids.push(id.clone());
+            compacted_flags.push(*compacted);
         }
 
         // Safety check: if IDs don't match history, log and fall back to
@@ -553,15 +635,21 @@ impl SessionChat {
             return false;
         }
 
-        self.run_compaction(session_id, history, &parallel_ids, compaction)
-            .await
+        self.run_compaction(
+            session_id,
+            history,
+            &parallel_ids,
+            &compacted_flags,
+            compaction,
+        )
+        .await
     }
 
     /// Shared compaction logic for both pre-request and tool-loop paths.
     ///
-    /// `stored_message_ids` must be parallel to `history` — one DB message
-    /// ID per provider message. Callers are responsible for providing
-    /// correct IDs.
+    /// `stored_message_ids` and `compacted_flags` must be parallel to
+    /// `history` — one entry per provider message. Callers are responsible
+    /// for providing correct arrays.
     ///
     /// Phase 1 (tool result masking) is tried first. If that isn't enough,
     /// Phase 2 (LLM summarization) kicks in. Provider or empty-summary
@@ -573,6 +661,7 @@ impl SessionChat {
         session_id: &str,
         history: &mut Vec<ChatMessage>,
         stored_message_ids: &[String],
+        compacted_flags: &[bool],
         compaction: &CompactionConfig,
     ) -> bool {
         let context_window = self.model_context_window();
@@ -591,9 +680,14 @@ impl SessionChat {
             "Compaction triggered",
         );
 
-        // Phase 1: mask tool interactions
+        // Phase 1: mask tool interactions (skipping already-compacted messages)
         let keep_start = find_current_turn_start(history);
-        let masked = mask_tool_interactions(history, keep_start, compaction.mask_preview_chars);
+        let masked = mask_tool_interactions_with_compacted(
+            history,
+            keep_start,
+            compaction.mask_preview_chars,
+            compacted_flags,
+        );
         let masked_tokens = estimate_history_tokens(&masked);
 
         tracing::debug!(
@@ -602,6 +696,16 @@ impl SessionChat {
             saved = budget.history_tokens.saturating_sub(masked_tokens) as u64,
             "Phase 1: observation masking complete",
         );
+
+        // Persist newly-masked messages to DB
+        self.persist_masked_messages(
+            &masked,
+            history,
+            keep_start,
+            stored_message_ids,
+            compacted_flags,
+        )
+        .await;
 
         let total_after_mask = budget.system_tokens + budget.tool_tokens + masked_tokens;
         let still_over =
@@ -653,7 +757,7 @@ impl SessionChat {
                 }
 
                 match self.load_provider_history(session_id).await {
-                    Ok((reloaded, _ids)) => *history = reloaded,
+                    Ok((reloaded, _ids, _flags)) => *history = reloaded,
                     Err(e) => {
                         tracing::error!(
                             error = e.to_string(),
@@ -671,6 +775,59 @@ impl SessionChat {
                 );
                 *history = masked;
                 false
+            }
+        }
+    }
+
+    /// Persist Phase 1 masking results to DB for messages that were newly masked.
+    ///
+    /// Skips messages in the current turn (`>= keep_start`), already-compacted
+    /// messages, and messages without tool content.
+    async fn persist_masked_messages(
+        &self,
+        masked: &[ChatMessage],
+        original: &[ChatMessage],
+        keep_start: usize,
+        stored_message_ids: &[String],
+        compacted_flags: &[bool],
+    ) {
+        for (i, (masked_msg, original_msg)) in masked.iter().zip(original.iter()).enumerate() {
+            // Current turn or already persisted — skip
+            if i >= keep_start || compacted_flags.get(i).copied().unwrap_or(false) {
+                continue;
+            }
+
+            let has_tool_content = original_msg.content.iter().any(|b| {
+                matches!(
+                    b,
+                    ContentBlock::ToolUse { .. } | ContentBlock::ToolResult { .. }
+                )
+            });
+            if !has_tool_content {
+                continue;
+            }
+
+            let msg_id = match stored_message_ids.get(i) {
+                Some(id) if !id.is_empty() => id,
+                _ => continue, // Summary pseudo-message or out-of-bounds
+            };
+
+            let masked_tool_calls = tool_calls_to_json(&masked_msg.content);
+            let masked_tool_results = tool_results_to_json(&masked_msg.content);
+
+            if let Err(e) = db::sessions::update_message_compacted(
+                self.db(),
+                msg_id,
+                masked_tool_calls.as_deref(),
+                masked_tool_results.as_deref(),
+            )
+            .await
+            {
+                tracing::warn!(
+                    error = %e,
+                    message_id = msg_id,
+                    "Failed to persist compacted message",
+                );
             }
         }
     }
@@ -1024,5 +1181,119 @@ mod tests {
         let rendered = render_messages_for_summary(&messages, 500);
         assert!(rendered.contains("...(truncated)"));
         assert!(rendered.len() < 1000);
+    }
+
+    // -----------------------------------------------------------------------
+    // Phase 1: compacted flag support
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn mask_skips_already_compacted_messages() {
+        let already_masked = "[tool_result: web_fetch — https://example.com... (truncated)]";
+        let messages = vec![
+            user_text("Hello"),
+            assistant_with_tool("Searching", "tu_1", "web_fetch"),
+            ChatMessage {
+                role: Role::User,
+                content: vec![ContentBlock::ToolResult {
+                    tool_use_id: "tu_1".to_string(),
+                    content: already_masked.to_string(),
+                    is_error: false,
+                }],
+            },
+            user_text("Thanks"),
+        ];
+
+        let compacted_flags = vec![false, false, true, false];
+        let masked =
+            mask_tool_interactions_with_compacted(&messages, 3, 100, &compacted_flags);
+
+        // The already-compacted tool result at index 2 should be passed
+        // through unchanged.
+        if let ContentBlock::ToolResult { content, .. } = &masked[2].content[0] {
+            assert_eq!(content, already_masked);
+        } else {
+            panic!("expected tool result");
+        }
+    }
+
+    #[test]
+    fn mask_with_compacted_still_masks_non_compacted() {
+        let messages = vec![
+            user_text("Hello"),
+            assistant_with_tool("First", "tu_1", "web_search"),
+            tool_result("tu_1", &"a".repeat(500)),
+            assistant_with_tool("Second", "tu_2", "web_fetch"),
+            tool_result("tu_2", &"b".repeat(500)),
+            user_text("Done"),
+        ];
+
+        // Only index 2 (first tool result) is already compacted
+        let compacted_flags = vec![false, false, true, false, false, false];
+        let masked =
+            mask_tool_interactions_with_compacted(&messages, 5, 50, &compacted_flags);
+
+        // Index 2 should be passed through (compacted)
+        if let ContentBlock::ToolResult { content, .. } = &masked[2].content[0] {
+            assert_eq!(content.len(), 500, "compacted message should be unchanged");
+        } else {
+            panic!("expected tool result at index 2");
+        }
+
+        // Index 4 should be masked (not compacted, before keep_start)
+        if let ContentBlock::ToolResult { content, .. } = &masked[4].content[0] {
+            assert!(
+                content.starts_with("[tool_result:"),
+                "non-compacted message should be masked"
+            );
+        } else {
+            panic!("expected tool result at index 4");
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // JSON serialization helpers
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn tool_calls_to_json_roundtrip() {
+        let content = vec![
+            ContentBlock::Text {
+                text: "Let me check".to_string(),
+            },
+            ContentBlock::ToolUse {
+                id: "tu_1".to_string(),
+                name: "shell".to_string(),
+                input: json!({}),
+            },
+        ];
+        let json = tool_calls_to_json(&content).unwrap();
+        let parsed: Vec<serde_json::Value> = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.len(), 1);
+        assert_eq!(parsed[0]["id"], "tu_1");
+        assert_eq!(parsed[0]["name"], "shell");
+    }
+
+    #[test]
+    fn tool_results_to_json_roundtrip() {
+        let content = vec![ContentBlock::ToolResult {
+            tool_use_id: "tu_1".to_string(),
+            content: "ok".to_string(),
+            is_error: false,
+        }];
+        let json = tool_results_to_json(&content).unwrap();
+        let parsed: Vec<serde_json::Value> = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.len(), 1);
+        assert_eq!(parsed[0]["tool_use_id"], "tu_1");
+        assert_eq!(parsed[0]["content"], "ok");
+    }
+
+    #[test]
+    fn tool_calls_to_json_returns_none_for_no_tool_content() {
+        let content = vec![ContentBlock::Text {
+            text: "Hello".to_string(),
+        }];
+        assert!(tool_calls_to_json(&content).is_none());
+        assert!(tool_results_to_json(&content).is_none());
     }
 }

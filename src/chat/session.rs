@@ -223,8 +223,9 @@ impl SessionChat {
         )
         .await?;
 
-        let (mut history, stored_ids) = self.load_provider_history(&session_thing).await?;
-        self.compact_if_needed(&session_thing, &mut history, &stored_ids)
+        let (mut history, stored_ids, compacted_flags) =
+            self.load_provider_history(&session_thing).await?;
+        self.compact_if_needed(&session_thing, &mut history, &stored_ids, &compacted_flags)
             .await;
 
         let model = self.default_model_name()?;
@@ -286,8 +287,9 @@ impl SessionChat {
             }
         }
 
-        let (mut history, stored_ids) = self.load_provider_history(&session_thing).await?;
-        self.compact_if_needed(&session_thing, &mut history, &stored_ids)
+        let (mut history, stored_ids, compacted_flags) =
+            self.load_provider_history(&session_thing).await?;
+        self.compact_if_needed(&session_thing, &mut history, &stored_ids, &compacted_flags)
             .await;
 
         let model = self.default_model_name()?;
@@ -350,8 +352,9 @@ impl SessionChat {
 
         db::sessions::create_message(&self.db, &session_thing, "user", user_message).await?;
 
-        let (mut history, stored_ids) = self.load_provider_history(&session_thing).await?;
-        self.compact_if_needed(&session_thing, &mut history, &stored_ids)
+        let (mut history, stored_ids, compacted_flags) =
+            self.load_provider_history(&session_thing).await?;
+        self.compact_if_needed(&session_thing, &mut history, &stored_ids, &compacted_flags)
             .await;
 
         let model = self.default_model_name()?;
@@ -394,21 +397,26 @@ impl SessionChat {
         Ok(new_session)
     }
 
-    /// Load provider history, returning `(messages, stored_message_ids)`.
+    /// Load provider history, returning `(messages, stored_message_ids, compacted_flags)`.
     ///
     /// `stored_message_ids` is parallel to the returned messages (one DB
     /// message ID per provider message). The summary pseudo-message (if any)
-    /// gets an empty string as its ID.
+    /// gets an empty string as its ID and `compacted: false`.
+    ///
+    /// `compacted_flags` is parallel to the returned messages — `true` for
+    /// messages that were already compacted in a previous run.
     #[tracing::instrument(skip_all, level = "debug", fields(session_id = ?session_id))]
+    #[allow(clippy::type_complexity)]
     pub(super) async fn load_provider_history(
         &self,
         session_id: &str,
-    ) -> Result<(Vec<ChatMessage>, Vec<String>), ChatError> {
+    ) -> Result<(Vec<ChatMessage>, Vec<String>, Vec<bool>), ChatError> {
         let session = db::sessions::get_session(&self.db, session_id).await?;
         let all_messages = db::sessions::list_messages_by_session(&self.db, session_id).await?;
 
         let mut messages = Vec::new();
         let mut ids = Vec::new();
+        let mut compacted_flags = Vec::new();
 
         if let Some(summary) = session.compaction_summary
             && !summary.trim().is_empty()
@@ -418,6 +426,7 @@ impl SessionChat {
                 content: vec![ContentBlock::Text { text: summary }],
             });
             ids.push(String::new());
+            compacted_flags.push(false);
         }
 
         // Collect cursor-filtered records before conversion so we can
@@ -438,13 +447,15 @@ impl SessionChat {
 
         for msg in filtered {
             let msg_id = msg.id.clone();
+            let is_compacted = msg.compacted;
             messages.push(convert_stored_message_to_provider_message(msg));
             ids.push(msg_id);
+            compacted_flags.push(is_compacted);
         }
 
         relocate_system_messages_between_tool_pairs(&mut messages);
 
-        Ok((messages, ids))
+        Ok((messages, ids, compacted_flags))
     }
 
     /// Find assistant messages whose tool calls lack corresponding tool
