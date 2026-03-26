@@ -10,23 +10,35 @@ search:
     - json
   default_lang: "en"
 
+outgoing:
+  request_timeout: 5.0
+  max_request_timeout: 15.0
+
+# With use_default_settings, all engines are loaded from upstream defaults.
+# We only override `disabled` to curate which ones are active.
+# As of March 2026, DDG/Startpage are aggressively blocking SearXNG.
+# Google is intermittent but worth keeping — it auto-suspends on CAPTCHA.
 engines:
-  - name: google
-    engine: google
-    shortcut: g
-    disabled: false
-
-  - name: bing
-    engine: bing
-    shortcut: b
-    disabled: false
-
+  # --- Disabled: persistently blocked ---
   - name: duckduckgo
-    engine: duckduckgo
-    shortcut: ddg
-    disabled: false
+    disabled: true
+  - name: startpage
+    disabled: true
 
+  # --- Enabled: reliable or intermittently useful ---
+  - name: google
+    disabled: false
+  - name: bing
+    disabled: false
+  - name: brave
+    disabled: false
+  - name: qwant
+    disabled: false
   - name: wikipedia
-    engine: wikipedia
-    shortcut: wp
+    disabled: false
+  - name: wikidata
+    disabled: false
+  - name: presearch
+    disabled: false
+  - name: mwmbl
     disabled: false
