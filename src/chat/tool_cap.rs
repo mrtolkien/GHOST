@@ -6,19 +6,19 @@ pub(super) struct CappedToolResult {
     pub full_content: String,
 }
 
-/// Check if a tool result exceeds the character limit. Returns `None` if the
-/// content fits within `max_chars`, or a `CappedToolResult` with a head+tail
+/// Check if a tool result exceeds the byte limit. Returns `None` if the
+/// content fits within `max_bytes`, or a `CappedToolResult` with a head+tail
 /// preview and the full content for overflow storage.
 ///
 /// The preview contains a `{path}` placeholder that the caller must replace
 /// with the actual overflow file path before storing.
-pub(super) fn cap_tool_result(content: &str, max_chars: usize) -> Option<CappedToolResult> {
-    if content.len() <= max_chars {
+pub(super) fn cap_tool_result(content: &str, max_bytes: usize) -> Option<CappedToolResult> {
+    if content.len() <= max_bytes {
         return None;
     }
 
-    let head_budget = max_chars * 7 / 10; // 70%
-    let tail_budget = max_chars - head_budget; // 30%
+    let head_budget = max_bytes * 7 / 10; // 70%
+    let tail_budget = max_bytes - head_budget; // 30%
 
     let head_end = safe_truncate(content, head_budget);
     let tail_start = safe_truncate_back(content, tail_budget);
