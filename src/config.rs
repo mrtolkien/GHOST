@@ -281,6 +281,7 @@ pub struct CodingSettings {
 #[serde(deny_unknown_fields)]
 pub struct DebugSettings {
     pub save_requests: Option<bool>,
+    pub max_saved_requests: Option<usize>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -383,6 +384,8 @@ pub struct CodingConfig {
 #[derive(Debug, Clone, Serialize)]
 pub struct DebugConfig {
     pub save_requests: bool,
+    /// Max debug request files to keep. Defaults to 500.
+    pub max_saved_requests: usize,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize, Serialize)]
@@ -654,6 +657,11 @@ impl Config {
                     .as_ref()
                     .and_then(|d| d.save_requests)
                     .unwrap_or(false),
+                max_saved_requests: settings
+                    .debug
+                    .as_ref()
+                    .and_then(|d| d.max_saved_requests)
+                    .unwrap_or(500),
             },
             install_bundled_docs: true,
         })
@@ -906,6 +914,7 @@ pub fn test_config(workspace: &std::path::Path) -> Config {
         coding: CodingConfig { model: None },
         debug: DebugConfig {
             save_requests: false,
+            max_saved_requests: 500,
         },
         install_bundled_docs: false,
     }

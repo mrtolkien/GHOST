@@ -14,6 +14,7 @@ pub struct DebugRequestData<'a> {
     pub status: u16,
     pub duration_ms: u64,
     pub debug_context: Option<&'a DebugContext>,
+    pub max_saved_requests: usize,
 }
 
 pub fn save_debug_request(data: &DebugRequestData<'_>) {
@@ -70,5 +71,40 @@ pub fn save_debug_request(data: &DebugRequestData<'_>) {
             error = error.to_string(),
             "failed to write debug request file",
         );
+    }
+
+    if data.max_saved_requests > 0 {
+        prune_old_requests(data.dir, data.max_saved_requests);
+    }
+}
+
+fn prune_old_requests(dir: &Path, max: usize) {
+    let entries = match std::fs::read_dir(dir) {
+        Ok(entries) => entries,
+        Err(_) => return,
+    };
+
+    let mut files: Vec<_> = entries
+        .filter_map(|e| e.ok())
+        .filter(|e| e.path().extension().is_some_and(|ext| ext == "json"))
+        .map(|e| e.path())
+        .collect();
+
+    if files.len() <= max {
+        return;
+    }
+
+    // Filenames are timestamp-prefixed, so alphabetical sort = chronological order.
+    files.sort();
+
+    let to_remove = files.len() - max;
+    for path in &files[..to_remove] {
+        if let Err(error) = std::fs::remove_file(path) {
+            tracing::warn!(
+                path = path.display().to_string(),
+                error = error.to_string(),
+                "failed to prune debug request file",
+            );
+        }
     }
 }

@@ -27,6 +27,7 @@ pub struct OpenAiOAuthProvider {
     static_headers: HeaderMap,
     debug_save_requests: bool,
     debug_dir: Option<PathBuf>,
+    debug_max_saved: usize,
 }
 
 impl OpenAiOAuthProvider {
@@ -66,14 +67,16 @@ impl OpenAiOAuthProvider {
             static_headers,
             debug_save_requests: false,
             debug_dir: None,
+            debug_max_saved: 0,
         })
     }
 
-    pub fn set_debug(&mut self, save: bool, workspace: &std::path::Path) {
+    pub fn set_debug(&mut self, save: bool, workspace: &std::path::Path, max_saved: usize) {
         self.debug_save_requests = save;
         if save {
             self.debug_dir = Some(workspace.join("debug/requests"));
         }
+        self.debug_max_saved = max_saved;
     }
 
     #[tracing::instrument(
@@ -192,6 +195,7 @@ impl OpenAiOAuthProvider {
                     status: status.as_u16(),
                     duration_ms,
                     debug_context: request.debug_context.as_ref(),
+                    max_saved_requests: self.debug_max_saved,
                 },
             );
         }

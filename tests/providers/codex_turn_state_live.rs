@@ -78,7 +78,7 @@ async fn codex_turn_state_cache() {
     let temp = tempfile::tempdir().unwrap();
     let mut provider = ghost::providers::OpenAiOAuthProvider::new(BTreeMap::new())
         .expect("OpenAI OAuth provider initialization");
-    provider.set_debug(true, temp.path());
+    provider.set_debug(true, temp.path(), 0);
 
     let system = large_system_prompt();
     let model =

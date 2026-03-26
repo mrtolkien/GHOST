@@ -345,7 +345,11 @@ pub fn provider_for_alias(
     alias: Option<&str>,
 ) -> Result<Arc<dyn Provider>, ProviderInitError> {
     let (_alias, model) = model_from_alias(config, alias)?;
-    let debug = (config.debug.save_requests, config.workspace.as_path());
+    let debug = (
+        config.debug.save_requests,
+        config.workspace.as_path(),
+        config.debug.max_saved_requests,
+    );
 
     match model.provider {
         ProviderKind::OpenRouter => {
@@ -353,23 +357,23 @@ pub fn provider_for_alias(
                 model.headers.clone(),
                 model.provider_routing.clone(),
             )?;
-            p.set_debug(debug.0, debug.1);
+            p.set_debug(debug.0, debug.1, debug.2);
             Ok(Arc::new(p))
         }
         ProviderKind::Kimi => {
             let mut p = crate::providers::kimi_code::KimiCodeProvider::new(model.headers.clone())?;
-            p.set_debug(debug.0, debug.1);
+            p.set_debug(debug.0, debug.1, debug.2);
             Ok(Arc::new(p))
         }
         ProviderKind::OpenAiOAuth => {
             let mut p =
                 crate::providers::openai_oauth::OpenAiOAuthProvider::new(model.headers.clone())?;
-            p.set_debug(debug.0, debug.1);
+            p.set_debug(debug.0, debug.1, debug.2);
             Ok(Arc::new(p))
         }
         ProviderKind::Anthropic => {
             let mut p = crate::providers::anthropic::AnthropicProvider::new(model.headers.clone())?;
-            p.set_debug(debug.0, debug.1);
+            p.set_debug(debug.0, debug.1, debug.2);
             Ok(Arc::new(p))
         }
     }

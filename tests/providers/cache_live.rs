@@ -81,7 +81,7 @@ async fn openrouter_cache_validation() {
     let temp = tempfile::tempdir().unwrap();
     let mut provider =
         OpenRouterProvider::new(BTreeMap::new(), None).expect("OPENROUTER_API_KEY must be set");
-    provider.set_debug(true, temp.path());
+    provider.set_debug(true, temp.path(), 0);
 
     let system = large_system_prompt();
     let model = "moonshotai/kimi-k2.5";
@@ -141,7 +141,7 @@ async fn kimi_code_cache_validation() {
     let temp = tempfile::tempdir().unwrap();
     let mut provider =
         ghost::providers::KimiCodeProvider::new(BTreeMap::new()).expect("KIMI_API_KEY must be set");
-    provider.set_debug(true, temp.path());
+    provider.set_debug(true, temp.path(), 0);
 
     let system = large_system_prompt();
     let model = "kimi-k2.5";
@@ -190,7 +190,7 @@ async fn openai_oauth_cache_validation() {
     let temp = tempfile::tempdir().unwrap();
     let mut provider = ghost::providers::OpenAiOAuthProvider::new(BTreeMap::new())
         .expect("OpenAI OAuth provider initialization");
-    provider.set_debug(true, temp.path());
+    provider.set_debug(true, temp.path(), 0);
 
     let system = large_system_prompt();
     let model =
