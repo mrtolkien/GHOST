@@ -28,6 +28,7 @@ pub struct MessageRecord {
     pub raw_output: Option<String>,   // JSON
     pub images: Option<String>,       // JSON
     pub created_at: String,
+    pub compacted: bool,
 }
 
 impl MessageRecord {
@@ -166,6 +167,31 @@ pub async fn update_compaction(
     .map_err(|source| DatabaseError::Query {
         table: "session",
         operation: "update_compaction",
+        source,
+    })?;
+    Ok(())
+}
+
+/// Mark a message as compacted, replacing its tool_calls and tool_results
+/// with the masked versions.
+#[tracing::instrument(skip_all, level = "debug", fields(message_id = %message_id))]
+pub async fn update_message_compacted(
+    db: &SqlitePool,
+    message_id: &str,
+    tool_calls: Option<&str>,
+    tool_results: Option<&str>,
+) -> Result<(), DatabaseError> {
+    sqlx::query(
+        "UPDATE message SET tool_calls = ?, tool_results = ?, compacted = 1 WHERE id = ?",
+    )
+    .bind(tool_calls)
+    .bind(tool_results)
+    .bind(message_id)
+    .execute(db)
+    .await
+    .map_err(|source| DatabaseError::Query {
+        table: "message",
+        operation: "update_message_compacted",
         source,
     })?;
     Ok(())
