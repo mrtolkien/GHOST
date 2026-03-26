@@ -1,3 +1,7 @@
+use std::path::Path;
+
+use crate::providers::ContentBlock;
+
 /// Result of capping a tool result that exceeded the limit.
 pub(super) struct CappedToolResult {
     /// Head+tail preview with a `{path}` placeholder for the overflow file path.
@@ -33,6 +37,67 @@ pub(super) fn cap_tool_result(content: &str, max_bytes: usize) -> Option<CappedT
         preview,
         full_content: content.to_string(),
     })
+}
+
+/// Write the full content to an overflow file and return the preview with the
+/// path filled in. The file is named `{tool_use_id}.txt` under the
+/// `.tool-overflow/` workspace directory.
+pub(super) async fn write_overflow_file(
+    workspace: &Path,
+    message_id: &str,
+    capped: CappedToolResult,
+) -> String {
+    let overflow_dir = workspace.join(".tool-overflow");
+    let filename = format!("{message_id}.txt");
+    let file_path = overflow_dir.join(&filename);
+
+    match tokio::fs::write(&file_path, &capped.full_content).await {
+        Ok(()) => capped
+            .preview
+            .replace("{path}", &format!(".tool-overflow/{filename}")),
+        Err(e) => {
+            tracing::warn!(
+                error = %e,
+                path = %file_path.display(),
+                "Failed to write tool overflow file — storing uncapped",
+            );
+            capped.full_content
+        }
+    }
+}
+
+/// Cap any oversized tool result text in the content blocks. Writes overflow
+/// files for results that exceed the limit. Returns the (possibly modified)
+/// blocks.
+pub(super) async fn cap_content_blocks(
+    blocks: Vec<ContentBlock>,
+    workspace: &Path,
+    max_bytes: usize,
+) -> Vec<ContentBlock> {
+    let mut result = Vec::with_capacity(blocks.len());
+    for block in blocks {
+        match block {
+            ContentBlock::ToolResult {
+                tool_use_id,
+                content,
+                is_error,
+            } => {
+                let content = match cap_tool_result(&content, max_bytes) {
+                    Some(capped) => {
+                        write_overflow_file(workspace, &tool_use_id, capped).await
+                    }
+                    None => content,
+                };
+                result.push(ContentBlock::ToolResult {
+                    tool_use_id,
+                    content,
+                    is_error,
+                });
+            }
+            other => result.push(other),
+        }
+    }
+    result
 }
 
 /// Find the largest byte index <= `max_bytes` that is a valid char boundary.

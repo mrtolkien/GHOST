@@ -219,6 +219,10 @@ pub struct CompactionSettings {
     pub mask_preview_chars: Option<usize>,
     /// Extra instructions appended to the compaction prompt.
     pub instructions: Option<String>,
+    /// Maximum byte size of a stored tool result. Results exceeding this are
+    /// truncated to a head+tail preview with the full output saved to
+    /// `.tool-overflow/{id}.txt` in the workspace.
+    pub max_tool_result_bytes: Option<usize>,
 }
 
 /// A browser definition in config.toml.
@@ -354,6 +358,8 @@ pub struct CompactionConfig {
     /// Extra instructions appended to the compaction prompt.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub instructions: Option<String>,
+    /// Maximum byte size of a stored tool result (default: 30 000 ≈ 7.5K tokens).
+    pub max_tool_result_bytes: usize,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -564,6 +570,11 @@ impl Config {
                     .compaction
                     .as_ref()
                     .and_then(|c| c.instructions.clone()),
+                max_tool_result_bytes: settings
+                    .compaction
+                    .as_ref()
+                    .and_then(|c| c.max_tool_result_bytes)
+                    .unwrap_or(30_000),
             },
             web: {
                 let crawl4ai_url = settings
@@ -900,6 +911,7 @@ pub fn test_config(workspace: &std::path::Path) -> Config {
             threshold: 0.90,
             mask_preview_chars: 100,
             instructions: None,
+            max_tool_result_bytes: 30_000,
         },
         web: WebConfig {
             search_max_results: 5,

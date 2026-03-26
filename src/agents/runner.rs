@@ -1122,6 +1122,7 @@ fn build_agent_compaction_config(
         threshold: 0.90,
         mask_preview_chars: 100,
         instructions: global.instructions.clone(),
+        max_tool_result_bytes: global.max_tool_result_bytes,
     };
 
     if let Some(o) = overrides {
@@ -1175,6 +1176,7 @@ mod tests {
             threshold: 0.90,
             mask_preview_chars: 100,
             instructions: None,
+            max_tool_result_bytes: 30_000,
         }
     }
 

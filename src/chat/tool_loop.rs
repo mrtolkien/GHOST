@@ -4,6 +4,7 @@ use async_trait::async_trait;
 use serde_json::Value;
 
 use super::interrupt::InterruptReceiver;
+use super::tool_cap;
 use crate::chat::compaction;
 use crate::chat::interrupt::Interrupt;
 use crate::providers::types::{DebugContext, ProviderError, ReasoningEffort};
@@ -352,6 +353,15 @@ pub(super) async fn run_tool_loop(
                         channel_id.as_deref(),
                     )
                     .await;
+
+                // Cap oversized tool results before storage
+                let tool_results = tool_cap::cap_content_blocks(
+                    tool_results,
+                    &config.workspace,
+                    config.compaction.max_tool_result_bytes,
+                )
+                .await;
+
                 handler.on_tool_results(&tool_results).await?;
 
                 // Emit tool result event for UI editing.
