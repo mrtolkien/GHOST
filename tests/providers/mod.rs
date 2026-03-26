@@ -18,6 +18,8 @@ mod onboarding_validation_live;
 #[cfg(feature = "live-tests-llms")]
 mod openai_oauth_live;
 #[cfg(feature = "live-tests-llms")]
+mod out_of_sync_live;
+#[cfg(feature = "live-tests-llms")]
 mod reasoning_live;
 #[cfg(feature = "live-tests-llms")]
 mod tool_use_live;

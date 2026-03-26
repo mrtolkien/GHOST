@@ -283,6 +283,9 @@ pub enum CompactionError {
 
     #[error("LLM returned an empty summary")]
     EmptySummary,
+
+    #[error("cursor mismatch: split={split} but stored_message_ids has {ids_len} entries")]
+    CursorMismatch { split: usize, ids_len: usize },
 }
 
 impl From<crate::db::DatabaseError> for CompactionError {
@@ -436,10 +439,15 @@ pub async fn summarize_older_messages(
         return Err(CompactionError::EmptySummary);
     }
 
+    let cursor_idx = split.saturating_sub(1);
     let cursor_id = stored_message_ids
-        .get(split.saturating_sub(1))
+        .get(cursor_idx)
+        .filter(|id| !id.is_empty())
         .cloned()
-        .unwrap_or_default();
+        .ok_or(CompactionError::CursorMismatch {
+            split,
+            ids_len: stored_message_ids.len(),
+        })?;
 
     tracing::debug!(
         compacted_count = to_summarize.len() as u64,
@@ -463,9 +471,8 @@ use super::session::SessionChat;
 impl SessionChat {
     /// Check token budget and run compaction if needed.
     ///
-    /// Phase 1 (tool result masking) is tried first. If that isn't enough,
-    /// Phase 2 (LLM summarization) kicks in. Provider or empty-summary errors
-    /// are logged and gracefully degraded — they never fail the chat.
+    /// Called at the start of a chat turn with pre-loaded IDs that are
+    /// guaranteed parallel to `history`.
     #[tracing::instrument(skip_all, level = "debug", fields(session_id = ?session_id))]
     pub(super) async fn compact_if_needed(
         &self,
@@ -473,34 +480,108 @@ impl SessionChat {
         history: &mut Vec<ChatMessage>,
         stored_message_ids: &[String],
     ) {
-        let model_name = match self.default_model_name() {
-            Ok(m) => m,
-            Err(_) => return,
+        let compaction = self.compaction_config();
+        self.run_compaction(session_id, history, stored_message_ids, &compaction)
+            .await;
+    }
+
+    /// Compaction for use during tool loops (default config).
+    #[tracing::instrument(skip_all, level = "debug", fields(session_id = %session_id))]
+    pub(super) async fn compact_in_tool_loop(
+        &self,
+        session_id: &str,
+        history: &mut Vec<ChatMessage>,
+    ) -> bool {
+        let compaction = self.compaction_config();
+        self.compact_in_tool_loop_with_config(session_id, history, &compaction)
+            .await
+    }
+
+    /// Compaction for use during tool loops with an explicit config.
+    ///
+    /// Loads stored message IDs from DB and verifies they match the
+    /// in-memory history length. Falls back to Phase 1 masking only
+    /// when IDs don't match (prevents the empty-cursor bug).
+    ///
+    /// Returns `true` when Phase 2 summarization ran successfully.
+    #[tracing::instrument(skip_all, level = "debug", fields(session_id = %session_id))]
+    pub(super) async fn compact_in_tool_loop_with_config(
+        &self,
+        session_id: &str,
+        history: &mut Vec<ChatMessage>,
+        compaction: &CompactionConfig,
+    ) -> bool {
+        // Load IDs from DB — messages were persisted before this call.
+        let stored_ids = match db::sessions::get_session_message_ids(self.db(), session_id).await {
+            Ok(ids) => ids,
+            Err(e) => {
+                tracing::warn!(error = %e, "Failed to load message IDs for compaction");
+                return false;
+            }
         };
 
-        let config = self.config();
-        let alias = &config.models.default;
-        let context_window = config
-            .models
-            .aliases
-            .get(alias)
-            .map(|m| m.context_window as usize)
-            .unwrap_or(200_000);
+        // Build parallel IDs matching the in-memory history structure.
+        let session = match db::sessions::get_session(self.db(), session_id).await {
+            Ok(s) => s,
+            Err(_) => return false,
+        };
 
-        let compaction = self.compaction_config();
+        let mut parallel_ids = Vec::with_capacity(history.len());
+        if session.compaction_summary.is_some() {
+            parallel_ids.push(String::new());
+        }
+        let cursor = session.compaction_cursor_id.filter(|c| !c.is_empty());
+        let mut include = cursor.is_none();
+        for id in &stored_ids {
+            if !include {
+                include = Some(id.clone()) == cursor;
+                continue;
+            }
+            parallel_ids.push(id.clone());
+        }
+
+        // Safety check: if IDs don't match history, log and fall back to
+        // Phase 1 masking only — never attempt Phase 2 with mismatched IDs.
+        if parallel_ids.len() != history.len() {
+            tracing::error!(
+                history_len = history.len(),
+                ids_len = parallel_ids.len(),
+                "compaction ID mismatch — falling back to Phase 1 masking only",
+            );
+            let keep_start = find_current_turn_start(history);
+            *history = mask_tool_interactions(history, keep_start, compaction.mask_preview_chars);
+            return false;
+        }
+
+        self.run_compaction(session_id, history, &parallel_ids, compaction)
+            .await
+    }
+
+    /// Shared compaction logic for both pre-request and tool-loop paths.
+    ///
+    /// `stored_message_ids` must be parallel to `history` — one DB message
+    /// ID per provider message. Callers are responsible for providing
+    /// correct IDs.
+    ///
+    /// Phase 1 (tool result masking) is tried first. If that isn't enough,
+    /// Phase 2 (LLM summarization) kicks in. Provider or empty-summary
+    /// errors are logged and gracefully degraded — they never fail the chat.
+    ///
+    /// Returns `true` when Phase 2 ran successfully.
+    async fn run_compaction(
+        &self,
+        session_id: &str,
+        history: &mut Vec<ChatMessage>,
+        stored_message_ids: &[String],
+        compaction: &CompactionConfig,
+    ) -> bool {
+        let context_window = self.model_context_window();
         let tools = self.tool_manager().all_tool_schemas();
-        let system_prompt = String::new(); // conservative: ignore system tokens
 
-        let budget = compute_budget(
-            context_window,
-            &system_prompt,
-            &tools,
-            history,
-            compaction.threshold,
-        );
+        let budget = compute_budget(context_window, "", &tools, history, compaction.threshold);
 
         if !budget.needs_compaction {
-            return;
+            return false;
         }
 
         tracing::info!(
@@ -528,129 +609,11 @@ impl SessionChat {
 
         if !still_over {
             *history = masked;
-            return;
+            return false;
         }
 
         // Phase 2: LLM summarization
         tracing::info!("Masking insufficient — proceeding to Phase 2");
-
-        let cache_key = session_id.to_string();
-        match summarize_older_messages(
-            self.provider(),
-            &model_name,
-            &cache_key,
-            &masked,
-            stored_message_ids,
-            &compaction,
-            compaction.instructions.as_deref(),
-        )
-        .await
-        {
-            Ok(result) => {
-                if let Err(e) = db::sessions::update_compaction(
-                    self.db(),
-                    session_id,
-                    &result.summary,
-                    &result.cursor_message_id,
-                )
-                .await
-                {
-                    tracing::error!(
-                        error = e.to_string(),
-                        "Failed to persist compaction summary",
-                    );
-                    *history = masked;
-                    return;
-                }
-
-                // Reload history from DB to reflect compaction
-                match self.load_provider_history(session_id).await {
-                    Ok((reloaded, _ids)) => *history = reloaded,
-                    Err(e) => {
-                        tracing::error!(
-                            error = e.to_string(),
-                            "Failed to reload history after compaction",
-                        );
-                        *history = masked;
-                    }
-                }
-            }
-            Err(e) => {
-                tracing::warn!(
-                    error = e.to_string(),
-                    "Phase 2 summarization failed — using masked history",
-                );
-                *history = masked;
-            }
-        }
-    }
-
-    /// Full compaction (Phase 1 + Phase 2) for use during tool loops.
-    ///
-    /// Unlike `compact_if_needed` (called once per chat turn with pre-loaded
-    /// IDs), this loads stored message IDs from DB on demand when Phase 2 is
-    /// needed.
-    #[tracing::instrument(skip_all, level = "debug", fields(session_id = %session_id))]
-    pub(super) async fn compact_in_tool_loop(
-        &self,
-        session_id: &str,
-        history: &mut Vec<ChatMessage>,
-    ) -> bool {
-        let compaction = self.compaction_config();
-        self.compact_in_tool_loop_with_config(session_id, history, &compaction)
-            .await
-    }
-
-    /// Like `compact_in_tool_loop` but with an explicit compaction config.
-    ///
-    /// Returns `true` when Phase 2 summarization ran successfully, `false`
-    /// in all other cases.
-    #[tracing::instrument(skip_all, level = "debug", fields(session_id = %session_id))]
-    pub(super) async fn compact_in_tool_loop_with_config(
-        &self,
-        session_id: &str,
-        history: &mut Vec<ChatMessage>,
-        compaction: &CompactionConfig,
-    ) -> bool {
-        let context_window = self.model_context_window();
-        let tools = self.tool_manager().all_tool_schemas();
-
-        let budget = compute_budget(context_window, "", &tools, history, compaction.threshold);
-
-        if !budget.needs_compaction {
-            return false;
-        }
-
-        tracing::info!(
-            total = budget.total_estimated as u64,
-            window = budget.context_window as u64,
-            history = budget.history_tokens as u64,
-            "Compaction triggered (tool loop)",
-        );
-
-        // Phase 1: mask tool interactions
-        let keep_start = find_current_turn_start(history);
-        let masked = mask_tool_interactions(history, keep_start, compaction.mask_preview_chars);
-        let masked_tokens = estimate_history_tokens(&masked);
-
-        tracing::debug!(
-            before = budget.history_tokens as u64,
-            after = masked_tokens as u64,
-            saved = budget.history_tokens.saturating_sub(masked_tokens) as u64,
-            "Phase 1 (tool loop): observation masking complete",
-        );
-
-        let total_after_mask = budget.system_tokens + budget.tool_tokens + masked_tokens;
-        let still_over =
-            total_after_mask as f64 > (budget.context_window as f64 * compaction.threshold);
-
-        if !still_over {
-            *history = masked;
-            return false;
-        }
-
-        // Phase 2: LLM summarization
-        tracing::info!("Masking insufficient (tool loop) — proceeding to Phase 2");
 
         let model_name = match self.default_model_name() {
             Ok(m) => m,
@@ -660,52 +623,13 @@ impl SessionChat {
             }
         };
 
-        // Load stored message IDs on demand
-        let stored_ids = match db::sessions::get_session_message_ids(self.db(), session_id).await {
-            Ok(ids) => ids,
-            Err(e) => {
-                tracing::warn!(
-                    error = e.to_string(),
-                    "Failed to load message IDs for Phase 2 — using masked history",
-                );
-                *history = masked;
-                return false;
-            }
-        };
-
-        // Build a parallel stored_message_ids vector matching the current
-        // history. The summary pseudo-message (if any) gets an empty string;
-        // remaining entries map to the DB IDs in order.
-        let session = match db::sessions::get_session(self.db(), session_id).await {
-            Ok(s) => s,
-            Err(_) => {
-                *history = masked;
-                return false;
-            }
-        };
-
-        let mut parallel_ids = Vec::with_capacity(masked.len());
-        if session.compaction_summary.is_some() {
-            parallel_ids.push(String::new()); // summary pseudo-message
-        }
-        // The remaining history entries correspond to post-cursor messages
-        let cursor = &session.compaction_cursor_id;
-        let mut include = cursor.is_none();
-        for id in &stored_ids {
-            if !include {
-                include = Some(id.clone()) == *cursor;
-                continue;
-            }
-            parallel_ids.push(id.clone());
-        }
-
         let cache_key = session_id.to_string();
         match summarize_older_messages(
             self.provider(),
             &model_name,
             &cache_key,
             &masked,
-            &parallel_ids,
+            stored_message_ids,
             compaction,
             compaction.instructions.as_deref(),
         )
@@ -743,7 +667,7 @@ impl SessionChat {
             Err(e) => {
                 tracing::warn!(
                     error = e.to_string(),
-                    "Phase 2 summarization failed (tool loop) — using masked history",
+                    "Phase 2 summarization failed — using masked history",
                 );
                 *history = masked;
                 false

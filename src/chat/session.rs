@@ -422,7 +422,7 @@ impl SessionChat {
 
         // Collect cursor-filtered records before conversion so we can
         // repair orphaned tool calls at the DB level first.
-        let cursor = session.compaction_cursor_id;
+        let cursor = session.compaction_cursor_id.filter(|c| !c.is_empty());
         let mut include = cursor.is_none();
         let mut filtered: Vec<db::sessions::MessageRecord> = Vec::new();
         for msg in all_messages {
