@@ -1,6 +1,9 @@
 - Discord interactions are randomly failing, but I don't understand why/how
 - forbid file edit without a read like Claude?
 - .cache sometimes does not end up empty
+- [ ] References import topics are messy af
+- [ ] Review docs bundling: my GHOST (192.168.1.3) re-imported them as a reference. How
+      come?
 
 ---
 
