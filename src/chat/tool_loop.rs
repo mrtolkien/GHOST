@@ -1,5 +1,3 @@
-use std::time::Duration;
-
 use async_trait::async_trait;
 use serde_json::Value;
 
@@ -19,12 +17,11 @@ use super::types::{
     ChatError, ChatResult, ChatStopReason, EventSender, RunMetadata, ToolCallInfo, ToolLoopEvent,
     ToolResultInfo,
 };
+use crate::constants::PROVIDER_REQUEST_TIMEOUT;
 use crate::tools::display;
 
-/// Per-request timeout for provider API calls. Providers can hang indefinitely
-/// (observed in live tests). This wraps each `Provider::chat()` call.
-/// On timeout, the request is retried once before propagating the error.
-const PROVIDER_REQUEST_TIMEOUT: Duration = Duration::from_secs(180);
+/// Delay before retrying a failed provider request.
+const RETRY_DELAY: std::time::Duration = std::time::Duration::from_secs(2);
 
 /// Handler for tool loop events.
 ///
@@ -206,7 +203,7 @@ pub(super) async fn run_tool_loop(
                     iteration = iterations as u64,
                     "provider returned server error, retrying once",
                 );
-                tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+                tokio::time::sleep(RETRY_DELAY).await;
                 match tokio::time::timeout(
                     PROVIDER_REQUEST_TIMEOUT,
                     session_chat.provider().chat(request),

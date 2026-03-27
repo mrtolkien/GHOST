@@ -14,6 +14,9 @@ use crate::embeddings::EmbeddingClient;
 use crate::embeddings::pipeline::{EmbedReason, EmbedRequest, PipelineError};
 use crate::knowledge;
 
+const WATCHER_CHANNEL_BUFFER: usize = 256;
+const DEBOUNCE_INTERVAL: Duration = Duration::from_millis(500);
+
 /// Spawn the file watcher. Returns a `JoinHandle` that runs until the
 /// shutdown signal is received.
 #[tracing::instrument(name = "start watcher", skip_all)]
@@ -28,7 +31,7 @@ pub fn spawn_watcher(
         let workspace = cfg.workspace.clone();
         let client = EmbeddingClient::new(&cfg.embeddings);
 
-        let (tx, mut rx) = mpsc::channel::<PathBuf>(256);
+        let (tx, mut rx) = mpsc::channel::<PathBuf>(WATCHER_CHANNEL_BUFFER);
 
         let _watcher = match setup_watcher(&workspace, tx) {
             Ok(w) => w,
@@ -40,8 +43,7 @@ pub fn spawn_watcher(
 
         info!("file watcher started");
 
-        // Debounce: collect events for 500ms before processing
-        let debounce = Duration::from_millis(500);
+        let debounce = DEBOUNCE_INTERVAL;
 
         loop {
             let mut changed_paths: HashSet<PathBuf> = HashSet::new();

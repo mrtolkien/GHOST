@@ -10,6 +10,7 @@ pub mod coding;
 pub mod config;
 pub mod config_cli;
 pub mod config_workspace;
+pub mod constants;
 pub mod daemon;
 pub mod db;
 pub mod docling;

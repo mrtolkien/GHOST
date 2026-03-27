@@ -161,7 +161,9 @@ pub fn prompt_context_window(
         return Ok(v);
     }
 
-    let default = existing.unwrap_or(200_000).to_string();
+    let default = existing
+        .unwrap_or(crate::constants::DEFAULT_CONTEXT_WINDOW as u32)
+        .to_string();
     let raw: String = cliclack::input("Context window size (tokens):")
         .default_input(&default)
         .interact()?;

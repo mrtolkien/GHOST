@@ -82,7 +82,7 @@ pub async fn resolve_ws_url(cdp_url: &str) -> Result<String, BrowserError> {
     }
 
     let host = parsed.host_str().unwrap_or("localhost");
-    let port = parsed.port().unwrap_or(9222);
+    let port = parsed.port().unwrap_or(crate::constants::DEFAULT_CDP_PORT);
 
     // Query /json/version for the webSocketDebuggerUrl
     let http_url = format!("http://{host}:{port}/json/version");

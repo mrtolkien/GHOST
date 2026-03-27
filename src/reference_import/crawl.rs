@@ -8,6 +8,9 @@ use crate::db;
 use crate::db::GhostDb;
 use crate::web;
 
+/// Polite delay between sequential HTTP fetches during crawls.
+const CRAWL_FETCH_DELAY: std::time::Duration = std::time::Duration::from_millis(200);
+
 use super::topic::ensure_topic_hierarchy;
 use super::types::{ImportConfig, ImportConfigJson, ImportError, ImportResult, ImportSource};
 
@@ -93,8 +96,7 @@ pub(crate) async fn fetch_crawl_manifest(
 
         manifest.push((ref_path, extracted.text, url.to_string()));
 
-        // Small delay between fetches to be polite
-        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+        tokio::time::sleep(CRAWL_FETCH_DELAY).await;
     }
 
     Ok(manifest)

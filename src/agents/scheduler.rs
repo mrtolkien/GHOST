@@ -16,6 +16,9 @@ use crate::db::GhostDb;
 use super::crontab::{CrontabTrigger, load_crontab};
 use super::runner::AgentRunner;
 
+/// Debounce delay after agent file changes before reloading.
+const FILE_CHANGE_DEBOUNCE: Duration = Duration::from_millis(500);
+
 /// A scheduled Lua agent.
 #[derive(Debug)]
 struct ScheduleEntry {
@@ -90,7 +93,7 @@ pub fn spawn_scheduler(
                 }
                 path = fs_rx.recv() => {
                     if let Some(_path) = path {
-                        tokio::time::sleep(Duration::from_millis(500)).await;
+                        tokio::time::sleep(FILE_CHANGE_DEBOUNCE).await;
                         while fs_rx.try_recv().is_ok() {}
 
                         info!("agent files changed, reloading");

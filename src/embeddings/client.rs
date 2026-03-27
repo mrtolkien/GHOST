@@ -4,6 +4,9 @@ use crate::config::EmbeddingsConfig;
 
 use super::error::EmbeddingError;
 
+const EMBED_REQUEST_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(120);
+const EMBED_HEALTH_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(3);
+
 #[derive(Debug, Clone)]
 pub struct EmbeddingClient {
     url: String,
@@ -21,7 +24,7 @@ impl EmbeddingClient {
             dimension: config.dimension,
             batch_size: config.batch_size,
             client: reqwest::Client::builder()
-                .timeout(std::time::Duration::from_secs(120))
+                .timeout(EMBED_REQUEST_TIMEOUT)
                 .build()
                 .expect("failed to build reqwest client"),
         }
@@ -86,7 +89,7 @@ impl EmbeddingClient {
         let url = format!("{}/v1/models", self.url);
         self.client
             .get(&url)
-            .timeout(std::time::Duration::from_secs(3))
+            .timeout(EMBED_HEALTH_TIMEOUT)
             .send()
             .await
             .is_ok_and(|r| r.status().is_success())

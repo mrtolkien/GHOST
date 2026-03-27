@@ -297,7 +297,9 @@ impl ScriptHost {
             _ => None,
         });
 
-        let max_iterations: usize = table.get::<Option<usize>>("max_iterations")?.unwrap_or(100);
+        let max_iterations: usize = table
+            .get::<Option<usize>>("max_iterations")?
+            .unwrap_or(crate::constants::DEFAULT_MAX_TOOL_ITERATIONS);
 
         // Tools list
         let tools: Vec<String> = match table.get::<LuaValue>("tools")? {
@@ -654,7 +656,10 @@ mod tests {
         assert_eq!(config.name, "test-agent");
         assert_eq!(config.description, "A test agent");
         assert_eq!(config.tools, vec!["web_search", "todo"]);
-        assert_eq!(config.max_iterations, 50); // default
+        assert_eq!(
+            config.max_iterations,
+            crate::constants::DEFAULT_MAX_TOOL_ITERATIONS
+        );
         assert!(config.model.is_none());
         assert!(!config.has_pre_turn);
         assert!(!config.has_on_end_turn);

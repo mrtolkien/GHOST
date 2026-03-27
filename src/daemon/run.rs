@@ -6,6 +6,9 @@ use tokio::sync::watch;
 use tokio::task::JoinHandle;
 use tracing::info;
 
+const DEFAULT_SETTLE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(180);
+const SETTLE_POLL_INTERVAL: std::time::Duration = std::time::Duration::from_millis(500);
+
 #[derive(Debug, thiserror::Error)]
 #[error("system did not settle within {0:?}")]
 pub struct SettleTimeout(std::time::Duration);
@@ -48,10 +51,9 @@ impl DaemonHandle {
         let _ = self.idle_trigger_tx.send(()).await;
     }
 
-    /// Wait until all subsystems are idle, or timeout (default 180s).
+    /// Wait until all subsystems are idle, or timeout.
     pub async fn settle(&self) -> Result<(), SettleTimeout> {
-        self.settle_with_timeout(std::time::Duration::from_secs(180))
-            .await
+        self.settle_with_timeout(DEFAULT_SETTLE_TIMEOUT).await
     }
 
     /// Wait until all subsystems are idle, or timeout after `timeout`.
@@ -60,7 +62,7 @@ impl DaemonHandle {
         timeout: std::time::Duration,
     ) -> Result<(), SettleTimeout> {
         let deadline = tokio::time::Instant::now() + timeout;
-        let poll = std::time::Duration::from_millis(500);
+        let poll = SETTLE_POLL_INTERVAL;
 
         loop {
             if self.is_idle() {

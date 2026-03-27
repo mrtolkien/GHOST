@@ -97,8 +97,12 @@ impl ImportConfigJson {
             },
             "crawl" => ImportSource::Crawl {
                 url: self.source_url.clone(),
-                max_depth: self.max_depth.unwrap_or(3),
-                max_pages: self.max_pages.unwrap_or(50),
+                max_depth: self
+                    .max_depth
+                    .unwrap_or(crate::constants::DEFAULT_CRAWL_MAX_DEPTH),
+                max_pages: self
+                    .max_pages
+                    .unwrap_or(crate::constants::DEFAULT_CRAWL_MAX_PAGES),
             },
             other => {
                 return Err(ImportError::Config(format!(

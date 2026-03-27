@@ -8,6 +8,12 @@ use super::{
     discord, health, provider, service_files, services,
 };
 
+/// Delay for containers to boot before probing health.
+const SERVICE_WARMUP_DELAY: Duration = Duration::from_secs(5);
+
+/// Timeout for test embedding requests during onboarding.
+const EMBEDDINGS_TEST_TIMEOUT: Duration = Duration::from_secs(15);
+
 /// Run the full onboarding wizard.
 ///
 /// Takes parsed CLI flags and orchestrates all six phases: detection,
@@ -202,7 +208,7 @@ pub async fn run(args: InitArgs) -> Result<(), GhostError> {
         // Give containers a moment to boot before probing health endpoints.
         let warmup = cliclack::spinner();
         warmup.start("Waiting for services to come up…");
-        tokio::time::sleep(Duration::from_secs(5)).await;
+        tokio::time::sleep(SERVICE_WARMUP_DELAY).await;
         warmup.stop("Ready");
 
         let _ = cliclack::log::step("Health Checks");
@@ -225,7 +231,7 @@ async fn test_embeddings(url: &str, model: Option<&str>) -> Result<(), String> {
     let model = model.unwrap_or("default");
 
     let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(15))
+        .timeout(EMBEDDINGS_TEST_TIMEOUT)
         .build()
         .map_err(|e| format!("failed to build HTTP client: {e}"))?;
 

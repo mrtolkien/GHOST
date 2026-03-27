@@ -2,8 +2,7 @@ use std::path::Path;
 
 use base64::Engine;
 
-const MAX_IMAGE_DIMENSION: u32 = 2048;
-const JPEG_QUALITY: u8 = 85;
+use crate::constants::{JPEG_QUALITY, MAX_IMAGE_DIMENSION};
 
 const IMAGE_EXTENSIONS: &[&str] = &["jpg", "jpeg", "png", "gif", "webp"];
 

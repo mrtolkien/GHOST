@@ -10,6 +10,8 @@ use super::{SearchResult, WebError};
 
 const BRAVE_API_URL: &str = "https://api.search.brave.com/res/v1/web/search";
 const MIN_INTERVAL: Duration = Duration::from_secs(1);
+const REQUEST_TIMEOUT: Duration = Duration::from_secs(15);
+const RATE_LIMIT_RETRY_DELAY: Duration = Duration::from_millis(1100);
 
 static BRAVE_LAST_REQUEST: OnceLock<Mutex<Instant>> = OnceLock::new();
 
@@ -35,7 +37,7 @@ impl BraveSearchProvider {
 
         let client = reqwest::Client::builder()
             .default_headers(headers)
-            .timeout(Duration::from_secs(15))
+            .timeout(REQUEST_TIMEOUT)
             .build()?;
 
         Ok(Self {
@@ -65,7 +67,7 @@ impl BraveSearchProvider {
                     .and_then(|h| h.to_str().ok())
                     .and_then(|v| v.parse::<u64>().ok())
                     .map(Duration::from_secs)
-                    .unwrap_or(Duration::from_millis(1100));
+                    .unwrap_or(RATE_LIMIT_RETRY_DELAY);
                 if attempt < 2 {
                     tracing::warn!(
                         attempt = attempt + 1,

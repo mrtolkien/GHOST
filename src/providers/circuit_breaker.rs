@@ -2,6 +2,9 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
+const DEFAULT_FAILURE_THRESHOLD: u32 = 3;
+const DEFAULT_COOLDOWN: Duration = Duration::from_secs(60);
+
 #[derive(Debug, Clone, Copy)]
 struct CircuitState {
     consecutive_failures: u32,
@@ -77,6 +80,6 @@ impl CircuitBreaker {
 
 impl Default for CircuitBreaker {
     fn default() -> Self {
-        Self::new(3, Duration::from_secs(60))
+        Self::new(DEFAULT_FAILURE_THRESHOLD, DEFAULT_COOLDOWN)
     }
 }

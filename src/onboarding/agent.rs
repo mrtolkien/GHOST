@@ -7,6 +7,9 @@ use crate::providers::types::{
     ChatMessage, ChatRequest, ContentBlock, Provider, Role, create_provider,
 };
 
+/// Max tokens for onboarding provider validation requests.
+const ONBOARDING_MAX_TOKENS: u32 = 1024;
+
 /// Render a human-readable label for a `ServiceChoice`.
 fn service_label(choice: &ServiceChoice) -> String {
     match choice {
@@ -128,7 +131,7 @@ impl OnboardingAgent {
                     }],
                 },
             ],
-            max_tokens: Some(1024),
+            max_tokens: Some(ONBOARDING_MAX_TOKENS),
             ..Default::default()
         };
 

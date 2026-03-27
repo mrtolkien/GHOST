@@ -131,6 +131,17 @@ before adding or modifying any instrumentation.
 - Max ~500 LoC per file (excl. tests). No logic in `mod.rs` (barrel files only).
 - Domain-named files (`config.rs`), not generic names (`service.rs`, `utils.rs`).
 
+### Constants
+
+- **No magic numbers in code.** Every numeric literal, timeout, limit, or size must be a
+  named `const` at the top of its file — never inline in function bodies.
+- **Tuneable operational constants** (limits, timeouts, sizes that affect GHOST's
+  behavior) live in `src/constants.rs`. When adding a new tuneable, put it there.
+- **Module-specific constants** (API endpoints, colors, rendering details, protocol
+  flags) stay in their own file as `const` at the top.
+- Visibility follows need: `pub` only if exported, `pub(crate)` for cross-module, plain
+  `const` for file-local.
+
 ### Rust Style
 
 - `just ci` for format + check + clippy + tests. Fix all issues before returning.
@@ -164,6 +175,7 @@ src/
 ├── main.rs              # CLI entry point (clap)
 ├── cli/                 # CLI subcommands (thin — parse args, delegate)
 ├── daemon/              # Subsystem wiring, task spawning, graceful shutdown
+├── constants.rs         # Tuneable operational constants (limits, timeouts, sizes)
 ├── config.rs            # Config types, loading, defaults
 ├── config_cli.rs        # CLI config get/set operations
 ├── config_workspace.rs  # Workspace bootstrapping

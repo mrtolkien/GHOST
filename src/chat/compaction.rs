@@ -458,10 +458,10 @@ pub async fn summarize_older_messages(
 
     let conversation_text = render_messages_for_summary(to_summarize, config.mask_preview_chars);
 
-    const MAX_SUMMARIZATION_INPUT_CHARS: usize = 50_000;
-
-    let conversation_text = if conversation_text.len() > MAX_SUMMARIZATION_INPUT_CHARS {
-        let mut start = conversation_text.len() - MAX_SUMMARIZATION_INPUT_CHARS;
+    let conversation_text = if conversation_text.len()
+        > crate::constants::MAX_SUMMARIZATION_INPUT_CHARS
+    {
+        let mut start = conversation_text.len() - crate::constants::MAX_SUMMARIZATION_INPUT_CHARS;
         while start < conversation_text.len() && !conversation_text.is_char_boundary(start) {
             start += 1;
         }

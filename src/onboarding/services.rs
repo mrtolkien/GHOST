@@ -5,6 +5,9 @@ use super::detect::{ContainerRuntime, DetectedEnvironment, Platform};
 use super::{OnboardingError, OnboardingState, SearchChoice, ServiceChoice};
 use crate::services::{ServiceEntry, ServiceRegistry};
 
+/// macOS default UID for the first user account.
+const DEFAULT_MACOS_UID: u32 = 501;
+
 const SEARXNG_FRAGMENT: &str = include_str!("templates/docker-compose.searxng.yml");
 const CRAWL4AI_FRAGMENT: &str = include_str!("templates/docker-compose.crawl4ai.yml");
 const DOCLING_FRAGMENT: &str = include_str!("templates/docker-compose.docling.yml");
@@ -607,7 +610,7 @@ fn get_uid() -> u32 {
                 .ok()
                 .and_then(|s| s.trim().parse().ok())
         })
-        .unwrap_or(501) // macOS default UID for first user
+        .unwrap_or(DEFAULT_MACOS_UID)
 }
 
 /// Generate and write `$WORKSPACE/services/services.toml` from wizard state.

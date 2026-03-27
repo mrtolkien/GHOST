@@ -14,7 +14,7 @@ use super::context::ToolContext;
 use super::error::ToolError;
 use super::manager::Tool;
 
-const DEFAULT_LIMIT: usize = 10;
+use crate::constants::DEFAULT_KNOWLEDGE_SEARCH_LIMIT;
 
 #[derive(Debug)]
 pub struct KnowledgeSearch;
@@ -80,7 +80,7 @@ impl Tool for KnowledgeSearch {
             .get("limit")
             .and_then(Value::as_u64)
             .map(|n| n as usize)
-            .unwrap_or(DEFAULT_LIMIT);
+            .unwrap_or(DEFAULT_KNOWLEDGE_SEARCH_LIMIT);
 
         let topic = params.get("topic").and_then(Value::as_str);
         let archetype = params.get("archetype").and_then(Value::as_str);

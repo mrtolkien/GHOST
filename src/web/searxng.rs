@@ -4,6 +4,8 @@ use serde::Deserialize;
 
 use super::{SearchResult, WebError};
 
+const REQUEST_TIMEOUT: Duration = Duration::from_secs(15);
+
 #[derive(Debug)]
 pub struct SearxngSearchProvider {
     client: reqwest::Client,
@@ -14,7 +16,7 @@ pub struct SearxngSearchProvider {
 impl SearxngSearchProvider {
     pub fn new(base_url: &str, max_results: usize) -> Result<Self, WebError> {
         let client = reqwest::Client::builder()
-            .timeout(Duration::from_secs(15))
+            .timeout(REQUEST_TIMEOUT)
             .build()?;
 
         Ok(Self {

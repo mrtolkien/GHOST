@@ -1,7 +1,6 @@
 use tree_sitter::{Language, Node, Parser};
 
-/// Target size for each chunk in characters.
-const CHUNK_TARGET: usize = 2000;
+use crate::constants::EMBEDDING_CHUNK_TARGET;
 
 #[derive(Debug, Clone)]
 pub struct Chunk {
@@ -44,7 +43,7 @@ pub fn chunk_content(content: &str, tags: &[String], file_path: Option<&str>) ->
 // ---------------------------------------------------------------------------
 
 /// Chunk markdown content by walking the tree-sitter AST. Sections that fit
-/// within `CHUNK_TARGET` are emitted whole. Oversized sections are split into
+/// within `EMBEDDING_CHUNK_TARGET` are emitted whole. Oversized sections are split into
 /// their child nodes. Each chunk is prefixed with its heading path for context.
 fn chunk_markdown(content: &str, tag_prefix: &str) -> Vec<Chunk> {
     let mut parser = Parser::new();
@@ -114,7 +113,7 @@ fn collect_markdown_sections(
     let section_text = source[node.byte_range()].trim();
 
     // If the whole section fits, emit it as one chunk with section path
-    if section_text.len() <= CHUNK_TARGET {
+    if section_text.len() <= EMBEDDING_CHUNK_TARGET {
         let prefix = section_prefix(&current_path);
         out.push(format!("{prefix}{section_text}"));
         return;
@@ -143,7 +142,7 @@ fn collect_markdown_sections(
                 // Content node (paragraph, list, code block, etc.)
                 let text = source[child.byte_range()].trim();
                 if !text.is_empty() {
-                    if text.len() <= CHUNK_TARGET {
+                    if text.len() <= EMBEDDING_CHUNK_TARGET {
                         let prefix = section_prefix(&current_path);
                         out.push(format!("{prefix}{text}"));
                     } else {
@@ -195,7 +194,7 @@ fn extract_heading_text(section: Node, source: &str) -> Option<String> {
     None
 }
 
-/// Split an oversized text block into parts of roughly `CHUNK_TARGET` chars,
+/// Split an oversized text block into parts of roughly `EMBEDDING_CHUNK_TARGET` chars,
 /// preferring paragraph (`\n\n`) or line (`\n`) boundaries.
 fn split_oversized(text: &str) -> Vec<String> {
     let mut parts = Vec::new();
@@ -203,7 +202,7 @@ fn split_oversized(text: &str) -> Vec<String> {
 
     while start < text.len() {
         let remaining = text.len() - start;
-        if remaining <= CHUNK_TARGET {
+        if remaining <= EMBEDDING_CHUNK_TARGET {
             let chunk = text[start..].trim();
             if !chunk.is_empty() {
                 parts.push(chunk.to_string());
@@ -211,7 +210,7 @@ fn split_oversized(text: &str) -> Vec<String> {
             break;
         }
 
-        let end = text.floor_char_boundary((start + CHUNK_TARGET).min(text.len()));
+        let end = text.floor_char_boundary((start + EMBEDDING_CHUNK_TARGET).min(text.len()));
         let search_region = &text[start..end];
 
         let split_at = search_region
@@ -244,7 +243,7 @@ fn fallback_single_chunk(content: &str, tag_prefix: &str) -> Vec<Chunk> {
 // ---------------------------------------------------------------------------
 
 /// Chunk source code by walking the tree-sitter AST. Nodes that fit within
-/// `CHUNK_TARGET` are emitted whole; oversized nodes recurse into children.
+/// `EMBEDDING_CHUNK_TARGET` are emitted whole; oversized nodes recurse into children.
 fn chunk_code(
     content: &str,
     tag_prefix: &str,
@@ -288,7 +287,7 @@ fn chunk_code(
 /// Recursively collect chunks from a code AST.
 fn collect_code_chunks(node: Node, source: &str, out: &mut Vec<String>) {
     let text = &source[node.byte_range()];
-    if text.len() <= CHUNK_TARGET {
+    if text.len() <= EMBEDDING_CHUNK_TARGET {
         let trimmed = text.trim();
         if !trimmed.is_empty() {
             out.push(trimmed.to_string());
@@ -316,7 +315,7 @@ fn collect_code_chunks(node: Node, source: &str, out: &mut Vec<String>) {
 // Shared helpers
 // ---------------------------------------------------------------------------
 
-/// Greedily merge consecutive small chunks up to `CHUNK_TARGET`.
+/// Greedily merge consecutive small chunks up to `EMBEDDING_CHUNK_TARGET`.
 fn greedy_merge(chunks: &[String]) -> Vec<String> {
     let mut merged = Vec::new();
     let mut current = String::new();
@@ -324,7 +323,7 @@ fn greedy_merge(chunks: &[String]) -> Vec<String> {
     for chunk in chunks {
         if current.is_empty() {
             current = chunk.clone();
-        } else if current.len() + chunk.len() < CHUNK_TARGET {
+        } else if current.len() + chunk.len() < EMBEDDING_CHUNK_TARGET {
             current.push('\n');
             current.push_str(chunk);
         } else {
@@ -398,7 +397,7 @@ mod tests {
 
     #[test]
     fn markdown_sections_become_chunks() {
-        // Build a document with sections larger than CHUNK_TARGET total
+        // Build a document with sections larger than EMBEDDING_CHUNK_TARGET total
         let body = "X".repeat(800);
         let text = format!(
             "# Title\n\n{body}\n\n## Section A\n\n{body}\n\n## Section B\n\n{body}\n\n## Section C\n\n{body}"

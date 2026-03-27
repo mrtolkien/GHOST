@@ -13,8 +13,7 @@ use super::manager::Tool;
 
 pub struct RunShellCommand;
 
-const DEFAULT_TIMEOUT_MS: u64 = 30_000;
-const MAX_OUTPUT_CHARS: usize = 50_000;
+use crate::constants::{DEFAULT_SHELL_TIMEOUT_MS, MAX_SHELL_OUTPUT_CHARS};
 const SHELL_BIN_FILE: &str = ".shell-bin";
 
 static BACKGROUND_SHELL_COUNT: AtomicUsize = AtomicUsize::new(0);
@@ -192,8 +191,8 @@ impl Tool for RunShellCommand {
                 };
 
                 let mut truncated = output_text;
-                if truncated.len() > MAX_OUTPUT_CHARS {
-                    let end = truncated.floor_char_boundary(MAX_OUTPUT_CHARS);
+                if truncated.len() > MAX_SHELL_OUTPUT_CHARS {
+                    let end = truncated.floor_char_boundary(MAX_SHELL_OUTPUT_CHARS);
                     truncated.truncate(end);
                     truncated.push_str("\n...[truncated]");
                 }
@@ -231,7 +230,7 @@ impl Tool for RunShellCommand {
         let timeout_ms = params
             .get("timeout_ms")
             .and_then(Value::as_u64)
-            .unwrap_or(DEFAULT_TIMEOUT_MS);
+            .unwrap_or(DEFAULT_SHELL_TIMEOUT_MS);
 
         let timeout = std::time::Duration::from_millis(timeout_ms);
 

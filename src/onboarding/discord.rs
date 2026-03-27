@@ -2,6 +2,8 @@ use std::time::Duration;
 
 use super::OnboardingError;
 
+const VALIDATE_TIMEOUT: Duration = Duration::from_secs(10);
+
 const SETUP_GUIDE: &str = "Your GHOST communicates with you through a Discord bot.
 You'll need to create one in the Discord Developer Portal.
 
@@ -32,7 +34,7 @@ pub fn validate_user_id(id: &str) -> Result<(), OnboardingError> {
 /// Makes a real HTTP request to confirm the token is accepted.
 pub async fn validate_bot_token(token: &str) -> Result<(), OnboardingError> {
     let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(10))
+        .timeout(VALIDATE_TIMEOUT)
         .build()?;
 
     let resp = client

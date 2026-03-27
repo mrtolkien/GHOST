@@ -700,7 +700,7 @@ impl SessionChat {
     pub(super) fn model_context_window(&self) -> usize {
         self.model_config()
             .map(|m| m.context_window as usize)
-            .unwrap_or(200_000)
+            .unwrap_or(crate::constants::DEFAULT_CONTEXT_WINDOW)
     }
 
     /// Reasoning effort configured on the default model alias, if any.

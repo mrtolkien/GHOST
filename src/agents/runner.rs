@@ -24,8 +24,10 @@ use crate::tools::ToolManager;
 use super::error::AgentError;
 use super::loader::load_agent_with_host;
 
-/// Maximum spawn depth. Root = depth 0, child = depth 1, depth >= 2 → drop.
-const MAX_SPAWN_DEPTH: u32 = 2;
+use crate::constants::MAX_SPAWN_DEPTH;
+
+/// Brief delay before reading agent results to let DB writes settle.
+const RESULT_POLL_DELAY: std::time::Duration = std::time::Duration::from_millis(100);
 
 /// Result of a synchronous agent execution.
 #[derive(Debug, Clone)]
@@ -387,7 +389,7 @@ impl AgentRunner {
         let run_id = handle.run_id.clone();
         drop(handles);
 
-        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+        tokio::time::sleep(RESULT_POLL_DELAY).await;
 
         let message_count = db::sessions::count_messages_for_session(&self.db, &agent_session_id)
             .await

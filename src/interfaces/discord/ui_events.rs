@@ -18,6 +18,9 @@ const TODO_COLOR: u32 = 0xA9_4D_FF;
 /// Muted grey for compaction notices.
 const COMPACTION_COLOR: u32 = 0x58_5B_70;
 
+/// Max characters for agent findings snippets in status lines.
+const FINDINGS_SNIPPET_CHARS: usize = 120;
+
 /// Renders tool loop events as Discord messages.
 ///
 /// Each provider response (= each `ToolCalls` event) becomes its own
@@ -262,8 +265,12 @@ pub fn format_agent_summary(
     if let Some(text) = findings {
         let trimmed = text.trim();
         if !trimmed.is_empty() {
-            let snippet: String = trimmed.chars().take(120).collect();
-            let ellipsis = if trimmed.len() > 120 { "\u{2026}" } else { "" };
+            let snippet: String = trimmed.chars().take(FINDINGS_SNIPPET_CHARS).collect();
+            let ellipsis = if trimmed.len() > FINDINGS_SNIPPET_CHARS {
+                "\u{2026}"
+            } else {
+                ""
+            };
             line.push_str(&format!("\n{snippet}{ellipsis}"));
         }
     }

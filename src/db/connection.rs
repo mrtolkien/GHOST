@@ -7,6 +7,12 @@ use tracing::info;
 
 use super::error::DatabaseError;
 
+/// SQLite busy timeout for lock contention.
+const BUSY_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
+
+/// SQLite page cache size (negative = KiB). -65536 = 64 MB.
+const CACHE_SIZE_KIB: &str = "-65536";
+
 pub type GhostDb = SqlitePool;
 
 static SQLITE_VEC_INIT: Once = Once::new();
@@ -35,8 +41,8 @@ pub async fn connect(workspace: &Path, embedding_dim: usize) -> Result<GhostDb, 
         .create_if_missing(true)
         .journal_mode(SqliteJournalMode::Wal)
         .foreign_keys(true)
-        .busy_timeout(std::time::Duration::from_secs(5))
-        .pragma("cache_size", "-65536"); // 64 MB
+        .busy_timeout(BUSY_TIMEOUT)
+        .pragma("cache_size", CACHE_SIZE_KIB);
 
     let pool = SqlitePoolOptions::new()
         // sqlx's SQLite ping() is a no-op (only checks the worker thread

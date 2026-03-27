@@ -6,6 +6,9 @@ use super::detect::{ContainerRuntime, Platform};
 use super::{OnboardingError, OnboardingState, SearchChoice, ServiceChoice};
 pub use crate::health::{HealthResult, display_health_table, probe_url};
 
+const DAEMON_POLL_MAX: u32 = 30;
+const DAEMON_POLL_INTERVAL: Duration = Duration::from_secs(1);
+
 // ---------------------------------------------------------------------------
 // Health probing
 // ---------------------------------------------------------------------------
@@ -251,18 +254,16 @@ fn run_launchctl(plist_path: &str) {
 ///
 /// On macOS checks launchctl, on Linux checks systemctl.
 pub async fn trigger_first_message() -> Result<(), OnboardingError> {
-    const MAX_POLLS: u32 = 30;
-
     let spinner = cliclack::spinner();
     spinner.start("Waiting for ghost daemon…");
 
     let mut alive = false;
-    for _ in 0..MAX_POLLS {
+    for _ in 0..DAEMON_POLL_MAX {
         if is_daemon_active() {
             alive = true;
             break;
         }
-        tokio::time::sleep(Duration::from_secs(1)).await;
+        tokio::time::sleep(DAEMON_POLL_INTERVAL).await;
     }
 
     if alive {

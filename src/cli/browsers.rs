@@ -3,6 +3,18 @@ use tracing::debug;
 
 use crate::error::GhostError;
 
+/// Timeout for individual CDP readiness probes.
+const CDP_PROBE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(2);
+
+/// Delay between CDP readiness polls.
+const CDP_POLL_INTERVAL: std::time::Duration = std::time::Duration::from_millis(500);
+
+/// Maximum number of CDP readiness polls.
+const CDP_POLL_MAX: usize = 15;
+
+/// Timeout for browser reachability check.
+const BROWSER_CHECK_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
+
 #[derive(Debug, Subcommand)]
 pub enum BrowsersCommand {
     /// List known browsers from config
@@ -167,7 +179,6 @@ async fn execute_serve(
     profile: Option<String>,
 ) -> Result<(), GhostError> {
     use std::net::SocketAddr;
-    use std::time::Duration;
 
     use tokio::io::AsyncWriteExt;
     use tokio::net::TcpListener;
@@ -235,18 +246,18 @@ async fn execute_serve(
     // 6. Wait for CDP to be ready.
     let local_url = format!("http://127.0.0.1:{internal_port}/json/version");
     let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(2))
+        .timeout(CDP_PROBE_TIMEOUT)
         .build()
         .map_err(|e| GhostError::Other(e.to_string()))?;
 
     eprintln!("Waiting for CDP...");
     let mut ready = false;
-    for _ in 0..15 {
+    for _ in 0..CDP_POLL_MAX {
         if client.get(&local_url).send().await.is_ok() {
             ready = true;
             break;
         }
-        tokio::time::sleep(Duration::from_millis(500)).await;
+        tokio::time::sleep(CDP_POLL_INTERVAL).await;
     }
     if !ready {
         let _ = child.kill().await;
@@ -358,10 +369,10 @@ fn detect_browser() -> Result<String, GhostError> {
 /// Drops the connection immediately after a successful connect — this is
 /// purely a reachability check.
 async fn check_browser(cdp_url: &str) -> Result<(), crate::web::browser::error::BrowserError> {
-    use tokio::time::{Duration, timeout};
+    use tokio::time::timeout;
 
     let (browser, handle) = timeout(
-        Duration::from_secs(5),
+        BROWSER_CHECK_TIMEOUT,
         crate::web::browser::cdp::connect(cdp_url),
     )
     .await

@@ -11,5 +11,4 @@ pub use self::cdp::ScrollDirection;
 pub use self::error::BrowserError;
 pub use self::manager::BrowserManager;
 
-pub(crate) const MAX_SNAPSHOT_NODES: usize = 500;
-pub(crate) const MAX_SNAPSHOT_DEPTH: usize = 15;
+pub(crate) use crate::constants::{MAX_SNAPSHOT_DEPTH, MAX_SNAPSHOT_NODES};

@@ -5,22 +5,17 @@ use url::Url;
 
 use super::{ExtractedContent, FetchOptions, WebError};
 
-/// Safety cap for extracted text. Pages exceeding this are truncated.
-/// When htmd produces content above this limit, we auto-retry with readability
-/// mode to strip boilerplate before truncating.
-///
-/// 120K chars ≈ 30K tokens. We keep this generous so the agent sees full pages
-/// (including product lists, price trackers, and deep reviews) without silent
-/// truncation. The agent-level context_pressure nudge at 250K chars handles
-/// overall context budget.
-const MAX_EXTRACT_CHARS: usize = 120_000;
+use crate::constants::MAX_EXTRACT_CHARS;
+
+const HTTP_FETCH_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
+const HEAD_REQUEST_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
 
 static HTTP_CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
 
 pub(super) fn client() -> &'static reqwest::Client {
     HTTP_CLIENT.get_or_init(|| {
         reqwest::Client::builder()
-            .timeout(std::time::Duration::from_secs(30))
+            .timeout(HTTP_FETCH_TIMEOUT)
             .user_agent("Mozilla/5.0 (compatible; Ghost/0.1)")
             .build()
             .expect("failed to build HTTP client")
@@ -129,7 +124,7 @@ pub async fn fetch(
 async fn head_content_type(url: &Url) -> Result<String, WebError> {
     let response = client()
         .head(url.clone())
-        .timeout(std::time::Duration::from_secs(10))
+        .timeout(HEAD_REQUEST_TIMEOUT)
         .send()
         .await?;
     if !response.status().is_success() {

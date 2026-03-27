@@ -561,8 +561,7 @@ pub(crate) const CODE_EXTENSIONS: &[&str] = &[
     "md",
 ];
 
-/// Maximum file size for code embedding (100KB).
-pub(crate) const MAX_CODE_FILE_SIZE: u64 = 100 * 1024;
+pub(crate) use crate::constants::MAX_CODE_FILE_SIZE;
 
 /// Walk a repo directory respecting .gitignore, extension allowlist, and size limit.
 pub(crate) fn walk_code_repo(repo_dir: &std::path::Path) -> Vec<std::path::PathBuf> {

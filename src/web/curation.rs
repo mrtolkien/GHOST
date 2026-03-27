@@ -9,6 +9,9 @@ use crate::knowledge::parse_note;
 
 use super::url_match::{extract_frontmatter_info, slug_from_url, topic_from_url, urls_match};
 
+/// Max characters for reference content preview stored in DB.
+const REFERENCE_PREVIEW_CHARS: usize = 2000;
+
 /// A web cache file classified by whether it was cited in agent findings.
 #[derive(Debug, Clone)]
 pub struct ClassifiedCacheFile {
@@ -241,7 +244,8 @@ pub async fn link_cited_edges(
                             };
                         let ref_file = workspace.join("references").join(&rel_path);
                         let content = std::fs::read_to_string(&ref_file).unwrap_or_default();
-                        let preview: String = content.chars().take(2000).collect();
+                        let preview: String =
+                            content.chars().take(REFERENCE_PREVIEW_CHARS).collect();
                         let hash = crate::embeddings::pipeline::content_hash(&preview);
                         match db::knowledge::create_reference(
                             db,

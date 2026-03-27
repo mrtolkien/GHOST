@@ -1,12 +1,12 @@
 use std::time::Duration;
 
-/// Probe a URL with a 5-second timeout.
+const PROBE_TIMEOUT: Duration = Duration::from_secs(5);
+
+/// Probe a URL with a timeout.
 ///
 /// Returns `true` if the server responds with any HTTP status code.
 pub async fn probe_url(url: &str) -> bool {
-    let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(5))
-        .build();
+    let client = reqwest::Client::builder().timeout(PROBE_TIMEOUT).build();
     match client {
         Ok(c) => c.get(url).send().await.is_ok(),
         Err(_) => false,

@@ -11,6 +11,7 @@ const EXPIRY_BUFFER_MS: u64 = 5 * 60 * 1000;
 
 const TOKEN_URL: &str = "https://platform.claude.com/v1/oauth/token";
 const CLIENT_ID: &str = "9d1c250a-e61b-44d9-88ed-5944d1962f5e";
+const TOKEN_REFRESH_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
 
 #[derive(Debug, Clone)]
 pub(crate) struct OAuthCredentials {
@@ -134,7 +135,7 @@ pub(crate) async fn refresh_token(
     let response = client
         .post(TOKEN_URL)
         .json(&body)
-        .timeout(std::time::Duration::from_secs(30))
+        .timeout(TOKEN_REFRESH_TIMEOUT)
         .send()
         .await
         .map_err(|e| ProviderError::Auth(format!("token refresh request failed: {e}")))?;

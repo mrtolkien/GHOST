@@ -10,6 +10,9 @@ use super::context::ToolContext;
 use super::error::ToolError;
 use super::output::ToolOutput;
 
+/// Max characters of tool output to include in tracing logs.
+const LOG_OUTPUT_PREVIEW_CHARS: usize = 2000;
+
 #[async_trait]
 pub trait Tool: Send + Sync {
     fn name(&self) -> &str;
@@ -136,7 +139,8 @@ impl ToolManager {
 
         match &result {
             Ok(output) => {
-                let truncated: String = output.text.chars().take(2000).collect();
+                let truncated: String =
+                    output.text.chars().take(LOG_OUTPUT_PREVIEW_CHARS).collect();
                 tracing::info!(
                     output_len = output.text.len() as u64,
                     output = truncated,

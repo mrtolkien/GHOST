@@ -330,15 +330,13 @@ pub fn create_provider(
 ) -> Result<Arc<dyn Provider>, ProviderInitError> {
     match kind {
         ProviderKind::OpenRouter => Ok(Arc::new(match api_key {
-            Some(key) => {
-                crate::providers::openrouter::OpenRouterProvider::new_with_key(key, headers, routing)?
-            }
+            Some(key) => crate::providers::openrouter::OpenRouterProvider::new_with_key(
+                key, headers, routing,
+            )?,
             None => crate::providers::openrouter::OpenRouterProvider::new(headers, routing)?,
         })),
         ProviderKind::Kimi => Ok(Arc::new(match api_key {
-            Some(key) => {
-                crate::providers::kimi_code::KimiCodeProvider::new_with_key(key, headers)?
-            }
+            Some(key) => crate::providers::kimi_code::KimiCodeProvider::new_with_key(key, headers)?,
             None => crate::providers::kimi_code::KimiCodeProvider::new(headers)?,
         })),
         ProviderKind::OpenAiOAuth => Ok(Arc::new(

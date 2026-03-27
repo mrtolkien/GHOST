@@ -397,7 +397,7 @@ async fn execute_wait(mgr: &mut BrowserManager, params: &Value) -> Result<ToolOu
     let timeout_ms = params
         .get("timeout")
         .and_then(Value::as_u64)
-        .unwrap_or(1000);
+        .unwrap_or(crate::constants::DEFAULT_BROWSER_WAIT_MS);
     let desc = mgr
         .wait(ref_id, timeout_ms)
         .await

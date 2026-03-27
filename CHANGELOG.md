@@ -2,30 +2,40 @@
 
 ## [0.9.0](https://github.com/mrtolkien/GHOST/compare/v0.8.1...v0.9.0) (2026-03-26)
 
-
 ### Features
 
-* add compacted column to messages table ([3073f89](https://github.com/mrtolkien/GHOST/commit/3073f89e50ea3d16577b57c9fe3a4ae3fe603441))
-* add tool result capping logic (head+tail preview) ([0086ba5](https://github.com/mrtolkien/GHOST/commit/0086ba59260e40cf4be101fefa385ad54c6d2013))
-* cap oversized tool results at write time ([a1da17b](https://github.com/mrtolkien/GHOST/commit/a1da17b3d5b1dc636b28292dd9735fb8acf8de1e))
-* persist phase 1 masking and skip already-compacted messages ([db79d92](https://github.com/mrtolkien/GHOST/commit/db79d92671007b29355ec19fb7f2c9dd4f7061d8))
-* prune debug request dumps to configurable max (default 500) ([4792f3c](https://github.com/mrtolkien/GHOST/commit/4792f3c7759ab4c2d4221ebbdfcb25eb14aa2124))
-
+- add compacted column to messages table
+  ([3073f89](https://github.com/mrtolkien/GHOST/commit/3073f89e50ea3d16577b57c9fe3a4ae3fe603441))
+- add tool result capping logic (head+tail preview)
+  ([0086ba5](https://github.com/mrtolkien/GHOST/commit/0086ba59260e40cf4be101fefa385ad54c6d2013))
+- cap oversized tool results at write time
+  ([a1da17b](https://github.com/mrtolkien/GHOST/commit/a1da17b3d5b1dc636b28292dd9735fb8acf8de1e))
+- persist phase 1 masking and skip already-compacted messages
+  ([db79d92](https://github.com/mrtolkien/GHOST/commit/db79d92671007b29355ec19fb7f2c9dd4f7061d8))
+- prune debug request dumps to configurable max (default 500)
+  ([4792f3c](https://github.com/mrtolkien/GHOST/commit/4792f3c7759ab4c2d4221ebbdfcb25eb14aa2124))
 
 ### Bug Fixes
 
-* compaction cursor bug drops all messages after Phase 2 summarization ([0e20c9d](https://github.com/mrtolkien/GHOST/commit/0e20c9dcd523d53c0e2538e63e46a2028fbd7e51))
-* keep parallel arrays aligned in relocate_system_messages + handle serde errors ([8534138](https://github.com/mrtolkien/GHOST/commit/85341382c357098d08522c627e4bc8da9535e328))
-* multi-table Discord messages fail due to serenity attachment ID collision ([8690234](https://github.com/mrtolkien/GHOST/commit/86902344f7f1295a02d02eb6177f5206d1db0a04))
-* propery use ~/.config/ghost for ghost browsers save profile ([6fb6b84](https://github.com/mrtolkien/GHOST/commit/6fb6b84d1a18f006217bd9ffe2a4abe2bf653372))
-* rename max_chars to max_bytes in tool cap (byte-level limit) ([7cff469](https://github.com/mrtolkien/GHOST/commit/7cff4696668a88869432cc9df6dcd49196d2dae5))
-
+- compaction cursor bug drops all messages after Phase 2 summarization
+  ([0e20c9d](https://github.com/mrtolkien/GHOST/commit/0e20c9dcd523d53c0e2538e63e46a2028fbd7e51))
+- keep parallel arrays aligned in relocate_system_messages + handle serde errors
+  ([8534138](https://github.com/mrtolkien/GHOST/commit/85341382c357098d08522c627e4bc8da9535e328))
+- multi-table Discord messages fail due to serenity attachment ID collision
+  ([8690234](https://github.com/mrtolkien/GHOST/commit/86902344f7f1295a02d02eb6177f5206d1db0a04))
+- propery use ~/.config/ghost for ghost browsers save profile
+  ([6fb6b84](https://github.com/mrtolkien/GHOST/commit/6fb6b84d1a18f006217bd9ffe2a4abe2bf653372))
+- rename max_chars to max_bytes in tool cap (byte-level limit)
+  ([7cff469](https://github.com/mrtolkien/GHOST/commit/7cff4696668a88869432cc9df6dcd49196d2dae5))
 
 ### Documentation
 
-* human rewording ([c5b0cc4](https://github.com/mrtolkien/GHOST/commit/c5b0cc4ff441e512f97ec6c6641a845f846a1ba1))
-* improve fix-feedback skill with debug dumps, multi-server, and concrete examples ([ceeddb9](https://github.com/mrtolkien/GHOST/commit/ceeddb9727f82bf2632aed30de383857b6c8df76))
-* rewrite browser-use skill with clear selection workflow ([0c58a6b](https://github.com/mrtolkien/GHOST/commit/0c58a6bcb585a4eba1c02c7efd658bcb1982ea17))
+- human rewording
+  ([c5b0cc4](https://github.com/mrtolkien/GHOST/commit/c5b0cc4ff441e512f97ec6c6641a845f846a1ba1))
+- improve fix-feedback skill with debug dumps, multi-server, and concrete examples
+  ([ceeddb9](https://github.com/mrtolkien/GHOST/commit/ceeddb9727f82bf2632aed30de383857b6c8df76))
+- rewrite browser-use skill with clear selection workflow
+  ([0c58a6b](https://github.com/mrtolkien/GHOST/commit/0c58a6bcb585a4eba1c02c7efd658bcb1982ea17))
 
 ## [0.8.1](https://github.com/mrtolkien/GHOST/compare/v0.8.0...v0.8.1) (2026-03-25)
 

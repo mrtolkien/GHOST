@@ -8,7 +8,7 @@ use crate::db::DatabaseError;
 use crate::providers::{ProviderError, ProviderInitError};
 use crate::tools::TodoItem;
 
-pub const DEFAULT_MAX_TOOL_ITERATIONS: usize = 50;
+pub use crate::constants::DEFAULT_MAX_TOOL_ITERATIONS;
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
 pub enum ChatStopReason {

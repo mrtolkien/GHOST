@@ -88,6 +88,15 @@ const CONFIG_FILE_NAME: &str = "config.toml";
 const DEFAULT_WORKSPACE: &str = "~/GHOST";
 const DEFAULT_EMBEDDINGS_URL: &str = "http://127.0.0.1:11434";
 const DEFAULT_EMBEDDINGS_MODEL: &str = "qwen3-embedding:8b";
+const DEFAULT_EMBEDDING_DIMENSION: usize = 1024;
+const DEFAULT_REFLECTION_IDLE_MINUTES: u64 = 10;
+const DEFAULT_SCHEDULER_TICK_SECONDS: u64 = 60;
+const DEFAULT_COMPACTION_THRESHOLD: f64 = 0.90;
+const DEFAULT_MASK_PREVIEW_CHARS: usize = 100;
+const DEFAULT_MAX_TOOL_RESULT_BYTES: usize = 30_000;
+const DEFAULT_MAX_SAVED_REQUESTS: usize = 500;
+const DEFAULT_EMBEDDINGS_BATCH_SIZE: usize = 32;
+const DEFAULT_DOCLING_TIMEOUT_SECS: u64 = 600;
 static DOTENV_INIT: Once = Once::new();
 
 #[derive(Debug, Error)]
@@ -536,36 +545,36 @@ impl Config {
                     .embeddings
                     .as_ref()
                     .and_then(|e| e.batch_size)
-                    .unwrap_or(32),
+                    .unwrap_or(DEFAULT_EMBEDDINGS_BATCH_SIZE),
                 dimension: settings
                     .embeddings
                     .as_ref()
                     .and_then(|e| e.dimension)
-                    .unwrap_or(1024),
+                    .unwrap_or(DEFAULT_EMBEDDING_DIMENSION),
             },
             timing: TimingConfig {
                 reflection_idle_minutes: settings
                     .timing
                     .as_ref()
                     .and_then(|t| t.reflection_idle_minutes)
-                    .unwrap_or(10),
+                    .unwrap_or(DEFAULT_REFLECTION_IDLE_MINUTES),
                 scheduler_tick_seconds: settings
                     .timing
                     .as_ref()
                     .and_then(|t| t.scheduler_tick_seconds)
-                    .unwrap_or(60),
+                    .unwrap_or(DEFAULT_SCHEDULER_TICK_SECONDS),
             },
             compaction: CompactionConfig {
                 threshold: settings
                     .compaction
                     .as_ref()
                     .and_then(|c| c.threshold)
-                    .unwrap_or(0.90),
+                    .unwrap_or(DEFAULT_COMPACTION_THRESHOLD),
                 mask_preview_chars: settings
                     .compaction
                     .as_ref()
                     .and_then(|c| c.mask_preview_chars)
-                    .unwrap_or(100),
+                    .unwrap_or(DEFAULT_MASK_PREVIEW_CHARS),
                 instructions: settings
                     .compaction
                     .as_ref()
@@ -574,7 +583,7 @@ impl Config {
                     .compaction
                     .as_ref()
                     .and_then(|c| c.max_tool_result_bytes)
-                    .unwrap_or(30_000),
+                    .unwrap_or(DEFAULT_MAX_TOOL_RESULT_BYTES),
             },
             web: {
                 let crawl4ai_url = settings
@@ -640,7 +649,7 @@ impl Config {
                         .web
                         .as_ref()
                         .and_then(|w| w.search_max_results)
-                        .unwrap_or(5),
+                        .unwrap_or(crate::constants::DEFAULT_WEB_SEARCH_RESULTS),
                     crawl4ai_url,
                     browsers,
                     search_provider,
@@ -656,7 +665,7 @@ impl Config {
                     .docling
                     .as_ref()
                     .and_then(|d| d.timeout)
-                    .unwrap_or(600);
+                    .unwrap_or(DEFAULT_DOCLING_TIMEOUT_SECS);
                 DoclingConfig { url, timeout }
             },
             coding: CodingConfig {
@@ -672,7 +681,7 @@ impl Config {
                     .debug
                     .as_ref()
                     .and_then(|d| d.max_saved_requests)
-                    .unwrap_or(500),
+                    .unwrap_or(DEFAULT_MAX_SAVED_REQUESTS),
             },
             install_bundled_docs: true,
         })

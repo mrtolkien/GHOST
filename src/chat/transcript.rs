@@ -1,6 +1,10 @@
 use serde_json::Value;
 
+use crate::constants::MIN_FINDINGS_CHARS;
 use crate::db::sessions::MessageRecord;
+
+/// Max characters for reasoning/tool-input previews in filtered transcripts.
+const TRANSCRIPT_PREVIEW_CHARS: usize = 200;
 
 /// Filter a transcript for agents: preserve user/assistant text,
 /// preserve tool call names+inputs, strip tool results.
@@ -37,7 +41,10 @@ pub fn filter_transcript(messages: &[MessageRecord], since: Option<&str>) -> Str
                         // New format: text stored directly
                         if let Some(text) = item.get("text").and_then(Value::as_str) {
                             if !text.is_empty() {
-                                lines.push(format!("[{otype}] {}", &text[..text.len().min(200)]));
+                                lines.push(format!(
+                                    "[{otype}] {}",
+                                    &text[..text.len().min(TRANSCRIPT_PREVIEW_CHARS)]
+                                ));
                             }
                         } else if otype == "reasoning" {
                             // Legacy format: extract from value
@@ -64,8 +71,8 @@ pub fn filter_transcript(messages: &[MessageRecord], since: Option<&str>) -> Str
                             .get("input")
                             .map(|v| {
                                 let s = v.to_string();
-                                if s.len() > 200 {
-                                    let end = s.floor_char_boundary(200);
+                                if s.len() > TRANSCRIPT_PREVIEW_CHARS {
+                                    let end = s.floor_char_boundary(TRANSCRIPT_PREVIEW_CHARS);
                                     format!("{}...", &s[..end])
                                 } else {
                                     s
@@ -87,13 +94,13 @@ pub fn filter_transcript(messages: &[MessageRecord], since: Option<&str>) -> Str
 ///
 /// In agent sessions, the final assistant message typically contains the
 /// synthesized research report. Returns `None` if no assistant message
-/// has at least 500 chars of content.
+/// has at least `MIN_FINDINGS_CHARS` of content.
 #[must_use]
 pub fn extract_agent_findings(messages: &[MessageRecord]) -> Option<String> {
     messages
         .iter()
         .rev()
-        .find(|m| m.role == "assistant" && m.content.len() >= 500)
+        .find(|m| m.role == "assistant" && m.content.len() >= MIN_FINDINGS_CHARS)
         .map(|m| m.content.clone())
 }
 

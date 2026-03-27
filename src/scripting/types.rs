@@ -53,7 +53,7 @@ impl Default for AgentConfig {
             description: String::new(),
             model: None,
             reasoning_effort: None,
-            max_iterations: 50,
+            max_iterations: crate::constants::DEFAULT_MAX_TOOL_ITERATIONS,
             tools: Vec::new(),
             custom_tools: Vec::new(),
             skills: Vec::new(),

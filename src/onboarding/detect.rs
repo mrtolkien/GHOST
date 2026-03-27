@@ -3,6 +3,12 @@ use std::time::Duration;
 
 use sysinfo::System;
 
+/// 4 GiB in bytes — minimum RAM for local models.
+const LOW_MEMORY_THRESHOLD: u64 = 4 * 1024 * 1024 * 1024;
+
+/// Timeout for HTTP service probes during detection.
+const SERVICE_PROBE_TIMEOUT: Duration = Duration::from_secs(2);
+
 /// Platform the binary is running on.
 #[derive(Debug, Clone)]
 pub enum Platform {
@@ -86,8 +92,7 @@ pub struct DetectedEnvironment {
 
 /// Returns `true` when total RAM is below 4 GiB — too little for local models.
 pub fn is_low_memory(total_bytes: u64) -> bool {
-    const FOUR_GIB: u64 = 4 * 1024 * 1024 * 1024;
-    total_bytes < FOUR_GIB
+    total_bytes < LOW_MEMORY_THRESHOLD
 }
 
 /// Search PATH for a binary without shelling out.
@@ -105,7 +110,7 @@ fn which_exists(binary: &str) -> bool {
 /// Probe a URL with a 2-second timeout; returns `true` if the server responds.
 async fn probe_http(url: &str) -> bool {
     let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(2))
+        .timeout(SERVICE_PROBE_TIMEOUT)
         .build();
 
     match client {
