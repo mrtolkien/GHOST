@@ -82,7 +82,10 @@ async fn browser_ssrf_blocks_private_ips() {
 }
 
 /// Helper: build a ToolContext with a browser configured.
-#[allow(clippy::unwrap_used, reason = "test helper — panicking on None/Err is the desired behavior")]
+#[allow(
+    clippy::unwrap_used,
+    reason = "test helper — panicking on None/Err is the desired behavior"
+)]
 fn browser_tool_ctx() -> (ToolContext, tempfile::TempDir) {
     let workspace = tempfile::tempdir().unwrap();
     let mut config = ghost::config::test_config(workspace.path());
@@ -390,9 +393,7 @@ async fn multi_tab_open_focus_close() {
     eprintln!("  focused tab 2, verified content");
 
     // Close tab 1.
-    let msg = mgr
-        .close_tab(tab1_id)
-        .expect("close_tab should succeed");
+    let msg = mgr.close_tab(tab1_id).expect("close_tab should succeed");
     assert!(msg.contains(&tab1_id.to_string()));
     eprintln!("  closed tab 1");
 

@@ -2,11 +2,12 @@
 - forbid file edit without a read like Claude?
 - .cache sometimes does not end up empty
 - [ ] References import topics are messy af
-- [ ] Review docs bundling: my GHOST (192.168.1.3) re-imported them as a reference. How
-      come?
+- [ ] Claude token use is wrong
 
 ---
 
+- [x] Review docs bundling: my GHOST (192.168.1.3) re-imported them as a reference. How
+      come?
 - [x] Repair orphaned tool calls _on each response_
 - [x] Don't send histories with tool calls that don't have a response -> at least give
       an error if that's the case

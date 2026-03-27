@@ -503,11 +503,12 @@ impl Config {
         let vision = settings.models.as_ref().and_then(|m| m.vision.clone());
 
         if let Some(ref alias) = vision
-            && !resolved_aliases.contains_key(alias.as_str()) {
-                return Err(ConfigError::UnknownDefaultModelAlias {
-                    alias: alias.clone(),
-                });
-            }
+            && !resolved_aliases.contains_key(alias.as_str())
+        {
+            return Err(ConfigError::UnknownDefaultModelAlias {
+                alias: alias.clone(),
+            });
+        }
 
         Ok(Self {
             workspace,

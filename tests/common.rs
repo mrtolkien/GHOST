@@ -106,7 +106,10 @@ pub fn write_test_reference(
 
 /// Result from waiting for a background agent to complete.
 #[cfg(feature = "live-tests")]
-#[allow(dead_code, reason = "fields accessed by destructuring in live tests only; Rust doesn't see field reads through pattern bindings")]
+#[allow(
+    dead_code,
+    reason = "fields accessed by destructuring in live tests only; Rust doesn't see field reads through pattern bindings"
+)]
 pub struct AgentOutcome {
     /// GHOST's follow-up response after receiving agent findings.
     pub chat_result: ghost::chat::ChatResult,
@@ -118,7 +121,10 @@ pub struct AgentOutcome {
 
 /// Metrics collected from an agent session's web_fetch tool calls.
 #[cfg(feature = "live-tests")]
-#[allow(dead_code, reason = "fields accessed by destructuring in live tests only; Rust doesn't see field reads through pattern bindings")]
+#[allow(
+    dead_code,
+    reason = "fields accessed by destructuring in live tests only; Rust doesn't see field reads through pattern bindings"
+)]
 pub struct WebFetchMetrics {
     pub count: u32,
     pub urls: Vec<String>,
@@ -129,7 +135,10 @@ pub struct WebFetchMetrics {
 /// On drop, snapshots the workspace and diagnostic log to
 /// `e2e-output/<timestamp>_<test_name>/`.
 #[cfg(feature = "live-tests")]
-#[allow(dead_code, reason = "private fields are RAII guards or internal bookkeeping; public fields accessed selectively across test files")]
+#[allow(
+    dead_code,
+    reason = "private fields are RAII guards or internal bookkeeping; public fields accessed selectively across test files"
+)]
 pub struct LiveTestEnv {
     pub db: GhostDb,
     pub config: Config,
@@ -147,7 +156,10 @@ pub struct LiveTestEnv {
 }
 
 #[cfg(feature = "live-tests")]
-#[allow(dead_code, reason = "impl methods are helpers selectively used across different live test files")]
+#[allow(
+    dead_code,
+    reason = "impl methods are helpers selectively used across different live test files"
+)]
 impl LiveTestEnv {
     /// Absolute path to this test environment's workspace directory.
     pub fn workspace_path(&self) -> &Path {
@@ -499,10 +511,11 @@ impl LiveTestEnv {
             ("report_data".to_string(), report_data_json.to_string()),
             ("session_id".to_string(), agent_session_id.to_string()),
         ]);
-        let result = Box::pin(
-            self.agent_runner
-                .run_with_args("deep-research-reflection", args, Some(agent_session_id)),
-        )
+        let result = Box::pin(self.agent_runner.run_with_args(
+            "deep-research-reflection",
+            args,
+            Some(agent_session_id),
+        ))
         .await
         .expect("structured reflection run_with_args");
         let (findings, metadata) = (result.findings, result.metadata);
@@ -658,11 +671,7 @@ impl LiveTestEnv {
             .iter()
             .filter_map(ghost::db::sessions::MessageRecord::tool_calls_parsed)
             .flatten()
-            .filter_map(|call| {
-                call.get("name")
-                    .and_then(|v| v.as_str())
-                    .map(String::from)
-            })
+            .filter_map(|call| call.get("name").and_then(|v| v.as_str()).map(String::from))
             .collect()
     }
 
@@ -929,7 +938,10 @@ impl Drop for LiveTestEnv {
 /// fresh temp workspace + database, `GHOST_CONFIG_DIR` set so spawned
 /// `ghost` subprocesses use the temp workspace.
 #[cfg(feature = "live-tests")]
-#[allow(dead_code, reason = "shared live-test helper not used by every test file that includes common.rs")]
+#[allow(
+    dead_code,
+    reason = "shared live-test helper not used by every test file that includes common.rs"
+)]
 pub async fn live_test_database(test_name: &str) -> LiveTestEnv {
     live_test_database_from_snapshot(test_name, None).await
 }
@@ -939,8 +951,14 @@ pub async fn live_test_database(test_name: &str) -> LiveTestEnv {
 /// The archive is extracted into the temp workspace after bootstrap and before
 /// database connection, so SQLite state is restored cleanly.
 #[cfg(feature = "live-tests")]
-#[allow(dead_code, reason = "shared live-test helper not used by every test file that includes common.rs")]
-#[allow(clippy::unwrap_used, reason = "test helper — panicking on None is the desired behavior")]
+#[allow(
+    dead_code,
+    reason = "shared live-test helper not used by every test file that includes common.rs"
+)]
+#[allow(
+    clippy::unwrap_used,
+    reason = "test helper — panicking on None is the desired behavior"
+)]
 pub async fn live_test_database_from_snapshot(
     test_name: &str,
     snapshot: Option<&Path>,
@@ -1157,13 +1175,19 @@ fn copy_dir_all(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result
 // ---------------------------------------------------------------------------
 
 #[derive(Debug)]
-#[allow(dead_code, reason = "private fields accessed only through the Provider trait impl and requests() accessor")]
+#[allow(
+    dead_code,
+    reason = "private fields accessed only through the Provider trait impl and requests() accessor"
+)]
 pub struct MockProvider {
     responses: Arc<Mutex<VecDeque<ChatResponse>>>,
     requests: Arc<Mutex<Vec<ChatRequest>>>,
 }
 
-#[allow(dead_code, reason = "helper methods used selectively across test files that include common.rs")]
+#[allow(
+    dead_code,
+    reason = "helper methods used selectively across test files that include common.rs"
+)]
 impl MockProvider {
     pub fn new(responses: Vec<ChatResponse>) -> Self {
         Self {
@@ -1194,7 +1218,10 @@ impl Provider for MockProvider {
 }
 
 #[derive(Debug)]
-#[allow(dead_code, reason = "test-only tool type; not referenced by every test file that includes common.rs")]
+#[allow(
+    dead_code,
+    reason = "test-only tool type; not referenced by every test file that includes common.rs"
+)]
 pub struct EchoTool;
 
 #[async_trait]
@@ -1228,7 +1255,10 @@ impl Tool for EchoTool {
     }
 }
 
-#[allow(dead_code, reason = "shared test helper not used by every test file that includes common.rs")]
+#[allow(
+    dead_code,
+    reason = "shared test helper not used by every test file that includes common.rs"
+)]
 pub fn response(content: Vec<ContentBlock>, stop_reason: StopReason) -> ChatResponse {
     ChatResponse {
         content,
@@ -1241,7 +1271,10 @@ pub fn response(content: Vec<ContentBlock>, stop_reason: StopReason) -> ChatResp
 }
 
 /// Build a mock response that ends the turn with a plain text message.
-#[allow(dead_code, reason = "shared test helper not used by every test file that includes common.rs")]
+#[allow(
+    dead_code,
+    reason = "shared test helper not used by every test file that includes common.rs"
+)]
 pub fn respond_response(message: &str, _citations: Vec<serde_json::Value>) -> ChatResponse {
     response(
         vec![ContentBlock::Text {

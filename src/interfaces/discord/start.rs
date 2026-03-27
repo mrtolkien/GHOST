@@ -55,7 +55,12 @@ impl DiscordSender {
     /// Send GHOST assistant-style content to a channel.
     #[tracing::instrument(skip_all, fields(channel_id = %channel_id))]
     pub async fn send_to_channel(&self, channel_id: u64, content: &str) -> serenity::Result<()> {
-        Box::pin(send_assistant_v2(&self.http, ChannelId::new(channel_id), content)).await
+        Box::pin(send_assistant_v2(
+            &self.http,
+            ChannelId::new(channel_id),
+            content,
+        ))
+        .await
     }
 
     /// Send GHOST assistant-style content with statusline suffix components.
@@ -66,7 +71,13 @@ impl DiscordSender {
         content: &str,
         suffix: &[serde_json::Value],
     ) -> serenity::Result<()> {
-        Box::pin(send_assistant_v2_with_suffix(&self.http, ChannelId::new(channel_id), content, suffix)).await
+        Box::pin(send_assistant_v2_with_suffix(
+            &self.http,
+            ChannelId::new(channel_id),
+            content,
+            suffix,
+        ))
+        .await
     }
 
     /// Send a system/gateway message to a channel.
@@ -77,7 +88,13 @@ impl DiscordSender {
         content: &str,
         color: Option<u32>,
     ) -> serenity::Result<()> {
-        Box::pin(send_gateway_v2(&self.http, ChannelId::new(channel_id), content, color)).await
+        Box::pin(send_gateway_v2(
+            &self.http,
+            ChannelId::new(channel_id),
+            content,
+            color,
+        ))
+        .await
     }
 
     /// Send a compact v2 container without the "GHOST" header.

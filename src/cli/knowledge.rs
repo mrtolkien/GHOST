@@ -89,7 +89,13 @@ pub async fn execute(command: KnowledgeCommand) -> Result<(), GhostError> {
             cmd_references(&db, topic.as_deref(), limit).await
         }
         KnowledgeCommand::Reindex { skip_embeddings } => {
-            Box::pin(cmd_reindex(&db, &config.workspace, &config.embeddings, skip_embeddings)).await
+            Box::pin(cmd_reindex(
+                &db,
+                &config.workspace,
+                &config.embeddings,
+                skip_embeddings,
+            ))
+            .await
         }
     }
 }
@@ -598,17 +604,16 @@ async fn cmd_reindex(
     }
 
     db::embeddings::delete_all_embeddings(db).await?;
-    let (_discovered, embed_requests) =
-        Box::pin(crate::embeddings::pipeline::reconcile_filesystem(db, workspace))
-            .await
-            .map_err(|e| match e {
-                crate::embeddings::pipeline::PipelineError::Embedding(e) => {
-                    GhostError::Embedding(e)
-                }
-                crate::embeddings::pipeline::PipelineError::Database(e) => {
-                    GhostError::Database(Box::new(e))
-                }
-            })?;
+    let (_discovered, embed_requests) = Box::pin(
+        crate::embeddings::pipeline::reconcile_filesystem(db, workspace),
+    )
+    .await
+    .map_err(|e| match e {
+        crate::embeddings::pipeline::PipelineError::Embedding(e) => GhostError::Embedding(e),
+        crate::embeddings::pipeline::PipelineError::Database(e) => {
+            GhostError::Database(Box::new(e))
+        }
+    })?;
     let embedded = crate::embeddings::pipeline::embed_sources(&client, db, embed_requests)
         .await
         .map_err(|e| match e {

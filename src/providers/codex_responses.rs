@@ -631,7 +631,11 @@ fn collect_message_text(item: &Value, out: &mut Vec<ContentBlock>) -> bool {
 fn opaque_output_block(item: &Value, item_type: &str) -> ContentBlock {
     if item_type == "reasoning" {
         let summary = extract_reasoning_summary(item);
-        let text = if summary.is_empty() { None } else { Some(summary) };
+        let text = if summary.is_empty() {
+            None
+        } else {
+            Some(summary)
+        };
         let opaque_data = item
             .get("encrypted_content")
             .and_then(Value::as_str)

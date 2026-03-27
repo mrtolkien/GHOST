@@ -187,9 +187,7 @@ async fn send_v2(
         form = form.part(format!("files[{i}]"), part);
     }
 
-    let url = format!(
-        "https://discord.com/api/v10/channels/{channel_id}/messages"
-    );
+    let url = format!("https://discord.com/api/v10/channels/{channel_id}/messages");
 
     let response = reqwest::Client::new()
         .post(&url)

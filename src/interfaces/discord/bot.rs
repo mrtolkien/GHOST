@@ -252,8 +252,7 @@ impl Handler {
                 .await;
             }
 
-            Box::pin(self.handle_coding_message(ctx, msg, &session_id, &working_dir))
-                .await;
+            Box::pin(self.handle_coding_message(ctx, msg, &session_id, &working_dir)).await;
             return;
         }
 
@@ -364,7 +363,8 @@ impl Handler {
                 }
 
                 if result.stop_reason == ChatStopReason::Stopped {
-                    let _ = Box::pin(send_gateway_v2(&ctx.http, msg.channel_id, "Stopped.", None)).await;
+                    let _ = Box::pin(send_gateway_v2(&ctx.http, msg.channel_id, "Stopped.", None))
+                        .await;
                 }
             }
             Err(crate::chat::ChatError::SessionBusy { .. }) => {
@@ -490,7 +490,8 @@ impl Handler {
                 }
 
                 if result.stop_reason == ChatStopReason::Stopped {
-                    let _ = Box::pin(send_gateway_v2(&ctx.http, msg.channel_id, "Stopped.", None)).await;
+                    let _ = Box::pin(send_gateway_v2(&ctx.http, msg.channel_id, "Stopped.", None))
+                        .await;
                 }
             }
             Err(crate::chat::ChatError::SessionBusy { .. }) => {

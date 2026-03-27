@@ -750,18 +750,22 @@ async fn reconcile_filesystem_skips_unchanged_files() {
     common::write_test_note(workspace.path(), "Hash Test", "initial content");
 
     // First reconciliation: file is new, should be processed
-    let (discovered_1, _) =
-        Box::pin(ghost::embeddings::pipeline::reconcile_filesystem(&db, workspace.path()))
-            .await
-            .unwrap();
+    let (discovered_1, _) = Box::pin(ghost::embeddings::pipeline::reconcile_filesystem(
+        &db,
+        workspace.path(),
+    ))
+    .await
+    .unwrap();
     assert!(discovered_1 > 0, "first run should discover the new file");
 
     // Second reconciliation: file unchanged, hash matches but no embeddings yet
     // → should NOT re-discover but SHOULD queue embed request
-    let (discovered_2, embed_reqs_2) =
-        Box::pin(ghost::embeddings::pipeline::reconcile_filesystem(&db, workspace.path()))
-            .await
-            .unwrap();
+    let (discovered_2, embed_reqs_2) = Box::pin(ghost::embeddings::pipeline::reconcile_filesystem(
+        &db,
+        workspace.path(),
+    ))
+    .await
+    .unwrap();
     assert_eq!(
         discovered_2, 0,
         "second run should not re-discover unchanged file"
@@ -782,10 +786,12 @@ async fn reconcile_filesystem_skips_unchanged_files() {
         .unwrap();
 
     // Third reconciliation: hash matches AND has embeddings → should skip entirely
-    let (discovered_3, embed_reqs_3) =
-        Box::pin(ghost::embeddings::pipeline::reconcile_filesystem(&db, workspace.path()))
-            .await
-            .unwrap();
+    let (discovered_3, embed_reqs_3) = Box::pin(ghost::embeddings::pipeline::reconcile_filesystem(
+        &db,
+        workspace.path(),
+    ))
+    .await
+    .unwrap();
     assert_eq!(discovered_3, 0, "third run should skip unchanged file");
     assert!(
         embed_reqs_3.is_empty(),
@@ -796,10 +802,12 @@ async fn reconcile_filesystem_skips_unchanged_files() {
     common::write_test_note(workspace.path(), "Hash Test", "modified content");
 
     // Fourth reconciliation: file changed, hash differs → should be re-processed
-    let (discovered_4, _) =
-        Box::pin(ghost::embeddings::pipeline::reconcile_filesystem(&db, workspace.path()))
-            .await
-            .unwrap();
+    let (discovered_4, _) = Box::pin(ghost::embeddings::pipeline::reconcile_filesystem(
+        &db,
+        workspace.path(),
+    ))
+    .await
+    .unwrap();
     assert!(
         discovered_4 > 0,
         "fourth run should re-process the modified file"
@@ -812,10 +820,12 @@ async fn reconcile_filesystem_queues_embed_for_unembedded_files() {
 
     // Write a note file and reconcile to create the DB record with file_hash
     common::write_test_note(workspace.path(), "Embed Gap", "embed me please");
-    let (discovered, _) =
-        Box::pin(ghost::embeddings::pipeline::reconcile_filesystem(&db, workspace.path()))
-            .await
-            .unwrap();
+    let (discovered, _) = Box::pin(ghost::embeddings::pipeline::reconcile_filesystem(
+        &db,
+        workspace.path(),
+    ))
+    .await
+    .unwrap();
     assert!(discovered > 0);
 
     // Delete embeddings to simulate Ollama-was-down scenario
@@ -828,10 +838,12 @@ async fn reconcile_filesystem_queues_embed_for_unembedded_files() {
         .unwrap();
 
     // Re-reconcile: hash matches but embeddings missing → should return EmbedRequest
-    let (discovered_2, embed_reqs) =
-        Box::pin(ghost::embeddings::pipeline::reconcile_filesystem(&db, workspace.path()))
-            .await
-            .unwrap();
+    let (discovered_2, embed_reqs) = Box::pin(ghost::embeddings::pipeline::reconcile_filesystem(
+        &db,
+        workspace.path(),
+    ))
+    .await
+    .unwrap();
     assert_eq!(
         discovered_2, 0,
         "file unchanged, should not count as discovered"
@@ -861,10 +873,12 @@ async fn reconcile_filesystem_discovers_untracked_reference() {
     assert_eq!(count_before, 0);
 
     // Run filesystem reconciliation
-    let (discovered, _embed_reqs) =
-        Box::pin(ghost::embeddings::pipeline::reconcile_filesystem(&db, workspace.path()))
-            .await
-            .unwrap();
+    let (discovered, _embed_reqs) = Box::pin(ghost::embeddings::pipeline::reconcile_filesystem(
+        &db,
+        workspace.path(),
+    ))
+    .await
+    .unwrap();
 
     assert!(discovered > 0, "should discover the orphan file");
 

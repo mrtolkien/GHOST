@@ -425,7 +425,10 @@ impl SessionChat {
     /// `compacted_flags` is parallel to the returned messages — `true` for
     /// messages that were already compacted in a previous run.
     #[tracing::instrument(skip_all, level = "debug", fields(session_id = ?session_id))]
-    #[allow(clippy::type_complexity, reason = "return type is a deliberate triple of parallel vecs; extracting a struct would add indirection without clarity")]
+    #[allow(
+        clippy::type_complexity,
+        reason = "return type is a deliberate triple of parallel vecs; extracting a struct would add indirection without clarity"
+    )]
     pub(super) async fn load_provider_history(
         &self,
         session_id: &str,

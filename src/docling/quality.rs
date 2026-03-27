@@ -24,7 +24,10 @@ pub fn assess_pages(doc: &DoclingDocument) -> Vec<PageQuality> {
 
     for page_info in doc.pages.values() {
         let page_no = page_info.page_no;
-        let page_area = page_info.size.as_ref().map_or(1.0, super::document::PageSize::area);
+        let page_area = page_info
+            .size
+            .as_ref()
+            .map_or(1.0, super::document::PageSize::area);
 
         let page_texts: Vec<&TextItem> = doc
             .texts

@@ -48,9 +48,11 @@ pub fn parse_ax_tree(raw_nodes: &[JsonValue]) -> Vec<AxNode> {
             role == Some("RootWebArea")
         })
         .or_else(|| {
-            raw_nodes
-                .iter()
-                .position(|n| !n.get("ignored").and_then(serde_json::Value::as_bool).unwrap_or(false))
+            raw_nodes.iter().position(|n| {
+                !n.get("ignored")
+                    .and_then(serde_json::Value::as_bool)
+                    .unwrap_or(false)
+            })
         });
 
     let Some(root_idx) = root_idx else {
@@ -99,7 +101,9 @@ fn build_children(
         } else {
             let role = extract_ax_str(child_node, "role");
             let name = extract_ax_str(child_node, "name");
-            let backend_node_id = child_node.get("backendDOMNodeId").and_then(serde_json::Value::as_i64);
+            let backend_node_id = child_node
+                .get("backendDOMNodeId")
+                .and_then(serde_json::Value::as_i64);
             let properties = extract_properties(child_node);
             let children = build_children(raw, child_idx, id_map);
 

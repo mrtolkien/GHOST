@@ -78,9 +78,7 @@ async fn handle_event(
             metadata,
             discord.agent_findings.as_deref(),
         );
-        let _ = Box::pin(sender
-            .send_compact_container(channel_id, &summary, None))
-            .await;
+        let _ = Box::pin(sender.send_compact_container(channel_id, &summary, None)).await;
     }
 
     // Determine if this is a coding session and trigger the appropriate chat.
@@ -135,9 +133,12 @@ async fn handle_event(
             let statusline = crate::interfaces::discord::ui_events::format_statusline(&metadata);
             if let Some(sender) = discord_sender
                 && let Some(channel_id) = discord_channel_id
-                && let Err(e) = Box::pin(sender
-                    .send_to_channel_with_suffix(channel_id, &result.message, &statusline))
-                    .await
+                && let Err(e) = Box::pin(sender.send_to_channel_with_suffix(
+                    channel_id,
+                    &result.message,
+                    &statusline,
+                ))
+                .await
             {
                 tracing::error!(
                     error = e.to_string(),

@@ -106,8 +106,7 @@ impl AgentRunner {
         prompt: &str,
         parent_session_id: Option<&str>,
     ) -> Result<AgentResult, AgentError> {
-        Box::pin(self.run_with_args(agent_name, prompt_args(prompt), parent_session_id))
-            .await
+        Box::pin(self.run_with_args(agent_name, prompt_args(prompt), parent_session_id)).await
     }
 
     /// Run an agent synchronously with arbitrary args.

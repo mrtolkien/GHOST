@@ -123,11 +123,11 @@ before adding or modifying any instrumentation.
 - No `.unwrap()`/`.expect()` in production (tests fine). Propagate with `?` + context.
 - One local error enum per module once it has behavior; convert up with `#[from]`
 - Log at handling boundary, not creation. Every variant must be self-diagnosable.
-- **`let _ =` is only acceptable for truly unrecoverable / irrelevant failures:** channel
-  sends (receiver may be dropped), `write!` on `String` (infallible), process cleanup
-  (`kill`, `remove_file`), terminal output (`cliclack`). **Never** use `let _ =` on
-  database operations, I/O that affects correctness, or anything where the caller could
-  meaningfully handle the error. If unsure, propagate with `?` or log with
+- **`let _ =` is only acceptable for truly unrecoverable / irrelevant failures:**
+  channel sends (receiver may be dropped), `write!` on `String` (infallible), process
+  cleanup (`kill`, `remove_file`), terminal output (`cliclack`). **Never** use `let _ =`
+  on database operations, I/O that affects correctness, or anything where the caller
+  could meaningfully handle the error. If unsure, propagate with `?` or log with
   `if let Err(e) = ... { tracing::warn!(...) }`.
 
 ### Code Structure

@@ -5,9 +5,7 @@ use super::interrupt::InterruptReceiver;
 use super::tool_cap;
 use crate::chat::compaction;
 use crate::chat::interrupt::Interrupt;
-use crate::providers::types::{
-    ChatResponse, DebugContext, ProviderError, ReasoningEffort,
-};
+use crate::providers::types::{ChatResponse, DebugContext, ProviderError, ReasoningEffort};
 use crate::providers::{ChatMessage, ChatRequest, ContentBlock, Role, StopReason};
 
 use super::convert::{
@@ -215,8 +213,7 @@ pub(super) async fn run_tool_loop(
                 // Check iteration limit before executing tools.
                 if state.iterations >= params.max_iterations {
                     let fallback = state.last_result.take().unwrap_or(ChatResult {
-                        message: "Hit tool iteration limit before completing response."
-                            .to_string(),
+                        message: "Hit tool iteration limit before completing response.".to_string(),
                         stop_reason: ChatStopReason::MaxIterations,
                     });
                     IterationOutcome::Return(ChatResult {
@@ -391,7 +388,11 @@ async fn process_tool_use(
     // Count tool calls and collect info for events.
     let tool_infos = collect_tool_call_infos(&tool_uses, &config.workspace);
     for info in &tool_infos {
-        *state.metadata.tool_counts.entry(info.name.clone()).or_default() += 1;
+        *state
+            .metadata
+            .tool_counts
+            .entry(info.name.clone())
+            .or_default() += 1;
     }
     if let Some(tx) = ctx.event_tx {
         let _ = tx.send(ToolLoopEvent::ToolCalls { calls: tool_infos });
@@ -465,16 +466,16 @@ async fn process_tool_use(
     if let Some(ref mut rx) = ctx.interrupt_rx
         && let InterruptAction::Stop =
             drain_interrupts(rx, history, session_chat.db(), session_id).await?
-        {
-            let fallback = state.last_result.take().unwrap_or(ChatResult {
-                message: String::new(),
-                stop_reason: ChatStopReason::Stopped,
-            });
-            return Ok(IterationOutcome::Return(ChatResult {
-                stop_reason: ChatStopReason::Stopped,
-                ..fallback
-            }));
-        }
+    {
+        let fallback = state.last_result.take().unwrap_or(ChatResult {
+            message: String::new(),
+            stop_reason: ChatStopReason::Stopped,
+        });
+        return Ok(IterationOutcome::Return(ChatResult {
+            stop_reason: ChatStopReason::Stopped,
+            ..fallback
+        }));
+    }
 
     Ok(IterationOutcome::Continue)
 }
@@ -601,10 +602,7 @@ fn handle_empty_response(
 // Pure data transformations for event emission
 // ---------------------------------------------------------------------------
 
-fn collect_tool_call_infos(
-    tool_uses: &[Value],
-    workspace: &std::path::Path,
-) -> Vec<ToolCallInfo> {
+fn collect_tool_call_infos(tool_uses: &[Value], workspace: &std::path::Path) -> Vec<ToolCallInfo> {
     tool_uses
         .iter()
         .filter_map(|t| {

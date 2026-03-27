@@ -305,8 +305,7 @@ pub async fn link_cited_edges(
             }
 
             // Look up the note record
-            let Ok(Some(note_record)) =
-                db::knowledge::find_note_by_title(db, note_title).await
+            let Ok(Some(note_record)) = db::knowledge::find_note_by_title(db, note_title).await
             else {
                 continue;
             };

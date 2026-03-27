@@ -194,10 +194,7 @@ async fn tick_scheduled(agent_runner: &AgentRunner, _db: &GhostDb, entries: &mut
 
         tracing::info!(agent_name = name.clone(), "executing scheduled agent");
 
-        match Box::pin(agent_runner
-            .run(name, "Execute the scheduled agent.", None))
-            .await
-        {
+        match Box::pin(agent_runner.run(name, "Execute the scheduled agent.", None)).await {
             Ok(mut result) => {
                 agent_runner.spawn_children(&mut result);
                 tracing::info!(agent_name = name.clone(), "scheduled agent completed");
@@ -292,13 +289,12 @@ async fn tick_idle(agent_runner: &AgentRunner, db: &GhostDb, idle_agents: &[Idle
                 "idle threshold reached, triggering agent",
             );
 
-            match Box::pin(agent_runner
-                .run(
-                    &agent.name,
-                    "Execute after idle period.",
-                    Some(&record.session_id),
-                ))
-                .await
+            match Box::pin(agent_runner.run(
+                &agent.name,
+                "Execute after idle period.",
+                Some(&record.session_id),
+            ))
+            .await
             {
                 Ok(mut result) => {
                     agent_runner.spawn_children(&mut result);

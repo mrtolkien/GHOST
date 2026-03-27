@@ -451,8 +451,7 @@ async fn process_reference_change(
                 (r.id, r.topic_id)
             }
             _ => {
-                let Ok(tid) =
-                    crate::db::knowledge::find_or_create_topic(db, &topic_name).await
+                let Ok(tid) = crate::db::knowledge::find_or_create_topic(db, &topic_name).await
                 else {
                     return Ok(None);
                 };
@@ -735,39 +734,45 @@ pub fn spawn_reconciliation_loop(
                 continue;
             }
 
-            Box::pin(async {
-                match Box::pin(crate::embeddings::pipeline::reconcile_filesystem(&db, &workspace)).await {
-                    Ok((discovered, embed_requests)) => {
-                        if discovered > 0 {
-                            info!(discovered, "periodic reconciliation found new files");
-                        }
-                        if !embed_requests.is_empty() {
-                            match crate::embeddings::pipeline::embed_sources(
-                                &client,
-                                &db,
-                                embed_requests,
-                            )
-                            .await
-                            {
-                                Ok(embedded) if embedded > 0 => {
-                                    info!(embedded, "periodic reconciliation complete");
+            Box::pin(
+                async {
+                    match Box::pin(crate::embeddings::pipeline::reconcile_filesystem(
+                        &db, &workspace,
+                    ))
+                    .await
+                    {
+                        Ok((discovered, embed_requests)) => {
+                            if discovered > 0 {
+                                info!(discovered, "periodic reconciliation found new files");
+                            }
+                            if !embed_requests.is_empty() {
+                                match crate::embeddings::pipeline::embed_sources(
+                                    &client,
+                                    &db,
+                                    embed_requests,
+                                )
+                                .await
+                                {
+                                    Ok(embedded) if embedded > 0 => {
+                                        info!(embedded, "periodic reconciliation complete");
+                                    }
+                                    Err(e) => {
+                                        tracing::warn!(
+                                            error = e.to_string(),
+                                            "periodic embedding failed",
+                                        );
+                                    }
+                                    _ => {}
                                 }
-                                Err(e) => {
-                                    tracing::warn!(
-                                        error = e.to_string(),
-                                        "periodic embedding failed",
-                                    );
-                                }
-                                _ => {}
                             }
                         }
-                    }
-                    Err(e) => {
-                        tracing::warn!(error = e.to_string(), "periodic reconciliation failed");
+                        Err(e) => {
+                            tracing::warn!(error = e.to_string(), "periodic reconciliation failed");
+                        }
                     }
                 }
-            }
-            .instrument(tracing::info_span!("reconcile periodic")))
+                .instrument(tracing::trace_span!("reconcile periodic")),
+            )
             .await;
         }
     })

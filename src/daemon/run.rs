@@ -22,7 +22,10 @@ use crate::error::GhostError;
 use crate::interfaces::discord::{self, DiscordHandle};
 
 /// Handle to a running GHOST daemon. Returned by `boot()`.
-#[allow(dead_code, reason = "private fields are held for RAII lifetime and accessed only within the impl (shutdown, settle, config reload)")]
+#[allow(
+    dead_code,
+    reason = "private fields are held for RAII lifetime and accessed only within the impl (shutdown, settle, config reload)"
+)]
 pub struct DaemonHandle {
     pub session_chat: Arc<SessionChat>,
     pub db: GhostDb,
@@ -226,7 +229,12 @@ pub async fn boot_with_config(config: Config) -> Result<DaemonHandle, GhostError
     let client = EmbeddingClient::new(&config.embeddings);
     if client.is_available().await {
         info!("running boot reconciliation");
-        match Box::pin(crate::embeddings::pipeline::reconcile_filesystem(&db, &config.workspace)).await {
+        match Box::pin(crate::embeddings::pipeline::reconcile_filesystem(
+            &db,
+            &config.workspace,
+        ))
+        .await
+        {
             Ok((discovered, embed_requests)) => {
                 if discovered > 0 {
                     info!(discovered, "boot: discovered untracked files");
@@ -327,7 +335,14 @@ pub async fn boot_with_config(config: Config) -> Result<DaemonHandle, GhostError
     // If there are updates, prompt the user or auto-accept
     if has_updates {
         let cfg = shared_config.current();
-        Box::pin(handle_bundled_updates(&cfg, &changes, &db, &discord_result, bundled_rx)).await?;
+        Box::pin(handle_bundled_updates(
+            &cfg,
+            &changes,
+            &db,
+            &discord_result,
+            bundled_rx,
+        ))
+        .await?;
     }
 
     let discord_sender_arc = discord_result.as_ref().map(|d| Arc::new(d.sender.clone()));
