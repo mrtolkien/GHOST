@@ -132,7 +132,12 @@ pub async fn update_references(
         handle_deletions(db, workspace, topic_name, topic_id, &existing_map).await?;
 
     // 11. Update batch metadata
-    let total_refs = db::knowledge::count_references_by_topic(db, topic_id).await? as usize;
+    let total_refs = usize::try_from(
+        db::knowledge::count_references_by_topic(db, topic_id)
+            .await?
+            .max(0),
+    )
+    .unwrap_or(0);
     let config_json_str = serde_json::to_string(&config_json).ok();
     db::knowledge::upsert_import_batch(
         db,
@@ -187,7 +192,7 @@ async fn fetch_manifest(
                 .collect();
             Ok((None, manifest))
         }
-        _ => Err(ImportError::Config(
+        ImportSource::File { .. } => Err(ImportError::Config(
             "only git and crawl sources support update".into(),
         )),
     }

@@ -172,7 +172,12 @@ pub async fn import_crawl(
     }
 
     // Update import batch with final count
-    let total_refs = db::knowledge::count_references_by_topic(db, &topic_id).await? as usize;
+    let total_refs = usize::try_from(
+        db::knowledge::count_references_by_topic(db, &topic_id)
+            .await?
+            .max(0),
+    )
+    .unwrap_or(0);
     let batch_id = db::knowledge::upsert_import_batch(
         db,
         &topic_id,
