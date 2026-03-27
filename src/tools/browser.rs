@@ -714,10 +714,7 @@ async fn execute_connect(
     Ok(ToolOutput::text(result.to_string()))
 }
 
-fn execute_disconnect(
-    mgr: &mut BrowserManager,
-    params: &Value,
-) -> Result<ToolOutput, ToolError> {
+fn execute_disconnect(mgr: &mut BrowserManager, params: &Value) -> Result<ToolOutput, ToolError> {
     let name = params
         .get("name")
         .and_then(Value::as_str)

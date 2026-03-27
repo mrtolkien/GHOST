@@ -349,22 +349,20 @@ async fn process_note_change(
             .await;
             n.id
         }
-        _ => {
-            match crate::db::knowledge::create_note_full(db, &note_input).await {
-                Ok(id) => {
-                    let _ = knowledge::reconcile::reconcile_edges(
-                        db,
-                        &id,
-                        &parsed.front.title,
-                        &parsed.wiki_links,
-                        parsed.front.parent.as_deref(),
-                    )
-                    .await;
-                    id
-                }
-                Err(_) => return Ok(None),
+        _ => match crate::db::knowledge::create_note_full(db, &note_input).await {
+            Ok(id) => {
+                let _ = knowledge::reconcile::reconcile_edges(
+                    db,
+                    &id,
+                    &parsed.front.title,
+                    &parsed.wiki_links,
+                    parsed.front.parent.as_deref(),
+                )
+                .await;
+                id
             }
-        }
+            Err(_) => return Ok(None),
+        },
     };
 
     Ok(Some(EmbedRequest {
