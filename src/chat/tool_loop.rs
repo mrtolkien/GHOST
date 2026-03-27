@@ -496,7 +496,8 @@ async fn process_end_turn(
 
     // Detect empty EndTurn: no text and no tool calls.
     if message.is_empty() && tool_uses.is_empty() {
-        return handle_empty_response(history, &response, state);
+        return handle_empty_response(session_chat.db(), session_id, history, &response, state)
+            .await;
     }
 
     // Progress gate: does the handler want the model to keep working?
@@ -558,7 +559,9 @@ async fn process_end_turn(
 }
 
 /// Handle an empty response — nudge once, error on second occurrence.
-fn handle_empty_response(
+async fn handle_empty_response(
+    db: &crate::db::GhostDb,
+    session_id: &str,
     history: &mut Vec<ChatMessage>,
     response: &ChatResponse,
     state: &mut LoopState,
@@ -567,20 +570,25 @@ fn handle_empty_response(
         .unwrap_or_else(|e| format!("<serialization failed: {e}>"));
 
     if !state.retried_empty {
+        let nudge_text = "<system-reminder>You returned an empty \
+                          response. This is a bug — your session \
+                          will end if it happens again. Continue \
+                          by making a tool call now.</system-reminder>";
+
         tracing::warn!(
             iterations = state.iterations as u64,
             stop_reason = format!("{:?}", response.stop_reason),
             content = content_json,
             "empty EndTurn response, injecting recovery nudge",
         );
+
+        // Persist to DB so compaction IDs stay in sync with in-memory history.
+        crate::db::sessions::create_message(db, session_id, "system", nudge_text).await?;
+
         history.push(ChatMessage {
             role: Role::System,
             content: vec![ContentBlock::Text {
-                text: "<system-reminder>You returned an empty \
-                       response. This is a bug — your session \
-                       will end if it happens again. Continue \
-                       by making a tool call now.</system-reminder>"
-                    .to_string(),
+                text: nudge_text.to_string(),
             }],
         });
         state.retried_empty = true;
