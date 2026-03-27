@@ -25,7 +25,6 @@ const ANTHROPIC_VERSION: &str = "2023-06-01";
 const USER_AGENT: &str = "claude-cli/2.1.75";
 const BASE_BETA_FLAGS: &str =
     "claude-code-20250219,oauth-2025-04-20,fine-grained-tool-streaming-2025-05-14";
-const INTERLEAVED_THINKING_BETA: &str = "interleaved-thinking-2025-05-14";
 
 #[derive(Debug)]
 pub struct AnthropicProvider {
@@ -133,10 +132,10 @@ impl AnthropicProvider {
             })?,
         );
 
-        let beta_header = build_beta_header(&request.model);
+        let beta_header = BASE_BETA_FLAGS;
         headers.insert(
             "anthropic-beta",
-            HeaderValue::from_str(&beta_header).map_err(|e| {
+            HeaderValue::from_str(beta_header).map_err(|e| {
                 ProviderError::InvalidResponse(format!("failed to encode beta header: {e}"))
             })?,
         );
@@ -350,35 +349,6 @@ impl Provider for AnthropicProvider {
     }
 }
 
-/// Build the `anthropic-beta` header value. Adaptive-thinking models
-/// omit the interleaved-thinking beta; older models include it.
-fn build_beta_header(model: &str) -> String {
-    if messages::is_adaptive_thinking_model(model) {
-        BASE_BETA_FLAGS.to_string()
-    } else {
-        format!("{BASE_BETA_FLAGS},{INTERLEAVED_THINKING_BETA}")
-    }
-}
-
 fn parse_retry_after_secs(retry_after: Option<&str>) -> Option<u64> {
     retry_after.and_then(|v| v.trim().parse::<u64>().ok())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn beta_header_adaptive_model() {
-        let header = build_beta_header("claude-opus-4-6-20250514");
-        assert!(!header.contains(INTERLEAVED_THINKING_BETA));
-        assert!(header.contains("claude-code-20250219"));
-    }
-
-    #[test]
-    fn beta_header_older_model() {
-        let header = build_beta_header("claude-3-5-sonnet-20241022");
-        assert!(header.contains(INTERLEAVED_THINKING_BETA));
-        assert!(header.contains("claude-code-20250219"));
-    }
 }

@@ -13,24 +13,12 @@ use crate::providers::ProviderError;
 use crate::providers::types::*;
 
 const CLAUDE_CODE_PREAMBLE: &str = "You are Claude Code, Anthropic's official CLI for Claude.";
-/// Maximum thinking budget in tokens for pre-4.6 (non-adaptive) models.
-const MAX_THINKING_BUDGET_TOKENS: u32 = 16_000;
-
 static SURROGATE_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"\\u[dD][89abAB][0-9a-fA-F]{2}").expect("valid regex"));
 
 /// Strip unpaired UTF-16 surrogate escape sequences from text.
 pub(crate) fn sanitize_surrogates(text: &str) -> String {
     SURROGATE_RE.replace_all(text, "").to_string()
-}
-
-/// Detect models that support adaptive thinking (4.6+ family).
-pub(super) fn is_adaptive_thinking_model(model: &str) -> bool {
-    let lower = model.to_lowercase();
-    lower.contains("opus-4-6")
-        || lower.contains("opus-4.6")
-        || lower.contains("sonnet-4-6")
-        || lower.contains("sonnet-4.6")
 }
 
 /// Build the Anthropic Messages API JSON body from a Ghost `ChatRequest`.
@@ -453,20 +441,8 @@ fn apply_thinking_config(request: &ChatRequest, body: &mut Value) -> bool {
         Some(e) => e,
     };
 
-    if is_adaptive_thinking_model(&request.model) {
-        body["thinking"] = json!({"type": "adaptive"});
-        body["output_config"] = json!({"effort": effort.as_str()});
-    } else {
-        // Non-adaptive models (pre-4.6) need an explicit thinking budget.
-        // Cap at 16000 tokens — these models have smaller output limits anyway.
-        let budget = request
-            .max_tokens
-            .map_or(MAX_THINKING_BUDGET_TOKENS, |mt| std::cmp::min(mt * 2, MAX_THINKING_BUDGET_TOKENS));
-        body["thinking"] = json!({
-            "type": "enabled",
-            "budget_tokens": budget,
-        });
-    }
+    body["thinking"] = json!({"type": "adaptive"});
+    body["output_config"] = json!({"effort": effort.as_str()});
 
     true
 }
@@ -672,21 +648,6 @@ mod tests {
         let body = build_request_body(&req, &[]).unwrap();
         assert_eq!(body["thinking"]["type"], "adaptive");
         assert_eq!(body["output_config"]["effort"], "high");
-    }
-
-    #[test]
-    fn budget_thinking_for_older_models() {
-        let req = ChatRequest {
-            model: "claude-3-5-sonnet-20241022".into(),
-            reasoning_effort: Some(ReasoningEffort::High),
-            ..simple_request(vec![ChatMessage {
-                role: Role::User,
-                content: vec![ContentBlock::Text { text: "hi".into() }],
-            }])
-        };
-        let body = build_request_body(&req, &[]).unwrap();
-        assert_eq!(body["thinking"]["type"], "enabled");
-        assert!(body["thinking"]["budget_tokens"].as_u64().unwrap() > 0);
     }
 
     #[test]
