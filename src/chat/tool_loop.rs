@@ -115,13 +115,18 @@ pub struct ToolLoopContext<'a> {
     pub channel_id: Option<String>,
 }
 
+/// Model selection and iteration limits for a tool loop run.
+pub(super) struct ModelParams<'a> {
+    pub model: &'a str,
+    pub max_iterations: usize,
+    pub reasoning_effort: ReasoningEffort,
+}
+
 /// Shared tool-use loop for both interactive chat and background jobs.
 pub(super) async fn run_tool_loop(
     session_chat: &SessionChat,
     session_id: &str,
-    model: &str,
-    max_iterations: usize,
-    reasoning_effort: ReasoningEffort,
+    params: ModelParams<'_>,
     handler: &mut (impl ToolLoopHandler + ?Sized),
     history: &mut Vec<ChatMessage>,
     mut ctx: ToolLoopContext<'_>,
@@ -169,7 +174,7 @@ pub(super) async fn run_tool_loop(
 
         let prompt = handler.system_prompt()?;
         let request = ChatRequest {
-            model: model.to_string(),
+            model: params.model.to_string(),
             messages: history.clone(),
             tools: {
                 let schemas = session_chat.tool_manager().all_tool_schemas();
@@ -182,7 +187,7 @@ pub(super) async fn run_tool_loop(
             max_tokens: None,
             temperature: None,
             system: Some(prompt),
-            reasoning_effort: Some(reasoning_effort),
+            reasoning_effort: Some(params.reasoning_effort),
             cache_key: session_id.to_string(),
             turn_state: turn_state.clone(),
             debug_context: Some(DebugContext {
@@ -290,7 +295,7 @@ pub(super) async fn run_tool_loop(
 
         match response.stop_reason {
             StopReason::ToolUse => {
-                if iterations >= max_iterations {
+                if iterations >= params.max_iterations {
                     metadata.iterations = iterations;
                     metadata.duration = started_at.elapsed();
                     let fallback = last_result.unwrap_or(ChatResult {

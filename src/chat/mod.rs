@@ -9,7 +9,7 @@ pub mod transcript;
 mod types;
 
 pub use interrupt::ActiveSessions;
-pub use session::SessionChat;
+pub use session::{AgentEnv, SessionChat};
 pub use tool_loop::ToolLoopContext;
 pub use transcript::{extract_agent_findings, filter_transcript};
 pub use types::{

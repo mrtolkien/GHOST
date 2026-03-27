@@ -20,11 +20,17 @@ use super::convert::{
     convert_stored_message_to_provider_message, images_to_values, parse_session_thing,
     render_tool_error, tool_results_to_values,
 };
-use super::tool_loop::{ToolLoopContext, ToolLoopHandler, run_tool_loop};
+use super::tool_loop::{ModelParams, ToolLoopContext, ToolLoopHandler, run_tool_loop};
 use super::types::{
     ChatError, ChatResult, ChatStopReason, DEFAULT_MAX_TOOL_ITERATIONS, EventSender, RunMetadata,
     ToolLoopEvent,
 };
+
+/// Agent configuration and scripting host bundled for `run_agent_with_history`.
+pub struct AgentEnv<'a> {
+    pub config: &'a crate::scripting::AgentConfig,
+    pub script_host: &'a ScriptHost,
+}
 
 pub struct SessionChat {
     db: GhostDb,
@@ -241,9 +247,11 @@ impl SessionChat {
         let result = run_tool_loop(
             self,
             session_id,
-            &model,
-            self.max_tool_iterations,
-            effort,
+            ModelParams {
+                model: &model,
+                max_iterations: self.max_tool_iterations,
+                reasoning_effort: effort,
+            },
             &mut handler,
             &mut history,
             ToolLoopContext {
@@ -307,9 +315,11 @@ impl SessionChat {
         let result = run_tool_loop(
             self,
             session_id,
-            &model,
-            self.max_tool_iterations,
-            effort,
+            ModelParams {
+                model: &model,
+                max_iterations: self.max_tool_iterations,
+                reasoning_effort: effort,
+            },
             &mut handler,
             &mut history,
             ToolLoopContext {
@@ -377,9 +387,11 @@ impl SessionChat {
         let result = run_tool_loop(
             self,
             session_id,
-            &model,
-            self.max_tool_iterations,
-            effort,
+            ModelParams {
+                model: &model,
+                max_iterations: self.max_tool_iterations,
+                reasoning_effort: effort,
+            },
             &mut handler,
             &mut history,
             ToolLoopContext {
@@ -1369,9 +1381,11 @@ impl SessionChat {
         let result = run_tool_loop(
             self,
             session_id,
-            &model,
-            config.max_iterations,
-            effort,
+            ModelParams {
+                model: &model,
+                max_iterations: config.max_iterations,
+                reasoning_effort: effort,
+            },
             &mut handler,
             &mut history,
             ToolLoopContext {
@@ -1393,7 +1407,7 @@ impl SessionChat {
     /// front are already persisted — only messages beyond that index are
     /// written to DB before entering the tool loop.
     #[tracing::instrument(name = "run lua agent with history", skip_all, fields(
-        gen_ai.agent.name = %config.name,
+        gen_ai.agent.name = %env.config.name,
         session_id = session_id,
     ))]
     pub async fn run_agent_with_history(
@@ -1402,8 +1416,7 @@ impl SessionChat {
         system_prompt: String,
         messages: &[crate::scripting::LuaMessage],
         db_message_count: usize,
-        config: &crate::scripting::AgentConfig,
-        script_host: &ScriptHost,
+        env: &AgentEnv<'_>,
         ctx: ToolLoopContext<'_>,
     ) -> Result<(ChatResult, RunMetadata), ChatError> {
         let session_thing = parse_session_thing(session_id)?;
@@ -1432,15 +1445,18 @@ impl SessionChat {
             .await;
 
         let model = self.default_model_name()?;
-        let effort =
-            resolve_reasoning_effort(None, config.reasoning_effort, self.model_reasoning_effort());
+        let effort = resolve_reasoning_effort(
+            None,
+            env.config.reasoning_effort,
+            self.model_reasoning_effort(),
+        );
 
         let mut handler = LuaAgentHandler {
             session_chat: self,
             session_thing: &session_thing,
             system_prompt,
-            config,
-            script_host,
+            config: env.config,
+            script_host: env.script_host,
             started_at: std::time::Instant::now(),
             iteration_count: 0,
             last_input_tokens: 0,
@@ -1457,9 +1473,11 @@ impl SessionChat {
         let result = run_tool_loop(
             self,
             session_id,
-            &model,
-            config.max_iterations,
-            effort,
+            ModelParams {
+                model: &model,
+                max_iterations: env.config.max_iterations,
+                reasoning_effort: effort,
+            },
             &mut handler,
             &mut history,
             ToolLoopContext {

@@ -8,7 +8,7 @@ use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
 use tracing::Instrument;
 
-use crate::chat::{RunMetadata, SessionChat, ToolLoopContext};
+use crate::chat::{AgentEnv, RunMetadata, SessionChat, ToolLoopContext};
 use crate::config::{CompactionConfig, Config, SharedConfig, SharedConfigExt};
 use crate::db;
 use crate::db::GhostDb;
@@ -134,11 +134,13 @@ impl AgentRunner {
             &self.db,
             config,
             agent_name,
-            args,
             &agent_session_id,
             &cancel_token,
-            parent_session_id,
-            None,
+            AgentInvocation {
+                args,
+                parent_session_id,
+                cwd: None,
+            },
         )
         .await;
 
@@ -662,6 +664,13 @@ async fn run_post_completion(
     }
 }
 
+/// Per-invocation parameters for an agent run.
+struct AgentInvocation<'a> {
+    args: HashMap<String, String>,
+    parent_session_id: Option<&'a str>,
+    cwd: Option<&'a PathBuf>,
+}
+
 /// Execute a fresh agent run. Returns `AgentResult`.
 #[tracing::instrument(name = "execute agent", skip_all, fields(
     gen_ai.agent.name = %agent_name,
@@ -672,20 +681,18 @@ async fn execute_agent(
     db: &GhostDb,
     config: Arc<Config>,
     agent_name: &str,
-    args: HashMap<String, String>,
     agent_session_id: &str,
     cancel_token: &CancellationToken,
-    parent_session_id: Option<&str>,
-    cwd: Option<&PathBuf>,
+    invocation: AgentInvocation<'_>,
 ) -> Result<AgentResult, AgentError> {
     let setup = setup_agent(
         db,
         Arc::clone(&config),
         agent_name,
-        args,
+        invocation.args,
         agent_session_id,
-        parent_session_id,
-        cwd,
+        invocation.parent_session_id,
+        invocation.cwd,
     )
     .await?;
 
@@ -726,7 +733,7 @@ async fn execute_agent(
             &config,
             agent_name,
             agent_session_id,
-            parent_session_id,
+            invocation.parent_session_id,
         )
         .await,
     );
@@ -755,14 +762,17 @@ async fn execute_resume(
 ) -> Result<AgentResult, AgentError> {
     let resume = setup_resume(db, Arc::clone(&config), agent_name, prompt, session_id, cwd).await?;
 
+    let agent_env = AgentEnv {
+        config: &resume.config,
+        script_host: &resume.script_host,
+    };
     let result = tokio::select! {
         res = resume.session_chat.run_agent_with_history(
             session_id,
             resume.system_prompt,
             &resume.messages,
             resume.db_message_count,
-            &resume.config,
-            &resume.script_host,
+            &agent_env,
             ToolLoopContext {
                 event_tx: None,
                 interrupt_rx: None,
@@ -840,11 +850,13 @@ fn spawn_background_run(task: BackgroundTask, args: HashMap<String, String>) -> 
                 &task.db,
                 Arc::clone(&task.config),
                 &task.agent_name,
-                args,
                 &task.agent_session_id,
                 &task.cancel_token,
-                task.parent_session_id.as_deref(),
-                task.cwd.as_ref(),
+                AgentInvocation {
+                    args,
+                    parent_session_id: task.parent_session_id.as_deref(),
+                    cwd: task.cwd.as_ref(),
+                },
             )
             .await;
 
@@ -1019,11 +1031,13 @@ fn spawn_children_inner(
                     &db,
                     Arc::clone(&config),
                     &req.agent,
-                    req.args,
                     &agent_session_id,
                     &cancel_token,
-                    Some(&parent_id),
-                    None,
+                    AgentInvocation {
+                        args: req.args,
+                        parent_session_id: Some(&parent_id),
+                        cwd: None,
+                    },
                 )
                 .await;
 

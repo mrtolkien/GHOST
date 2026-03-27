@@ -25,6 +25,13 @@ pub fn content_hash(content: &str) -> String {
     hex::encode(hasher.finalize())
 }
 
+/// Metadata about the source to embed.
+pub struct EmbedMeta<'a> {
+    pub tags: &'a [String],
+    pub topic_id: Option<&'a str>,
+    pub path: Option<&'a str>,
+}
+
 /// Embed a single knowledge source. Returns the number of chunks embedded.
 #[tracing::instrument(name = "embed source", skip_all, fields(
     source_table = %source_table,
@@ -36,11 +43,9 @@ pub async fn embed_source(
     source_table: &str,
     source_id: &str,
     content: &str,
-    tags: &[String],
-    topic_id: Option<&str>,
-    path: Option<&str>,
+    meta: EmbedMeta<'_>,
 ) -> Result<usize, PipelineError> {
-    let chunks = chunk_content(content, tags, path);
+    let chunks = chunk_content(content, meta.tags, meta.path);
     if chunks.is_empty() {
         return Ok(0);
     }
@@ -58,7 +63,7 @@ pub async fn embed_source(
         source_table,
         source_id,
         &chunk_data,
-        topic_id,
+        meta.topic_id,
     )
     .await?;
 
