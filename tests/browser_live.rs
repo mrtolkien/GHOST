@@ -391,7 +391,6 @@ async fn multi_tab_open_focus_close() {
     // Close tab 1.
     let msg = mgr
         .close_tab(tab1_id)
-        .await
         .expect("close_tab should succeed");
     assert!(msg.contains(&tab1_id.to_string()));
     eprintln!("  closed tab 1");
@@ -403,7 +402,7 @@ async fn multi_tab_open_focus_close() {
     eprintln!("  verified 1 tab remaining");
 
     // Close non-existent tab should error.
-    let result = mgr.close_tab(tab1_id).await;
+    let result = mgr.close_tab(tab1_id);
     assert!(result.is_err(), "closing already-closed tab should error");
     eprintln!("  closing non-existent tab errors correctly");
 }
@@ -590,7 +589,6 @@ async fn multi_browser_connect_and_switch() {
 
     // Disconnect primary.
     mgr.disconnect_browser("primary")
-        .await
         .expect("disconnect primary should succeed");
     let browsers = mgr.list_browsers();
     let primary = browsers.iter().find(|b| b.name == "primary").unwrap();
