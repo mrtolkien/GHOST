@@ -9,18 +9,21 @@ rewritten between releases. If you try it today, expect rough edges — and plea
 
 ## What I'm doing right now
 
-I'm daily-driving GHOST and focusing exclusively on the core feature set:
+I'm daily-driving GHOST and focusing exclusively on the core feature set.
+
+My priorities are, in order:
 
 - **Chat** — fast, token-efficient conversations with compaction and session management.
 - **Knowledge** — notes, references, diary, wiki-link graph, hybrid BM25 + embedding
   search.
-- **Coding** — GHOST HACK: a coding agent inspired by pi-mono.
 - **Security** - The shell tool is full YOLO at the moment, which is a bit too YOLO even
   for me.
-- **Extensibility** — Autonomous creation of Lua agents, skills, cron jobs.
+- **Coding** — GHOST HACK: a coding agent inspired by pi-mono. As of 2026-03-27 it is
+  pretty bad honestly.
 - **Communication** - I want there to be some way to let trusted GHOST instances
   communicate to share knowledge and workflows. This will be the last big feature before
-  1.0.
+  1.0. Not started as of 2026-03-27.
+- **Extensibility** — Autonomous creation of Lua agents, skills, cron jobs.
 
 Everything else is secondary until these are solid.
 
