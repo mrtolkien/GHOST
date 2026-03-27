@@ -242,17 +242,17 @@ impl Handler {
             if let Ok(count) = db::sessions::count_messages_for_session(&self.db, &session_id).await
                 && count <= 1
             {
-                let _ = send_gateway_v2(
+                let _ = Box::pin(send_gateway_v2(
                     &ctx.http,
                     msg.channel_id,
                     "**GHOST HACKED** — you're now talking to the coding agent. \
                      Send `/kill` to end the session.",
                     Some(CODING_EMBED_COLOR),
-                )
+                ))
                 .await;
             }
 
-            self.handle_coding_message(ctx, msg, &session_id, &working_dir)
+            Box::pin(self.handle_coding_message(ctx, msg, &session_id, &working_dir))
                 .await;
             return;
         }
@@ -284,12 +284,12 @@ impl Handler {
             Ok(id) => id,
             Err(e) => {
                 error!("Failed to resolve session: {e}");
-                let _ = send_gateway_v2(
+                let _ = Box::pin(send_gateway_v2(
                     &ctx.http,
                     msg.channel_id,
                     "Failed to create or find a session.",
                     Some(WARNING_EMBED_COLOR),
-                )
+                ))
                 .await;
                 return;
             }
@@ -335,12 +335,12 @@ impl Handler {
         match chat_result {
             Ok((result, metadata)) => {
                 let statusline = format_statusline(&metadata);
-                if let Err(e) = send_assistant_v2_with_suffix(
+                if let Err(e) = Box::pin(send_assistant_v2_with_suffix(
                     &ctx.http,
                     msg.channel_id,
                     &result.message,
                     &statusline,
-                )
+                ))
                 .await
                 {
                     error!(
@@ -364,7 +364,7 @@ impl Handler {
                 }
 
                 if result.stop_reason == ChatStopReason::Stopped {
-                    let _ = send_gateway_v2(&ctx.http, msg.channel_id, "Stopped.", None).await;
+                    let _ = Box::pin(send_gateway_v2(&ctx.http, msg.channel_id, "Stopped.", None)).await;
                 }
             }
             Err(crate::chat::ChatError::SessionBusy { .. }) => {
@@ -382,12 +382,12 @@ impl Handler {
                     error = %e,
                     "Chat error"
                 );
-                let _ = send_gateway_v2(
+                let _ = Box::pin(send_gateway_v2(
                     &ctx.http,
                     msg.channel_id,
                     &format!("Error: {e}\n\nUse `/reboot` to start a new session."),
                     Some(WARNING_EMBED_COLOR),
-                )
+                ))
                 .await;
             }
         }
@@ -464,12 +464,12 @@ impl Handler {
         match chat_result {
             Ok((result, metadata)) => {
                 let statusline = format_statusline(&metadata);
-                if let Err(e) = send_assistant_v2_with_suffix(
+                if let Err(e) = Box::pin(send_assistant_v2_with_suffix(
                     &ctx.http,
                     msg.channel_id,
                     &result.message,
                     &statusline,
-                )
+                ))
                 .await
                 {
                     error!(
@@ -480,17 +480,17 @@ impl Handler {
                 }
 
                 if result.stop_reason == ChatStopReason::MaxIterations {
-                    let _ = send_gateway_v2(
+                    let _ = Box::pin(send_gateway_v2(
                         &ctx.http,
                         msg.channel_id,
                         "Reached tool iteration limit. Send another message to continue.",
                         Some(WARNING_EMBED_COLOR),
-                    )
+                    ))
                     .await;
                 }
 
                 if result.stop_reason == ChatStopReason::Stopped {
-                    let _ = send_gateway_v2(&ctx.http, msg.channel_id, "Stopped.", None).await;
+                    let _ = Box::pin(send_gateway_v2(&ctx.http, msg.channel_id, "Stopped.", None)).await;
                 }
             }
             Err(crate::chat::ChatError::SessionBusy { .. }) => {
@@ -508,12 +508,12 @@ impl Handler {
                     error = %e,
                     "Coding chat error"
                 );
-                let _ = send_gateway_v2(
+                let _ = Box::pin(send_gateway_v2(
                     &ctx.http,
                     msg.channel_id,
                     &format!("Error: {e}\n\nUse `/reboot` to start a new session."),
                     Some(WARNING_EMBED_COLOR),
-                )
+                ))
                 .await;
             }
         }
@@ -540,7 +540,7 @@ impl EventHandler for Handler {
         if *msg.timestamp < self.started_at {
             return;
         }
-        self.handle_message(ctx, msg).await;
+        Box::pin(self.handle_message(ctx, msg)).await;
     }
 
     async fn interaction_create(
@@ -606,12 +606,12 @@ impl EventHandler for Handler {
                             match chat_result {
                                 Ok((result, metadata)) => {
                                     let statusline = format_statusline(&metadata);
-                                    let _ = send_assistant_v2_with_suffix(
+                                    let _ = Box::pin(send_assistant_v2_with_suffix(
                                         &http,
                                         channel_id,
                                         &result.message,
                                         &statusline,
-                                    )
+                                    ))
                                     .await;
 
                                     if result.stop_reason == ChatStopReason::MaxIterations {
@@ -649,12 +649,12 @@ impl EventHandler for Handler {
                                         error = %e,
                                         "Continue session error"
                                     );
-                                    let _ = send_gateway_v2(
+                                    let _ = Box::pin(send_gateway_v2(
                                         &http,
                                         channel_id,
                                         &format!("Failed to continue: {e}"),
                                         Some(WARNING_EMBED_COLOR),
-                                    )
+                                    ))
                                     .await;
                                 }
                             }

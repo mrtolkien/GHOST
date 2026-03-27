@@ -188,23 +188,10 @@ pub fn compute_changes(workspace: &Path) -> BundledChanges {
         let ws_content = std::fs::read_to_string(&workspace_path).ok();
 
         match (shadow, ws_content) {
-            // No shadow: first time seeing this file
-            (None, None) => {
-                new.push(file);
-            }
-            // No shadow but workspace file exists: treat as new if bundle
-            // differs from workspace, otherwise skip
-            (None, Some(ref ws)) if ws == file.content => {
-                // Workspace already has exact bundle content, skip
-            }
-            (None, Some(_)) => {
-                // Workspace has something but no shadow — new bundled file
-                new.push(file);
-            }
+            // No shadow but workspace already has exact bundle content → skip
+            (None, Some(ref ws)) if ws == file.content => {}
             // Shadow exists and matches new bundle → no upstream change, skip
-            (Some(ref s), _) if s == file.content => {
-                // Bundle hasn't changed since last install — skip
-            }
+            (Some(ref s), _) if s == file.content => {}
             // Shadow != bundle, workspace == shadow → user didn't touch it
             (Some(ref s), Some(ref ws)) if ws == s => {
                 auto_updates.push(AutoUpdate {
@@ -212,8 +199,8 @@ pub fn compute_changes(workspace: &Path) -> BundledChanges {
                     bundled_content: file.content,
                 });
             }
-            // Shadow != bundle, workspace missing → treat as new
-            (Some(_), None) => {
+            // No shadow (new or diverged), or shadow missing workspace → treat as new
+            (None, None) | (None, Some(_)) | (Some(_), None) => {
                 new.push(file);
             }
             // Shadow != bundle, workspace != shadow → three-way merge
@@ -459,7 +446,7 @@ pub async fn prompt_updates_via_discord(
                     Some(0x5865F2),
                 )];
                 let _ = edit_v2_message(http, channel_id, msg.id, &reviewing).await;
-                return review_files(changes, http, channel_id, rx).await;
+                return Box::pin(review_files(changes, http, channel_id, rx)).await;
             }
             _ => continue,
         }

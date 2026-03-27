@@ -122,16 +122,17 @@ pub async fn run(args: InitArgs) -> Result<(), GhostError> {
                 cliclack::confirm("Test the embeddings endpoint? (sends a real embedding request)")
                     .initial_value(true)
                     .interact()?;
-            if should_test {
-                if let Err(msg) = test_embeddings(url, sel.model.as_deref()).await {
-                    let _ = cliclack::log::warning(msg);
-                    if args.embeddings.is_some() {
-                        break (sel.choice, sel.model, sel.hf_repo);
-                    }
-                    continue;
-                }
-                let _ = cliclack::log::success(format!("Embeddings verified: {url}"));
+            if !should_test {
+                break (sel.choice, sel.model, sel.hf_repo);
             }
+            if let Err(msg) = test_embeddings(url, sel.model.as_deref()).await {
+                let _ = cliclack::log::warning(msg);
+                if args.embeddings.is_some() {
+                    break (sel.choice, sel.model, sel.hf_repo);
+                }
+                continue;
+            }
+            let _ = cliclack::log::success(format!("Embeddings verified: {url}"));
         }
 
         break (sel.choice, sel.model, sel.hf_repo);

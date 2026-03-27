@@ -1,3 +1,8 @@
+#![allow(
+    clippy::unwrap_used,
+    reason = "build script — panic on failure is the correct behavior"
+)]
+
 use std::env;
 use std::fs;
 use std::io::Write;

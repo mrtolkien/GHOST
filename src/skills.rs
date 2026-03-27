@@ -111,9 +111,8 @@ pub fn discover_skills(workspace: &Path) -> Vec<Skill> {
 /// `skill.md` it is a leaf skill; otherwise it is a namespace and we
 /// recurse into it. Directories starting with `.` are skipped.
 pub(crate) fn walk_skills_dir(dir: &Path, skills: &mut Vec<Skill>) {
-    let entries = match fs::read_dir(dir) {
-        Ok(entries) => entries,
-        Err(_) => return,
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
     };
 
     for entry in entries.flatten() {
@@ -131,9 +130,8 @@ pub(crate) fn walk_skills_dir(dir: &Path, skills: &mut Vec<Skill>) {
         let skill_path = entry_path.join("skill.md");
         if skill_path.exists() {
             // Leaf skill
-            let content = match fs::read_to_string(&skill_path) {
-                Ok(c) => c,
-                Err(_) => continue,
+            let Ok(content) = fs::read_to_string(&skill_path) else {
+                continue;
             };
 
             match parse_frontmatter(&content) {
@@ -163,9 +161,8 @@ pub(crate) fn walk_skills_dir(dir: &Path, skills: &mut Vec<Skill>) {
 /// Discover repo-local skills from a `.agents/skills/` directory.
 /// Each immediate subdirectory with a `skill.md` is treated as a skill.
 pub fn discover_repo_skills(skills_dir: &Path) -> Vec<Skill> {
-    let entries = match fs::read_dir(skills_dir) {
-        Ok(e) => e,
-        Err(_) => return Vec::new(),
+    let Ok(entries) = fs::read_dir(skills_dir) else {
+        return Vec::new();
     };
 
     let mut found = Vec::new();
@@ -174,9 +171,8 @@ pub fn discover_repo_skills(skills_dir: &Path) -> Vec<Skill> {
             continue;
         }
         let skill_path = entry.path().join("skill.md");
-        let content = match fs::read_to_string(&skill_path) {
-            Ok(c) => c,
-            Err(_) => continue,
+        let Ok(content) = fs::read_to_string(&skill_path) else {
+            continue;
         };
         if let Some(fm) = parse_frontmatter(&content) {
             found.push(Skill {
@@ -223,9 +219,8 @@ pub fn collect_extras(skill_dir: &Path) -> Vec<PathBuf> {
 }
 
 fn walk_extras(base: &Path, dir: &Path, extras: &mut Vec<PathBuf>) {
-    let entries = match fs::read_dir(dir) {
-        Ok(entries) => entries,
-        Err(_) => return,
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
     };
 
     // Skip this directory entirely if it contains agent.lua

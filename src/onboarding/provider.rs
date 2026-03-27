@@ -64,7 +64,10 @@ pub async fn prompt_credentials(
                         .initial_value(true)
                         .interact()?;
                     if keep {
-                        existing.unwrap().to_string()
+                        // existing.is_some() is the match guard.
+                        existing
+                            .expect("existing is Some — guaranteed by match guard")
+                            .to_string()
                     } else {
                         cliclack::password(format!("Paste your {} API key:", provider.as_str()))
                             .interact()?

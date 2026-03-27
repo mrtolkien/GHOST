@@ -96,9 +96,7 @@ fn setup_linux_prerequisites() -> Result<(), OnboardingError> {
 
 /// Verify `newuidmap` exists and has the right privileges (setuid or caps).
 fn check_newuidmap() -> Result<(), OnboardingError> {
-    let path = find_in_path("newuidmap");
-
-    if path.is_none() {
+    let Some(path) = find_in_path("newuidmap") else {
         let hint = distro_install_hint();
         let _ = cliclack::log::warning(format!(
             "newuidmap not found — needed for rootless containers\n  Run: {hint}"
@@ -116,10 +114,9 @@ fn check_newuidmap() -> Result<(), OnboardingError> {
             let _ = cliclack::log::warning("newuidmap still not found");
         }
         return Ok(());
-    }
+    };
 
     // Exists — check privileges.
-    let path = path.unwrap();
     if !has_setuid_or_caps(&path) {
         let _ = cliclack::log::warning(format!(
             "newuidmap at {} lacks setuid bit or capabilities — rootless may fail",

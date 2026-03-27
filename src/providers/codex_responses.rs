@@ -445,7 +445,6 @@ pub(super) fn parse_codex_response_value(
         .unwrap_or_else(|| fallback_model.to_string());
     let stop_reason = match value.get("status").and_then(Value::as_str) {
         Some("incomplete") => StopReason::MaxTokens,
-        Some("completed") => StopReason::EndTurn,
         _ => StopReason::EndTurn,
     };
 
@@ -455,22 +454,7 @@ pub(super) fn parse_codex_response_value(
             let item_type = item.get("type").and_then(Value::as_str).unwrap_or("");
             match item_type {
                 "message" => {
-                    let mut found_text = false;
-                    if let Some(parts) = item.get("content").and_then(Value::as_array) {
-                        for part in parts {
-                            if let Some(text) = part
-                                .get("text")
-                                .and_then(Value::as_str)
-                                .or_else(|| part.get("output_text").and_then(Value::as_str))
-                                && !text.trim().is_empty()
-                            {
-                                content.push(ContentBlock::Text {
-                                    text: text.to_string(),
-                                });
-                                found_text = true;
-                            }
-                        }
-                    }
+                    let found_text = collect_message_text(item, &mut content);
                     if !found_text {
                         content.push(ContentBlock::RawOutput {
                             original_type: "message".to_string(),
@@ -506,41 +490,7 @@ pub(super) fn parse_codex_response_value(
                     }
                 }
                 other => {
-                    if other == "reasoning" {
-                        let text = {
-                            let summary = extract_reasoning_summary(item);
-                            if summary.is_empty() {
-                                None
-                            } else {
-                                Some(summary)
-                            }
-                        };
-                        let opaque_data = item
-                            .get("encrypted_content")
-                            .and_then(Value::as_str)
-                            .map(String::from);
-                        tracing::info!(
-                            has_text = text.is_some(),
-                            has_opaque = opaque_data.is_some(),
-                            "codex: preserving reasoning block",
-                        );
-                        content.push(ContentBlock::Thinking {
-                            text,
-                            signature: None,
-                            opaque_data,
-                        });
-                    } else {
-                        let reasoning_summary = extract_reasoning_summary(item);
-                        tracing::info!(
-                            item_type = other.to_string(),
-                            reasoning_summary = reasoning_summary,
-                            "codex: preserving opaque output item",
-                        );
-                        content.push(ContentBlock::RawOutput {
-                            original_type: other.to_string(),
-                            value: item.clone(),
-                        });
-                    }
+                    content.push(opaque_output_block(item, other));
                 }
             }
         }
@@ -648,6 +598,66 @@ pub(super) fn parse_codex_response_value(
         response_id,
         turn_state: None,
     })
+}
+
+/// Collect text parts from a Codex "message" output item into `out`.
+///
+/// Returns `true` if at least one non-empty text block was pushed.
+fn collect_message_text(item: &Value, out: &mut Vec<ContentBlock>) -> bool {
+    let Some(parts) = item.get("content").and_then(Value::as_array) else {
+        return false;
+    };
+    let mut found = false;
+    for part in parts {
+        let text = part
+            .get("text")
+            .and_then(Value::as_str)
+            .or_else(|| part.get("output_text").and_then(Value::as_str));
+        let Some(text) = text.filter(|t| !t.trim().is_empty()) else {
+            continue;
+        };
+        out.push(ContentBlock::Text {
+            text: text.to_string(),
+        });
+        found = true;
+    }
+    found
+}
+
+/// Convert an opaque Codex output item to a `ContentBlock`.
+///
+/// Items with `type = "reasoning"` become `ContentBlock::Thinking`;
+/// all others become `ContentBlock::RawOutput`.
+fn opaque_output_block(item: &Value, item_type: &str) -> ContentBlock {
+    if item_type == "reasoning" {
+        let summary = extract_reasoning_summary(item);
+        let text = if summary.is_empty() { None } else { Some(summary) };
+        let opaque_data = item
+            .get("encrypted_content")
+            .and_then(Value::as_str)
+            .map(String::from);
+        tracing::info!(
+            has_text = text.is_some(),
+            has_opaque = opaque_data.is_some(),
+            "codex: preserving reasoning block",
+        );
+        ContentBlock::Thinking {
+            text,
+            signature: None,
+            opaque_data,
+        }
+    } else {
+        let reasoning_summary = extract_reasoning_summary(item);
+        tracing::info!(
+            item_type = item_type.to_string(),
+            reasoning_summary = reasoning_summary,
+            "codex: preserving opaque output item",
+        );
+        ContentBlock::RawOutput {
+            original_type: item_type.to_string(),
+            value: item.clone(),
+        }
+    }
 }
 
 #[cfg(test)]

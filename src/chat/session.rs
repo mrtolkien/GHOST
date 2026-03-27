@@ -425,7 +425,7 @@ impl SessionChat {
     /// `compacted_flags` is parallel to the returned messages — `true` for
     /// messages that were already compacted in a previous run.
     #[tracing::instrument(skip_all, level = "debug", fields(session_id = ?session_id))]
-    #[allow(clippy::type_complexity)]
+    #[allow(clippy::type_complexity, reason = "return type is a deliberate triple of parallel vecs; extracting a struct would add indirection without clarity")]
     pub(super) async fn load_provider_history(
         &self,
         session_id: &str,
@@ -518,11 +518,11 @@ impl SessionChat {
                     break;
                 }
                 if let Some(results) = msg.tool_results_parsed() {
-                    for r in &results {
-                        if let Some(id) = r.get("tool_use_id").and_then(Value::as_str) {
-                            answered_ids.insert(id.to_string());
-                        }
-                    }
+                    let ids = results
+                        .iter()
+                        .filter_map(|r| r.get("tool_use_id").and_then(Value::as_str))
+                        .map(String::from);
+                    answered_ids.extend(ids);
                     last_result_idx = j;
                 }
             }

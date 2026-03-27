@@ -702,12 +702,11 @@ fn summarize_tool_args(tool_name: &str, input: &Value, workspace: &std::path::Pa
 /// Returns true if the argument matches a known default value for the tool.
 fn is_default_arg(tool_name: &str, key: &str, val: &Value, workspace: &std::path::Path) -> bool {
     match (tool_name, key) {
-        ("shell", "background") => val == &Value::Bool(false),
+        ("shell", "background") | ("web_fetch", "scroll") => val == &Value::Bool(false),
         ("shell", "timeout_ms") => val.as_u64() == Some(30_000),
         ("shell", "directory") => val
             .as_str()
             .is_some_and(|s| matches!(s, "" | ".") || std::path::Path::new(s) == workspace),
-        ("web_fetch", "scroll") => val == &Value::Bool(false),
         ("knowledge_search", "limit") => val.as_u64() == Some(10),
         _ => false,
     }

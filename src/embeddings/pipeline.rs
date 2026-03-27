@@ -301,9 +301,8 @@ pub async fn reconcile_filesystem(
             let rel_str = rel.to_string_lossy().to_string();
 
             // Read file and compute hash
-            let raw = match tokio::fs::read_to_string(&file_path).await {
-                Ok(r) => r,
-                Err(_) => continue,
+            let Ok(raw) = tokio::fs::read_to_string(&file_path).await else {
+                continue;
             };
             let hash = content_hash(&raw);
 
@@ -376,9 +375,8 @@ pub async fn reconcile_filesystem(
                     let rel_str = rel.to_string_lossy().to_string();
                     seen_code_paths.insert(rel_str.clone());
 
-                    let raw = match tokio::fs::read_to_string(&file_path).await {
-                        Ok(r) => r,
-                        Err(_) => continue,
+                    let Ok(raw) = tokio::fs::read_to_string(&file_path).await else {
+                        continue;
                     };
                     let hash = content_hash(&raw);
 

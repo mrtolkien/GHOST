@@ -141,18 +141,7 @@ fn collect_markdown_sections(
             _ => {
                 // Content node (paragraph, list, code block, etc.)
                 let text = source[child.byte_range()].trim();
-                if !text.is_empty() {
-                    if text.len() <= EMBEDDING_CHUNK_TARGET {
-                        let prefix = section_prefix(&current_path);
-                        out.push(format!("{prefix}{text}"));
-                    } else {
-                        // Extremely long node — split by lines
-                        let prefix = section_prefix(&current_path);
-                        for part in split_oversized(text) {
-                            out.push(format!("{prefix}{part}"));
-                        }
-                    }
-                }
+                push_content_chunks(text, &current_path, out);
             }
         }
     }
@@ -166,30 +155,52 @@ fn section_prefix(path: &[String]) -> String {
     format!("[section: {}]\n", path.join(" > "))
 }
 
+/// Push content chunks for a single node text, splitting if oversized.
+fn push_content_chunks(text: &str, path: &[String], out: &mut Vec<String>) {
+    if text.is_empty() {
+        return;
+    }
+    let prefix = section_prefix(path);
+    if text.len() <= EMBEDDING_CHUNK_TARGET {
+        out.push(format!("{prefix}{text}"));
+    } else {
+        // Extremely long node — split by lines
+        for part in split_oversized(text) {
+            out.push(format!("{prefix}{part}"));
+        }
+    }
+}
+
 /// Extract the inline text from an atx_heading or setext_heading node.
 fn extract_heading_text(section: Node, source: &str) -> Option<String> {
     for i in 0..section.child_count() as u32 {
         let child = section.child(i)?;
         if child.kind() == "atx_heading" || child.kind() == "setext_heading" {
-            // The heading text is in the `inline` child
-            for j in 0..child.child_count() as u32 {
-                if let Some(inline) = child.child(j)
-                    && (inline.kind() == "inline" || inline.kind() == "paragraph")
-                {
-                    let text = source[inline.byte_range()].trim();
-                    if !text.is_empty() {
-                        return Some(text.to_string());
-                    }
-                }
-            }
-            // Heading with no inline text — use the raw heading text minus markers
-            let raw = source[child.byte_range()].trim();
-            let stripped = raw.trim_start_matches('#').trim();
-            if !stripped.is_empty() {
-                return Some(stripped.to_string());
-            }
-            return None;
+            return extract_heading_node_text(child, source);
         }
+    }
+    None
+}
+
+/// Extract display text from an atx_heading or setext_heading node.
+fn extract_heading_node_text(child: Node, source: &str) -> Option<String> {
+    // The heading text is in the `inline` child
+    for j in 0..child.child_count() as u32 {
+        let Some(inline) = child.child(j) else {
+            continue;
+        };
+        if inline.kind() == "inline" || inline.kind() == "paragraph" {
+            let text = source[inline.byte_range()].trim();
+            if !text.is_empty() {
+                return Some(text.to_string());
+            }
+        }
+    }
+    // Heading with no inline text — use the raw heading text minus markers
+    let raw = source[child.byte_range()].trim();
+    let stripped = raw.trim_start_matches('#').trim();
+    if !stripped.is_empty() {
+        return Some(stripped.to_string());
     }
     None
 }

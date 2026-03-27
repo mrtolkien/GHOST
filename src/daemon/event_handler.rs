@@ -28,12 +28,12 @@ pub fn spawn_event_handler(
         loop {
             tokio::select! {
                 Some(event) = rx.recv() => {
-                    handle_event(
+                    Box::pin(handle_event(
                         event,
                         &session_chat,
                         discord_sender.as_deref(),
                         &db,
-                    ).await;
+                    )).await;
                 }
                 _ = shutdown.changed() => {
                     tracing::info!("session event handler shutting down");
@@ -78,8 +78,8 @@ async fn handle_event(
             metadata,
             discord.agent_findings.as_deref(),
         );
-        let _ = sender
-            .send_compact_container(channel_id, &summary, None)
+        let _ = Box::pin(sender
+            .send_compact_container(channel_id, &summary, None))
             .await;
     }
 
@@ -135,8 +135,8 @@ async fn handle_event(
             let statusline = crate::interfaces::discord::ui_events::format_statusline(&metadata);
             if let Some(sender) = discord_sender
                 && let Some(channel_id) = discord_channel_id
-                && let Err(e) = sender
-                    .send_to_channel_with_suffix(channel_id, &result.message, &statusline)
+                && let Err(e) = Box::pin(sender
+                    .send_to_channel_with_suffix(channel_id, &result.message, &statusline))
                     .await
             {
                 tracing::error!(

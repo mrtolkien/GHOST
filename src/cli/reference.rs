@@ -172,12 +172,9 @@ async fn cmd_delete(
         .await
         .map_err(|e| GhostError::Database(Box::new(e)))?;
 
-    let topic = match topic {
-        Some(t) => t,
-        None => {
-            println!("Topic '{topic_name}' not found.");
-            return Ok(());
-        }
+    let Some(topic) = topic else {
+        println!("Topic '{topic_name}' not found.");
+        return Ok(());
     };
 
     let ref_count = db::knowledge::count_references_by_topic(db, &topic.id)

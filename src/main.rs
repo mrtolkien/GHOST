@@ -121,7 +121,7 @@ enum Commands {
 #[tokio::main]
 async fn main() {
     let cli = Cli::parse();
-    if let Err(e) = dispatch(cli.command).await {
+    if let Err(e) = Box::pin(dispatch(cli.command)).await {
         eprintln!("Error: {e}");
         std::process::exit(1);
     }

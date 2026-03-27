@@ -36,10 +36,7 @@ pub fn execute(command: AgentCommand) -> Result<(), GhostError> {
                     println!("  {name} ok");
                 } else {
                     has_errors = true;
-                    eprintln!("  {name} ERRORS:");
-                    for e in &errors {
-                        eprintln!("    - {e}");
-                    }
+                    print_validation_errors(&name, &errors);
                 }
             } else {
                 let agents = crate::agents::discover_agents(&config.workspace);
@@ -54,10 +51,7 @@ pub fn execute(command: AgentCommand) -> Result<(), GhostError> {
                         println!("  {} ok", agent.name);
                     } else {
                         has_errors = true;
-                        eprintln!("  {} ERRORS:", agent.name);
-                        for e in &errors {
-                            eprintln!("    - {e}");
-                        }
+                        print_validation_errors(&agent.name, &errors);
                     }
                 }
             }
@@ -69,4 +63,11 @@ pub fn execute(command: AgentCommand) -> Result<(), GhostError> {
     }
 
     Ok(())
+}
+
+fn print_validation_errors(name: &str, errors: &[String]) {
+    eprintln!("  {name} ERRORS:");
+    for e in errors {
+        eprintln!("    - {e}");
+    }
 }

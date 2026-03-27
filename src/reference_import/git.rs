@@ -76,9 +76,8 @@ pub(crate) async fn fetch_git_manifest(
             .to_string_lossy();
         let ref_path = format!("{}/{}", config.topic, rel_path);
 
-        let content = match std::fs::read_to_string(file_path) {
-            Ok(c) => c,
-            Err(_) => continue, // skip binary/unreadable
+        let Ok(content) = std::fs::read_to_string(file_path) else {
+            continue; // skip binary/unreadable
         };
 
         manifest.push((ref_path, content));
@@ -221,9 +220,8 @@ fn walk_files(repo_dir: &Path, paths: &[String], extensions: &[String]) -> Vec<P
 }
 
 fn walk_dir_recursive(dir: &Path, extensions: &[String], out: &mut Vec<PathBuf>) {
-    let entries = match std::fs::read_dir(dir) {
-        Ok(e) => e,
-        Err(_) => return,
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
     };
 
     for entry in entries.flatten() {

@@ -21,7 +21,10 @@ pub async fn execute(from_source: bool, version: Option<String>) -> Result<(), G
         let flake_ref = if from_source {
             format!("{FLAKE_REF}/main")
         } else {
-            let ref_name = version.as_deref().unwrap();
+            // version.is_some() is guaranteed by the enclosing `if` condition.
+            let ref_name = version
+                .as_deref()
+                .expect("version is Some — guaranteed by enclosing if condition");
             // Prepend 'v' only for version numbers (e.g. "0.3.0" → "v0.3.0").
             // Branch names like "latest" or "main" are used as-is.
             let ref_name = if ref_name.starts_with(|c: char| c.is_ascii_digit()) {

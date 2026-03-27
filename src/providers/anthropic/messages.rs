@@ -178,22 +178,8 @@ fn convert_messages(
             if !tool_use_ids.is_empty() {
                 let next_has_results = has_matching_tool_results(messages, i + 1, &tool_use_ids);
                 if !next_has_results {
-                    // Insert synthetic error results.
-                    let synthetic: Vec<Value> = tool_use_ids
-                        .iter()
-                        .map(|id| {
-                            json!({
-                                "type": "tool_result",
-                                "tool_use_id": id,
-                                "content": "Tool execution was interrupted.",
-                                "is_error": true,
-                            })
-                        })
-                        .collect();
-                    output.push(json!({
-                        "role": "user",
-                        "content": synthetic,
-                    }));
+                    // Insert synthetic error results for orphaned tool calls.
+                    output.push(synthetic_error_results(&tool_use_ids));
                 }
             }
         }
@@ -225,6 +211,25 @@ fn convert_messages(
     apply_cache_control_to_last_user(&mut output);
 
     Ok(output)
+}
+
+/// Build a synthetic user message with error results for each orphaned tool call.
+fn synthetic_error_results(tool_use_ids: &[String]) -> Value {
+    let synthetic: Vec<Value> = tool_use_ids
+        .iter()
+        .map(|id| {
+            json!({
+                "type": "tool_result",
+                "tool_use_id": id,
+                "content": "Tool execution was interrupted.",
+                "is_error": true,
+            })
+        })
+        .collect();
+    json!({
+        "role": "user",
+        "content": synthetic,
+    })
 }
 
 /// Check whether any message from `idx` onward (up to the next assistant
@@ -364,7 +369,10 @@ fn convert_content_blocks(blocks: &[ContentBlock], ghost_tool_names: &[&str]) ->
                         "thinking": text,
                         "signature": sig,
                     }));
-                } else if opaque_data.is_some() && text.is_none() && signature.is_none() {
+                } else if let Some(data) = opaque_data
+                    && text.is_none()
+                    && signature.is_none()
+                {
                     // Anthropic redacted_thinking: no readable text,
                     // has opaque blob. Only reconstruct as
                     // redacted_thinking when there's NO text and NO
@@ -373,7 +381,7 @@ fn convert_content_blocks(blocks: &[ContentBlock], ghost_tool_names: &[&str]) ->
                     // signature).
                     out.push(json!({
                         "type": "redacted_thinking",
-                        "data": opaque_data.as_ref().unwrap(),
+                        "data": data,
                     }));
                 } else if let Some(text) = text {
                     // Cross-model block (e.g. Codex reasoning sent to
@@ -864,17 +872,16 @@ mod tests {
         );
 
         // No synthetic "interrupted" results anywhere.
-        for msg in messages {
-            if let Some(content) = msg["content"].as_array() {
-                for block in content {
-                    if block["type"] == "tool_result" {
-                        assert_ne!(
-                            block["content"].as_str().unwrap_or(""),
-                            "Tool execution was interrupted.",
-                        );
-                    }
-                }
-            }
+        let tool_result_blocks = messages
+            .iter()
+            .filter_map(|msg| msg["content"].as_array())
+            .flatten()
+            .filter(|block| block["type"] == "tool_result");
+        for block in tool_result_blocks {
+            assert_ne!(
+                block["content"].as_str().unwrap_or(""),
+                "Tool execution was interrupted.",
+            );
         }
     }
 

@@ -50,9 +50,8 @@ pub fn list_diary_entries(workspace: &Path) -> Result<Vec<PathBuf>, KnowledgeErr
 /// Returns `(date, body)` pairs in chronological order.
 #[must_use]
 pub fn load_recent_diary(workspace: &Path, count: usize) -> Vec<(String, String)> {
-    let paths = match list_diary_entries(workspace) {
-        Ok(p) => p,
-        Err(_) => return Vec::new(),
+    let Ok(paths) = list_diary_entries(workspace) else {
+        return Vec::new();
     };
 
     paths

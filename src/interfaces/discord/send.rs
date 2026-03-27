@@ -26,7 +26,7 @@ pub async fn send_assistant_v2(
     channel_id: ChannelId,
     content: &str,
 ) -> serenity::Result<()> {
-    send_assistant_v2_with_suffix(http, channel_id, content, &[]).await
+    Box::pin(send_assistant_v2_with_suffix(http, channel_id, content, &[])).await
 }
 
 /// Send GHOST assistant text with extra v2 components appended to the

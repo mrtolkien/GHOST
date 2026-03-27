@@ -93,9 +93,8 @@ pub fn discover_agents(workspace: &Path) -> Vec<AgentInfo> {
 
 /// Collect agents from a flat directory (each subdirectory with agent.lua).
 fn collect_agents_from_dir(dir: &Path, workspace: &Path, agents: &mut Vec<AgentInfo>) {
-    let entries = match std::fs::read_dir(dir) {
-        Ok(entries) => entries,
-        Err(_) => return,
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
     };
 
     for entry in entries.flatten() {
@@ -114,9 +113,8 @@ fn collect_agents_from_dir(dir: &Path, workspace: &Path, agents: &mut Vec<AgentI
 
 /// Recursively collect agents from a directory tree.
 fn collect_agents_recursive(dir: &Path, workspace: &Path, agents: &mut Vec<AgentInfo>) {
-    let entries = match std::fs::read_dir(dir) {
-        Ok(entries) => entries,
-        Err(_) => return,
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
     };
 
     for entry in entries.flatten() {

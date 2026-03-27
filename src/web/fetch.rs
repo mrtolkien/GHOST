@@ -308,9 +308,8 @@ pub(crate) fn extract_content(
 }
 
 fn extract_with_readability(html: &str, page_url: &str) -> (Option<String>, String) {
-    let mut readability = match dom_smoothie::Readability::new(html, Some(page_url), None) {
-        Ok(r) => r,
-        Err(_) => return (None, html_to_markdown(html)),
+    let Ok(mut readability) = dom_smoothie::Readability::new(html, Some(page_url), None) else {
+        return (None, html_to_markdown(html));
     };
 
     match readability.parse() {

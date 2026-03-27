@@ -79,9 +79,8 @@ pub fn save_debug_request(data: &DebugRequestData<'_>) {
 }
 
 fn prune_old_requests(dir: &Path, max: usize) {
-    let entries = match std::fs::read_dir(dir) {
-        Ok(entries) => entries,
-        Err(_) => return,
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
     };
 
     let mut files: Vec<_> = entries

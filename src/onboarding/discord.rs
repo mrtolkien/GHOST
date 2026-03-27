@@ -81,7 +81,10 @@ pub async fn prompt_discord(
                     .initial_value(true)
                     .interact()?;
                 if keep {
-                    existing_token.unwrap().to_string()
+                    // existing_token.is_some() is the match guard.
+                    existing_token
+                        .expect("existing_token is Some — guaranteed by match guard")
+                        .to_string()
                 } else {
                     cliclack::password("Paste your bot token").interact()?
                 }

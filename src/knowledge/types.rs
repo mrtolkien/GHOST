@@ -18,11 +18,9 @@ impl Archetype {
     #[must_use]
     pub fn default_trust(self) -> i64 {
         match self {
-            Self::Entity => 5,
+            Self::Entity | Self::Source | Self::Topic => 5,
             Self::Analysis => 4,
-            Self::Source => 5,
             Self::Profile => 6,
-            Self::Topic => 5,
         }
     }
 }

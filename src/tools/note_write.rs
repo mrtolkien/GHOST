@@ -200,13 +200,15 @@ impl NoteWrite {
                     ToolError::ExecutionFailed(format!("failed to read cache entry: {e}"))
                 })?;
                 let path = entry.path();
-                if path.extension().is_some_and(|ext| ext == "md")
-                    && let Ok(content) = std::fs::read_to_string(&path)
-                {
-                    let (url, _is_search) = extract_frontmatter_info(&content);
-                    if !url.is_empty() {
-                        cache_urls.push(url);
-                    }
+                if path.extension().is_none_or(|ext| ext != "md") {
+                    continue;
+                }
+                let Ok(content) = std::fs::read_to_string(&path) else {
+                    continue;
+                };
+                let (url, _is_search) = extract_frontmatter_info(&content);
+                if !url.is_empty() {
+                    cache_urls.push(url);
                 }
             }
         }

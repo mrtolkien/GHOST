@@ -616,9 +616,8 @@ impl SessionChat {
 
         // Build parallel IDs and compacted flags matching the in-memory
         // history structure.
-        let session = match db::sessions::get_session(self.db(), session_id).await {
-            Ok(s) => s,
-            Err(_) => return false,
+        let Ok(session) = db::sessions::get_session(self.db(), session_id).await else {
+            return false;
         };
 
         let mut parallel_ids = Vec::with_capacity(history.len());
@@ -735,12 +734,9 @@ impl SessionChat {
         // Phase 2: LLM summarization
         tracing::info!("Masking insufficient — proceeding to Phase 2");
 
-        let model_name = match self.default_model_name() {
-            Ok(m) => m,
-            Err(_) => {
-                *history = masked;
-                return false;
-            }
+        let Ok(model_name) = self.default_model_name() else {
+            *history = masked;
+            return false;
         };
 
         let cache_key = session_id.to_string();

@@ -52,16 +52,16 @@ impl DiscordUiRenderer {
         while let Some(event) = self.rx.recv().await {
             match event {
                 ToolLoopEvent::ToolCalls { calls } => {
-                    self.handle_tool_calls(&calls).await;
+                    Box::pin(self.handle_tool_calls(&calls)).await;
                 }
                 ToolLoopEvent::ToolResults { results } => {
                     self.handle_tool_results(&results).await;
                 }
                 ToolLoopEvent::TodoUpdated { items } => {
-                    self.handle_todo_updated(&items).await;
+                    Box::pin(self.handle_todo_updated(&items)).await;
                 }
                 ToolLoopEvent::Compacted => {
-                    self.handle_compacted().await;
+                    Box::pin(self.handle_compacted()).await;
                 }
             }
         }

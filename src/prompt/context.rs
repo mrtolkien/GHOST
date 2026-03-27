@@ -144,9 +144,8 @@ pub fn build_ghost_diary(workspace: &Path) -> String {
 /// system prompt. Returns empty string if no active projects exist.
 #[tracing::instrument(skip_all, level = "debug", fields(workspace = %workspace.display()))]
 pub fn build_active_projects(workspace: &Path) -> String {
-    let projects = match crate::projects::list_projects(workspace) {
-        Ok(p) => p,
-        Err(_) => return String::new(),
+    let Ok(projects) = crate::projects::list_projects(workspace) else {
+        return String::new();
     };
 
     let active: Vec<_> = projects

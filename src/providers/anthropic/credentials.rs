@@ -31,7 +31,7 @@ impl OAuthCredentials {
 }
 
 /// Detect OAuth tokens by prefix (per pi-mono).
-#[allow(dead_code)]
+#[allow(dead_code, reason = "called only from tests; kept in production module to stay close to the token handling code it documents")]
 pub(crate) fn is_oauth_token(token: &str) -> bool {
     token.contains("sk-ant-oat")
 }

@@ -558,7 +558,6 @@ fn strip_yaml_frontmatter(content: &str) -> String {
 /// Convert a Lua value to a serde_json Value.
 fn lua_to_json(value: &LuaValue) -> LuaResult<Value> {
     match value {
-        LuaValue::Nil => Ok(Value::Null),
         LuaValue::Boolean(b) => Ok(Value::Bool(*b)),
         LuaValue::Integer(i) => Ok(Value::Number((*i).into())),
         LuaValue::Number(n) => Ok(serde_json::Number::from_f64(*n)
@@ -584,6 +583,7 @@ fn lua_to_json(value: &LuaValue) -> LuaResult<Value> {
                 Ok(Value::Object(map))
             }
         }
+        // Nil and all other Lua types (functions, threads, userdata) map to JSON null.
         _ => Ok(Value::Null),
     }
 }
@@ -620,6 +620,8 @@ fn json_to_lua(lua: &Lua, value: &Value) -> LuaResult<LuaValue> {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use super::*;
 
     fn test_workspace() -> tempfile::TempDir {
@@ -904,7 +906,7 @@ mod tests {
             max_iterations: 30,
             remaining: 5,
             elapsed_seconds: 120,
-            tool_counts: Default::default(),
+            tool_counts: HashMap::new(),
             last_input_tokens: 1000,
             context_window: 128000,
             todo_summary: None,
@@ -926,7 +928,7 @@ mod tests {
             max_iterations: 30,
             remaining: 25,
             elapsed_seconds: 30,
-            tool_counts: Default::default(),
+            tool_counts: HashMap::new(),
             last_input_tokens: 1000,
             context_window: 128000,
             todo_summary: None,
@@ -970,7 +972,7 @@ mod tests {
             max_iterations: 30,
             remaining: 29,
             elapsed_seconds: 120,
-            tool_counts: Default::default(),
+            tool_counts: HashMap::new(),
             last_input_tokens: 1000,
             context_window: 128000,
             todo_summary: None,
@@ -1018,7 +1020,7 @@ mod tests {
             max_iterations: 30,
             remaining: 25,
             elapsed_seconds: 60,
-            tool_counts: Default::default(),
+            tool_counts: HashMap::new(),
             last_input_tokens: 1000,
             context_window: 128000,
             todo_summary: Some(super::super::types::TodoSummary {

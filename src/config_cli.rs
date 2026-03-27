@@ -243,17 +243,15 @@ pub fn remove_browser(name: &str) -> Result<bool, ConfigError> {
                 key: format!("config parse error: {e}"),
             })?;
 
-    let web = match doc.get_mut("web").and_then(|w| w.as_table_mut()) {
-        Some(w) => w,
-        None => return Ok(false),
+    let Some(web) = doc.get_mut("web").and_then(|w| w.as_table_mut()) else {
+        return Ok(false);
     };
 
-    let browsers = match web
+    let Some(browsers) = web
         .get_mut("browsers")
         .and_then(|b| b.as_array_of_tables_mut())
-    {
-        Some(b) => b,
-        None => return Ok(false),
+    else {
+        return Ok(false);
     };
 
     let idx = browsers

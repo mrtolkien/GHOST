@@ -35,11 +35,7 @@ pub fn display_request(tool_name: &str, args: &Value) -> String {
             let path = str_arg(args, "path");
             format!("\u{1F4D6}\u{FE0E} {}", clip(&path, DISPLAY_VALUE_MAX))
         }
-        "file_write" => {
-            let path = str_arg(args, "path");
-            format!("\u{270F}\u{FE0E} {}", clip(&path, DISPLAY_VALUE_MAX))
-        }
-        "file_edit" => {
+        "file_write" | "file_edit" => {
             let path = str_arg(args, "path");
             format!("\u{270F}\u{FE0E} {}", clip(&path, DISPLAY_VALUE_MAX))
         }
@@ -138,7 +134,7 @@ pub fn display_result(tool_name: &str, _args: &Value, result: &str, is_error: bo
                 format!("\u{2192} {count} results")
             }
         }
-        "web_fetch" => {
+        "web_fetch" | "file_read" => {
             let chars = result.len();
             format!("\u{2192} {}", format_size(chars))
         }
@@ -154,12 +150,6 @@ pub fn display_result(tool_name: &str, _args: &Value, result: &str, is_error: bo
                 "\u{2713}".to_string()
             }
         }
-        "file_read" => {
-            let chars = result.len();
-            format!("\u{2192} {}", format_size(chars))
-        }
-        "file_write" | "file_edit" => "\u{2713}".to_string(),
-        "note_write" => "\u{2713}".to_string(),
         "agent" => {
             if result.contains("started") {
                 "\u{2192} started".to_string()

@@ -141,7 +141,6 @@ pub(crate) fn parse_sse_response(
                 if let Some(sr) = v["delta"]["stop_reason"].as_str() {
                     match sr {
                         "sensitive" => sensitive = true,
-                        "end_turn" => stop_reason = StopReason::EndTurn,
                         "tool_use" => stop_reason = StopReason::ToolUse,
                         "max_tokens" => {
                             stop_reason = StopReason::MaxTokens;

@@ -34,27 +34,7 @@ pub fn filter_transcript(messages: &[MessageRecord], since: Option<&str>) -> Str
                 // Include reasoning/thinking summaries from raw_output
                 if let Some(raw_items) = msg.raw_output_parsed() {
                     for item in &raw_items {
-                        let otype = item
-                            .get("original_type")
-                            .and_then(|v| v.as_str())
-                            .unwrap_or("");
-                        // New format: text stored directly
-                        if let Some(text) = item.get("text").and_then(Value::as_str) {
-                            if !text.is_empty() {
-                                lines.push(format!(
-                                    "[{otype}] {}",
-                                    &text[..text.len().min(TRANSCRIPT_PREVIEW_CHARS)]
-                                ));
-                            }
-                        } else if otype == "reasoning" {
-                            // Legacy format: extract from value
-                            if let Some(value) = item.get("value") {
-                                let summary = crate::providers::extract_reasoning_summary(value);
-                                if !summary.is_empty() {
-                                    lines.push(format!("[reasoning] {summary}"));
-                                }
-                            }
-                        }
+                        push_raw_item_line(&mut lines, item);
                     }
                 }
                 if !msg.content.trim().is_empty() {
@@ -63,23 +43,7 @@ pub fn filter_transcript(messages: &[MessageRecord], since: Option<&str>) -> Str
                 // Include tool call names + brief summary
                 if let Some(calls) = msg.tool_calls_parsed() {
                     for call in &calls {
-                        let name = call
-                            .get("name")
-                            .and_then(|v| v.as_str())
-                            .unwrap_or("unknown");
-                        let input = call
-                            .get("input")
-                            .map(|v| {
-                                let s = v.to_string();
-                                if s.len() > TRANSCRIPT_PREVIEW_CHARS {
-                                    let end = s.floor_char_boundary(TRANSCRIPT_PREVIEW_CHARS);
-                                    format!("{}...", &s[..end])
-                                } else {
-                                    s
-                                }
-                            })
-                            .unwrap_or_default();
-                        lines.push(format!("[tool_call] {name}({input})"));
+                        push_tool_call_line(&mut lines, call);
                     }
                 }
             }
@@ -102,6 +66,54 @@ pub fn extract_agent_findings(messages: &[MessageRecord]) -> Option<String> {
         .rev()
         .find(|m| m.role == "assistant" && m.content.len() >= MIN_FINDINGS_CHARS)
         .map(|m| m.content.clone())
+}
+
+/// Push a `[{otype}] ...` line for a raw_output item (reasoning/thinking summary).
+fn push_raw_item_line(lines: &mut Vec<String>, item: &Value) {
+    let otype = item
+        .get("original_type")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    // New format: text stored directly
+    if let Some(text) = item.get("text").and_then(Value::as_str) {
+        if !text.is_empty() {
+            lines.push(format!(
+                "[{otype}] {}",
+                &text[..text.len().min(TRANSCRIPT_PREVIEW_CHARS)]
+            ));
+        }
+        return;
+    }
+    // Legacy format: extract from value
+    if otype == "reasoning"
+        && let Some(value) = item.get("value")
+    {
+        let summary = crate::providers::extract_reasoning_summary(value);
+        if !summary.is_empty() {
+            lines.push(format!("[reasoning] {summary}"));
+        }
+    }
+}
+
+/// Push a `[tool_call] name(input)` line, truncating long inputs.
+fn push_tool_call_line(lines: &mut Vec<String>, call: &Value) {
+    let name = call
+        .get("name")
+        .and_then(|v| v.as_str())
+        .unwrap_or("unknown");
+    let input = call
+        .get("input")
+        .map(|v| {
+            let s = v.to_string();
+            if s.len() > TRANSCRIPT_PREVIEW_CHARS {
+                let end = s.floor_char_boundary(TRANSCRIPT_PREVIEW_CHARS);
+                format!("{}...", &s[..end])
+            } else {
+                s
+            }
+        })
+        .unwrap_or_default();
+    lines.push(format!("[tool_call] {name}({input})"));
 }
 
 #[cfg(test)]

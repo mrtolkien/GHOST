@@ -61,7 +61,7 @@ pub async fn execute(command: BrowsersCommand) -> Result<(), GhostError> {
         BrowsersCommand::Add { name, cdp_url } => execute_add(&name, &cdp_url),
         BrowsersCommand::Remove { name } => execute_remove(&name),
         BrowsersCommand::Discover => execute_discover().await,
-        BrowsersCommand::Check { name } => execute_check(&name).await,
+        BrowsersCommand::Check { name } => Box::pin(execute_check(&name)).await,
         BrowsersCommand::Serve {
             port,
             bind,

@@ -189,11 +189,9 @@ mod tests {
             let responses_for_task = Arc::clone(&responses);
 
             tokio::spawn(async move {
-                while let Ok((socket, _)) = listener.accept().await {
-                    if handle_socket(socket, &responses_for_task).await.is_err() {
-                        break;
-                    }
-                }
+                while let Ok((socket, _)) = listener.accept().await
+                    && handle_socket(socket, &responses_for_task).await.is_ok()
+                {}
             });
 
             Self { address, responses }

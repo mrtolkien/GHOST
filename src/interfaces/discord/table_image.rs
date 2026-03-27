@@ -219,27 +219,7 @@ fn build_svg(
                         s,
                         r#"<text x="{tx}" y="{baseline_y}" font-family="{FONT_FAMILY}" font-size="{FONT_SIZE}" fill="{fill}" font-weight="{weight}"{letter_spacing}>"#,
                     );
-                    for span in line {
-                        let escaped = xml_escape(&span.text);
-                        match span.style {
-                            SpanStyle::Normal => {
-                                let _ = write!(s, "{escaped}");
-                            }
-                            SpanStyle::Bold => {
-                                let _ = write!(s, r#"<tspan font-weight="700">{escaped}</tspan>"#);
-                            }
-                            SpanStyle::Italic => {
-                                let _ =
-                                    write!(s, r#"<tspan font-style="italic">{escaped}</tspan>"#);
-                            }
-                            SpanStyle::Code => {
-                                let _ = write!(
-                                    s,
-                                    r#"<tspan font-family="'JetBrains Mono', 'Fira Code', 'Source Code Pro', 'DejaVu Sans Mono', 'Liberation Mono', 'Courier New', monospace">{escaped}</tspan>"#,
-                                );
-                            }
-                        }
-                    }
+                    render_spans(&mut s, line);
                     let _ = write!(s, "</text>");
                 }
             }
@@ -276,6 +256,30 @@ fn rasterize(svg_str: &str) -> Result<Vec<u8>, String> {
 // ---------------------------------------------------------------------------
 // Inline markdown -> styled spans
 // ---------------------------------------------------------------------------
+
+/// Render a line of styled spans into the SVG string buffer.
+fn render_spans(s: &mut String, spans: &[StyledSpan]) {
+    for span in spans {
+        let escaped = xml_escape(&span.text);
+        match span.style {
+            SpanStyle::Normal => {
+                let _ = write!(s, "{escaped}");
+            }
+            SpanStyle::Bold => {
+                let _ = write!(s, r#"<tspan font-weight="700">{escaped}</tspan>"#);
+            }
+            SpanStyle::Italic => {
+                let _ = write!(s, r#"<tspan font-style="italic">{escaped}</tspan>"#);
+            }
+            SpanStyle::Code => {
+                let _ = write!(
+                    s,
+                    r#"<tspan font-family="'JetBrains Mono', 'Fira Code', 'Source Code Pro', 'DejaVu Sans Mono', 'Liberation Mono', 'Courier New', monospace">{escaped}</tspan>"#,
+                );
+            }
+        }
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum SpanStyle {

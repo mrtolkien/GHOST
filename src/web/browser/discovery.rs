@@ -147,21 +147,13 @@ async fn tailscale_peers() -> Result<Vec<String>, Box<dyn std::error::Error + Se
     }
 
     let status: TailscaleStatus = serde_json::from_slice(&output.stdout)?;
-    let mut ips = Vec::new();
-    if let Some(peers) = status.peer {
-        for peer in peers.values() {
-            if peer.online.unwrap_or(false) {
-                let Some(ref peer_ips) = peer.tailscale_ips else {
-                    continue;
-                };
-                // Take IPv4 addresses only
-                for ip in peer_ips {
-                    if !ip.contains(':') {
-                        ips.push(ip.clone());
-                    }
-                }
-            }
-        }
-    }
+    let ips = status
+        .peer
+        .unwrap_or_default()
+        .into_values()
+        .filter(|peer| peer.online.unwrap_or(false))
+        .flat_map(|peer| peer.tailscale_ips.unwrap_or_default())
+        .filter(|ip| !ip.contains(':')) // IPv4 only
+        .collect();
     Ok(ips)
 }

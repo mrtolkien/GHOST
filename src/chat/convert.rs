@@ -97,56 +97,66 @@ pub(super) fn convert_stored_message_to_provider_message(
     }
     if let Some(raw_output) = raw_output {
         for item in raw_output {
-            if let Some(original_type) = item.get("original_type").and_then(Value::as_str) {
-                match original_type {
-                    "thinking" | "redacted_thinking" | "reasoning" => {
-                        // New format: typed fields stored directly
-                        if item.get("text").is_some()
-                            || item.get("signature").is_some()
-                            || item.get("opaque_data").is_some()
-                        {
-                            content.push(ContentBlock::Thinking {
-                                text: item.get("text").and_then(Value::as_str).map(String::from),
-                                signature: item
-                                    .get("signature")
-                                    .and_then(Value::as_str)
-                                    .map(String::from),
-                                opaque_data: item
-                                    .get("opaque_data")
-                                    .and_then(Value::as_str)
-                                    .map(String::from),
-                            });
-                        } else if let Some(value) = item.get("value").filter(|v| !v.is_null()) {
-                            // Legacy format: extract from raw value
-                            content.push(ContentBlock::Thinking {
-                                text: value
-                                    .get("thinking")
-                                    .and_then(Value::as_str)
-                                    .map(String::from),
-                                signature: value
-                                    .get("signature")
-                                    .and_then(Value::as_str)
-                                    .map(String::from),
-                                opaque_data: value
-                                    .get("data")
-                                    .or_else(|| value.get("encrypted_content"))
-                                    .and_then(Value::as_str)
-                                    .map(String::from),
-                            });
-                        }
+            let Some(original_type) = item.get("original_type").and_then(Value::as_str) else {
+                continue;
+            };
+            match original_type {
+                "thinking" | "redacted_thinking" | "reasoning" => {
+                    if let Some(block) = thinking_block_from_item(&item) {
+                        content.push(block);
                     }
-                    _ => {
-                        let value = item.get("value").cloned().unwrap_or(Value::Null);
-                        content.push(ContentBlock::RawOutput {
-                            original_type: original_type.to_string(),
-                            value,
-                        });
-                    }
+                }
+                _ => {
+                    let value = item.get("value").cloned().unwrap_or(Value::Null);
+                    content.push(ContentBlock::RawOutput {
+                        original_type: original_type.to_string(),
+                        value,
+                    });
                 }
             }
         }
     }
     ChatMessage { role, content }
+}
+
+/// Build a `ContentBlock::Thinking` from a raw_output item, handling both
+/// the new typed format (fields stored directly) and the legacy value format.
+fn thinking_block_from_item(item: &Value) -> Option<ContentBlock> {
+    if item.get("text").is_some()
+        || item.get("signature").is_some()
+        || item.get("opaque_data").is_some()
+    {
+        // New format: typed fields stored directly
+        Some(ContentBlock::Thinking {
+            text: item.get("text").and_then(Value::as_str).map(String::from),
+            signature: item
+                .get("signature")
+                .and_then(Value::as_str)
+                .map(String::from),
+            opaque_data: item
+                .get("opaque_data")
+                .and_then(Value::as_str)
+                .map(String::from),
+        })
+    } else {
+        // Legacy format: extract from raw value
+        let value = item.get("value").filter(|v| !v.is_null())?;
+        Some(ContentBlock::Thinking {
+            text: value
+                .get("thinking")
+                .and_then(Value::as_str)
+                .map(String::from),
+            signature: value
+                .get("signature")
+                .and_then(Value::as_str)
+                .map(String::from),
+            opaque_data: value
+                .get("data")
+                .or_else(|| value.get("encrypted_content"))
+                .and_then(Value::as_str)
+                .map(String::from),
+        })
+    }
 }
 
 pub(super) fn extract_tool_use_blocks(content: &[ContentBlock]) -> Vec<Value> {

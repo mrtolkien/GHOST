@@ -167,9 +167,8 @@ pub fn scan_web_cache(workspace: &Path, session_id: &str) -> Result<Option<Strin
 }
 
 fn extract_frontmatter_label(path: &Path) -> String {
-    let content = match std::fs::read_to_string(path) {
-        Ok(c) => c,
-        Err(_) => return "unknown".to_string(),
+    let Ok(content) = std::fs::read_to_string(path) else {
+        return "unknown".to_string();
     };
 
     // Look for url: or query: in YAML frontmatter (between --- delimiters)

@@ -84,12 +84,12 @@ pub fn spawn_scheduler(
         loop {
             tokio::select! {
                 _ = interval.tick() => {
-                    tick_scheduled(&agent_runner, &db, &mut scheduled).await;
-                    tick_idle(&agent_runner, &db, &idle_agents).await;
+                    Box::pin(tick_scheduled(&agent_runner, &db, &mut scheduled)).await;
+                    Box::pin(tick_idle(&agent_runner, &db, &idle_agents)).await;
                 }
                 Some(()) = idle_trigger_rx.recv() => {
                     info!("manual idle trigger received");
-                    tick_idle(&agent_runner, &db, &idle_agents).await;
+                    Box::pin(tick_idle(&agent_runner, &db, &idle_agents)).await;
                 }
                 path = fs_rx.recv() => {
                     if let Some(_path) = path {
@@ -194,8 +194,8 @@ async fn tick_scheduled(agent_runner: &AgentRunner, _db: &GhostDb, entries: &mut
 
         tracing::info!(agent_name = name.clone(), "executing scheduled agent");
 
-        match agent_runner
-            .run(name, "Execute the scheduled agent.", None)
+        match Box::pin(agent_runner
+            .run(name, "Execute the scheduled agent.", None))
             .await
         {
             Ok(mut result) => {
@@ -292,12 +292,12 @@ async fn tick_idle(agent_runner: &AgentRunner, db: &GhostDb, idle_agents: &[Idle
                 "idle threshold reached, triggering agent",
             );
 
-            match agent_runner
+            match Box::pin(agent_runner
                 .run(
                     &agent.name,
                     "Execute after idle period.",
                     Some(&record.session_id),
-                )
+                ))
                 .await
             {
                 Ok(mut result) => {

@@ -41,13 +41,15 @@ pub fn clean_citation_section(text: &str) -> String {
     let section = &text[start..];
 
     // If already in clean [N] [Title](url) format, pass through
-    let titled_re = regex::Regex::new(r"\[\d+\]\s+\[[^\]]+\]\([^)]+\)").unwrap();
+    let titled_re = regex::Regex::new(r"\[\d+\]\s+\[[^\]]+\]\([^)]+\)")
+        .expect("regex is a valid compile-time constant");
     if titled_re.is_match(section) {
         return text.to_string();
     }
 
     // Otherwise, extract URLs and reformat
-    let url_re = regex::Regex::new(r"https?://[^\s\]\)>,]+").unwrap();
+    let url_re = regex::Regex::new(r"https?://[^\s\]\)>,]+")
+        .expect("regex is a valid compile-time constant");
     let urls: Vec<&str> = url_re
         .find_iter(section)
         .map(|m| m.as_str().trim_end_matches(|c: char| ".,;:)".contains(c)))
@@ -126,14 +128,16 @@ pub fn markdown_to_v2_components(text: &str) -> MarkdownComponents {
         // Table detection
         if is_table_line(trimmed) {
             if !in_table && is_table_separator(trimmed) {
-                if let Some(prev) = pop_last_line(&mut text_buf) {
-                    if is_table_line(&prev) {
-                        flush_text(&mut text_buf, &mut components);
-                        in_table = true;
-                        table_buf.push(prev);
-                        table_buf.push(line.to_string());
-                        continue;
-                    }
+                let prev = pop_last_line(&mut text_buf);
+                if prev.as_deref().is_some_and(is_table_line) {
+                    let prev = prev.expect("checked above");
+                    flush_text(&mut text_buf, &mut components);
+                    in_table = true;
+                    table_buf.push(prev);
+                    table_buf.push(line.to_string());
+                    continue;
+                }
+                if let Some(prev) = prev {
                     text_buf.push_str(&prev);
                     text_buf.push('\n');
                 }

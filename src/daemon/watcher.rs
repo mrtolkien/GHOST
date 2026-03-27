@@ -232,9 +232,8 @@ pub(crate) async fn process_change(
     raw_content: Option<&str>,
     file_hash: Option<&str>,
 ) -> Result<Option<EmbedRequest>, PipelineError> {
-    let rel = match path.strip_prefix(workspace) {
-        Ok(r) => r,
-        Err(_) => return Ok(None),
+    let Ok(rel) = path.strip_prefix(workspace) else {
+        return Ok(None);
     };
 
     let rel_str = rel.to_string_lossy();
@@ -292,9 +291,8 @@ async fn process_note_change(
         }
     };
 
-    let parsed = match knowledge::parse_note(raw) {
-        Ok(p) => p,
-        Err(_) => return Ok(None),
+    let Ok(parsed) = knowledge::parse_note(raw) else {
+        return Ok(None);
     };
 
     let filename = path
@@ -445,9 +443,10 @@ async fn process_reference_change(
                 (r.id, r.topic_id)
             }
             _ => {
-                let tid = match crate::db::knowledge::find_or_create_topic(db, &topic_name).await {
-                    Ok(id) => id,
-                    Err(_) => return Ok(None),
+                let Ok(tid) =
+                    crate::db::knowledge::find_or_create_topic(db, &topic_name).await
+                else {
+                    return Ok(None);
                 };
                 match crate::db::knowledge::create_reference(
                     db, &tid, &ref_path, content, None, None, file_hash,
@@ -618,9 +617,8 @@ async fn process_code_file_change(
     raw_content: Option<&str>,
     file_hash: Option<&str>,
 ) -> Result<Option<EmbedRequest>, PipelineError> {
-    let repo = match crate::embeddings::pipeline::extract_repo_slug(workspace, path) {
-        Some(r) => r,
-        None => return Ok(None),
+    let Some(repo) = crate::embeddings::pipeline::extract_repo_slug(workspace, path) else {
+        return Ok(None);
     };
 
     let fs_rel = path
@@ -729,8 +727,8 @@ pub fn spawn_reconciliation_loop(
                 continue;
             }
 
-            async {
-                match crate::embeddings::pipeline::reconcile_filesystem(&db, &workspace).await {
+            Box::pin(async {
+                match Box::pin(crate::embeddings::pipeline::reconcile_filesystem(&db, &workspace)).await {
                     Ok((discovered, embed_requests)) => {
                         if discovered > 0 {
                             info!(discovered, "periodic reconciliation found new files");
@@ -761,7 +759,7 @@ pub fn spawn_reconciliation_loop(
                     }
                 }
             }
-            .instrument(tracing::info_span!("reconcile periodic"))
+            .instrument(tracing::info_span!("reconcile periodic")))
             .await;
         }
     })
