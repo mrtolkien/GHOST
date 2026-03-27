@@ -7,15 +7,15 @@ mod stats;
 mod topics;
 
 pub use crud::{
-    CodeFileHashRecord, FileHashRecord, append_diary, create_code_file, create_diary, create_note,
-    create_note_full, create_reference, create_script, delete_code_file, delete_code_files_by_repo,
-    delete_diary, delete_note, delete_reference, delete_script, find_code_file, find_note_by_path,
-    find_note_by_title, find_reference_by_path, find_reference_by_url, find_script_by_path,
-    get_diary_by_date, get_note, get_reference, get_script, list_all_diary, list_all_notes,
-    list_all_references, list_all_scripts, list_recent, list_references_by_topic,
-    load_code_file_hashes, load_diary_file_hashes, load_note_file_hashes,
-    load_reference_file_hashes, load_script_file_hashes, update_code_file, update_diary,
-    update_note, update_reference, update_reference_path, update_script,
+    CodeFileHashRecord, FileHashRecord, NoteInput, append_diary, create_code_file, create_diary,
+    create_note, create_note_full, create_reference, create_script, delete_code_file,
+    delete_code_files_by_repo, delete_diary, delete_note, delete_reference, delete_script,
+    find_code_file, find_note_by_path, find_note_by_title, find_reference_by_path,
+    find_reference_by_url, find_script_by_path, get_diary_by_date, get_note, get_reference,
+    get_script, list_all_diary, list_all_notes, list_all_references, list_all_scripts, list_recent,
+    list_references_by_topic, load_code_file_hashes, load_diary_file_hashes,
+    load_note_file_hashes, load_reference_file_hashes, load_script_file_hashes, update_code_file,
+    update_diary, update_note, update_reference, update_reference_path, update_script,
 };
 pub use graph::{
     backfill_message_source_references, cited_reference_ids, create_cited_edge, create_edge,

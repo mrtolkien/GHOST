@@ -323,22 +323,22 @@ async fn process_note_change(
     let archetype_str = parsed.front.archetype.to_string();
 
     // Look up the note in DB by title
+    let note_input = crate::db::knowledge::NoteInput {
+        title: &parsed.front.title,
+        body: &parsed.body,
+        tags: &parsed.front.tags,
+        sources: &parsed.front.sources,
+        trust: parsed.front.trust,
+        archetype: Some(archetype_str.as_str()),
+        topic_id: topic_id.as_deref(),
+        path: Some(&rel_path),
+        file_hash,
+    };
+
     let note_id = match crate::db::knowledge::find_note_by_title(db, &parsed.front.title).await {
         Ok(Some(n)) => {
             // Update existing note
-            let _ = crate::db::knowledge::update_note(
-                db,
-                &n.id,
-                &parsed.body,
-                &parsed.front.tags,
-                &parsed.front.sources,
-                parsed.front.trust,
-                Some(archetype_str.as_str()),
-                topic_id.as_deref(),
-                Some(&rel_path),
-                file_hash,
-            )
-            .await;
+            let _ = crate::db::knowledge::update_note(db, &n.id, &note_input).await;
             let _ = knowledge::reconcile::reconcile_edges(
                 db,
                 &n.id,
@@ -350,20 +350,7 @@ async fn process_note_change(
             n.id
         }
         _ => {
-            match crate::db::knowledge::create_note_full(
-                db,
-                &parsed.front.title,
-                &parsed.body,
-                &parsed.front.tags,
-                &parsed.front.sources,
-                parsed.front.trust,
-                Some(archetype_str.as_str()),
-                topic_id.as_deref(),
-                Some(&rel_path),
-                file_hash,
-            )
-            .await
-            {
+            match crate::db::knowledge::create_note_full(db, &note_input).await {
                 Ok(id) => {
                     let _ = knowledge::reconcile::reconcile_edges(
                         db,

@@ -1,6 +1,7 @@
 mod common;
 
 use ghost::db;
+use ghost::db::knowledge::NoteInput;
 use ghost::knowledge;
 use ghost::tools::{ToolContext, ToolManager};
 use serde_json::json;
@@ -30,15 +31,13 @@ async fn create_note_and_retrieve_all_fields() {
 
     let id = db::knowledge::create_note_full(
         &db,
-        "Rust Language",
-        "A systems programming language.",
-        &["programming".to_string(), "systems".to_string()],
-        &[],
-        8,
-        None,
-        None,
-        None,
-        None,
+        &NoteInput {
+            title: "Rust Language",
+            body: "A systems programming language.",
+            tags: &["programming".to_string(), "systems".to_string()],
+            trust: 8,
+            ..Default::default()
+        },
     )
     .await
     .expect("create note");
@@ -56,15 +55,12 @@ async fn update_note_changes_fields() {
 
     let id = db::knowledge::create_note_full(
         &db,
-        "Draft",
-        "old body",
-        &[],
-        &[],
-        5,
-        None,
-        None,
-        None,
-        None,
+        &NoteInput {
+            title: "Draft",
+            body: "old body",
+            trust: 5,
+            ..Default::default()
+        },
     )
     .await
     .expect("create");
@@ -74,14 +70,12 @@ async fn update_note_changes_fields() {
     db::knowledge::update_note(
         &db,
         &id,
-        "new body",
-        &["updated".to_string()],
-        &[],
-        7,
-        None,
-        None,
-        None,
-        None,
+        &NoteInput {
+            body: "new body",
+            tags: &["updated".to_string()],
+            trust: 7,
+            ..Default::default()
+        },
     )
     .await
     .expect("update");
@@ -101,15 +95,12 @@ async fn wiki_link_creates_relates_to_edge_and_stub() {
 
     let note_id = db::knowledge::create_note_full(
         &db,
-        "My Note",
-        "See [[Rust]]",
-        &[],
-        &[],
-        5,
-        None,
-        None,
-        None,
-        None,
+        &NoteInput {
+            title: "My Note",
+            body: "See [[Rust]]",
+            trust: 5,
+            ..Default::default()
+        },
     )
     .await
     .expect("create note");
@@ -145,30 +136,24 @@ async fn typed_wiki_link_creates_labeled_edge() {
 
     let rust_id = db::knowledge::create_note_full(
         &db,
-        "Rust",
-        "A language",
-        &[],
-        &[],
-        5,
-        None,
-        None,
-        None,
-        None,
+        &NoteInput {
+            title: "Rust",
+            body: "A language",
+            trust: 5,
+            ..Default::default()
+        },
     )
     .await
     .expect("create Rust");
 
     let note_id = db::knowledge::create_note_full(
         &db,
-        "Ghost",
-        "Built with [[written_in>Rust]]",
-        &[],
-        &[],
-        5,
-        None,
-        None,
-        None,
-        None,
+        &NoteInput {
+            title: "Ghost",
+            body: "Built with [[written_in>Rust]]",
+            trust: 5,
+            ..Default::default()
+        },
     )
     .await
     .expect("create Ghost");
@@ -190,22 +175,25 @@ async fn typed_wiki_link_creates_labeled_edge() {
 async fn removing_link_deletes_edge() {
     let (db, _config, _workspace, _config_dir) = common::test_database().await;
 
-    let _rust_id =
-        db::knowledge::create_note_full(&db, "Rust", "", &[], &[], 5, None, None, None, None)
-            .await
-            .expect("create Rust");
+    let _rust_id = db::knowledge::create_note_full(
+        &db,
+        &NoteInput {
+            title: "Rust",
+            trust: 5,
+            ..Default::default()
+        },
+    )
+    .await
+    .expect("create Rust");
 
     let note_id = db::knowledge::create_note_full(
         &db,
-        "My Note",
-        "See [[Rust]]",
-        &[],
-        &[],
-        5,
-        None,
-        None,
-        None,
-        None,
+        &NoteInput {
+            title: "My Note",
+            body: "See [[Rust]]",
+            trust: 5,
+            ..Default::default()
+        },
     )
     .await
     .expect("create note");
@@ -246,30 +234,24 @@ async fn bm25_search_returns_results() {
 
     db::knowledge::create_note_full(
         &db,
-        "Rust Programming",
-        "Rust is a systems programming language focused on safety.",
-        &[],
-        &[],
-        5,
-        None,
-        None,
-        None,
-        None,
+        &NoteInput {
+            title: "Rust Programming",
+            body: "Rust is a systems programming language focused on safety.",
+            trust: 5,
+            ..Default::default()
+        },
     )
     .await
     .expect("create note 1");
 
     db::knowledge::create_note_full(
         &db,
-        "Python",
-        "Python is an interpreted language for scripting.",
-        &[],
-        &[],
-        5,
-        None,
-        None,
-        None,
-        None,
+        &NoteInput {
+            title: "Python",
+            body: "Python is an interpreted language for scripting.",
+            trust: 5,
+            ..Default::default()
+        },
     )
     .await
     .expect("create note 2");
@@ -289,36 +271,37 @@ async fn graph_chain_neighbors() {
 
     let a = db::knowledge::create_note_full(
         &db,
-        "A",
-        "Links to [[B]]",
-        &[],
-        &[],
-        5,
-        None,
-        None,
-        None,
-        None,
+        &NoteInput {
+            title: "A",
+            body: "Links to [[B]]",
+            trust: 5,
+            ..Default::default()
+        },
     )
     .await
     .expect("create A");
     let b = db::knowledge::create_note_full(
         &db,
-        "B",
-        "Links to [[C]]",
-        &[],
-        &[],
-        5,
-        None,
-        None,
-        None,
-        None,
+        &NoteInput {
+            title: "B",
+            body: "Links to [[C]]",
+            trust: 5,
+            ..Default::default()
+        },
     )
     .await
     .expect("create B");
-    let c =
-        db::knowledge::create_note_full(&db, "C", "End node", &[], &[], 5, None, None, None, None)
-            .await
-            .expect("create C");
+    let c = db::knowledge::create_note_full(
+        &db,
+        &NoteInput {
+            title: "C",
+            body: "End node",
+            trust: 5,
+            ..Default::default()
+        },
+    )
+    .await
+    .expect("create C");
 
     // A -> B
     let links_a = knowledge::extract_wiki_links("Links to [[B]]");
@@ -406,30 +389,26 @@ async fn tags_with_correct_counts() {
 
     db::knowledge::create_note_full(
         &db,
-        "Note A",
-        "body",
-        &["rust".to_string(), "systems".to_string()],
-        &[],
-        5,
-        None,
-        None,
-        None,
-        None,
+        &NoteInput {
+            title: "Note A",
+            body: "body",
+            tags: &["rust".to_string(), "systems".to_string()],
+            trust: 5,
+            ..Default::default()
+        },
     )
     .await
     .expect("create A");
 
     db::knowledge::create_note_full(
         &db,
-        "Note B",
-        "body",
-        &["rust".to_string(), "web".to_string()],
-        &[],
-        5,
-        None,
-        None,
-        None,
-        None,
+        &NoteInput {
+            title: "Note B",
+            body: "body",
+            tags: &["rust".to_string(), "web".to_string()],
+            trust: 5,
+            ..Default::default()
+        },
     )
     .await
     .expect("create B");
@@ -455,15 +434,12 @@ async fn recent_returns_items_sorted() {
 
     db::knowledge::create_note_full(
         &db,
-        "First Note",
-        "body",
-        &[],
-        &[],
-        5,
-        None,
-        None,
-        None,
-        None,
+        &NoteInput {
+            title: "First Note",
+            body: "body",
+            trust: 5,
+            ..Default::default()
+        },
     )
     .await
     .expect("create first");
@@ -473,15 +449,12 @@ async fn recent_returns_items_sorted() {
 
     db::knowledge::create_note_full(
         &db,
-        "Second Note",
-        "body",
-        &[],
-        &[],
-        5,
-        None,
-        None,
-        None,
-        None,
+        &NoteInput {
+            title: "Second Note",
+            body: "body",
+            trust: 5,
+            ..Default::default()
+        },
     )
     .await
     .expect("create second");
@@ -502,45 +475,36 @@ async fn orphan_notes_detected() {
     // Create a truly isolated note (no edges at all)
     db::knowledge::create_note_full(
         &db,
-        "Isolated",
-        "No connections",
-        &[],
-        &[],
-        5,
-        None,
-        None,
-        None,
-        None,
+        &NoteInput {
+            title: "Isolated",
+            body: "No connections",
+            trust: 5,
+            ..Default::default()
+        },
     )
     .await
     .expect("create isolated");
 
     let connected_from = db::knowledge::create_note_full(
         &db,
-        "Connected",
-        "Has an edge",
-        &[],
-        &[],
-        5,
-        None,
-        None,
-        None,
-        None,
+        &NoteInput {
+            title: "Connected",
+            body: "Has an edge",
+            trust: 5,
+            ..Default::default()
+        },
     )
     .await
     .expect("create connected");
 
     let target = db::knowledge::create_note_full(
         &db,
-        "Target",
-        "Receives edge",
-        &[],
-        &[],
-        5,
-        None,
-        None,
-        None,
-        None,
+        &NoteInput {
+            title: "Target",
+            body: "Receives edge",
+            trust: 5,
+            ..Default::default()
+        },
     )
     .await
     .expect("create target");
@@ -588,17 +552,17 @@ async fn link_cited_edges_creates_note_to_reference_edges() {
     std::fs::write(notes_dir.join(format!("{slug}.md")), &content).unwrap();
 
     // Create matching DB records
+    let note_path = format!("notes/{slug}.md");
     let note_id = db::knowledge::create_note_full(
         &db,
-        "Test Product",
-        "A review of the product.",
-        &[],
-        &["https://example.com/review".to_string()],
-        5,
-        None,
-        None,
-        Some(&format!("notes/{slug}.md")),
-        None,
+        &NoteInput {
+            title: "Test Product",
+            body: "A review of the product.",
+            sources: &["https://example.com/review".to_string()],
+            trust: 5,
+            path: Some(&note_path),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();

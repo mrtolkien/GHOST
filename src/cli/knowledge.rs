@@ -2,6 +2,7 @@ use clap::Subcommand;
 
 use crate::db;
 use crate::db::GhostDb;
+use crate::db::knowledge::NoteInput;
 use crate::embeddings::EmbeddingClient;
 use crate::error::GhostError;
 use crate::knowledge;
@@ -457,14 +458,16 @@ async fn cmd_reindex(
                 db::knowledge::update_note(
                     db,
                     &existing.id,
-                    &parsed.body,
-                    &parsed.front.tags,
-                    &parsed.front.sources,
-                    parsed.front.trust,
-                    None,
-                    None,
-                    rel_path.as_deref(),
-                    Some(&hash),
+                    &NoteInput {
+                        title: &parsed.front.title,
+                        body: &parsed.body,
+                        tags: &parsed.front.tags,
+                        sources: &parsed.front.sources,
+                        trust: parsed.front.trust,
+                        path: rel_path.as_deref(),
+                        file_hash: Some(&hash),
+                        ..Default::default()
+                    },
                 )
                 .await?;
                 let _result = knowledge::reconcile::reconcile_edges(
@@ -486,15 +489,16 @@ async fn cmd_reindex(
                     .map(|s| s.to_string());
                 let note_id = db::knowledge::create_note_full(
                     db,
-                    &parsed.front.title,
-                    &parsed.body,
-                    &parsed.front.tags,
-                    &parsed.front.sources,
-                    parsed.front.trust,
-                    None,
-                    None,
-                    rel_path.as_deref(),
-                    Some(&hash),
+                    &NoteInput {
+                        title: &parsed.front.title,
+                        body: &parsed.body,
+                        tags: &parsed.front.tags,
+                        sources: &parsed.front.sources,
+                        trust: parsed.front.trust,
+                        path: rel_path.as_deref(),
+                        file_hash: Some(&hash),
+                        ..Default::default()
+                    },
                 )
                 .await?;
                 let _result = knowledge::reconcile::reconcile_edges(

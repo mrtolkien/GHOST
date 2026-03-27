@@ -3,6 +3,7 @@
 mod common;
 
 use ghost::db;
+use ghost::db::knowledge::NoteInput;
 use ghost::embeddings::EmbeddingClient;
 use ghost::embeddings::pipeline::{EmbedRequest, embed_sources};
 
@@ -57,15 +58,13 @@ async fn embed_source_pipeline_stores_and_searches() {
     // Create a note in DB
     let note_id = db::knowledge::create_note_full(
         &db,
-        "Dioxus Components",
-        "Dioxus uses components as the basic building blocks of UI.",
-        &["dioxus".to_string()],
-        &[],
-        5,
-        None,
-        None,
-        None,
-        None,
+        &NoteInput {
+            title: "Dioxus Components",
+            body: "Dioxus uses components as the basic building blocks of UI.",
+            tags: &["dioxus".to_string()],
+            trust: 5,
+            ..Default::default()
+        },
     )
     .await
     .expect("create note");

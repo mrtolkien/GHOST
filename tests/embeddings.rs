@@ -1,6 +1,7 @@
 mod common;
 
 use ghost::db;
+use ghost::db::knowledge::NoteInput;
 use ghost::embeddings;
 
 /// Read current process RSS from /proc/self/status (Linux only).
@@ -28,15 +29,12 @@ async fn upsert_and_count_embeddings() {
 
     let note_id = db::knowledge::create_note_full(
         &db,
-        "Test Note",
-        "body",
-        &[],
-        &[],
-        5,
-        None,
-        None,
-        None,
-        None,
+        &NoteInput {
+            title: "Test Note",
+            body: "body",
+            trust: 5,
+            ..Default::default()
+        },
     )
     .await
     .expect("create note");
@@ -56,15 +54,12 @@ async fn upsert_overwrites_on_duplicate_source_and_chunk() {
 
     let note_id = db::knowledge::create_note_full(
         &db,
-        "Dup Note",
-        "body",
-        &[],
-        &[],
-        5,
-        None,
-        None,
-        None,
-        None,
+        &NoteInput {
+            title: "Dup Note",
+            body: "body",
+            trust: 5,
+            ..Default::default()
+        },
     )
     .await
     .expect("create note");
@@ -89,15 +84,12 @@ async fn delete_embeddings_for_source_removes_all_chunks() {
 
     let note_id = db::knowledge::create_note_full(
         &db,
-        "Multi Chunk",
-        "body",
-        &[],
-        &[],
-        5,
-        None,
-        None,
-        None,
-        None,
+        &NoteInput {
+            title: "Multi Chunk",
+            body: "body",
+            trust: 5,
+            ..Default::default()
+        },
     )
     .await
     .expect("create note");
@@ -130,14 +122,28 @@ async fn delete_embeddings_for_source_removes_all_chunks() {
 async fn delete_all_embeddings_clears_table() {
     let (db, _config, _workspace, _config_dir) = common::test_database().await;
 
-    let note_a =
-        db::knowledge::create_note_full(&db, "Note A", "body", &[], &[], 5, None, None, None, None)
-            .await
-            .expect("create a");
-    let note_b =
-        db::knowledge::create_note_full(&db, "Note B", "body", &[], &[], 5, None, None, None, None)
-            .await
-            .expect("create b");
+    let note_a = db::knowledge::create_note_full(
+        &db,
+        &NoteInput {
+            title: "Note A",
+            body: "body",
+            trust: 5,
+            ..Default::default()
+        },
+    )
+    .await
+    .expect("create a");
+    let note_b = db::knowledge::create_note_full(
+        &db,
+        &NoteInput {
+            title: "Note B",
+            body: "body",
+            trust: 5,
+            ..Default::default()
+        },
+    )
+    .await
+    .expect("create b");
 
     let vector = vec![0.1_f32; 1024];
     db::embeddings::upsert_embedding(&db, "note", &note_a, 0, "a", &vector, None)
@@ -162,15 +168,12 @@ async fn vector_search_returns_results() {
 
     let note_id = db::knowledge::create_note_full(
         &db,
-        "Search Me",
-        "body",
-        &[],
-        &[],
-        5,
-        None,
-        None,
-        None,
-        None,
+        &NoteInput {
+            title: "Search Me",
+            body: "body",
+            trust: 5,
+            ..Default::default()
+        },
     )
     .await
     .expect("create note");
@@ -200,14 +203,28 @@ async fn vector_search_returns_results() {
 async fn vector_search_ranks_similar_higher() {
     let (db, _config, _workspace, _config_dir) = common::test_database().await;
 
-    let close_id =
-        db::knowledge::create_note_full(&db, "Close", "body", &[], &[], 5, None, None, None, None)
-            .await
-            .unwrap();
-    let far_id =
-        db::knowledge::create_note_full(&db, "Far", "body", &[], &[], 5, None, None, None, None)
-            .await
-            .unwrap();
+    let close_id = db::knowledge::create_note_full(
+        &db,
+        &NoteInput {
+            title: "Close",
+            body: "body",
+            trust: 5,
+            ..Default::default()
+        },
+    )
+    .await
+    .unwrap();
+    let far_id = db::knowledge::create_note_full(
+        &db,
+        &NoteInput {
+            title: "Far",
+            body: "body",
+            trust: 5,
+            ..Default::default()
+        },
+    )
+    .await
+    .unwrap();
 
     // close_vec is similar to query_vec, far_vec is orthogonal
     let mut close_vec = vec![1.0_f32; 1024];
@@ -244,15 +261,12 @@ async fn vector_search_respects_limit() {
     for i in 0..5 {
         let id = db::knowledge::create_note_full(
             &db,
-            &format!("Limit Note {i}"),
-            "body",
-            &[],
-            &[],
-            5,
-            None,
-            None,
-            None,
-            None,
+            &NoteInput {
+                title: &format!("Limit Note {i}"),
+                body: "body",
+                trust: 5,
+                ..Default::default()
+            },
         )
         .await
         .unwrap();
@@ -386,15 +400,12 @@ async fn vector_insert_memory_stays_bounded() {
     for i in 0..50 {
         let note_id = db::knowledge::create_note_full(
             &db,
-            &format!("MemTest Note {i}"),
-            &format!("body of note {i}"),
-            &[],
-            &[],
-            5,
-            None,
-            None,
-            None,
-            None,
+            &NoteInput {
+                title: &format!("MemTest Note {i}"),
+                body: &format!("body of note {i}"),
+                trust: 5,
+                ..Default::default()
+            },
         )
         .await
         .expect("create note");
@@ -499,15 +510,12 @@ async fn vector_insert_concurrent_stays_bounded() {
                 let idx = batch * 10 + i;
                 let note_id = db::knowledge::create_note_full(
                     &db_c,
-                    &format!("Concurrent Note {idx}"),
-                    &format!("body {idx}"),
-                    &[],
-                    &[],
-                    5,
-                    None,
-                    None,
-                    None,
-                    None,
+                    &NoteInput {
+                        title: &format!("Concurrent Note {idx}"),
+                        body: &format!("body {idx}"),
+                        trust: 5,
+                        ..Default::default()
+                    },
                 )
                 .await
                 .expect("create note");
@@ -614,15 +622,12 @@ async fn vector_insert_large_scale_memory() {
     for i in 0..500 {
         let note_id = db::knowledge::create_note_full(
             &db,
-            &format!("Scale Note {i}"),
-            &format!("body {i}"),
-            &[],
-            &[],
-            5,
-            None,
-            None,
-            None,
-            None,
+            &NoteInput {
+                title: &format!("Scale Note {i}"),
+                body: &format!("body {i}"),
+                trust: 5,
+                ..Default::default()
+            },
         )
         .await
         .expect("create note");
@@ -676,15 +681,12 @@ async fn replace_embeddings_atomically_swaps_all_chunks() {
 
     let note_id = db::knowledge::create_note_full(
         &db,
-        "Atomic Note",
-        "body",
-        &[],
-        &[],
-        5,
-        None,
-        None,
-        None,
-        None,
+        &NoteInput {
+            title: "Atomic Note",
+            body: "body",
+            trust: 5,
+            ..Default::default()
+        },
     )
     .await
     .expect("create note");

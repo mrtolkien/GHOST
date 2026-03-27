@@ -7,6 +7,20 @@ use super::records::{
     CodeFileRecord, DiaryRecord, NoteRecord, RecentItem, ReferenceRecord, ScriptRecord,
 };
 
+/// Parameters for creating or updating a knowledge note in the database.
+#[derive(Debug, Default)]
+pub struct NoteInput<'a> {
+    pub title: &'a str,
+    pub body: &'a str,
+    pub tags: &'a [String],
+    pub sources: &'a [String],
+    pub trust: i64,
+    pub archetype: Option<&'a str>,
+    pub topic_id: Option<&'a str>,
+    pub path: Option<&'a str>,
+    pub file_hash: Option<&'a str>,
+}
+
 // --- Create / Update ---
 
 #[tracing::instrument(skip_all, level = "debug", fields(title = %title))]
@@ -15,27 +29,27 @@ pub async fn create_note(
     title: &str,
     body: &str,
 ) -> Result<String, DatabaseError> {
-    create_note_full(db, title, body, &[], &[], 5, None, None, None, None).await
+    create_note_full(
+        db,
+        &NoteInput {
+            title,
+            body,
+            trust: 5,
+            ..Default::default()
+        },
+    )
+    .await
 }
 
-#[allow(clippy::too_many_arguments)]
-#[tracing::instrument(skip_all, level = "debug", fields(title = %title))]
+#[tracing::instrument(skip_all, level = "debug", fields(title = %note.title))]
 pub async fn create_note_full(
     db: &SqlitePool,
-    title: &str,
-    body: &str,
-    tags: &[String],
-    sources: &[String],
-    trust: i64,
-    archetype: Option<&str>,
-    topic_id: Option<&str>,
-    path: Option<&str>,
-    file_hash: Option<&str>,
+    note: &NoteInput<'_>,
 ) -> Result<String, DatabaseError> {
     let id = new_id();
     let ts = now();
-    let tags_json = serde_json::to_string(tags).unwrap_or_default();
-    let sources_json = serde_json::to_string(sources).unwrap_or_default();
+    let tags_json = serde_json::to_string(note.tags).unwrap_or_default();
+    let sources_json = serde_json::to_string(note.sources).unwrap_or_default();
 
     sqlx::query(
         "INSERT INTO note \
@@ -43,15 +57,15 @@ pub async fn create_note_full(
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
     )
     .bind(&id)
-    .bind(title)
-    .bind(body)
+    .bind(note.title)
+    .bind(note.body)
     .bind(&tags_json)
     .bind(&sources_json)
-    .bind(trust)
-    .bind(archetype)
-    .bind(topic_id)
-    .bind(path)
-    .bind(file_hash)
+    .bind(note.trust)
+    .bind(note.archetype)
+    .bind(note.topic_id)
+    .bind(note.path)
+    .bind(note.file_hash)
     .bind(&ts)
     .bind(&ts)
     .execute(db)
@@ -65,36 +79,28 @@ pub async fn create_note_full(
     Ok(id)
 }
 
-#[allow(clippy::too_many_arguments)]
 #[tracing::instrument(skip_all, level = "debug", fields(note_id = %note_id))]
 pub async fn update_note(
     db: &SqlitePool,
     note_id: &str,
-    body: &str,
-    tags: &[String],
-    sources: &[String],
-    trust: i64,
-    archetype: Option<&str>,
-    topic_id: Option<&str>,
-    path: Option<&str>,
-    file_hash: Option<&str>,
+    note: &NoteInput<'_>,
 ) -> Result<(), DatabaseError> {
-    let tags_json = serde_json::to_string(tags).unwrap_or_default();
-    let sources_json = serde_json::to_string(sources).unwrap_or_default();
+    let tags_json = serde_json::to_string(note.tags).unwrap_or_default();
+    let sources_json = serde_json::to_string(note.sources).unwrap_or_default();
 
     sqlx::query(
         "UPDATE note SET body = ?, tags = ?, sources = ?, \
          trust = ?, archetype = ?, topic_id = COALESCE(?, topic_id), path = ?, file_hash = ?, \
          updated_at = ? WHERE id = ?",
     )
-    .bind(body)
+    .bind(note.body)
     .bind(&tags_json)
     .bind(&sources_json)
-    .bind(trust)
-    .bind(archetype)
-    .bind(topic_id)
-    .bind(path)
-    .bind(file_hash)
+    .bind(note.trust)
+    .bind(note.archetype)
+    .bind(note.topic_id)
+    .bind(note.path)
+    .bind(note.file_hash)
     .bind(now())
     .bind(note_id)
     .execute(db)

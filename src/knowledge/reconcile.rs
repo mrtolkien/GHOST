@@ -2,6 +2,7 @@ use std::collections::HashSet;
 
 use crate::db;
 use crate::db::GhostDb;
+use crate::db::knowledge::NoteInput;
 
 use super::error::KnowledgeError;
 use super::types::WikiLink;
@@ -51,15 +52,12 @@ pub async fn reconcile_edges(
             None => {
                 let id = db::knowledge::create_note_full(
                     db_conn,
-                    &link.target,
-                    "",
-                    &[],
-                    &[],
-                    1,
-                    Some("entity"),
-                    None,
-                    None,
-                    None,
+                    &NoteInput {
+                        title: &link.target,
+                        trust: 1,
+                        archetype: Some("entity"),
+                        ..Default::default()
+                    },
                 )
                 .await
                 .map_err(Box::new)?;

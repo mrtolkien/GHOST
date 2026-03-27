@@ -4,6 +4,7 @@ use clap::Subcommand;
 
 use crate::db;
 use crate::db::GhostDb;
+use crate::db::knowledge::NoteInput;
 use crate::error::GhostError;
 use crate::knowledge::reconcile::reconcile_edges;
 use crate::knowledge::sanitize::sanitize_reference_links;
@@ -51,8 +52,15 @@ pub async fn execute(command: NoteCommand) -> Result<(), GhostError> {
             sources,
             trust,
         } => {
-            let msg = create_note(&db, &config.workspace, &title, &body, &tags, &sources, trust)
-                .await?;
+            let note = NoteInput {
+                title: &title,
+                body: &body,
+                tags: &tags,
+                sources: &sources,
+                trust,
+                ..Default::default()
+            };
+            let msg = create_note(&db, &config.workspace, &note).await?;
             println!("{msg}");
         }
         NoteCommand::Update {
@@ -61,8 +69,15 @@ pub async fn execute(command: NoteCommand) -> Result<(), GhostError> {
             sources,
             trust,
         } => {
-            let msg = update_note(&db, &config.workspace, &title, &body, &tags, &sources, trust)
-                .await?;
+            let note = NoteInput {
+                title: &title,
+                body: &body,
+                tags: &tags,
+                sources: &sources,
+                trust,
+                ..Default::default()
+            };
+            let msg = update_note(&db, &config.workspace, &note).await?;
             println!("{msg}");
         }
     }
@@ -70,31 +85,26 @@ pub async fn execute(command: NoteCommand) -> Result<(), GhostError> {
     Ok(())
 }
 
-#[allow(clippy::too_many_arguments)]
 async fn create_note(
     db: &GhostDb,
     workspace: &std::path::Path,
-    title: &str,
-    body: &str,
-    tags: &[String],
-    sources: &[String],
-    trust: i64,
+    note: &NoteInput<'_>,
 ) -> Result<String, GhostError> {
-    let (sanitized_body, ref_warning) = sanitize_reference_links(workspace, body);
+    let (sanitized_body, ref_warning) = sanitize_reference_links(workspace, note.body);
 
     let front = NoteFrontMatter {
-        title: title.to_string(),
+        title: note.title.to_string(),
         archetype: Archetype::Entity,
-        tags: tags.to_vec(),
+        tags: note.tags.to_vec(),
         parent: None,
-        sources: sources.to_vec(),
-        trust,
+        sources: note.sources.to_vec(),
+        trust: note.trust,
         written_at: chrono::Utc::now().to_rfc3339(),
         updated_at: None,
     };
 
-    let subfolder = knowledge::subfolder_from_tags(tags);
-    let slug = knowledge::slug_from_title(title);
+    let subfolder = knowledge::subfolder_from_tags(note.tags);
+    let slug = knowledge::slug_from_title(note.title);
     let rel_path = knowledge::note_relative_path(subfolder, &slug);
 
     let path = knowledge::write_note(workspace, &front, &sanitized_body)
@@ -118,23 +128,17 @@ async fn create_note(
         }
     }
 
-    let note_id = db::knowledge::create_note_full(
-        db,
-        title,
-        &sanitized_body,
-        tags,
-        sources,
-        trust,
-        None,
-        None,
-        Some(&rel_path),
-        None,
-    )
-    .await
-    .map_err(|e| GhostError::Database(Box::new(e)))?;
+    let db_note = NoteInput {
+        body: &sanitized_body,
+        path: Some(&rel_path),
+        ..*note
+    };
+    let note_id = db::knowledge::create_note_full(db, &db_note)
+        .await
+        .map_err(|e| GhostError::Database(Box::new(e)))?;
 
     let wiki_links = extract_wiki_links(&sanitized_body);
-    let result = reconcile_edges(db, &note_id, title, &wiki_links, None)
+    let result = reconcile_edges(db, &note_id, note.title, &wiki_links, None)
         .await
         .map_err(|e| std::io::Error::other(e.to_string()))?;
 
@@ -142,7 +146,7 @@ async fn create_note(
         "Created note '{}' at {}\n\
          DB record: {}\n\
          Edges: {} created, {} stubs created{index_info}",
-        title,
+        note.title,
         path.display(),
         note_id,
         result.created,
@@ -172,25 +176,20 @@ async fn create_note(
     Ok(msg)
 }
 
-#[allow(clippy::too_many_arguments)]
 async fn update_note(
     db: &GhostDb,
     workspace: &std::path::Path,
-    title: &str,
-    body: &str,
-    tags: &[String],
-    sources: &[String],
-    trust: i64,
+    note: &NoteInput<'_>,
 ) -> Result<String, GhostError> {
-    let (sanitized_body, ref_warning) = sanitize_reference_links(workspace, body);
+    let (sanitized_body, ref_warning) = sanitize_reference_links(workspace, note.body);
 
-    let existing = db::knowledge::find_note_by_title(db, title)
+    let existing = db::knowledge::find_note_by_title(db, note.title)
         .await
         .map_err(|e| GhostError::Database(Box::new(e)))?
-        .ok_or_else(|| std::io::Error::other(format!("note '{title}' not found")))?;
+        .ok_or_else(|| std::io::Error::other(format!("note '{}' not found", note.title)))?;
 
-    let subfolder = knowledge::subfolder_from_tags(tags);
-    let slug = knowledge::slug_from_title(title);
+    let subfolder = knowledge::subfolder_from_tags(note.tags);
+    let slug = knowledge::slug_from_title(note.title);
     let rel_path = knowledge::note_relative_path(subfolder, &slug);
 
     // If the note moved to a different path, remove the old file
@@ -203,28 +202,22 @@ async fn update_note(
         }
     }
 
-    db::knowledge::update_note(
-        db,
-        &existing.id,
-        &sanitized_body,
-        tags,
-        sources,
-        trust,
-        None,
-        None,
-        Some(&rel_path),
-        None,
-    )
-    .await
-    .map_err(|e| GhostError::Database(Box::new(e)))?;
+    let db_note = NoteInput {
+        body: &sanitized_body,
+        path: Some(&rel_path),
+        ..*note
+    };
+    db::knowledge::update_note(db, &existing.id, &db_note)
+        .await
+        .map_err(|e| GhostError::Database(Box::new(e)))?;
 
     let front = NoteFrontMatter {
-        title: title.to_string(),
+        title: note.title.to_string(),
         archetype: Archetype::Entity,
-        tags: tags.to_vec(),
+        tags: note.tags.to_vec(),
         parent: None,
-        sources: sources.to_vec(),
-        trust,
+        sources: note.sources.to_vec(),
+        trust: note.trust,
         written_at: chrono::Utc::now().to_rfc3339(),
         updated_at: None,
     };
@@ -245,14 +238,14 @@ async fn update_note(
     }
 
     let wiki_links = extract_wiki_links(&sanitized_body);
-    let result = reconcile_edges(db, &existing.id, title, &wiki_links, None)
+    let result = reconcile_edges(db, &existing.id, note.title, &wiki_links, None)
         .await
         .map_err(|e| std::io::Error::other(e.to_string()))?;
 
     let mut msg = format!(
         "Updated note '{}' at {}\n\
          Edges: {} created, {} deleted, {} stubs created",
-        title,
+        note.title,
         path.display(),
         result.created,
         result.deleted,

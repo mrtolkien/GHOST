@@ -5,6 +5,7 @@ use async_trait::async_trait;
 use serde_json::{Value, json};
 
 use crate::db;
+use crate::db::knowledge::NoteInput;
 use crate::knowledge::reconcile::reconcile_edges;
 use crate::knowledge::{self, Archetype, NoteFrontMatter, extract_wiki_links};
 use crate::providers::ToolDefinition;
@@ -134,32 +135,25 @@ impl Tool for NoteWrite {
             .and_then(Value::as_i64)
             .unwrap_or_else(|| archetype.default_trust());
 
+        let archetype_str = archetype.to_string();
+        let note = NoteInput {
+            title,
+            body,
+            tags: &tags,
+            sources: &sources,
+            trust,
+            archetype: Some(&archetype_str),
+            ..Default::default()
+        };
+
         match action {
             "create" => {
-                self.create_note(
-                    ctx,
-                    title,
-                    body,
-                    &tags,
-                    &sources,
-                    trust,
-                    archetype,
-                    parent.as_deref(),
-                )
-                .await
+                self.create_note(ctx, &note, archetype, parent.as_deref())
+                    .await
             }
             "update" => {
-                self.update_note(
-                    ctx,
-                    title,
-                    body,
-                    &tags,
-                    &sources,
-                    trust,
-                    archetype,
-                    parent.as_deref(),
-                )
-                .await
+                self.update_note(ctx, &note, archetype, parent.as_deref())
+                    .await
             }
             _ => Err(ToolError::InvalidParams(format!(
                 "unknown action '{action}', expected 'create', 'update', or 'archive'"
@@ -300,36 +294,33 @@ impl NoteWrite {
 
     /// Create a new knowledge note: write the markdown file, insert a DB record,
     /// reconcile wiki-link edges, and generate index notes for subfolder hierarchy.
-    #[allow(clippy::too_many_arguments)]
     async fn create_note(
         &self,
         ctx: &ToolContext,
-        title: &str,
-        body: &str,
-        tags: &[String],
-        sources: &[String],
-        trust: i64,
+        note: &NoteInput<'_>,
         archetype: Archetype,
         parent: Option<&str>,
     ) -> Result<String, ToolError> {
         let source_warnings =
-            Self::verify_source_urls(&ctx.workspace, &ctx.session_id, &ctx.db, sources).await?;
+            Self::verify_source_urls(&ctx.workspace, &ctx.session_id, &ctx.db, note.sources)
+                .await?;
 
-        let (sanitized_body, ref_warning) = Self::sanitize_reference_links(&ctx.workspace, body);
+        let (sanitized_body, ref_warning) =
+            Self::sanitize_reference_links(&ctx.workspace, note.body);
 
         let front = NoteFrontMatter {
-            title: title.to_string(),
+            title: note.title.to_string(),
             archetype,
-            tags: tags.to_vec(),
+            tags: note.tags.to_vec(),
             parent: parent.map(String::from),
-            sources: sources.to_vec(),
-            trust,
+            sources: note.sources.to_vec(),
+            trust: note.trust,
             written_at: chrono::Utc::now().to_rfc3339(),
             updated_at: None,
         };
 
-        let subfolder = knowledge::subfolder_from_tags(tags);
-        let slug = knowledge::slug_from_title(title);
+        let subfolder = knowledge::subfolder_from_tags(note.tags);
+        let slug = knowledge::slug_from_title(note.title);
         let rel_path = knowledge::note_relative_path(subfolder, &slug);
 
         let path = knowledge::write_note(&ctx.workspace, &front, &sanitized_body)
@@ -353,24 +344,17 @@ impl NoteWrite {
             }
         }
 
-        let archetype_str = archetype.to_string();
-        let note_id = db::knowledge::create_note_full(
-            &ctx.db,
-            title,
-            &sanitized_body,
-            tags,
-            sources,
-            trust,
-            Some(&archetype_str),
-            None,
-            Some(&rel_path),
-            None,
-        )
-        .await
-        .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
+        let db_note = NoteInput {
+            body: &sanitized_body,
+            path: Some(&rel_path),
+            ..*note
+        };
+        let note_id = db::knowledge::create_note_full(&ctx.db, &db_note)
+            .await
+            .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
 
         let wiki_links = extract_wiki_links(&sanitized_body);
-        let result = reconcile_edges(&ctx.db, &note_id, title, &wiki_links, parent)
+        let result = reconcile_edges(&ctx.db, &note_id, note.title, &wiki_links, parent)
             .await
             .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
 
@@ -378,7 +362,7 @@ impl NoteWrite {
             "Created note '{}' at {}\n\
              DB record: {}\n\
              Edges: {} created, {} stubs created{index_info}",
-            title,
+            note.title,
             path.display(),
             note_id,
             result.created,
@@ -420,7 +404,7 @@ impl NoteWrite {
                 }
             }
             Archetype::Source => {
-                let tagged_sources = tags.iter().any(|t| t.contains("/sources"));
+                let tagged_sources = note.tags.iter().any(|t| t.contains("/sources"));
                 if !tagged_sources {
                     msg.push_str(
                         "\n\nWARNING: Source note should be tagged \
@@ -429,7 +413,7 @@ impl NoteWrite {
                 }
             }
             Archetype::Profile => {
-                let tagged_operator = tags.iter().any(|t| t.starts_with("operator"));
+                let tagged_operator = note.tags.iter().any(|t| t.starts_with("operator"));
                 if !tagged_operator {
                     msg.push_str(
                         "\n\nWARNING: Profile note should be tagged \
@@ -447,27 +431,26 @@ impl NoteWrite {
 
     /// Update an existing knowledge note: rewrite the file (moving it if tags
     /// changed the subfolder), update the DB record, and reconcile edges.
-    #[allow(clippy::too_many_arguments)]
     async fn update_note(
         &self,
         ctx: &ToolContext,
-        title: &str,
-        body: &str,
-        tags: &[String],
-        sources: &[String],
-        trust: i64,
+        note: &NoteInput<'_>,
         archetype: Archetype,
         parent: Option<&str>,
     ) -> Result<String, ToolError> {
         let source_warnings =
-            Self::verify_source_urls(&ctx.workspace, &ctx.session_id, &ctx.db, sources).await?;
+            Self::verify_source_urls(&ctx.workspace, &ctx.session_id, &ctx.db, note.sources)
+                .await?;
 
-        let (sanitized_body, ref_warning) = Self::sanitize_reference_links(&ctx.workspace, body);
+        let (sanitized_body, ref_warning) =
+            Self::sanitize_reference_links(&ctx.workspace, note.body);
 
-        let existing = db::knowledge::find_note_by_title(&ctx.db, title)
+        let existing = db::knowledge::find_note_by_title(&ctx.db, note.title)
             .await
             .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?
-            .ok_or_else(|| ToolError::ExecutionFailed(format!("note '{title}' not found")))?;
+            .ok_or_else(|| {
+                ToolError::ExecutionFailed(format!("note '{}' not found", note.title))
+            })?;
 
         // Preserve original written_at from the existing file
         let existing_note = existing
@@ -480,8 +463,8 @@ impl NoteWrite {
             .unwrap_or_else(|| chrono::Utc::now().to_rfc3339());
         let updated_at = Some(chrono::Utc::now().to_rfc3339());
 
-        let subfolder = knowledge::subfolder_from_tags(tags);
-        let slug = knowledge::slug_from_title(title);
+        let subfolder = knowledge::subfolder_from_tags(note.tags);
+        let slug = knowledge::slug_from_title(note.title);
         let rel_path = knowledge::note_relative_path(subfolder, &slug);
 
         // If the note moved to a different path, remove the old file
@@ -494,29 +477,22 @@ impl NoteWrite {
             }
         }
 
-        let archetype_str = archetype.to_string();
-        db::knowledge::update_note(
-            &ctx.db,
-            &existing.id,
-            &sanitized_body,
-            tags,
-            sources,
-            trust,
-            Some(&archetype_str),
-            None,
-            Some(&rel_path),
-            None,
-        )
-        .await
-        .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
+        let db_note = NoteInput {
+            body: &sanitized_body,
+            path: Some(&rel_path),
+            ..*note
+        };
+        db::knowledge::update_note(&ctx.db, &existing.id, &db_note)
+            .await
+            .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
 
         let front = NoteFrontMatter {
-            title: title.to_string(),
+            title: note.title.to_string(),
             archetype,
-            tags: tags.to_vec(),
+            tags: note.tags.to_vec(),
             parent: parent.map(String::from),
-            sources: sources.to_vec(),
-            trust,
+            sources: note.sources.to_vec(),
+            trust: note.trust,
             written_at,
             updated_at,
         };
@@ -542,14 +518,14 @@ impl NoteWrite {
         }
 
         let wiki_links = extract_wiki_links(&sanitized_body);
-        let result = reconcile_edges(&ctx.db, &existing.id, title, &wiki_links, parent)
+        let result = reconcile_edges(&ctx.db, &existing.id, note.title, &wiki_links, parent)
             .await
             .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
 
         let mut msg = format!(
             "Updated note '{}' at {}\n\
              Edges: {} created, {} deleted, {} stubs created{index_info}",
-            title,
+            note.title,
             path.display(),
             result.created,
             result.deleted,
@@ -591,7 +567,7 @@ impl NoteWrite {
                 }
             }
             Archetype::Source => {
-                let tagged_sources = tags.iter().any(|t| t.contains("/sources"));
+                let tagged_sources = note.tags.iter().any(|t| t.contains("/sources"));
                 if !tagged_sources {
                     msg.push_str(
                         "\n\nWARNING: Source note should be tagged \
@@ -600,7 +576,7 @@ impl NoteWrite {
                 }
             }
             Archetype::Profile => {
-                let tagged_operator = tags.iter().any(|t| t.starts_with("operator"));
+                let tagged_operator = note.tags.iter().any(|t| t.starts_with("operator"));
                 if !tagged_operator {
                     msg.push_str(
                         "\n\nWARNING: Profile note should be tagged \
