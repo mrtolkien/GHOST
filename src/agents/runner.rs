@@ -8,7 +8,7 @@ use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
 use tracing::Instrument;
 
-use crate::chat::{RunMetadata, SessionChat};
+use crate::chat::{RunMetadata, SessionChat, ToolLoopContext};
 use crate::config::{CompactionConfig, Config, SharedConfig, SharedConfigExt};
 use crate::db;
 use crate::db::GhostDb;
@@ -763,8 +763,11 @@ async fn execute_resume(
             resume.db_message_count,
             &resume.config,
             &resume.script_host,
-            None,
-            None,
+            ToolLoopContext {
+                event_tx: None,
+                interrupt_rx: None,
+                channel_id: None,
+            },
         ) => res?,
         () = cancel_token.cancelled() => {
             tracing::info!(agent_name = agent_name.to_string(), "agent resume cancelled");

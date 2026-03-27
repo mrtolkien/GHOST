@@ -20,7 +20,7 @@ use super::convert::{
     convert_stored_message_to_provider_message, images_to_values, parse_session_thing,
     render_tool_error, tool_results_to_values,
 };
-use super::tool_loop::{ToolLoopHandler, run_tool_loop};
+use super::tool_loop::{ToolLoopContext, ToolLoopHandler, run_tool_loop};
 use super::types::{
     ChatError, ChatResult, ChatStopReason, DEFAULT_MAX_TOOL_ITERATIONS, EventSender, RunMetadata,
     ToolLoopEvent,
@@ -246,9 +246,11 @@ impl SessionChat {
             effort,
             &mut handler,
             &mut history,
-            event_tx,
-            Some(int_rx),
-            channel_id,
+            ToolLoopContext {
+                event_tx,
+                interrupt_rx: Some(int_rx),
+                channel_id,
+            },
         )
         .await;
 
@@ -310,9 +312,11 @@ impl SessionChat {
             effort,
             &mut handler,
             &mut history,
-            event_tx,
-            Some(int_rx),
-            channel_id,
+            ToolLoopContext {
+                event_tx,
+                interrupt_rx: Some(int_rx),
+                channel_id,
+            },
         )
         .await;
 
@@ -378,9 +382,11 @@ impl SessionChat {
             effort,
             &mut handler,
             &mut history,
-            event_tx,
-            Some(int_rx),
-            channel_id,
+            ToolLoopContext {
+                event_tx,
+                interrupt_rx: Some(int_rx),
+                channel_id,
+            },
         )
         .await;
 
@@ -1368,9 +1374,11 @@ impl SessionChat {
             effort,
             &mut handler,
             &mut history,
-            event_tx,
-            Some(int_rx),
-            channel_id,
+            ToolLoopContext {
+                event_tx,
+                interrupt_rx: Some(int_rx),
+                channel_id,
+            },
         )
         .await;
 
@@ -1384,7 +1392,6 @@ impl SessionChat {
     /// `on_resume`). `db_message_count` indicates how many messages at the
     /// front are already persisted — only messages beyond that index are
     /// written to DB before entering the tool loop.
-    #[allow(clippy::too_many_arguments)]
     #[tracing::instrument(name = "run lua agent with history", skip_all, fields(
         gen_ai.agent.name = %config.name,
         session_id = session_id,
@@ -1397,8 +1404,7 @@ impl SessionChat {
         db_message_count: usize,
         config: &crate::scripting::AgentConfig,
         script_host: &ScriptHost,
-        channel_id: Option<String>,
-        event_tx: Option<&EventSender>,
+        ctx: ToolLoopContext<'_>,
     ) -> Result<(ChatResult, RunMetadata), ChatError> {
         let session_thing = parse_session_thing(session_id)?;
 
@@ -1441,7 +1447,7 @@ impl SessionChat {
             tool_counts: std::collections::HashMap::new(),
             temporal_fire_count: 0,
             context_pressure_fired: false,
-            event_tx,
+            event_tx: ctx.event_tx,
             pending_todo_update: false,
         };
 
@@ -1456,9 +1462,11 @@ impl SessionChat {
             effort,
             &mut handler,
             &mut history,
-            event_tx,
-            Some(int_rx),
-            channel_id,
+            ToolLoopContext {
+                event_tx: ctx.event_tx,
+                interrupt_rx: Some(int_rx),
+                channel_id: ctx.channel_id,
+            },
         )
         .await;
 

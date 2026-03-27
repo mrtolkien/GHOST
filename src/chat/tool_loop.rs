@@ -108,8 +108,14 @@ async fn drain_interrupts(
     Ok(action)
 }
 
+/// Contextual channels and identifiers threaded through the tool loop.
+pub struct ToolLoopContext<'a> {
+    pub event_tx: Option<&'a EventSender>,
+    pub interrupt_rx: Option<InterruptReceiver>,
+    pub channel_id: Option<String>,
+}
+
 /// Shared tool-use loop for both interactive chat and background jobs.
-#[allow(clippy::too_many_arguments)]
 pub(super) async fn run_tool_loop(
     session_chat: &SessionChat,
     session_id: &str,
@@ -118,9 +124,7 @@ pub(super) async fn run_tool_loop(
     reasoning_effort: ReasoningEffort,
     handler: &mut (impl ToolLoopHandler + ?Sized),
     history: &mut Vec<ChatMessage>,
-    event_tx: Option<&EventSender>,
-    mut interrupt_rx: Option<InterruptReceiver>,
-    channel_id: Option<String>,
+    mut ctx: ToolLoopContext<'_>,
 ) -> Result<(ChatResult, RunMetadata), ChatError> {
     let started_at = std::time::Instant::now();
     let config = session_chat.config();
@@ -324,7 +328,7 @@ pub(super) async fn run_tool_loop(
                 }
 
                 // Emit tool call event
-                if let Some(tx) = event_tx {
+                if let Some(tx) = ctx.event_tx {
                     let _ = tx.send(ToolLoopEvent::ToolCalls { calls: tool_infos });
                 }
 
@@ -347,7 +351,7 @@ pub(super) async fn run_tool_loop(
                         session_id,
                         &tool_uses,
                         handler.tool_cwd(),
-                        channel_id.as_deref(),
+                        ctx.channel_id.as_deref(),
                     )
                     .await;
 
@@ -364,7 +368,7 @@ pub(super) async fn run_tool_loop(
                 // Emit tool result event for UI editing.
                 // Results are flattened (Image blocks interleaved), so match
                 // back to tool_uses by tool_use_id rather than zipping.
-                if let Some(tx) = event_tx {
+                if let Some(tx) = ctx.event_tx {
                     let result_infos: Vec<ToolResultInfo> = tool_results
                         .iter()
                         .filter_map(|block| {
@@ -422,7 +426,7 @@ pub(super) async fn run_tool_loop(
                     .await?;
 
                 // Check for OPERATOR interrupts (steering messages or /stop)
-                if let Some(ref mut rx) = interrupt_rx {
+                if let Some(ref mut rx) = ctx.interrupt_rx {
                     match drain_interrupts(rx, history, session_chat.db(), session_id).await? {
                         InterruptAction::Continue => {}
                         InterruptAction::Stop => {
@@ -516,7 +520,7 @@ pub(super) async fn run_tool_loop(
                 // Drain pending interrupts before exiting. If a user message
                 // arrived during the final LLM call, persist it and continue
                 // so the model sees and responds to it.
-                if let Some(ref mut rx) = interrupt_rx {
+                if let Some(ref mut rx) = ctx.interrupt_rx {
                     let pre_drain_len = history.len();
                     match drain_interrupts(rx, history, session_chat.db(), session_id).await? {
                         InterruptAction::Stop => {
