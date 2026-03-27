@@ -269,20 +269,15 @@ pub fn render_xml(
     let mut rendered: usize = 0;
     let mut truncated = false;
 
+    let mut state = RenderState {
+        refs,
+        buf: &mut buf,
+        counter: &mut counter,
+        rendered: &mut rendered,
+        truncated: &mut truncated,
+    };
     for node in roots {
-        render_node(
-            node,
-            refs,
-            max_nodes,
-            max_depth,
-            offset,
-            0,
-            &mut buf,
-            &mut counter,
-            &mut rendered,
-            &mut truncated,
-            total,
-        );
+        render_node(node, &mut state, max_nodes, max_depth, offset, 0, total);
     }
 
     buf
@@ -317,75 +312,67 @@ fn is_empty_nameless_leaf(node: &AxNode) -> bool {
     node.children.is_empty() && node.name.is_empty() && node.role != "StaticText"
 }
 
-#[allow(clippy::too_many_arguments)]
+/// Mutable traversal state threaded through recursive render_node calls.
+struct RenderState<'a> {
+    refs: &'a mut RefMap,
+    buf: &'a mut String,
+    counter: &'a mut usize,
+    rendered: &'a mut usize,
+    truncated: &'a mut bool,
+}
+
 fn render_node(
     node: &AxNode,
-    refs: &mut RefMap,
+    state: &mut RenderState<'_>,
     max_nodes: usize,
     max_depth: usize,
     offset: usize,
     depth: usize,
-    buf: &mut String,
-    counter: &mut usize,
-    rendered: &mut usize,
-    truncated: &mut bool,
     total: usize,
 ) {
-    if *truncated {
+    if *state.truncated {
         // Still need to assign refs for consistency, even after truncation.
-        assign_refs_only(node, refs);
+        assign_refs_only(node, state.refs);
         return;
     }
 
-    *counter += 1;
+    *state.counter += 1;
 
     // Assign ref if needed (always, even for skipped/offset nodes).
     let ref_id = if should_assign_ref(node)
         && let Some(id) = node.backend_node_id
     {
-        Some(refs.assign(id))
+        Some(state.refs.assign(id))
     } else {
         None
     };
 
-    let in_offset = *counter <= offset;
+    let in_offset = *state.counter <= offset;
 
     // Check truncation limit.
     if !in_offset {
-        if *rendered >= max_nodes {
-            *truncated = true;
+        if *state.rendered >= max_nodes {
+            *state.truncated = true;
             let _ = writeln!(
-                buf,
+                state.buf,
                 "<!-- Snapshot truncated: showing {max_nodes} of {total} nodes. \
                  Use offset={} to see more. -->",
                 offset + max_nodes,
             );
             // Assign refs for remaining children.
             for child in &node.children {
-                assign_refs_only(child, refs);
+                assign_refs_only(child, state.refs);
             }
             return;
         }
-        *rendered += 1;
+        *state.rendered += 1;
     }
 
     // Skip rendering if within offset or an empty nameless leaf.
     if in_offset {
         // Still recurse children for counting and ref assignment.
         for child in &node.children {
-            render_node(
-                child,
-                refs,
-                max_nodes,
-                max_depth,
-                offset,
-                depth + 1,
-                buf,
-                counter,
-                rendered,
-                truncated,
-                total,
-            );
+            render_node(child, state, max_nodes, max_depth, offset, depth + 1, total);
         }
         return;
     }
@@ -398,10 +385,10 @@ fn render_node(
     // Depth limit.
     if depth > max_depth {
         let indent = "  ".repeat(depth);
-        let _ = writeln!(buf, "{indent}<!-- ... -->");
+        let _ = writeln!(state.buf, "{indent}<!-- ... -->");
         // Still recurse for ref assignment.
         for child in &node.children {
-            assign_refs_only(child, refs);
+            assign_refs_only(child, state.refs);
         }
         return;
     }
@@ -465,37 +452,21 @@ fn render_node(
 
     if !node.children.is_empty() {
         // Node with children: open tag, children, close tag.
-        let _ = writeln!(buf, "{indent}<{tag}{attrs}>");
+        let _ = writeln!(state.buf, "{indent}<{tag}{attrs}>");
         for child in &node.children {
-            render_node(
-                child,
-                refs,
-                max_nodes,
-                max_depth,
-                offset,
-                depth + 1,
-                buf,
-                counter,
-                rendered,
-                truncated,
-                total,
-            );
+            render_node(child, state, max_nodes, max_depth, offset, depth + 1, total);
         }
-        if !*truncated {
-            let _ = writeln!(buf, "{indent}</{tag}>");
-        } else {
-            // If truncation happened inside children, still close the tag.
-            let _ = writeln!(buf, "{indent}</{tag}>");
-        }
+        // Close tag whether or not truncation happened inside children.
+        let _ = writeln!(state.buf, "{indent}</{tag}>");
     } else if render_name_as_attr || (structural_with_name && node.name.is_empty()) {
         // Self-closing with attributes.
-        let _ = writeln!(buf, "{indent}<{tag}{attrs} />");
+        let _ = writeln!(state.buf, "{indent}<{tag}{attrs} />");
     } else if !node.name.is_empty() && !structural_with_name && !render_name_as_attr {
         // Leaf with name as text content.
-        let _ = writeln!(buf, "{indent}<{tag}{attrs}>{escaped_name}</{tag}>");
+        let _ = writeln!(state.buf, "{indent}<{tag}{attrs}>{escaped_name}</{tag}>");
     } else if !attrs.is_empty() {
         // Has attributes but no text name to show as content — self-closing.
-        let _ = writeln!(buf, "{indent}<{tag}{attrs} />");
+        let _ = writeln!(state.buf, "{indent}<{tag}{attrs} />");
     } else {
         // Empty, already handled by is_empty_nameless_leaf check above for most
         // cases, but structural nodes with name="" could still reach here.
