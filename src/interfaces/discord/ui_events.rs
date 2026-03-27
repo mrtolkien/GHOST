@@ -215,9 +215,10 @@ pub fn format_statusline(metadata: &RunMetadata) -> Vec<serde_json::Value> {
 
     // Duration
     let secs = metadata.duration.as_secs_f64();
-    let duration = if secs >= 60.0 {
-        let mins = secs as u64 / 60;
-        let remaining = secs as u64 % 60;
+    let total_secs = secs.max(0.0) as u64;
+    let duration = if total_secs >= 60 {
+        let mins = total_secs / 60;
+        let remaining = total_secs % 60;
         format!("{mins}m{remaining:02}s")
     } else {
         format!("{secs:.1}s")
@@ -252,9 +253,10 @@ pub fn format_agent_summary(
 
     // Duration
     let secs = metadata.duration.as_secs_f64();
-    let duration = if secs >= 60.0 {
-        let mins = secs as u64 / 60;
-        let remaining = secs as u64 % 60;
+    let total_secs = secs.max(0.0) as u64;
+    let duration = if total_secs >= 60 {
+        let mins = total_secs / 60;
+        let remaining = total_secs % 60;
         format!("{mins}m{remaining:02}s")
     } else {
         format!("{secs:.1}s")
