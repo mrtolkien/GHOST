@@ -16,7 +16,13 @@ const RATE_LIMIT_RETRY_DELAY: Duration = Duration::from_millis(1100);
 static BRAVE_LAST_REQUEST: OnceLock<Mutex<Instant>> = OnceLock::new();
 
 fn last_request_lock() -> &'static Mutex<Instant> {
-    BRAVE_LAST_REQUEST.get_or_init(|| Mutex::new(Instant::now() - Duration::from_secs(60)))
+    BRAVE_LAST_REQUEST.get_or_init(|| {
+        Mutex::new(
+            Instant::now()
+                .checked_sub(Duration::from_secs(60))
+                .unwrap_or_else(Instant::now),
+        )
+    })
 }
 
 #[derive(Debug)]
