@@ -2,9 +2,10 @@
 future-size-threshold = 4096
 
 # Complexity thresholds.
-cognitive-complexity-threshold = 25
-too-many-lines-threshold = 100
+cognitive-complexity-threshold = 20
+too-many-lines-threshold = 80
 type-complexity-threshold = 250
+excessive-nesting-threshold = 5
 
 too-many-arguments-threshold = 7
 

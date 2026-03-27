@@ -122,6 +122,9 @@ dbg_macro = "warn"
 todo = "warn"
 panic_in_result_fn = "warn"
 allow_attributes_without_reason = "warn"
+unwrap_used = "warn"
+undocumented_unsafe_blocks = "warn"
+excessive_nesting = "warn"
 
 # Performance — unnecessary allocations/copies
 cloned_instead_of_copied = "warn"

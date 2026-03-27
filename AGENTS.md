@@ -142,6 +142,35 @@ before adding or modifying any instrumentation.
 - Visibility follows need: `pub` only if exported, `pub(crate)` for cross-module, plain
   `const` for file-local.
 
+### Clippy Compliance (NON-NEGOTIABLE)
+
+Fixing clippy warnings cleanly is **not optional**. Lints exist to enforce the code
+quality and maintainability that LLMs consistently fail to deliver on their own — safe
+casts, proper error handling, controlled complexity, no dead code. Clippy is the
+mechanical backstop that catches what you miss.
+
+**Rules:**
+
+- `just ci` must pass with **zero warnings** before any task is considered done.
+- **Never `#[allow]` a lint to make it go away.** If clippy flags something, fix the
+  underlying code. The only acceptable use of `#[allow]` is when the lint is genuinely
+  wrong for a specific case, and you MUST include a `reason = "..."` explaining why.
+- **Never weaken thresholds** (`clippy.toml`) or remove lints (`Cargo.toml`) without
+  explicit user approval in text.
+- When a lint fires on new code you wrote, that's the lint working. Refactor: extract a
+  function, flatten nesting with early returns, replace `unwrap()` with `?`, use
+  `let...else`. These are not busywork — they produce better code.
+- When a lint fires on existing code you're modifying, fix it as part of your change.
+  Don't leave warnings for the next person.
+
+**Key thresholds** (in `clippy.toml`):
+
+- Max function length: 80 lines
+- Max nesting depth: 5 levels (from crate root; ~4 inside a function body)
+- Max function arguments: 7
+- Cognitive complexity: 20
+- `unwrap()` forbidden in production code (tests exempt)
+
 ### Rust Style
 
 - `just ci` for format + check + clippy + tests. Fix all issues before returning.
