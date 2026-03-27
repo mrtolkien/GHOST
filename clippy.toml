@@ -1,0 +1,18 @@
+# Async: warn when a Future exceeds 4 KiB (default is 16 KiB).
+future-size-threshold = 4096
+
+# Complexity thresholds.
+cognitive-complexity-threshold = 25
+too-many-lines-threshold = 100
+type-complexity-threshold = 250
+
+too-many-arguments-threshold = 7
+
+# Keep Result<_, E> variants lean for efficient propagation.
+large-error-threshold = 128
+
+# Tests: allow unwrap/expect/panic (CLAUDE.md says "tests fine").
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+allow-dbg-in-tests = true
+allow-print-in-tests = true

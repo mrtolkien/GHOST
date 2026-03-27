@@ -106,3 +106,34 @@ sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite"] }
 toml = "1"
 tar = "0.4"
 zstd = "0.13"
+
+[lints.clippy]
+# Correctness — catches real bugs
+await_holding_lock = "warn"
+await_holding_refcell_ref = "warn"
+debug_assert_with_mut_call = "warn"
+path_buf_push_overwrite = "warn"
+
+# Robustness — prevents future bugs
+manual_let_else = "warn"
+redundant_else = "warn"
+match_same_arms = "warn"
+dbg_macro = "warn"
+todo = "warn"
+panic_in_result_fn = "warn"
+allow_attributes_without_reason = "warn"
+
+# Performance — unnecessary allocations/copies
+cloned_instead_of_copied = "warn"
+inefficient_to_string = "warn"
+implicit_clone = "warn"
+large_futures = "warn"
+redundant_closure_for_method_calls = "warn"
+flat_map_option = "warn"
+
+# Maintenance — keeps code clean
+uninlined_format_args = "warn"
+semicolon_if_nothing_returned = "warn"
+enum_glob_use = "warn"
+default_trait_access = "warn"
+single_char_pattern = "warn"
