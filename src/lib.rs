@@ -1,6 +1,3 @@
-// TODO: Remove that and cleanup all complex functions!
-#![allow(clippy::too_many_arguments)]
-
 pub mod agents;
 pub mod auth;
 pub mod bundled;
