@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.9.1](https://github.com/mrtolkien/GHOST/compare/v0.9.0...v0.9.1) (2026-03-27)
+
+
+### Bug Fixes
+
+* better default searxng settings ([207bc0b](https://github.com/mrtolkien/GHOST/commit/207bc0bc43b298a3805f033a8a5ccc18a2818c59))
+* include references in default knowledge_search categories ([8c3406c](https://github.com/mrtolkien/GHOST/commit/8c3406ced3db66f4da63cff4d866b8d22e776c20))
+* pass API key directly during onboarding provider validation ([6d19178](https://github.com/mrtolkien/GHOST/commit/6d19178a10307e2fd0524de48d819f4d5d87db22))
+* silence continue-button errors for non-owning GHOST instances ([8acc56e](https://github.com/mrtolkien/GHOST/commit/8acc56e4cbf9a5a013ae1fc4c0199336ba54228e))
+
+
+### Refactoring
+
+* centralize constants and eliminate magic numbers ([55a04b6](https://github.com/mrtolkien/GHOST/commit/55a04b62d6613e917b04f891321dca2252eb7be1))
+
+
+### Documentation
+
+* honesty in disclaimer ([c852a3a](https://github.com/mrtolkien/GHOST/commit/c852a3ab11548cfce5429953b77b6919b7bfb0ba))
+* some rewording ([fae63ca](https://github.com/mrtolkien/GHOST/commit/fae63ca5727099c79be23a9ee2f6fd7cea21bb62))
+
 ## [0.9.0](https://github.com/mrtolkien/GHOST/compare/v0.8.1...v0.9.0) (2026-03-26)
 
 ### Features
