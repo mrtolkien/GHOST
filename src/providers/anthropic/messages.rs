@@ -13,6 +13,10 @@ use crate::providers::ProviderError;
 use crate::providers::types::*;
 
 const CLAUDE_CODE_PREAMBLE: &str = "You are Claude Code, Anthropic's official CLI for Claude.";
+
+/// Default max output tokens sent to the Anthropic API (required field).
+/// Set to the model-family maximum so extended thinking never starves output.
+const DEFAULT_MAX_TOKENS: u32 = 128_000;
 static SURROGATE_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"\\u[dD][89abAB][0-9a-fA-F]{2}").expect("valid regex"));
 
@@ -28,12 +32,9 @@ pub(crate) fn build_request_body(
 ) -> Result<Value, ProviderError> {
     let mut body = json!({
         "model": request.model,
+        "max_tokens": request.max_tokens.unwrap_or(DEFAULT_MAX_TOKENS),
         "stream": true,
     });
-
-    if let Some(max_tokens) = request.max_tokens {
-        body["max_tokens"] = json!(max_tokens);
-    }
 
     // --- System prompt (two separate blocks per pi-mono) ---
     let mut system_blocks = vec![json!({
@@ -651,7 +652,7 @@ mod tests {
     }
 
     #[test]
-    fn max_tokens_omitted_when_none() {
+    fn max_tokens_defaults_when_none() {
         let req = ChatRequest {
             max_tokens: None,
             ..simple_request(vec![ChatMessage {
@@ -660,10 +661,7 @@ mod tests {
             }])
         };
         let body = build_request_body(&req, &[]).unwrap();
-        assert!(
-            body.get("max_tokens").is_none(),
-            "max_tokens should not be in the request body when caller sends None"
-        );
+        assert_eq!(body["max_tokens"], DEFAULT_MAX_TOKENS);
     }
 
     #[test]
