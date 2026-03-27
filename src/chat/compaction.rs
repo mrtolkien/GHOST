@@ -245,7 +245,7 @@ pub fn mask_tool_interactions_with_compacted(
                     } => {
                         let tool_name = tool_names
                             .get(tool_use_id)
-                            .map(|s| s.as_str())
+                            .map(std::string::String::as_str)
                             .unwrap_or("unknown");
 
                         let preview = if content.len() > preview_chars {
@@ -402,7 +402,7 @@ fn render_messages_for_summary(messages: &[ChatMessage], preview_chars: usize) -
                 } => {
                     let tool_name = tool_names
                         .get(tool_use_id)
-                        .map(|s| s.as_str())
+                        .map(std::string::String::as_str)
                         .unwrap_or("unknown");
                     let tag = if *is_error { " (error)" } else { "" };
                     let preview = if content.len() > preview_chars {

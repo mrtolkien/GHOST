@@ -171,7 +171,7 @@ fn load_agent_from_dir(agent_dir: &Path, workspace: &Path) -> Result<AgentConfig
         .unwrap_or_default();
 
     let mut host = ScriptHost::new(agent_dir, workspace).map_err(|e| AgentError::ScriptError {
-        agent: name.to_string(),
+        agent: name.clone(),
         message: e.to_string(),
     })?;
 

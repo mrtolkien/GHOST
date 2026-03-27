@@ -50,7 +50,7 @@ pub fn parse_ax_tree(raw_nodes: &[JsonValue]) -> Vec<AxNode> {
         .or_else(|| {
             raw_nodes
                 .iter()
-                .position(|n| !n.get("ignored").and_then(|v| v.as_bool()).unwrap_or(false))
+                .position(|n| !n.get("ignored").and_then(serde_json::Value::as_bool).unwrap_or(false))
         });
 
     let Some(root_idx) = root_idx else {
@@ -90,7 +90,7 @@ fn build_children(
         let child_node = &raw[child_idx];
         let ignored = child_node
             .get("ignored")
-            .and_then(|v| v.as_bool())
+            .and_then(serde_json::Value::as_bool)
             .unwrap_or(false);
 
         if ignored {
@@ -99,7 +99,7 @@ fn build_children(
         } else {
             let role = extract_ax_str(child_node, "role");
             let name = extract_ax_str(child_node, "name");
-            let backend_node_id = child_node.get("backendDOMNodeId").and_then(|v| v.as_i64());
+            let backend_node_id = child_node.get("backendDOMNodeId").and_then(serde_json::Value::as_i64);
             let properties = extract_properties(child_node);
             let children = build_children(raw, child_idx, id_map);
 
@@ -149,7 +149,7 @@ fn extract_properties(node: &JsonValue) -> AxProperties {
         match name {
             "level" => {
                 props.level = value
-                    .and_then(|v| v.as_u64())
+                    .and_then(serde_json::Value::as_u64)
                     .and_then(|n| u32::try_from(n).ok());
             }
             "checked" => {

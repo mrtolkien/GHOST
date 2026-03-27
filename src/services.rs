@@ -70,7 +70,7 @@ impl ServiceRegistry {
 
     /// Entry names in file order.
     pub fn names(&self) -> Vec<&str> {
-        self.entries.keys().map(|s| s.as_str()).collect()
+        self.entries.keys().map(std::string::String::as_str).collect()
     }
 
     /// Add a new service entry. Errors if name already exists.

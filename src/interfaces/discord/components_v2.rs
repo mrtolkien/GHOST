@@ -188,8 +188,7 @@ async fn send_v2(
     }
 
     let url = format!(
-        "https://discord.com/api/v10/channels/{}/messages",
-        channel_id
+        "https://discord.com/api/v10/channels/{channel_id}/messages"
     );
 
     let response = reqwest::Client::new()

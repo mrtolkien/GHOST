@@ -180,7 +180,7 @@ impl NoteWrite {
     ) -> Result<Vec<String>, ToolError> {
         let https_urls: Vec<&str> = sources
             .iter()
-            .map(|s| s.as_str())
+            .map(std::string::String::as_str)
             .filter(|s| s.starts_with("https://"))
             .collect();
 

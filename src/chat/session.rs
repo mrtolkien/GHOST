@@ -646,7 +646,7 @@ impl SessionChat {
     ) -> Vec<ContentBlock> {
         let config = self.config.current();
         let cwd = cwd_override
-            .map(|p| p.to_path_buf())
+            .map(std::path::Path::to_path_buf)
             .or_else(|| self.cwd_override.clone())
             .unwrap_or_else(|| config.workspace.clone());
         let tool_ctx = ToolContext {
@@ -1345,7 +1345,7 @@ impl SessionChat {
                                 .to_string(),
                             is_error: tr
                                 .get("is_error")
-                                .and_then(|v| v.as_bool())
+                                .and_then(serde_json::Value::as_bool)
                                 .unwrap_or(false),
                         });
                     }

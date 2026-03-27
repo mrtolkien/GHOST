@@ -119,7 +119,7 @@ pub fn ensure_index_notes(
             written_at: chrono::Utc::now().to_rfc3339(),
             updated_at: None,
         };
-        let body = format!("Knowledge hub for {}.\n", folder_path);
+        let body = format!("Knowledge hub for {folder_path}.\n");
         let content = serialize_note(&front, &body)?;
         std::fs::write(&index_path, &content).map_err(|source| KnowledgeError::Io {
             path: index_path.clone(),

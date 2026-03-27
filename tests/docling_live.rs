@@ -1,7 +1,5 @@
 mod common;
 
-use std::path::Path;
-use std::sync::Arc;
 
 /// Test with MockProvider: Docling converts the lotion PDF, quality check flags
 /// the page as bad, vision fallback is invoked with a MockProvider, and the

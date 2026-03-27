@@ -78,7 +78,7 @@ pub(super) fn render_table_png(raw_lines: &[String]) -> Option<Vec<u8>> {
         return None;
     }
 
-    let col_count = rows.iter().map(|r| r.len()).max().unwrap_or(0);
+    let col_count = rows.iter().map(std::vec::Vec::len).max().unwrap_or(0);
     if col_count == 0 {
         return None;
     }

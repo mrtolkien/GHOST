@@ -86,7 +86,7 @@ impl DiscordUiRenderer {
         match send_v2_message(&self.http, self.channel_id, &components, Vec::new()).await {
             Ok(msg) => self.tool_call_message_id = Some(msg.id),
             Err(e) => {
-                tracing::warn!(error = e.to_string(), "failed to send tool call message")
+                tracing::warn!(error = e.to_string(), "failed to send tool call message");
             }
         }
     }

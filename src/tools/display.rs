@@ -89,7 +89,7 @@ pub fn display_request(tool_name: &str, args: &Value) -> String {
                     let n = args
                         .get("fields")
                         .and_then(Value::as_array)
-                        .map_or(0, |a| a.len());
+                        .map_or(0, std::vec::Vec::len);
                     format!("\u{1F9ED}\u{FE0E} fill {n} fields")
                 }
                 "scroll" => {

@@ -201,7 +201,7 @@ pub async fn boot_with_config(config: Config) -> Result<DaemonHandle, GhostError
     }
 
     if let Err(e) = crate::tools::shell::rebuild_shell_env(&config.workspace).await {
-        tracing::warn!(error = e.to_string(), "nix shell setup failed at boot");
+        tracing::warn!(error = e.clone(), "nix shell setup failed at boot");
     }
 
     info!("connecting to database");

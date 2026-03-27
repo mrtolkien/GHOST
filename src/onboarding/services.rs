@@ -518,7 +518,7 @@ pub fn build_services_toml(
 
     if has_containers {
         let runtime = container_runtime
-            .map(|r| r.compose_command())
+            .map(super::detect::ContainerRuntime::compose_command)
             .unwrap_or("docker");
         let compose_file = workspace.join("services").join("docker-compose.yml");
         let compose_path = compose_file.display().to_string();
@@ -730,7 +730,7 @@ mod tests {
 
         match SearchChoice::from_flag("remote:http://my.host:8080") {
             Ok(SearchChoice::SearxngRemote(u)) => {
-                assert_eq!(u, "http://my.host:8080")
+                assert_eq!(u, "http://my.host:8080");
             }
             other => panic!("expected SearxngRemote, got: {other:?}"),
         }

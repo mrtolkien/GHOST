@@ -73,10 +73,10 @@ fn walk_dir(base: &Path, dir: &Path, entries: &mut Vec<(String, String)>, skip_d
     // Gracefully handle missing directories (e.g. during buildDepsOnly where
     // only Cargo sources are present — assets/ and docs/ won't exist).
     let mut children: Vec<_> = match fs::read_dir(dir) {
-        Ok(rd) => rd.filter_map(|e| e.ok()).collect(),
+        Ok(rd) => rd.filter_map(std::result::Result::ok).collect(),
         Err(_) => return,
     };
-    children.sort_by_key(|e| e.file_name());
+    children.sort_by_key(std::fs::DirEntry::file_name);
 
     for entry in children {
         let path = entry.path();

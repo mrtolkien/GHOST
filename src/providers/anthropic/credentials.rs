@@ -229,7 +229,7 @@ mod tests {
             }
         });
         let mut tmp = tempfile::NamedTempFile::new().unwrap();
-        write!(tmp, "{}", json).unwrap();
+        write!(tmp, "{json}").unwrap();
 
         let creds = read_credentials_from_path(tmp.path()).unwrap();
         assert_eq!(creds.access_token, "sk-ant-oat01-test");

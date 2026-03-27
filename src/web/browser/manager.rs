@@ -269,7 +269,7 @@ impl BrowserManager {
                 .refs
                 .resolve(ref_id)
                 .ok_or_else(|| BrowserError::RefNotFound {
-                    ref_id: ref_id.to_string(),
+                    ref_id: ref_id.clone(),
                 })?;
             cdp::fill_field(&tab.page, node_id, value).await?;
         }

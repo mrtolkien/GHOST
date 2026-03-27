@@ -72,7 +72,7 @@ pub fn classify_web_cache(
 
     let mut entries: Vec<_> = match std::fs::read_dir(&cache_dir) {
         Ok(rd) => rd
-            .filter_map(|e| e.ok())
+            .filter_map(std::result::Result::ok)
             .filter(|e| {
                 e.path()
                     .extension()
@@ -82,7 +82,7 @@ pub fn classify_web_cache(
             .collect(),
         Err(_) => return Vec::new(),
     };
-    entries.sort_by_key(|e| e.path());
+    entries.sort_by_key(std::fs::DirEntry::path);
 
     entries
         .iter()

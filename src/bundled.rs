@@ -78,7 +78,7 @@ fn remove_stale_files(
     dir: &Path,
     expected: &std::collections::HashSet<std::path::PathBuf>,
 ) -> Result<(), std::io::Error> {
-    for entry in std::fs::read_dir(dir)?.filter_map(|e| e.ok()) {
+    for entry in std::fs::read_dir(dir)?.filter_map(std::result::Result::ok) {
         let path = entry.path();
         if path.is_dir() {
             remove_stale_files(&path, expected)?;
@@ -267,7 +267,7 @@ fn collect_files_recursive(base: &Path, dir: &Path, paths: &mut Vec<String>) {
     let Ok(entries) = std::fs::read_dir(dir) else {
         return;
     };
-    for entry in entries.filter_map(|e| e.ok()) {
+    for entry in entries.filter_map(std::result::Result::ok) {
         let path = entry.path();
         if path.is_dir() {
             collect_files_recursive(base, &path, paths);

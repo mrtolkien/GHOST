@@ -476,7 +476,7 @@ impl Config {
             .models
             .as_ref()
             .and_then(|m| m.default.clone())
-            .map(|sol| sol.into_vec())
+            .map(StringOrList::into_vec)
             .unwrap_or_else(|| {
                 if resolved_aliases.len() == 1 {
                     vec![resolved_aliases.keys().next().cloned().unwrap_or_default()]
@@ -502,13 +502,12 @@ impl Config {
 
         let vision = settings.models.as_ref().and_then(|m| m.vision.clone());
 
-        if let Some(ref alias) = vision {
-            if !resolved_aliases.contains_key(alias.as_str()) {
+        if let Some(ref alias) = vision
+            && !resolved_aliases.contains_key(alias.as_str()) {
                 return Err(ConfigError::UnknownDefaultModelAlias {
                     alias: alias.clone(),
                 });
             }
-        }
 
         Ok(Self {
             workspace,

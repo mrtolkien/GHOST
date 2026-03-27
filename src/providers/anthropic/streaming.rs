@@ -278,7 +278,7 @@ mod tests {
     fn make_sse(events: &[(&str, serde_json::Value)]) -> String {
         events
             .iter()
-            .map(|(event, data)| format!("event: {event}\ndata: {}\n\n", data))
+            .map(|(event, data)| format!("event: {event}\ndata: {data}\n\n"))
             .collect()
     }
 
@@ -336,7 +336,7 @@ mod tests {
         assert_eq!(resp.content.len(), 1);
         match &resp.content[0] {
             ContentBlock::Text { text } => {
-                assert_eq!(text, "Hello world")
+                assert_eq!(text, "Hello world");
             }
             other => panic!("expected Text, got {other:?}"),
         }

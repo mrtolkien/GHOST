@@ -262,7 +262,7 @@ mod tests {
         let ours = "MODIFIED1\nline2\nline3\nline4\n";
         let theirs = "line1\nline2\nline3\nMODIFIED4\n";
         let result = merge3(base, ours, theirs);
-        assert!(result.is_clean(), "expected clean merge, got: {:?}", result);
+        assert!(result.is_clean(), "expected clean merge, got: {result:?}");
         assert_eq!(result.content(), "MODIFIED1\nline2\nline3\nMODIFIED4\n");
     }
 
@@ -272,7 +272,7 @@ mod tests {
         let ours = "line1\nours_change\nline3\n";
         let theirs = "line1\ntheirs_change\nline3\n";
         let result = merge3(base, ours, theirs);
-        assert!(!result.is_clean(), "expected conflict, got: {:?}", result);
+        assert!(!result.is_clean(), "expected conflict, got: {result:?}");
         let content = result.content();
         assert!(content.contains("<<<<<<< workspace"), "missing ours marker");
         assert!(content.contains("======="), "missing separator");
@@ -321,8 +321,7 @@ mod tests {
         let result = merge3(base, ours, theirs);
         assert!(
             !result.is_clean(),
-            "expected conflict when both add to empty, got: {:?}",
-            result
+            "expected conflict when both add to empty, got: {result:?}"
         );
         let content = result.content();
         assert!(content.contains("<<<<<<< workspace"));

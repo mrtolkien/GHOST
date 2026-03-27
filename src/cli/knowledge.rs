@@ -454,7 +454,7 @@ async fn cmd_reindex(
                     .strip_prefix(workspace)
                     .ok()
                     .and_then(|p| p.to_str())
-                    .map(|s| s.to_string());
+                    .map(std::string::ToString::to_string);
                 db::knowledge::update_note(
                     db,
                     &existing.id,
@@ -486,7 +486,7 @@ async fn cmd_reindex(
                     .strip_prefix(workspace)
                     .ok()
                     .and_then(|p| p.to_str())
-                    .map(|s| s.to_string());
+                    .map(std::string::ToString::to_string);
                 let note_id = db::knowledge::create_note_full(
                     db,
                     &NoteInput {

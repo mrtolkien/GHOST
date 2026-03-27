@@ -339,7 +339,7 @@ async fn send_with_retry(
             );
             handler.post_tool_iteration(history, 0).await?;
             let retry_request = ChatRequest {
-                messages: history.to_vec(),
+                messages: history.clone(),
                 ..request
             };
             retry_once(session_chat, retry_request).await
@@ -462,8 +462,8 @@ async fn process_tool_use(
         .await?;
 
     // Check for OPERATOR interrupts (steering messages or /stop).
-    if let Some(ref mut rx) = ctx.interrupt_rx {
-        if let InterruptAction::Stop =
+    if let Some(ref mut rx) = ctx.interrupt_rx
+        && let InterruptAction::Stop =
             drain_interrupts(rx, history, session_chat.db(), session_id).await?
         {
             let fallback = state.last_result.take().unwrap_or(ChatResult {
@@ -475,7 +475,6 @@ async fn process_tool_use(
                 ..fallback
             }));
         }
-    }
 
     Ok(IterationOutcome::Continue)
 }

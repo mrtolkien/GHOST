@@ -24,7 +24,7 @@ pub fn assess_pages(doc: &DoclingDocument) -> Vec<PageQuality> {
 
     for page_info in doc.pages.values() {
         let page_no = page_info.page_no;
-        let page_area = page_info.size.as_ref().map_or(1.0, |s| s.area());
+        let page_area = page_info.size.as_ref().map_or(1.0, super::document::PageSize::area);
 
         let page_texts: Vec<&TextItem> = doc
             .texts
@@ -46,7 +46,7 @@ pub fn assess_pages(doc: &DoclingDocument) -> Vec<PageQuality> {
             .filter(|p| p.prov.iter().any(|prov| prov.page_no == page_no))
             .filter_map(|p| p.prov.first())
             .filter_map(|prov| prov.bbox.as_ref())
-            .map(|bbox| bbox.area())
+            .map(super::document::BoundingBox::area)
             .sum();
 
         let picture_area_ratio = if page_area > 0.0 {

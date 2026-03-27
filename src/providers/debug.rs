@@ -85,7 +85,7 @@ fn prune_old_requests(dir: &Path, max: usize) {
     };
 
     let mut files: Vec<_> = entries
-        .filter_map(|e| e.ok())
+        .filter_map(std::result::Result::ok)
         .filter(|e| e.path().extension().is_some_and(|ext| ext == "json"))
         .map(|e| e.path())
         .collect();

@@ -116,7 +116,7 @@ impl Handler {
 
     /// Build the interface key for a Discord channel.
     fn interface_key(channel_id: ChannelId) -> String {
-        format!("discord:channel:{}", channel_id)
+        format!("discord:channel:{channel_id}")
     }
 
     /// Resolve or create a session for this channel.
@@ -945,7 +945,7 @@ impl EventHandler for Handler {
         let commit = env!("GIT_COMMIT_HASH");
         let first_boot = db::sessions::list_recent_sessions(&self.db, 1)
             .await
-            .map_or(false, |s| s.is_empty());
+            .is_ok_and(|s| s.is_empty());
         let mut content = String::new();
         if first_boot {
             content.push_str(

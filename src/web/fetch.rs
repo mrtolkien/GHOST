@@ -94,9 +94,8 @@ pub async fn fetch(
                     .await;
                 } else if is_text_content(&ct) {
                     return fetch_text_via_reqwest(url).await;
-                } else {
-                    return Err(WebError::UnsupportedContentType { content_type: ct });
                 }
+                return Err(WebError::UnsupportedContentType { content_type: ct });
             }
             Err(_) => {
                 // HEAD failed (403, 405, timeout) — try crawl4ai directly.
@@ -319,7 +318,7 @@ fn extract_with_readability(html: &str, page_url: &str) -> (Option<String>, Stri
             let title = if article.title.trim().is_empty() {
                 None
             } else {
-                Some(article.title.to_string())
+                Some(article.title.clone())
             };
             (title, html_to_markdown(&article.content))
         }

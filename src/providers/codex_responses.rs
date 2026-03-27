@@ -564,7 +564,7 @@ pub(super) fn parse_codex_response_value(
         let output_len = value
             .get("output")
             .and_then(Value::as_array)
-            .map_or(0, |a| a.len());
+            .map_or(0, std::vec::Vec::len);
         let output_text_present = value.get("output_text").is_some();
         let raw_preview: String = value.to_string().chars().take(500).collect();
         let status_owned = status.to_string();
