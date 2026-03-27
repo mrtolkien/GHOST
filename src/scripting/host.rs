@@ -297,7 +297,7 @@ impl ScriptHost {
             _ => None,
         });
 
-        let max_iterations: usize = table.get::<Option<usize>>("max_iterations")?.unwrap_or(50);
+        let max_iterations: usize = table.get::<Option<usize>>("max_iterations")?.unwrap_or(100);
 
         // Tools list
         let tools: Vec<String> = match table.get::<LuaValue>("tools")? {
