@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use crate::db::GhostDb;
+use crate::db::sessions::MessagePayload;
 use async_trait::async_trait;
 use serde_json::{Value, json};
 
@@ -216,10 +217,10 @@ impl SessionChat {
             &session_thing,
             "user",
             user_message,
-            None,
-            None,
-            None,
-            image_values,
+            &MessagePayload {
+                images: image_values,
+                ..Default::default()
+            },
         )
         .await?;
 
@@ -542,10 +543,10 @@ impl SessionChat {
                 session_id,
                 "user",
                 "",
-                None,
-                Some(error_results.clone()),
-                None,
-                None,
+                &MessagePayload {
+                    tool_results: Some(error_results.clone()),
+                    ..Default::default()
+                },
                 &repair_ts,
             )
             .await?;
@@ -762,10 +763,11 @@ impl ToolLoopHandler for ChatHandler<'_> {
             self.session_thing,
             "assistant",
             text,
-            Some(tool_uses.to_vec()),
-            None,
-            raw_output,
-            None,
+            &MessagePayload {
+                tool_calls: Some(tool_uses.to_vec()),
+                raw_output,
+                ..Default::default()
+            },
         )
         .await?;
         Ok(())
@@ -777,10 +779,11 @@ impl ToolLoopHandler for ChatHandler<'_> {
             self.session_thing,
             "user",
             "",
-            None,
-            Some(tool_results_to_values(results)),
-            None,
-            images_to_values(results),
+            &MessagePayload {
+                tool_results: Some(tool_results_to_values(results)),
+                images: images_to_values(results),
+                ..Default::default()
+            },
         )
         .await?;
         Ok(())
@@ -798,10 +801,11 @@ impl ToolLoopHandler for ChatHandler<'_> {
             self.session_thing,
             "assistant",
             &message,
-            Some(tool_uses.to_vec()),
-            None,
-            raw_output,
-            None,
+            &MessagePayload {
+                tool_calls: Some(tool_uses.to_vec()),
+                raw_output,
+                ..Default::default()
+            },
         )
         .await?;
 
@@ -918,10 +922,11 @@ impl ToolLoopHandler for CodingHandler<'_> {
             self.session_thing,
             "assistant",
             text,
-            Some(tool_uses.to_vec()),
-            None,
-            raw_output,
-            None,
+            &MessagePayload {
+                tool_calls: Some(tool_uses.to_vec()),
+                raw_output,
+                ..Default::default()
+            },
         )
         .await?;
         Ok(())
@@ -933,10 +938,11 @@ impl ToolLoopHandler for CodingHandler<'_> {
             self.session_thing,
             "user",
             "",
-            None,
-            Some(tool_results_to_values(results)),
-            None,
-            images_to_values(results),
+            &MessagePayload {
+                tool_results: Some(tool_results_to_values(results)),
+                images: images_to_values(results),
+                ..Default::default()
+            },
         )
         .await?;
         Ok(())
@@ -954,10 +960,11 @@ impl ToolLoopHandler for CodingHandler<'_> {
             self.session_thing,
             "assistant",
             &message,
-            Some(tool_uses.to_vec()),
-            None,
-            raw_output,
-            None,
+            &MessagePayload {
+                tool_calls: Some(tool_uses.to_vec()),
+                raw_output,
+                ..Default::default()
+            },
         )
         .await?;
 
@@ -1050,10 +1057,11 @@ impl ToolLoopHandler for LuaAgentHandler<'_> {
             self.session_thing,
             "assistant",
             text,
-            Some(tool_uses.to_vec()),
-            None,
-            raw_output,
-            None,
+            &MessagePayload {
+                tool_calls: Some(tool_uses.to_vec()),
+                raw_output,
+                ..Default::default()
+            },
         )
         .await?;
         Ok(())
@@ -1065,10 +1073,11 @@ impl ToolLoopHandler for LuaAgentHandler<'_> {
             self.session_thing,
             "user",
             "",
-            None,
-            Some(tool_results_to_values(results)),
-            None,
-            images_to_values(results),
+            &MessagePayload {
+                tool_results: Some(tool_results_to_values(results)),
+                images: images_to_values(results),
+                ..Default::default()
+            },
         )
         .await?;
         Ok(())
@@ -1086,10 +1095,11 @@ impl ToolLoopHandler for LuaAgentHandler<'_> {
             self.session_thing,
             "assistant",
             &message,
-            Some(tool_uses.to_vec()),
-            None,
-            raw_output,
-            None,
+            &MessagePayload {
+                tool_calls: Some(tool_uses.to_vec()),
+                raw_output,
+                ..Default::default()
+            },
         )
         .await?;
 
@@ -1266,10 +1276,11 @@ impl SessionChat {
                     &session_thing,
                     &msg.role,
                     &msg.content,
-                    msg.tool_calls.clone(),
-                    msg.tool_results.clone(),
-                    None,
-                    None,
+                    &MessagePayload {
+                        tool_calls: msg.tool_calls.clone(),
+                        tool_results: msg.tool_results.clone(),
+                        ..Default::default()
+                    },
                 )
                 .await?;
             } else {

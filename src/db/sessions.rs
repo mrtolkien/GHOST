@@ -5,6 +5,15 @@ use crate::db::error::DatabaseError;
 use crate::db::{new_id, now};
 use crate::tools::TodoItem;
 
+/// Optional metadata fields for a chat message.
+#[derive(Debug, Default)]
+pub struct MessagePayload {
+    pub tool_calls: Option<Vec<serde_json::Value>>,
+    pub tool_results: Option<Vec<serde_json::Value>>,
+    pub raw_output: Option<Vec<serde_json::Value>>,
+    pub images: Option<Vec<serde_json::Value>>,
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize, sqlx::FromRow)]
 pub struct SessionRecord {
     pub id: String,
@@ -279,49 +288,33 @@ pub async fn create_message(
     role: &str,
     content: &str,
 ) -> Result<String, DatabaseError> {
-    create_message_with_metadata(db, session_id, role, content, None, None, None, None).await
+    create_message_with_metadata(db, session_id, role, content, &MessagePayload::default()).await
 }
 
-#[allow(clippy::too_many_arguments)]
 #[tracing::instrument(skip_all, level = "debug", fields(session_id = %session_id, role = %role))]
 pub async fn create_message_with_metadata(
     db: &SqlitePool,
     session_id: &str,
     role: &str,
     content: &str,
-    tool_calls: Option<Vec<serde_json::Value>>,
-    tool_results: Option<Vec<serde_json::Value>>,
-    raw_output: Option<Vec<serde_json::Value>>,
-    images: Option<Vec<serde_json::Value>>,
+    payload: &MessagePayload,
 ) -> Result<String, DatabaseError> {
-    create_message_with_timestamp(
-        db,
-        session_id,
-        role,
-        content,
-        tool_calls,
-        tool_results,
-        raw_output,
-        images,
-        &now(),
-    )
-    .await
+    create_message_with_timestamp(db, session_id, role, content, payload, &now()).await
 }
 
 /// Like `create_message_with_metadata` but with an explicit timestamp.
 /// Used by orphan repair to place messages at the correct chronological
 /// position rather than at the end of the history.
-#[allow(clippy::too_many_arguments)]
+/// Like `create_message_with_metadata` but with an explicit timestamp.
+/// Used by orphan repair to place messages at the correct chronological
+/// position rather than at the end of the history.
 #[tracing::instrument(skip_all, level = "debug", fields(session_id = %session_id, role = %role))]
 pub async fn create_message_with_timestamp(
     db: &SqlitePool,
     session_id: &str,
     role: &str,
     content: &str,
-    tool_calls: Option<Vec<serde_json::Value>>,
-    tool_results: Option<Vec<serde_json::Value>>,
-    raw_output: Option<Vec<serde_json::Value>>,
-    images: Option<Vec<serde_json::Value>>,
+    payload: &MessagePayload,
     created_at: &str,
 ) -> Result<String, DatabaseError> {
     let id = new_id();
@@ -334,10 +327,10 @@ pub async fn create_message_with_timestamp(
     .bind(session_id)
     .bind(role)
     .bind(content)
-    .bind(tool_calls.as_ref().map(|v| serde_json::to_string(v).unwrap_or_default()))
-    .bind(tool_results.as_ref().map(|v| serde_json::to_string(v).unwrap_or_default()))
-    .bind(raw_output.as_ref().map(|v| serde_json::to_string(v).unwrap_or_default()))
-    .bind(images.as_ref().map(|v| serde_json::to_string(v).unwrap_or_default()))
+    .bind(payload.tool_calls.as_ref().map(|v| serde_json::to_string(v).unwrap_or_default()))
+    .bind(payload.tool_results.as_ref().map(|v| serde_json::to_string(v).unwrap_or_default()))
+    .bind(payload.raw_output.as_ref().map(|v| serde_json::to_string(v).unwrap_or_default()))
+    .bind(payload.images.as_ref().map(|v| serde_json::to_string(v).unwrap_or_default()))
     .bind(created_at)
     .execute(db)
     .await

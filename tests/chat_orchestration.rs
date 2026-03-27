@@ -3,6 +3,7 @@ mod common;
 use std::sync::Arc;
 
 use ghost::chat::{ChatStopReason, SessionChat};
+use ghost::db::sessions::MessagePayload;
 use ghost::providers::{ContentBlock, StopReason};
 use ghost::tools::ToolManager;
 use serde_json::json;
@@ -240,12 +241,12 @@ async fn orphaned_tool_calls_get_error_results() {
         &session_id,
         "assistant",
         "",
-        Some(vec![
-            json!({"id": "call_orphan", "name": "echo_tool", "input": {"text": "x"}}),
-        ]),
-        None,
-        None,
-        None,
+        &MessagePayload {
+            tool_calls: Some(vec![
+                json!({"id": "call_orphan", "name": "echo_tool", "input": {"text": "x"}}),
+            ]),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -320,14 +321,14 @@ async fn partial_tool_results_get_remaining_errors() {
         &session_id,
         "assistant",
         "",
-        Some(vec![
-            json!({"id": "call_a", "name": "t", "input": {}}),
-            json!({"id": "call_b", "name": "t", "input": {}}),
-            json!({"id": "call_c", "name": "t", "input": {}}),
-        ]),
-        None,
-        None,
-        None,
+        &MessagePayload {
+            tool_calls: Some(vec![
+                json!({"id": "call_a", "name": "t", "input": {}}),
+                json!({"id": "call_b", "name": "t", "input": {}}),
+                json!({"id": "call_c", "name": "t", "input": {}}),
+            ]),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -337,13 +338,13 @@ async fn partial_tool_results_get_remaining_errors() {
         &session_id,
         "user",
         "",
-        None,
-        Some(vec![
-            json!({"tool_use_id": "call_a", "content": "ok", "is_error": false}),
-            json!({"tool_use_id": "call_b", "content": "ok", "is_error": false}),
-        ]),
-        None,
-        None,
+        &MessagePayload {
+            tool_results: Some(vec![
+                json!({"tool_use_id": "call_a", "content": "ok", "is_error": false}),
+                json!({"tool_use_id": "call_b", "content": "ok", "is_error": false}),
+            ]),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -415,10 +416,10 @@ async fn complete_tool_results_not_repaired() {
         &session_id,
         "assistant",
         "calling tool",
-        Some(vec![json!({"id": "call_ok", "name": "t", "input": {}})]),
-        None,
-        None,
-        None,
+        &MessagePayload {
+            tool_calls: Some(vec![json!({"id": "call_ok", "name": "t", "input": {}})]),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -427,12 +428,12 @@ async fn complete_tool_results_not_repaired() {
         &session_id,
         "user",
         "",
-        None,
-        Some(vec![
-            json!({"tool_use_id": "call_ok", "content": "result", "is_error": false}),
-        ]),
-        None,
-        None,
+        &MessagePayload {
+            tool_results: Some(vec![
+                json!({"tool_use_id": "call_ok", "content": "result", "is_error": false}),
+            ]),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();

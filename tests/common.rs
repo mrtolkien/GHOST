@@ -340,10 +340,11 @@ impl LiveTestEnv {
                 &session_id,
                 role,
                 content,
-                tool_calls,
-                tool_results,
-                None,
-                None,
+                &ghost::db::sessions::MessagePayload {
+                    tool_calls,
+                    tool_results,
+                    ..Default::default()
+                },
             )
             .await
             .expect("replay message");

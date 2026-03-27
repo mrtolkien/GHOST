@@ -1,6 +1,7 @@
 mod common;
 
 use ghost::db;
+use ghost::db::sessions::MessagePayload;
 
 #[tokio::test]
 async fn schema_apply_is_idempotent() {
@@ -82,10 +83,10 @@ async fn message_tool_calls_round_trip() {
         &session_id,
         "assistant",
         "",
-        Some(tool_calls.clone()),
-        None,
-        None,
-        None,
+        &MessagePayload {
+            tool_calls: Some(tool_calls.clone()),
+            ..Default::default()
+        },
     )
     .await
     .expect("create assistant message with tool_calls");
@@ -101,10 +102,10 @@ async fn message_tool_calls_round_trip() {
         &session_id,
         "user",
         "",
-        None,
-        Some(tool_results.clone()),
-        None,
-        None,
+        &MessagePayload {
+            tool_results: Some(tool_results.clone()),
+            ..Default::default()
+        },
     )
     .await
     .expect("create user message with tool_results");

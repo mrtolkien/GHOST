@@ -20,6 +20,7 @@
 /// ```
 use super::common;
 use ghost::db;
+use ghost::db::sessions::MessagePayload;
 use serde_json::json;
 
 /// Model alias that maps to `provider = "anthropic"` in the local config.
@@ -52,10 +53,11 @@ async fn seed_and_chat(
             &session_id,
             role,
             content,
-            tool_calls.clone(),
-            tool_results.clone(),
-            None,
-            None,
+            &MessagePayload {
+                tool_calls: tool_calls.clone(),
+                tool_results: tool_results.clone(),
+                ..Default::default()
+            },
         )
         .await
         .expect("create message");
@@ -482,13 +484,13 @@ async fn stale_redacted_thinking_surfaces_incompatible_history_error() {
         &session_id,
         "assistant",
         "Hi there!",
-        None,
-        None,
-        Some(vec![json!({
-            "original_type": "redacted_thinking",
-            "opaque_data": "gAAAAABpwVA0_FAKE_STALE_DATA_FROM_PREVIOUS_SESSION_xyzzy"
-        })]),
-        None,
+        &MessagePayload {
+            raw_output: Some(vec![json!({
+                "original_type": "redacted_thinking",
+                "opaque_data": "gAAAAABpwVA0_FAKE_STALE_DATA_FROM_PREVIOUS_SESSION_xyzzy"
+            })]),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();

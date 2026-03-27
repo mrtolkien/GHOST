@@ -15,6 +15,7 @@
 use super::common;
 use ghost::db;
 use ghost::db::sessions;
+use ghost::db::sessions::MessagePayload;
 use serde_json::Value;
 
 const TRANSCRIPT_FIXTURE: &str = include_str!("../fixtures/out_of_sync_transcript.json");
@@ -47,10 +48,12 @@ async fn replay_transcript_before_sumo(env: &common::LiveTestEnv) -> String {
             &session_id,
             role,
             content,
-            tool_calls,
-            tool_results,
-            raw_output,
-            None,
+            &MessagePayload {
+                tool_calls,
+                tool_results,
+                raw_output,
+                ..Default::default()
+            },
         )
         .await
         .expect("replay message");
