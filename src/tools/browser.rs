@@ -199,10 +199,10 @@ impl Tool for BrowserTool {
             "tabs" => execute_tabs(&mut mgr).await,
             "open" => execute_open(&mut mgr, &params).await,
             "focus" => execute_focus(&mut mgr, &params).await,
-            "close" => execute_close(&mut mgr, &params).await,
-            "browsers" => execute_browsers(&mut mgr).await,
+            "close" => execute_close(&mut mgr, &params),
+            "browsers" => execute_browsers(&mut mgr),
             "connect" => execute_connect(&mut mgr, &params).await,
-            "disconnect" => execute_disconnect(&mut mgr, &params).await,
+            "disconnect" => execute_disconnect(&mut mgr, &params),
             "discover" => execute_discover().await,
             _ => Err(ToolError::InvalidParams(format!(
                 "unknown action: {action}"
@@ -640,7 +640,7 @@ async fn execute_focus(mgr: &mut BrowserManager, params: &Value) -> Result<ToolO
     Ok(ToolOutput::text(wrapped))
 }
 
-async fn execute_close(mgr: &mut BrowserManager, params: &Value) -> Result<ToolOutput, ToolError> {
+fn execute_close(mgr: &mut BrowserManager, params: &Value) -> Result<ToolOutput, ToolError> {
     let tab_id = params
         .get("tab")
         .and_then(Value::as_u64)
@@ -651,14 +651,13 @@ async fn execute_close(mgr: &mut BrowserManager, params: &Value) -> Result<ToolO
         })?;
     let msg = mgr
         .close_tab(tab_id)
-        .await
         .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
     Ok(ToolOutput::text(
         json!({"ok": true, "description": msg}).to_string(),
     ))
 }
 
-async fn execute_browsers(mgr: &mut BrowserManager) -> Result<ToolOutput, ToolError> {
+fn execute_browsers(mgr: &mut BrowserManager) -> Result<ToolOutput, ToolError> {
     let browsers = mgr.list_browsers();
     let active = mgr.active_browser_name();
     if browsers.is_empty() {
@@ -715,7 +714,7 @@ async fn execute_connect(
     Ok(ToolOutput::text(result.to_string()))
 }
 
-async fn execute_disconnect(
+fn execute_disconnect(
     mgr: &mut BrowserManager,
     params: &Value,
 ) -> Result<ToolOutput, ToolError> {
@@ -724,7 +723,6 @@ async fn execute_disconnect(
         .and_then(Value::as_str)
         .ok_or_else(|| ToolError::InvalidParams("'disconnect' requires 'name' parameter".into()))?;
     mgr.disconnect_browser(name)
-        .await
         .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
     Ok(ToolOutput::text(
         json!({"ok": true, "description": format!("Disconnected browser '{name}'")}).to_string(),

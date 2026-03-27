@@ -28,7 +28,7 @@ pub enum ServicesCommand {
     Status,
 }
 
-pub async fn execute(command: ServicesCommand) -> Result<(), GhostError> {
+pub fn execute(command: ServicesCommand) -> Result<(), GhostError> {
     match command {
         ServicesCommand::List => execute_list(),
         ServicesCommand::Add {

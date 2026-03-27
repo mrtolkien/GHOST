@@ -13,7 +13,7 @@ pub enum AgentCommand {
     },
 }
 
-pub async fn execute(command: AgentCommand) -> Result<(), GhostError> {
+pub fn execute(command: AgentCommand) -> Result<(), GhostError> {
     let config = crate::config::load()?;
 
     match command {

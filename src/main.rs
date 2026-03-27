@@ -132,7 +132,7 @@ async fn dispatch(command: Commands) -> Result<(), GhostError> {
     match command {
         Commands::Daemon => ghost::cli::daemon::execute().await,
         Commands::Init(args) => ghost::cli::init::execute(args).await,
-        Commands::Agent { command } => ghost::cli::agent::execute(command).await,
+        Commands::Agent { command } => ghost::cli::agent::execute(command),
         Commands::Config { command } => ghost::cli::config::execute(command).await,
         Commands::Hack { command } => ghost::cli::hack::execute(command).await,
         Commands::Auth { command } => ghost::cli::auth::execute(command).await,
@@ -144,8 +144,8 @@ async fn dispatch(command: Commands) -> Result<(), GhostError> {
         Commands::Topics { command } => ghost::cli::topics::execute(command).await,
         Commands::Web { command } => ghost::cli::web::execute(command).await,
         Commands::Browsers { command } => ghost::cli::browsers::execute(command).await,
-        Commands::Skills { command } => ghost::cli::skills::execute(command).await,
-        Commands::Services { command } => ghost::cli::services::execute(command).await,
+        Commands::Skills { command } => ghost::cli::skills::execute(command),
+        Commands::Services { command } => ghost::cli::services::execute(command),
         Commands::SendImage { path, caption } => {
             ghost::cli::send::execute_send_image(path, caption).await
         }
@@ -154,7 +154,7 @@ async fn dispatch(command: Commands) -> Result<(), GhostError> {
         Commands::Stop => ghost::cli::start_stop::execute_stop().await,
         Commands::Status => ghost::cli::status::execute().await,
         Commands::Reboot => ghost::cli::reboot::execute(),
-        Commands::Reset(args) => ghost::cli::reset::execute(args).await,
+        Commands::Reset(args) => ghost::cli::reset::execute(args),
         Commands::Shell { command } => ghost::cli::shell::execute(command).await,
         Commands::Update {
             from_source,

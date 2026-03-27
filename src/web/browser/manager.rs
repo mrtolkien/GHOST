@@ -449,7 +449,7 @@ impl BrowserManager {
     }
 
     /// Close a tab by ID. Returns a confirmation message.
-    pub async fn close_tab(&mut self, tab_id: u32) -> Result<String, BrowserError> {
+    pub fn close_tab(&mut self, tab_id: u32) -> Result<String, BrowserError> {
         let browser_name = self
             .active_browser
             .as_ref()
@@ -520,7 +520,7 @@ impl BrowserManager {
     /// Disconnect a browser by name.
     ///
     /// Clears the active browser selection if it was the one disconnected.
-    pub async fn disconnect_browser(&mut self, name: &str) -> Result<(), BrowserError> {
+    pub fn disconnect_browser(&mut self, name: &str) -> Result<(), BrowserError> {
         let browser = self
             .browsers
             .get_mut(name)

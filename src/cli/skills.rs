@@ -21,7 +21,7 @@ pub enum SkillsCommand {
     },
 }
 
-pub async fn execute(command: SkillsCommand) -> Result<(), GhostError> {
+pub fn execute(command: SkillsCommand) -> Result<(), GhostError> {
     let config = crate::config::load()?;
 
     match command {

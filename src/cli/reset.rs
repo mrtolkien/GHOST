@@ -19,7 +19,7 @@ pub struct ResetArgs {
 }
 
 /// Stop all services, remove service files, and delete the workspace.
-pub async fn execute(args: ResetArgs) -> Result<(), GhostError> {
+pub fn execute(args: ResetArgs) -> Result<(), GhostError> {
     if !args.yes {
         let confirmed =
             cliclack::confirm("This will stop all services and delete your workspace. Continue?")

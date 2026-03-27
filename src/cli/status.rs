@@ -5,7 +5,7 @@ use crate::health::{HealthResult, display_health_table, probe_url};
 /// Print system status: config validity, daemon status, and service health.
 pub async fn execute() -> Result<(), GhostError> {
     let config = check_config();
-    check_daemon().await;
+    check_daemon();
     if let Some(cfg) = config {
         check_services(&cfg).await;
     }
@@ -45,7 +45,7 @@ fn check_config() -> Option<Config> {
 // Daemon
 // ---------------------------------------------------------------------------
 
-async fn check_daemon() {
+fn check_daemon() {
     let _ = cliclack::log::step("Daemon");
 
     let active = is_service_active();
