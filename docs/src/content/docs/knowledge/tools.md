@@ -13,7 +13,7 @@ Hybrid search combining BM25 full-text and semantic embeddings.
 | Parameter    | Type    | Required | Description                                                                   |
 | ------------ | ------- | -------- | ----------------------------------------------------------------------------- |
 | `query`      | string  | yes      | Search query                                                                  |
-| `categories` | array   | no       | Filter by type: `notes`, `references`, `diary`. Default: `["notes", "diary"]` |
+| `categories` | array   | no       | Filter by type: `notes`, `references`, `diary`, `topics`, `scripts`, `code`. Default: `["notes", "references", "diary"]` |
 | `limit`      | integer | no       | Max results. Default: 10                                                      |
 
 ## `note_write`

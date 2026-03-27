@@ -30,8 +30,8 @@ impl Tool for KnowledgeSearch {
             name: self.name().to_string(),
             description: "Search your knowledge base using hybrid BM25 + semantic \
                           search. Returns ranked results with snippets. Defaults to \
-                          notes and diary; pass categories to include references or \
-                          scripts."
+                          notes, references, and diary. Pass categories to narrow or \
+                          add scripts/code."
                 .to_string(),
             input_schema: json!({
                 "type": "object",
@@ -46,7 +46,7 @@ impl Tool for KnowledgeSearch {
                             "type": "string",
                             "enum": ["notes", "references", "diary", "topics", "scripts", "code"]
                         },
-                        "description": "Categories to search. Defaults to [\"notes\", \"diary\"]. Include \"references\" explicitly to search reference material. Use \"topics\" to search topic collections. Use \"code\" to search indexed code files."
+                        "description": "Categories to search. Defaults to [\"notes\", \"references\", \"diary\"]. Use \"topics\" to search topic collections. Use \"scripts\" or \"code\" to include those."
                     },
                     "topic": {
                         "type": "string",
@@ -101,7 +101,7 @@ impl Tool for KnowledgeSearch {
         let use_defaults = categories.is_empty() && topic.is_none() && repo.is_none();
         let search_notes_flag = use_defaults || categories.iter().any(|c| c == "notes");
         let search_refs_flag =
-            topic.is_some() || (!use_defaults && categories.iter().any(|c| c == "references"));
+            use_defaults || topic.is_some() || categories.iter().any(|c| c == "references");
         let search_diary_flag = use_defaults || categories.iter().any(|c| c == "diary");
         let search_topics_flag = categories.iter().any(|c| c == "topics");
         let search_scripts_flag = !use_defaults && categories.iter().any(|c| c == "scripts");
@@ -301,10 +301,14 @@ fn filter_embedding_hits(
     categories: &[String],
 ) -> Vec<db::embeddings::EmbeddingHit> {
     if categories.is_empty() {
-        // Default: notes + diary
+        // Default: notes + references + diary
         return hits
             .into_iter()
-            .filter(|h| h.source_table == "note" || h.source_table == "diary")
+            .filter(|h| {
+                h.source_table == "note"
+                    || h.source_table == "reference"
+                    || h.source_table == "diary"
+            })
             .collect();
     }
 

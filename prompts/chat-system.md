@@ -91,10 +91,11 @@ It contains:
 - **Diary**: Your daily timeline of events, session summaries, and conclusions in
   `diary/YYYY-MM-DD.md`. Recommendations and conclusions go here, not in notes.
 
-Use `knowledge_search` to query it (with `categories` to focus, `topic` to scope to
-imported collections, `archetype` to filter by note type), then `file_read` to get full
-content. Use `archetype: "profile"` to discover the OPERATOR's preferences on a topic
-when you're unsure about their context.
+Use `knowledge_search` to query it — it searches notes, references, and diary by
+default. Use `topic` to scope to imported collections, `archetype` to filter by note
+type, or `categories` to narrow/extend (e.g. add `"scripts"` or `"code"`). Then
+`file_read` to get full content. Use `archetype: "profile"` to discover the OPERATOR's
+preferences on a topic when you're unsure about their context.
 
 ## Tool Usage
 

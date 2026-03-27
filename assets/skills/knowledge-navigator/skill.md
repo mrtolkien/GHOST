@@ -12,8 +12,9 @@ This skill teaches you how to use the knowledge system's query capabilities.
 
 ## Searching
 
-Use `knowledge_search` for hybrid BM25 + semantic search. It defaults to notes and diary
-— pass `categories: ["notes", "references", "diary"]` to include references.
+Use `knowledge_search` for hybrid BM25 + semantic search. It defaults to notes,
+references, and diary. Pass `categories` to narrow (e.g. `["notes"]`) or extend (e.g.
+add `"scripts"` or `"code"`).
 
 For CLI access: `ghost knowledge search "query" [--kind note|reference|diary]`
 
