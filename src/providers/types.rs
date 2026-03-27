@@ -318,18 +318,29 @@ pub fn model_from_alias<'a>(
 ///
 /// This is the single factory for all provider construction — used by both
 /// `provider_for_alias` (daemon runtime) and onboarding validation.
+///
+/// When `api_key` is `Some`, key-based providers (OpenRouter, Kimi) use
+/// it directly instead of reading from environment variables. This is
+/// needed during onboarding when the key hasn't been persisted yet.
 pub fn create_provider(
     kind: ProviderKind,
     headers: std::collections::BTreeMap<String, String>,
     routing: Option<crate::providers::openai_compatible::ProviderRouting>,
+    api_key: Option<&str>,
 ) -> Result<Arc<dyn Provider>, ProviderInitError> {
     match kind {
-        ProviderKind::OpenRouter => Ok(Arc::new(
-            crate::providers::openrouter::OpenRouterProvider::new(headers, routing)?,
-        )),
-        ProviderKind::Kimi => Ok(Arc::new(
-            crate::providers::kimi_code::KimiCodeProvider::new(headers)?,
-        )),
+        ProviderKind::OpenRouter => Ok(Arc::new(match api_key {
+            Some(key) => {
+                crate::providers::openrouter::OpenRouterProvider::new_with_key(key, headers, routing)?
+            }
+            None => crate::providers::openrouter::OpenRouterProvider::new(headers, routing)?,
+        })),
+        ProviderKind::Kimi => Ok(Arc::new(match api_key {
+            Some(key) => {
+                crate::providers::kimi_code::KimiCodeProvider::new_with_key(key, headers)?
+            }
+            None => crate::providers::kimi_code::KimiCodeProvider::new(headers)?,
+        })),
         ProviderKind::OpenAiOAuth => Ok(Arc::new(
             crate::providers::openai_oauth::OpenAiOAuthProvider::new(headers)?,
         )),

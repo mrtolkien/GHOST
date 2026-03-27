@@ -98,7 +98,7 @@ impl std::fmt::Debug for OnboardingAgent {
 impl OnboardingAgent {
     /// Create an agent backed by the same provider implementation the daemon uses.
     pub fn new(kind: ProviderKind, model: &str) -> Result<Self, OnboardingError> {
-        let provider = create_provider(kind, BTreeMap::new(), None)?;
+        let provider = create_provider(kind, BTreeMap::new(), None, None)?;
         Ok(Self {
             provider,
             model: model.to_string(),

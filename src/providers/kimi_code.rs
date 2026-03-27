@@ -35,6 +35,29 @@ impl KimiCodeProvider {
         Ok(Self { inner })
     }
 
+    /// Like [`new`](Self::new) but takes the API key directly instead of
+    /// reading from the environment. Used during onboarding validation.
+    pub fn new_with_key(
+        api_key: &str,
+        extra_headers: BTreeMap<String, String>,
+    ) -> Result<Self, ProviderError> {
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            USER_AGENT,
+            HeaderValue::from_static(DEFAULT_KIMI_USER_AGENT),
+        );
+
+        let inner = OpenAiCompatibleProvider::with_auth_key(
+            "kimi_code",
+            KIMI_CHAT_COMPLETIONS_URL,
+            api_key,
+            headers,
+            extra_headers,
+            None,
+        )?;
+        Ok(Self { inner })
+    }
+
     pub fn set_debug(&mut self, save: bool, workspace: &std::path::Path, max_saved: usize) {
         self.inner.set_debug(save, workspace, max_saved);
     }

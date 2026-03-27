@@ -172,14 +172,18 @@ pub fn prompt_context_window(
 }
 
 /// Make a minimal test request to the provider's API to verify credentials.
+///
+/// For key-based providers (OpenRouter, Kimi), pass the collected API key
+/// so validation works before the key is written to `.env`.
 pub async fn validate_provider(
     provider: &ProviderKind,
     model: &str,
+    api_key: Option<&str>,
 ) -> Result<(), OnboardingError> {
     use crate::providers::types::{ChatMessage, ChatRequest, ContentBlock, Role, create_provider};
     use std::collections::BTreeMap;
 
-    let p = create_provider(*provider, BTreeMap::new(), None)?;
+    let p = create_provider(*provider, BTreeMap::new(), None, api_key)?;
     let request = ChatRequest {
         model: model.to_string(),
         system: Some("Reply with OK".to_string()),

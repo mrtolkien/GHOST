@@ -35,6 +35,27 @@ impl OpenRouterProvider {
         Ok(Self { inner })
     }
 
+    /// Like [`new`](Self::new) but takes the API key directly instead of
+    /// reading from the environment. Used during onboarding validation.
+    pub fn new_with_key(
+        api_key: &str,
+        extra_headers: BTreeMap<String, String>,
+        provider_routing: Option<ProviderRouting>,
+    ) -> Result<Self, ProviderError> {
+        let mut headers = HeaderMap::new();
+        headers.insert("X-Title", HeaderValue::from_static("ghost"));
+
+        let inner = OpenAiCompatibleProvider::with_auth_key(
+            "openrouter",
+            OPENROUTER_CHAT_COMPLETIONS_URL,
+            api_key,
+            headers,
+            extra_headers,
+            provider_routing,
+        )?;
+        Ok(Self { inner })
+    }
+
     pub fn set_debug(&mut self, save: bool, workspace: &std::path::Path, max_saved: usize) {
         self.inner.set_debug(save, workspace, max_saved);
     }

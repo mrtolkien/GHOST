@@ -58,7 +58,7 @@ pub async fn run(args: InitArgs) -> Result<(), GhostError> {
     if should_test {
         loop {
             let _ = cliclack::log::info("Validating provider connection...");
-            match provider::validate_provider(&provider_choice, &model).await {
+            match provider::validate_provider(&provider_choice, &model, api_key.as_deref()).await {
                 Ok(()) => {
                     let _ =
                         cliclack::log::success("Provider verified -- model responded successfully");

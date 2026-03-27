@@ -25,7 +25,7 @@ async fn onboarding_validation_openrouter() {
     let model = std::env::var("OPENROUTER_TEST_MODEL")
         .unwrap_or_else(|_| "anthropic/claude-sonnet-4".to_string());
 
-    let result = validate_provider(&ProviderKind::OpenRouter, &model).await;
+    let result = validate_provider(&ProviderKind::OpenRouter, &model, None).await;
     assert!(
         result.is_ok(),
         "OpenRouter validation failed: {:#}",
@@ -49,7 +49,7 @@ async fn onboarding_validation_codex() {
 
     let model = std::env::var("OPENAI_OAUTH_TEST_MODEL").unwrap_or_else(|_| "gpt-5.4".to_string());
 
-    let result = validate_provider(&ProviderKind::OpenAiOAuth, &model).await;
+    let result = validate_provider(&ProviderKind::OpenAiOAuth, &model, None).await;
     assert!(
         result.is_ok(),
         "Codex OAuth validation failed: {:#}",
@@ -71,7 +71,7 @@ async fn onboarding_validation_anthropic() {
     let model = std::env::var("ANTHROPIC_TEST_MODEL")
         .unwrap_or_else(|_| "claude-sonnet-4-20250514".to_string());
 
-    let result = validate_provider(&ProviderKind::Anthropic, &model).await;
+    let result = validate_provider(&ProviderKind::Anthropic, &model, None).await;
     assert!(
         result.is_ok(),
         "Anthropic validation failed: {:#}",
@@ -91,7 +91,7 @@ async fn onboarding_validation_kimi() {
 
     let model = std::env::var("KIMI_TEST_MODEL").unwrap_or_else(|_| "kimi-k2.5".to_string());
 
-    let result = validate_provider(&ProviderKind::Kimi, &model).await;
+    let result = validate_provider(&ProviderKind::Kimi, &model, None).await;
     assert!(
         result.is_ok(),
         "Kimi validation failed: {:#}",

@@ -30,13 +30,52 @@ impl OpenAiCompatibleProvider {
         provider_name: &'static str,
         endpoint: &'static str,
         auth_env_var: &'static str,
-        mut default_headers: HeaderMap,
+        default_headers: HeaderMap,
         extra_headers: BTreeMap<String, String>,
         provider_routing: Option<ProviderRouting>,
     ) -> Result<Self, ProviderError> {
         let api_key = std::env::var(auth_env_var)
             .map_err(|_| ProviderError::Auth(format!("{auth_env_var} is not set")))?;
 
+        Self::build(
+            provider_name,
+            endpoint,
+            &api_key,
+            default_headers,
+            extra_headers,
+            provider_routing,
+        )
+    }
+
+    /// Like [`with_auth_env`](Self::with_auth_env) but takes the API key
+    /// directly instead of reading from an environment variable.
+    /// Used during onboarding validation when the key hasn't been persisted yet.
+    pub fn with_auth_key(
+        provider_name: &'static str,
+        endpoint: &'static str,
+        api_key: &str,
+        default_headers: HeaderMap,
+        extra_headers: BTreeMap<String, String>,
+        provider_routing: Option<ProviderRouting>,
+    ) -> Result<Self, ProviderError> {
+        Self::build(
+            provider_name,
+            endpoint,
+            api_key,
+            default_headers,
+            extra_headers,
+            provider_routing,
+        )
+    }
+
+    fn build(
+        provider_name: &'static str,
+        endpoint: &'static str,
+        api_key: &str,
+        mut default_headers: HeaderMap,
+        extra_headers: BTreeMap<String, String>,
+        provider_routing: Option<ProviderRouting>,
+    ) -> Result<Self, ProviderError> {
         default_headers.insert(
             AUTHORIZATION,
             HeaderValue::from_str(&format!("Bearer {api_key}")).map_err(|error| {
