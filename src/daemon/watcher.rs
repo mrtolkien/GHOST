@@ -336,27 +336,35 @@ async fn process_note_change(
     let note_id = match crate::db::knowledge::find_note_by_title(db, &parsed.front.title).await {
         Ok(Some(n)) => {
             // Update existing note
-            let _ = crate::db::knowledge::update_note(db, &n.id, &note_input).await;
-            let _ = knowledge::reconcile::reconcile_edges(
+            if let Err(e) = crate::db::knowledge::update_note(db, &n.id, &note_input).await {
+                tracing::warn!(note_id = %n.id, error = %e, "failed to update note from file watcher");
+            }
+            if let Err(e) = knowledge::reconcile::reconcile_edges(
                 db,
                 &n.id,
                 &parsed.front.title,
                 &parsed.wiki_links,
                 parsed.front.parent.as_deref(),
             )
-            .await;
+            .await
+            {
+                tracing::warn!(note_id = %n.id, error = %e, "failed to reconcile edges");
+            }
             n.id
         }
         _ => match crate::db::knowledge::create_note_full(db, &note_input).await {
             Ok(id) => {
-                let _ = knowledge::reconcile::reconcile_edges(
+                if let Err(e) = knowledge::reconcile::reconcile_edges(
                     db,
                     &id,
                     &parsed.front.title,
                     &parsed.wiki_links,
                     parsed.front.parent.as_deref(),
                 )
-                .await;
+                .await
+                {
+                    tracing::warn!(note_id = %id, error = %e, "failed to reconcile edges");
+                }
                 id
             }
             Err(_) => return Ok(None),
