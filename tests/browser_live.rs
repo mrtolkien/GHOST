@@ -82,6 +82,7 @@ async fn browser_ssrf_blocks_private_ips() {
 }
 
 /// Helper: build a ToolContext with a browser configured.
+#[allow(clippy::unwrap_used, reason = "test helper — panicking on None/Err is the desired behavior")]
 fn browser_tool_ctx() -> (ToolContext, tempfile::TempDir) {
     let workspace = tempfile::tempdir().unwrap();
     let mut config = ghost::config::test_config(workspace.path());
@@ -542,7 +543,7 @@ async fn multi_browser_connect_and_switch() {
         Some("primary"),
         "primary should be active"
     );
-    eprintln!("  connected primary: {:?}", info1);
+    eprintln!("  connected primary: {info1:?}");
 
     // Navigate on primary.
     mgr.navigate("https://example.com")
@@ -563,7 +564,7 @@ async fn multi_browser_connect_and_switch() {
         Some("secondary"),
         "secondary should now be active"
     );
-    eprintln!("  connected secondary: {:?}", info2);
+    eprintln!("  connected secondary: {info2:?}");
 
     // Navigate on secondary.
     mgr.navigate("https://httpbin.org/html")

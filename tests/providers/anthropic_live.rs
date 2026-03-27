@@ -302,7 +302,7 @@ async fn anthropic_thinking_block_round_trip() {
             } => {
                 eprintln!(
                     "  [{i}] Thinking: text_len={}, has_sig={}",
-                    text.as_ref().map_or(0, |t| t.len()),
+                    text.as_ref().map_or(0, String::len),
                     signature.is_some(),
                 );
             }
@@ -369,7 +369,7 @@ async fn anthropic_thinking_block_round_trip() {
         match block {
             ContentBlock::Thinking { .. } => eprintln!("  [{i}] Thinking"),
             ContentBlock::Text { text } => {
-                eprintln!("  [{i}] Text: {} chars", text.len())
+                eprintln!("  [{i}] Text: {} chars", text.len());
             }
             other => eprintln!("  [{i}] {other:?}"),
         }

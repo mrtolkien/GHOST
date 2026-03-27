@@ -165,5 +165,5 @@ fn run_cmd(dir: &std::path::Path, cmd: &str, args: &[&str]) {
         .args(args)
         .current_dir(dir)
         .output()
-        .unwrap_or_else(|e| panic!("{cmd} {:?} failed: {e}", args));
+        .unwrap_or_else(|e| panic!("{cmd} {args:?} failed: {e}"));
 }

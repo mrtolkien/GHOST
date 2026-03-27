@@ -25,11 +25,11 @@ async fn printer_3d_step_02_run_agent_completion() {
     // as a side effect (spawns are returned but not processed here).
     let result = tokio::time::timeout(
         Duration::from_secs(600),
-        env.agent_runner.resume(
+        Box::pin(env.agent_runner.resume(
             &agent_session,
             "Continue and finish this research task.",
             "deep-research",
-        ),
+        )),
     )
     .await
     .expect("TIMEOUT: agent did not complete in step_02 within 10 minutes")

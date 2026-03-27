@@ -39,8 +39,8 @@ async fn codex_tool_calling_smoke() {
 
     let web_search_count: u32 = messages
         .iter()
-        .filter_map(|msg| msg.tool_calls_parsed())
-        .flat_map(|calls| calls.into_iter())
+        .filter_map(ghost::db::sessions::MessageRecord::tool_calls_parsed)
+        .flat_map(IntoIterator::into_iter)
         .filter(|call| {
             call.get("name")
                 .and_then(|v| v.as_str())

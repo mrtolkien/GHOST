@@ -110,7 +110,7 @@ async fn coding_agent_step_02_coding_agent_edits() {
     // Collect tool calls for metrics
     let tool_calls: Vec<String> = messages
         .iter()
-        .filter_map(|msg| msg.tool_calls_parsed())
+        .filter_map(ghost::db::sessions::MessageRecord::tool_calls_parsed)
         .flat_map(|calls| {
             calls
                 .iter()

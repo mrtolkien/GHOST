@@ -134,7 +134,7 @@ fn available_models_for_scenario(scenario: &str) -> Vec<String> {
         return Vec::new();
     };
     let mut names: Vec<String> = entries
-        .filter_map(|e| e.ok())
+        .filter_map(Result::ok)
         .filter_map(|e| {
             if e.file_type().ok()?.is_dir() {
                 e.file_name().into_string().ok()
@@ -344,7 +344,7 @@ fn render_section(out: &mut String, title: &str, maybe_messages: Option<&serde_j
             for result in results {
                 let is_error = result
                     .get("is_error")
-                    .and_then(|v| v.as_bool())
+                    .and_then(serde_json::Value::as_bool)
                     .unwrap_or(false);
                 let content = result.get("content").and_then(|v| v.as_str()).unwrap_or("");
                 out.push_str(&format!("- error={is_error}\n"));

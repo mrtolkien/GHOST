@@ -52,7 +52,7 @@ async fn project_create_step_02_confirm_and_create() {
     let projects_dir = env.workspace_path().join("projects");
     let has_project = std::fs::read_dir(&projects_dir)
         .expect("read projects dir")
-        .filter_map(|e| e.ok())
+        .filter_map(Result::ok)
         .any(|entry| {
             entry.path().is_dir()
                 && !entry.file_name().to_string_lossy().starts_with('.')

@@ -121,7 +121,7 @@ async fn reasoning_effort_high_produces_thinking_block() {
     for (i, block) in response2.content.iter().enumerate() {
         match block {
             ContentBlock::Thinking { .. } => {
-                eprintln!("  [{i}] Thinking")
+                eprintln!("  [{i}] Thinking");
             }
             ContentBlock::Text { text } => eprintln!("  [{i}] Text: {} chars", text.len()),
             other => eprintln!("  [{i}] {other:?}"),

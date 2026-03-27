@@ -1,5 +1,7 @@
 mod common;
 
+use std::path::Path;
+use std::sync::Arc;
 
 /// Test with MockProvider: Docling converts the lotion PDF, quality check flags
 /// the page as bad, vision fallback is invoked with a MockProvider, and the
@@ -160,8 +162,7 @@ async fn hybrid_extraction_produces_readable_text() {
 
     assert!(
         found_any,
-        "expected at least one of {:?} in the extracted markdown.\n\
+        "expected at least one of {expected_fragments:?} in the extracted markdown.\n\
          This indicates the vision model failed to extract Japanese text.",
-        expected_fragments
     );
 }

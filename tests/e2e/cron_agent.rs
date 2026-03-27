@@ -40,7 +40,7 @@ async fn test_cron_agent_creation() {
     let agents_dir = env.workspace_path().join("agents");
     let agent_dirs: Vec<_> = std::fs::read_dir(&agents_dir)
         .expect("read agents/")
-        .filter_map(|e| e.ok())
+        .filter_map(Result::ok)
         .filter(|e| e.file_type().map(|t| t.is_dir()).unwrap_or(false))
         .filter(|e| {
             let name = e.file_name();

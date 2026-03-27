@@ -20,7 +20,7 @@ use serde_json::json;
 use tempfile::TempDir;
 
 /// Wrap a `Config` into a `SharedConfig` for tests.
-#[allow(dead_code)]
+#[allow(dead_code, reason = "shared test helper not used by every test file")]
 pub fn shared(config: &Config) -> SharedConfig {
     let (_tx, rx) = tokio::sync::watch::channel(Arc::new(config.clone()));
     rx
@@ -58,7 +58,7 @@ pub fn test_workspace() -> (Config, TempDir, TempDir) {
     (config, workspace, config_dir)
 }
 
-#[allow(dead_code)]
+#[allow(dead_code, reason = "shared test helper not used by every test file")]
 pub async fn test_database() -> (GhostDb, Config, TempDir, TempDir) {
     let (config, workspace, config_dir) = test_workspace();
     let db = db::connect(&config.workspace, config.embeddings.dimension)
@@ -67,7 +67,7 @@ pub async fn test_database() -> (GhostDb, Config, TempDir, TempDir) {
     (db, config, workspace, config_dir)
 }
 
-#[allow(dead_code)]
+#[allow(dead_code, reason = "shared test helper not used by every test file")]
 pub fn write_test_note(workspace: &std::path::Path, title: &str, body: &str) -> PathBuf {
     let front = NoteFrontMatter {
         title: title.to_string(),
@@ -86,7 +86,7 @@ pub fn write_test_note(workspace: &std::path::Path, title: &str, body: &str) -> 
     path
 }
 
-#[allow(dead_code)]
+#[allow(dead_code, reason = "shared test helper not used by every test file")]
 pub fn write_test_reference(
     workspace: &std::path::Path,
     topic: &str,
@@ -106,7 +106,7 @@ pub fn write_test_reference(
 
 /// Result from waiting for a background agent to complete.
 #[cfg(feature = "live-tests")]
-#[allow(dead_code)]
+#[allow(dead_code, reason = "fields accessed by destructuring in live tests only; Rust doesn't see field reads through pattern bindings")]
 pub struct AgentOutcome {
     /// GHOST's follow-up response after receiving agent findings.
     pub chat_result: ghost::chat::ChatResult,
@@ -118,7 +118,7 @@ pub struct AgentOutcome {
 
 /// Metrics collected from an agent session's web_fetch tool calls.
 #[cfg(feature = "live-tests")]
-#[allow(dead_code)]
+#[allow(dead_code, reason = "fields accessed by destructuring in live tests only; Rust doesn't see field reads through pattern bindings")]
 pub struct WebFetchMetrics {
     pub count: u32,
     pub urls: Vec<String>,
@@ -129,7 +129,7 @@ pub struct WebFetchMetrics {
 /// On drop, snapshots the workspace and diagnostic log to
 /// `e2e-output/<timestamp>_<test_name>/`.
 #[cfg(feature = "live-tests")]
-#[allow(dead_code)]
+#[allow(dead_code, reason = "private fields are RAII guards or internal bookkeeping; public fields accessed selectively across test files")]
 pub struct LiveTestEnv {
     pub db: GhostDb,
     pub config: Config,
@@ -147,7 +147,7 @@ pub struct LiveTestEnv {
 }
 
 #[cfg(feature = "live-tests")]
-#[allow(dead_code)]
+#[allow(dead_code, reason = "impl methods are helpers selectively used across different live test files")]
 impl LiveTestEnv {
     /// Absolute path to this test environment's workspace directory.
     pub fn workspace_path(&self) -> &Path {
@@ -158,6 +158,7 @@ impl LiveTestEnv {
     /// because no DISCORD_BOT_TOKEN is set in the test environment.
     pub async fn boot_daemon(&self) -> ghost::daemon::DaemonHandle {
         // Ensure no Discord token leaks from the host env
+        // SAFETY: called during single-threaded test setup before daemon boot
         unsafe {
             std::env::remove_var("DISCORD_BOT_TOKEN");
         }
@@ -212,7 +213,7 @@ impl LiveTestEnv {
                                 "tool_use_id": r.get("tool_use_id")
                                     .and_then(|v| v.as_str()).unwrap_or("?"),
                                 "is_error": r.get("is_error")
-                                    .and_then(|v| v.as_bool()).unwrap_or(false),
+                                    .and_then(serde_json::Value::as_bool).unwrap_or(false),
                                 "content": truncate_str(
                                     r.get("content")
                                         .and_then(|v| v.as_str()).unwrap_or(""),
@@ -232,17 +233,18 @@ impl LiveTestEnv {
                                 .get("original_type")
                                 .and_then(|v| v.as_str())
                                 .unwrap_or("unknown");
-                            let summary = item
+                            let summary_arr = item
                                 .get("value")
                                 .and_then(|v| v.get("summary"))
-                                .and_then(|v| v.as_array())
-                                .map(|arr| {
-                                    arr.iter()
-                                        .filter_map(|s| s.get("text").and_then(|v| v.as_str()))
-                                        .collect::<Vec<_>>()
-                                        .join(" ")
-                                })
-                                .unwrap_or_default();
+                                .and_then(|v| v.as_array());
+                            let summary = match summary_arr {
+                                Some(arr) => arr
+                                    .iter()
+                                    .filter_map(|s| s.get("text").and_then(|v| v.as_str()))
+                                    .collect::<Vec<_>>()
+                                    .join(" "),
+                                None => String::new(),
+                            };
                             json!({
                                 "original_type": original_type,
                                 "summary": truncate_str(&summary, 1200),
@@ -497,11 +499,12 @@ impl LiveTestEnv {
             ("report_data".to_string(), report_data_json.to_string()),
             ("session_id".to_string(), agent_session_id.to_string()),
         ]);
-        let result = self
-            .agent_runner
-            .run_with_args("deep-research-reflection", args, Some(agent_session_id))
-            .await
-            .expect("structured reflection run_with_args");
+        let result = Box::pin(
+            self.agent_runner
+                .run_with_args("deep-research-reflection", args, Some(agent_session_id)),
+        )
+        .await
+        .expect("structured reflection run_with_args");
         let (findings, metadata) = (result.findings, result.metadata);
 
         // Post-processing: deterministic reference curation (matches production)
@@ -552,9 +555,8 @@ impl LiveTestEnv {
             }
 
             for agent_id in &agent_ids {
-                let status = match self.agent_runner.status(agent_id).await {
-                    Ok(s) => s,
-                    Err(_) => continue,
+                let Ok(status) = self.agent_runner.status(agent_id).await else {
+                    continue;
                 };
                 if status.status != "completed" {
                     continue;
@@ -652,17 +654,16 @@ impl LiveTestEnv {
             .await
             .expect("list session messages for tool calls");
 
-        let mut names = Vec::new();
-        for msg in &messages {
-            if let Some(calls) = msg.tool_calls_parsed() {
-                for call in &calls {
-                    if let Some(name) = call.get("name").and_then(|v| v.as_str()) {
-                        names.push(name.to_string());
-                    }
-                }
-            }
-        }
-        names
+        messages
+            .iter()
+            .filter_map(ghost::db::sessions::MessageRecord::tool_calls_parsed)
+            .flatten()
+            .filter_map(|call| {
+                call.get("name")
+                    .and_then(|v| v.as_str())
+                    .map(String::from)
+            })
+            .collect()
     }
 
     /// Stop all running agents immediately and return how many were stopped.
@@ -684,24 +685,26 @@ impl LiveTestEnv {
         let mut count = 0u32;
         let mut urls = Vec::new();
 
-        for msg in &messages {
-            if let Some(calls) = msg.tool_calls_parsed() {
-                for call in &calls {
-                    let name = call
-                        .get("name")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or_default();
-                    if name == "web_fetch" {
-                        count += 1;
-                        if let Some(url) = call
-                            .get("input")
-                            .and_then(|v| v.get("url"))
-                            .and_then(|v| v.as_str())
-                        {
-                            urls.push(url.to_string());
-                        }
-                    }
-                }
+        let all_calls: Vec<_> = messages
+            .iter()
+            .filter_map(ghost::db::sessions::MessageRecord::tool_calls_parsed)
+            .flatten()
+            .collect();
+        for call in &all_calls {
+            let name = call
+                .get("name")
+                .and_then(|v| v.as_str())
+                .unwrap_or_default();
+            if name != "web_fetch" {
+                continue;
+            }
+            count += 1;
+            if let Some(url) = call
+                .get("input")
+                .and_then(|v| v.get("url"))
+                .and_then(|v| v.as_str())
+            {
+                urls.push(url.to_string());
             }
         }
 
@@ -906,10 +909,17 @@ impl Drop for LiveTestEnv {
 
         // Restore env vars
         match &self.prev_config_dir_env {
-            Some(val) => unsafe { std::env::set_var(ghost::config::CONFIG_DIR_ENV, val) },
-            None => unsafe { std::env::remove_var(ghost::config::CONFIG_DIR_ENV) },
+            Some(val) => {
+                // SAFETY: called during test teardown; concurrent env mutation is accepted in tests
+                unsafe { std::env::set_var(ghost::config::CONFIG_DIR_ENV, val) };
+            }
+            None => {
+                // SAFETY: called during test teardown; concurrent env mutation is accepted in tests
+                unsafe { std::env::remove_var(ghost::config::CONFIG_DIR_ENV) };
+            }
         }
         if let Some(val) = &self.prev_path_env {
+            // SAFETY: same as above — restoring PATH during test teardown
             unsafe { std::env::set_var("PATH", val) };
         }
     }
@@ -919,7 +929,7 @@ impl Drop for LiveTestEnv {
 /// fresh temp workspace + database, `GHOST_CONFIG_DIR` set so spawned
 /// `ghost` subprocesses use the temp workspace.
 #[cfg(feature = "live-tests")]
-#[allow(dead_code)]
+#[allow(dead_code, reason = "shared live-test helper not used by every test file that includes common.rs")]
 pub async fn live_test_database(test_name: &str) -> LiveTestEnv {
     live_test_database_from_snapshot(test_name, None).await
 }
@@ -929,7 +939,8 @@ pub async fn live_test_database(test_name: &str) -> LiveTestEnv {
 /// The archive is extracted into the temp workspace after bootstrap and before
 /// database connection, so SQLite state is restored cleanly.
 #[cfg(feature = "live-tests")]
-#[allow(dead_code)]
+#[allow(dead_code, reason = "shared live-test helper not used by every test file that includes common.rs")]
+#[allow(clippy::unwrap_used, reason = "test helper — panicking on None is the desired behavior")]
 pub async fn live_test_database_from_snapshot(
     test_name: &str,
     snapshot: Option<&Path>,
@@ -982,6 +993,7 @@ pub async fn live_test_database_from_snapshot(
     }
 
     // Set env vars so both us and spawned `ghost` processes use the temp config
+    // SAFETY: called during test setup; env mutation is acceptable in live test helpers
     unsafe {
         std::env::set_var(ghost::config::CONFIG_DIR_ENV, config_dir.path());
 
@@ -1145,13 +1157,13 @@ fn copy_dir_all(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result
 // ---------------------------------------------------------------------------
 
 #[derive(Debug)]
-#[allow(dead_code)]
+#[allow(dead_code, reason = "private fields accessed only through the Provider trait impl and requests() accessor")]
 pub struct MockProvider {
     responses: Arc<Mutex<VecDeque<ChatResponse>>>,
     requests: Arc<Mutex<Vec<ChatRequest>>>,
 }
 
-#[allow(dead_code)]
+#[allow(dead_code, reason = "helper methods used selectively across test files that include common.rs")]
 impl MockProvider {
     pub fn new(responses: Vec<ChatResponse>) -> Self {
         Self {
@@ -1182,7 +1194,7 @@ impl Provider for MockProvider {
 }
 
 #[derive(Debug)]
-#[allow(dead_code)]
+#[allow(dead_code, reason = "test-only tool type; not referenced by every test file that includes common.rs")]
 pub struct EchoTool;
 
 #[async_trait]
@@ -1216,7 +1228,7 @@ impl Tool for EchoTool {
     }
 }
 
-#[allow(dead_code)]
+#[allow(dead_code, reason = "shared test helper not used by every test file that includes common.rs")]
 pub fn response(content: Vec<ContentBlock>, stop_reason: StopReason) -> ChatResponse {
     ChatResponse {
         content,
@@ -1229,7 +1241,7 @@ pub fn response(content: Vec<ContentBlock>, stop_reason: StopReason) -> ChatResp
 }
 
 /// Build a mock response that ends the turn with a plain text message.
-#[allow(dead_code)]
+#[allow(dead_code, reason = "shared test helper not used by every test file that includes common.rs")]
 pub fn respond_response(message: &str, _citations: Vec<serde_json::Value>) -> ChatResponse {
     response(
         vec![ContentBlock::Text {

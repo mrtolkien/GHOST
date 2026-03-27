@@ -20,7 +20,7 @@ async fn printer_3d_step_04_finalize_chat_and_reflect() {
         .and_then(|v| v.as_str())
         .expect("step_03 state must include agent_findings from step_02");
 
-    let system_msg = format!("[agent:deep-research completed]\n\n{}", findings,);
+    let system_msg = format!("[agent:deep-research completed]\n\n{findings}");
     ghost::db::sessions::create_message(&env.db, &chat_session, "system", &system_msg)
         .await
         .expect("inject agent findings into chat session");

@@ -107,7 +107,7 @@ async fn out_of_sync_reproduction() {
             let off_topic: Vec<_> = tool_calls
                 .iter()
                 .filter(|tc| {
-                    let s = tc.to_string().to_lowercase();
+                    let s = tc.to_lowercase();
                     s.contains("humidifier")
                         || s.contains("iris-ahm")
                         || s.contains("irisohyama")

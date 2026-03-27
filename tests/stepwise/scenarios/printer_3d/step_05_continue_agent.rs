@@ -27,13 +27,13 @@ async fn printer_3d_step_05_continue_agent() {
 
     let result = tokio::time::timeout(
         Duration::from_secs(600),
-        env.agent_runner.resume(
+        Box::pin(env.agent_runner.resume(
             &agent_session,
             "The user wants a printer with strong multicolor capability, \
              with low waste. Update your research and recommendations \
              accordingly.",
             "deep-research",
-        ),
+        )),
     )
     .await
     .expect("TIMEOUT: agent did not complete in step_05 within 10 minutes")

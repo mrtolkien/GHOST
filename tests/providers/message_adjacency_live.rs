@@ -43,6 +43,7 @@ async fn seed_and_chat(
     user_prompt: &str,
 ) -> String {
     // Force the Anthropic provider regardless of the config default.
+    // SAFETY: called during single-threaded test setup before any async work
     unsafe { std::env::set_var("GHOST_E2E_MODEL", ANTHROPIC_MODEL) };
     let env = common::live_test_database(test_name).await;
     let session_id = env.create_session().await;
@@ -470,6 +471,7 @@ async fn full_mixed_session() {
 /// switch models or /reboot.
 #[tokio::test]
 async fn stale_redacted_thinking_surfaces_incompatible_history_error() {
+    // SAFETY: called during single-threaded test setup before any async work
     unsafe { std::env::set_var("GHOST_E2E_MODEL", ANTHROPIC_MODEL) };
     let env = common::live_test_database("adj_stale_thinking").await;
     let session_id = env.create_session().await;

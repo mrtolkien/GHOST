@@ -31,7 +31,7 @@ async fn printer_3d_step_03_reflect_agent() {
     // is sufficient for high-quality note extraction.
     let (findings, metadata) = tokio::time::timeout(
         Duration::from_secs(300),
-        env.run_structured_reflection(&agent_session, report_data),
+        Box::pin(env.run_structured_reflection(&agent_session, report_data)),
     )
     .await
     .expect("TIMEOUT: structured reflection did not complete in step_03");

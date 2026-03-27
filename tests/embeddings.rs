@@ -471,6 +471,24 @@ async fn vector_insert_memory_stays_bounded() {
     );
 }
 
+/// Insert 3 embedding chunks for a note (helper to reduce nesting in concurrent tests).
+async fn upsert_chunks(db: &db::GhostDb, note_id: &str, idx: usize, chunk_text: &str) {
+    for chunk in 0..3 {
+        let vector: Vec<f32> = (0..1024).map(|j| (idx * 1024 + j) as f32 * 0.001).collect();
+        db::embeddings::upsert_embedding(
+            db,
+            "note",
+            note_id,
+            chunk,
+            &format!("{chunk_text} note {idx} chunk {chunk}"),
+            &vector,
+            None,
+        )
+        .await
+        .expect("upsert");
+    }
+}
+
 /// Same as vector_insert_memory_stays_bounded but with concurrent database
 /// operations (queries + inserts) to simulate the daemon environment where
 /// Discord, scheduler, and watcher all share the same DB connection.
@@ -520,21 +538,7 @@ async fn vector_insert_concurrent_stays_bounded() {
                 .await
                 .expect("create note");
 
-                for chunk in 0..3 {
-                    let vector: Vec<f32> =
-                        (0..1024).map(|j| (idx * 1024 + j) as f32 * 0.001).collect();
-                    db::embeddings::upsert_embedding(
-                        &db_c,
-                        "note",
-                        &note_id,
-                        chunk,
-                        &format!("{chunk_text} note {idx} chunk {chunk}"),
-                        &vector,
-                        None,
-                    )
-                    .await
-                    .expect("upsert");
-                }
+                upsert_chunks(&db_c, &note_id, idx, &chunk_text).await;
 
                 // Simulate Ollama round-trip delay
                 tokio::time::sleep(std::time::Duration::from_millis(50)).await;
@@ -747,7 +751,7 @@ async fn reconcile_filesystem_skips_unchanged_files() {
 
     // First reconciliation: file is new, should be processed
     let (discovered_1, _) =
-        ghost::embeddings::pipeline::reconcile_filesystem(&db, workspace.path())
+        Box::pin(ghost::embeddings::pipeline::reconcile_filesystem(&db, workspace.path()))
             .await
             .unwrap();
     assert!(discovered_1 > 0, "first run should discover the new file");
@@ -755,7 +759,7 @@ async fn reconcile_filesystem_skips_unchanged_files() {
     // Second reconciliation: file unchanged, hash matches but no embeddings yet
     // → should NOT re-discover but SHOULD queue embed request
     let (discovered_2, embed_reqs_2) =
-        ghost::embeddings::pipeline::reconcile_filesystem(&db, workspace.path())
+        Box::pin(ghost::embeddings::pipeline::reconcile_filesystem(&db, workspace.path()))
             .await
             .unwrap();
     assert_eq!(
@@ -779,7 +783,7 @@ async fn reconcile_filesystem_skips_unchanged_files() {
 
     // Third reconciliation: hash matches AND has embeddings → should skip entirely
     let (discovered_3, embed_reqs_3) =
-        ghost::embeddings::pipeline::reconcile_filesystem(&db, workspace.path())
+        Box::pin(ghost::embeddings::pipeline::reconcile_filesystem(&db, workspace.path()))
             .await
             .unwrap();
     assert_eq!(discovered_3, 0, "third run should skip unchanged file");
@@ -793,7 +797,7 @@ async fn reconcile_filesystem_skips_unchanged_files() {
 
     // Fourth reconciliation: file changed, hash differs → should be re-processed
     let (discovered_4, _) =
-        ghost::embeddings::pipeline::reconcile_filesystem(&db, workspace.path())
+        Box::pin(ghost::embeddings::pipeline::reconcile_filesystem(&db, workspace.path()))
             .await
             .unwrap();
     assert!(
@@ -808,9 +812,10 @@ async fn reconcile_filesystem_queues_embed_for_unembedded_files() {
 
     // Write a note file and reconcile to create the DB record with file_hash
     common::write_test_note(workspace.path(), "Embed Gap", "embed me please");
-    let (discovered, _) = ghost::embeddings::pipeline::reconcile_filesystem(&db, workspace.path())
-        .await
-        .unwrap();
+    let (discovered, _) =
+        Box::pin(ghost::embeddings::pipeline::reconcile_filesystem(&db, workspace.path()))
+            .await
+            .unwrap();
     assert!(discovered > 0);
 
     // Delete embeddings to simulate Ollama-was-down scenario
@@ -824,7 +829,7 @@ async fn reconcile_filesystem_queues_embed_for_unembedded_files() {
 
     // Re-reconcile: hash matches but embeddings missing → should return EmbedRequest
     let (discovered_2, embed_reqs) =
-        ghost::embeddings::pipeline::reconcile_filesystem(&db, workspace.path())
+        Box::pin(ghost::embeddings::pipeline::reconcile_filesystem(&db, workspace.path()))
             .await
             .unwrap();
     assert_eq!(
@@ -857,7 +862,7 @@ async fn reconcile_filesystem_discovers_untracked_reference() {
 
     // Run filesystem reconciliation
     let (discovered, _embed_reqs) =
-        ghost::embeddings::pipeline::reconcile_filesystem(&db, workspace.path())
+        Box::pin(ghost::embeddings::pipeline::reconcile_filesystem(&db, workspace.path()))
             .await
             .unwrap();
 
