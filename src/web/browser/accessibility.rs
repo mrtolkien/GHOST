@@ -148,7 +148,9 @@ fn extract_properties(node: &JsonValue) -> AxProperties {
 
         match name {
             "level" => {
-                props.level = value.and_then(|v| v.as_u64()).map(|n| n as u32);
+                props.level = value
+                    .and_then(|v| v.as_u64())
+                    .and_then(|n| u32::try_from(n).ok());
             }
             "checked" => {
                 props.checked = value.and_then(|v| match v {

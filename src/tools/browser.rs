@@ -455,13 +455,19 @@ async fn execute_resize(mgr: &mut BrowserManager, params: &Value) -> Result<Tool
     let width = params
         .get("width")
         .and_then(Value::as_u64)
-        .ok_or_else(|| ToolError::InvalidParams("'resize' requires 'width' parameter".into()))?
-        as u32;
+        .ok_or_else(|| ToolError::InvalidParams("'resize' requires 'width' parameter".into()))
+        .and_then(|v| {
+            u32::try_from(v)
+                .map_err(|_| ToolError::InvalidParams(format!("width {v} exceeds u32 range")))
+        })?;
     let height = params
         .get("height")
         .and_then(Value::as_u64)
-        .ok_or_else(|| ToolError::InvalidParams("'resize' requires 'height' parameter".into()))?
-        as u32;
+        .ok_or_else(|| ToolError::InvalidParams("'resize' requires 'height' parameter".into()))
+        .and_then(|v| {
+            u32::try_from(v)
+                .map_err(|_| ToolError::InvalidParams(format!("height {v} exceeds u32 range")))
+        })?;
     let desc = mgr
         .resize(width, height)
         .await
@@ -614,8 +620,11 @@ async fn execute_focus(mgr: &mut BrowserManager, params: &Value) -> Result<ToolO
     let tab_id = params
         .get("tab")
         .and_then(Value::as_u64)
-        .ok_or_else(|| ToolError::InvalidParams("'focus' requires 'tab' parameter".into()))?
-        as u32;
+        .ok_or_else(|| ToolError::InvalidParams("'focus' requires 'tab' parameter".into()))
+        .and_then(|v| {
+            u32::try_from(v)
+                .map_err(|_| ToolError::InvalidParams(format!("tab id {v} exceeds u32 range")))
+        })?;
     let xml = mgr
         .focus_tab(tab_id)
         .await
@@ -635,8 +644,11 @@ async fn execute_close(mgr: &mut BrowserManager, params: &Value) -> Result<ToolO
     let tab_id = params
         .get("tab")
         .and_then(Value::as_u64)
-        .ok_or_else(|| ToolError::InvalidParams("'close' requires 'tab' parameter".into()))?
-        as u32;
+        .ok_or_else(|| ToolError::InvalidParams("'close' requires 'tab' parameter".into()))
+        .and_then(|v| {
+            u32::try_from(v)
+                .map_err(|_| ToolError::InvalidParams(format!("tab id {v} exceeds u32 range")))
+        })?;
     let msg = mgr
         .close_tab(tab_id)
         .await
