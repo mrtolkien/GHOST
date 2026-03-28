@@ -7,9 +7,9 @@
 **Goal:** Add CLI commands to view running agents, recent run history, and detailed
 results for individual runs.
 
-**Architecture:** Two new subcommands under `ghost agent` — `status` (table of
-running + recent runs) and `show` (detail view of a single run). DB-only queries, no
-daemon communication. Extends the existing `AgentCommand` enum in `src/cli/agent.rs`.
+**Architecture:** Two new subcommands under `ghost agent` — `status` (table of running +
+recent runs) and `show` (detail view of a single run). DB-only queries, no daemon
+communication. Extends the existing `AgentCommand` enum in `src/cli/agent.rs`.
 
 **Tech Stack:** clap (CLI), sqlx (DB queries), existing `db::agent_runs` +
 `db::sessions` modules.
@@ -61,8 +61,8 @@ Duration: 12m 11s
 - **Failed runs:** automatically show the full error — last assistant message from the
   session (which typically contains the error/failure reason) printed after the header,
   no `--full` needed
-- `--full`: dumps the full session message history (every user/assistant message,
-  tool calls summarized as one-line descriptions)
+- `--full`: dumps the full session message history (every user/assistant message, tool
+  calls summarized as one-line descriptions)
 - `--json`: structured JSON output of the run record + transcript. Combines with
   `--full` to include full message history in JSON.
 - Accepts full ULID or unique prefix (minimum 4 chars)
@@ -98,8 +98,8 @@ session messages via `agent_session_id` using existing `db::sessions` functions.
 
 - `src/cli/agent.rs` — add `Status` and `Show` variants to `AgentCommand`, implement
   `execute()` handlers
-- `src/db/agent_runs.rs` — add `list_runs_for_status()` (running-first ordering),
-  add `get_run_by_prefix()` (prefix matching)
+- `src/db/agent_runs.rs` — add `list_runs_for_status()` (running-first ordering), add
+  `get_run_by_prefix()` (prefix matching)
 
 **No new files needed.** All logic fits in the existing agent CLI and DB modules.
 
@@ -109,6 +109,7 @@ session messages via `agent_session_id` using existing `db::sessions` functions.
 
 `agent_run.id` is a ULID (26 chars). Table shows first 8 characters. `show` accepts
 either:
+
 - Full ULID
 - Unique prefix (minimum 4 chars, error if ambiguous)
 
@@ -129,20 +130,21 @@ either:
 ```
 
 - `messages` field only present when `--full` is also passed
-- Each message: `{ "role": "user"|"assistant"|"system", "content": "...", "tool_calls": [...] }`
+- Each message:
+  `{ "role": "user"|"assistant"|"system", "content": "...", "tool_calls": [...] }`
 
 ---
 
 ## Implementation Steps
 
 - [ ] **Step 1:** Add `list_runs_for_status()` to `src/db/agent_runs.rs` — query with
-  running-first ordering, optional agent name filter, limit param
+      running-first ordering, optional agent name filter, limit param
 - [ ] **Step 2:** Add `get_run_by_prefix()` to `src/db/agent_runs.rs` — prefix match
-  with ambiguity error
+      with ambiguity error
 - [ ] **Step 3:** Add `Status` and `Show` variants to `AgentCommand` in
-  `src/cli/agent.rs` with clap attributes for flags
+      `src/cli/agent.rs` with clap attributes for flags
 - [ ] **Step 4:** Implement `status` handler — DB query, format as table, print to
-  stdout
+      stdout
 - [ ] **Step 5:** Implement `show` handler — prefix lookup, print header + transcript,
-  handle `--full` (session messages) and `--json` flags
+      handle `--full` (session messages) and `--json` flags
 - [ ] **Step 6:** Run `just ci`, fix any issues

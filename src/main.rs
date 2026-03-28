@@ -132,7 +132,7 @@ async fn dispatch(command: Commands) -> Result<(), GhostError> {
     match command {
         Commands::Daemon => ghost::cli::daemon::execute().await,
         Commands::Init(args) => ghost::cli::init::execute(args).await,
-        Commands::Agent { command } => ghost::cli::agent::execute(command),
+        Commands::Agent { command } => ghost::cli::agent::execute(command).await,
         Commands::Config { command } => ghost::cli::config::execute(command).await,
         Commands::Hack { command } => ghost::cli::hack::execute(command).await,
         Commands::Auth { command } => ghost::cli::auth::execute(command).await,

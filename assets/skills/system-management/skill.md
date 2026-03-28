@@ -1,11 +1,11 @@
 ---
 name: system-management
 description:
-  Use when reading or changing GHOST configuration (providers, models, timing, compaction,
-  services, any config.toml key), adding or switching LLM providers, answering questions
-  about GHOST's own features or capabilities, a CLI tool is missing or "not found",
-  services need starting/stopping/debugging, updating GHOST to a newer version, managing
-  the Nix shell environment, or troubleshooting GHOST setup.
+  Use when reading or changing GHOST configuration (providers, models, timing,
+  compaction, services, any config.toml key), adding or switching LLM providers,
+  answering questions about GHOST's own features or capabilities, a CLI tool is missing
+  or "not found", services need starting/stopping/debugging, updating GHOST to a newer
+  version, managing the Nix shell environment, or troubleshooting GHOST setup.
 ---
 
 # System Management
@@ -35,22 +35,22 @@ If `knowledge_search` returns nothing useful, read the file directly:
 
 Key doc paths for common questions:
 
-| Topic | Doc path (under `references/ghost/docs/`) |
-| --- | --- |
-| Config options | `getting-started/configuration.md` |
-| Providers & models | `ghost/providers.md` |
-| Workspace layout | `getting-started/workspace.md` |
-| Services setup | `getting-started/services.md` |
-| Knowledge system | `knowledge/` |
-| Agents & cron | `agents/` |
-| Skills | `skills-and-tools/` |
-| Sessions & chat | `chat/` |
-| CLI reference | `reference/cli.md` |
+| Topic              | Doc path (under `references/ghost/docs/`) |
+| ------------------ | ----------------------------------------- |
+| Config options     | `getting-started/configuration.md`        |
+| Providers & models | `ghost/providers.md`                      |
+| Workspace layout   | `getting-started/workspace.md`            |
+| Services setup     | `getting-started/services.md`             |
+| Knowledge system   | `knowledge/`                              |
+| Agents & cron      | `agents/`                                 |
+| Skills             | `skills-and-tools/`                       |
+| Sessions & chat    | `chat/`                                   |
+| CLI reference      | `reference/cli.md`                        |
 
-| Rationalization | Reality |
-| --- | --- |
-| "I know how this feature works" | Training data may be stale. The embedded docs reflect the running version. Search first. |
-| "I'll just read the source code" | Docs are faster and written for explanation. Read source only if docs don't answer it. |
+| Rationalization                  | Reality                                                                                  |
+| -------------------------------- | ---------------------------------------------------------------------------------------- |
+| "I know how this feature works"  | Training data may be stale. The embedded docs reflect the running version. Search first. |
+| "I'll just read the source code" | Docs are faster and written for explanation. Read source only if docs don't answer it.   |
 
 ## Configuration
 
@@ -109,17 +109,17 @@ digraph config_decision {
 Most settings take effect after `ghost config reload`. A few require a full daemon
 restart (`ghost reboot`):
 
-| Requires restart | Hot-reloadable |
-| --- | --- |
-| `workspace` (directory path) | `models.*.model`, `models.*.context_window` |
-| `embeddings.dimension` (invalidates stored vectors) | `timing.*` (idle, scheduler tick) |
-| `discord.enabled` (interface toggle) | `compaction.*` (threshold, limits) |
-| | `web.*` (search provider, results, crawl URL) |
-| | `docling.*` (URL, timeout) |
-| | `coding.model` |
-| | `debug.*` (request saving) |
-| | `discord.allowed_user_id` |
-| | `embeddings.url`, `embeddings.model` |
+| Requires restart                                    | Hot-reloadable                                |
+| --------------------------------------------------- | --------------------------------------------- |
+| `workspace` (directory path)                        | `models.*.model`, `models.*.context_window`   |
+| `embeddings.dimension` (invalidates stored vectors) | `timing.*` (idle, scheduler tick)             |
+| `discord.enabled` (interface toggle)                | `compaction.*` (threshold, limits)            |
+|                                                     | `web.*` (search provider, results, crawl URL) |
+|                                                     | `docling.*` (URL, timeout)                    |
+|                                                     | `coding.model`                                |
+|                                                     | `debug.*` (request saving)                    |
+|                                                     | `discord.allowed_user_id`                     |
+|                                                     | `embeddings.url`, `embeddings.model`          |
 
 ### Key Config Reference
 
@@ -131,37 +131,37 @@ knowledge_search(query="config.toml reference", topic="ghost", categories=["refe
 
 Quick reference for common keys:
 
-| Key | Example value | What it controls |
-| --- | --- | --- |
-| `models.default` | `"primary"` or `["primary", "fallback"]` | Default model alias (or fallback chain) |
-| `models.<alias>.provider` | `"openrouter"` | Provider backend for this alias |
-| `models.<alias>.model` | `"anthropic/claude-sonnet-4"` | Model ID at the provider |
-| `models.<alias>.context_window` | `200000` | Token limit for this model |
-| `models.vision` | `"fast"` | Model alias used for vision/PDF tasks |
-| `discord.allowed_user_id` | `"123456789"` | OPERATOR's Discord user ID |
-| `embeddings.url` | `"http://127.0.0.1:11434"` | Embedding endpoint (Ollama) |
-| `embeddings.model` | `"qwen3-embedding:8b"` | Embedding model name |
-| `timing.reflection_idle_minutes` | `10` | Minutes idle before reflection |
-| `compaction.threshold` | `0.90` | Compact at this % of context window |
-| `web.search.provider` | `"brave"` or `"searxng"` | Web search backend |
-| `debug.save_requests` | `false` | Save raw LLM request/response dumps |
+| Key                              | Example value                            | What it controls                        |
+| -------------------------------- | ---------------------------------------- | --------------------------------------- |
+| `models.default`                 | `"primary"` or `["primary", "fallback"]` | Default model alias (or fallback chain) |
+| `models.<alias>.provider`        | `"openrouter"`                           | Provider backend for this alias         |
+| `models.<alias>.model`           | `"anthropic/claude-sonnet-4"`            | Model ID at the provider                |
+| `models.<alias>.context_window`  | `200000`                                 | Token limit for this model              |
+| `models.vision`                  | `"fast"`                                 | Model alias used for vision/PDF tasks   |
+| `discord.allowed_user_id`        | `"123456789"`                            | OPERATOR's Discord user ID              |
+| `embeddings.url`                 | `"http://127.0.0.1:11434"`               | Embedding endpoint (Ollama)             |
+| `embeddings.model`               | `"qwen3-embedding:8b"`                   | Embedding model name                    |
+| `timing.reflection_idle_minutes` | `10`                                     | Minutes idle before reflection          |
+| `compaction.threshold`           | `0.90`                                   | Compact at this % of context window     |
+| `web.search.provider`            | `"brave"` or `"searxng"`                 | Web search backend                      |
+| `debug.save_requests`            | `false`                                  | Save raw LLM request/response dumps     |
 
-| Rationalization | Reality |
-| --- | --- |
-| "I'll just edit config.toml directly" | Use `ghost config set` — it validates before writing and catches syntax errors. |
-| "I need to restart for this to take effect" | Most settings are hot-reloadable. Check the table above. |
-| "I don't know what config keys exist" | Search embedded docs: `knowledge_search(query="configuration", topic="ghost")` |
+| Rationalization                             | Reality                                                                         |
+| ------------------------------------------- | ------------------------------------------------------------------------------- |
+| "I'll just edit config.toml directly"       | Use `ghost config set` — it validates before writing and catches syntax errors. |
+| "I need to restart for this to take effect" | Most settings are hot-reloadable. Check the table above.                        |
+| "I don't know what config keys exist"       | Search embedded docs: `knowledge_search(query="configuration", topic="ghost")`  |
 
 ## Provider Management
 
 ### Supported Providers
 
-| Provider | Config value | Auth | Env var |
-| --- | --- | --- | --- |
-| OpenRouter | `openrouter` | API key | `OPENROUTER_API_KEY` |
-| Kimi Code | `kimi_code` | API key | `KIMI_API_KEY` |
-| Anthropic | `anthropic` | Claude Code OAuth | — |
-| OpenAI OAuth | `openai_oauth` | Device code flow | — |
+| Provider     | Config value   | Auth              | Env var              |
+| ------------ | -------------- | ----------------- | -------------------- |
+| OpenRouter   | `openrouter`   | API key           | `OPENROUTER_API_KEY` |
+| Kimi Code    | `kimi_code`    | API key           | `KIMI_API_KEY`       |
+| Anthropic    | `anthropic`    | Claude Code OAuth | —                    |
+| OpenAI OAuth | `openai_oauth` | Device code flow  | —                    |
 
 Use the config values from this table exactly — they match the `ProviderKind` enum.
 
@@ -217,11 +217,11 @@ digraph provider_decision {
 Use `ghost init` for new providers because it tests the connection before saving. For
 simple model swaps on an existing provider, `ghost config set` + `reload` is faster.
 
-| Rationalization | Reality |
-| --- | --- |
-| "I'll guess the provider name" | Use the exact `ProviderKind` values from the table: `openrouter`, `kimi_code`, `openai_oauth`, `anthropic`. |
-| "I can set the API key in config.toml" | API keys go in `.env`, never in config.toml. Config is not secret. |
-| "I'll skip validation, it's probably fine" | `ghost init` validates with a real API call. Use it for new providers. `ghost status` for existing ones. |
+| Rationalization                            | Reality                                                                                                     |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
+| "I'll guess the provider name"             | Use the exact `ProviderKind` values from the table: `openrouter`, `kimi_code`, `openai_oauth`, `anthropic`. |
+| "I can set the API key in config.toml"     | API keys go in `.env`, never in config.toml. Config is not secret.                                          |
+| "I'll skip validation, it's probably fine" | `ghost init` validates with a real API call. Use it for new providers. `ghost status` for existing ones.    |
 
 ## Services
 

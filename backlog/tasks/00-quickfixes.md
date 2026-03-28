@@ -3,6 +3,9 @@
 - .cache sometimes does not end up empty
 - [ ] References import topics are messy af
 - [ ] Claude token use is wrong
+- [ ] cd /root/GHOST is pointless most of the time
+- [ ] Agents/cron: GHOST tried ghost agent run, got some syntax wrong and bad feedback,
+      UI is unclear on failure, no way to see direct agent message, ...
 
 ---
 

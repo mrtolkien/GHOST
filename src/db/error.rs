@@ -30,4 +30,7 @@ pub enum DatabaseError {
         table: &'static str,
         operation: &'static str,
     },
+
+    #[error("{0}")]
+    Other(String),
 }

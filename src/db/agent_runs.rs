@@ -1,10 +1,13 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 
 use crate::db::error::DatabaseError;
 use crate::db::{new_id, now};
 
-#[derive(Debug, Clone, Deserialize, sqlx::FromRow)]
+/// Minimum prefix length for run ID lookups.
+const MIN_PREFIX_LEN: usize = 4;
+
+#[derive(Debug, Clone, Deserialize, Serialize, sqlx::FromRow)]
 pub struct AgentRunRecord {
     pub id: String,
     pub agent_name: String,
@@ -71,33 +74,35 @@ pub async fn finish_run(
     Ok(())
 }
 
+/// List agent runs, with running agents sorted first, then by start time descending.
 #[tracing::instrument(skip_all, level = "debug", fields(name = name, limit = limit))]
 pub async fn list_runs(
     db: &SqlitePool,
     name: Option<&str>,
     limit: usize,
 ) -> Result<Vec<AgentRunRecord>, DatabaseError> {
+    let order = "ORDER BY (status = 'running') DESC, started_at DESC";
     match name {
         Some(n) => {
-            sqlx::query_as::<_, AgentRunRecord>(
+            let q = format!(
                 "SELECT id, agent_name, run_kind, started_at, finished_at, status, transcript, \
-             agent_session_id FROM agent_run \
-             WHERE agent_name = ? ORDER BY started_at DESC LIMIT ?",
-            )
-            .bind(n)
-            .bind(limit as i64)
-            .fetch_all(db)
-            .await
+                 agent_session_id FROM agent_run WHERE agent_name = ? {order} LIMIT ?"
+            );
+            sqlx::query_as::<_, AgentRunRecord>(&q)
+                .bind(n)
+                .bind(limit as i64)
+                .fetch_all(db)
+                .await
         }
         None => {
-            sqlx::query_as::<_, AgentRunRecord>(
+            let q = format!(
                 "SELECT id, agent_name, run_kind, started_at, finished_at, status, transcript, \
-             agent_session_id FROM agent_run \
-             ORDER BY started_at DESC LIMIT ?",
-            )
-            .bind(limit as i64)
-            .fetch_all(db)
-            .await
+                 agent_session_id FROM agent_run {order} LIMIT ?"
+            );
+            sqlx::query_as::<_, AgentRunRecord>(&q)
+                .bind(limit as i64)
+                .fetch_all(db)
+                .await
         }
     }
     .map_err(|source| DatabaseError::Query {
@@ -124,6 +129,46 @@ pub async fn get_run(
         operation: "get_run",
         source,
     })
+}
+
+/// Fetch a single agent run by full ID or unique prefix.
+/// Returns an error if the prefix is ambiguous (matches multiple runs).
+pub async fn get_run_by_prefix(
+    db: &SqlitePool,
+    prefix: &str,
+) -> Result<Option<AgentRunRecord>, DatabaseError> {
+    if prefix.len() < MIN_PREFIX_LEN {
+        return Err(DatabaseError::Other(format!(
+            "run ID prefix must be at least {MIN_PREFIX_LEN} characters"
+        )));
+    }
+
+    // Try exact match first.
+    if let Some(run) = get_run(db, prefix).await? {
+        return Ok(Some(run));
+    }
+
+    let pattern = format!("{prefix}%");
+    let matches = sqlx::query_as::<_, AgentRunRecord>(
+        "SELECT id, agent_name, run_kind, started_at, finished_at, status, transcript, \
+         agent_session_id FROM agent_run WHERE id LIKE ? LIMIT 2",
+    )
+    .bind(&pattern)
+    .fetch_all(db)
+    .await
+    .map_err(|source| DatabaseError::Query {
+        table: "agent_run",
+        operation: "get_run_by_prefix",
+        source,
+    })?;
+
+    match matches.len() {
+        0 => Ok(None),
+        1 => Ok(Some(matches.into_iter().next().expect("checked len == 1"))),
+        _ => Err(DatabaseError::Other(format!(
+            "ambiguous run ID prefix '{prefix}' — matches multiple runs"
+        ))),
+    }
 }
 
 /// Look up the agent name from an agent_run record by agent session ID.

@@ -185,9 +185,8 @@ mechanical backstop that catches what you miss.
 
 ### Dependencies (do not change without discussion)
 
-Tokio, reqwest (rustls), SQLite (sqlx) + sqlite-vec + FTS5, serenity,
-opentelemetry + tracing-opentelemetry, thiserror, serde, toml, chrono, Ollama (HTTP
-API).
+Tokio, reqwest (rustls), SQLite (sqlx) + sqlite-vec + FTS5, serenity, opentelemetry +
+tracing-opentelemetry, thiserror, serde, toml, chrono, Ollama (HTTP API).
 
 ## Development Flow
 
