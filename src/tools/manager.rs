@@ -141,11 +141,20 @@ impl ToolManager {
             Ok(output) => {
                 let truncated: String =
                     output.text.chars().take(LOG_OUTPUT_PREVIEW_CHARS).collect();
+                let image_count = output.images.len();
                 tracing::info!(
                     output_len = output.text.len() as u64,
                     output = truncated,
+                    image_count,
                     "tool executed",
                 );
+                for img in &output.images {
+                    tracing::info!(
+                        filename = img.filename,
+                        mime_type = img.mime_type,
+                        "image read, will send as base64 to provider",
+                    );
+                }
             }
             Err(err) => {
                 tracing::warn!(error = err.to_string(), "tool execution failed");
