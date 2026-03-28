@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.11.0](https://github.com/mrtolkien/GHOST/compare/v0.10.0...v0.11.0) (2026-03-28)
+
+
+### Features
+
+* add `ghost agent status` and `ghost agent show` CLI commands ([6f5ee1a](https://github.com/mrtolkien/GHOST/commit/6f5ee1ad86b4fdadc6edd7fc8362eacd6c47a7d7))
+
+
+### Documentation
+
+* add agent status CLI spec and remove unused Axum dependency mention ([45943d4](https://github.com/mrtolkien/GHOST/commit/45943d4f9cd3921499b4e418a07bf874f066f8b4))
+* remove Axum from dependency list (not in use) ([66971af](https://github.com/mrtolkien/GHOST/commit/66971afca086a6c26526af88ac08550fba88df18))
+
 ## [0.10.0](https://github.com/mrtolkien/GHOST/compare/v0.9.1...v0.10.0) (2026-03-28)
 
 
