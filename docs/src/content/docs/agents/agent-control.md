@@ -23,7 +23,12 @@ You can also manage agents from the command line:
 
 ```bash
 ghost agent list               # List available agents
-ghost agent validate <name>    # Validate an agent's Lua config
-ghost agent run <name> [prompt] # Run an agent manually
-ghost agent logs [name]        # View agent run logs
+ghost agent validate [name]    # Validate agent Lua configs
+ghost agent status             # Running agents + recent runs
+ghost agent show <run_id>      # View run details and transcript
 ```
+
+Use `ghost agent status` to see what's running and recent history, then
+`ghost agent show <id>` to inspect a specific run. Failed runs
+automatically show the error. Add `--full` for the complete message
+history, or `--json` for machine-readable output.

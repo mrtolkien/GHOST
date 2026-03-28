@@ -106,6 +106,44 @@ ghost hack resume <id> [--prompt "task"]   # Resume a previous session
 ghost hack list                            # List recent sessions
 ```
 
+## ghost agent
+
+Discover, validate, and inspect agents.
+
+```bash
+ghost agent list               # List all discovered agents
+ghost agent validate [name]    # Validate agent Lua configs (all or one)
+ghost agent status             # Running agents + recent runs
+ghost agent show <run_id>      # Details of a specific run
+```
+
+### ghost agent status
+
+Table of running agents and recent completed/failed runs.
+
+```bash
+ghost agent status                     # Last 20 runs
+ghost agent status --agent my-agent    # Filter by agent name
+ghost agent status --limit 50          # Show more runs
+```
+
+Running agents appear first, sorted by start time.
+
+### ghost agent show
+
+View the result of a specific agent run. Accepts a full run ID or a
+unique prefix (minimum 4 characters).
+
+```bash
+ghost agent show 01JQ8A2B              # Transcript only
+ghost agent show 01JQ8A2B --full       # Include full message history
+ghost agent show 01JQ8A2B --json       # JSON output
+ghost agent show 01JQ8A2B --full --json
+```
+
+Failed runs automatically include the error message. Use `--json` for
+machine-readable output (e.g. piping to another agent).
+
 ## ghost session
 
 Inspect chat sessions.
