@@ -71,14 +71,19 @@ pub async fn execute(command: DocumentCommand) -> Result<(), GhostError> {
                     },
                     topic: topic.clone(),
                 };
-                // Resolve vision provider and model name
-                let vision_alias = config.models.vision.as_deref();
+                // Resolve vision provider and model — fall back to default if
+                // no dedicated vision alias is configured.
+                let vision_alias = config
+                    .models
+                    .vision
+                    .as_deref()
+                    .unwrap_or(&config.models.default);
                 let vision_provider: Option<std::sync::Arc<dyn crate::providers::types::Provider>> =
-                    vision_alias.and_then(|alias| {
-                        crate::providers::types::provider_for_alias(&config, Some(alias)).ok()
-                    });
-                let vision_model: Option<String> = vision_alias
-                    .and_then(|alias| config.models.aliases.get(alias))
+                    crate::providers::types::provider_for_alias(&config, Some(vision_alias)).ok();
+                let vision_model: Option<String> = config
+                    .models
+                    .aliases
+                    .get(vision_alias)
                     .map(|m| m.model.clone());
 
                 println!("Importing document from file: {path}");
