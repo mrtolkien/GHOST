@@ -71,26 +71,14 @@ pub async fn convert_hybrid(
                 page_markdowns.push(generate_markdown(&doc, Some(pq.page_no)));
                 continue;
             };
-            match vision::extract_page_with_vision(provider, model, workspace, pdf, pq.page_no)
-                .await
-            {
-                Ok(md) => {
-                    tracing::info!(
-                        page = pq.page_no,
-                        chars = md.len(),
-                        "vision extraction succeeded"
-                    );
-                    page_markdowns.push(md);
-                }
-                Err(e) => {
-                    tracing::warn!(
-                        page = pq.page_no,
-                        error = %e,
-                        "vision fallback failed, using Docling output"
-                    );
-                    page_markdowns.push(generate_markdown(&doc, Some(pq.page_no)));
-                }
-            }
+            let md = vision::extract_page_with_vision(provider, model, workspace, pdf, pq.page_no)
+                .await?;
+            tracing::info!(
+                page = pq.page_no,
+                chars = md.len(),
+                "vision extraction succeeded"
+            );
+            page_markdowns.push(md);
         }
     }
 

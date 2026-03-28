@@ -20,6 +20,9 @@
             # Python + package manager
             uv python314
 
+            # Document processing
+            poppler_utils
+
             # Database
             sqlite-interactive
           ];

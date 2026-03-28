@@ -2,6 +2,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use crate::providers::types::{ChatMessage, ChatRequest, ContentBlock, Provider, Role};
+use crate::tools::shell::read_shell_bin;
 
 use super::DoclingError;
 
@@ -15,6 +16,9 @@ Rules:
   [Image: detailed description of what the image shows].
 - Do not skip any text, including fine print, footnotes, and labels.
 - Do not add any commentary or explanation. Output only the document content.";
+
+/// Render DPI for PDF page screenshots sent to vision models.
+const RENDER_DPI: u32 = 300;
 
 /// Render a PDF page to PNG, send to a vision model, return markdown.
 pub async fn extract_page_with_vision(
@@ -72,7 +76,8 @@ pub async fn extract_page_with_vision(
     Ok(text)
 }
 
-/// Render a PDF page to PNG via the render_page.py script.
+/// Render a PDF page to PNG via `pdftoppm` (from poppler-utils, provided
+/// by the workspace nix shell).
 ///
 /// Returns `(png_path, temp_dir_guard)`. Keep the guard alive until done
 /// with the PNG file.
@@ -81,35 +86,46 @@ async fn render_page(
     pdf_path: &Path,
     page_no: u32,
 ) -> Result<(std::path::PathBuf, tempfile::TempDir), DoclingError> {
-    let script = workspace.join("services/docling/render_page.py");
-    if !script.exists() {
-        return Err(DoclingError::RenderPage(format!(
-            "render_page.py not found at {}",
-            script.display()
-        )));
-    }
-
     let tmp_dir = tempfile::tempdir().map_err(DoclingError::Io)?;
+    // pdftoppm appends ".png" to the output prefix with -singlefile
+    let output_prefix = tmp_dir.path().join(format!("page_{page_no}"));
     let output_path = tmp_dir.path().join(format!("page_{page_no}.png"));
 
-    let result = tokio::process::Command::new("uv")
-        .arg("run")
-        .arg(&script)
-        .arg("--path")
+    let page_str = page_no.to_string();
+    let dpi_str = RENDER_DPI.to_string();
+
+    let mut cmd = tokio::process::Command::new("pdftoppm");
+    cmd.args(["-png", "-singlefile"])
+        .args(["-f", &page_str, "-l", &page_str])
+        .args(["-r", &dpi_str])
         .arg(pdf_path)
-        .arg("--page")
-        .arg(page_no.to_string())
-        .arg("--output")
-        .arg(&output_path)
+        .arg(&output_prefix)
         .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped());
+
+    // Prepend nix shell bin to PATH so pdftoppm is found.
+    if let Some(nix_bin) = read_shell_bin(workspace) {
+        let current_path = std::env::var("PATH").unwrap_or_default();
+        cmd.env("PATH", format!("{nix_bin}:{current_path}"));
+    }
+
+    let result = cmd
         .output()
         .await
-        .map_err(|e| DoclingError::RenderPage(format!("failed to spawn uv: {e}")))?;
+        .map_err(|e| DoclingError::RenderPage(format!("failed to spawn pdftoppm: {e}")))?;
 
     if !result.status.success() {
         let stderr = String::from_utf8_lossy(&result.stderr);
-        return Err(DoclingError::RenderPage(stderr.to_string()));
+        return Err(DoclingError::RenderPage(format!(
+            "pdftoppm failed: {stderr}"
+        )));
+    }
+
+    if !output_path.exists() {
+        return Err(DoclingError::RenderPage(format!(
+            "pdftoppm produced no output at {}",
+            output_path.display()
+        )));
     }
 
     Ok((output_path, tmp_dir))

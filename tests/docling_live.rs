@@ -6,6 +6,8 @@ use std::sync::Arc;
 /// Test with MockProvider: Docling converts the lotion PDF, quality check flags
 /// the page as bad, vision fallback is invoked with a MockProvider, and the
 /// mock response text appears in the final markdown.
+///
+/// Requires `pdftoppm` (poppler-utils) on PATH for page rendering.
 #[cfg(feature = "live-tests")]
 #[tokio::test]
 async fn hybrid_extraction_calls_vision_for_bad_page() {
@@ -30,15 +32,7 @@ async fn hybrid_extraction_calls_vision_for_bad_page() {
     let requests = mock.requests();
     let provider: Arc<dyn ghost::providers::Provider> = Arc::new(mock);
 
-    // Set up a temp workspace with the render_page.py script in the expected
-    // location (services/docling/render_page.py).
     let workspace_dir = tempfile::tempdir().expect("create workspace tempdir");
-    let services_dir = workspace_dir.path().join("services/docling");
-    std::fs::create_dir_all(&services_dir).expect("create services/docling dir");
-    let render_script_src =
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/services/docling/render_page.py");
-    std::fs::copy(&render_script_src, services_dir.join("render_page.py"))
-        .expect("copy render_page.py");
 
     // Use the HTTP backend (docling-serve) so we don't need convert.py locally.
     let docling_url = std::env::var("DOCLING_URL").expect("DOCLING_URL must be set for live tests");

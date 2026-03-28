@@ -2,64 +2,84 @@
 
 ## [0.11.1](https://github.com/mrtolkien/GHOST/compare/v0.11.0...v0.11.1) (2026-03-28)
 
-
 ### Documentation
 
-* document ghost agent status and show commands ([634ac36](https://github.com/mrtolkien/GHOST/commit/634ac369684ce322f195a91c5319569aee3c37d6))
+- document ghost agent status and show commands
+  ([634ac36](https://github.com/mrtolkien/GHOST/commit/634ac369684ce322f195a91c5319569aee3c37d6))
 
 ## [0.11.0](https://github.com/mrtolkien/GHOST/compare/v0.10.0...v0.11.0) (2026-03-28)
 
-
 ### Features
 
-* add `ghost agent status` and `ghost agent show` CLI commands ([6f5ee1a](https://github.com/mrtolkien/GHOST/commit/6f5ee1ad86b4fdadc6edd7fc8362eacd6c47a7d7))
-
+- add `ghost agent status` and `ghost agent show` CLI commands
+  ([6f5ee1a](https://github.com/mrtolkien/GHOST/commit/6f5ee1ad86b4fdadc6edd7fc8362eacd6c47a7d7))
 
 ### Documentation
 
-* add agent status CLI spec and remove unused Axum dependency mention ([45943d4](https://github.com/mrtolkien/GHOST/commit/45943d4f9cd3921499b4e418a07bf874f066f8b4))
-* remove Axum from dependency list (not in use) ([66971af](https://github.com/mrtolkien/GHOST/commit/66971afca086a6c26526af88ac08550fba88df18))
+- add agent status CLI spec and remove unused Axum dependency mention
+  ([45943d4](https://github.com/mrtolkien/GHOST/commit/45943d4f9cd3921499b4e418a07bf874f066f8b4))
+- remove Axum from dependency list (not in use)
+  ([66971af](https://github.com/mrtolkien/GHOST/commit/66971afca086a6c26526af88ac08550fba88df18))
 
 ## [0.10.0](https://github.com/mrtolkien/GHOST/compare/v0.9.1...v0.10.0) (2026-03-28)
 
-
 ### Features
 
-* stop sending default max_tokens to Anthropic API ([4d0f072](https://github.com/mrtolkien/GHOST/commit/4d0f0727af60cf27f5892992a0eaa5af05f3f3eb))
-
+- stop sending default max_tokens to Anthropic API
+  ([4d0f072](https://github.com/mrtolkien/GHOST/commit/4d0f0727af60cf27f5892992a0eaa5af05f3f3eb))
 
 ### Bug Fixes
 
-* clamp duration to zero before f64→u64 cast ([56f8bc3](https://github.com/mrtolkien/GHOST/commit/56f8bc3ecdf1971e474dd2064cb2542290ae5756))
-* fall back to default model for document import vision extraction ([8dafb5b](https://github.com/mrtolkien/GHOST/commit/8dafb5b9a39dd479d82a43744a79bebb8c2ce096))
-* log errors from watcher note sync instead of silently dropping ([a91ca2b](https://github.com/mrtolkien/GHOST/commit/a91ca2be9d123c5bffe149a582cd0427fb6b4a44))
-* log image details when tools return images for clearer tracing ([fc99621](https://github.com/mrtolkien/GHOST/commit/fc996211bd1ffbffaa57a8e360259d27f82fa20b))
-* persist recovery nudge to DB to prevent compaction ID mismatch ([bd7affb](https://github.com/mrtolkien/GHOST/commit/bd7affbcc59caf28da8a6a31348fd9fab48e9283))
-* remove .await from de-async'd browser methods in tests ([77fb70e](https://github.com/mrtolkien/GHOST/commit/77fb70e272d14e9b14d1e3f887ee6b9c465adaad))
-* resolve all clippy warnings in production code ([ca25e7d](https://github.com/mrtolkien/GHOST/commit/ca25e7d11e168c65bcd8bfcab892c0cd8d8884d6))
-* resolve all clippy warnings in test code ([0cde519](https://github.com/mrtolkien/GHOST/commit/0cde5195ce2967f84c396ca0a3264e6579a1c495))
-* restore required max_tokens field with 128K default ([bee8209](https://github.com/mrtolkien/GHOST/commit/bee8209f640925877e9c0945933c9e795c78253c))
-* safe i64→usize cast for reference counts ([7ff955b](https://github.com/mrtolkien/GHOST/commit/7ff955b8020957b65caf413822c24867e173aa20))
-* safe u64→u32 casts in browser tool and accessibility ([04bdd07](https://github.com/mrtolkien/GHOST/commit/04bdd070a3b9e057a1554e2b05058c0b4a785621))
-* trace level reconciliation span ([5ae44d4](https://github.com/mrtolkien/GHOST/commit/5ae44d4a6e298a05c9d9493af2b5659cd7417962))
-* use checked_sub for Instant arithmetic ([aef64cc](https://github.com/mrtolkien/GHOST/commit/aef64ccd199570b02dcee9d793bd644d4694f73e))
-
+- clamp duration to zero before f64→u64 cast
+  ([56f8bc3](https://github.com/mrtolkien/GHOST/commit/56f8bc3ecdf1971e474dd2064cb2542290ae5756))
+- fall back to default model for document import vision extraction
+  ([8dafb5b](https://github.com/mrtolkien/GHOST/commit/8dafb5b9a39dd479d82a43744a79bebb8c2ce096))
+- log errors from watcher note sync instead of silently dropping
+  ([a91ca2b](https://github.com/mrtolkien/GHOST/commit/a91ca2be9d123c5bffe149a582cd0427fb6b4a44))
+- log image details when tools return images for clearer tracing
+  ([fc99621](https://github.com/mrtolkien/GHOST/commit/fc996211bd1ffbffaa57a8e360259d27f82fa20b))
+- persist recovery nudge to DB to prevent compaction ID mismatch
+  ([bd7affb](https://github.com/mrtolkien/GHOST/commit/bd7affbcc59caf28da8a6a31348fd9fab48e9283))
+- remove .await from de-async'd browser methods in tests
+  ([77fb70e](https://github.com/mrtolkien/GHOST/commit/77fb70e272d14e9b14d1e3f887ee6b9c465adaad))
+- resolve all clippy warnings in production code
+  ([ca25e7d](https://github.com/mrtolkien/GHOST/commit/ca25e7d11e168c65bcd8bfcab892c0cd8d8884d6))
+- resolve all clippy warnings in test code
+  ([0cde519](https://github.com/mrtolkien/GHOST/commit/0cde5195ce2967f84c396ca0a3264e6579a1c495))
+- restore required max_tokens field with 128K default
+  ([bee8209](https://github.com/mrtolkien/GHOST/commit/bee8209f640925877e9c0945933c9e795c78253c))
+- safe i64→usize cast for reference counts
+  ([7ff955b](https://github.com/mrtolkien/GHOST/commit/7ff955b8020957b65caf413822c24867e173aa20))
+- safe u64→u32 casts in browser tool and accessibility
+  ([04bdd07](https://github.com/mrtolkien/GHOST/commit/04bdd070a3b9e057a1554e2b05058c0b4a785621))
+- trace level reconciliation span
+  ([5ae44d4](https://github.com/mrtolkien/GHOST/commit/5ae44d4a6e298a05c9d9493af2b5659cd7417962))
+- use checked_sub for Instant arithmetic
+  ([aef64cc](https://github.com/mrtolkien/GHOST/commit/aef64ccd199570b02dcee9d793bd644d4694f73e))
 
 ### Refactoring
 
-* bundle mutable traversal state into RenderState ([d8a743f](https://github.com/mrtolkien/GHOST/commit/d8a743f821d6eb24352f9d41ed1eb06df39d0225))
-* decompose run_tool_loop into focused helpers ([34e0bef](https://github.com/mrtolkien/GHOST/commit/34e0befbaa24f400e385820bd61a656a96c8e56d))
-* fix remaining too_many_arguments warnings ([7845197](https://github.com/mrtolkien/GHOST/commit/7845197d4c1b6578782ca0ead94e1661792403bc))
-* introduce MessagePayload struct for session DB functions ([88d7289](https://github.com/mrtolkien/GHOST/commit/88d72899847f52600aff2346e0aa2b1c3fb83d30))
-* introduce NoteInput struct for knowledge DB functions ([3e2994a](https://github.com/mrtolkien/GHOST/commit/3e2994ab9eb5ef7caf5198075ecbd568770b8292))
-* introduce ToolLoopContext for run_tool_loop ([a3495a4](https://github.com/mrtolkien/GHOST/commit/a3495a437f24f3b0120316c7ab9415100ffcff95))
-* remove non-adaptive thinking path for older models ([9f272e1](https://github.com/mrtolkien/GHOST/commit/9f272e1e4ec1e6c5efca0c4ea39810033cc19aca))
-* remove unused async from 8 functions ([7e050a1](https://github.com/mrtolkien/GHOST/commit/7e050a176cf06ac3bc5544f36f596a2878ec3e40))
-
+- bundle mutable traversal state into RenderState
+  ([d8a743f](https://github.com/mrtolkien/GHOST/commit/d8a743f821d6eb24352f9d41ed1eb06df39d0225))
+- decompose run_tool_loop into focused helpers
+  ([34e0bef](https://github.com/mrtolkien/GHOST/commit/34e0befbaa24f400e385820bd61a656a96c8e56d))
+- fix remaining too_many_arguments warnings
+  ([7845197](https://github.com/mrtolkien/GHOST/commit/7845197d4c1b6578782ca0ead94e1661792403bc))
+- introduce MessagePayload struct for session DB functions
+  ([88d7289](https://github.com/mrtolkien/GHOST/commit/88d72899847f52600aff2346e0aa2b1c3fb83d30))
+- introduce NoteInput struct for knowledge DB functions
+  ([3e2994a](https://github.com/mrtolkien/GHOST/commit/3e2994ab9eb5ef7caf5198075ecbd568770b8292))
+- introduce ToolLoopContext for run_tool_loop
+  ([a3495a4](https://github.com/mrtolkien/GHOST/commit/a3495a437f24f3b0120316c7ab9415100ffcff95))
+- remove non-adaptive thinking path for older models
+  ([9f272e1](https://github.com/mrtolkien/GHOST/commit/9f272e1e4ec1e6c5efca0c4ea39810033cc19aca))
+- remove unused async from 8 functions
+  ([7e050a1](https://github.com/mrtolkien/GHOST/commit/7e050a176cf06ac3bc5544f36f596a2878ec3e40))
 
 ### Documentation
 
-* expand system-management skill with config, providers, and self-docs ([66a2a41](https://github.com/mrtolkien/GHOST/commit/66a2a4120be2773cc48ce097edd173a82f431419))
+- expand system-management skill with config, providers, and self-docs
+  ([66a2a41](https://github.com/mrtolkien/GHOST/commit/66a2a4120be2773cc48ce097edd173a82f431419))
 
 ## [0.9.1](https://github.com/mrtolkien/GHOST/compare/v0.9.0...v0.9.1) (2026-03-27)
 

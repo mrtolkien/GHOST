@@ -24,7 +24,7 @@ pub fn background_shell_count() -> usize {
 }
 
 /// Read the cached nix shell `bin/` path from `$WORKSPACE/.shell-bin`.
-fn read_shell_bin(workspace: &std::path::Path) -> Option<String> {
+pub(crate) fn read_shell_bin(workspace: &std::path::Path) -> Option<String> {
     let path = workspace.join(SHELL_BIN_FILE);
     std::fs::read_to_string(path).ok().and_then(|s| {
         let trimmed = s.trim().to_string();
