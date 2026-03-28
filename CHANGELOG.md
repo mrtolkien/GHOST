@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.1](https://github.com/mrtolkien/GHOST/compare/v0.11.0...v0.11.1) (2026-03-28)
+
+
+### Documentation
+
+* document ghost agent status and show commands ([634ac36](https://github.com/mrtolkien/GHOST/commit/634ac369684ce322f195a91c5319569aee3c37d6))
+
 ## [0.11.0](https://github.com/mrtolkien/GHOST/compare/v0.10.0...v0.11.0) (2026-03-28)
 
 
