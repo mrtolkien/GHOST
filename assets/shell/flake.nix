@@ -21,7 +21,7 @@
             uv python314
 
             # Document processing
-            poppler_utils
+            poppler-utils
 
             # Database
             sqlite-interactive

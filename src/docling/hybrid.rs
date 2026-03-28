@@ -72,7 +72,15 @@ pub async fn convert_hybrid(
                 continue;
             };
             let md = vision::extract_page_with_vision(provider, model, workspace, pdf, pq.page_no)
-                .await?;
+                .await
+                .map_err(|e| {
+                    tracing::error!(
+                        page = pq.page_no,
+                        error = %e,
+                        "vision extraction failed"
+                    );
+                    e
+                })?;
             tracing::info!(
                 page = pq.page_no,
                 chars = md.len(),
