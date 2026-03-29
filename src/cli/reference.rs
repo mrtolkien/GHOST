@@ -60,7 +60,6 @@ pub enum ReferenceImportCommand {
 pub async fn execute(command: ReferenceCommand) -> Result<(), GhostError> {
     let _observability = crate::observability::init()?;
     let config = crate::config::load()?;
-    crate::config_workspace::bootstrap_workspace(&config)?;
     let db = crate::db::connect(&config.workspace, config.embeddings.dimension).await?;
     let workspace = std::path::Path::new(&config.workspace);
 

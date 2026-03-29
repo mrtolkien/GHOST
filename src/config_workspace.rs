@@ -37,15 +37,23 @@ pub fn bootstrap_workspace_dirs(config: &Config) -> Result<(), ConfigError> {
     Ok(())
 }
 
-/// Phase 2: Install bundled files. Called after update check.
+/// Phase 2: Non-destructive install of bundled files.
+///
+/// Installs new files and auto-updates files the user hasn't touched.
+/// Clean merges are applied silently. Conflicts and modified removals
+/// are left for the daemon boot to handle via Discord.
 pub fn install_bundled_files(config: &Config) -> Result<(), ConfigError> {
-    crate::bundled::install_all(&config.workspace).map_err(|source| ConfigError::WriteFile {
-        path: config.workspace.clone(),
-        source,
+    let changes = crate::bundled::compute_changes(&config.workspace);
+    crate::bundled::apply_silent_updates(&config.workspace, &changes).map_err(|source| {
+        ConfigError::WriteFile {
+            path: config.workspace.clone(),
+            source,
+        }
     })
 }
 
-/// Convenience function that does both phases (for tests).
+/// Full workspace setup: create directories + non-destructive file install.
+/// Used by onboarding and tests.
 #[tracing::instrument(skip_all, fields(workspace = %config.workspace.display()))]
 pub fn bootstrap_workspace(config: &Config) -> Result<(), ConfigError> {
     bootstrap_workspace_dirs(config)?;

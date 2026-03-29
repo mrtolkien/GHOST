@@ -73,7 +73,6 @@ pub enum TaskCommand {
 #[tracing::instrument(skip_all)]
 pub async fn execute(command: ProjectCommand) -> Result<(), GhostError> {
     let config = crate::config::load()?;
-    crate::config_workspace::bootstrap_workspace(&config)?;
 
     match command {
         ProjectCommand::List { status } => cmd_list(&config.workspace, &status),

@@ -62,14 +62,12 @@ async fn send_file(
     // Record in session history (best-effort)
     if let Some(ref sid) = session_id
         && let Ok(config) = crate::config::load()
+        && let Ok(db) = crate::db::connect(&config.workspace, config.embeddings.dimension).await
     {
-        let _ = crate::config_workspace::bootstrap_workspace(&config);
-        if let Ok(db) = crate::db::connect(&config.workspace, config.embeddings.dimension).await {
-            let kind = if is_image { "image" } else { "file" };
-            let cap_suffix = caption.map(|c| format!(" — {c}")).unwrap_or_default();
-            let msg = format!("[sent {kind}: {filename}{cap_suffix}]");
-            let _ = crate::db::sessions::create_message(&db, sid, "system", &msg).await;
-        }
+        let kind = if is_image { "image" } else { "file" };
+        let cap_suffix = caption.map(|c| format!(" — {c}")).unwrap_or_default();
+        let msg = format!("[sent {kind}: {filename}{cap_suffix}]");
+        let _ = crate::db::sessions::create_message(&db, sid, "system", &msg).await;
     }
 
     let kind = if is_image { "Image" } else { "File" };

@@ -61,12 +61,10 @@ pub async fn execute(command: AgentCommand) -> Result<(), GhostError> {
             Ok(())
         }
         AgentCommand::Status { agent, limit } => {
-            crate::config_workspace::bootstrap_workspace(&config)?;
             let db = crate::db::connect(&config.workspace, config.embeddings.dimension).await?;
             execute_status(&db, agent.as_deref(), limit).await
         }
         AgentCommand::Show { run_id, full, json } => {
-            crate::config_workspace::bootstrap_workspace(&config)?;
             let db = crate::db::connect(&config.workspace, config.embeddings.dimension).await?;
             execute_show(&db, &run_id, full, json).await
         }

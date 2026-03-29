@@ -139,8 +139,10 @@ pub struct BundledChanges {
     pub clean_merges: Vec<CleanMerge>,
     /// Both sides changed, merge has conflict markers.
     pub conflicts: Vec<ConflictedMerge>,
-    /// Paths in `.bundled/` that are no longer in the current bundle.
-    pub removed: Vec<String>,
+    /// Files no longer in bundle that the user didn't modify — safe to delete.
+    pub clean_removals: Vec<String>,
+    /// Files no longer in bundle that the user modified — needs interactive decision.
+    pub modified_removals: Vec<String>,
 }
 
 /// Bundle changed, workspace matches old shadow — safe auto-update.
@@ -162,11 +164,14 @@ pub struct ConflictedMerge {
     pub path: &'static str,
     pub conflict_content: String,
     pub bundled_content: &'static str,
+    /// The user's workspace content before merge (for showing diffs).
+    pub workspace_content: String,
 }
 
 impl BundledChanges {
-    pub fn has_updates(&self) -> bool {
-        !self.clean_merges.is_empty() || !self.conflicts.is_empty() || !self.removed.is_empty()
+    /// Whether there are changes that require interactive user decision via Discord.
+    pub fn has_interactive_updates(&self) -> bool {
+        !self.conflicts.is_empty() || !self.modified_removals.is_empty()
     }
 }
 
@@ -219,24 +224,39 @@ pub fn compute_changes(workspace: &Path) -> BundledChanges {
                         path: file.path,
                         conflict_content: conflict,
                         bundled_content: file.content,
+                        workspace_content: ws.clone(),
                     });
                 }
             },
         }
     }
 
-    // Detect removed: scan `.bundled/` for paths not in current bundle
-    let removed = scan_shadow_dir(workspace)
-        .into_iter()
-        .filter(|p| !current_paths.contains(p.as_str()))
-        .collect();
+    // Detect removed: scan `.bundled/` for paths not in current bundle.
+    // Split into clean (user didn't modify → silent delete) vs modified (needs prompt).
+    let mut clean_removals = Vec::new();
+    let mut modified_removals = Vec::new();
+    for path in scan_shadow_dir(workspace) {
+        if current_paths.contains(path.as_str()) {
+            continue;
+        }
+        let shadow = std::fs::read_to_string(workspace.join(".bundled").join(&path)).ok();
+        let ws_content = std::fs::read_to_string(workspace.join(&path)).ok();
+        match (shadow, ws_content) {
+            // Workspace matches shadow (or both missing) → user didn't modify
+            (Some(ref s), Some(ref ws)) if s == ws => clean_removals.push(path),
+            (_, None) => clean_removals.push(path),
+            // Workspace differs from shadow → user modified
+            _ => modified_removals.push(path),
+        }
+    }
 
     BundledChanges {
         new,
         auto_updates,
         clean_merges,
         conflicts,
-        removed,
+        clean_removals,
+        modified_removals,
     }
 }
 
@@ -283,37 +303,11 @@ pub fn generate_diff(old: &str, new: &str) -> String {
     output
 }
 
-/// The user's decisions about which updates to apply.
-pub struct UpdateDecision {
-    pub accepted_paths: Vec<String>,
-    pub accepted_deletions: Vec<String>,
-}
-
-impl UpdateDecision {
-    pub fn accept_all(changes: &BundledChanges) -> Self {
-        Self {
-            accepted_paths: changes
-                .clean_merges
-                .iter()
-                .map(|c| c.path.to_string())
-                .collect(),
-            accepted_deletions: changes.removed.clone(),
-        }
-    }
-
-    pub fn reject_all() -> Self {
-        Self {
-            accepted_paths: Vec::new(),
-            accepted_deletions: Vec::new(),
-        }
-    }
-}
-
-/// Apply the user's update decisions to the workspace.
-pub fn apply_updates(
+/// Apply all non-interactive changes: new files, auto-updates, clean merges,
+/// and clean removals. These are safe to apply without user confirmation.
+pub fn apply_silent_updates(
     workspace: &Path,
     changes: &BundledChanges,
-    decision: &UpdateDecision,
 ) -> Result<(), std::io::Error> {
     // Install new files: write workspace + shadow
     for file in &changes.new {
@@ -325,7 +319,7 @@ pub fn apply_updates(
         write_shadow(workspace, file.path, file.content)?;
     }
 
-    // Auto-updates: write workspace + shadow
+    // Auto-updates: bundle changed, user didn't touch → safe overwrite
     for update in &changes.auto_updates {
         let dest = workspace.join(update.path);
         if let Some(parent) = dest.parent() {
@@ -335,38 +329,77 @@ pub fn apply_updates(
         write_shadow(workspace, update.path, update.bundled_content)?;
     }
 
-    // Clean merges: accepted → write merged_content to workspace,
-    // bundled_content to shadow. Rejected → still update shadow.
+    // Clean merges: both sides changed, no overlap → apply merged result
     for merge in &changes.clean_merges {
-        if decision.accepted_paths.contains(&merge.path.to_string()) {
-            let dest = workspace.join(merge.path);
-            std::fs::write(&dest, &merge.merged_content)?;
-        }
-        // Always update shadow to new bundle content
+        let dest = workspace.join(merge.path);
+        std::fs::write(&dest, &merge.merged_content)?;
         write_shadow(workspace, merge.path, merge.bundled_content)?;
     }
 
-    // Conflicts: write conflict_content to workspace, bundled_content to shadow
+    // Clean removals: user didn't modify → safe to delete
+    for path in &changes.clean_removals {
+        let _ = std::fs::remove_file(workspace.join(path));
+        let _ = std::fs::remove_file(workspace.join(".bundled").join(path));
+    }
+
+    Ok(())
+}
+
+/// The user's decisions about conflicts and modified removals.
+pub struct InteractiveDecision {
+    /// Conflict paths where the user chose "Take update" (overwrite with bundle).
+    pub take_update_paths: Vec<String>,
+    /// Modified removal paths where the user chose "Delete".
+    pub accepted_deletions: Vec<String>,
+}
+
+impl InteractiveDecision {
+    pub fn accept_all(changes: &BundledChanges) -> Self {
+        Self {
+            take_update_paths: changes
+                .conflicts
+                .iter()
+                .map(|c| c.path.to_string())
+                .collect(),
+            accepted_deletions: changes.modified_removals.clone(),
+        }
+    }
+
+    pub fn reject_all() -> Self {
+        Self {
+            take_update_paths: Vec::new(),
+            accepted_deletions: Vec::new(),
+        }
+    }
+}
+
+/// Apply user decisions for conflicts and modified removals.
+pub fn apply_interactive_updates(
+    workspace: &Path,
+    changes: &BundledChanges,
+    decision: &InteractiveDecision,
+) -> Result<(), std::io::Error> {
     for conflict in &changes.conflicts {
-        let dest = workspace.join(conflict.path);
-        std::fs::write(&dest, &conflict.conflict_content)?;
+        if decision
+            .take_update_paths
+            .contains(&conflict.path.to_string())
+        {
+            // "Take update" → overwrite with bundle version
+            let dest = workspace.join(conflict.path);
+            std::fs::write(&dest, conflict.bundled_content)?;
+        }
+        // "Keep mine" → don't touch workspace file
+        // Either way, update shadow so this conflict won't re-trigger
         write_shadow(workspace, conflict.path, conflict.bundled_content)?;
     }
 
-    // Accepted deletions: delete workspace + shadow
-    for path in &decision.accepted_deletions {
-        let dest = workspace.join(path);
-        let _ = std::fs::remove_file(&dest);
-        let shadow = workspace.join(".bundled").join(path);
-        let _ = std::fs::remove_file(&shadow);
-    }
-
-    // Rejected deletions: still remove shadow (file no longer bundled)
-    for path in &changes.removed {
-        if !decision.accepted_deletions.contains(path) {
-            let shadow = workspace.join(".bundled").join(path);
-            let _ = std::fs::remove_file(&shadow);
+    for path in &changes.modified_removals {
+        if decision.accepted_deletions.contains(path) {
+            // "Delete" → remove workspace file
+            let _ = std::fs::remove_file(workspace.join(path));
         }
+        // Either way, remove shadow (file no longer in bundle)
+        let _ = std::fs::remove_file(workspace.join(".bundled").join(path));
     }
 
     Ok(())
@@ -378,25 +411,42 @@ use crate::interfaces::discord::components_v2::*;
 use serenity::http::Http;
 use serenity::model::id::ChannelId;
 
-/// Present bundled file changes to the user via Discord and wait for their
-/// decision. Returns the set of accepted file paths and accepted deletions.
-pub async fn prompt_updates_via_discord(
+/// Present conflicts and modified removals to the user via Discord.
+/// Silent changes (new, auto-updates, clean merges, clean removals) are
+/// already applied before this is called.
+pub async fn prompt_interactive_updates_via_discord(
     changes: &BundledChanges,
     http: &Http,
     channel_id: ChannelId,
     rx: &mut tokio::sync::mpsc::UnboundedReceiver<String>,
-) -> UpdateDecision {
+) -> InteractiveDecision {
     let mut parts = Vec::new();
-    if !changes.clean_merges.is_empty() {
-        parts.push(format!("{} files merged", changes.clean_merges.len()));
-    }
     if !changes.conflicts.is_empty() {
-        parts.push(format!("{} files with conflicts", changes.conflicts.len()));
+        parts.push(format!(
+            "{} file{} with conflicts",
+            changes.conflicts.len(),
+            if changes.conflicts.len() == 1 {
+                ""
+            } else {
+                "s"
+            }
+        ));
     }
-    if !changes.removed.is_empty() {
-        parts.push(format!("{} files removed", changes.removed.len()));
+    if !changes.modified_removals.is_empty() {
+        parts.push(format!(
+            "{} removed file{} you modified",
+            changes.modified_removals.len(),
+            if changes.modified_removals.len() == 1 {
+                ""
+            } else {
+                "s"
+            }
+        ));
     }
-    let summary = format!("**Workspace Update Available**\n{}", parts.join(", "),);
+    let summary = format!(
+        "**Workspace Update — Action Required**\n{}",
+        parts.join(", "),
+    );
 
     let components = vec![container(
         vec![
@@ -414,31 +464,33 @@ pub async fn prompt_updates_via_discord(
         Ok(msg) => msg,
         Err(e) => {
             tracing::error!("Failed to send bundled update dialog: {e}");
-            return UpdateDecision::accept_all(changes);
+            return InteractiveDecision::reject_all();
         }
     };
 
     loop {
         let Some(custom_id) = rx.recv().await else {
-            return UpdateDecision::accept_all(changes);
+            return InteractiveDecision::reject_all();
         };
 
         match custom_id.as_str() {
             "bundled_accept_all" => {
                 let done = vec![container(
-                    vec![text_display("**Workspace Update** — All changes accepted.")],
+                    vec![text_display("**Workspace Update** — All updates accepted.")],
                     Some(0x57F287),
                 )];
                 let _ = edit_v2_message(http, channel_id, msg.id, &done).await;
-                return UpdateDecision::accept_all(changes);
+                return InteractiveDecision::accept_all(changes);
             }
             "bundled_reject_all" => {
                 let done = vec![container(
-                    vec![text_display("**Workspace Update** — All changes rejected.")],
+                    vec![text_display(
+                        "**Workspace Update** — Keeping your versions.",
+                    )],
                     Some(0xED4245),
                 )];
                 let _ = edit_v2_message(http, channel_id, msg.id, &done).await;
-                return UpdateDecision::reject_all();
+                return InteractiveDecision::reject_all();
             }
             "bundled_review" => {
                 let reviewing = vec![container(
@@ -446,50 +498,45 @@ pub async fn prompt_updates_via_discord(
                     Some(0x5865F2),
                 )];
                 let _ = edit_v2_message(http, channel_id, msg.id, &reviewing).await;
-                return Box::pin(review_files(changes, http, channel_id, rx)).await;
+                return Box::pin(review_interactive_files(changes, http, channel_id, rx)).await;
             }
             _ => continue,
         }
     }
 }
 
-/// Present each changed file one by one with Accept/Reject buttons.
-async fn review_files(
+/// Present each conflict and modified removal one by one.
+async fn review_interactive_files(
     changes: &BundledChanges,
     http: &Http,
     channel_id: ChannelId,
     rx: &mut tokio::sync::mpsc::UnboundedReceiver<String>,
-) -> UpdateDecision {
-    let mut accepted_paths: Vec<String> = Vec::new();
+) -> InteractiveDecision {
+    let mut take_update_paths: Vec<String> = Vec::new();
     let mut accepted_deletions: Vec<String> = Vec::new();
-    let total = changes.clean_merges.len() + changes.removed.len();
+    let total = changes.conflicts.len() + changes.modified_removals.len();
 
-    // Review clean merges
-    for (i, merge) in changes.clean_merges.iter().enumerate() {
+    // Review conflicts
+    for (i, conflict) in changes.conflicts.iter().enumerate() {
         let counter = format!("[{}/{}]", i + 1, total);
 
-        // Truncate diff for Discord's 4000 char limit
-        let diff_display = if merge.diff.len() > 3400 {
-            let end = merge.diff.floor_char_boundary(3400);
-            let truncated = &merge.diff[..end];
-            let remaining_lines = merge.diff[end..].lines().count();
-            format!("{truncated}\n... and {remaining_lines} more lines")
-        } else {
-            merge.diff.clone()
-        };
+        // Show what changes if user takes the update (user's version → bundle)
+        let diff = generate_diff(&conflict.workspace_content, conflict.bundled_content);
+        let diff_display = truncate_diff_for_discord(&diff);
 
         let content = format!(
-            "{counter} **{}**\n```diff\n{}\n```",
-            merge.path, diff_display
+            "{counter} **{}** — conflict\nYour changes conflict with an update.\n\
+             ```diff\n{}\n```",
+            conflict.path, diff_display
         );
 
-        let file_id = merge.path.replace('/', "_");
+        let file_id = conflict.path.replace('/', "_");
         let components = vec![container(
             vec![
                 text_display(&content),
                 action_row(vec![
-                    button("Accept", &format!("bundled_file_accept:{file_id}"), 3),
-                    button("Reject", &format!("bundled_file_reject:{file_id}"), 4),
+                    button("Keep mine", &format!("bundled_file_reject:{file_id}"), 2),
+                    button("Take update", &format!("bundled_file_accept:{file_id}"), 3),
                 ]),
             ],
             None,
@@ -498,8 +545,8 @@ async fn review_files(
         let file_msg = match send_v2_message(http, channel_id, &components, Vec::new()).await {
             Ok(m) => m,
             Err(e) => {
-                tracing::error!("Failed to send file review: {e}");
-                accepted_paths.push(merge.path.to_string());
+                tracing::error!("Failed to send conflict review: {e}");
+                // On error, keep user's version (safe default)
                 continue;
             }
         };
@@ -509,17 +556,23 @@ async fn review_files(
                 break;
             };
             if custom_id.starts_with("bundled_file_accept:") {
-                accepted_paths.push(merge.path.to_string());
+                take_update_paths.push(conflict.path.to_string());
                 let done = vec![container(
-                    vec![text_display(&format!("**{}** — accepted", merge.path))],
+                    vec![text_display(&format!(
+                        "**{}** — taking update",
+                        conflict.path
+                    ))],
                     Some(0x57F287),
                 )];
                 let _ = edit_v2_message(http, channel_id, file_msg.id, &done).await;
                 break;
             } else if custom_id.starts_with("bundled_file_reject:") {
                 let done = vec![container(
-                    vec![text_display(&format!("**{}** — rejected", merge.path))],
-                    Some(0xED4245),
+                    vec![text_display(&format!(
+                        "**{}** — keeping yours",
+                        conflict.path
+                    ))],
+                    Some(0xFEE75C),
                 )];
                 let _ = edit_v2_message(http, channel_id, file_msg.id, &done).await;
                 break;
@@ -527,19 +580,21 @@ async fn review_files(
         }
     }
 
-    // Review removed files
-    for (i, path) in changes.removed.iter().enumerate() {
-        let counter = format!("[{}/{}]", changes.clean_merges.len() + i + 1, total);
-        let content =
-            format!("{counter} **{path}**\nThis file was removed from the default bundle.",);
+    // Review modified removals
+    for (i, path) in changes.modified_removals.iter().enumerate() {
+        let counter = format!("[{}/{}]", changes.conflicts.len() + i + 1, total);
+        let content = format!(
+            "{counter} **{path}**\n\
+             This file was removed from defaults, but you have local modifications.",
+        );
 
         let file_id = path.replace('/', "_");
         let components = vec![container(
             vec![
                 text_display(&content),
                 action_row(vec![
-                    button("Delete", &format!("bundled_file_accept:{file_id}"), 4),
                     button("Keep", &format!("bundled_file_reject:{file_id}"), 2),
+                    button("Delete", &format!("bundled_file_accept:{file_id}"), 4),
                 ]),
             ],
             None,
@@ -576,9 +631,20 @@ async fn review_files(
         }
     }
 
-    UpdateDecision {
-        accepted_paths,
+    InteractiveDecision {
+        take_update_paths,
         accepted_deletions,
+    }
+}
+
+fn truncate_diff_for_discord(diff: &str) -> String {
+    if diff.len() > 3400 {
+        let end = diff.floor_char_boundary(3400);
+        let truncated = &diff[..end];
+        let remaining_lines = diff[end..].lines().count();
+        format!("{truncated}\n... and {remaining_lines} more lines")
+    } else {
+        diff.to_string()
     }
 }
 
@@ -594,7 +660,8 @@ mod tests {
         assert!(changes.auto_updates.is_empty());
         assert!(changes.clean_merges.is_empty());
         assert!(changes.conflicts.is_empty());
-        assert!(changes.removed.is_empty());
+        assert!(changes.clean_removals.is_empty());
+        assert!(changes.modified_removals.is_empty());
         assert!(!changes.new.is_empty());
     }
 
@@ -607,7 +674,8 @@ mod tests {
         assert!(changes.auto_updates.is_empty());
         assert!(changes.clean_merges.is_empty());
         assert!(changes.conflicts.is_empty());
-        assert!(changes.removed.is_empty());
+        assert!(changes.clean_removals.is_empty());
+        assert!(changes.modified_removals.is_empty());
     }
 
     #[test]
@@ -626,23 +694,43 @@ mod tests {
     }
 
     #[test]
-    fn removed_bundle_file_detected() {
+    fn clean_removal_when_user_didnt_modify() {
         let dir = TempDir::new().unwrap();
         install_all(dir.path()).unwrap();
 
-        // Write a shadow for a file no longer in the bundle
+        // Shadow and workspace have the same content (user didn't modify)
         let shadow_dir = dir.path().join(".bundled/skills/old-skill");
         std::fs::create_dir_all(&shadow_dir).unwrap();
         std::fs::write(shadow_dir.join("skill.md"), "old").unwrap();
 
-        // Create the file in workspace too
         let ws_dir = dir.path().join("skills/old-skill");
         std::fs::create_dir_all(&ws_dir).unwrap();
         std::fs::write(ws_dir.join("skill.md"), "old").unwrap();
 
         let changes = compute_changes(dir.path());
-        assert_eq!(changes.removed.len(), 1);
-        assert_eq!(changes.removed[0], "skills/old-skill/skill.md");
+        assert_eq!(changes.clean_removals.len(), 1);
+        assert_eq!(changes.clean_removals[0], "skills/old-skill/skill.md");
+        assert!(changes.modified_removals.is_empty());
+    }
+
+    #[test]
+    fn modified_removal_when_user_changed_file() {
+        let dir = TempDir::new().unwrap();
+        install_all(dir.path()).unwrap();
+
+        // Shadow has original content, workspace has user modification
+        let shadow_dir = dir.path().join(".bundled/skills/old-skill");
+        std::fs::create_dir_all(&shadow_dir).unwrap();
+        std::fs::write(shadow_dir.join("skill.md"), "old").unwrap();
+
+        let ws_dir = dir.path().join("skills/old-skill");
+        std::fs::create_dir_all(&ws_dir).unwrap();
+        std::fs::write(ws_dir.join("skill.md"), "user modified this").unwrap();
+
+        let changes = compute_changes(dir.path());
+        assert!(changes.clean_removals.is_empty());
+        assert_eq!(changes.modified_removals.len(), 1);
+        assert_eq!(changes.modified_removals[0], "skills/old-skill/skill.md");
     }
 
     #[test]
@@ -653,11 +741,10 @@ mod tests {
     }
 
     #[test]
-    fn apply_updates_installs_new_files() {
+    fn silent_updates_installs_new_files() {
         let dir = TempDir::new().unwrap();
         let changes = compute_changes(dir.path());
-        let decision = UpdateDecision::accept_all(&changes);
-        apply_updates(dir.path(), &changes, &decision).unwrap();
+        apply_silent_updates(dir.path(), &changes).unwrap();
 
         for file in bundled_files() {
             assert!(
@@ -674,51 +761,33 @@ mod tests {
     }
 
     #[test]
-    fn apply_updates_respects_rejection() {
+    fn interactive_reject_keeps_user_version() {
         let dir = TempDir::new().unwrap();
         install_all(dir.path()).unwrap();
 
         let first = &bundled_files()[0];
 
-        // Set up a clean-merge scenario using multi-line content:
-        // base (shadow) has lines A-B-C, user changed A, bundle
-        // changes C — non-overlapping so merge is clean.
+        // Set up a conflict scenario: shadow != bundle, workspace != shadow,
+        // changes overlap so merge3 produces a conflict.
         let base = "line A\nline B\nline C\n";
         let user_version = "user A\nline B\nline C\n";
-        // Simulate the new bundle having changed line C
-        // Since we can't change the actual bundle, we use a
-        // different approach: set up so shadow != bundle and
-        // workspace != shadow, with changes in different regions
-        // to produce a clean merge.
         write_shadow(dir.path(), first.path, base).unwrap();
         std::fs::write(dir.path().join(first.path), user_version).unwrap();
 
         let changes = compute_changes(dir.path());
-        // Shadow ("line A\nline B\nline C\n") != bundle (actual content),
-        // workspace ("user A\nline B\nline C\n") != shadow → merge3
-        // The merge may be clean or conflict depending on content
-        // overlap. Either way, rejecting should not overwrite workspace
-        // for clean merges.
 
-        if !changes.clean_merges.is_empty() {
-            let decision = UpdateDecision::reject_all();
-            apply_updates(dir.path(), &changes, &decision).unwrap();
+        // Apply silent updates (clean merges get auto-applied)
+        apply_silent_updates(dir.path(), &changes).unwrap();
 
-            // Rejected clean merge: workspace keeps user's content
+        if !changes.conflicts.is_empty() {
+            // Reject all conflicts → keep user's version
+            let decision = InteractiveDecision::reject_all();
+            apply_interactive_updates(dir.path(), &changes, &decision).unwrap();
+
             let content = std::fs::read_to_string(dir.path().join(first.path)).unwrap();
             assert_eq!(content, user_version);
 
-            // But shadow is updated to new bundle content
-            let shadow =
-                std::fs::read_to_string(dir.path().join(".bundled").join(first.path)).unwrap();
-            assert_eq!(shadow, first.content);
-        } else {
-            // If it's a conflict, apply_updates always writes conflict
-            // content. Verify shadow still gets updated.
-            assert!(!changes.conflicts.is_empty());
-            let decision = UpdateDecision::reject_all();
-            apply_updates(dir.path(), &changes, &decision).unwrap();
-
+            // Shadow still updated so conflict won't re-trigger
             let shadow =
                 std::fs::read_to_string(dir.path().join(".bundled").join(first.path)).unwrap();
             assert_eq!(shadow, first.content);

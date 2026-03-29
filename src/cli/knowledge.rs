@@ -53,7 +53,6 @@ pub enum KnowledgeCommand {
 #[tracing::instrument(skip_all)]
 pub async fn execute(command: KnowledgeCommand) -> Result<(), GhostError> {
     let config = crate::config::load()?;
-    crate::config_workspace::bootstrap_workspace(&config)?;
     let db = crate::db::connect(&config.workspace, config.embeddings.dimension).await?;
 
     match command {

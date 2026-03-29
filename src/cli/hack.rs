@@ -34,7 +34,6 @@ pub enum HackCommand {
 
 pub async fn execute(command: HackCommand) -> Result<(), GhostError> {
     let config = config::load()?;
-    crate::config_workspace::bootstrap_workspace(&config)?;
     let db = crate::db::connect(&config.workspace, config.embeddings.dimension).await?;
 
     match command {

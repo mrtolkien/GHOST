@@ -190,18 +190,13 @@ pub async fn boot_with_config(config: Config) -> Result<DaemonHandle, GhostError
         }
     }
 
-    // Check for bundled file changes BEFORE installing
+    // Detect and apply bundled file changes
     let changes = crate::bundled::compute_changes(&config.workspace);
-    let has_updates = changes.has_updates();
+    let has_interactive = changes.has_interactive_updates();
 
-    // Auto-install new files immediately (no conflict possible)
-    for file in &changes.new {
-        let dest = config.workspace.join(file.path);
-        if let Some(parent) = dest.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
-        std::fs::write(&dest, file.content)?;
-    }
+    // Silently apply non-interactive changes (new, auto-updates, clean merges,
+    // clean removals). Conflicts and modified removals need user input via Discord.
+    crate::bundled::apply_silent_updates(&config.workspace, &changes)?;
 
     if let Err(e) = crate::tools::shell::rebuild_shell_env(&config.workspace).await {
         tracing::warn!(error = e.clone(), "nix shell setup failed at boot");
@@ -314,8 +309,8 @@ pub async fn boot_with_config(config: Config) -> Result<DaemonHandle, GhostError
             .with_confirmation_tx(confirmation_tx),
     );
 
-    // Create bundled update channel if there are updates to review
-    let (bundled_tx, bundled_rx) = if has_updates {
+    // Create bundled update channel if there are interactive updates to review
+    let (bundled_tx, bundled_rx) = if has_interactive {
         let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
         (Some(tx), Some(rx))
     } else {
@@ -332,10 +327,10 @@ pub async fn boot_with_config(config: Config) -> Result<DaemonHandle, GhostError
     )
     .await?;
 
-    // If there are updates, prompt the user or auto-accept
-    if has_updates {
+    // If there are interactive updates (conflicts, modified removals), prompt user
+    if has_interactive {
         let cfg = shared_config.current();
-        Box::pin(handle_bundled_updates(
+        Box::pin(handle_bundled_interactive_updates(
             &cfg,
             &changes,
             &db,
@@ -376,7 +371,7 @@ pub async fn boot_with_config(config: Config) -> Result<DaemonHandle, GhostError
     })
 }
 
-async fn handle_bundled_updates(
+async fn handle_bundled_interactive_updates(
     config: &crate::config::Config,
     changes: &crate::bundled::BundledChanges,
     db: &GhostDb,
@@ -386,12 +381,11 @@ async fn handle_bundled_updates(
     let decision = if let (Some(rx), Some(discord)) = (&mut bundled_rx, discord_result) {
         if let Some(channel_id) = resolve_update_channel(db).await {
             info!(
-                merges = changes.clean_merges.len(),
                 conflicts = changes.conflicts.len(),
-                removed = changes.removed.len(),
-                "prompting user for bundled file updates"
+                modified_removals = changes.modified_removals.len(),
+                "prompting user for bundled file conflicts"
             );
-            Box::pin(crate::bundled::prompt_updates_via_discord(
+            Box::pin(crate::bundled::prompt_interactive_updates_via_discord(
                 changes,
                 discord.sender.http(),
                 channel_id,
@@ -399,20 +393,20 @@ async fn handle_bundled_updates(
             ))
             .await
         } else {
-            info!("no Discord channel found, auto-accepting bundled updates");
-            crate::bundled::UpdateDecision::accept_all(changes)
+            info!("no Discord channel found, keeping user versions for conflicts");
+            crate::bundled::InteractiveDecision::reject_all()
         }
     } else {
-        info!("no Discord available, auto-accepting bundled updates");
-        crate::bundled::UpdateDecision::accept_all(changes)
+        info!("no Discord available, keeping user versions for conflicts");
+        crate::bundled::InteractiveDecision::reject_all()
     };
 
-    crate::bundled::apply_updates(&config.workspace, changes, &decision).map_err(|source| {
-        crate::config::ConfigError::WriteFile {
+    crate::bundled::apply_interactive_updates(&config.workspace, changes, &decision).map_err(
+        |source| crate::config::ConfigError::WriteFile {
             path: config.workspace.clone(),
             source,
-        }
-    })?;
+        },
+    )?;
 
     Ok(())
 }
