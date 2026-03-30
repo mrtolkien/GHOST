@@ -95,6 +95,8 @@ Registered via `register_ctx()` when an agent has a database connection. Availab
 | `ctx:filter_transcript(sid)`             | `→ string`                          | Filtered transcript for session                         |
 | `ctx:list_messages(sid)`                 | `→ {role, content, created_at}[]`   | All messages in session                                 |
 | `ctx:curate_web_cache(sid?)`             | `string? → {moved, deleted, edges}` | Classify + move web cache (defaults to current session) |
+| `ctx:send_to_session(sid, content)`      | `→ ()`                              | Inject system message + notify-only event in one session |
+| `ctx:notify_active_sessions(content)`    | `→ ()`                              | Send to all sessions that have an active interface       |
 
 ### Sync Methods
 
@@ -203,6 +205,38 @@ LuaLS type annotations live in `prompts/types/ghost.lua` (embedded in binary, in
 to `agents/.types/ghost.lua`). These provide autocompletion for agent developers.
 
 Update the stubs when modifying any host global or ctx binding.
+
+## Delivering Agent Output to the OPERATOR
+
+Agents that produce a result (briefings, summaries, alerts) should deliver it in
+`post_completion` using `ctx:notify_active_sessions`. This sends the LLM's final
+assistant message to every active interface session (e.g. Discord) as a system message,
+triggering a `notify_only` event so the runtime delivers it without starting a new chat
+turn.
+
+Pattern for a briefing-style agent (e.g. morning-briefing):
+
+```lua
+post_completion = function(ctx)
+    local messages = ctx:list_messages(ctx.session_id)
+    local last = messages[#messages]
+    if not last or last.role ~= "assistant" then return end
+
+    local content = last.content or ""
+
+    -- Deliver briefing to user via all active interface sessions (e.g. Discord)
+    ctx:notify_active_sessions(content)
+
+    -- ... agent-specific bookkeeping (seen URLs, timestamps, etc.) ...
+end,
+```
+
+Use `ctx:send_to_session(session_id, content)` instead when you need to target a single
+known session (e.g. the `trigger_session_id` that spawned the agent).
+
+**Note**: `morning-briefing` is a user-created agent (not bundled in `assets/agents/`)
+and lives only in the deployed GHOST workspace. Apply the pattern above to its
+`post_completion` hook when updating the workspace.
 
 ## Key Patterns
 
