@@ -3,8 +3,8 @@ use std::sync::Arc;
 
 use tokio::task::JoinHandle;
 
-use crate::chat::interrupt::ActiveSessions;
 use crate::chat::SessionChat;
+use crate::chat::interrupt::ActiveSessions;
 use crate::coding::prompt::build_coding_prompt;
 use crate::db;
 use crate::db::GhostDb;
@@ -119,7 +119,7 @@ async fn handle_event(
                     trigger,
                     &system_prompt,
                     &working_dir,
-                    channel_id_str,
+                    channel_id_str.clone(),
                     None,
                 )
                 .await
@@ -130,24 +130,51 @@ async fn handle_event(
                 "triggering GHOST continuation",
             );
             session_chat
-                .chat(session_id, trigger, channel_id_str, None)
+                .chat(session_id, trigger, channel_id_str.clone(), None)
                 .await
         }
     };
 
-    // If the session is already being handled (e.g. by a Discord message),
-    // the running tool loop will see the background task's system message
-    // in its history. No need to trigger a separate response.
-    if matches!(
+    // If the session became busy between our idle check and the chat() call
+    // (e.g. the user sent a new message), wait again and retry once. The
+    // previous code assumed the running tool loop would see the system message,
+    // but that's false when the model is mid-generation and about to end_turn.
+    let chat_result = if matches!(
         &chat_result,
         Err(crate::chat::ChatError::SessionBusy { .. })
     ) {
         tracing::info!(
             session_id = session_id.clone(),
-            "session already active, skipping continuation",
+            "session busy, waiting for idle to retry continuation",
         );
-        return;
-    }
+        if !wait_for_idle(active_sessions, session_id).await {
+            tracing::warn!(
+                session_id = session_id.clone(),
+                "session still not idle after retry, triggering anyway",
+            );
+        }
+        match detect_coding_session(db, session_chat, session_id).await {
+            Some((working_dir, system_prompt)) => {
+                session_chat
+                    .chat_coding(
+                        session_id,
+                        trigger,
+                        &system_prompt,
+                        &working_dir,
+                        channel_id_str.clone(),
+                        None,
+                    )
+                    .await
+            }
+            None => {
+                session_chat
+                    .chat(session_id, trigger, channel_id_str.clone(), None)
+                    .await
+            }
+        }
+    } else {
+        chat_result
+    };
 
     // Send response to Discord.
     match chat_result {
