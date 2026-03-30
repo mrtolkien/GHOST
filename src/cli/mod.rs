@@ -2,6 +2,7 @@ pub mod agent;
 pub mod auth;
 pub mod browsers;
 pub mod config;
+pub mod convert;
 pub mod daemon;
 pub mod document;
 pub mod hack;
