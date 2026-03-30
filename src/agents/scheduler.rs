@@ -57,7 +57,10 @@ pub fn spawn_scheduler(
         let workspace = cfg.workspace.clone();
         let agents_dir = workspace.join("agents");
 
-        let (mut scheduled, mut idle_agents) = build_entries(&workspace);
+        let (mut scheduled, mut idle_agents) = build_entries(&workspace).unwrap_or_else(|e| {
+            tracing::error!(error = e, "scheduler: failed to load crontab at boot");
+            (Vec::new(), Vec::new())
+        });
 
         // Set up file watcher on agents/ directory
         let (fs_tx, mut fs_rx) = mpsc::channel::<PathBuf>(64);
@@ -97,18 +100,22 @@ pub fn spawn_scheduler(
                         while fs_rx.try_recv().is_ok() {}
 
                         info!("agent files changed, reloading");
-                        let (new_scheduled, new_idle) = build_entries(&workspace);
-
-                        if !new_scheduled.is_empty() || !new_idle.is_empty() {
-                            scheduled = new_scheduled;
-                            idle_agents = new_idle;
-                            info!(
-                                scheduled_count = scheduled.len(),
-                                idle_count = idle_agents.len(),
-                                "scheduler entries reloaded",
-                            );
-                        } else {
-                            tracing::warn!("reload returned zero entries, keeping previous entries");
+                        match build_entries(&workspace) {
+                            Ok((new_scheduled, new_idle)) => {
+                                scheduled = new_scheduled;
+                                idle_agents = new_idle;
+                                info!(
+                                    scheduled_count = scheduled.len(),
+                                    idle_count = idle_agents.len(),
+                                    "scheduler entries reloaded",
+                                );
+                            }
+                            Err(e) => {
+                                tracing::error!(
+                                    error = e,
+                                    "scheduler: failed to reload crontab, keeping previous entries",
+                                );
+                            }
                         }
                     }
                 }
@@ -121,18 +128,22 @@ pub fn spawn_scheduler(
                         info!(tick_seconds = tick_secs, "scheduler tick interval updated");
                     }
                     // Reload agent entries in case workspace agents changed
-                    let (new_scheduled, new_idle) = build_entries(&workspace);
-
-                    if !new_scheduled.is_empty() || !new_idle.is_empty() {
-                        scheduled = new_scheduled;
-                        idle_agents = new_idle;
-                        info!(
-                            scheduled_count = scheduled.len(),
-                            idle_count = idle_agents.len(),
-                            "scheduler entries reloaded",
-                        );
-                    } else {
-                        tracing::warn!("reload returned zero entries, keeping previous entries");
+                    match build_entries(&workspace) {
+                        Ok((new_scheduled, new_idle)) => {
+                            scheduled = new_scheduled;
+                            idle_agents = new_idle;
+                            info!(
+                                scheduled_count = scheduled.len(),
+                                idle_count = idle_agents.len(),
+                                "scheduler entries reloaded",
+                            );
+                        }
+                        Err(e) => {
+                            tracing::error!(
+                                error = e,
+                                "scheduler: failed to reload crontab, keeping previous entries",
+                            );
+                        }
                     }
                 }
                 _ = shutdown.changed() => {
@@ -147,18 +158,13 @@ pub fn spawn_scheduler(
 }
 
 /// Build all schedule entries from the crontab.
-fn build_entries(workspace: &Path) -> (Vec<TrackedEntry>, Vec<IdleAgent>) {
+/// Returns `Err` when the crontab cannot be loaded (callers should keep old entries).
+fn build_entries(workspace: &Path) -> Result<(Vec<TrackedEntry>, Vec<IdleAgent>), String> {
     let now = Utc::now();
     let mut scheduled = Vec::new();
     let mut idle_agents = Vec::new();
 
-    let entries = match load_crontab(workspace) {
-        Ok(e) => e,
-        Err(e) => {
-            tracing::error!(error = e.clone(), "scheduler: failed to load crontab");
-            return (scheduled, idle_agents);
-        }
-    };
+    let entries = load_crontab(workspace)?;
 
     for entry in entries {
         match entry.kind {
@@ -195,7 +201,7 @@ fn build_entries(workspace: &Path) -> (Vec<TrackedEntry>, Vec<IdleAgent>) {
         }
     }
 
-    (scheduled, idle_agents)
+    Ok((scheduled, idle_agents))
 }
 
 /// Check and execute due scheduled entries.

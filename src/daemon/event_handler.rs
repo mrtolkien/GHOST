@@ -58,6 +58,26 @@ async fn handle_event(
         "handling session event",
     );
 
+    // Resolve Discord channel: first via interface_sessions, fallback to
+    // coding_sessions.channel_id.
+    let discord_channel_id = resolve_discord_channel(db, session_id).await;
+
+    // For notify-only events, deliver the message content to Discord and stop —
+    // no idle-wait needed since we don't trigger a continuation turn.
+    if event.notify_only {
+        if let Some(sender) = discord_sender
+            && let Some(channel_id) = discord_channel_id
+            && let Err(e) =
+                Box::pin(sender.send_to_channel(channel_id, &event.system_message)).await
+        {
+            tracing::error!(
+                error = e.to_string(),
+                "failed to send notify_only message to Discord",
+            );
+        }
+        return;
+    }
+
     // Wait for the session to be idle before triggering continuation.
     if !wait_for_idle(db, session_id).await {
         tracing::warn!(
@@ -65,10 +85,6 @@ async fn handle_event(
             "session not idle after max polls, triggering anyway",
         );
     }
-
-    // Resolve Discord channel: first via interface_sessions, fallback to
-    // coding_sessions.channel_id.
-    let discord_channel_id = resolve_discord_channel(db, session_id).await;
 
     // Send optional agent summary embed to Discord.
     if let Some(ref discord) = event.discord
@@ -83,22 +99,6 @@ async fn handle_event(
             discord.agent_findings.as_deref(),
         );
         let _ = Box::pin(sender.send_compact_container(channel_id, &summary, None)).await;
-    }
-
-    // For notify-only events, deliver the message content to Discord and stop —
-    // GHOST does not need to produce a continuation response.
-    if event.notify_only {
-        if let Some(sender) = discord_sender
-            && let Some(channel_id) = discord_channel_id
-            && let Err(e) =
-                Box::pin(sender.send_to_channel(channel_id, &event.system_message)).await
-        {
-            tracing::error!(
-                error = e.to_string(),
-                "failed to send notify_only message to Discord",
-            );
-        }
-        return;
     }
 
     // Determine if this is a coding session and trigger the appropriate chat.
