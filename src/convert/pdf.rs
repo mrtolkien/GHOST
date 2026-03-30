@@ -67,14 +67,8 @@ pub async fn convert_pdf(
         )));
     }
 
-    let stem = path
-        .file_stem()
-        .and_then(|n| n.to_str())
-        .unwrap_or("file");
-    let original_filename = path
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or("file");
+    let stem = path.file_stem().and_then(|n| n.to_str()).unwrap_or("file");
+    let original_filename = path.file_name().and_then(|n| n.to_str()).unwrap_or("file");
 
     let slug = slug_from_source(&path.to_string_lossy());
     let staging_dir = create_staging_dir(staging_root, &slug)?;

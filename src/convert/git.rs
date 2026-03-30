@@ -77,11 +77,7 @@ pub async fn convert_git(
 }
 
 /// Run `git clone` with shallow blobless options.
-async fn clone_repo(
-    url: &str,
-    git_ref: Option<&str>,
-    repo_dir: &Path,
-) -> Result<(), ConvertError> {
+async fn clone_repo(url: &str, git_ref: Option<&str>, repo_dir: &Path) -> Result<(), ConvertError> {
     let mut clone_args = vec![
         "clone",
         "--no-checkout",
@@ -111,10 +107,7 @@ async fn clone_repo(
 }
 
 /// Set up sparse checkout for the specified paths.
-async fn sparse_checkout(
-    repo_dir: &Path,
-    paths: &[String],
-) -> Result<(), ConvertError> {
+async fn sparse_checkout(repo_dir: &Path, paths: &[String]) -> Result<(), ConvertError> {
     run_git(repo_dir, &["sparse-checkout", "init", "--cone"]).await?;
     let mut args = vec!["sparse-checkout", "set"];
     let path_strs: Vec<&str> = paths.iter().map(String::as_str).collect();
@@ -131,9 +124,7 @@ fn copy_files_to_staging(
     staging_dir: &Path,
 ) -> Result<(), ConvertError> {
     for file_path in files {
-        let rel_path = file_path
-            .strip_prefix(repo_dir)
-            .unwrap_or(file_path);
+        let rel_path = file_path.strip_prefix(repo_dir).unwrap_or(file_path);
         let dest = staging_dir.join(rel_path);
 
         if let Some(parent) = dest.parent() {
@@ -147,11 +138,7 @@ fn copy_files_to_staging(
 }
 
 /// Walk the repo directory, filtering by paths and extensions.
-fn walk_files(
-    repo_dir: &Path,
-    paths: &[String],
-    extensions: &[String],
-) -> Vec<PathBuf> {
+fn walk_files(repo_dir: &Path, paths: &[String], extensions: &[String]) -> Vec<PathBuf> {
     let mut results = Vec::new();
 
     let roots: Vec<PathBuf> = if paths.is_empty() {
@@ -171,11 +158,7 @@ fn walk_files(
 }
 
 /// Recursively collect files from `dir`, skipping `.git` and filtering by extension.
-fn walk_dir_recursive(
-    dir: &Path,
-    extensions: &[String],
-    out: &mut Vec<PathBuf>,
-) {
+fn walk_dir_recursive(dir: &Path, extensions: &[String], out: &mut Vec<PathBuf>) {
     let Ok(entries) = std::fs::read_dir(dir) else {
         return;
     };
@@ -205,20 +188,15 @@ fn matches_extensions(path: &Path, extensions: &[String]) -> bool {
         .extension()
         .map(|e| format!(".{}", e.to_string_lossy()));
     match ext {
-        Some(e) => {
-            extensions.iter().any(|allowed| {
-                allowed.eq_ignore_ascii_case(&e)
-            })
-        }
+        Some(e) => extensions
+            .iter()
+            .any(|allowed| allowed.eq_ignore_ascii_case(&e)),
         None => false,
     }
 }
 
 /// Run a git command in the repo directory, returning an error on failure.
-async fn run_git(
-    repo_dir: &Path,
-    args: &[&str],
-) -> Result<(), ConvertError> {
+async fn run_git(repo_dir: &Path, args: &[&str]) -> Result<(), ConvertError> {
     let output = Command::new("git")
         .args(args)
         .current_dir(repo_dir)
@@ -237,10 +215,7 @@ async fn run_git(
 }
 
 /// Run a git command and capture its stdout as a string.
-async fn run_git_output(
-    repo_dir: &Path,
-    args: &[&str],
-) -> Result<String, ConvertError> {
+async fn run_git_output(repo_dir: &Path, args: &[&str]) -> Result<String, ConvertError> {
     let output = Command::new("git")
         .args(args)
         .current_dir(repo_dir)
@@ -256,7 +231,6 @@ async fn run_git_output(
         )));
     }
 
-    String::from_utf8(output.stdout).map_err(|e| {
-        ConvertError::Git(format!("invalid UTF-8 output: {e}"))
-    })
+    String::from_utf8(output.stdout)
+        .map_err(|e| ConvertError::Git(format!("invalid UTF-8 output: {e}")))
 }

@@ -43,8 +43,8 @@ pub async fn convert_crawl(
     max_depth: usize,
     max_pages: usize,
 ) -> Result<CrawlConvertResult, ConvertError> {
-    let seed = Url::parse(seed_url)
-        .map_err(|e| ConvertError::Fetch(format!("invalid seed URL: {e}")))?;
+    let seed =
+        Url::parse(seed_url).map_err(|e| ConvertError::Fetch(format!("invalid seed URL: {e}")))?;
     let seed_host = seed
         .host_str()
         .ok_or_else(|| ConvertError::Fetch("seed URL has no host".into()))?
@@ -87,7 +87,9 @@ pub async fn convert_crawl(
 
         // Extract same-host links and enqueue before converting
         if depth < max_depth {
-            enqueue_links(&html, &final_url, &url, &seed_host, &visited, depth, &mut queue);
+            enqueue_links(
+                &html, &final_url, &url, &seed_host, &visited, depth, &mut queue,
+            );
         }
 
         // Convert HTML to markdown and write to staging

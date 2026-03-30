@@ -138,14 +138,10 @@ pub async fn execute(command: ConvertCommand) -> Result<(), GhostError> {
         } => {
             let staging_root = staging_root(&workspace, output.as_deref());
 
-            let result = crate::convert::crawl::convert_crawl(
-                &staging_root,
-                &url,
-                max_depth,
-                max_pages,
-            )
-            .await
-            .map_err(convert_err)?;
+            let result =
+                crate::convert::crawl::convert_crawl(&staging_root, &url, max_depth, max_pages)
+                    .await
+                    .map_err(convert_err)?;
 
             print_crawl_result(&result);
             Ok(())
@@ -155,10 +151,7 @@ pub async fn execute(command: ConvertCommand) -> Result<(), GhostError> {
 
 /// Resolve the staging root directory, using the explicit output path or
 /// falling back to `<workspace>/.staging`.
-fn staging_root(
-    workspace: &std::path::Path,
-    output: Option<&std::path::Path>,
-) -> PathBuf {
+fn staging_root(workspace: &std::path::Path, output: Option<&std::path::Path>) -> PathBuf {
     output
         .map(PathBuf::from)
         .unwrap_or_else(|| workspace.join(STAGING_DIR))

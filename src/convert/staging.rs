@@ -29,9 +29,7 @@ fn slug_from_url(url: &Url) -> String {
 
     // Recognized as a git repo if hosted on a known forge OR path ends with .git
     let looks_like_git = is_git_forge(domain) || path.ends_with(".git");
-    if looks_like_git
-        && let Some(slug) = try_git_slug(path)
-    {
+    if looks_like_git && let Some(slug) = try_git_slug(path) {
         return slugify(&slug);
     }
 
@@ -53,7 +51,9 @@ const GIT_FORGE_DOMAINS: &[&str] = &[
 /// Check whether a domain belongs to a known Git forge.
 fn is_git_forge(domain: &str) -> bool {
     let d = domain.strip_prefix("www.").unwrap_or(domain);
-    GIT_FORGE_DOMAINS.iter().any(|forge| d.eq_ignore_ascii_case(forge))
+    GIT_FORGE_DOMAINS
+        .iter()
+        .any(|forge| d.eq_ignore_ascii_case(forge))
 }
 
 /// Try to extract `owner-repo` from a URL path that looks like a Git repo.
@@ -62,10 +62,7 @@ fn is_git_forge(domain: &str) -> bool {
 /// `owner/repo[.git]` (two leading segments), which covers GitHub, GitLab,
 /// Codeberg, etc.
 fn try_git_slug(path: &str) -> Option<String> {
-    let segments: Vec<&str> = path
-        .split('/')
-        .filter(|s| !s.is_empty())
-        .collect();
+    let segments: Vec<&str> = path.split('/').filter(|s| !s.is_empty()).collect();
 
     // A bare `owner/repo` or `owner/repo.git` has exactly 2 segments.
     if segments.len() != 2 {
@@ -97,10 +94,7 @@ fn slug_from_path(source: &str) -> String {
 ///
 /// If the directory already exists, appends a numeric suffix (`-2`, `-3`, ...)
 /// until a unique name is found.
-pub fn create_staging_dir(
-    staging_root: &Path,
-    slug: &str,
-) -> Result<PathBuf, std::io::Error> {
+pub fn create_staging_dir(staging_root: &Path, slug: &str) -> Result<PathBuf, std::io::Error> {
     let candidate = staging_root.join(slug);
     if !candidate.exists() {
         std::fs::create_dir_all(&candidate)?;

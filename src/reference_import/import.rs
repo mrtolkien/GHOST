@@ -125,9 +125,7 @@ fn collect_markdown_files(path: &Path) -> Result<Vec<(String, std::path::PathBuf
         let filename = path
             .file_name()
             .and_then(|n| n.to_str())
-            .ok_or_else(|| {
-                ImportError::Config(format!("invalid filename: {}", path.display()))
-            })?;
+            .ok_or_else(|| ImportError::Config(format!("invalid filename: {}", path.display())))?;
         return Ok(vec![(filename.to_string(), path.to_path_buf())]);
     }
 
@@ -205,8 +203,7 @@ async fn upsert_provenance(
     created: usize,
     skipped: usize,
 ) -> Result<Option<String>, ImportError> {
-    let (Some(source_type), Some(source_url)) =
-        (&provenance.source_type, &provenance.source_url)
+    let (Some(source_type), Some(source_url)) = (&provenance.source_type, &provenance.source_url)
     else {
         return Ok(None);
     };

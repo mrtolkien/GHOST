@@ -71,7 +71,12 @@ pub async fn execute(command: ReferenceCommand) -> Result<(), GhostError> {
             println!("Topic: {topic}");
 
             let result = crate::reference_import::import_from_path(
-                &db, workspace, &path, &topic, &provenance, None,
+                &db,
+                workspace,
+                &path,
+                &topic,
+                &provenance,
+                None,
             )
             .await?;
 
