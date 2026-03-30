@@ -5,15 +5,19 @@ description:
   documents.
 ---
 
-GHOST can import external content as searchable, embeddable references. There are two
-main import paths: **repository/web import** for git repos and websites, and **document
-import** for PDFs, DOCX, and other files.
+GHOST can import external content as searchable, embeddable references. Import is a
+**two-step flow**: first convert the source to markdown files in a staging directory,
+then import those files into the knowledge base under a topic.
 
-Both paths store content the same way: plain text files on disk under
+Both steps end up storing content the same way: plain text files on disk under
 `references/{topic}/`, mirrored in SQLite with FTS5 full-text search and vector
 embeddings for semantic search.
 
-## Import Paths
+## Step 1: Convert
+
+Convert commands fetch and transform sources into markdown files under `.staging/` in
+the workspace. The staging directory is cleaned up automatically after a successful
+import.
 
 ### Git Repositories (preferred)
 
@@ -21,35 +25,36 @@ Best for documentation sets, code examples, and anything in a git repo. Uses spa
 checkout to fetch only the directories and file types you need.
 
 ```bash
-ghost reference import git \
-    --url https://github.com/DioxusLabs/docsite \
-    --topic dioxus/docs \
+ghost convert git https://github.com/DioxusLabs/docsite \
     --paths docs-src/0.7/src \
     --extensions .md
 ```
 
-| Flag           | Purpose                                                      |
-| -------------- | ------------------------------------------------------------ |
-| `--url`        | Repository URL                                               |
-| `--topic`      | Topic namespace (hierarchical, e.g. `dioxus/docs`)           |
-| `--paths`      | Comma-separated directories to include (omit for whole repo) |
-| `--extensions` | Comma-separated file extensions to include                   |
-| `--ref`        | Pin to a specific branch or tag                              |
+| Flag             | Purpose                                                      |
+| ---------------- | ------------------------------------------------------------ |
+| `--paths`        | Comma-separated directories to include (omit for whole repo) |
+| `--extensions`   | Comma-separated file extensions to include                   |
+| `--ref`          | Pin to a specific branch or tag                              |
+| `--output`       | Override staging output directory                            |
 
 ### Web Crawl (fallback)
 
-For documentation sites with no git source. BFS-crawls same-host links, converts HTML to
-markdown.
+For documentation sites with no git source. BFS-crawls same-host links, converts HTML
+to markdown.
 
 ```bash
-ghost reference import crawl \
-    --url https://docs.example.com/ \
-    --topic example/docs \
+ghost convert crawl https://docs.example.com/ \
     --max-depth 2 \
     --max-pages 30
 ```
 
-### Document Import
+| Flag           | Purpose                                          |
+| -------------- | ------------------------------------------------ |
+| `--max-depth`  | Maximum BFS depth from the seed URL (default: 3) |
+| `--max-pages`  | Maximum pages to crawl (default: 50)             |
+| `--output`     | Override staging output directory                |
+
+### PDF and Documents
 
 For PDFs, DOCX, XLSX, PPTX, and images. Conversion is handled by
 [Docling](https://github.com/docling-project/docling) — either locally via `uv`
@@ -57,28 +62,16 @@ For PDFs, DOCX, XLSX, PPTX, and images. Conversion is handled by
 [docling-serve](https://github.com/docling-project/docling-serve) instance.
 
 ```bash
-# Download first, then import
-curl -L -o uploads/paper.pdf https://example.com/paper.pdf
-ghost document import file --path uploads/paper.pdf --topic papers/ml
-
-# From a local/uploaded file
-ghost document import file --path uploads/rulebook.pdf --topic boardgames/arknova
+ghost convert pdf uploads/paper.pdf
+ghost convert pdf uploads/rulebook.pdf --page-range 1-10
 ```
 
-Originals are preserved in `references/{topic}/_originals/`.
-
-#### Conversion backends
-
-By default, GHOST runs Docling locally via a Python script (requires `uv`). You can
-configure a remote `docling-serve` instance instead:
-
-```toml title="config.toml"
-[docling]
-url = "http://127.0.0.1:5001"
-```
-
-When `[docling].url` is omitted, the local script at
-`$WORKSPACE/services/docling/convert.py` is used.
+| Flag            | Purpose                                               |
+| --------------- | ----------------------------------------------------- |
+| `--no-ocr`      | Disable OCR (faster for born-digital PDFs)            |
+| `--page-range`  | Limit pages, e.g. `1-10`                              |
+| `--timeout`     | Override conversion timeout in seconds                |
+| `--output`      | Override staging output directory                     |
 
 #### Vision fallback for image-heavy pages
 
@@ -97,6 +90,53 @@ vision = "fast"  # Must be a vision-capable model alias
 
 If `models.vision` is not set, the default model is used. The fallback only fires for
 pages that fail quality checks — it costs nothing for PDFs where Docling succeeds.
+
+#### Conversion backends
+
+By default, GHOST runs Docling locally via a Python script (requires `uv`). You can
+configure a remote `docling-serve` instance instead:
+
+```toml title="config.toml"
+[docling]
+url = "http://127.0.0.1:5001"
+```
+
+## Step 2: Import
+
+After converting, import the staging directory (or a single file) as a reference topic:
+
+```bash
+ghost reference import .staging/docsite --topic dioxus/docs \
+    --source-type git \
+    --source-url https://github.com/DioxusLabs/docsite \
+    --version-ref abc1234
+```
+
+| Flag             | Purpose                                                       |
+| ---------------- | ------------------------------------------------------------- |
+| `--topic`        | Topic namespace (hierarchical, e.g. `dioxus/docs`)            |
+| `--source-type`  | `git`, `crawl`, or `file` — recorded for future updates       |
+| `--source-url`   | Original source URL — recorded for future updates             |
+| `--version-ref`  | Version identifier (e.g. git commit hash)                     |
+| `--git-ref`      | Git branch or tag pinned during convert                       |
+
+The staging directory is removed automatically after a successful import.
+
+:::tip
+When GHOST's AI skills run a reference import, they call both commands in sequence and
+pass the provenance flags automatically. You only need to supply them manually when
+running conversions by hand.
+:::
+
+## Staging Directory
+
+The `.staging/` directory in the workspace holds converted markdown files between the
+convert and import steps. Each conversion run creates a subdirectory named after the
+source (e.g. `.staging/docsite/`).
+
+Files there are readable by GHOST for inspection before committing them to the knowledge
+base. After `ghost reference import` succeeds, the staging subdirectory is deleted
+automatically.
 
 ## Storage Model
 
@@ -171,10 +211,11 @@ This removes both the DB records and the workspace files.
 
 ## How GHOST Uses These
 
-GHOST's AI skills handle the decision flow automatically:
+GHOST's AI skills handle the two-step flow automatically:
 
-- The **reference-import** skill decides between git, crawl, or document import based on
-  the source
+- The **reference-import** skill decides between git, crawl, or PDF conversion based on
+  the source, then calls `ghost convert <subcommand>` followed by `ghost reference import`
+  with the provenance flags populated from the convert output
 - Imports run in background mode with the completion watcher triggering a follow-up turn
   when done
 - The **knowledge search** tool finds imported references via BM25 and semantic search
