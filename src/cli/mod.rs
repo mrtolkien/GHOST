@@ -4,7 +4,6 @@ pub mod browsers;
 pub mod config;
 pub mod convert;
 pub mod daemon;
-pub mod document;
 pub mod hack;
 pub mod init;
 pub mod knowledge;
