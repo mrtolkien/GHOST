@@ -85,16 +85,16 @@ Registered via `register_ctx()` when an agent has a database connection. Availab
 
 ### Async Methods
 
-| Method                                   | Signature                           | Description                                             |
-| ---------------------------------------- | ----------------------------------- | ------------------------------------------------------- |
-| `ctx:get(key)`                           | `→ string?`                         | Get agent state KV                                      |
-| `ctx:set(key, value)`                    | `→ ()`                              | Set agent state KV                                      |
-| `ctx:delete(key)`                        | `→ ()`                              | Delete agent state KV                                   |
-| `ctx:count_messages_since(sid, rfc3339)` | `→ integer`                         | Count messages after timestamp                          |
-| `ctx:list_interface_sessions()`          | `→ {interface, session_id}[]`       | All interface sessions                                  |
-| `ctx:filter_transcript(sid)`             | `→ string`                          | Filtered transcript for session                         |
-| `ctx:list_messages(sid)`                 | `→ {role, content, created_at}[]`   | All messages in session                                 |
-| `ctx:curate_web_cache(sid?)`             | `string? → {moved, deleted, edges}` | Classify + move web cache (defaults to current session) |
+| Method                                   | Signature                           | Description                                              |
+| ---------------------------------------- | ----------------------------------- | -------------------------------------------------------- |
+| `ctx:get(key)`                           | `→ string?`                         | Get agent state KV                                       |
+| `ctx:set(key, value)`                    | `→ ()`                              | Set agent state KV                                       |
+| `ctx:delete(key)`                        | `→ ()`                              | Delete agent state KV                                    |
+| `ctx:count_messages_since(sid, rfc3339)` | `→ integer`                         | Count messages after timestamp                           |
+| `ctx:list_interface_sessions()`          | `→ {interface, session_id}[]`       | All interface sessions                                   |
+| `ctx:filter_transcript(sid)`             | `→ string`                          | Filtered transcript for session                          |
+| `ctx:list_messages(sid)`                 | `→ {role, content, created_at}[]`   | All messages in session                                  |
+| `ctx:curate_web_cache(sid?)`             | `string? → {moved, deleted, edges}` | Classify + move web cache (defaults to current session)  |
 | `ctx:send_to_session(sid, content)`      | `→ ()`                              | Inject system message + notify-only event in one session |
 | `ctx:notify_active_sessions(content)`    | `→ ()`                              | Send to all sessions that have an active interface       |
 

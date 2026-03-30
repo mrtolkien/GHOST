@@ -18,26 +18,27 @@ continuation chat turn.
 
 **Root cause:** Scheduler calls `agent_runner.run()` which returns `AgentResult` with
 findings, but nothing delivers them. `AgentContext` has no access to the event pipeline.
-Background agents work because `finish_background()` emits `SessionEvent` — but
-sync-run agents (used by the scheduler) have no equivalent path.
+Background agents work because `finish_background()` emits `SessionEvent` — but sync-run
+agents (used by the scheduler) have no equivalent path.
 
 ---
 
 ## File Map
 
-| File | Action | Responsibility |
-|------|--------|----------------|
-| `src/events.rs` | Modify | Add `notify_only` field to `SessionEvent` |
-| `src/scripting/bindings.rs` | Modify | Add `event_tx` field, two new Lua methods |
-| `src/agents/runner.rs` | Modify | Plumb `event_tx` into `AgentContext` in `setup_agent` and `run_post_completion` |
-| `src/daemon/event_handler.rs` | Modify | Skip continuation when `notify_only` is true |
-| `src/scripting/bindings.rs` (tests) | Modify | Unit test for `notify_active_sessions` |
+| File                                | Action | Responsibility                                                                  |
+| ----------------------------------- | ------ | ------------------------------------------------------------------------------- |
+| `src/events.rs`                     | Modify | Add `notify_only` field to `SessionEvent`                                       |
+| `src/scripting/bindings.rs`         | Modify | Add `event_tx` field, two new Lua methods                                       |
+| `src/agents/runner.rs`              | Modify | Plumb `event_tx` into `AgentContext` in `setup_agent` and `run_post_completion` |
+| `src/daemon/event_handler.rs`       | Modify | Skip continuation when `notify_only` is true                                    |
+| `src/scripting/bindings.rs` (tests) | Modify | Unit test for `notify_active_sessions`                                          |
 
 ---
 
 ### Task 1: Add `notify_only` to `SessionEvent`
 
 **Files:**
+
 - Modify: `src/events.rs:7-15`
 
 - [ ] **Step 1: Add the field**
@@ -72,8 +73,7 @@ For each hit, add `notify_only: false` to the struct literal.
 
 - [ ] **Step 3: Run `just ci` to confirm compilation**
 
-Run: `just ci`
-Expected: All green (the new field is set everywhere).
+Run: `just ci` Expected: All green (the new field is set everywhere).
 
 - [ ] **Step 4: Commit**
 
@@ -86,6 +86,7 @@ feat(events): add notify_only flag to SessionEvent
 ### Task 2: Event handler respects `notify_only`
 
 **Files:**
+
 - Modify: `src/daemon/event_handler.rs:47-157`
 
 - [ ] **Step 1: Modify `handle_event` to skip continuation when `notify_only`**
@@ -158,8 +159,7 @@ async fn handle_event(
 
 - [ ] **Step 2: Run `just ci`**
 
-Run: `just ci`
-Expected: All green.
+Run: `just ci` Expected: All green.
 
 - [ ] **Step 3: Commit**
 
@@ -172,6 +172,7 @@ feat(events): event handler delivers notify_only events without continuation
 ### Task 3: Add `event_tx` to `AgentContext` and expose Lua methods
 
 **Files:**
+
 - Modify: `src/scripting/bindings.rs`
 
 - [ ] **Step 1: Add `event_tx` field to `AgentContext`**
@@ -284,8 +285,7 @@ methods.add_async_method(
 
 - [ ] **Step 4: Run `just ci`**
 
-Run: `just ci`
-Expected: All green.
+Run: `just ci` Expected: All green.
 
 - [ ] **Step 5: Commit**
 
@@ -298,6 +298,7 @@ feat(scripting): add ctx:send_to_session and ctx:notify_active_sessions
 ### Task 4: Plumb `event_tx` through the agent runner
 
 **Files:**
+
 - Modify: `src/agents/runner.rs`
 
 The `event_tx` needs to reach the `AgentContext` in two places: `setup_agent()` and
@@ -368,15 +369,16 @@ Also do the same for `execute_resume`.
 - [ ] **Step 4: Update all call sites**
 
 Update `setup_agent` and `run_post_completion` call sites in:
+
 - `execute_agent` (line ~687)
 - `execute_resume` (line ~762) — pass `None` for event_tx here (resume is interactive)
 - `setup_resume` (calls `setup_agent` internally, line ~543) — pass `None`
-- Background spawn path (`spawn_background_run` and similar) — pass `self.event_tx.clone()`
+- Background spawn path (`spawn_background_run` and similar) — pass
+  `self.event_tx.clone()`
 
 - [ ] **Step 5: Run `just ci`**
 
-Run: `just ci`
-Expected: All green.
+Run: `just ci` Expected: All green.
 
 - [ ] **Step 6: Commit**
 
@@ -389,6 +391,7 @@ feat(agents): plumb event_tx through agent runner to AgentContext
 ### Task 5: Update morning-briefing agent to deliver findings
 
 **Files:**
+
 - Modify: `assets/agents/morning-briefing/` (if bundled) or document the change for the
   deployed server's `~/GHOST/agents/morning-briefing/agent.lua`
 
@@ -397,7 +400,8 @@ URLs. Add notification delivery.
 
 - [ ] **Step 1: Add notification to `post_completion`**
 
-At the end of the existing `post_completion` function in the morning-briefing agent, add:
+At the end of the existing `post_completion` function in the morning-briefing agent,
+add:
 
 ```lua
 post_completion = function(ctx)
@@ -444,6 +448,7 @@ feat(agents): morning-briefing delivers findings via notify_active_sessions
 ### Task 6: Harden scheduler reload (bonus fix)
 
 **Files:**
+
 - Modify: `src/agents/scheduler.rs:94-103,130-140`
 
 While we're here, fix the silent-wipe bug from the diagnosis.
@@ -483,8 +488,8 @@ Same pattern for the `config.changed()` branch.
 
 - [ ] **Step 2: Log counts after reload**
 
-Already included in the code above — the `info!` with `scheduled_count` and
-`idle_count` after successful reload.
+Already included in the code above — the `info!` with `scheduled_count` and `idle_count`
+after successful reload.
 
 - [ ] **Step 3: Change `build_entries` error log to ERROR level**
 
@@ -501,8 +506,7 @@ Change from `warn!` to `error!` — a failed crontab load is always a problem.
 
 - [ ] **Step 4: Run `just ci`**
 
-Run: `just ci`
-Expected: All green.
+Run: `just ci` Expected: All green.
 
 - [ ] **Step 5: Commit**
 

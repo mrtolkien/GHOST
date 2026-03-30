@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use tokio::task::JoinHandle;
 
+use crate::chat::interrupt::ActiveSessions;
 use crate::chat::SessionChat;
 use crate::coding::prompt::build_coding_prompt;
 use crate::db;
@@ -78,8 +79,9 @@ async fn handle_event(
         return;
     }
 
-    // Wait for the session to be idle before triggering continuation.
-    if !wait_for_idle(db, session_id).await {
+    // Wait for any in-flight tool loop to finish before triggering continuation.
+    let active_sessions = session_chat.active_sessions();
+    if !wait_for_idle(active_sessions, session_id).await {
         tracing::warn!(
             session_id = session_id.clone(),
             "session not idle after max polls, triggering anyway",
@@ -176,28 +178,16 @@ async fn handle_event(
     }
 }
 
-/// Poll until the session's latest message indicates no in-flight chat turn.
-/// Accepts any system message as idle (the producer injects the system message
-/// before sending the event) or an assistant message with no tool calls.
-async fn wait_for_idle(db: &GhostDb, session_id: &str) -> bool {
+/// Poll until no tool loop is running for this session.
+///
+/// The `active_sessions` DashMap is the authoritative source of truth — a
+/// session is busy iff it has an entry. The previous DB-message heuristic was
+/// wrong: a system message injected mid-loop doesn't mean the session is idle.
+async fn wait_for_idle(active_sessions: &ActiveSessions, session_id: &str) -> bool {
     for _ in 0..MAX_IDLE_POLLS {
-        let messages = db::sessions::list_messages_by_session(db, session_id)
-            .await
-            .unwrap_or_default();
-
-        if let Some(last) = messages.last() {
-            let has_tool_calls = last.tool_calls_parsed().is_some_and(|tc| !tc.is_empty());
-
-            if last.role == "assistant" && !has_tool_calls {
-                return true;
-            }
-
-            // Any system message means no chat turn is in flight.
-            if last.role == "system" {
-                return true;
-            }
+        if !active_sessions.contains_key(session_id) {
+            return true;
         }
-
         tokio::time::sleep(IDLE_POLL_INTERVAL).await;
     }
 
