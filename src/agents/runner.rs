@@ -139,6 +139,7 @@ impl AgentRunner {
                 args,
                 parent_session_id,
                 cwd: None,
+                event_tx: self.event_tx.clone(),
             },
         )
         .await;
@@ -163,10 +164,13 @@ impl AgentRunner {
             &self.db,
             config,
             agent_name,
-            prompt,
             session_id,
             &cancel_token,
-            None,
+            ResumeInvocation {
+                prompt,
+                cwd: None,
+                event_tx: self.event_tx.clone(),
+            },
         )
         .await;
 
@@ -450,16 +454,16 @@ struct AgentSetup {
     /// Spawn requests accumulated by tool handlers via `ctx:spawn_agent`.
     /// Kept separate from post_completion so both sources are collected.
     build_spawn_requests: Arc<std::sync::Mutex<Vec<SpawnRequest>>>,
+    event_tx: Option<crate::events::SessionEventSender>,
+    parent_session_id: Option<String>,
 }
 
 async fn setup_agent(
     db: &GhostDb,
     config: Arc<Config>,
     agent_name: &str,
-    args: HashMap<String, String>,
     agent_session_id: &str,
-    parent_session_id: Option<&str>,
-    cwd: Option<&PathBuf>,
+    invocation: AgentInvocation<'_>,
 ) -> Result<AgentSetup, AgentError> {
     let (agent_config, script_host) = load_agent_with_host(&config.workspace, agent_name)?;
     let script_host = Arc::new(script_host);
@@ -470,19 +474,21 @@ async fn setup_agent(
         agent_name.to_string(),
         agent_session_id.to_string(),
     );
-    ctx.trigger_session_id = parent_session_id.map(String::from);
+    ctx.trigger_session_id = invocation.parent_session_id.map(String::from);
     ctx = ctx.with_tool_support(Arc::clone(&config), Arc::new(ToolManager::all_available()));
+    ctx.event_tx = invocation.event_tx.clone();
     // Keep a handle so spawn_requests from tool handlers aren't lost
     // when post_completion creates a fresh ctx.
+    let event_tx = invocation.event_tx;
+    let parent_session_id = invocation.parent_session_id.map(String::from);
     let build_spawn_requests = ctx.spawn_requests.clone();
-    let build_result =
-        script_host
-            .call_build(ctx, args)
-            .await
-            .map_err(|e| AgentError::ScriptError {
-                agent: agent_name.to_string(),
-                message: format!("build hook failed: {e}"),
-            })?;
+    let build_result = script_host
+        .call_build(ctx, invocation.args)
+        .await
+        .map_err(|e| AgentError::ScriptError {
+            agent: agent_name.to_string(),
+            message: format!("build hook failed: {e}"),
+        })?;
 
     let provider = match &agent_config.model {
         Some(model_ref) => provider_for_model_ref(&config, model_ref)?,
@@ -507,7 +513,7 @@ async fn setup_agent(
         .with_max_tool_iterations(agent_config.max_iterations)
         .with_compaction_config(agent_compaction);
 
-    if let Some(cwd) = cwd {
+    if let Some(cwd) = invocation.cwd {
         session_chat = session_chat.with_cwd_override(cwd.clone());
     }
 
@@ -517,6 +523,8 @@ async fn setup_agent(
         script_host,
         session_chat,
         build_spawn_requests,
+        event_tx,
+        parent_session_id,
     })
 }
 
@@ -529,6 +537,7 @@ struct ResumeSetup {
     script_host: Arc<ScriptHost>,
     session_chat: SessionChat,
     build_spawn_requests: Arc<std::sync::Mutex<Vec<SpawnRequest>>>,
+    event_tx: Option<crate::events::SessionEventSender>,
 }
 
 async fn setup_resume(
@@ -538,16 +547,20 @@ async fn setup_resume(
     prompt: &str,
     session_id: &str,
     cwd: Option<&PathBuf>,
+    event_tx: Option<crate::events::SessionEventSender>,
 ) -> Result<ResumeSetup, AgentError> {
     // Get config + system prompt from build()
     let setup = setup_agent(
         db,
         Arc::clone(&config),
         agent_name,
-        prompt_args(prompt),
         session_id,
-        None,
-        cwd,
+        AgentInvocation {
+            args: prompt_args(prompt),
+            parent_session_id: None,
+            cwd,
+            event_tx,
+        },
     )
     .await?;
 
@@ -568,13 +581,14 @@ async fn setup_resume(
     let system_prompt = setup.build_result.system_prompt.clone();
 
     if setup.config.has_on_resume {
-        let ctx = AgentContext::new(
+        let mut ctx = AgentContext::new(
             db.clone(),
             config.workspace.clone(),
             agent_name.to_string(),
             session_id.to_string(),
         )
         .with_tool_support(Arc::clone(&config), Arc::new(ToolManager::all_available()));
+        ctx.event_tx = setup.event_tx.clone();
         // Pre-populate editable fields
         *ctx.system_prompt.lock().expect("lock") = Some(system_prompt.clone());
         *ctx.resume_messages.lock().expect("lock") = Some(messages.clone());
@@ -610,6 +624,7 @@ async fn setup_resume(
             script_host: setup.script_host,
             session_chat: setup.session_chat,
             build_spawn_requests: setup.build_spawn_requests,
+            event_tx: setup.event_tx,
         });
     }
 
@@ -627,20 +642,28 @@ async fn setup_resume(
         script_host: setup.script_host,
         session_chat: setup.session_chat,
         build_spawn_requests: setup.build_spawn_requests,
+        event_tx: setup.event_tx,
     })
+}
+
+/// Parameters for the post_completion hook, bundling agent setup with event
+/// context to keep argument counts under the clippy threshold.
+struct PostCompletionParams<'a> {
+    agent_config: &'a AgentConfig,
+    script_host: &'a ScriptHost,
+    parent_session_id: Option<&'a str>,
+    event_tx: Option<crate::events::SessionEventSender>,
 }
 
 /// Run the post_completion hook if present. Returns any spawn requests.
 async fn run_post_completion(
-    agent_config: &AgentConfig,
-    script_host: &ScriptHost,
+    params: PostCompletionParams<'_>,
     db: &GhostDb,
     config: &Arc<Config>,
     agent_name: &str,
     agent_session_id: &str,
-    parent_session_id: Option<&str>,
 ) -> Vec<SpawnRequest> {
-    if agent_config.has_post_completion {
+    if params.agent_config.has_post_completion {
         let mut ctx = AgentContext::new(
             db.clone(),
             config.workspace.clone(),
@@ -648,9 +671,10 @@ async fn run_post_completion(
             agent_session_id.to_string(),
         )
         .with_tool_support(Arc::clone(config), Arc::new(ToolManager::all_available()));
-        ctx.trigger_session_id = parent_session_id.map(String::from);
+        ctx.trigger_session_id = params.parent_session_id.map(String::from);
+        ctx.event_tx = params.event_tx;
         let spawn_requests = ctx.spawn_requests.clone();
-        if let Err(e) = script_host.call_post_completion(ctx).await {
+        if let Err(e) = params.script_host.call_post_completion(ctx).await {
             tracing::warn!(
                 agent_name = agent_name.to_string(),
                 error = e.to_string(),
@@ -668,6 +692,7 @@ struct AgentInvocation<'a> {
     args: HashMap<String, String>,
     parent_session_id: Option<&'a str>,
     cwd: Option<&'a PathBuf>,
+    event_tx: Option<crate::events::SessionEventSender>,
 }
 
 /// Execute a fresh agent run. Returns `AgentResult`.
@@ -688,10 +713,8 @@ async fn execute_agent(
         db,
         Arc::clone(&config),
         agent_name,
-        invocation.args,
         agent_session_id,
-        invocation.parent_session_id,
-        invocation.cwd,
+        invocation,
     )
     .await?;
 
@@ -726,13 +749,16 @@ async fn execute_agent(
     // Also collect spawns from the post_completion hook
     spawns.extend(
         run_post_completion(
-            &setup.config,
-            &setup.script_host,
+            PostCompletionParams {
+                agent_config: &setup.config,
+                script_host: &setup.script_host,
+                parent_session_id: setup.parent_session_id.as_deref(),
+                event_tx: setup.event_tx,
+            },
             db,
             &config,
             agent_name,
             agent_session_id,
-            invocation.parent_session_id,
         )
         .await,
     );
@@ -742,6 +768,13 @@ async fn execute_agent(
         metadata: result.1,
         spawns,
     })
+}
+
+/// Per-invocation parameters for a resume run.
+struct ResumeInvocation<'a> {
+    prompt: &'a str,
+    cwd: Option<&'a PathBuf>,
+    event_tx: Option<crate::events::SessionEventSender>,
 }
 
 /// Resume an existing agent session. Returns `AgentResult`.
@@ -754,12 +787,20 @@ async fn execute_resume(
     db: &GhostDb,
     config: Arc<Config>,
     agent_name: &str,
-    prompt: &str,
     session_id: &str,
     cancel_token: &CancellationToken,
-    cwd: Option<&PathBuf>,
+    invocation: ResumeInvocation<'_>,
 ) -> Result<AgentResult, AgentError> {
-    let resume = setup_resume(db, Arc::clone(&config), agent_name, prompt, session_id, cwd).await?;
+    let resume = setup_resume(
+        db,
+        Arc::clone(&config),
+        agent_name,
+        invocation.prompt,
+        session_id,
+        invocation.cwd,
+        invocation.event_tx,
+    )
+    .await?;
 
     let agent_env = AgentEnv {
         config: &resume.config,
@@ -800,13 +841,16 @@ async fn execute_resume(
     // Also collect spawns from the post_completion hook (resume has no parent)
     spawns.extend(
         run_post_completion(
-            &resume.config,
-            &resume.script_host,
+            PostCompletionParams {
+                agent_config: &resume.config,
+                script_host: &resume.script_host,
+                parent_session_id: None,
+                event_tx: resume.event_tx,
+            },
             db,
             &config,
             agent_name,
             session_id,
-            None,
         )
         .await,
     );
@@ -855,6 +899,7 @@ fn spawn_background_run(task: BackgroundTask, args: HashMap<String, String>) -> 
                     args,
                     parent_session_id: task.parent_session_id.as_deref(),
                     cwd: task.cwd.as_ref(),
+                    event_tx: task.event_tx.clone(),
                 },
             )
             .await;
@@ -876,10 +921,13 @@ fn spawn_background_resume(task: BackgroundTask, prompt: String) -> JoinHandle<(
                 &task.db,
                 Arc::clone(&task.config),
                 &task.agent_name,
-                &prompt,
                 &task.agent_session_id,
                 &task.cancel_token,
-                task.cwd.as_ref(),
+                ResumeInvocation {
+                    prompt: &prompt,
+                    cwd: task.cwd.as_ref(),
+                    event_tx: task.event_tx.clone(),
+                },
             )
             .await;
 
@@ -1037,6 +1085,7 @@ fn spawn_children_inner(
                         args: req.args,
                         parent_session_id: Some(&parent_id),
                         cwd: None,
+                        event_tx: None,
                     },
                 )
                 .await;
