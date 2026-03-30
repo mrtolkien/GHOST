@@ -8,6 +8,7 @@ pub mod config;
 pub mod config_cli;
 pub mod config_workspace;
 pub mod constants;
+pub mod convert;
 pub mod daemon;
 pub mod db;
 pub mod docling;
