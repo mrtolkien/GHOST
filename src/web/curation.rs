@@ -6,11 +6,9 @@ use std::sync::LazyLock;
 use crate::db;
 use crate::db::GhostDb;
 use crate::knowledge::parse_note;
+use crate::reference_import::{ImportProvenance, import_from_path};
 
 use super::url_match::{extract_frontmatter_info, slug_from_url, topic_from_url, urls_match};
-
-/// Max characters for reference content preview stored in DB.
-const REFERENCE_PREVIEW_CHARS: usize = 2000;
 
 /// A web cache file classified by whether it was cited in agent findings.
 #[derive(Debug, Clone)]
@@ -219,58 +217,19 @@ pub async fn link_cited_edges(
         let Some(rel_path) = rel_path else {
             continue;
         };
-        // rel_path has no `references/` prefix (e.g. `topic/domain/file.md`)
-        let topic_name = rel_path.split('/').next().unwrap_or(&domain).to_string();
         let ref_record = match db::knowledge::find_reference_by_url(db, &file.url).await {
             Ok(Some(r)) => r,
             Ok(None) => {
-                // Try by path
+                // curate_references now creates DB records via import_from_path,
+                // so fallback to path lookup only.
                 match db::knowledge::find_reference_by_path(db, &rel_path).await {
                     Ok(Some(r)) => r,
                     _ => {
-                        // File was moved to disk by curate_references but no
-                        // DB record exists yet — create one now.
-                        let topic_id =
-                            match db::knowledge::find_or_create_topic(db, &topic_name).await {
-                                Ok(id) => id,
-                                Err(e) => {
-                                    tracing::warn!(
-                                        topic = topic_name.clone(),
-                                        error = e.to_string(),
-                                        "link_cited_edges: failed to create topic",
-                                    );
-                                    continue;
-                                }
-                            };
-                        let ref_file = workspace.join("references").join(&rel_path);
-                        let content = std::fs::read_to_string(&ref_file).unwrap_or_default();
-                        let preview: String =
-                            content.chars().take(REFERENCE_PREVIEW_CHARS).collect();
-                        let hash = crate::embeddings::pipeline::content_hash(&preview);
-                        match db::knowledge::create_reference(
-                            db,
-                            &topic_id,
-                            &rel_path,
-                            &preview,
-                            Some(&file.url),
-                            None,
-                            Some(&hash),
-                        )
-                        .await
-                        {
-                            Ok(id) => match db::knowledge::get_reference(db, &id).await {
-                                Ok(r) => r,
-                                Err(_) => continue,
-                            },
-                            Err(e) => {
-                                tracing::warn!(
-                                    url = file.url.clone(),
-                                    error = e.to_string(),
-                                    "link_cited_edges: failed to create reference",
-                                );
-                                continue;
-                            }
-                        }
+                        tracing::debug!(
+                            url = file.url.clone(),
+                            "link_cited_edges: no reference record found, skipping",
+                        );
+                        continue;
                     }
                 }
             }
@@ -366,11 +325,12 @@ fn collect_note_sources_recursive(dir: &Path, out: &mut Vec<(String, Vec<String>
 /// Operates only on the `ClassifiedCacheFile` list captured at prompt-build
 /// time — files added to the cache dir after the snapshot are left alone.
 ///
-/// - **Used files** (cited in findings OR URL found in notes) → move to
-///   `references/{topic}/`
+/// - **Used files** (cited in findings OR URL found in notes) → import via
+///   `import_from_path()` (creates DB record + writes to `references/{topic}/`)
 /// - **Unused files** → delete
 #[tracing::instrument(skip_all, fields(total = classified.len()))]
-pub fn curate_references(
+pub async fn curate_references(
+    db: &GhostDb,
     workspace: &Path,
     session_id: &str,
     classified: &[ClassifiedCacheFile],
@@ -406,20 +366,44 @@ pub fn curate_references(
         let note_topic = matching_note.and_then(|nu| nu.topic.clone());
 
         if used && !file.url.is_empty() {
-            match move_to_references(workspace, &cache_path, file, note_topic.as_deref()) {
-                Ok(dest) => {
+            let domain = topic_from_url(&file.url);
+            let topic = match note_topic {
+                Some(t) => format!("{t}/{domain}"),
+                None => domain,
+            };
+
+            let provenance = ImportProvenance {
+                source_type: Some("page".to_string()),
+                source_url: Some(file.url.clone()),
+                ..Default::default()
+            };
+
+            match import_from_path(
+                db,
+                workspace,
+                &cache_path,
+                &topic,
+                &provenance,
+                Some(&file.url),
+            )
+            .await
+            {
+                Ok(r) => {
                     tracing::info!(
                         filename = file.filename.clone(),
-                        dest = dest,
-                        "curate_references: moved",
+                        topic = topic,
+                        created = r.references_created,
+                        "curate_references: imported",
                     );
                     result.moved += 1;
+                    // Delete cache file after successful import
+                    let _ = std::fs::remove_file(&cache_path);
                 }
                 Err(e) => {
                     tracing::warn!(
                         filename = file.filename.clone(),
                         error = e.to_string(),
-                        "curate_references: move failed",
+                        "curate_references: import failed",
                     );
                 }
             }
@@ -515,31 +499,6 @@ fn collect_urls_recursive(dir: &Path, urls: &mut Vec<NoteUrl>) {
             }
         }
     }
-}
-
-/// Move a cache file to the references directory.
-fn move_to_references(
-    workspace: &Path,
-    cache_path: &Path,
-    file: &ClassifiedCacheFile,
-    note_topic: Option<&str>,
-) -> Result<String, std::io::Error> {
-    let domain = topic_from_url(&file.url);
-    let dest_dir = match note_topic {
-        Some(topic) => workspace.join("references").join(topic).join(&domain),
-        None => workspace.join("references").join(&domain),
-    };
-    std::fs::create_dir_all(&dest_dir)?;
-
-    let dest_path = dest_dir.join(&file.filename);
-    std::fs::rename(cache_path, &dest_path)?;
-
-    // Return without `references/` prefix to match DB convention
-    let rel = match note_topic {
-        Some(topic) => format!("{topic}/{domain}/{}", file.filename),
-        None => format!("{domain}/{}", file.filename),
-    };
-    Ok(rel)
 }
 
 /// Find a reference file on disk, checking topic-scoped paths first.
@@ -686,9 +645,10 @@ mod tests {
         assert_eq!(output, "No cached files.");
     }
 
-    #[test]
-    fn curate_references_moves_cited_deletes_uncited() {
+    #[tokio::test]
+    async fn curate_references_moves_cited_deletes_uncited() {
         let dir = TempDir::new().unwrap();
+        let db = crate::db::connect(dir.path(), 384).await.unwrap();
         let cache_dir = dir.path().join(".cache").join("test-session");
         std::fs::create_dir_all(&cache_dir).unwrap();
 
@@ -720,7 +680,7 @@ mod tests {
             },
         ];
 
-        let result = curate_references(dir.path(), "test-session", &classified);
+        let result = curate_references(&db, dir.path(), "test-session", &classified).await;
         assert_eq!(result.moved, 1);
         assert_eq!(result.deleted, 1);
 
@@ -729,9 +689,10 @@ mod tests {
         assert!(!cache_dir.join("uncited.md").exists());
     }
 
-    #[test]
-    fn curate_references_url_in_notes_marks_as_used() {
+    #[tokio::test]
+    async fn curate_references_url_in_notes_marks_as_used() {
         let dir = TempDir::new().unwrap();
+        let db = crate::db::connect(dir.path(), 384).await.unwrap();
         let cache_dir = dir.path().join(".cache").join("test-session");
         let notes_dir = dir.path().join("notes");
         std::fs::create_dir_all(&cache_dir).unwrap();
@@ -757,7 +718,7 @@ mod tests {
             preview: None,
         }];
 
-        let result = curate_references(dir.path(), "test-session", &classified);
+        let result = curate_references(&db, dir.path(), "test-session", &classified).await;
         assert_eq!(result.moved, 1, "URL in notes should trigger move");
         assert!(!cache_dir.join("article.md").exists());
         assert!(
@@ -767,9 +728,10 @@ mod tests {
         );
     }
 
-    #[test]
-    fn curate_references_scopes_under_note_topic() {
+    #[tokio::test]
+    async fn curate_references_scopes_under_note_topic() {
         let dir = TempDir::new().unwrap();
+        let db = crate::db::connect(dir.path(), 384).await.unwrap();
         let cache_dir = dir.path().join(".cache").join("test-session");
         let notes_dir = dir.path().join("notes/rust");
         std::fs::create_dir_all(&cache_dir).unwrap();
@@ -795,7 +757,7 @@ mod tests {
             preview: None,
         }];
 
-        let result = curate_references(dir.path(), "test-session", &classified);
+        let result = curate_references(&db, dir.path(), "test-session", &classified).await;
         assert_eq!(result.moved, 1);
         assert!(
             dir.path()
