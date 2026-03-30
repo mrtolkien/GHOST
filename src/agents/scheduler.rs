@@ -98,8 +98,18 @@ pub fn spawn_scheduler(
 
                         info!("agent files changed, reloading");
                         let (new_scheduled, new_idle) = build_entries(&workspace);
-                        scheduled = new_scheduled;
-                        idle_agents = new_idle;
+
+                        if !new_scheduled.is_empty() || !new_idle.is_empty() {
+                            scheduled = new_scheduled;
+                            idle_agents = new_idle;
+                            info!(
+                                scheduled_count = scheduled.len(),
+                                idle_count = idle_agents.len(),
+                                "scheduler entries reloaded",
+                            );
+                        } else {
+                            tracing::warn!("reload returned zero entries, keeping previous entries");
+                        }
                     }
                 }
                 _ = config.changed() => {
@@ -112,8 +122,18 @@ pub fn spawn_scheduler(
                     }
                     // Reload agent entries in case workspace agents changed
                     let (new_scheduled, new_idle) = build_entries(&workspace);
-                    scheduled = new_scheduled;
-                    idle_agents = new_idle;
+
+                    if !new_scheduled.is_empty() || !new_idle.is_empty() {
+                        scheduled = new_scheduled;
+                        idle_agents = new_idle;
+                        info!(
+                            scheduled_count = scheduled.len(),
+                            idle_count = idle_agents.len(),
+                            "scheduler entries reloaded",
+                        );
+                    } else {
+                        tracing::warn!("reload returned zero entries, keeping previous entries");
+                    }
                 }
                 _ = shutdown.changed() => {
                     info!("unified scheduler shutting down");
@@ -135,7 +155,7 @@ fn build_entries(workspace: &Path) -> (Vec<TrackedEntry>, Vec<IdleAgent>) {
     let entries = match load_crontab(workspace) {
         Ok(e) => e,
         Err(e) => {
-            tracing::warn!(error = e.clone(), "scheduler: failed to load crontab");
+            tracing::error!(error = e.clone(), "scheduler: failed to load crontab");
             return (scheduled, idle_agents);
         }
     };
