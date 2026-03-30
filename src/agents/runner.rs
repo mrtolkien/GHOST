@@ -944,6 +944,7 @@ async fn finish_background(task: BackgroundTask, result: Result<AgentResult, Age
                 session_id: parent_id.clone(),
                 system_message: system_msg,
                 discord,
+                notify_only: false,
             });
         }
     }

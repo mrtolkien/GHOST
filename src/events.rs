@@ -12,6 +12,9 @@ pub struct SessionEvent {
     pub system_message: String,
     /// Optional metadata for Discord presentation
     pub discord: Option<DiscordPayload>,
+    /// When true, deliver content to Discord but skip the continuation chat turn.
+    /// Used by agent notifications that don't need GHOST to respond.
+    pub notify_only: bool,
 }
 
 #[derive(Debug, Clone)]
