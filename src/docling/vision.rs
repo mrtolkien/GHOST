@@ -2,7 +2,6 @@ use std::path::Path;
 use std::sync::Arc;
 
 use crate::providers::types::{ChatMessage, ChatRequest, ContentBlock, Provider, Role};
-use crate::tools::shell::read_shell_bin;
 
 use super::DoclingError;
 
@@ -76,13 +75,13 @@ pub async fn extract_page_with_vision(
     Ok(text)
 }
 
-/// Render a PDF page to PNG via `pdftoppm` (from poppler-utils, provided
-/// by the workspace nix shell).
+/// Render a PDF page to PNG via `pdftoppm` (poppler-utils, fetched on
+/// demand through `nix run` — no permanent shell flake dependency).
 ///
 /// Returns `(png_path, temp_dir_guard)`. Keep the guard alive until done
 /// with the PNG file.
 async fn render_page(
-    workspace: &Path,
+    _workspace: &Path,
     pdf_path: &Path,
     page_no: u32,
 ) -> Result<(std::path::PathBuf, tempfile::TempDir), DoclingError> {
@@ -94,20 +93,15 @@ async fn render_page(
     let page_str = page_no.to_string();
     let dpi_str = RENDER_DPI.to_string();
 
-    let mut cmd = tokio::process::Command::new("pdftoppm");
-    cmd.args(["-png", "-singlefile"])
+    let mut cmd = tokio::process::Command::new("nix");
+    cmd.args(["run", "nixpkgs#poppler_utils", "--", "pdftoppm"])
+        .args(["-png", "-singlefile"])
         .args(["-f", &page_str, "-l", &page_str])
         .args(["-r", &dpi_str])
         .arg(pdf_path)
         .arg(&output_prefix)
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped());
-
-    // Prepend nix shell bin to PATH so pdftoppm is found.
-    if let Some(nix_bin) = read_shell_bin(workspace) {
-        let current_path = std::env::var("PATH").unwrap_or_default();
-        cmd.env("PATH", format!("{nix_bin}:{current_path}"));
-    }
 
     let result = cmd
         .output()
