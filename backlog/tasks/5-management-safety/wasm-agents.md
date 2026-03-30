@@ -9,8 +9,8 @@ gives no typing, no compile-time validation, and no real sandboxing — the curr
 ## Goal
 
 Replace the Lua agent runtime with WASM components compiled from Rust. A WIT interface
-defines the exact contract between Ghost and agents. The shell tool is explicitly excluded
-— the WIT becomes the complete, exhaustive list of what an agent can do.
+defines the exact contract between Ghost and agents. The shell tool is explicitly
+excluded — the WIT becomes the complete, exhaustive list of what an agent can do.
 
 A `ghost-agent` SDK crate (published on crates.io, alpha versioned, own release-please)
 provides macros that eliminate WIT boilerplate. Ghost scaffolds each agent as a minimal
@@ -22,11 +22,11 @@ Rust crate; from there it's a normal crate the author can grow.
   can only call functions explicitly provided in the WIT interface.
 - **No shell tool in agents.** If an agent needs a capability, it should be a named tool
   or a new WIT import, never an open shell.
-- **Config and hooks in one file.** The `agent!` wrapping macro contains both config keys
-  and hook functions. No sidecar config file — the macro needs to see everything to
+- **Config and hooks in one file.** The `agent!` wrapping macro contains both config
+  keys and hook functions. No sidecar config file — the macro needs to see everything to
   generate the Guest trait impl.
-- **Standalone crates, not a Cargo workspace.** Agents live wherever makes sense (next to
-  their skill, in `agents/` for scheduled ones). Ghost sets a shared
+- **Standalone crates, not a Cargo workspace.** Agents live wherever makes sense (next
+  to their skill, in `agents/` for scheduled ones). Ghost sets a shared
   `CARGO_TARGET_DIR=$WORKSPACE/.agent-cache/target` for build caching.
 - **Cargo.toml is Ghost-created, not Ghost-managed.** Scaffolded once, then the author's
   file — they can add deps, change settings.
@@ -35,10 +35,10 @@ Rust crate; from there it's a normal crate the author can grow.
 - **Schema derive from Rust types.** `#[derive(Schema)]` generates JSON schemas for
   custom tool parameters. No hand-written JSON schemas.
 - **Crontab as TOML.** Pure config, no scripting needed — `toml::from_str` replaces Lua.
-- **WIT embedded in SDK.** The `agent!` macro passes it inline to `wit_bindgen::generate!`
-  — no WIT file in agent directories.
-- **wasmtime with async imports.** All ctx methods (DB queries, tool execution) are async.
-  wasmtime suspends the WASM fiber during await without blocking tokio.
+- **WIT embedded in SDK.** The `agent!` macro passes it inline to
+  `wit_bindgen::generate!` — no WIT file in agent directories.
+- **wasmtime with async imports.** All ctx methods (DB queries, tool execution) are
+  async. wasmtime suspends the WASM fiber during await without blocking tokio.
 
 ## Agent syntax (target)
 

@@ -8,11 +8,14 @@
 - [ ] References import topics are messy af
 - [ ] Claude token usage is wrong
 - [ ] There are often pointless `cd /root/GHOST`
-- [ ] Agents/cron: GHOST tried ghost agent run, got some syntax wrong and bad feedback,
-      UI is unclear on failure, no way to see direct agent message, ...
+- [x] Agents/cron: scheduled agents run but findings are never delivered (no event_tx in
+      AgentContext, scheduler drops AgentResult.findings). See task 00-agent-notify.
 - [ ] Review all tokio::process::Command to use the nix shell instead
 - [ ] Boot takes 2 minutes:
       https://logfire-eu.pydantic.dev/mrtolkien/ghost?q=trace_id%3D%277b13fe106c01ff839650bfe31cef12cb%27+and+span_id%3D%27973c9398cf1d92ca%27&spanId=973c9398cf1d92ca&traceId=7b13fe106c01ff839650bfe31cef12cb&env=-clear-&since=2026-03-28T12%3A06%3A08.958227Z&until=2026-03-28T13%3A06%3A08.958227Z
+- [ ] Doc positive point: with a nix shell, the GHOST becomes _portable_
+- [ ] Cron expressions are evaluated in UTC, not system timezone — users must manually
+      convert. Consider making the scheduler timezone-aware.
 
 ---
 

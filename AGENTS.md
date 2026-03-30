@@ -254,6 +254,9 @@ The following are relevant to the superpowers skills (brainstorm, writing plan, 
 
 When asked to implement new features, analyze how similar projects do it:
 
+- IronClaw, Rust implementation focusing on security and plugability:
+  https://github.com/nearai/ironclaw
 - ZeroClaw, great Rust implementation with tons of providers, interfaces, and clean
   traits: https://github.com/zeroclaw-labs/zeroclaw
+  - Down as of today
 - OpenClaw, the OG: https://github.com/openclaw/openclaw
