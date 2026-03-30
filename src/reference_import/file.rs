@@ -77,7 +77,7 @@ pub async fn import_file(
         .await?;
         return Ok(ImportResult {
             topic_id,
-            batch_id,
+            batch_id: Some(batch_id),
             references_created: 0,
             references_skipped: 1,
         });
@@ -162,7 +162,7 @@ pub async fn import_file(
 
     Ok(ImportResult {
         topic_id,
-        batch_id,
+        batch_id: Some(batch_id),
         references_created: 1,
         references_skipped: 0,
     })

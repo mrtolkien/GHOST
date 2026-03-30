@@ -192,7 +192,7 @@ pub async fn import_git(
 
     Ok(ImportResult {
         topic_id,
-        batch_id,
+        batch_id: Some(batch_id),
         references_created: created,
         references_skipped: skipped,
     })

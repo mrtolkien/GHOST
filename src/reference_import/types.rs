@@ -30,9 +30,18 @@ pub enum ImportSource {
 #[derive(Debug)]
 pub struct ImportResult {
     pub topic_id: String,
-    pub batch_id: String,
+    pub batch_id: Option<String>,
     pub references_created: usize,
     pub references_skipped: usize,
+}
+
+/// Provenance metadata for an import — optional, passed through from convert step.
+#[derive(Debug, Clone, Default)]
+pub struct ImportProvenance {
+    pub source_type: Option<String>,
+    pub source_url: Option<String>,
+    pub version_ref: Option<String>,
+    pub git_ref: Option<String>,
 }
 
 #[derive(Debug)]
