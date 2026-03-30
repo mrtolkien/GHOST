@@ -4,6 +4,7 @@ use url::Url;
 
 /// Maximum length for generated slugs (characters).
 const MAX_SLUG_LEN: usize = 60;
+const MAX_STAGING_SUFFIX: u32 = 999;
 
 /// Derive a short slug from a source identifier (URL or file path).
 ///
@@ -106,16 +107,19 @@ pub fn create_staging_dir(
         return Ok(candidate);
     }
 
-    let mut suffix = 2u32;
-    loop {
+    for suffix in 2..=MAX_STAGING_SUFFIX {
         let name = format!("{slug}-{suffix}");
         let candidate = staging_root.join(&name);
         if !candidate.exists() {
             std::fs::create_dir_all(&candidate)?;
             return Ok(candidate);
         }
-        suffix = suffix.saturating_add(1);
     }
+
+    Err(std::io::Error::new(
+        std::io::ErrorKind::AlreadyExists,
+        format!("too many staging dirs for slug '{slug}'"),
+    ))
 }
 
 /// Lowercase, replace non-alphanumeric with hyphens, collapse runs, trim
