@@ -199,6 +199,24 @@ fn convert_messages(
         i += 1;
     }
 
+    // --- Merge consecutive same-role messages ---
+    // System messages are converted to "user" role for Anthropic, which can
+    // create user-user pairs (e.g. completion watcher system message followed
+    // by user trigger message). The API requires strict alternation.
+    let mut merged: Vec<Value> = Vec::with_capacity(output.len());
+    for msg in output {
+        if let Some(last) = merged.last_mut()
+            && last["role"] == msg["role"]
+            && let Some(last_content) = last["content"].as_array_mut()
+            && let Some(new_content) = msg["content"].as_array()
+        {
+            last_content.extend(new_content.iter().cloned());
+        } else {
+            merged.push(msg);
+        }
+    }
+    let mut output = merged;
+
     // --- Cache control on last user message's last content block ---
     apply_cache_control_to_last_user(&mut output);
 
@@ -407,6 +425,33 @@ fn convert_content_blocks(blocks: &[ContentBlock], ghost_tool_names: &[&str]) ->
     }
     thinking.extend(rest);
     let mut out = thinking;
+
+    // Nest image blocks inside tool_result when both exist in the same
+    // message (e.g. file_read returning a screenshot). The Anthropic API
+    // expects tool result images inside the tool_result content array,
+    // not as siblings at the message level.
+    if has_image && out.iter().any(|b| b["type"] == "tool_result") {
+        let image_blocks: Vec<Value> = out
+            .iter()
+            .filter(|b| b["type"] == "image")
+            .cloned()
+            .collect();
+        out.retain(|b| b["type"] != "image");
+
+        if let Some(tr) = out.iter_mut().rev().find(|b| b["type"] == "tool_result") {
+            let text_content = tr["content"].take();
+            let mut content_arr: Vec<Value> = Vec::new();
+            if let Some(text) = text_content.as_str()
+                && !text.is_empty()
+            {
+                content_arr.push(json!({"type": "text", "text": text}));
+            }
+            content_arr.extend(image_blocks);
+            tr["content"] = Value::Array(content_arr);
+        }
+        // Images are now nested; clear flag so placeholder isn't added.
+        has_image = false;
+    }
 
     // Image-only messages: prepend a text placeholder.
     if has_image && !has_text {
@@ -848,18 +893,35 @@ mod tests {
         let body = build_request_body(&req, &[]).unwrap();
         let messages = body["messages"].as_array().unwrap();
 
+        // After the merge fix, the system-as-user text is merged into
+        // the preceding user message (the tool_result message), so:
         // messages[0] = user "hi"
         // messages[1] = assistant tool_use
-        // messages[2] = user tool_result
-        // messages[3] = user (system-as-user text)
-        // messages[4] = assistant "Sent."
-        assert_eq!(messages.len(), 5, "got {messages:?}");
+        // messages[2] = user [tool_result, system text]
+        // messages[3] = assistant "Sent."
+        assert_eq!(messages.len(), 4, "got {messages:?}");
         assert_eq!(messages[2]["role"], "user");
         let content = messages[2]["content"].as_array().unwrap();
         assert!(
-            content.iter().all(|b| b["type"] == "tool_result"),
-            "tool_result message must contain ONLY tool_result blocks"
+            content.iter().any(|b| b["type"] == "tool_result"),
+            "merged user message must contain the tool_result block"
         );
+        assert!(
+            content.iter().any(|b| {
+                b["type"] == "text" && b["text"].as_str().unwrap_or("").contains("sent image")
+            }),
+            "merged user message must contain the relocated system text"
+        );
+
+        // No consecutive same-role messages.
+        for i in 1..messages.len() {
+            assert_ne!(
+                messages[i - 1]["role"],
+                messages[i]["role"],
+                "consecutive same-role messages at {}/{i}",
+                i - 1,
+            );
+        }
 
         // No synthetic "interrupted" results anywhere.
         let tool_result_blocks = messages
@@ -873,6 +935,143 @@ mod tests {
                 "Tool execution was interrupted.",
             );
         }
+    }
+
+    /// Bug reproduction: system messages converted to user role create
+    /// consecutive user-user messages, violating the Anthropic API's
+    /// alternation requirement. This happens when the completion watcher
+    /// injects a system message (agent result) followed by a user trigger
+    /// message, or when compaction summaries precede user messages.
+    #[test]
+    fn no_consecutive_same_role_messages_after_system_conversion() {
+        let req = simple_request(vec![
+            ChatMessage {
+                role: Role::User,
+                content: vec![ContentBlock::Text {
+                    text: "hello".into(),
+                }],
+            },
+            ChatMessage {
+                role: Role::Assistant,
+                content: vec![ContentBlock::Text {
+                    text: "hi there".into(),
+                }],
+            },
+            // System message (e.g. agent completion result, compaction summary)
+            // — gets converted to role "user" for Anthropic
+            ChatMessage {
+                role: Role::System,
+                content: vec![ContentBlock::Text {
+                    text: "[agent:deep-research completed]\n{\"findings\": \"...\"}".into(),
+                }],
+            },
+            // User trigger from event handler — also role "user"
+            ChatMessage {
+                role: Role::User,
+                content: vec![ContentBlock::Text {
+                    text: "[system] Background task completed.".into(),
+                }],
+            },
+        ]);
+        let body = build_request_body(&req, &[]).unwrap();
+        let messages = body["messages"].as_array().unwrap();
+
+        for i in 1..messages.len() {
+            let prev_role = messages[i - 1]["role"].as_str().unwrap();
+            let curr_role = messages[i]["role"].as_str().unwrap();
+            assert_ne!(
+                prev_role,
+                curr_role,
+                "consecutive '{prev_role}' messages at positions {} and {}: \
+                 Anthropic API requires strict user/assistant alternation",
+                i - 1,
+                i,
+            );
+        }
+    }
+
+    /// Bug reproduction: when file_read returns an image, the Image
+    /// content block ends up as a sibling to ToolResult at the message
+    /// level. The Anthropic API expects images from tool results to be
+    /// nested inside the tool_result's content array.
+    #[test]
+    fn tool_result_image_nested_inside_result_not_sibling() {
+        // Create a minimal test file (just needs to be readable).
+        let tmp = std::env::temp_dir().join("ghost_test_tool_result_image.bin");
+        std::fs::write(&tmp, b"fake-image-data").unwrap();
+
+        let req = simple_request(vec![
+            ChatMessage {
+                role: Role::User,
+                content: vec![ContentBlock::Text {
+                    text: "read the screenshot".into(),
+                }],
+            },
+            ChatMessage {
+                role: Role::Assistant,
+                content: vec![ContentBlock::ToolUse {
+                    id: "tool1".into(),
+                    name: "file_read".into(),
+                    input: json!({"path": tmp.to_str().unwrap()}),
+                }],
+            },
+            // This is the shape produced by execute_single_tool for an image:
+            // ToolResult + Image as siblings in the same user message.
+            ChatMessage {
+                role: Role::User,
+                content: vec![
+                    ContentBlock::ToolResult {
+                        tool_use_id: "tool1".into(),
+                        content: format!("Image file: {}", tmp.display()),
+                        is_error: false,
+                    },
+                    ContentBlock::Image {
+                        path: tmp.to_str().unwrap().into(),
+                        mime_type: "image/png".into(),
+                        filename: "screenshot.png".into(),
+                    },
+                ],
+            },
+        ]);
+        let body = build_request_body(&req, &[]).unwrap();
+        let messages = body["messages"].as_array().unwrap();
+        let last_user = messages.last().unwrap();
+        assert_eq!(last_user["role"], "user");
+        let content = last_user["content"].as_array().unwrap();
+
+        // The image must NOT be a sibling at the message content level.
+        // It should be nested inside the tool_result's content array.
+        let has_image_sibling = content.iter().any(|b| b["type"] == "image");
+        assert!(
+            !has_image_sibling,
+            "image block is a sibling to tool_result at message level; \
+             should be nested inside the tool_result content array"
+        );
+
+        // The tool_result's content should be an array containing
+        // both the text and the image, not a plain string.
+        let tool_result = content
+            .iter()
+            .find(|b| b["type"] == "tool_result")
+            .expect("tool_result block must exist");
+        assert!(
+            tool_result["content"].is_array(),
+            "tool_result content should be an array (text + image), \
+             not a string: got {:?}",
+            tool_result["content"],
+        );
+
+        // No spurious [Image attached] text block either.
+        let has_image_attached = content
+            .iter()
+            .any(|b| b["type"] == "text" && b["text"] == "[Image attached]");
+        assert!(
+            !has_image_attached,
+            "[Image attached] placeholder should not appear when \
+             image is part of a tool result"
+        );
+
+        let _ = std::fs::remove_file(&tmp);
     }
 
     #[test]
