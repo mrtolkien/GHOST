@@ -5,7 +5,7 @@ mod common;
 use ghost::convert::git::convert_git;
 use ghost::db;
 use ghost::embeddings::EmbeddingClient;
-use ghost::reference_import::{import_from_path, ImportProvenance};
+use ghost::reference_import::{ImportProvenance, import_from_path};
 
 /// Full end-to-end test: sparse git clone → reference creation → embeddings →
 /// BM25 search → vector search → hybrid search → idempotent re-import.

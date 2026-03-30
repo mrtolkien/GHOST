@@ -4,7 +4,7 @@ mod common;
 
 use ghost::convert::git::convert_git;
 use ghost::db;
-use ghost::reference_import::{import_from_path, ImportProvenance};
+use ghost::reference_import::{ImportProvenance, import_from_path};
 
 /// End-to-end test: import -> simulate changes -> update -> verify diff + orphan protection.
 ///

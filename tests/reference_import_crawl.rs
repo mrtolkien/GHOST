@@ -8,7 +8,7 @@ mod common;
 async fn crawl_import_small_site() {
     use ghost::convert::crawl::convert_crawl;
     use ghost::db;
-    use ghost::reference_import::{import_from_path, ImportProvenance};
+    use ghost::reference_import::{ImportProvenance, import_from_path};
     let env = common::live_test_database("crawl_import").await;
     let workspace_path = std::path::Path::new(&env.config.workspace);
 
@@ -16,14 +16,9 @@ async fn crawl_import_small_site() {
 
     // --- Phase 1a: Convert to staging ---
     let staging_root = workspace_path.join(".staging");
-    let convert_result = convert_crawl(
-        &staging_root,
-        "https://ghost.tolki.dev/",
-        2,
-        max_pages,
-    )
-    .await
-    .expect("convert crawl");
+    let convert_result = convert_crawl(&staging_root, "https://ghost.tolki.dev/", 2, max_pages)
+        .await
+        .expect("convert crawl");
 
     // --- Phase 1b: Import from staging ---
     let provenance = ImportProvenance {
@@ -82,14 +77,9 @@ async fn crawl_import_small_site() {
     );
 
     // --- Phase 2: Idempotent re-crawl ---
-    let convert_result2 = convert_crawl(
-        &staging_root,
-        "https://ghost.tolki.dev/",
-        2,
-        max_pages,
-    )
-    .await
-    .expect("convert crawl re-crawl");
+    let convert_result2 = convert_crawl(&staging_root, "https://ghost.tolki.dev/", 2, max_pages)
+        .await
+        .expect("convert crawl re-crawl");
 
     let result2 = import_from_path(
         &env.db,
