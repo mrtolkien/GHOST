@@ -140,6 +140,17 @@ function ctx:call_tools(calls) end
 ---@param args table<string, string>  Arguments passed to the child's build(ctx, args)
 function ctx:spawn_agent(name, args) end
 
+--- Inject a system message into a session and deliver it to Discord (notify-only).
+---@param session_id string  Target session ID
+---@param content string  Message content
+---@async
+function ctx:send_to_session(session_id, content) end
+
+--- Send content to all sessions that have an active interface (notify-only).
+---@param content string  Message content
+---@async
+function ctx:notify_active_sessions(content) end
+
 -- ============================================================================
 -- PreTurnState (passed to pre_turn and on_end_turn hooks)
 -- ============================================================================

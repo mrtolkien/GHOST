@@ -6,6 +6,7 @@ use mlua::prelude::*;
 
 use crate::config::Config;
 use crate::db::GhostDb;
+use crate::events::SessionEventSender;
 use crate::tools::manager::ToolManager;
 
 /// A request to spawn a child agent, accumulated during post_completion.
@@ -41,6 +42,8 @@ pub struct AgentContext {
     pub config: Option<Arc<Config>>,
     /// Tool manager for `ctx:call_tool()` / `ctx:call_tools()`.
     pub tool_manager: Option<Arc<ToolManager>>,
+    /// Event sender for session notifications (ctx:send_to_session, ctx:notify_active_sessions).
+    pub event_tx: Option<SessionEventSender>,
 }
 
 impl AgentContext {
@@ -56,6 +59,7 @@ impl AgentContext {
             resume_messages: Arc::new(Mutex::new(None)),
             config: None,
             tool_manager: None,
+            event_tx: None,
         }
     }
 
@@ -380,6 +384,80 @@ impl LuaUserData for AgentContext {
 
             Ok(messages)
         });
+
+        // ctx:send_to_session(session_id, content)
+        methods.add_async_method(
+            "send_to_session",
+            |_, this, (session_id, content): (String, String)| async move {
+                let event_tx = this.event_tx.as_ref().ok_or_else(|| {
+                    LuaError::external("send_to_session not available: no event channel")
+                })?;
+
+                // Inject as system message in the target session
+                crate::db::sessions::create_message(&this.db, &session_id, "system", &content)
+                    .await
+                    .map_err(|e| LuaError::external(format!("failed to create message: {e}")))?;
+
+                // Emit notify-only event for Discord delivery
+                let _ = event_tx.send(crate::events::SessionEvent {
+                    session_id,
+                    system_message: content,
+                    discord: None,
+                    notify_only: true,
+                });
+
+                Ok(())
+            },
+        );
+
+        // ctx:notify_active_sessions(content) — send to all sessions with an active interface
+        methods.add_async_method(
+            "notify_active_sessions",
+            |_, this, content: String| async move {
+                let event_tx = this.event_tx.as_ref().ok_or_else(|| {
+                    LuaError::external("notify_active_sessions not available: no event channel")
+                })?;
+
+                let sessions = crate::db::interface_sessions::list_all_interface_sessions(&this.db)
+                    .await
+                    .map_err(|e| LuaError::external(e.to_string()))?;
+
+                if sessions.is_empty() {
+                    tracing::warn!(
+                        agent = this.agent_slug.clone(),
+                        "notify_active_sessions: no active interface sessions",
+                    );
+                    return Ok(());
+                }
+
+                for record in &sessions {
+                    if let Err(e) = crate::db::sessions::create_message(
+                        &this.db,
+                        &record.session_id,
+                        "system",
+                        &content,
+                    )
+                    .await
+                    {
+                        tracing::warn!(
+                            session_id = record.session_id.clone(),
+                            error = e.to_string(),
+                            "notify: failed to create message",
+                        );
+                        continue;
+                    }
+
+                    let _ = event_tx.send(crate::events::SessionEvent {
+                        session_id: record.session_id.clone(),
+                        system_message: content.clone(),
+                        discord: None,
+                        notify_only: true,
+                    });
+                }
+
+                Ok(())
+            },
+        );
 
         // ctx:spawn_agent(name, args_table)
         methods.add_method(

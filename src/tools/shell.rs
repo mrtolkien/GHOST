@@ -213,6 +213,7 @@ impl Tool for RunShellCommand {
                         session_id: session_id.clone(),
                         system_message: msg.clone(),
                         discord: None,
+                        notify_only: false,
                     });
                 }
 
