@@ -67,6 +67,18 @@ pub enum ImportError {
     Docling(#[from] crate::docling::DoclingError),
 }
 
+impl From<crate::convert::error::ConvertError> for ImportError {
+    fn from(e: crate::convert::error::ConvertError) -> Self {
+        use crate::convert::error::ConvertError;
+        match e {
+            ConvertError::Git(s) => ImportError::Git(s),
+            ConvertError::Fetch(s) => ImportError::Fetch(s),
+            ConvertError::Conversion(s) => ImportError::Config(s),
+            ConvertError::Io(io) => ImportError::Io(io),
+        }
+    }
+}
+
 /// Serializable snapshot of an `ImportConfig` for storage in DB and TOML.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ImportConfigJson {

@@ -2,12 +2,12 @@ use std::path::{Path, PathBuf};
 
 use tokio::process::Command;
 
-use crate::reference_import::ImportError;
-
+use super::error::ConvertError;
 use super::staging::{create_staging_dir, slug_from_source};
 
 /// Result of converting a git repository into a staging directory.
 #[derive(Debug)]
+#[must_use]
 pub struct GitConvertResult {
     /// Path to the staging directory containing the checked-out files.
     pub staging_dir: PathBuf,
@@ -28,12 +28,12 @@ pub struct GitConvertResult {
     fields(url = %url, staging_root = %staging_root.display())
 )]
 pub async fn convert_git(
+    staging_root: &Path,
     url: &str,
     paths: &[String],
     extensions: &[String],
     git_ref: Option<&str>,
-    staging_root: &Path,
-) -> Result<GitConvertResult, ImportError> {
+) -> Result<GitConvertResult, ConvertError> {
     let tmp_dir = tempfile::tempdir()?;
     let repo_dir = tmp_dir.path().join("repo");
 
@@ -54,7 +54,7 @@ pub async fn convert_git(
     let files = walk_files(&repo_dir, paths, extensions);
 
     if files.is_empty() {
-        return Err(ImportError::Git(format!(
+        return Err(ConvertError::Git(format!(
             "no files matched filters in {url}"
         )));
     }
@@ -81,7 +81,7 @@ async fn clone_repo(
     url: &str,
     git_ref: Option<&str>,
     repo_dir: &Path,
-) -> Result<(), ImportError> {
+) -> Result<(), ConvertError> {
     let mut clone_args = vec![
         "clone",
         "--no-checkout",
@@ -100,11 +100,11 @@ async fn clone_repo(
         .arg(repo_dir)
         .output()
         .await
-        .map_err(|e| ImportError::Git(format!("failed to spawn git: {e}")))?;
+        .map_err(|e| ConvertError::Git(format!("failed to spawn git: {e}")))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(ImportError::Git(format!("git clone failed: {stderr}")));
+        return Err(ConvertError::Git(format!("git clone failed: {stderr}")));
     }
 
     Ok(())
@@ -114,7 +114,7 @@ async fn clone_repo(
 async fn sparse_checkout(
     repo_dir: &Path,
     paths: &[String],
-) -> Result<(), ImportError> {
+) -> Result<(), ConvertError> {
     run_git(repo_dir, &["sparse-checkout", "init", "--cone"]).await?;
     let mut args = vec!["sparse-checkout", "set"];
     let path_strs: Vec<&str> = paths.iter().map(String::as_str).collect();
@@ -123,11 +123,13 @@ async fn sparse_checkout(
 }
 
 /// Copy files from the repo into the staging directory, preserving relative paths.
+///
+/// Uses `std::fs::copy` for binary-safe copying (handles non-UTF-8 files).
 fn copy_files_to_staging(
     repo_dir: &Path,
     files: &[PathBuf],
     staging_dir: &Path,
-) -> Result<(), ImportError> {
+) -> Result<(), ConvertError> {
     for file_path in files {
         let rel_path = file_path
             .strip_prefix(repo_dir)
@@ -138,11 +140,7 @@ fn copy_files_to_staging(
             std::fs::create_dir_all(parent)?;
         }
 
-        // Skip binary/unreadable files — only copy valid UTF-8 text
-        let Ok(content) = std::fs::read_to_string(file_path) else {
-            continue;
-        };
-        std::fs::write(&dest, content)?;
+        std::fs::copy(file_path, &dest)?;
     }
 
     Ok(())
@@ -207,23 +205,30 @@ fn matches_extensions(path: &Path, extensions: &[String]) -> bool {
         .extension()
         .map(|e| format!(".{}", e.to_string_lossy()));
     match ext {
-        Some(e) => extensions.iter().any(|allowed| allowed.eq_ignore_ascii_case(&e)),
+        Some(e) => {
+            extensions.iter().any(|allowed| {
+                allowed.eq_ignore_ascii_case(&e)
+            })
+        }
         None => false,
     }
 }
 
 /// Run a git command in the repo directory, returning an error on failure.
-async fn run_git(repo_dir: &Path, args: &[&str]) -> Result<(), ImportError> {
+async fn run_git(
+    repo_dir: &Path,
+    args: &[&str],
+) -> Result<(), ConvertError> {
     let output = Command::new("git")
         .args(args)
         .current_dir(repo_dir)
         .output()
         .await
-        .map_err(|e| ImportError::Git(format!("failed to spawn git: {e}")))?;
+        .map_err(|e| ConvertError::Git(format!("failed to spawn git: {e}")))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(ImportError::Git(format!(
+        return Err(ConvertError::Git(format!(
             "git {} failed: {stderr}",
             args.first().unwrap_or(&"")
         )));
@@ -235,22 +240,23 @@ async fn run_git(repo_dir: &Path, args: &[&str]) -> Result<(), ImportError> {
 async fn run_git_output(
     repo_dir: &Path,
     args: &[&str],
-) -> Result<String, ImportError> {
+) -> Result<String, ConvertError> {
     let output = Command::new("git")
         .args(args)
         .current_dir(repo_dir)
         .output()
         .await
-        .map_err(|e| ImportError::Git(format!("failed to spawn git: {e}")))?;
+        .map_err(|e| ConvertError::Git(format!("failed to spawn git: {e}")))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(ImportError::Git(format!(
+        return Err(ConvertError::Git(format!(
             "git {} failed: {stderr}",
             args.first().unwrap_or(&"")
         )));
     }
 
-    String::from_utf8(output.stdout)
-        .map_err(|e| ImportError::Git(format!("invalid UTF-8 output: {e}")))
+    String::from_utf8(output.stdout).map_err(|e| {
+        ConvertError::Git(format!("invalid UTF-8 output: {e}"))
+    })
 }
