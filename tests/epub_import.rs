@@ -177,3 +177,124 @@ async fn epub_convert_and_import() {
     let note_path = workspace_path.join("notes/books/animal-farm/index.md");
     assert!(note_path.exists(), "topic index note should exist");
 }
+
+/// Full pipeline including agent note creation.
+/// Requires LLM API access — gated behind live-tests-llms.
+#[cfg(feature = "live-tests-llms")]
+#[tokio::test]
+async fn epub_agent_creates_notes() {
+    use std::collections::HashMap;
+    use std::time::Duration;
+
+    if !Path::new(TEST_EPUB).exists() {
+        eprintln!("skipping epub agent test: {TEST_EPUB} not found");
+        return;
+    }
+
+    let env = common::live_test_database("epub_agent").await;
+    let workspace_path = env.workspace_path();
+
+    // --- Convert + Import ---
+
+    let staging_root = workspace_path.join(".staging");
+    let convert_result =
+        convert_epub(&staging_root, Path::new(TEST_EPUB)).expect("convert_epub");
+
+    let topic = "books/animal-farm";
+    let provenance = ImportProvenance {
+        source_type: Some("book".to_string()),
+        source_url: Some(TEST_EPUB.to_string()),
+        version_ref: None,
+        git_ref: None,
+    };
+
+    let import_result = import_from_path(
+        &env.db,
+        workspace_path,
+        &convert_result.staging_dir,
+        topic,
+        &provenance,
+        None,
+    )
+    .await
+    .expect("import_from_path");
+
+    env.log(format!(
+        "imported {} references for {topic}",
+        import_result.references_created
+    ));
+
+    // --- Run book-import agent ---
+
+    let mut args = HashMap::new();
+    args.insert("topic".into(), topic.into());
+    args.insert("title".into(), "Animal Farm".into());
+    args.insert("authors".into(), "George Orwell".into());
+
+    let agent_result = tokio::time::timeout(
+        Duration::from_secs(300),
+        env.agent_runner.run_with_args("book-import", args, None),
+    )
+    .await
+    .expect("agent should complete within 5 minutes")
+    .expect("agent should succeed");
+
+    env.log(format!("agent session: {}", agent_result.session_id));
+    env.log(format!("findings: {}", agent_result.findings));
+
+    // --- Verify notes were created ---
+
+    // Search for a source note about Animal Farm
+    let source_hits =
+        db::knowledge::search_notes(&env.db, "Animal Farm", 10, Some("source"))
+            .await
+            .expect("search source notes");
+
+    assert!(
+        !source_hits.is_empty(),
+        "should have a source note about Animal Farm. Found 0 hits."
+    );
+
+    // Fetch full note record to inspect body
+    let source_note = db::knowledge::get_note(&env.db, &source_hits[0].id)
+        .await
+        .expect("get source note");
+
+    // Source note should mention key themes/elements
+    let has_thematic_content = source_note.body.contains("allegory")
+        || source_note.body.contains("satire")
+        || source_note.body.contains("totalitarian")
+        || source_note.body.contains("revolution")
+        || source_note.body.contains("power")
+        || source_note.body.contains("corruption");
+    assert!(
+        has_thematic_content,
+        "source note should mention themes \
+         (allegory/satire/totalitarianism/revolution/power/corruption)"
+    );
+
+    // Search for an author note about George Orwell
+    let entity_hits =
+        db::knowledge::search_notes(&env.db, "George Orwell", 10, Some("entity"))
+            .await
+            .expect("search entity notes");
+
+    let orwell_hit = entity_hits
+        .iter()
+        .find(|h| h.title.contains("Orwell"));
+    assert!(
+        orwell_hit.is_some(),
+        "should have an entity note about George Orwell. Found: {:?}",
+        entity_hits.iter().map(|h| &h.title).collect::<Vec<_>>()
+    );
+
+    // Fetch full note to check body
+    let author_note =
+        db::knowledge::get_note(&env.db, &orwell_hit.expect("orwell hit").id)
+            .await
+            .expect("get author note");
+    assert!(
+        author_note.body.contains("Animal Farm"),
+        "author note should mention Animal Farm"
+    );
+}
