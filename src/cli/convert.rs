@@ -4,6 +4,7 @@ use std::sync::Arc;
 use clap::Subcommand;
 
 use crate::convert::crawl::CrawlConvertResult;
+use crate::convert::epub::EpubConvertResult;
 use crate::convert::git::GitConvertResult;
 use crate::convert::pdf::{PdfConvertResult, VisionFallback};
 use crate::error::GhostError;
@@ -64,6 +65,15 @@ pub enum ConvertCommand {
         /// Maximum number of pages to crawl
         #[arg(long, default_value_t = DEFAULT_MAX_PAGES)]
         max_pages: usize,
+        /// Output directory for staging (default: <workspace>/.staging)
+        #[arg(long)]
+        output: Option<PathBuf>,
+    },
+    /// Convert an EPUB book to per-chapter markdown files
+    Epub {
+        /// Path to the EPUB file
+        #[arg(long)]
+        path: String,
         /// Output directory for staging (default: <workspace>/.staging)
         #[arg(long)]
         output: Option<PathBuf>,
@@ -145,6 +155,16 @@ pub async fn execute(command: ConvertCommand) -> Result<(), GhostError> {
                     .map_err(convert_err)?;
 
             print_crawl_result(&result);
+            Ok(())
+        }
+        ConvertCommand::Epub { path, output } => {
+            let staging_root = staging_root(&workspace, output.as_deref());
+
+            let result =
+                crate::convert::epub::convert_epub(&staging_root, std::path::Path::new(&path))
+                    .map_err(convert_err)?;
+
+            print_epub_result(&result);
             Ok(())
         }
     }
@@ -231,4 +251,17 @@ fn print_crawl_result(result: &CrawlConvertResult) {
     println!("source_type=crawl");
     println!("source_url={}", result.source_url);
     println!("pages={}", result.page_urls.len());
+}
+
+/// Print stdout metadata for an EPUB conversion result.
+fn print_epub_result(result: &EpubConvertResult) {
+    println!("{}", result.staging_dir.display());
+    println!("source_type=book");
+    if let Some(title) = &result.metadata.title {
+        println!("title={title}");
+    }
+    if !result.metadata.authors.is_empty() {
+        println!("authors={}", result.metadata.authors.join(", "));
+    }
+    println!("chapters={}", result.chapter_count);
 }
