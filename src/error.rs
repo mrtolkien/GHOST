@@ -48,6 +48,9 @@ pub enum GhostError {
     #[error(transparent)]
     ServiceRegistry(#[from] crate::services::ServiceRegistryError),
 
+    #[error(transparent)]
+    PidFile(#[from] crate::daemon::pid_file::PidFileError),
+
     #[error("{0}")]
     Other(String),
 }

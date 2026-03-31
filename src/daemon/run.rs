@@ -99,11 +99,15 @@ impl DaemonHandle {
 pub async fn run() -> Result<(), GhostError> {
     let config = crate::config::load()?;
 
+    // Prevent multiple daemon instances from running in the same workspace
+    super::pid_file::acquire(&config.workspace)?;
+
     // Race boot against shutdown signals so SIGTERM during boot works
     let handle = tokio::select! {
-        result = boot_with_config(config) => result?,
+        result = boot_with_config(config.clone()) => result?,
         _ = shutdown_signal() => {
             info!("signal received during boot, exiting...");
+            super::pid_file::release(&config.workspace);
             return Ok(());
         }
     };
@@ -150,7 +154,9 @@ pub async fn run() -> Result<(), GhostError> {
     }
     info!("shutting down...");
 
+    let workspace = handle.config.current().workspace.clone();
     handle.shutdown().await;
+    super::pid_file::release(&workspace);
 
     info!("GHOST daemon stopped");
     Ok(())

@@ -1,4 +1,5 @@
 pub mod event_handler;
+pub(crate) mod pid_file;
 mod run;
 pub mod watcher;
 
