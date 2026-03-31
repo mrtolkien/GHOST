@@ -4,7 +4,7 @@ return {
     name = "book-import",
     description = "Create structured notes from imported book chapters",
 
-    max_iterations = 15,
+    max_iterations = 40,
 
     tools = {
         "file_read",
