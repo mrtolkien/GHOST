@@ -63,22 +63,22 @@ with it. This way the note accumulates links from multiple books over time.
 
 - **Fiction**: extract **themes** — power, freedom, identity, morality. Think literary
   analysis. Characters only matter when they embody a theme.
-- **Non-fiction**: extract **logic** — what is the thesis, what evidence supports it, what
-  frameworks does the author introduce?
+- **Non-fiction**: extract **logic** — what is the thesis, what evidence supports it,
+  what frameworks does the author introduce?
 
 ## Linking
 
 Every note must have wiki links. Use typed edges:
 
-| Edge | Use for |
-|------|---------|
-| `[[explores>X]]` | Source note → concept |
-| `[[by>Author]]` | Source note → author |
-| `[[wrote>Book]]` | Author note → book |
-| `[[explored_in>Book]]` | Concept note → book |
-| `[[from>Book]]` | Any note citing this book |
-| `[[compares>Work]]` | Referencing other works |
-| `[[relates_to>X]]` | Connecting related concepts |
+| Edge                   | Use for                     |
+| ---------------------- | --------------------------- |
+| `[[explores>X]]`       | Source note → concept       |
+| `[[by>Author]]`        | Source note → author        |
+| `[[wrote>Book]]`       | Author note → book          |
+| `[[explored_in>Book]]` | Concept note → book         |
+| `[[from>Book]]`        | Any note citing this book   |
+| `[[compares>Work]]`    | Referencing other works     |
+| `[[relates_to>X]]`     | Connecting related concepts |
 
 ## After creating notes, end your turn.
 
