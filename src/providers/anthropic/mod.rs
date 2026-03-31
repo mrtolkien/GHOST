@@ -20,11 +20,10 @@ use self::credentials::OAuthCredentials;
 use crate::providers::circuit_breaker::CircuitBreaker;
 use crate::providers::types::{ChatRequest, ChatResponse, ContentBlock, Provider, ProviderError};
 
-const ANTHROPIC_API_URL: &str = "https://api.anthropic.com/v1/messages";
+const ANTHROPIC_API_URL: &str = "https://api.anthropic.com/v1/messages?beta=true";
 const ANTHROPIC_VERSION: &str = "2023-06-01";
-const USER_AGENT: &str = "claude-cli/2.1.75";
-const BASE_BETA_FLAGS: &str =
-    "claude-code-20250219,oauth-2025-04-20,fine-grained-tool-streaming-2025-05-14";
+const USER_AGENT: &str = "claude-cli/2.1.86 (external, sdk-cli)";
+const BASE_BETA_FLAGS: &str = "claude-code-20250219,oauth-2025-04-20,interleaved-thinking-2025-05-14,prompt-caching-scope-2026-01-05,advanced-tool-use-2025-11-20,effort-2025-11-24";
 
 #[derive(Debug)]
 pub struct AnthropicProvider {
@@ -301,6 +300,10 @@ impl AnthropicProvider {
     }
 
     /// Return a valid access token, refreshing if expired and file-based.
+    ///
+    /// When the in-memory token is expired, re-reads from disk first — Claude
+    /// Code may have already refreshed and written valid tokens. Only falls
+    /// back to a network refresh if the disk credentials are also expired.
     async fn ensure_valid_token(&self) -> Result<String, ProviderError> {
         // Fast path: read lock to check if token is still valid.
         {
@@ -316,15 +319,32 @@ impl AnthropicProvider {
             return Ok(creds.access_token.clone());
         };
 
-        // Clone what we need before the async call.
-        let old_creds = {
-            let creds = self.credentials.read().expect("credentials lock poisoned");
-            creds.clone()
-        };
+        // Re-read from disk — Claude Code may have refreshed since we last
+        // loaded. Use the disk credentials if they're still valid.
+        let disk_creds = credentials::read_credentials_from_path(creds_path);
+        if let Ok(ref fresh) = disk_creds
+            && !fresh.is_expired()
+        {
+            let token = fresh.access_token.clone();
+            let mut creds = self.credentials.write().expect("credentials lock poisoned");
+            *creds = fresh.clone();
+            tracing::debug!("picked up refreshed credentials from disk");
+            return Ok(token);
+        }
+
+        // Disk credentials are also expired (or unreadable). Refresh using
+        // the disk refresh token (not the stale in-memory one).
+        let creds_for_refresh = disk_creds.unwrap_or_else(|_| {
+            self.credentials
+                .read()
+                .expect("credentials lock poisoned")
+                .clone()
+        });
         let path = creds_path.clone();
 
         // Perform refresh (async, no lock held).
-        let new_creds = credentials::refresh_token(&self.client, &old_creds, &path).await?;
+        let new_creds =
+            credentials::refresh_token(&self.client, &creds_for_refresh, &path).await?;
 
         let token = new_creds.access_token.clone();
 
