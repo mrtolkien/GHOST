@@ -94,7 +94,7 @@ async fn render_page(
     let dpi_str = RENDER_DPI.to_string();
 
     let mut cmd = tokio::process::Command::new("nix");
-    cmd.args(["run", "nixpkgs#poppler_utils", "--", "pdftoppm"])
+    cmd.args(["run", "nixpkgs#poppler-utils", "--", "pdftoppm"])
         .args(["-png", "-singlefile"])
         .args(["-f", &page_str, "-l", &page_str])
         .args(["-r", &dpi_str])
