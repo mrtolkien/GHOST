@@ -1,5 +1,40 @@
 # Changelog
 
+## [0.13.0](https://github.com/mrtolkien/GHOST/compare/v0.12.0...v0.13.0) (2026-03-31)
+
+
+### Features
+
+* add 'book' source type to import_batch CHECK constraint ([9280576](https://github.com/mrtolkien/GHOST/commit/9280576e777e495e4a11cda90d4c966a5ad0cc1c))
+* add book import section to reference-import skill ([9a6aee9](https://github.com/mrtolkien/GHOST/commit/9a6aee9a5d866af791516d9de308fd0a3b454367))
+* book-import agent for note creation from imported books ([0b94739](https://github.com/mrtolkien/GHOST/commit/0b94739face2aa6ec59b03ff278de2606cacec9e))
+* EPUB to markdown converter (rbook + htmd) ([ee3869b](https://github.com/mrtolkien/GHOST/commit/ee3869b9e48617a83f4fcf2dbb7d16005ededd0e))
+* extend import types with book metadata fields ([bdfbb12](https://github.com/mrtolkien/GHOST/commit/bdfbb121bc6a04d8fca6d6420829981dcd436b47))
+* ghost convert epub CLI command ([b50f636](https://github.com/mrtolkien/GHOST/commit/b50f63655bcdccb618bb6cf7d9f42750df2877d3))
+
+
+### Bug Fixes
+
+* add PID file guard to prevent multiple daemon instances ([e2e7155](https://github.com/mrtolkien/GHOST/commit/e2e7155ed54ccdab0a32072a8b7a61e27755d321))
+* batch of quickfixes — typing indicator, bg command delivery, token display, cache cleanup, cd prompt ([3e06283](https://github.com/mrtolkien/GHOST/commit/3e0628357d9b0a32163938e15c6c18a0722c7914))
+* Box::pin large future in epub agent test ([9d3c57a](https://github.com/mrtolkien/GHOST/commit/9d3c57a57f79b903999ad566f27030232bf59b5d))
+* **curation:** only store cache files referenced by notes, not just cited ([5ba36ce](https://github.com/mrtolkien/GHOST/commit/5ba36ce0ef1199b153601d7ef8fcff6c2656dc98))
+* Discord deferred responses, nix shell for commands, background boot reconciliation ([24e1a58](https://github.com/mrtolkien/GHOST/commit/24e1a58f9927e1958665f976543e5e8a44d8c0ac))
+* focus book-import agent — create notes and stop ([4d1dc67](https://github.com/mrtolkien/GHOST/commit/4d1dc675689f17aff49bd62d4136262f6bc285ea))
+* load full book text in agent build hook, increase test timeout ([fa62358](https://github.com/mrtolkien/GHOST/commit/fa62358def8db06d44f909df287540175baec029))
+* remove dead skill ([7013ab7](https://github.com/mrtolkien/GHOST/commit/7013ab703d787ba0f510b50e84cba843a85b4d28))
+
+
+### Refactoring
+
+* book-import agent — two-phase search-then-create workflow ([189a5b3](https://github.com/mrtolkien/GHOST/commit/189a5b3da953f81f4b1fde46a0249b339844378d))
+
+
+### Tests
+
+* book-import agent live test with Animal Farm ([9316682](https://github.com/mrtolkien/GHOST/commit/9316682879df77f0430e3f5c87baccb9de59431f))
+* end-to-end EPUB convert + import test with Animal Farm ([cfe5449](https://github.com/mrtolkien/GHOST/commit/cfe5449f98ef3bb38b9e50d965f8e29712cbcb6b))
+
 ## [0.12.0](https://github.com/mrtolkien/GHOST/compare/v0.11.1...v0.12.0) (2026-03-31)
 
 ### Features
