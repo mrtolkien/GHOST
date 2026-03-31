@@ -197,8 +197,7 @@ async fn epub_agent_creates_notes() {
     // --- Convert + Import ---
 
     let staging_root = workspace_path.join(".staging");
-    let convert_result =
-        convert_epub(&staging_root, Path::new(TEST_EPUB)).expect("convert_epub");
+    let convert_result = convert_epub(&staging_root, Path::new(TEST_EPUB)).expect("convert_epub");
 
     let topic = "books/animal-farm";
     let provenance = ImportProvenance {
@@ -233,7 +232,7 @@ async fn epub_agent_creates_notes() {
 
     let agent_result = tokio::time::timeout(
         Duration::from_secs(300),
-        env.agent_runner.run_with_args("book-import", args, None),
+        Box::pin(env.agent_runner.run_with_args("book-import", args, None)),
     )
     .await
     .expect("agent should complete within 5 minutes")
@@ -245,10 +244,9 @@ async fn epub_agent_creates_notes() {
     // --- Verify notes were created ---
 
     // Search for a source note about Animal Farm
-    let source_hits =
-        db::knowledge::search_notes(&env.db, "Animal Farm", 10, Some("source"))
-            .await
-            .expect("search source notes");
+    let source_hits = db::knowledge::search_notes(&env.db, "Animal Farm", 10, Some("source"))
+        .await
+        .expect("search source notes");
 
     assert!(
         !source_hits.is_empty(),
@@ -274,14 +272,11 @@ async fn epub_agent_creates_notes() {
     );
 
     // Search for an author note about George Orwell
-    let entity_hits =
-        db::knowledge::search_notes(&env.db, "George Orwell", 10, Some("entity"))
-            .await
-            .expect("search entity notes");
+    let entity_hits = db::knowledge::search_notes(&env.db, "George Orwell", 10, Some("entity"))
+        .await
+        .expect("search entity notes");
 
-    let orwell_hit = entity_hits
-        .iter()
-        .find(|h| h.title.contains("Orwell"));
+    let orwell_hit = entity_hits.iter().find(|h| h.title.contains("Orwell"));
     assert!(
         orwell_hit.is_some(),
         "should have an entity note about George Orwell. Found: {:?}",
@@ -289,10 +284,9 @@ async fn epub_agent_creates_notes() {
     );
 
     // Fetch full note to check body
-    let author_note =
-        db::knowledge::get_note(&env.db, &orwell_hit.expect("orwell hit").id)
-            .await
-            .expect("get author note");
+    let author_note = db::knowledge::get_note(&env.db, &orwell_hit.expect("orwell hit").id)
+        .await
+        .expect("get author note");
     assert!(
         author_note.body.contains("Animal Farm"),
         "author note should mention Animal Farm"
