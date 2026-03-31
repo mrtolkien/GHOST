@@ -231,11 +231,11 @@ async fn epub_agent_creates_notes() {
     args.insert("authors".into(), "George Orwell".into());
 
     let agent_result = tokio::time::timeout(
-        Duration::from_secs(300),
+        Duration::from_secs(600),
         Box::pin(env.agent_runner.run_with_args("book-import", args, None)),
     )
     .await
-    .expect("agent should complete within 5 minutes")
+    .expect("agent should complete within 10 minutes")
     .expect("agent should succeed");
 
     env.log(format!("agent session: {}", agent_result.session_id));

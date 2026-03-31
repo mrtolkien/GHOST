@@ -26,12 +26,20 @@ return {
             note_skill = note_skill,
         })
 
+        -- Read the full book content upfront so the agent has it in one shot
+        local book_result = ctx:call_tool("shell", {
+            command = "cat references/" .. topic .. "/*.md",
+            timeout_ms = 30000,
+        })
+
         local user_message = "Create notes for the following book.\n\n"
             .. "**Title**: " .. title .. "\n"
             .. "**Author(s)**: " .. authors .. "\n"
             .. "**Topic (reference path)**: " .. topic .. "\n\n"
-            .. "Chapters are at `references/" .. topic .. "/`. "
-            .. "Start by listing the files, then read them all."
+            .. "## Full Book Text\n\n"
+            .. book_result .. "\n\n"
+            .. "---\n\n"
+            .. "The full text is above. Now create the notes."
 
         return {
             system_prompt = system_prompt,
