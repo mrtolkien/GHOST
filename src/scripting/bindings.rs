@@ -235,8 +235,13 @@ impl LuaUserData for AgentContext {
                     1000,
                 );
 
-                let curation =
-                    crate::web::curate_references(&this.workspace, session_id, &classified);
+                let curation = crate::web::curate_references(
+                    &this.db,
+                    &this.workspace,
+                    session_id,
+                    &classified,
+                )
+                .await;
 
                 let edges =
                     crate::web::link_cited_edges(&this.db, &this.workspace, &classified).await;

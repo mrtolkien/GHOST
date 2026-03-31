@@ -2,8 +2,9 @@
 
 mod common;
 
+use ghost::convert::git::convert_git;
 use ghost::db;
-use ghost::reference_import::{ImportConfig, ImportSource};
+use ghost::reference_import::{ImportProvenance, import_from_path};
 
 /// End-to-end test: import -> simulate changes -> update -> verify diff + orphan protection.
 ///
@@ -13,20 +14,36 @@ async fn update_git_references_with_diff_and_orphan_protection() {
     let (db, config, _workspace, _config_dir) = common::test_database().await;
     let workspace_path = std::path::Path::new(&config.workspace);
 
-    // --- Phase 1: Initial import ---
-    let import_config = ImportConfig {
-        source: ImportSource::Git {
-            url: "https://github.com/DioxusLabs/docsite".to_string(),
-            paths: vec!["docs-src/0.7/src/tutorial/".to_string()],
-            extensions: vec![".md".to_string()],
-            git_ref: None,
-        },
-        topic: "dioxus/docs".to_string(),
+    // --- Phase 1a: Convert to staging ---
+    let staging_root = workspace_path.join(".staging");
+    let convert_result = convert_git(
+        &staging_root,
+        "https://github.com/DioxusLabs/docsite",
+        &["docs-src/0.7/src/tutorial/".to_string()],
+        &[".md".to_string()],
+        None,
+    )
+    .await
+    .expect("convert git");
+
+    // --- Phase 1b: Import from staging ---
+    let provenance = ImportProvenance {
+        source_type: Some("git".to_string()),
+        source_url: Some("https://github.com/DioxusLabs/docsite".to_string()),
+        version_ref: Some(convert_result.version_ref.clone()),
+        git_ref: None,
     };
 
-    let import_result = ghost::reference_import::import_git(&db, workspace_path, &import_config)
-        .await
-        .expect("initial import");
+    let import_result = import_from_path(
+        &db,
+        workspace_path,
+        &convert_result.staging_dir,
+        "dioxus/docs",
+        &provenance,
+        None,
+    )
+    .await
+    .expect("initial import");
     assert!(
         import_result.references_created > 0,
         "should create references"

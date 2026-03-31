@@ -20,11 +20,11 @@ need to be started, observed, and managed.
 
 Three changes:
 
-1. **`ghost run`** — CLI command that runs both agents and skill scripts, with
-   background job tracking (status, cancel, logs).
-2. **`run` tool** — replaces the `agent` tool in chat. Same actions (start, status,
-   show, cancel), but handles both agents and scripts. The GHOST uses one tool for all
-   managed processes.
+1. **`ghost run`** — CLI command that runs both agents and skill scripts, with background
+   job tracking (status, cancel, logs).
+2. **`run` tool** — replaces the `agent` tool in chat. Same actions (start, status, show,
+   cancel), but handles both agents and scripts. The GHOST uses one tool for all managed
+   processes.
 3. **`schedule.toml`** — replaces `crontab.lua`. Plain TOML at the workspace root.
    Observable via `ghost schedule list`. Editable by the GHOST as a text file.
 
@@ -58,7 +58,6 @@ ghost run document-processing:convert    # skills/document-processing/scripts/co
 ```
 
 Resolution order for `<scope>:<name>`:
-
 1. `$WORKSPACE/agents/<scope>/` — look for `<name>.lua`, `<name>.py`, `<name>.wasm`
 2. `$WORKSPACE/skills/<scope>/scripts/` — same file search
 3. Error if not found in either
@@ -81,8 +80,7 @@ Background (`--background`): returns a run ID immediately. Output captured to DB
 the existing `agent_runs` infrastructure, generalized to track both agent and script
 runs.
 
-- `ghost run status` — shows all runs (manual + scheduled), replaces
-  `ghost agent status`
+- `ghost run status` — shows all runs (manual + scheduled), replaces `ghost agent status`
 - `ghost run show <id>` — shows run output and details
 - `ghost run cancel <id>` — sends cancellation signal
 

@@ -160,3 +160,207 @@ async fn hybrid_extraction_produces_readable_text() {
          This indicates the vision model failed to extract Japanese text.",
     );
 }
+
+/// Full pipeline test: convert_pdf → import_from_path → verify DB references.
+///
+/// Exercises the entire new two-step flow with a real PDF, real docling,
+/// real vision model, and real DB writes. This is the test that would have
+/// caught the poppler_utils nix invocation bug.
+///
+/// Requires: docling-serve (DOCLING_URL), nix + poppler-utils, vision LLM.
+#[cfg(feature = "live-tests-llms")]
+#[tokio::test]
+async fn convert_pdf_then_import_full_pipeline() {
+    use ghost::convert::pdf::{PdfConvertResult, VisionFallback, convert_pdf};
+    use ghost::db;
+    use ghost::providers::provider_for_alias;
+    use ghost::reference_import::{ImportProvenance, import_from_path};
+
+    let config = ghost::config::load().expect("load config");
+    let workspace_path = Path::new(&config.workspace);
+    let connect_db = db::connect(&config.workspace, config.embeddings.dimension)
+        .await
+        .expect("connect db");
+
+    // Resolve vision provider
+    let vision_alias = config
+        .models
+        .vision
+        .as_deref()
+        .unwrap_or(&config.models.default);
+    let vision_provider =
+        provider_for_alias(&config, Some(vision_alias)).expect("vision provider");
+    let vision_model = config
+        .models
+        .aliases
+        .get(vision_alias)
+        .map(|m| m.model.clone())
+        .expect("vision model config");
+
+    let pdf_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/lotion.pdf");
+    assert!(pdf_path.exists(), "lotion.pdf fixture must exist");
+
+    // --- Step 1: convert_pdf ---
+    let staging_root = tempfile::tempdir().expect("staging tempdir");
+    eprintln!("Converting PDF with vision model: {vision_model}");
+    let start = std::time::Instant::now();
+
+    let PdfConvertResult {
+        staging_dir,
+        markdown_file,
+    } = convert_pdf(
+        staging_root.path(),
+        &pdf_path,
+        workspace_path,
+        &config.docling,
+        false, // OCR enabled
+        None,  // all pages
+        Some(VisionFallback {
+            provider: vision_provider,
+            model: vision_model,
+        }),
+    )
+    .await
+    .expect("convert_pdf should succeed");
+
+    let elapsed = start.elapsed();
+    eprintln!("convert_pdf completed in {:.1}s", elapsed.as_secs_f64());
+
+    // Verify staging output
+    assert!(staging_dir.exists(), "staging dir should exist");
+    let md_path = staging_dir.join(&markdown_file);
+    assert!(md_path.exists(), "markdown file should exist in staging");
+    let md_content = std::fs::read_to_string(&md_path).expect("read markdown");
+    assert!(
+        !md_content.is_empty(),
+        "converted markdown should not be empty"
+    );
+    eprintln!("Markdown: {} chars, file: {markdown_file}", md_content.len());
+
+    // Verify _originals/ preserved
+    let originals = staging_dir.join("_originals");
+    assert!(originals.is_dir(), "_originals/ should exist in staging");
+    let original_files: Vec<_> = std::fs::read_dir(&originals)
+        .expect("read _originals")
+        .flatten()
+        .collect();
+    assert_eq!(
+        original_files.len(),
+        1,
+        "should have exactly 1 original file"
+    );
+
+    // Verify content quality (vision model should have extracted Japanese text)
+    let expected_fragments = [
+        "ヘパリン類似物質",
+        "健栄製薬",
+        "グリチルリチン",
+        "ル・マイルド",
+    ];
+    let found_any = expected_fragments
+        .iter()
+        .any(|frag| md_content.contains(frag));
+    assert!(
+        found_any,
+        "expected Japanese text in converted markdown — vision fallback may have failed"
+    );
+
+    // --- Step 2: import_from_path ---
+    let topic = "test/lotion-pdf-pipeline";
+    let provenance = ImportProvenance {
+        source_type: Some("file".to_string()),
+        source_url: Some(pdf_path.display().to_string()),
+        ..Default::default()
+    };
+
+    let result = import_from_path(
+        &connect_db,
+        workspace_path,
+        &staging_dir,
+        topic,
+        &provenance,
+        None,
+    )
+    .await
+    .expect("import_from_path should succeed");
+
+    assert_eq!(
+        result.references_created, 1,
+        "should create exactly 1 reference"
+    );
+    assert_eq!(result.references_skipped, 0, "should skip nothing");
+
+    // Verify DB record
+    let refs = db::knowledge::list_references_by_topic(
+        &connect_db,
+        Some(&result.topic_id),
+        10,
+    )
+    .await
+    .expect("list refs");
+    assert_eq!(refs.len(), 1, "should have 1 reference in DB");
+
+    // Verify reference file on disk
+    let ref_on_disk = workspace_path
+        .join("references")
+        .join(topic)
+        .join(&markdown_file);
+    assert!(ref_on_disk.exists(), "reference file should exist on disk");
+
+    // Verify _originals/ copied to references
+    let ref_originals = workspace_path
+        .join("references")
+        .join(topic)
+        .join("_originals");
+    assert!(
+        ref_originals.is_dir(),
+        "_originals/ should be copied to references"
+    );
+
+    // Verify _import.toml
+    let import_toml = workspace_path
+        .join("references")
+        .join(topic)
+        .join("_import.toml");
+    assert!(import_toml.exists(), "_import.toml should be written");
+    let toml_content = std::fs::read_to_string(&import_toml).expect("read _import.toml");
+    assert!(
+        toml_content.contains("source_type = \"file\""),
+        "_import.toml should record file source type"
+    );
+
+    // --- Step 3: Idempotent re-import ---
+    // Re-create staging (the first one may have been cleaned up)
+    let staging2 = tempfile::tempdir().expect("staging2");
+    let staging2_dir = staging2.path().join("lotion-reimport");
+    std::fs::create_dir_all(&staging2_dir).expect("create staging2 dir");
+    std::fs::write(staging2_dir.join(&markdown_file), &md_content)
+        .expect("write md to staging2");
+
+    let result2 = import_from_path(
+        &connect_db,
+        workspace_path,
+        &staging2_dir,
+        topic,
+        &provenance,
+        None,
+    )
+    .await
+    .expect("re-import should succeed");
+
+    assert_eq!(
+        result2.references_created, 0,
+        "re-import should create 0 new refs"
+    );
+    assert_eq!(
+        result2.references_skipped, 1,
+        "re-import should skip the existing ref"
+    );
+
+    // --- Cleanup ---
+    db::knowledge::delete_references_by_topic(&connect_db, &result.topic_id)
+        .await
+        .expect("cleanup refs");
+
+    eprintln!("Full PDF pipeline test passed.");
+}

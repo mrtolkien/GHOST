@@ -6,25 +6,37 @@ mod common;
 #[tokio::test]
 #[cfg(feature = "live-tests")]
 async fn crawl_import_small_site() {
+    use ghost::convert::crawl::convert_crawl;
     use ghost::db;
-    use ghost::reference_import::{ImportConfig, ImportSource};
+    use ghost::reference_import::{ImportProvenance, import_from_path};
     let env = common::live_test_database("crawl_import").await;
     let workspace_path = std::path::Path::new(&env.config.workspace);
 
     let max_pages = 5usize;
-    let import_config = ImportConfig {
-        source: ImportSource::Crawl {
-            url: "https://ghost.tolki.dev/".to_string(),
-            max_depth: 2,
-            max_pages,
-        },
-        topic: "ghost/docs".to_string(),
+
+    // --- Phase 1a: Convert to staging ---
+    let staging_root = workspace_path.join(".staging");
+    let convert_result = convert_crawl(&staging_root, "https://ghost.tolki.dev/", 2, max_pages)
+        .await
+        .expect("convert crawl");
+
+    // --- Phase 1b: Import from staging ---
+    let provenance = ImportProvenance {
+        source_type: Some("crawl".to_string()),
+        source_url: Some("https://ghost.tolki.dev/".to_string()),
+        ..Default::default()
     };
 
-    // --- Phase 1: Initial crawl ---
-    let result = ghost::reference_import::import_crawl(&env.db, workspace_path, &import_config)
-        .await
-        .expect("initial crawl");
+    let result = import_from_path(
+        &env.db,
+        workspace_path,
+        &convert_result.staging_dir,
+        "ghost/docs",
+        &provenance,
+        Some("https://ghost.tolki.dev/"),
+    )
+    .await
+    .expect("import from path");
 
     assert!(
         result.references_created > 0,
@@ -65,9 +77,20 @@ async fn crawl_import_small_site() {
     );
 
     // --- Phase 2: Idempotent re-crawl ---
-    let result2 = ghost::reference_import::import_crawl(&env.db, workspace_path, &import_config)
+    let convert_result2 = convert_crawl(&staging_root, "https://ghost.tolki.dev/", 2, max_pages)
         .await
-        .expect("re-crawl");
+        .expect("convert crawl re-crawl");
+
+    let result2 = import_from_path(
+        &env.db,
+        workspace_path,
+        &convert_result2.staging_dir,
+        "ghost/docs",
+        &provenance,
+        Some("https://ghost.tolki.dev/"),
+    )
+    .await
+    .expect("re-crawl");
 
     assert_eq!(
         result2.references_created, 0,

@@ -521,8 +521,13 @@ impl LiveTestEnv {
         let (findings, metadata) = (result.findings, result.metadata);
 
         // Post-processing: deterministic reference curation (matches production)
-        let curation =
-            ghost::web::curate_references(&self.config.workspace, agent_session_id, &classified);
+        let curation = ghost::web::curate_references(
+            &self.db,
+            &self.config.workspace,
+            agent_session_id,
+            &classified,
+        )
+        .await;
         self.log(format!(
             "curate_references: {} moved, {} deleted",
             curation.moved, curation.deleted,

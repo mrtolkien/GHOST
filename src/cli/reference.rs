@@ -1,15 +1,32 @@
+use std::path::{Path, PathBuf};
+
 use clap::Subcommand;
 
 use crate::db;
 use crate::error::GhostError;
-use crate::reference_import::{ImportConfig, ImportSource};
+use crate::reference_import::ImportProvenance;
 
 #[derive(Debug, Subcommand)]
 pub enum ReferenceCommand {
-    /// Import references from external sources
+    /// Import markdown files or directories as references
     Import {
-        #[command(subcommand)]
-        command: ReferenceImportCommand,
+        /// Path to a markdown file or directory of markdown files
+        path: PathBuf,
+        /// Topic name (hierarchical, e.g., "dioxus/docs")
+        #[arg(long)]
+        topic: String,
+        /// Source type (git, crawl, file)
+        #[arg(long)]
+        source_type: Option<String>,
+        /// Source URL
+        #[arg(long)]
+        source_url: Option<String>,
+        /// Version reference (e.g., git commit hash)
+        #[arg(long)]
+        version_ref: Option<String>,
+        /// Git ref (branch or tag)
+        #[arg(long)]
+        git_ref: Option<String>,
     },
     /// Update references for a topic from its original source
     Update {
@@ -27,89 +44,46 @@ pub enum ReferenceCommand {
     },
 }
 
-#[derive(Debug, Subcommand)]
-pub enum ReferenceImportCommand {
-    /// Import from a git repository
-    Git {
-        #[arg(long)]
-        url: String,
-        #[arg(long)]
-        topic: String,
-        #[arg(long, value_delimiter = ',')]
-        paths: Vec<String>,
-        #[arg(long, value_delimiter = ',')]
-        extensions: Vec<String>,
-        /// Pin import to a specific branch or tag
-        #[arg(long = "ref")]
-        git_ref: Option<String>,
-    },
-    /// Import by crawling a website
-    Crawl {
-        #[arg(long)]
-        url: String,
-        #[arg(long)]
-        topic: String,
-        #[arg(long, default_value_t = 3)]
-        max_depth: usize,
-        #[arg(long, default_value_t = 50)]
-        max_pages: usize,
-    },
-}
-
 #[tracing::instrument(name = "execute reference_command", skip_all)]
 pub async fn execute(command: ReferenceCommand) -> Result<(), GhostError> {
     let _observability = crate::observability::init()?;
     let config = crate::config::load()?;
     let db = crate::db::connect(&config.workspace, config.embeddings.dimension).await?;
-    let workspace = std::path::Path::new(&config.workspace);
+    let workspace = Path::new(&config.workspace);
 
     match command {
-        ReferenceCommand::Import { command } => match command {
-            ReferenceImportCommand::Git {
-                url,
-                topic,
-                paths,
-                extensions,
+        ReferenceCommand::Import {
+            path,
+            topic,
+            source_type,
+            source_url,
+            version_ref,
+            git_ref,
+        } => {
+            let provenance = ImportProvenance {
+                source_type,
+                source_url,
+                version_ref,
                 git_ref,
-            } => {
-                let import_config = ImportConfig {
-                    source: ImportSource::Git {
-                        url: url.clone(),
-                        paths,
-                        extensions,
-                        git_ref,
-                    },
-                    topic: topic.clone(),
-                };
-                println!("Importing from git: {url}");
-                println!("Topic: {topic}");
-                let result =
-                    crate::reference_import::import_git(&db, workspace, &import_config).await?;
-                print_result(&topic, "git", result);
-                Ok(())
-            }
-            ReferenceImportCommand::Crawl {
-                url,
-                topic,
-                max_depth,
-                max_pages,
-            } => {
-                let import_config = ImportConfig {
-                    source: ImportSource::Crawl {
-                        url: url.clone(),
-                        max_depth,
-                        max_pages,
-                    },
-                    topic: topic.clone(),
-                };
-                println!("Importing from crawl: {url}");
-                println!("Topic: {topic}");
-                let result =
-                    crate::reference_import::import_crawl(&db, workspace, &import_config).await?;
-                print_result(&topic, "crawl", result);
-                Ok(())
-            }
-        },
+            };
+
+            println!("Importing from: {}", path.display());
+            println!("Topic: {topic}");
+
+            let result = crate::reference_import::import_from_path(
+                &db,
+                workspace,
+                &path,
+                &topic,
+                &provenance,
+                None,
+            )
+            .await?;
+
+            print_import_result(&topic, &result);
+            cleanup_staging(&path, workspace);
+            Ok(())
+        }
         ReferenceCommand::Update { topic, git_ref } => {
             println!("Updating references for topic: {topic}");
             let result = crate::reference_import::update_references(
@@ -126,17 +100,14 @@ pub async fn execute(command: ReferenceCommand) -> Result<(), GhostError> {
     }
 }
 
-fn print_result(topic: &str, source: &str, result: crate::reference_import::ImportResult) {
+fn print_import_result(topic: &str, result: &crate::reference_import::ImportResult) {
     println!(
         "Done. Created: {}, Skipped: {}",
         result.references_created, result.references_skipped
     );
     if result.references_created > 0 {
         let ref_dir = format!("references/{topic}/");
-        match source {
-            "page" | "file" | "url" => println!("Reference saved to: {ref_dir}"),
-            _ => println!("References saved to: {ref_dir}"),
-        }
+        println!("References saved to: {ref_dir}");
         println!("Embeddings are being computed in the background by the file watcher.");
         println!(
             "\n  NOTE: A skeleton index note exists at notes/{topic}/index.md\n  \
@@ -144,6 +115,30 @@ fn print_result(topic: &str, source: &str, result: crate::reference_import::Impo
              Edit it with a real description of what this library/topic is about —\n  \
              semantic search relies on this to discover the topic."
         );
+    }
+}
+
+/// Remove the staging directory after a successful import.
+///
+/// If the imported path is inside `workspace/.staging/`, clean it up so
+/// converted files don't linger after they have been ingested.
+fn cleanup_staging(path: &Path, workspace: &Path) {
+    let staging_root = workspace.join(".staging");
+    if !path.starts_with(&staging_root) {
+        return;
+    }
+    // For a directory, remove the directory itself.
+    // For a file, remove its parent if it's a child of .staging/ (not .staging/ itself).
+    let dir_to_remove = if path.is_dir() {
+        path.to_path_buf()
+    } else {
+        path.parent()
+            .filter(|p| p.starts_with(&staging_root) && *p != staging_root)
+            .map(Path::to_path_buf)
+            .unwrap_or_default()
+    };
+    if !dir_to_remove.as_os_str().is_empty() {
+        let _ = std::fs::remove_dir_all(&dir_to_remove);
     }
 }
 

@@ -2,9 +2,10 @@
 
 mod common;
 
+use ghost::convert::git::convert_git;
 use ghost::db;
 use ghost::embeddings::EmbeddingClient;
-use ghost::reference_import::{ImportConfig, ImportSource};
+use ghost::reference_import::{ImportProvenance, import_from_path};
 
 /// Full end-to-end test: sparse git clone → reference creation → embeddings →
 /// BM25 search → vector search → hybrid search → idempotent re-import.
@@ -15,21 +16,38 @@ async fn import_and_query_git_references() {
     let (db, config, _workspace, _config_dir) = common::test_database().await;
     let workspace_path = std::path::Path::new(&config.workspace);
 
-    // --- Phase 1: Import ---
+    // --- Phase 1a: Convert to staging ---
 
-    let import_config = ImportConfig {
-        source: ImportSource::Git {
-            url: "https://github.com/DioxusLabs/docsite".to_string(),
-            paths: vec!["docs-src/0.7/src/tutorial/".to_string()],
-            extensions: vec![".md".to_string()],
-            git_ref: None,
-        },
-        topic: "dioxus/docs".to_string(),
+    let staging_root = workspace_path.join(".staging");
+    let convert_result = convert_git(
+        &staging_root,
+        "https://github.com/DioxusLabs/docsite",
+        &["docs-src/0.7/src/tutorial/".to_string()],
+        &[".md".to_string()],
+        None,
+    )
+    .await
+    .expect("convert git");
+
+    // --- Phase 1b: Import from staging ---
+
+    let provenance = ImportProvenance {
+        source_type: Some("git".to_string()),
+        source_url: Some("https://github.com/DioxusLabs/docsite".to_string()),
+        version_ref: Some(convert_result.version_ref.clone()),
+        git_ref: None,
     };
 
-    let result = ghost::reference_import::import_git(&db, workspace_path, &import_config)
-        .await
-        .expect("import git");
+    let result = import_from_path(
+        &db,
+        workspace_path,
+        &convert_result.staging_dir,
+        "dioxus/docs",
+        &provenance,
+        None,
+    )
+    .await
+    .expect("import from path");
 
     assert!(
         result.references_created > 0,
@@ -186,9 +204,26 @@ async fn import_and_query_git_references() {
 
     // --- Phase 6: Idempotent re-import ---
 
-    let result2 = ghost::reference_import::import_git(&db, workspace_path, &import_config)
-        .await
-        .expect("re-import");
+    let convert_result2 = convert_git(
+        &staging_root,
+        "https://github.com/DioxusLabs/docsite",
+        &["docs-src/0.7/src/tutorial/".to_string()],
+        &[".md".to_string()],
+        None,
+    )
+    .await
+    .expect("convert git re-import");
+
+    let result2 = import_from_path(
+        &db,
+        workspace_path,
+        &convert_result2.staging_dir,
+        "dioxus/docs",
+        &provenance,
+        None,
+    )
+    .await
+    .expect("re-import");
 
     assert_eq!(
         result2.references_created, 0,

@@ -30,9 +30,18 @@ pub enum ImportSource {
 #[derive(Debug)]
 pub struct ImportResult {
     pub topic_id: String,
-    pub batch_id: String,
+    pub batch_id: Option<String>,
     pub references_created: usize,
     pub references_skipped: usize,
+}
+
+/// Provenance metadata for an import — optional, passed through from convert step.
+#[derive(Debug, Clone, Default)]
+pub struct ImportProvenance {
+    pub source_type: Option<String>,
+    pub source_url: Option<String>,
+    pub version_ref: Option<String>,
+    pub git_ref: Option<String>,
 }
 
 #[derive(Debug)]
@@ -65,6 +74,18 @@ pub enum ImportError {
 
     #[error("docling error: {0}")]
     Docling(#[from] crate::docling::DoclingError),
+}
+
+impl From<crate::convert::error::ConvertError> for ImportError {
+    fn from(e: crate::convert::error::ConvertError) -> Self {
+        use crate::convert::error::ConvertError;
+        match e {
+            ConvertError::Git(s) => ImportError::Git(s),
+            ConvertError::Fetch(s) => ImportError::Fetch(s),
+            ConvertError::Conversion(s) => ImportError::Config(s),
+            ConvertError::Io(io) => ImportError::Io(io),
+        }
+    }
 }
 
 /// Serializable snapshot of an `ImportConfig` for storage in DB and TOML.
