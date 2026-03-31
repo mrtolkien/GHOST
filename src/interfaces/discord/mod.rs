@@ -7,4 +7,5 @@ mod start;
 mod table_image;
 pub(crate) mod ui_events;
 
+pub(crate) use bot::TimedTyping;
 pub use start::{DiscordError, DiscordHandle, DiscordSender, start_discord};

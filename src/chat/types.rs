@@ -57,6 +57,7 @@ pub struct RunMetadata {
     pub input_tokens: u32,
     pub output_tokens: u32,
     pub cache_read_tokens: u32,
+    pub cache_creation_tokens: u32,
     pub duration: std::time::Duration,
 }
 

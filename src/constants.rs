@@ -114,6 +114,13 @@ pub const IDLE_POLL_INTERVAL: Duration = Duration::from_secs(2);
 /// Maximum idle polls before giving up (total wait = interval × polls).
 pub const MAX_IDLE_POLLS: usize = 30;
 
+/// Maximum characters for system messages forwarded to Discord.
+///
+/// Discord v2 `text_display` components are capped at 4000 chars, and
+/// `send_gateway_v2` prepends a `"**GHOST**\n\n"` header (~12 chars).
+/// We leave margin to avoid hitting the limit.
+pub const MAX_DISCORD_SYSTEM_MESSAGE_CHARS: usize = 3900;
+
 // ---------------------------------------------------------------------------
 // Web crawling
 // ---------------------------------------------------------------------------

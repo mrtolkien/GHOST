@@ -188,18 +188,35 @@ pub fn format_statusline(metadata: &RunMetadata) -> Vec<serde_json::Value> {
     // Model alias in inline code
     parts.push(format!("`{}`", metadata.model_alias));
 
-    // Token counts
-    let mut tokens = format!(
-        "{}↑ {}↓",
-        format_token_count(metadata.input_tokens),
-        format_token_count(metadata.output_tokens),
-    );
+    // Token counts — show all billing-relevant categories compactly.
+    //
+    // Anthropic: input_tokens = non-cached input only; cache_creation > 0.
+    // OpenAI:    input_tokens includes cached portion; cache_creation = 0.
+    //
+    // To avoid double-counting for OpenAI, subtract cache_read from input
+    // when cache_creation is zero (OpenAI-style).
+    let display_input = if metadata.cache_creation_tokens == 0 && metadata.cache_read_tokens > 0 {
+        metadata
+            .input_tokens
+            .saturating_sub(metadata.cache_read_tokens)
+    } else {
+        metadata.input_tokens
+    };
+
+    let mut tokens = format!("{}↑", format_token_count(display_input));
+    if metadata.cache_creation_tokens > 0 {
+        tokens.push_str(&format!(
+            " {}\u{2295}",
+            format_token_count(metadata.cache_creation_tokens)
+        ));
+    }
     if metadata.cache_read_tokens > 0 {
         tokens.push_str(&format!(
             " {}⚡\u{FE0E}",
             format_token_count(metadata.cache_read_tokens)
         ));
     }
+    tokens.push_str(&format!(" {}↓", format_token_count(metadata.output_tokens)));
     parts.push(tokens);
 
     // Tool breakdown with emojis: 🔍︎×3 📄︎×2
@@ -310,6 +327,7 @@ mod tests {
             input_tokens: 500,
             output_tokens: 200,
             cache_read_tokens: 0,
+            cache_creation_tokens: 0,
             duration: Duration::from_secs_f64(1.5),
         };
         let components = format_statusline(&metadata);
@@ -326,7 +344,9 @@ mod tests {
     }
 
     #[test]
-    fn statusline_with_tools_and_cache() {
+    fn statusline_openai_cache_read_deduplicates() {
+        // OpenAI-style: cache_creation=0, cache_read>0.
+        // input_tokens includes cached portion, so display subtracts it.
         let mut tool_counts = HashMap::new();
         tool_counts.insert("web_fetch".to_string(), 2);
         tool_counts.insert("knowledge_search".to_string(), 3);
@@ -337,16 +357,64 @@ mod tests {
             input_tokens: 12_500,
             output_tokens: 856,
             cache_read_tokens: 8_000,
+            cache_creation_tokens: 0,
             duration: Duration::from_secs_f64(4.2),
         };
         let components = format_statusline(&metadata);
         let text = text_content(&components[1]);
-        assert!(text.contains("12.5k↑"));
+        // 12500 - 8000 = 4500 displayed as input
+        assert!(text.contains("4.5k↑"), "expected 4.5k↑: {text}");
         assert!(text.contains("856↓"));
         assert!(text.contains("8.0k⚡"));
+        assert!(!text.contains("\u{2295}"), "no cache-write for OpenAI");
         assert!(text.contains("×3")); // knowledge_search count
         assert!(text.contains("×2")); // web_fetch count
         assert!(text.contains("4.2s"));
+    }
+
+    #[test]
+    fn statusline_anthropic_cache_creation() {
+        // Anthropic-style: cache_creation>0, input is non-cached only.
+        let metadata = RunMetadata {
+            model_alias: "primary".to_string(),
+            iterations: 1,
+            tool_counts: HashMap::new(),
+            input_tokens: 3,
+            output_tokens: 554,
+            cache_read_tokens: 0,
+            cache_creation_tokens: 8_475,
+            duration: Duration::from_secs_f64(2.0),
+        };
+        let components = format_statusline(&metadata);
+        let text = text_content(&components[1]);
+        assert!(text.contains("3↑"), "expected 3↑: {text}");
+        assert!(
+            text.contains("8.5k\u{2295}"),
+            "expected cache-write: {text}"
+        );
+        assert!(!text.contains("⚡"), "no cache-read expected");
+        assert!(text.contains("554↓"));
+    }
+
+    #[test]
+    fn statusline_anthropic_mixed_cache() {
+        // Anthropic-style with both cache creation and read.
+        let metadata = RunMetadata {
+            model_alias: "primary".to_string(),
+            iterations: 2,
+            tool_counts: HashMap::new(),
+            input_tokens: 3,
+            output_tokens: 554,
+            cache_read_tokens: 8_475,
+            cache_creation_tokens: 200,
+            duration: Duration::from_secs_f64(3.0),
+        };
+        let components = format_statusline(&metadata);
+        let text = text_content(&components[1]);
+        assert!(text.contains("3↑"), "expected 3↑: {text}");
+        assert!(text.contains("200\u{2295}"), "expected cache-write: {text}");
+        assert!(text.contains("8.5k⚡"), "expected cache-read: {text}");
+        assert!(text.contains("554↓"));
     }
 
     #[test]
@@ -358,6 +426,7 @@ mod tests {
             input_tokens: 1_000,
             output_tokens: 500,
             cache_read_tokens: 0,
+            cache_creation_tokens: 0,
             duration: Duration::from_secs(154),
         };
         let components = format_statusline(&metadata);
@@ -414,6 +483,7 @@ mod tests {
             input_tokens: 45_000,
             output_tokens: 8_000,
             cache_read_tokens: 32_000,
+            cache_creation_tokens: 0,
             duration: Duration::from_secs(154),
         };
         let result = format_agent_summary("deep-research", &metadata, Some("Found 3 papers"));
@@ -433,6 +503,7 @@ mod tests {
             input_tokens: 1_000,
             output_tokens: 500,
             cache_read_tokens: 0,
+            cache_creation_tokens: 0,
             duration: Duration::from_secs_f64(3.2),
         };
         let result = format_agent_summary("quick-task", &metadata, None);

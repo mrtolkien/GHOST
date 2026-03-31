@@ -150,6 +150,7 @@ impl LoopState {
         self.metadata.input_tokens += response.usage.input_tokens;
         self.metadata.output_tokens += response.usage.output_tokens;
         self.metadata.cache_read_tokens += response.usage.cache_read_tokens.unwrap_or(0);
+        self.metadata.cache_creation_tokens += response.usage.cache_creation_tokens.unwrap_or(0);
     }
 }
 

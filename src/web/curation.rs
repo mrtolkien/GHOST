@@ -422,6 +422,18 @@ pub async fn curate_references(
         }
     }
 
+    // Clean up empty cache directories (session, browser, top-level).
+    // remove_dir only succeeds on empty dirs; read_dir fails gracefully if missing.
+    let browser_dir = workspace.join(".cache").join("browser");
+    let cache_root = workspace.join(".cache");
+    for dir in [&cache_dir, &browser_dir, &cache_root] {
+        if let Ok(mut entries) = std::fs::read_dir(dir)
+            && entries.next().is_none()
+        {
+            let _ = std::fs::remove_dir(dir);
+        }
+    }
+
     tracing::info!(
         moved = result.moved,
         deleted = result.deleted,

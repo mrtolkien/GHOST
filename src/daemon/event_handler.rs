@@ -9,9 +9,10 @@ use crate::coding::prompt::build_coding_prompt;
 use crate::db;
 use crate::db::GhostDb;
 use crate::events::{SessionEvent, SessionEventReceiver};
-use crate::interfaces::discord::DiscordSender;
+use crate::interfaces::discord::{DiscordSender, TimedTyping};
+use serenity::model::id::ChannelId;
 
-use crate::constants::{IDLE_POLL_INTERVAL, MAX_IDLE_POLLS};
+use crate::constants::{IDLE_POLL_INTERVAL, MAX_DISCORD_SYSTEM_MESSAGE_CHARS, MAX_IDLE_POLLS};
 
 /// Spawn a unified event handler that receives `SessionEvent`s and triggers
 /// continuation chat turns. Replaces both `completion_watcher` and agent
@@ -79,6 +80,12 @@ async fn handle_event(
         return;
     }
 
+    // Start typing indicator so users see activity during the idle wait + chat
+    // turn. The `_typing` handle auto-stops on drop (when this function returns).
+    let _typing = discord_sender
+        .zip(discord_channel_id)
+        .map(|(sender, ch)| TimedTyping::start(ChannelId::new(ch), sender.http()));
+
     // Wait for any in-flight tool loop to finish before triggering continuation.
     let active_sessions = session_chat.active_sessions();
     if !wait_for_idle(active_sessions, session_id).await {
@@ -101,6 +108,21 @@ async fn handle_event(
             discord.agent_findings.as_deref(),
         );
         let _ = Box::pin(sender.send_compact_container(channel_id, &summary, None)).await;
+    }
+
+    // Send the background command output to Discord so the user sees what
+    // triggered the continuation turn. Truncate to fit Discord's text_display
+    // limit (send_gateway_v2 does not chunk automatically).
+    if let Some(sender) = discord_sender
+        && let Some(channel_id) = discord_channel_id
+    {
+        let content = truncate_for_discord(&event.system_message);
+        if let Err(e) = Box::pin(sender.send_system_message(channel_id, &content, None)).await {
+            tracing::error!(
+                error = e.to_string(),
+                "failed to send background output to Discord",
+            );
+        }
     }
 
     // Determine if this is a coding session and trigger the appropriate chat.
@@ -263,6 +285,17 @@ async fn detect_coding_session(
     Some((working_dir, system_prompt))
 }
 
+/// Truncate a system message to fit within Discord's v2 text_display limit.
+fn truncate_for_discord(content: &str) -> String {
+    if content.len() <= MAX_DISCORD_SYSTEM_MESSAGE_CHARS {
+        return content.to_string();
+    }
+    let end = content.floor_char_boundary(MAX_DISCORD_SYSTEM_MESSAGE_CHARS);
+    let mut truncated = content[..end].to_string();
+    truncated.push_str("\n...[truncated]");
+    truncated
+}
+
 /// Extract channel ID from an interface key like "discord:channel:123456".
 fn parse_discord_channel_id(interface_key: &str) -> Option<u64> {
     interface_key
@@ -287,5 +320,19 @@ mod tests {
         assert_eq!(parse_discord_channel_id("slack:channel:123"), None);
         assert_eq!(parse_discord_channel_id("discord:channel:"), None);
         assert_eq!(parse_discord_channel_id("garbage"), None);
+    }
+
+    #[test]
+    fn truncate_short_message_unchanged() {
+        let msg = "hello world";
+        assert_eq!(truncate_for_discord(msg), msg);
+    }
+
+    #[test]
+    fn truncate_long_message() {
+        let msg = "a".repeat(MAX_DISCORD_SYSTEM_MESSAGE_CHARS + 500);
+        let result = truncate_for_discord(&msg);
+        assert!(result.len() <= MAX_DISCORD_SYSTEM_MESSAGE_CHARS + 20);
+        assert!(result.ends_with("...[truncated]"));
     }
 }

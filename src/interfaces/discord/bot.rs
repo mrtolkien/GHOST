@@ -43,12 +43,12 @@ const MAX_ATTACHMENT_SIZE: usize = 25 * 1024 * 1024;
 // TimedTyping — typing indicator with automatic timeout
 // ---------------------------------------------------------------------------
 
-struct TimedTyping {
+pub(crate) struct TimedTyping {
     _handle: JoinHandle<()>,
 }
 
 impl TimedTyping {
-    fn start(channel_id: ChannelId, http: &Arc<Http>) -> Self {
+    pub(crate) fn start(channel_id: ChannelId, http: &Arc<Http>) -> Self {
         let typing = channel_id.start_typing(http);
         let handle = tokio::spawn(async move {
             tokio::time::sleep(TYPING_TIMEOUT).await;
