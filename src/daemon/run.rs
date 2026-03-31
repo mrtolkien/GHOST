@@ -4,7 +4,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use serenity::model::id::ChannelId;
 use tokio::sync::watch;
 use tokio::task::JoinHandle;
-use tracing::info;
+use tracing::{Instrument, info};
 
 const DEFAULT_SETTLE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(180);
 const SETTLE_POLL_INTERVAL: std::time::Duration = std::time::Duration::from_millis(500);
@@ -38,6 +38,7 @@ pub struct DaemonHandle {
     discord: Option<DiscordHandle>,
     idle_trigger_tx: tokio::sync::mpsc::Sender<()>,
     watcher_busy: Arc<AtomicBool>,
+    reconciliation_in_progress: Arc<AtomicBool>,
 }
 
 impl DaemonHandle {
@@ -46,6 +47,7 @@ impl DaemonHandle {
         self.active_sessions.is_empty()
             && self.agent_runner.active_count() == 0
             && !self.watcher_busy.load(Ordering::Relaxed)
+            && !self.reconciliation_in_progress.load(Ordering::Relaxed)
             && crate::tools::shell::background_shell_count() == 0
     }
 
@@ -182,35 +184,46 @@ pub async fn boot() -> Result<DaemonHandle, GhostError> {
 /// Boot the daemon with a pre-built config (for tests and programmatic use).
 #[tracing::instrument(name = "boot ghost", skip_all)]
 pub async fn boot_with_config(config: Config) -> Result<DaemonHandle, GhostError> {
-    // Phase 1: create directories + user-only files
-    crate::config_workspace::bootstrap_workspace_dirs(&config)?;
+    // Phase 1: workspace bootstrap (dirs, bundled files)
+    let (changes, has_interactive) = {
+        let _span = tracing::info_span!("bootstrap workspace").entered();
 
-    info!(workspace = %config.workspace.display(), "config loaded");
+        crate::config_workspace::bootstrap_workspace_dirs(&config)?;
+        info!(workspace = %config.workspace.display(), "config loaded");
 
-    // Install bundled docs to references/ghost/docs/ (silently, content-hash checked)
-    if config.install_bundled_docs {
-        match crate::bundled::install_docs(&config.workspace) {
-            Ok(0) => {}
-            Ok(n) => info!(n, "updated bundled docs"),
-            Err(e) => tracing::warn!(error = e.to_string(), "failed to install bundled docs"),
+        if config.install_bundled_docs {
+            match crate::bundled::install_docs(&config.workspace) {
+                Ok(0) => {}
+                Ok(n) => info!(n, "updated bundled docs"),
+                Err(e) => tracing::warn!(error = e.to_string(), "failed to install bundled docs"),
+            }
+        }
+
+        let changes = crate::bundled::compute_changes(&config.workspace);
+        let has_interactive = changes.has_interactive_updates();
+        crate::bundled::apply_silent_updates(&config.workspace, &changes)?;
+
+        (changes, has_interactive)
+    };
+
+    // Phase 1b: rebuild nix shell
+    async {
+        if let Err(e) = crate::tools::shell::rebuild_shell_env(&config.workspace).await {
+            tracing::warn!(error = e.clone(), "nix shell setup failed at boot");
         }
     }
+    .instrument(tracing::info_span!("rebuild nix shell"))
+    .await;
 
-    // Detect and apply bundled file changes
-    let changes = crate::bundled::compute_changes(&config.workspace);
-    let has_interactive = changes.has_interactive_updates();
-
-    // Silently apply non-interactive changes (new, auto-updates, clean merges,
-    // clean removals). Conflicts and modified removals need user input via Discord.
-    crate::bundled::apply_silent_updates(&config.workspace, &changes)?;
-
-    if let Err(e) = crate::tools::shell::rebuild_shell_env(&config.workspace).await {
-        tracing::warn!(error = e.clone(), "nix shell setup failed at boot");
+    // Phase 2: database connect
+    let db = async {
+        info!("connecting to database");
+        let db = crate::db::connect(&config.workspace, config.embeddings.dimension).await?;
+        info!("database ready");
+        Ok::<_, GhostError>(db)
     }
-
-    info!("connecting to database");
-    let db = crate::db::connect(&config.workspace, config.embeddings.dimension).await?;
-    info!("database ready");
+    .instrument(tracing::info_span!("connect database"))
+    .await?;
 
     // Log knowledge counts for boot diagnostics
     let notes = crate::db::knowledge::count_notes(&db).await.unwrap_or(0);
@@ -226,39 +239,54 @@ pub async fn boot_with_config(config: Config) -> Result<DaemonHandle, GhostError
         references, diary, embeddings, "knowledge stats at boot"
     );
 
-    // Boot reconciliation: discover missed files, then embed
-    let client = EmbeddingClient::new(&config.embeddings);
-    if client.is_available().await {
-        info!("running boot reconciliation");
-        match Box::pin(crate::embeddings::pipeline::reconcile_filesystem(
-            &db,
-            &config.workspace,
-        ))
-        .await
-        {
-            Ok((discovered, embed_requests)) => {
-                if discovered > 0 {
-                    info!(discovered, "boot: discovered untracked files");
-                }
-                if !embed_requests.is_empty() {
-                    match crate::embeddings::pipeline::embed_sources(&client, &db, embed_requests)
-                        .await
-                    {
-                        Ok(embedded) => {
-                            info!(embedded, "boot reconciliation complete");
+    // Boot reconciliation: spawn in background so boot is not blocked
+    let reconciliation_in_progress = Arc::new(AtomicBool::new(false));
+    {
+        let client = EmbeddingClient::new(&config.embeddings);
+        let db_bg = db.clone();
+        let workspace_bg = config.workspace.clone();
+        let flag = Arc::clone(&reconciliation_in_progress);
+
+        if client.is_available().await {
+            flag.store(true, Ordering::Release);
+            tokio::spawn(async move {
+                info!("running boot reconciliation (background)");
+                match Box::pin(crate::embeddings::pipeline::reconcile_filesystem(
+                    &db_bg,
+                    &workspace_bg,
+                ))
+                .await
+                {
+                    Ok((discovered, embed_requests)) => {
+                        if discovered > 0 {
+                            info!(discovered, "boot: discovered untracked files");
                         }
-                        Err(e) => {
-                            tracing::warn!(error = e.to_string(), "boot embedding failed");
+                        if !embed_requests.is_empty() {
+                            match crate::embeddings::pipeline::embed_sources(
+                                &client,
+                                &db_bg,
+                                embed_requests,
+                            )
+                            .await
+                            {
+                                Ok(embedded) => {
+                                    info!(embedded, "boot reconciliation complete");
+                                }
+                                Err(e) => {
+                                    tracing::warn!(error = e.to_string(), "boot embedding failed",);
+                                }
+                            }
                         }
                     }
+                    Err(e) => {
+                        tracing::error!(error = e.to_string(), "boot reconciliation failed");
+                    }
                 }
-            }
-            Err(e) => {
-                tracing::warn!(error = e.to_string(), "boot reconciliation failed");
-            }
+                flag.store(false, Ordering::Release);
+            });
+        } else {
+            tracing::warn!("Ollama unavailable — skipping boot reconciliation");
         }
-    } else {
-        tracing::warn!("Ollama unavailable — skipping boot reconciliation");
     }
 
     // Create shared config for hot-reload
@@ -273,6 +301,7 @@ pub async fn boot_with_config(config: Config) -> Result<DaemonHandle, GhostError
         shared_config.clone(),
         shutdown_rx.clone(),
         Arc::clone(&watcher_busy),
+        Arc::clone(&reconciliation_in_progress),
     );
 
     // Spawn hourly embedding reconciliation
@@ -280,6 +309,7 @@ pub async fn boot_with_config(config: Config) -> Result<DaemonHandle, GhostError
         db.clone(),
         shared_config.clone(),
         shutdown_rx.clone(),
+        Arc::clone(&reconciliation_in_progress),
     );
 
     // Create session event channel (background tasks → event handler)
@@ -374,6 +404,7 @@ pub async fn boot_with_config(config: Config) -> Result<DaemonHandle, GhostError
         discord: discord_result,
         idle_trigger_tx,
         watcher_busy,
+        reconciliation_in_progress,
     })
 }
 

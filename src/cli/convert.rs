@@ -118,6 +118,7 @@ pub async fn execute(command: ConvertCommand) -> Result<(), GhostError> {
             let staging_root = staging_root(&workspace, output.as_deref());
 
             let result = crate::convert::git::convert_git(
+                &workspace,
                 &staging_root,
                 &url,
                 &paths,

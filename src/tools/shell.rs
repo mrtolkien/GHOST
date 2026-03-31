@@ -14,26 +14,12 @@ use super::manager::Tool;
 pub struct RunShellCommand;
 
 use crate::constants::{DEFAULT_SHELL_TIMEOUT_MS, MAX_SHELL_OUTPUT_CHARS};
-const SHELL_BIN_FILE: &str = ".shell-bin";
 
 static BACKGROUND_SHELL_COUNT: AtomicUsize = AtomicUsize::new(0);
 
 /// Number of currently running background shell commands.
 pub fn background_shell_count() -> usize {
     BACKGROUND_SHELL_COUNT.load(Ordering::Relaxed)
-}
-
-/// Read the cached nix shell `bin/` path from `$WORKSPACE/.shell-bin`.
-pub(crate) fn read_shell_bin(workspace: &std::path::Path) -> Option<String> {
-    let path = workspace.join(SHELL_BIN_FILE);
-    std::fs::read_to_string(path).ok().and_then(|s| {
-        let trimmed = s.trim().to_string();
-        if trimmed.is_empty() {
-            None
-        } else {
-            Some(trimmed)
-        }
-    })
 }
 
 /// Build the workspace's nix shell environment and write its `bin/` path
@@ -62,8 +48,8 @@ pub async fn rebuild_shell_env(workspace: &std::path::Path) -> Result<(), String
     let store_path = String::from_utf8_lossy(&output.stdout).trim().to_string();
     if !store_path.is_empty() {
         let bin_path = format!("{store_path}/bin");
-        std::fs::write(workspace.join(SHELL_BIN_FILE), &bin_path)
-            .map_err(|e| format!("failed to write {SHELL_BIN_FILE}: {e}"))?;
+        std::fs::write(workspace.join(crate::nix::SHELL_BIN_FILE), &bin_path)
+            .map_err(|e| format!("failed to write {}: {e}", crate::nix::SHELL_BIN_FILE))?;
         tracing::info!(bin_path, "nix shell environment built");
     }
 
@@ -82,13 +68,7 @@ fn shell_command(
     let mut cmd = tokio::process::Command::new("/bin/sh");
     cmd.args(["-c", command]);
 
-    // Build PATH: nix buildEnv (from .shell-bin) + system
-    let current_path = std::env::var("PATH").unwrap_or_default();
-    let path = match read_shell_bin(workspace) {
-        Some(nix_bin) => format!("{nix_bin}:{current_path}"),
-        None => current_path,
-    };
-    cmd.env("PATH", path);
+    cmd.env("PATH", crate::nix::nix_path(workspace));
 
     if let Some(id) = channel_id {
         cmd.env("GHOST_CHANNEL_ID", id);

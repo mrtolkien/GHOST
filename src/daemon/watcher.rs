@@ -25,6 +25,7 @@ pub fn spawn_watcher(
     config: SharedConfig,
     mut shutdown: tokio::sync::watch::Receiver<bool>,
     watcher_busy: Arc<AtomicBool>,
+    reconciliation_in_progress: Arc<AtomicBool>,
 ) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
         let cfg = config.current();
@@ -62,6 +63,12 @@ pub fn spawn_watcher(
             tokio::time::sleep(debounce).await;
             while let Ok(path) = rx.try_recv() {
                 changed_paths.insert(path);
+            }
+
+            // Skip embedding while boot reconciliation is running to avoid conflicts
+            if reconciliation_in_progress.load(Ordering::Acquire) {
+                tracing::debug!("skipping watcher batch — boot reconciliation in progress");
+                continue;
             }
 
             watcher_busy.store(true, Ordering::Relaxed);
@@ -710,13 +717,15 @@ const RECONCILE_INTERVAL: Duration = Duration::from_secs(60 * 60);
 
 /// Periodically reconcile filesystem and embeddings to catch missed changes.
 ///
-/// Runs once per hour. Skips if Ollama is unavailable.
+/// Runs once per hour. Skips if Ollama is unavailable or boot reconciliation
+/// is still in progress.
 /// The file-hash check makes this cheap when nothing changed.
 #[tracing::instrument(name = "start reconciliation loop", skip_all)]
 pub fn spawn_reconciliation_loop(
     db: GhostDb,
     config: SharedConfig,
     mut shutdown: tokio::sync::watch::Receiver<bool>,
+    reconciliation_in_progress: Arc<AtomicBool>,
 ) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
         let cfg = config.current();
@@ -727,6 +736,13 @@ pub fn spawn_reconciliation_loop(
             tokio::select! {
                 _ = tokio::time::sleep(RECONCILE_INTERVAL) => {}
                 _ = shutdown.changed() => break,
+            }
+
+            if reconciliation_in_progress.load(Ordering::Acquire) {
+                tracing::debug!(
+                    "skipping periodic reconciliation — boot reconciliation in progress",
+                );
+                continue;
             }
 
             if !client.is_available().await {

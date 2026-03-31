@@ -238,6 +238,21 @@ known session (e.g. the `trigger_session_id` that spawned the agent).
 and lives only in the deployed GHOST workspace. Apply the pattern above to its
 `post_completion` hook when updating the workspace.
 
+## Centralized Scheduling (crontab.lua)
+
+`assets/agents/crontab.lua` defines which agents run on schedules. It returns a table of
+entries, each with either `cron` (cron expression) or `idle_minutes` (idle trigger):
+
+```lua
+return {
+    { idle_minutes = 30, run = "chat-reflection" },
+    { cron = "0 3 * * *", run = "daily-summary" },
+}
+```
+
+**Cron expressions are evaluated in UTC**, not the system timezone. Users must convert
+manually (e.g. `0 3 * * *` = 3:00 AM UTC).
+
 ## Key Patterns
 
 - **Registry keys over closures**: Hook functions are stored as `LuaRegistryKey` in the

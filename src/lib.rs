@@ -20,6 +20,7 @@ pub mod images;
 pub mod interfaces;
 pub mod knowledge;
 pub mod merge3;
+pub mod nix;
 pub mod observability;
 pub mod onboarding;
 pub mod projects;

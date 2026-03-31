@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use sha2::{Digest, Sha256};
+use tracing::Instrument;
 
 use crate::db;
 use crate::db::GhostDb;
@@ -251,11 +252,22 @@ pub async fn reconcile_filesystem(
     workspace: &std::path::Path,
 ) -> Result<(usize, Vec<EmbedRequest>), PipelineError> {
     // Phase 1: Load existing hashes from DB
-    let note_hashes = db::knowledge::load_note_file_hashes(db).await?;
-    let ref_hashes = db::knowledge::load_reference_file_hashes(db).await?;
-    let diary_hashes = db::knowledge::load_diary_file_hashes(db).await?;
-    let script_hashes = db::knowledge::load_script_file_hashes(db).await?;
-    let code_hashes = db::knowledge::load_code_file_hashes(db).await?;
+    let (note_hashes, ref_hashes, diary_hashes, script_hashes, code_hashes) = async {
+        let note_hashes = db::knowledge::load_note_file_hashes(db).await?;
+        let ref_hashes = db::knowledge::load_reference_file_hashes(db).await?;
+        let diary_hashes = db::knowledge::load_diary_file_hashes(db).await?;
+        let script_hashes = db::knowledge::load_script_file_hashes(db).await?;
+        let code_hashes = db::knowledge::load_code_file_hashes(db).await?;
+        Ok::<_, PipelineError>((
+            note_hashes,
+            ref_hashes,
+            diary_hashes,
+            script_hashes,
+            code_hashes,
+        ))
+    }
+    .instrument(tracing::info_span!("load file hashes"))
+    .await?;
 
     let mut known: HashMap<String, (Option<String>, bool)> = HashMap::new();
     for r in note_hashes {
@@ -290,6 +302,42 @@ pub async fn reconcile_filesystem(
     let mut discovered = 0usize;
     let mut embed_requests = Vec::new();
 
+    walk_knowledge_files(db, workspace, &known, &mut discovered, &mut embed_requests)
+        .instrument(tracing::info_span!("walk knowledge files"))
+        .await?;
+
+    // Phase 2b: Walk code repos (gitignore-aware)
+    let code_dir = workspace.join("code");
+    if code_dir.exists() {
+        let seen_code_paths = walk_code_repos(
+            db,
+            workspace,
+            &code_dir,
+            &known,
+            &mut discovered,
+            &mut embed_requests,
+        )
+        .instrument(tracing::info_span!("walk code repos"))
+        .await?;
+
+        // Phase 3: Reverse-pass — delete stale code_file records
+        cleanup_stale_code(db, &code_hashes, &seen_code_paths)
+            .instrument(tracing::info_span!("cleanup stale code"))
+            .await;
+    }
+
+    tracing::Span::current().record("discovered", discovered as u64);
+    Ok((discovered, embed_requests))
+}
+
+/// Walk notes/, references/, diary/, scripts/ and collect embed requests for changed files.
+async fn walk_knowledge_files(
+    db: &GhostDb,
+    workspace: &std::path::Path,
+    known: &HashMap<String, (Option<String>, bool)>,
+    discovered: &mut usize,
+    embed_requests: &mut Vec<EmbedRequest>,
+) -> Result<(), PipelineError> {
     for subdir in ["notes", "references", "diary", "scripts"] {
         let dir = workspace.join(subdir);
         if !dir.exists() {
@@ -300,27 +348,21 @@ pub async fn reconcile_filesystem(
             let rel = file_path.strip_prefix(workspace).unwrap_or(&file_path);
             let rel_str = rel.to_string_lossy().to_string();
 
-            // Read file and compute hash
             let Ok(raw) = tokio::fs::read_to_string(&file_path).await else {
                 continue;
             };
             let hash = content_hash(&raw);
 
             match known.get(&rel_str) {
-                // Hash matches and has embeddings -> skip entirely
                 Some((Some(stored_hash), true)) if *stored_hash == hash => continue,
-                // Hash matches but missing embeddings -> re-embed only (no DB upsert)
                 Some((Some(stored_hash), false)) if *stored_hash == hash => {
                     if let Some(mut req) =
                         build_embed_request_from_db(db, workspace, &file_path, &raw).await
                     {
-                        if req.path.is_none() {
-                            req.path = Some(rel_str.clone());
-                        }
+                        req.path.get_or_insert_with(|| rel_str.clone());
                         embed_requests.push(req);
                     }
                 }
-                // Hash differs or missing -> full process
                 _ => {
                     let reason = if known.contains_key(&rel_str) {
                         EmbedReason::Changed
@@ -338,11 +380,9 @@ pub async fn reconcile_filesystem(
                     {
                         Ok(Some(mut req)) => {
                             req.reason = reason;
-                            if req.path.is_none() {
-                                req.path = Some(rel_str.clone());
-                            }
+                            req.path.get_or_insert_with(|| rel_str.clone());
                             embed_requests.push(req);
-                            discovered += 1;
+                            *discovered += 1;
                         }
                         Ok(None) => {}
                         Err(e) => {
@@ -357,112 +397,124 @@ pub async fn reconcile_filesystem(
             }
         }
     }
+    Ok(())
+}
 
-    // Phase 2b: Walk code repos (gitignore-aware)
-    let code_dir = workspace.join("code");
-    if code_dir.exists() {
-        let mut seen_code_paths: std::collections::HashSet<String> =
-            std::collections::HashSet::new();
-        if let Ok(entries) = std::fs::read_dir(&code_dir) {
-            for entry in entries.flatten() {
-                if !entry.path().is_dir() {
-                    continue;
+/// Walk code/ repos (gitignore-aware) and collect embed requests.
+///
+/// Returns the set of seen code paths for stale-record cleanup.
+async fn walk_code_repos(
+    db: &GhostDb,
+    workspace: &std::path::Path,
+    code_dir: &std::path::Path,
+    known: &HashMap<String, (Option<String>, bool)>,
+    discovered: &mut usize,
+    embed_requests: &mut Vec<EmbedRequest>,
+) -> Result<std::collections::HashSet<String>, PipelineError> {
+    let mut seen_code_paths: std::collections::HashSet<String> = std::collections::HashSet::new();
+
+    let Ok(entries) = std::fs::read_dir(code_dir) else {
+        return Ok(seen_code_paths);
+    };
+
+    for entry in entries.flatten() {
+        if !entry.path().is_dir() {
+            continue;
+        }
+        let repo_dir = entry.path();
+        let files = walk_code_repo(&repo_dir);
+        for file_path in files {
+            let rel = file_path.strip_prefix(workspace).unwrap_or(&file_path);
+            let rel_str = rel.to_string_lossy().to_string();
+            seen_code_paths.insert(rel_str.clone());
+
+            let Ok(raw) = tokio::fs::read_to_string(&file_path).await else {
+                continue;
+            };
+            let hash = content_hash(&raw);
+
+            match known.get(&rel_str) {
+                Some((Some(stored_hash), true)) if *stored_hash == hash => continue,
+                Some((Some(stored_hash), false)) if *stored_hash == hash => {
+                    if let Some(req) =
+                        build_embed_request_from_db(db, workspace, &file_path, &raw).await
+                    {
+                        embed_requests.push(req);
+                    }
                 }
-                let repo_dir = entry.path();
-                let files = walk_code_repo(&repo_dir);
-                for file_path in files {
-                    let rel = file_path.strip_prefix(workspace).unwrap_or(&file_path);
-                    let rel_str = rel.to_string_lossy().to_string();
-                    seen_code_paths.insert(rel_str.clone());
-
-                    let Ok(raw) = tokio::fs::read_to_string(&file_path).await else {
-                        continue;
+                _ => {
+                    let reason = if known.contains_key(&rel_str) {
+                        EmbedReason::Changed
+                    } else {
+                        EmbedReason::New
                     };
-                    let hash = content_hash(&raw);
-
-                    match known.get(&rel_str) {
-                        Some((Some(stored_hash), true)) if *stored_hash == hash => {
-                            continue;
+                    match crate::daemon::watcher::process_change(
+                        db,
+                        workspace,
+                        &file_path,
+                        Some(&raw),
+                        Some(&hash),
+                    )
+                    .await
+                    {
+                        Ok(Some(mut req)) => {
+                            req.reason = reason;
+                            req.path.get_or_insert_with(|| rel_str.clone());
+                            embed_requests.push(req);
+                            *discovered += 1;
                         }
-                        Some((Some(stored_hash), false)) if *stored_hash == hash => {
-                            if let Some(req) =
-                                build_embed_request_from_db(db, workspace, &file_path, &raw).await
-                            {
-                                embed_requests.push(req);
-                            }
-                        }
-                        _ => {
-                            let reason = if known.contains_key(&rel_str) {
-                                EmbedReason::Changed
-                            } else {
-                                EmbedReason::New
-                            };
-                            match crate::daemon::watcher::process_change(
-                                db,
-                                workspace,
-                                &file_path,
-                                Some(&raw),
-                                Some(&hash),
-                            )
-                            .await
-                            {
-                                Ok(Some(mut req)) => {
-                                    req.reason = reason;
-                                    if req.path.is_none() {
-                                        req.path = Some(rel_str.clone());
-                                    }
-                                    embed_requests.push(req);
-                                    discovered += 1;
-                                }
-                                Ok(None) => {}
-                                Err(e) => {
-                                    tracing::warn!(
-                                        path = file_path.display().to_string(),
-                                        error = e.to_string(),
-                                        "reconcile: failed to process code file"
-                                    );
-                                }
-                            }
+                        Ok(None) => {}
+                        Err(e) => {
+                            tracing::warn!(
+                                path = file_path.display().to_string(),
+                                error = e.to_string(),
+                                "reconcile: failed to process code file"
+                            );
                         }
                     }
                 }
             }
         }
+    }
 
-        // Phase 3: Reverse-pass — delete stale code_file records
-        for r in &code_hashes {
-            let rel_key = format!("code/{}/{}", r.repo, r.path);
-            if !seen_code_paths.contains(&rel_key)
-                && let Ok(Some(cf)) = db::knowledge::find_code_file(db, &r.repo, &r.path).await
-            {
-                if let Err(e) = db::embeddings::delete_embeddings_for_source(db, &cf.id).await {
-                    tracing::warn!(
-                        repo = r.repo.as_str(),
-                        path = r.path.as_str(),
-                        error = e.to_string(),
-                        "reconcile: failed to delete code file embeddings"
-                    );
-                }
-                if let Err(e) = db::knowledge::delete_code_file(db, &cf.id).await {
-                    tracing::warn!(
-                        repo = r.repo.as_str(),
-                        path = r.path.as_str(),
-                        error = e.to_string(),
-                        "reconcile: failed to delete stale code file"
-                    );
-                } else {
-                    tracing::info!(
-                        repo = r.repo.as_str(),
-                        path = r.path.as_str(),
-                        "reconcile: removed stale code file"
-                    );
-                }
+    Ok(seen_code_paths)
+}
+
+/// Delete DB records for code files that no longer exist on disk.
+async fn cleanup_stale_code(
+    db: &GhostDb,
+    code_hashes: &[db::knowledge::CodeFileHashRecord],
+    seen_code_paths: &std::collections::HashSet<String>,
+) {
+    for r in code_hashes {
+        let rel_key = format!("code/{}/{}", r.repo, r.path);
+        if !seen_code_paths.contains(&rel_key)
+            && let Ok(Some(cf)) = db::knowledge::find_code_file(db, &r.repo, &r.path).await
+        {
+            if let Err(e) = db::embeddings::delete_embeddings_for_source(db, &cf.id).await {
+                tracing::warn!(
+                    repo = r.repo.as_str(),
+                    path = r.path.as_str(),
+                    error = e.to_string(),
+                    "reconcile: failed to delete code file embeddings"
+                );
+            }
+            if let Err(e) = db::knowledge::delete_code_file(db, &cf.id).await {
+                tracing::warn!(
+                    repo = r.repo.as_str(),
+                    path = r.path.as_str(),
+                    error = e.to_string(),
+                    "reconcile: failed to delete stale code file"
+                );
+            } else {
+                tracing::info!(
+                    repo = r.repo.as_str(),
+                    path = r.path.as_str(),
+                    "reconcile: removed stale code file"
+                );
             }
         }
     }
-
-    tracing::Span::current().record("discovered", discovered as u64);
-    Ok((discovered, embed_requests))
 }
 
 /// Build an EmbedRequest for a file that exists in DB but lacks embeddings.

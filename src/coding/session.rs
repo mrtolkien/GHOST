@@ -48,21 +48,34 @@ pub async fn start(
 pub async fn end(
     db: &GhostDb,
     coding_session_id: &str,
+    workspace: &std::path::Path,
     working_dir: &std::path::Path,
 ) -> Result<String, CodingError> {
     db::coding_sessions::end_coding_session(db, coding_session_id).await?;
-    generate_summary(working_dir).await
+    generate_summary(workspace, working_dir).await
 }
 
 /// Generate a deterministic summary from git log + diff --stat.
-async fn generate_summary(working_dir: &std::path::Path) -> Result<String, CodingError> {
-    let branch = run_git(working_dir, &["rev-parse", "--abbrev-ref", "HEAD"]).await?;
+async fn generate_summary(
+    workspace: &std::path::Path,
+    working_dir: &std::path::Path,
+) -> Result<String, CodingError> {
+    let branch = run_git(
+        workspace,
+        working_dir,
+        &["rev-parse", "--abbrev-ref", "HEAD"],
+    )
+    .await?;
 
-    let log = run_git(working_dir, &["log", "--oneline", "-20", "--no-decorate"])
-        .await
-        .unwrap_or_default();
+    let log = run_git(
+        workspace,
+        working_dir,
+        &["log", "--oneline", "-20", "--no-decorate"],
+    )
+    .await
+    .unwrap_or_default();
 
-    let stat = run_git(working_dir, &["diff", "--stat", "HEAD~20..HEAD"])
+    let stat = run_git(workspace, working_dir, &["diff", "--stat", "HEAD~20..HEAD"])
         .await
         .unwrap_or_default();
 
@@ -77,8 +90,12 @@ async fn generate_summary(working_dir: &std::path::Path) -> Result<String, Codin
     Ok(summary)
 }
 
-async fn run_git(dir: &std::path::Path, args: &[&str]) -> Result<String, CodingError> {
-    let output = tokio::process::Command::new("git")
+async fn run_git(
+    workspace: &std::path::Path,
+    dir: &std::path::Path,
+    args: &[&str],
+) -> Result<String, CodingError> {
+    let output = crate::nix::command(workspace, "git")
         .args(args)
         .current_dir(dir)
         .output()

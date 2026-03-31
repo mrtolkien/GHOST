@@ -56,7 +56,7 @@ pub async fn update_references(
     // 6. Convert source to staging directory, then read as manifest.
     //    The staging tempdir is auto-cleaned when fetch_to_staging returns
     //    (all file contents are read into memory before that).
-    let (new_version_ref, manifest) = fetch_to_staging(&import_config).await?;
+    let (new_version_ref, manifest) = fetch_to_staging(workspace, &import_config).await?;
 
     // 7. Git short-circuit: same commit hash and no --ref override
     if let (Some(old_ref), Some(new_ref)) = (&old_version_ref, &new_version_ref)
@@ -165,6 +165,7 @@ pub async fn update_references(
 /// prefixed with the topic name (matching DB `references.path` format). The
 /// staging tempdir is automatically cleaned up when this function returns.
 async fn fetch_to_staging(
+    workspace: &Path,
     config: &ImportConfig,
 ) -> Result<(Option<String>, Vec<(String, String, Option<String>)>), ImportError> {
     let staging_root = tempfile::tempdir()?;
@@ -177,6 +178,7 @@ async fn fetch_to_staging(
             git_ref,
         } => {
             let result = convert_git(
+                workspace,
                 staging_root.path(),
                 url,
                 paths,

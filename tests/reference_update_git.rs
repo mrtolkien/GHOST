@@ -17,6 +17,7 @@ async fn update_git_references_with_diff_and_orphan_protection() {
     // --- Phase 1a: Convert to staging ---
     let staging_root = workspace_path.join(".staging");
     let convert_result = convert_git(
+        workspace_path,
         &staging_root,
         "https://github.com/DioxusLabs/docsite",
         &["docs-src/0.7/src/tutorial/".to_string()],

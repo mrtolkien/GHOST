@@ -658,17 +658,19 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn curate_references_moves_cited_deletes_uncited() {
+    async fn curate_references_deletes_cited_without_note_and_uncited() {
         let dir = TempDir::new().unwrap();
         let db = crate::db::connect(dir.path(), 384).await.unwrap();
         let cache_dir = dir.path().join(".cache").join("test-session");
         std::fs::create_dir_all(&cache_dir).unwrap();
 
+        // A cited file (URL in agent findings) but no note references it
         std::fs::write(
             cache_dir.join("cited.md"),
             "---\nurl: https://example.com/article\n---\n# Article\n",
         )
         .unwrap();
+        // An uncited search result
         std::fs::write(
             cache_dir.join("uncited.md"),
             "---\nquery: search query\n---\n1. Result\n",
@@ -692,13 +694,15 @@ mod tests {
             },
         ];
 
+        // Both should be deleted — cited-only (no note) is not enough to store
         let result = curate_references(&db, dir.path(), "test-session", &classified).await;
-        assert_eq!(result.moved, 1);
-        assert_eq!(result.deleted, 1);
+        assert_eq!(result.moved, 0);
+        assert_eq!(result.deleted, 2);
 
         assert!(!cache_dir.join("cited.md").exists());
-        assert!(dir.path().join("references/example-com/cited.md").exists());
         assert!(!cache_dir.join("uncited.md").exists());
+        // No reference should be created
+        assert!(!dir.path().join("references/example-com").exists());
     }
 
     #[tokio::test]

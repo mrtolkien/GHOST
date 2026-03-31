@@ -3,7 +3,8 @@ use std::time::Duration;
 
 use serenity::async_trait;
 use serenity::builder::{
-    CreateCommand, CreateInteractionResponse, CreateInteractionResponseMessage,
+    CreateCommand, CreateInteractionResponse, CreateInteractionResponseFollowup,
+    CreateInteractionResponseMessage,
 };
 use serenity::http::Http;
 use serenity::model::application::Command;
@@ -702,18 +703,25 @@ impl EventHandler for Handler {
 
         match command.data.name.as_str() {
             "stop" => {
+                let _ = command
+                    .create_response(
+                        &ctx.http,
+                        CreateInteractionResponse::Defer(
+                            CreateInteractionResponseMessage::new().ephemeral(true),
+                        ),
+                    )
+                    .await;
+
                 let session_id = match self.resolve_session(channel_id).await {
                     Ok(id) => id,
                     Err(e) => {
                         error!("Failed to resolve session for /stop: {e}");
                         let _ = command
-                            .create_response(
+                            .create_followup(
                                 &ctx.http,
-                                CreateInteractionResponse::Message(
-                                    CreateInteractionResponseMessage::new()
-                                        .content("Failed to resolve session.")
-                                        .ephemeral(true),
-                                ),
+                                CreateInteractionResponseFollowup::default()
+                                    .content("Failed to resolve session.")
+                                    .ephemeral(true),
                             )
                             .await;
                         return;
@@ -723,40 +731,43 @@ impl EventHandler for Handler {
                 if let Some(tx) = self.active_sessions.get(&session_id) {
                     let _ = tx.send(crate::chat::interrupt::Interrupt::Stop);
                     let _ = command
-                        .create_response(
+                        .create_followup(
                             &ctx.http,
-                            CreateInteractionResponse::Message(
-                                CreateInteractionResponseMessage::new()
-                                    .content("Stopping after current operation finishes."),
-                            ),
+                            CreateInteractionResponseFollowup::default()
+                                .content("Stopping after current operation finishes."),
                         )
                         .await;
                 } else {
                     let _ = command
-                        .create_response(
+                        .create_followup(
                             &ctx.http,
-                            CreateInteractionResponse::Message(
-                                CreateInteractionResponseMessage::new()
-                                    .content("Nothing is running right now.")
-                                    .ephemeral(true),
-                            ),
+                            CreateInteractionResponseFollowup::default()
+                                .content("Nothing is running right now.")
+                                .ephemeral(true),
                         )
                         .await;
                 }
             }
             "reboot" => {
+                let _ = command
+                    .create_response(
+                        &ctx.http,
+                        CreateInteractionResponse::Defer(
+                            CreateInteractionResponseMessage::new().ephemeral(true),
+                        ),
+                    )
+                    .await;
+
                 let session_id = match self.resolve_session(channel_id).await {
                     Ok(id) => id,
                     Err(e) => {
                         error!("Failed to resolve session for /reboot: {e}");
                         let _ = command
-                            .create_response(
+                            .create_followup(
                                 &ctx.http,
-                                CreateInteractionResponse::Message(
-                                    CreateInteractionResponseMessage::new()
-                                        .content("Failed to resolve session.")
-                                        .ephemeral(true),
-                                ),
+                                CreateInteractionResponseFollowup::default()
+                                    .content("Failed to resolve session.")
+                                    .ephemeral(true),
                             )
                             .await;
                         return;
@@ -771,37 +782,44 @@ impl EventHandler for Handler {
                             "session rebooted"
                         );
                         let _ = command
-                            .create_response(
+                            .create_followup(
                                 &ctx.http,
-                                CreateInteractionResponse::Message(
-                                    CreateInteractionResponseMessage::new()
-                                        .content("Session rebooted. Starting fresh."),
-                                ),
+                                CreateInteractionResponseFollowup::default()
+                                    .content("Session rebooted. Starting fresh."),
                             )
                             .await;
                     }
                     Err(e) => {
                         error!("Reboot failed: {e}");
                         let _ = command
-                            .create_response(
+                            .create_followup(
                                 &ctx.http,
-                                CreateInteractionResponse::Message(
-                                    CreateInteractionResponseMessage::new()
-                                        .content(format!("Reboot failed: {e}"))
-                                        .ephemeral(true),
-                                ),
+                                CreateInteractionResponseFollowup::default()
+                                    .content(format!("Reboot failed: {e}"))
+                                    .ephemeral(true),
                             )
                             .await;
                     }
                 }
             }
             "kill" => {
+                let _ = command
+                    .create_response(
+                        &ctx.http,
+                        CreateInteractionResponse::Defer(
+                            CreateInteractionResponseMessage::new().ephemeral(true),
+                        ),
+                    )
+                    .await;
+
                 let channel_str = channel_id.to_string();
                 match db::coding_sessions::get_active_takeover(&self.db, &channel_str).await {
                     Ok(Some((coding_id, _session_id, working_dir))) => {
+                        let cfg = self.config.current();
                         let summary = coding::session::end(
                             &self.db,
                             &coding_id,
+                            &cfg.workspace,
                             std::path::Path::new(&working_dir),
                         )
                         .await
@@ -820,38 +838,32 @@ impl EventHandler for Handler {
                         }
 
                         let _ = command
-                            .create_response(
+                            .create_followup(
                                 &ctx.http,
-                                CreateInteractionResponse::Message(
-                                    CreateInteractionResponseMessage::new().content(format!(
-                                        "GHOST HACKED -- session ended.\n\n```\n{summary}\n```"
-                                    )),
-                                ),
+                                CreateInteractionResponseFollowup::default().content(format!(
+                                    "GHOST HACKED -- session ended.\n\n```\n{summary}\n```"
+                                )),
                             )
                             .await;
                     }
                     Ok(None) => {
                         let _ = command
-                            .create_response(
+                            .create_followup(
                                 &ctx.http,
-                                CreateInteractionResponse::Message(
-                                    CreateInteractionResponseMessage::new()
-                                        .content("No active coding session.")
-                                        .ephemeral(true),
-                                ),
+                                CreateInteractionResponseFollowup::default()
+                                    .content("No active coding session.")
+                                    .ephemeral(true),
                             )
                             .await;
                     }
                     Err(e) => {
                         error!("Failed to check takeover: {e}");
                         let _ = command
-                            .create_response(
+                            .create_followup(
                                 &ctx.http,
-                                CreateInteractionResponse::Message(
-                                    CreateInteractionResponseMessage::new()
-                                        .content("Internal error checking coding session.")
-                                        .ephemeral(true),
-                                ),
+                                CreateInteractionResponseFollowup::default()
+                                    .content("Internal error checking coding session.")
+                                    .ephemeral(true),
                             )
                             .await;
                     }
@@ -867,18 +879,25 @@ impl EventHandler for Handler {
                     .unwrap_or("(no message)")
                     .to_string();
 
+                let _ = command
+                    .create_response(
+                        &ctx.http,
+                        CreateInteractionResponse::Defer(
+                            CreateInteractionResponseMessage::new().ephemeral(true),
+                        ),
+                    )
+                    .await;
+
                 let session_id = match self.resolve_session(channel_id).await {
                     Ok(id) => id,
                     Err(e) => {
                         error!("Failed to resolve session for /feedback: {e}");
                         let _ = command
-                            .create_response(
+                            .create_followup(
                                 &ctx.http,
-                                CreateInteractionResponse::Message(
-                                    CreateInteractionResponseMessage::new()
-                                        .content("Failed to resolve session.")
-                                        .ephemeral(true),
-                                ),
+                                CreateInteractionResponseFollowup::default()
+                                    .content("Failed to resolve session.")
+                                    .ephemeral(true),
                             )
                             .await;
                         return;
@@ -903,26 +922,22 @@ impl EventHandler for Handler {
                     Ok(name) => {
                         info!(folder = %name, session_id = %session_id, "feedback saved");
                         let _ = command
-                            .create_response(
+                            .create_followup(
                                 &ctx.http,
-                                CreateInteractionResponse::Message(
-                                    CreateInteractionResponseMessage::new()
-                                        .content(format!("Feedback saved to `feedback/{name}/`"))
-                                        .ephemeral(true),
-                                ),
+                                CreateInteractionResponseFollowup::default()
+                                    .content(format!("Feedback saved to `feedback/{name}/`"))
+                                    .ephemeral(true),
                             )
                             .await;
                     }
                     Err(e) => {
                         error!("Failed to save feedback: {e}");
                         let _ = command
-                            .create_response(
+                            .create_followup(
                                 &ctx.http,
-                                CreateInteractionResponse::Message(
-                                    CreateInteractionResponseMessage::new()
-                                        .content(format!("Failed to save feedback: {e}"))
-                                        .ephemeral(true),
-                                ),
+                                CreateInteractionResponseFollowup::default()
+                                    .content(format!("Failed to save feedback: {e}"))
+                                    .ephemeral(true),
                             )
                             .await;
                     }

@@ -197,7 +197,7 @@ async fn convert_script(
     };
 
     // Check uv is available
-    let uv_ok = tokio::process::Command::new("uv")
+    let uv_ok = crate::nix::command(workspace, "uv")
         .arg("--version")
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
@@ -227,7 +227,7 @@ async fn convert_script(
         .map_err(|e| DoclingError::Conversion(format!("failed to create temp dir: {e}")))?;
     let output_path = tmp_dir.path().join("output.json");
 
-    let mut cmd = tokio::process::Command::new("uv");
+    let mut cmd = crate::nix::command(workspace, "uv");
     cmd.arg("run")
         .arg(&script)
         .arg("--path")

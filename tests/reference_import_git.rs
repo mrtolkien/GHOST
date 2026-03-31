@@ -20,6 +20,7 @@ async fn import_and_query_git_references() {
 
     let staging_root = workspace_path.join(".staging");
     let convert_result = convert_git(
+        workspace_path,
         &staging_root,
         "https://github.com/DioxusLabs/docsite",
         &["docs-src/0.7/src/tutorial/".to_string()],
@@ -205,6 +206,7 @@ async fn import_and_query_git_references() {
     // --- Phase 6: Idempotent re-import ---
 
     let convert_result2 = convert_git(
+        workspace_path,
         &staging_root,
         "https://github.com/DioxusLabs/docsite",
         &["docs-src/0.7/src/tutorial/".to_string()],

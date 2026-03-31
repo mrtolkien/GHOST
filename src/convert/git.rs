@@ -1,7 +1,5 @@
 use std::path::{Path, PathBuf};
 
-use tokio::process::Command;
-
 use super::error::ConvertError;
 use super::staging::{create_staging_dir, slug_from_source};
 
@@ -28,6 +26,7 @@ pub struct GitConvertResult {
     fields(url = %url, staging_root = %staging_root.display())
 )]
 pub async fn convert_git(
+    workspace: &Path,
     staging_root: &Path,
     url: &str,
     paths: &[String],
@@ -38,16 +37,16 @@ pub async fn convert_git(
     let repo_dir = tmp_dir.path().join("repo");
 
     // Phase 1: shallow blobless clone
-    clone_repo(url, git_ref, &repo_dir).await?;
+    clone_repo(workspace, url, git_ref, &repo_dir).await?;
 
     // Phase 2: sparse checkout if paths specified
     if !paths.is_empty() {
-        sparse_checkout(&repo_dir, paths).await?;
+        sparse_checkout(workspace, &repo_dir, paths).await?;
     }
-    run_git(&repo_dir, &["checkout"]).await?;
+    run_git(workspace, &repo_dir, &["checkout"]).await?;
 
     // Get commit hash
-    let version_ref = run_git_output(&repo_dir, &["rev-parse", "HEAD"]).await?;
+    let version_ref = run_git_output(workspace, &repo_dir, &["rev-parse", "HEAD"]).await?;
     let version_ref = version_ref.trim().to_string();
 
     // Walk files, filtering by paths and extensions
@@ -77,7 +76,12 @@ pub async fn convert_git(
 }
 
 /// Run `git clone` with shallow blobless options.
-async fn clone_repo(url: &str, git_ref: Option<&str>, repo_dir: &Path) -> Result<(), ConvertError> {
+async fn clone_repo(
+    workspace: &Path,
+    url: &str,
+    git_ref: Option<&str>,
+    repo_dir: &Path,
+) -> Result<(), ConvertError> {
     let mut clone_args = vec![
         "clone",
         "--no-checkout",
@@ -91,7 +95,7 @@ async fn clone_repo(url: &str, git_ref: Option<&str>, repo_dir: &Path) -> Result
     }
     clone_args.push(url);
 
-    let output = Command::new("git")
+    let output = crate::nix::command(workspace, "git")
         .args(&clone_args)
         .arg(repo_dir)
         .output()
@@ -107,12 +111,16 @@ async fn clone_repo(url: &str, git_ref: Option<&str>, repo_dir: &Path) -> Result
 }
 
 /// Set up sparse checkout for the specified paths.
-async fn sparse_checkout(repo_dir: &Path, paths: &[String]) -> Result<(), ConvertError> {
-    run_git(repo_dir, &["sparse-checkout", "init", "--cone"]).await?;
+async fn sparse_checkout(
+    workspace: &Path,
+    repo_dir: &Path,
+    paths: &[String],
+) -> Result<(), ConvertError> {
+    run_git(workspace, repo_dir, &["sparse-checkout", "init", "--cone"]).await?;
     let mut args = vec!["sparse-checkout", "set"];
     let path_strs: Vec<&str> = paths.iter().map(String::as_str).collect();
     args.extend(path_strs);
-    run_git(repo_dir, &args).await
+    run_git(workspace, repo_dir, &args).await
 }
 
 /// Copy files from the repo into the staging directory, preserving relative paths.
@@ -196,8 +204,8 @@ fn matches_extensions(path: &Path, extensions: &[String]) -> bool {
 }
 
 /// Run a git command in the repo directory, returning an error on failure.
-async fn run_git(repo_dir: &Path, args: &[&str]) -> Result<(), ConvertError> {
-    let output = Command::new("git")
+async fn run_git(workspace: &Path, repo_dir: &Path, args: &[&str]) -> Result<(), ConvertError> {
+    let output = crate::nix::command(workspace, "git")
         .args(args)
         .current_dir(repo_dir)
         .output()
@@ -215,8 +223,12 @@ async fn run_git(repo_dir: &Path, args: &[&str]) -> Result<(), ConvertError> {
 }
 
 /// Run a git command and capture its stdout as a string.
-async fn run_git_output(repo_dir: &Path, args: &[&str]) -> Result<String, ConvertError> {
-    let output = Command::new("git")
+async fn run_git_output(
+    workspace: &Path,
+    repo_dir: &Path,
+    args: &[&str],
+) -> Result<String, ConvertError> {
+    let output = crate::nix::command(workspace, "git")
         .args(args)
         .current_dir(repo_dir)
         .output()

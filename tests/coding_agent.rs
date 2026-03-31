@@ -161,7 +161,7 @@ async fn coding_session_end_generates_git_summary() {
         .await
         .expect("git commit");
 
-    let summary = coding::session::end(&db, &session.id, repo.path())
+    let summary = coding::session::end(&db, &session.id, &config.workspace, repo.path())
         .await
         .expect("end coding session");
 
@@ -565,7 +565,7 @@ async fn full_coding_session_lifecycle() {
         .expect("git commit");
 
     // 4. End the session
-    let summary = coding::session::end(&db, &session.id, repo.path())
+    let summary = coding::session::end(&db, &session.id, &config.workspace, repo.path())
         .await
         .expect("end");
     assert!(
@@ -698,7 +698,7 @@ async fn ending_one_session_doesnt_affect_other() {
     .expect("start s2");
 
     // End s1
-    coding::session::end(&db, &s1.id, repo.path())
+    coding::session::end(&db, &s1.id, &config.workspace, repo.path())
         .await
         .expect("end s1");
 
