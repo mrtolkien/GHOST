@@ -42,6 +42,7 @@ tracing-opentelemetry = "0.32"
 mlua = { version = "0.11", features = ["lua54", "vendored", "async", "serde", "send"] }
 notify = { version = "8", default-features = false, features = ["macos_fsevent"] }
 rand = "0.10"
+rbook = "0.7"
 regex = "1"
 reqwest = { version = "0.13", default-features = false, features = [
   "json",
