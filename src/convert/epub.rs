@@ -166,10 +166,7 @@ fn extract_metadata(epub: &Epub) -> EpubMetadata {
 
     let language = meta.languages().next().map(|l| l.value().to_string());
 
-    let publisher = meta
-        .publishers()
-        .next()
-        .map(|p| p.value().to_string());
+    let publisher = meta.publishers().next().map(|p| p.value().to_string());
 
     let publication_date = meta.published().map(|d| d.to_string());
 
@@ -191,18 +188,25 @@ fn strip_title_line<'a>(markdown: &'a str, title_lower: &str) -> &'a str {
         return markdown;
     }
 
-    let trimmed = markdown.trim_start();
-    let first_line_end = trimmed.find('\n').unwrap_or(trimmed.len());
-    let first_line = trimmed[..first_line_end].trim();
+    // htmd may emit the book title twice: once from <title> (plain text) and
+    // once from <h1> (markdown heading).  Strip both occurrences by applying
+    // the check up to two times.
+    let mut result = markdown;
+    for _ in 0..2 {
+        let trimmed = result.trim_start();
+        let first_line_end = trimmed.find('\n').unwrap_or(trimmed.len());
+        let first_line = trimmed[..first_line_end].trim();
 
-    // Strip markdown heading prefix if present
-    let bare = first_line.trim_start_matches('#').trim();
+        // Strip markdown heading prefix if present
+        let bare = first_line.trim_start_matches('#').trim();
 
-    if bare.to_lowercase() == title_lower {
-        trimmed[first_line_end..].trim_start_matches('\n')
-    } else {
-        markdown
+        if bare.to_lowercase() == title_lower {
+            result = trimmed[first_line_end..].trim_start_matches('\n');
+        } else {
+            break;
+        }
     }
+    result
 }
 
 /// Generate a chapter filename from the spine item index and EPUB href.
@@ -217,7 +221,13 @@ fn chapter_filename(idx: usize, href: &str) -> String {
 
     let sanitized: String = stem
         .chars()
-        .map(|c| if c.is_ascii_alphanumeric() || c == '-' { c } else { '-' })
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '-' {
+                c
+            } else {
+                '-'
+            }
+        })
         .collect();
 
     let name = if sanitized.is_empty() || sanitized.chars().all(|c| c == '-') {
@@ -259,6 +269,14 @@ mod tests {
         let md = "Whatever\n\nContent.";
         let result = strip_title_line(md, "");
         assert_eq!(result, md);
+    }
+
+    #[test]
+    fn strip_title_line_removes_double_title() {
+        // htmd emits <title> as plain text + <h1> as heading — both need stripping
+        let md = "Animal Farm\n\n# Animal Farm\n\n## I\n\nChapter content.";
+        let result = strip_title_line(md, "animal farm");
+        assert_eq!(result, "## I\n\nChapter content.");
     }
 
     #[test]
