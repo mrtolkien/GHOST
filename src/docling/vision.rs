@@ -76,7 +76,7 @@ pub async fn extract_page_with_vision(
 }
 
 /// Render a PDF page to PNG via `pdftoppm` (poppler-utils, fetched on
-/// demand through `nix run` — no permanent shell flake dependency).
+/// demand through `nix shell` — no permanent shell flake dependency).
 ///
 /// Returns `(png_path, temp_dir_guard)`. Keep the guard alive until done
 /// with the PNG file.
@@ -94,14 +94,19 @@ async fn render_page(
     let dpi_str = RENDER_DPI.to_string();
 
     let mut cmd = tokio::process::Command::new("nix");
-    cmd.args(["run", "nixpkgs#poppler-utils", "--", "pdftoppm"])
-        .args(["-png", "-singlefile"])
-        .args(["-f", &page_str, "-l", &page_str])
-        .args(["-r", &dpi_str])
-        .arg(pdf_path)
-        .arg(&output_prefix)
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped());
+    cmd.args([
+        "shell",
+        "nixpkgs#poppler-utils",
+        "--command",
+        "pdftoppm",
+    ])
+    .args(["-png", "-singlefile"])
+    .args(["-f", &page_str, "-l", &page_str])
+    .args(["-r", &dpi_str])
+    .arg(pdf_path)
+    .arg(&output_prefix)
+    .stdout(std::process::Stdio::piped())
+    .stderr(std::process::Stdio::piped());
 
     let result = cmd
         .output()
@@ -123,4 +128,41 @@ async fn render_page(
     }
 
     Ok((output_path, tmp_dir))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Validate that pdftoppm via `nix shell nixpkgs#poppler-utils` actually
+    /// works: renders a real PDF page to PNG.
+    ///
+    /// Requires: `nix` on PATH, network access (first run fetches poppler-utils).
+    /// Uses the lotion PDF fixture — the same file that triggered the original
+    /// `poppler_utils` → `poppler-utils` rename bug.
+    #[cfg(feature = "live-tests")]
+    #[tokio::test]
+    async fn render_page_produces_png_via_nix() {
+        let pdf_path =
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/lotion.pdf");
+        assert!(
+            pdf_path.exists(),
+            "test fixture lotion.pdf must exist at {}",
+            pdf_path.display()
+        );
+
+        let workspace = tempfile::tempdir().expect("tempdir");
+        let (png_path, _guard) = render_page(workspace.path(), &pdf_path, 1)
+            .await
+            .expect("render_page should succeed — is nix installed?");
+
+        assert!(png_path.exists(), "PNG file should exist at {}", png_path.display());
+
+        let metadata = std::fs::metadata(&png_path).expect("read PNG metadata");
+        assert!(
+            metadata.len() > 1000,
+            "PNG should be a real image (got {} bytes)",
+            metadata.len()
+        );
+    }
 }
