@@ -114,6 +114,13 @@ impl Handler {
             .trim_start()
     }
 
+    /// Check if a Discord user is in the allowed_user_ids list.
+    fn is_authorized_user(&self, user_id: UserId) -> bool {
+        let cfg = self.config.current();
+        let id_str = user_id.to_string();
+        cfg.discord.allowed_user_ids.iter().any(|id| id == &id_str)
+    }
+
     /// Build the interface key for a Discord channel.
     fn interface_key(channel_id: ChannelId) -> String {
         format!("discord:channel:{channel_id}")
@@ -549,6 +556,18 @@ impl EventHandler for Handler {
         ctx: Context,
         interaction: serenity::model::application::Interaction,
     ) {
+        // Reject interactions from unauthorized users. Without this check,
+        // every instance sharing the same bot token would process every
+        // interaction, creating phantom sessions and leaking agent output.
+        let authorized = interaction
+            .as_message_component()
+            .map(|c| c.user.id)
+            .or_else(|| interaction.as_command().map(|c| c.user.id))
+            .is_some_and(|uid| self.is_authorized_user(uid));
+        if !authorized {
+            return;
+        }
+
         // Handle component interactions (button clicks)
         if let Some(component) = interaction.as_message_component() {
             let custom_id = component.data.custom_id.clone();
