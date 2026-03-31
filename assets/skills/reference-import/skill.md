@@ -1,10 +1,10 @@
 ---
 name: reference-import
 description:
-  Import and update external content in the knowledge base — git repos, web crawls, and
-  documents (PDF, DOCX). Use when the OPERATOR wants persistent, searchable reference
-  material from a git repository, website, or document, or when existing references may
-  be stale and need refreshing.
+  Import and update external content in the knowledge base — git repos, web crawls,
+  documents (PDF, DOCX), and books (EPUB). Use when the OPERATOR wants persistent,
+  searchable reference material from a git repository, website, document, or book, or
+  when existing references may be stale and need refreshing.
 ---
 
 # Reference Import Skill
@@ -207,6 +207,63 @@ up the uploaded file:
 }
 ```
 
+## Book Import (EPUB)
+
+### Workflow
+
+1. **Convert** (fast — pure Rust, no external deps):
+
+```json
+{ "command": "ghost convert epub --path /path/to/book.epub" }
+```
+
+The output shows the staging path, title, authors, and chapter count.
+
+2. **Import**:
+
+```json
+{
+  "command": "ghost reference import /path/to/.staging/book-slug --topic books/<slug> --source-type book"
+}
+```
+
+Pick a descriptive `--topic` under `books/` (e.g., `books/animal-farm`,
+`books/mute-compulsion`).
+
+3. **Create notes** — after import, run the book-import agent to generate structured
+   notes from the imported chapters:
+
+```json
+{
+  "command": "ghost agent run book-import --topic books/<slug> --title '<title>' --authors '<authors>'"
+}
+```
+
+The agent reads all imported chapters and creates:
+
+- A **source note** summarizing the book (archetype: `source`)
+- An **author entity note** (or updates an existing one)
+- **Secondary concept/theme notes** linked to the source note and existing knowledge
+
+### Example: Full book import flow
+
+```
+ghost convert epub --path ~/Documents/books/Animal\ Farm.epub
+# Output: /home/user/GHOST/.staging/animal-farm
+#         source_type=book
+#         title=Animal Farm
+#         authors=George Orwell
+#         chapters=11
+
+ghost reference import /home/user/GHOST/.staging/animal-farm \
+    --topic books/animal-farm --source-type book
+
+ghost agent run book-import \
+    --topic books/animal-farm \
+    --title "Animal Farm" \
+    --authors "George Orwell"
+```
+
 ## Files on Disk
 
 All imported references are written to disk under `references/{topic}/` in the workspace
@@ -281,6 +338,7 @@ Examples:
 ghost convert git <url> [--paths <paths>] [--extensions <exts>] [--git-ref <ref>] [--output <dir>]
 ghost convert crawl <url> [--max-depth 3] [--max-pages 50] [--output <dir>]
 ghost convert pdf <path> [--no-ocr] [--page-range "1-10"] [--timeout <secs>] [--output <dir>]
+ghost convert epub --path <path> [--output <dir>]
 
 # Import
 ghost reference import <staging-dir> --topic <name> \
