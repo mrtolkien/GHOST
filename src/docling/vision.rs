@@ -94,19 +94,14 @@ async fn render_page(
     let dpi_str = RENDER_DPI.to_string();
 
     let mut cmd = tokio::process::Command::new("nix");
-    cmd.args([
-        "shell",
-        "nixpkgs#poppler-utils",
-        "--command",
-        "pdftoppm",
-    ])
-    .args(["-png", "-singlefile"])
-    .args(["-f", &page_str, "-l", &page_str])
-    .args(["-r", &dpi_str])
-    .arg(pdf_path)
-    .arg(&output_prefix)
-    .stdout(std::process::Stdio::piped())
-    .stderr(std::process::Stdio::piped());
+    cmd.args(["shell", "nixpkgs#poppler-utils", "--command", "pdftoppm"])
+        .args(["-png", "-singlefile"])
+        .args(["-f", &page_str, "-l", &page_str])
+        .args(["-r", &dpi_str])
+        .arg(pdf_path)
+        .arg(&output_prefix)
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped());
 
     let result = cmd
         .output()
@@ -156,7 +151,11 @@ mod tests {
             .await
             .expect("render_page should succeed — is nix installed?");
 
-        assert!(png_path.exists(), "PNG file should exist at {}", png_path.display());
+        assert!(
+            png_path.exists(),
+            "PNG file should exist at {}",
+            png_path.display()
+        );
 
         let metadata = std::fs::metadata(&png_path).expect("read PNG metadata");
         assert!(

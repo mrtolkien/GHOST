@@ -188,8 +188,7 @@ async fn convert_pdf_then_import_full_pipeline() {
         .vision
         .as_deref()
         .unwrap_or(&config.models.default);
-    let vision_provider =
-        provider_for_alias(&config, Some(vision_alias)).expect("vision provider");
+    let vision_provider = provider_for_alias(&config, Some(vision_alias)).expect("vision provider");
     let vision_model = config
         .models
         .aliases
@@ -235,7 +234,10 @@ async fn convert_pdf_then_import_full_pipeline() {
         !md_content.is_empty(),
         "converted markdown should not be empty"
     );
-    eprintln!("Markdown: {} chars, file: {markdown_file}", md_content.len());
+    eprintln!(
+        "Markdown: {} chars, file: {markdown_file}",
+        md_content.len()
+    );
 
     // Verify _originals/ preserved
     let originals = staging_dir.join("_originals");
@@ -291,13 +293,9 @@ async fn convert_pdf_then_import_full_pipeline() {
     assert_eq!(result.references_skipped, 0, "should skip nothing");
 
     // Verify DB record
-    let refs = db::knowledge::list_references_by_topic(
-        &connect_db,
-        Some(&result.topic_id),
-        10,
-    )
-    .await
-    .expect("list refs");
+    let refs = db::knowledge::list_references_by_topic(&connect_db, Some(&result.topic_id), 10)
+        .await
+        .expect("list refs");
     assert_eq!(refs.len(), 1, "should have 1 reference in DB");
 
     // Verify reference file on disk
@@ -334,8 +332,7 @@ async fn convert_pdf_then_import_full_pipeline() {
     let staging2 = tempfile::tempdir().expect("staging2");
     let staging2_dir = staging2.path().join("lotion-reimport");
     std::fs::create_dir_all(&staging2_dir).expect("create staging2 dir");
-    std::fs::write(staging2_dir.join(&markdown_file), &md_content)
-        .expect("write md to staging2");
+    std::fs::write(staging2_dir.join(&markdown_file), &md_content).expect("write md to staging2");
 
     let result2 = import_from_path(
         &connect_db,

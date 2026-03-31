@@ -36,28 +36,21 @@ pub fn acquire(workspace: &Path) -> Result<(), PidFileError> {
     let path = pid_file_path(workspace);
 
     if path.exists() {
-        let contents =
-            fs::read_to_string(&path).map_err(|source| PidFileError::Read {
-                path: path.clone(),
-                source,
-            })?;
+        let contents = fs::read_to_string(&path).map_err(|source| PidFileError::Read {
+            path: path.clone(),
+            source,
+        })?;
 
         if let Ok(old_pid) = contents.trim().parse::<u32>() {
             if is_process_alive(old_pid) {
-                return Err(PidFileError::AlreadyRunning {
-                    pid: old_pid,
-                    path,
-                });
+                return Err(PidFileError::AlreadyRunning { pid: old_pid, path });
             }
             info!(old_pid, "removing stale PID file");
         }
     }
 
     let pid = std::process::id();
-    fs::write(&path, pid.to_string()).map_err(|source| PidFileError::Write {
-        path,
-        source,
-    })?;
+    fs::write(&path, pid.to_string()).map_err(|source| PidFileError::Write { path, source })?;
 
     info!(pid, "PID file acquired");
     Ok(())

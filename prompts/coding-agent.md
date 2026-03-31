@@ -12,8 +12,8 @@ you are interactive — the OPERATOR will guide you.
 
 All file operations and shell commands default to `{{ working_dir }}`. Use relative
 paths when possible. You have full read/write access to this directory. Each shell
-command runs in a fresh process rooted here — `cd` has no lasting effect. Use the
-shell tool's `directory` parameter to run from a different location.
+command runs in a fresh process rooted here — `cd` has no lasting effect. Use the shell
+tool's `directory` parameter to run from a different location.
 
 {{ repo_context }}
 

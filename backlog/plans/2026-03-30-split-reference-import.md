@@ -1,8 +1,8 @@
 # Split Reference Import Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development
-> (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps
-> use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use
+> superpowers:subagent-driven-development (recommended) or superpowers:executing-plans
+> to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Split the monolithic reference import pipeline into two independent stages —
 `ghost convert` (source -> markdown staging) and `ghost reference import` (markdown ->
@@ -14,8 +14,8 @@ point used by the CLI, `reference update`, and web cache curation. The existing
 `fetch_*_manifest()` functions move to `convert/` and write to staging dirs instead of
 returning in-memory vecs.
 
-**Tech Stack:** Rust, clap (CLI), tokio (async), sqlx (SQLite), docling (PDF conversion),
-tempfile (staging), tracing (instrumentation).
+**Tech Stack:** Rust, clap (CLI), tokio (async), sqlx (SQLite), docling (PDF
+conversion), tempfile (staging), tracing (instrumentation).
 
 **Spec:** `backlog/tasks/5-import-v2/00-split-import.md`
 
@@ -72,6 +72,7 @@ tempfile (staging), tracing (instrumentation).
 ## Task 1: Create `src/convert/staging.rs` — staging utilities
 
 **Files:**
+
 - Create: `src/convert/staging.rs`
 - Create: `src/convert/mod.rs`
 
@@ -135,8 +136,8 @@ mod tests {
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `cargo test --lib convert::staging -- --nocapture 2>&1 | head -30`
-Expected: compilation failure — module doesn't exist yet.
+Run: `cargo test --lib convert::staging -- --nocapture 2>&1 | head -30` Expected:
+compilation failure — module doesn't exist yet.
 
 - [ ] **Step 3: Implement staging utilities**
 
@@ -248,13 +249,11 @@ check the existing pattern for `reference_import`).
 
 - [ ] **Step 5: Run tests to verify they pass**
 
-Run: `cargo test --lib convert::staging -- --nocapture`
-Expected: all 5 tests pass.
+Run: `cargo test --lib convert::staging -- --nocapture` Expected: all 5 tests pass.
 
 - [ ] **Step 6: Run `just ci`**
 
-Run: `just ci`
-Expected: clean pass.
+Run: `just ci` Expected: clean pass.
 
 - [ ] **Step 7: Commit**
 
@@ -268,6 +267,7 @@ git commit -m "feat: add convert module with staging utilities"
 ## Task 2: Create `src/convert/git.rs` — git clone to staging
 
 **Files:**
+
 - Create: `src/convert/git.rs`
 - Modify: `src/convert/mod.rs`
 
@@ -276,8 +276,8 @@ that writes files to a staging directory instead of returning an in-memory vec.
 
 - [ ] **Step 1: Write `convert::git::convert_git()`**
 
-Create `src/convert/git.rs`. This is adapted from `reference_import::git.rs` lines
-13-87 (`fetch_git_manifest`) plus lines 202-290 (helpers). The key change: instead of
+Create `src/convert/git.rs`. This is adapted from `reference_import::git.rs` lines 13-87
+(`fetch_git_manifest`) plus lines 202-290 (helpers). The key change: instead of
 returning `Vec<(String, String)>`, it writes files to the staging dir.
 
 ```rust
@@ -465,8 +465,7 @@ pub mod staging;
 
 - [ ] **Step 3: Verify it compiles**
 
-Run: `cargo check 2>&1 | head -20`
-Expected: clean (or only unrelated warnings).
+Run: `cargo check 2>&1 | head -20` Expected: clean (or only unrelated warnings).
 
 - [ ] **Step 4: Commit**
 
@@ -480,6 +479,7 @@ git commit -m "feat: add convert::git — git clone to staging dir"
 ## Task 3: Create `src/convert/crawl.rs` — web crawl to staging
 
 **Files:**
+
 - Create: `src/convert/crawl.rs`
 - Modify: `src/convert/mod.rs`
 
@@ -677,8 +677,7 @@ pub mod staging;
 
 - [ ] **Step 3: Run tests and verify compilation**
 
-Run: `cargo test --lib convert::crawl -- --nocapture`
-Expected: unit tests pass.
+Run: `cargo test --lib convert::crawl -- --nocapture` Expected: unit tests pass.
 
 - [ ] **Step 4: Commit**
 
@@ -692,6 +691,7 @@ git commit -m "feat: add convert::crawl — web crawl to staging dir"
 ## Task 4: Create `src/convert/pdf.rs` — PDF to staging
 
 **Files:**
+
 - Create: `src/convert/pdf.rs`
 - Modify: `src/convert/mod.rs`
 
@@ -800,8 +800,7 @@ pub mod staging;
 
 - [ ] **Step 3: Verify compilation**
 
-Run: `cargo check 2>&1 | head -20`
-Expected: clean.
+Run: `cargo check 2>&1 | head -20` Expected: clean.
 
 - [ ] **Step 4: Commit**
 
@@ -815,6 +814,7 @@ git commit -m "feat: add convert::pdf — PDF to staging dir via docling"
 ## Task 5: Create `src/reference_import/import.rs` — generic `import_from_path()`
 
 **Files:**
+
 - Create: `src/reference_import/import.rs`
 - Modify: `src/reference_import/mod.rs`
 - Modify: `src/reference_import/types.rs`
@@ -1093,8 +1093,7 @@ pub use update::update_references;
 
 - [ ] **Step 4: Verify compilation**
 
-Run: `cargo check 2>&1 | head -30`
-Expected: clean.
+Run: `cargo check 2>&1 | head -30` Expected: clean.
 
 - [ ] **Step 5: Commit**
 
@@ -1108,6 +1107,7 @@ git commit -m "feat: add import_from_path — single entry point for reference w
 ## Task 6: Create `src/cli/convert.rs` — CLI for convert commands
 
 **Files:**
+
 - Create: `src/cli/convert.rs`
 - Modify: `src/cli/mod.rs`
 - Modify: `src/main.rs`
@@ -1304,9 +1304,8 @@ Commands::Convert(cmd) => cli::convert::execute(cmd).await,
 
 - [ ] **Step 4: Verify compilation and help text**
 
-Run: `cargo build 2>&1 | tail -5`
-Run: `cargo run -- convert --help`
-Expected: shows Pdf, Git, Crawl subcommands.
+Run: `cargo build 2>&1 | tail -5` Run: `cargo run -- convert --help` Expected: shows
+Pdf, Git, Crawl subcommands.
 
 - [ ] **Step 5: Commit**
 
@@ -1320,6 +1319,7 @@ git commit -m "feat: add ghost convert CLI — pdf, git, crawl subcommands"
 ## Task 7: Rewrite `src/cli/reference.rs` — new import command
 
 **Files:**
+
 - Modify: `src/cli/reference.rs`
 
 Replace the `ReferenceImportCommand` enum (Git/Crawl variants) with a single import
@@ -1438,9 +1438,8 @@ fn print_result(topic: &str, result: &ImportResult) {
 
 - [ ] **Step 3: Verify compilation**
 
-Run: `cargo check 2>&1 | head -20`
-Run: `cargo run -- reference import --help`
-Expected: shows path, --topic, --source-type, --source-url, --version-ref, --git-ref.
+Run: `cargo check 2>&1 | head -20` Run: `cargo run -- reference import --help` Expected:
+shows path, --topic, --source-type, --source-url, --version-ref, --git-ref.
 
 - [ ] **Step 4: Commit**
 
@@ -1454,6 +1453,7 @@ git commit -m "feat: rewrite reference import CLI — path + topic + provenance 
 ## Task 8: Migrate `reference update` to use `convert/`
 
 **Files:**
+
 - Modify: `src/reference_import/update.rs`
 
 The `fetch_manifest()` helper in update.rs currently calls `fetch_git_manifest()` and
@@ -1465,8 +1465,8 @@ The `fetch_manifest()` helper in update.rs currently calls `fetch_git_manifest()
 The key change: instead of returning in-memory vecs, the function produces a staging dir
 and we read files from it.
 
-Replace the `fetch_manifest()` function (lines 175-199) and update
-`update_references()` to work with staging dirs.
+Replace the `fetch_manifest()` function (lines 175-199) and update `update_references()`
+to work with staging dirs.
 
 ```rust
 use crate::convert;
@@ -1569,8 +1569,7 @@ error paths, using a scope guard or explicit cleanup).
 
 - [ ] **Step 2: Verify compilation**
 
-Run: `cargo check 2>&1 | head -20`
-Expected: clean.
+Run: `cargo check 2>&1 | head -20` Expected: clean.
 
 - [ ] **Step 3: Commit**
 
@@ -1584,13 +1583,14 @@ git commit -m "refactor: reference update uses convert/ for re-fetch"
 ## Task 9: Remove old import modules and `cli/document.rs`
 
 **Files:**
+
 - Delete: `src/reference_import/git.rs`
 - Delete: `src/reference_import/crawl.rs`
 - Delete: `src/reference_import/file.rs`
 - Delete: `src/cli/document.rs`
 - Modify: `src/reference_import/mod.rs` — remove old module declarations and re-exports
-- Modify: `src/reference_import/types.rs` — remove `ImportSource` and `ImportConfig`
-  if no longer used
+- Modify: `src/reference_import/types.rs` — remove `ImportSource` and `ImportConfig` if
+  no longer used
 - Modify: `src/cli/mod.rs` — remove `document` module
 - Modify: `src/main.rs` — remove `Document` variant from `Commands`
 
@@ -1620,27 +1620,26 @@ pub use update::update_references;
 - [ ] **Step 3: Clean up `types.rs`**
 
 Remove `ImportSource` enum and `ImportConfig` struct if nothing references them anymore.
-Keep `ImportConfigJson` (used by update and _import.toml) and the `From` impl that
-`update.rs` still needs. Remove the `to_import_config()` method on `ImportConfigJson`
-if `ImportConfig` is gone — update.rs should reconstruct what it needs from
+Keep `ImportConfigJson` (used by update and \_import.toml) and the `From` impl that
+`update.rs` still needs. Remove the `to_import_config()` method on `ImportConfigJson` if
+`ImportConfig` is gone — update.rs should reconstruct what it needs from
 `ImportConfigJson` directly.
 
 Check: `cargo check` will tell you if anything still references the removed types.
 
 - [ ] **Step 4: Remove `cli/document.rs` and `Document` from main**
 
-In `src/cli/mod.rs`: remove `pub mod document;`
-In `src/main.rs`: remove the `Document` variant and its match arm in `dispatch()`.
+In `src/cli/mod.rs`: remove `pub mod document;` In `src/main.rs`: remove the `Document`
+variant and its match arm in `dispatch()`.
 
 - [ ] **Step 5: Verify everything compiles**
 
-Run: `cargo check 2>&1 | head -30`
-Fix any remaining references to deleted types/functions.
+Run: `cargo check 2>&1 | head -30` Fix any remaining references to deleted
+types/functions.
 
 - [ ] **Step 6: Run `just ci`**
 
-Run: `just ci`
-Expected: clean pass (tests may need updating — see Task 10).
+Run: `just ci` Expected: clean pass (tests may need updating — see Task 10).
 
 - [ ] **Step 7: Commit**
 
@@ -1654,6 +1653,7 @@ git commit -m "refactor: remove old per-source import modules and cli/document"
 ## Task 10: Update integration tests
 
 **Files:**
+
 - Modify: `tests/reference_import_git.rs`
 - Modify: `tests/reference_import_crawl.rs`
 
@@ -1710,8 +1710,8 @@ Similarly in `tests/reference_import_crawl.rs`, replace `import_crawl()` with
 
 - [ ] **Step 3: Run the live tests**
 
-Run: `cargo test --features live-tests -- import --nocapture 2>&1 | tail -30`
-Expected: all tests pass.
+Run: `cargo test --features live-tests -- import --nocapture 2>&1 | tail -30` Expected:
+all tests pass.
 
 - [ ] **Step 4: Commit**
 
@@ -1725,6 +1725,7 @@ git commit -m "test: update import tests for two-step convert + import flow"
 ## Task 11: Unify web cache curation with `import_from_path()`
 
 **Files:**
+
 - Modify: `src/web/curation.rs`
 
 Replace the inline file-move + DB-write logic in `curate_references()` and
@@ -1819,8 +1820,8 @@ Ok(None) => {
 
 - [ ] **Step 3: Update all callers of `curate_references()`**
 
-The function is now async and takes a `db` parameter. Find all call sites
-(likely in `src/scripting/bindings.rs`) and update them:
+The function is now async and takes a `db` parameter. Find all call sites (likely in
+`src/scripting/bindings.rs`) and update them:
 
 ```rust
 // Before:
@@ -1836,13 +1837,11 @@ Delete the `move_to_references()` function (lines 521-543) — it's no longer ca
 
 - [ ] **Step 5: Verify compilation**
 
-Run: `cargo check 2>&1 | head -30`
-Expected: clean.
+Run: `cargo check 2>&1 | head -30` Expected: clean.
 
 - [ ] **Step 6: Run `just ci`**
 
-Run: `just ci`
-Expected: clean pass.
+Run: `just ci` Expected: clean pass.
 
 - [ ] **Step 7: Commit**
 
@@ -1856,6 +1855,7 @@ git commit -m "refactor: web cache curation uses import_from_path for reference 
 ## Task 12: Update GHOST skills
 
 **Files:**
+
 - Modify: `assets/skills/reference-import/skill.md`
 - Delete or redirect: `assets/skills/document-import/skill.md`
 
@@ -1869,11 +1869,11 @@ sections:
 - Inspect step: GHOST reads staging dir content, decides topic
 - Import step: `ghost reference import <path> --topic <topic> --source-type ... `
 - Update and delete: unchanged
-- Background mode: `run_shell_command` with `background: true` on the convert step,
-  then import after reading the result
+- Background mode: `run_shell_command` with `background: true` on the convert step, then
+  import after reading the result
 
-Keep the same structure as the existing skill but replace all CLI examples with the
-new commands.
+Keep the same structure as the existing skill but replace all CLI examples with the new
+commands.
 
 - [ ] **Step 2: Merge `document-import` into `reference-import`**
 
@@ -1903,6 +1903,7 @@ git commit -m "docs: update GHOST skills for two-step convert + import flow"
 ## Task 13: Update user-facing documentation
 
 **Files:**
+
 - Modify: `docs/src/content/docs/knowledge/reference-import.md`
 
 - [ ] **Step 1: Rewrite the reference import docs**
@@ -1922,8 +1923,7 @@ Read the `/docs` skill first for doc conventions. Update the page to cover:
 
 - [ ] **Step 2: Run doc build**
 
-Run: `just doc`
-Expected: builds cleanly.
+Run: `just doc` Expected: builds cleanly.
 
 - [ ] **Step 3: Commit**
 
@@ -1940,8 +1940,7 @@ git commit -m "docs: update reference import docs for convert + import split"
 
 - [ ] **Step 1: Run full CI**
 
-Run: `just ci`
-Fix any clippy warnings, format issues, or test failures.
+Run: `just ci` Fix any clippy warnings, format issues, or test failures.
 
 - [ ] **Step 2: Verify the staging directory is gitignored**
 

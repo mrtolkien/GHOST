@@ -1,8 +1,8 @@
 # Split Reference Import Into Convert + Import
 
-The current reference import system (`ghost reference import git|crawl`, `ghost document
-import file`) bundles source fetching/conversion with reference storage in one command.
-This causes:
+The current reference import system (`ghost reference import git|crawl`,
+`ghost document import file`) bundles source fetching/conversion with reference storage
+in one command. This causes:
 
 - **Hard to debug** — one big process, usually running in background
 - **Topic must be known upfront** — impossible for documents the GHOST hasn't read yet
@@ -30,21 +30,23 @@ ghost convert crawl <url> [--max-depth 3] [--max-pages 50]
 - Default staging path: `{workspace}/staging/{auto-slug}/` — slug derived from source
   (e.g., `dioxus-docs`, `example-com`, `quarterly-report`)
 - `--output` override available for all subcommands
-- Staging directory contains only markdown files, preserving relative structure from source
+- Staging directory contains only markdown files, preserving relative structure from
+  source
   - PDF: single `{stem}.md`
   - Git: filtered file tree as-is
   - Crawl: `{url-slug}.md` per page, flat
-- Prints to stdout: staging directory path + provenance metadata (source_type, source_url,
-  version_ref, git_ref as applicable)
+- Prints to stdout: staging directory path + provenance metadata (source_type,
+  source_url, version_ref, git_ref as applicable)
 - Zero DB interaction, zero workspace config required beyond knowing the staging path
 - Exit 0 on success, non-zero with error to stderr on failure
 
 **Error handling:**
 
 - Fail clearly, don't push through partial results silently
-- Git clone fails / URL unreachable / docling fails -> error to stderr, non-zero exit, no
-  staging dir created
-- Partial crawl (some pages fail) -> still fails, reports which pages couldn't be fetched
+- Git clone fails / URL unreachable / docling fails -> error to stderr, non-zero exit,
+  no staging dir created
+- Partial crawl (some pages fail) -> still fails, reports which pages couldn't be
+  fetched
 
 ### `ghost reference import` — markdown to references + DB
 
@@ -66,8 +68,9 @@ ghost reference import <path> --topic <topic> \
 decides this after reading the converted content.
 
 **Provenance flags** (optional): `--source-type`, `--source-url`, `--version-ref`,
-`--git-ref`. The GHOST passes these through from the convert step's stdout output. Stored
-in `_import.toml` and DB import batch, enabling `reference update` to re-fetch later.
+`--git-ref`. The GHOST passes these through from the convert step's stdout output.
+Stored in `_import.toml` and DB import batch, enabling `reference update` to re-fetch
+later.
 
 **What it does:**
 
@@ -143,8 +146,8 @@ src/
 - `fetch_git_manifest()` -> `convert::git` (writes staging dir instead of in-memory vec)
 - `fetch_crawl_manifest()` -> `convert::crawl` (same)
 - `import_file()` docling call -> `convert::pdf`
-- Per-source import functions (`import_git`, `import_crawl`, `import_file`) -> one generic
-  `import_from_path()` in `reference_import::import`
+- Per-source import functions (`import_git`, `import_crawl`, `import_file`) -> one
+  generic `import_from_path()` in `reference_import::import`
 
 **What gets removed:**
 
@@ -188,8 +191,8 @@ These must be updated to reflect the new CLI surface:
   `ghost reference import` two-step flow
 - **`assets/skills/document-import/skill.md`** — merge into reference-import skill
   (document-import becomes `ghost convert pdf`, then `ghost reference import`)
-- **`docs/src/content/docs/knowledge/reference-import.md`** — update CLI examples,
-  add convert step, document staging directory
+- **`docs/src/content/docs/knowledge/reference-import.md`** — update CLI examples, add
+  convert step, document staging directory
 
 ## Future Extensibility
 

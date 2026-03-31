@@ -2,59 +2,89 @@
 
 ## [0.12.0](https://github.com/mrtolkien/GHOST/compare/v0.11.1...v0.12.0) (2026-03-31)
 
-
 ### Features
 
-* add convert/git module for cloning repos to staging dirs ([d8bef75](https://github.com/mrtolkien/GHOST/commit/d8bef750675194e6068b36f372a347a4460e17e6))
-* add convert/staging module with slug generation and staging dir utilities ([84d7209](https://github.com/mrtolkien/GHOST/commit/84d7209724eaebe1cc3f540c4c4142d1ba279675))
-* add Failure Handling section to GHOST system prompt ([acf604c](https://github.com/mrtolkien/GHOST/commit/acf604cc305b627c18f1cc24b24f432abb7a05ef))
-* **agents:** plumb event_tx through agent runner to AgentContext ([bc12665](https://github.com/mrtolkien/GHOST/commit/bc126653bfc4d2563e06c8248c7172929753ecc5))
-* **cli:** add ghost convert {pdf, git, crawl} subcommands ([bbaefc2](https://github.com/mrtolkien/GHOST/commit/bbaefc2eb50d52fefd70be2c5dfd90cf1cf59cbe))
-* **convert:** add crawl converter writing pages to staging dir ([e8580a9](https://github.com/mrtolkien/GHOST/commit/e8580a973c8490d7d191fbbc9128f41c86cbb7fd))
-* **convert:** add PDF converter writing docling output to staging dir ([ba3618a](https://github.com/mrtolkien/GHOST/commit/ba3618ab81342685f34b3e640f8108eff5b97bd9))
-* **events:** add notify_only flag to SessionEvent ([4479942](https://github.com/mrtolkien/GHOST/commit/44799425106bfac5ebc95652538326cd770466be))
-* **reference_import:** add generic import_from_path entry point ([cf8bd52](https://github.com/mrtolkien/GHOST/commit/cf8bd520a25af46f1a7edbf961241e268d93f7c0))
-* **scripting:** add ctx:send_to_session and ctx:notify_active_sessions ([4c596c8](https://github.com/mrtolkien/GHOST/commit/4c596c8d98933c61ca68c5c8337473ddc6481367))
-
+- add convert/git module for cloning repos to staging dirs
+  ([d8bef75](https://github.com/mrtolkien/GHOST/commit/d8bef750675194e6068b36f372a347a4460e17e6))
+- add convert/staging module with slug generation and staging dir utilities
+  ([84d7209](https://github.com/mrtolkien/GHOST/commit/84d7209724eaebe1cc3f540c4c4142d1ba279675))
+- add Failure Handling section to GHOST system prompt
+  ([acf604c](https://github.com/mrtolkien/GHOST/commit/acf604cc305b627c18f1cc24b24f432abb7a05ef))
+- **agents:** plumb event_tx through agent runner to AgentContext
+  ([bc12665](https://github.com/mrtolkien/GHOST/commit/bc126653bfc4d2563e06c8248c7172929753ecc5))
+- **cli:** add ghost convert {pdf, git, crawl} subcommands
+  ([bbaefc2](https://github.com/mrtolkien/GHOST/commit/bbaefc2eb50d52fefd70be2c5dfd90cf1cf59cbe))
+- **convert:** add crawl converter writing pages to staging dir
+  ([e8580a9](https://github.com/mrtolkien/GHOST/commit/e8580a973c8490d7d191fbbc9128f41c86cbb7fd))
+- **convert:** add PDF converter writing docling output to staging dir
+  ([ba3618a](https://github.com/mrtolkien/GHOST/commit/ba3618ab81342685f34b3e640f8108eff5b97bd9))
+- **events:** add notify_only flag to SessionEvent
+  ([4479942](https://github.com/mrtolkien/GHOST/commit/44799425106bfac5ebc95652538326cd770466be))
+- **reference_import:** add generic import_from_path entry point
+  ([cf8bd52](https://github.com/mrtolkien/GHOST/commit/cf8bd520a25af46f1a7edbf961241e268d93f7c0))
+- **scripting:** add ctx:send_to_session and ctx:notify_active_sessions
+  ([4c596c8](https://github.com/mrtolkien/GHOST/commit/4c596c8d98933c61ca68c5c8337473ddc6481367))
 
 ### Bug Fixes
 
-* **anthropic:** re-read credentials from disk before refreshing OAuth token ([ed6e68e](https://github.com/mrtolkien/GHOST/commit/ed6e68e77e5e49fdf6e6a51f0b50d7e70dfd9154))
-* bound create_staging_dir loop with MAX_STAGING_SUFFIX ([c0ae68c](https://github.com/mrtolkien/GHOST/commit/c0ae68c56e1b90b11053ffb08bd99d36eb9d0926))
-* correct nix package name and log vision extraction errors ([dc18113](https://github.com/mrtolkien/GHOST/commit/dc181139c4bc15a2d88115ddda168a0784676861))
-* **discord:** reject interactions from unauthorized users ([e3775d5](https://github.com/mrtolkien/GHOST/commit/e3775d52a7712c573a64d1abad71f97cbc6ae4e2))
-* **event_handler:** retry continuation on SessionBusy instead of giving up ([05ace8d](https://github.com/mrtolkien/GHOST/commit/05ace8d93b38b317cc1630cffcaae8c74ceb80b1))
-* **event_handler:** retry continuation on SessionBusy instead of giving up ([14301fa](https://github.com/mrtolkien/GHOST/commit/14301fa529438df6aee100c4675f394099fac493))
-* merge consecutive same-role messages and nest images in tool_result ([da0e4b0](https://github.com/mrtolkien/GHOST/commit/da0e4b01ffe92e4d82cc0a348ba2318ebe818c67))
-* rename poppler_utils to poppler-utils (nixpkgs package rename) ([db7c7a4](https://github.com/mrtolkien/GHOST/commit/db7c7a4437dfb61a53f110f7c48916c7d60b3fd4))
-* replace pymupdf with pdftoppm for PDF page rendering ([294874f](https://github.com/mrtolkien/GHOST/commit/294874ff3005838cac8347fa52db3ed4c9216a8d))
-* review fixes — skip idle-wait for notify_only, LuaLS stubs, Result-based reload ([91b79dd](https://github.com/mrtolkien/GHOST/commit/91b79ddc6d12486c5e8f1780fe1bffde76d309c0))
-* **scheduler:** keep old entries on reload failure, log counts after reload ([2ea7cf4](https://github.com/mrtolkien/GHOST/commit/2ea7cf4ba8989ca799c1fc4b2d30b6d1de14a7e9))
-* stop CLI commands from overwriting user workspace files ([30025cb](https://github.com/mrtolkien/GHOST/commit/30025cbfc232d9df464b64c3cfd784fd11a84642))
-* use nix run for pdftoppm instead of permanent shell dep ([2375fb4](https://github.com/mrtolkien/GHOST/commit/2375fb4bb10dc4bdfa75dae8d09041278b676cb4))
-* use nix shell instead of nix run for pdftoppm, add render_page test ([b64acfb](https://github.com/mrtolkien/GHOST/commit/b64acfb88d5718c9bb0b24a8251269fba99ae031))
-
+- **anthropic:** re-read credentials from disk before refreshing OAuth token
+  ([ed6e68e](https://github.com/mrtolkien/GHOST/commit/ed6e68e77e5e49fdf6e6a51f0b50d7e70dfd9154))
+- bound create_staging_dir loop with MAX_STAGING_SUFFIX
+  ([c0ae68c](https://github.com/mrtolkien/GHOST/commit/c0ae68c56e1b90b11053ffb08bd99d36eb9d0926))
+- correct nix package name and log vision extraction errors
+  ([dc18113](https://github.com/mrtolkien/GHOST/commit/dc181139c4bc15a2d88115ddda168a0784676861))
+- **discord:** reject interactions from unauthorized users
+  ([e3775d5](https://github.com/mrtolkien/GHOST/commit/e3775d52a7712c573a64d1abad71f97cbc6ae4e2))
+- **event_handler:** retry continuation on SessionBusy instead of giving up
+  ([05ace8d](https://github.com/mrtolkien/GHOST/commit/05ace8d93b38b317cc1630cffcaae8c74ceb80b1))
+- **event_handler:** retry continuation on SessionBusy instead of giving up
+  ([14301fa](https://github.com/mrtolkien/GHOST/commit/14301fa529438df6aee100c4675f394099fac493))
+- merge consecutive same-role messages and nest images in tool_result
+  ([da0e4b0](https://github.com/mrtolkien/GHOST/commit/da0e4b01ffe92e4d82cc0a348ba2318ebe818c67))
+- rename poppler_utils to poppler-utils (nixpkgs package rename)
+  ([db7c7a4](https://github.com/mrtolkien/GHOST/commit/db7c7a4437dfb61a53f110f7c48916c7d60b3fd4))
+- replace pymupdf with pdftoppm for PDF page rendering
+  ([294874f](https://github.com/mrtolkien/GHOST/commit/294874ff3005838cac8347fa52db3ed4c9216a8d))
+- review fixes — skip idle-wait for notify_only, LuaLS stubs, Result-based reload
+  ([91b79dd](https://github.com/mrtolkien/GHOST/commit/91b79ddc6d12486c5e8f1780fe1bffde76d309c0))
+- **scheduler:** keep old entries on reload failure, log counts after reload
+  ([2ea7cf4](https://github.com/mrtolkien/GHOST/commit/2ea7cf4ba8989ca799c1fc4b2d30b6d1de14a7e9))
+- stop CLI commands from overwriting user workspace files
+  ([30025cb](https://github.com/mrtolkien/GHOST/commit/30025cbfc232d9df464b64c3cfd784fd11a84642))
+- use nix run for pdftoppm instead of permanent shell dep
+  ([2375fb4](https://github.com/mrtolkien/GHOST/commit/2375fb4bb10dc4bdfa75dae8d09041278b676cb4))
+- use nix shell instead of nix run for pdftoppm, add render_page test
+  ([b64acfb](https://github.com/mrtolkien/GHOST/commit/b64acfb88d5718c9bb0b24a8251269fba99ae031))
 
 ### Refactoring
 
-* **cli:** replace ReferenceImportCommand with single import-from-path ([bd30ed5](https://github.com/mrtolkien/GHOST/commit/bd30ed57ba9df0c73dbf7d452c2873d15433cedd))
-* **convert:** decouple convert module from reference_import errors ([171dfa7](https://github.com/mrtolkien/GHOST/commit/171dfa7a97f5043eb4fc040dc18c10606b341d92))
-* **reference_import:** migrate update_references to use convert/ module ([b8e5c85](https://github.com/mrtolkien/GHOST/commit/b8e5c85a880d4c0de21df0f1b5019b5ab28df163))
-* remove old per-source import modules and cli/document ([45e205b](https://github.com/mrtolkien/GHOST/commit/45e205bf6ca3fea4a1e847ba63e5a9d65f500569))
-* web cache curation uses import_from_path for reference writes ([3320d1c](https://github.com/mrtolkien/GHOST/commit/3320d1cabeb3a238f19962c811b869135418af0b))
-
+- **cli:** replace ReferenceImportCommand with single import-from-path
+  ([bd30ed5](https://github.com/mrtolkien/GHOST/commit/bd30ed57ba9df0c73dbf7d452c2873d15433cedd))
+- **convert:** decouple convert module from reference_import errors
+  ([171dfa7](https://github.com/mrtolkien/GHOST/commit/171dfa7a97f5043eb4fc040dc18c10606b341d92))
+- **reference_import:** migrate update_references to use convert/ module
+  ([b8e5c85](https://github.com/mrtolkien/GHOST/commit/b8e5c85a880d4c0de21df0f1b5019b5ab28df163))
+- remove old per-source import modules and cli/document
+  ([45e205b](https://github.com/mrtolkien/GHOST/commit/45e205bf6ca3fea4a1e847ba63e5a9d65f500569))
+- web cache curation uses import_from_path for reference writes
+  ([3320d1c](https://github.com/mrtolkien/GHOST/commit/3320d1cabeb3a238f19962c811b869135418af0b))
 
 ### Documentation
 
-* **skills:** document ctx:send_to_session and ctx:notify_active_sessions ([5ba0f1e](https://github.com/mrtolkien/GHOST/commit/5ba0f1eacc6fc77b9ae3355c902ff4bc02d8ecdd))
-* **skills:** update reference-import and document-import for two-step convert+import flow ([0345d95](https://github.com/mrtolkien/GHOST/commit/0345d95b43413900e47d6b0319e0c9686977e532))
-* update reference-import page for two-step convert+import flow ([01955ce](https://github.com/mrtolkien/GHOST/commit/01955ce05e10e00d7b9cbc08b7958f1287ba079c))
-
+- **skills:** document ctx:send_to_session and ctx:notify_active_sessions
+  ([5ba0f1e](https://github.com/mrtolkien/GHOST/commit/5ba0f1eacc6fc77b9ae3355c902ff4bc02d8ecdd))
+- **skills:** update reference-import and document-import for two-step convert+import
+  flow
+  ([0345d95](https://github.com/mrtolkien/GHOST/commit/0345d95b43413900e47d6b0319e0c9686977e532))
+- update reference-import page for two-step convert+import flow
+  ([01955ce](https://github.com/mrtolkien/GHOST/commit/01955ce05e10e00d7b9cbc08b7958f1287ba079c))
 
 ### Tests
 
-* add full PDF convert+import pipeline test with real LLM vision ([dd1e287](https://github.com/mrtolkien/GHOST/commit/dd1e287bb89718b16c0870a061f71c532954e040))
-* update live tests to use two-step convert + import flow ([24beb88](https://github.com/mrtolkien/GHOST/commit/24beb8843f968b2b00c88b03d5284faaf0315a77))
+- add full PDF convert+import pipeline test with real LLM vision
+  ([dd1e287](https://github.com/mrtolkien/GHOST/commit/dd1e287bb89718b16c0870a061f71c532954e040))
+- update live tests to use two-step convert + import flow
+  ([24beb88](https://github.com/mrtolkien/GHOST/commit/24beb8843f968b2b00c88b03d5284faaf0315a77))
 
 ## [0.11.1](https://github.com/mrtolkien/GHOST/compare/v0.11.0...v0.11.1) (2026-03-28)
 

@@ -343,8 +343,7 @@ impl AnthropicProvider {
         let path = creds_path.clone();
 
         // Perform refresh (async, no lock held).
-        let new_creds =
-            credentials::refresh_token(&self.client, &creds_for_refresh, &path).await?;
+        let new_creds = credentials::refresh_token(&self.client, &creds_for_refresh, &path).await?;
 
         let token = new_creds.access_token.clone();
 
