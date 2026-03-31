@@ -3,62 +3,51 @@ imported book. The full text of the book is provided in the user message.
 
 ## Your Task
 
-1. **Determine genre** — is this fiction or non-fiction? This changes your approach:
-   - **Non-fiction**: focus on the **logic and argumentation**. What is the thesis? What
-     evidence supports it? What frameworks does the author introduce?
-   - **Fiction**: focus on **themes** — the big ideas the work explores. Not plot
-     summaries. Think literary analysis, not book report.
+You must create exactly these notes, in this order, then end your turn:
 
-2. **Search existing knowledge** — before creating any note, search for existing notes
-   about the author, the concepts, the historical period, related works. Update existing
-   notes rather than duplicating. Link generously.
+### 1. Source note (the book itself)
 
-3. **Create the source note** — one `source` archetype note for the book itself:
-   - Title: the book's title (e.g., "Animal Farm")
-   - Structured summary: central thesis/narrative arc, key arguments or themes,
-     structure
-   - This is the hub — all other notes link back to it
-   - Can be longer than typical notes (up to ~800 words)
-   - Tag: `books/{genre}` (e.g., `books/fiction`, `books/economics`)
+- `archetype: source`, `trust: 7`
+- Title: the book's title (e.g., "Animal Farm")
+- Structured summary: central thesis or narrative arc, key arguments or themes, structure
+- Can be longer than typical notes (up to ~800 words) — include specific details
+- Tag: `books/{genre}` (e.g., `books/fiction`, `books/economics`)
+- Link to themes and author: `[[explores>Theme]]`, `[[by>Author]]`
 
-4. **Create or update the author note** — `entity` archetype:
-   - If an author note already exists, update it with a link to this book
-   - If not, create one: key biographical facts relevant to understanding their work,
-     other notable works, intellectual tradition
-   - Link: `[[wrote>Book Title]]`
-   - Tag: `people/authors`
+### 2. Author note
 
-5. **Create secondary concept notes** — for major ideas, themes, or frameworks:
-   - Each is a standalone `entity` or `analysis` note
-   - Non-fiction: capture the book's key arguments and frameworks as `analysis` notes
-   - Fiction: capture themes (power, corruption, freedom, etc.) as `entity` notes
-   - Link back: `[[from>Book Title]]` and `[[by>Author Name]]`
-   - Link to any existing notes about related concepts
-   - Only create notes for concepts substantial enough to stand alone — don't fragment
-     into tiny stubs
-   - 2-5 concept notes is typical; don't force more
+- `archetype: entity`, `trust: 5`
+- Title: the author's name
+- Key biographical facts relevant to understanding their work, style, other notable works
+- Link: `[[wrote>Book Title]]`
+- Tag: `people/authors`
+- If the note already exists (you get a UNIQUE error), use `action: update` instead
 
-## Linking Strategy
+### 3. One or two theme/concept notes
 
-Think like Wikipedia. Every note should be densely linked:
+- Fiction: `archetype: entity` — themes (power, corruption, freedom), not plot
+- Non-fiction: `archetype: analysis` — key arguments and frameworks
+- Link: `[[from>Book Title]]`, `[[by>Author]]`
+- Only create notes for concepts substantial enough to stand alone
+- `trust: 5-6`
 
-- `[[about>Theme]]` — what this note is about
-- `[[by>Author]]` — who wrote it
-- `[[from>Book Title]]` — source attribution
-- `[[compares>Other Work]]` — comparative references
-- `[[influenced_by>Earlier Work]]` — intellectual lineage
-- `[[wrote>Book Title]]` — on author notes
-- `[[explores>Theme]]` — on source notes
+## Genre determines focus
 
-Search before linking — if a note about a concept exists, link to it by its exact title.
-If it doesn't exist, create a dangling link anyway (it becomes a stub for later).
+- **Non-fiction**: capture the **logic and argumentation** — thesis, evidence, frameworks
+- **Fiction**: capture **themes** — the big ideas the work explores, not plot summaries
 
-## Quality Bar
+## Linking
 
-- Notes must contain **specific details** from the text — quotes, arguments, examples.
-  Vague summaries ("this book explores important themes") are worthless.
-- Every note must have `sources` pointing to the book's source note title.
-- Trust: source note = 7 (you read the full text), concept notes = 5-6.
+Use typed wiki links: `[[about>Theme]]`, `[[by>Author]]`, `[[from>Book Title]]`,
+`[[wrote>Book Title]]`, `[[explores>Theme]]`, `[[compares>Other Work]]`.
+
+## Rules
+
+- Create all notes using `note_write` with `action: create`
+- Every note needs a `sources` field pointing to the book title
+- Do NOT read back notes you just created
+- Do NOT try to update skeleton index notes
+- After creating the notes, **end your turn immediately**
 
 ---
 

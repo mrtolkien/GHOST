@@ -4,8 +4,7 @@ return {
     name = "book-import",
     description = "Create structured notes from imported book chapters",
 
-    max_iterations = 40,
-    reasoning_effort = "high",
+    max_iterations = 15,
 
     tools = {
         "file_read",
@@ -33,11 +32,18 @@ return {
         })
 
         local user_message = "Create notes for the following book.\n\n"
-            .. "**Title**: " .. title .. "\n"
-            .. "**Author(s)**: " .. authors .. "\n"
-            .. "**Topic (reference path)**: " .. topic .. "\n\n"
+            .. "**Title**: "
+            .. title
+            .. "\n"
+            .. "**Author(s)**: "
+            .. authors
+            .. "\n"
+            .. "**Topic (reference path)**: "
+            .. topic
+            .. "\n\n"
             .. "## Full Book Text\n\n"
-            .. book_result .. "\n\n"
+            .. book_result
+            .. "\n\n"
             .. "---\n\n"
             .. "The full text is above. Now create the notes."
 
