@@ -352,15 +352,15 @@ pub async fn curate_references(
             continue;
         }
 
-        // A file is "used" if it was cited in agent findings OR its URL
-        // appears in any note body
+        // A file is "used" only if a note references its URL (in frontmatter
+        // sources or body text). The `cited` flag (URL in agent findings) is NOT
+        // enough — cited-but-unreferenced pages produce orphan domain-slug topics.
         let matching_note = if file.url.is_empty() {
             None
         } else {
             note_urls.iter().find(|nu| urls_match(&nu.url, &file.url))
         };
-        let url_in_notes = matching_note.is_some();
-        let used = file.cited || url_in_notes;
+        let used = matching_note.is_some();
 
         // Topic from the first note that cites this URL (for reference path scoping)
         let note_topic = matching_note.and_then(|nu| nu.topic.clone());
