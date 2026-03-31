@@ -25,6 +25,11 @@ pub enum ImportSource {
         no_ocr: bool,
         page_range: Option<(u32, u32)>,
     },
+    Book {
+        path: String,
+        title: Option<String>,
+        authors: Vec<String>,
+    },
 }
 
 #[derive(Debug)]
@@ -103,6 +108,16 @@ pub struct ImportConfigJson {
     pub max_depth: Option<usize>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_pages: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub authors: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub language: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub publisher: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub publication_date: Option<String>,
 }
 
 impl ImportConfigJson {
@@ -154,6 +169,11 @@ impl From<&ImportConfig> for ImportConfigJson {
                 extensions: extensions.clone(),
                 max_depth: None,
                 max_pages: None,
+                title: None,
+                authors: None,
+                language: None,
+                publisher: None,
+                publication_date: None,
             },
             ImportSource::Crawl {
                 url,
@@ -167,6 +187,11 @@ impl From<&ImportConfig> for ImportConfigJson {
                 extensions: vec![],
                 max_depth: Some(*max_depth),
                 max_pages: Some(*max_pages),
+                title: None,
+                authors: None,
+                language: None,
+                publisher: None,
+                publication_date: None,
             },
             ImportSource::File { path, .. } => ImportConfigJson {
                 source_type: "file".into(),
@@ -176,6 +201,29 @@ impl From<&ImportConfig> for ImportConfigJson {
                 extensions: vec![],
                 max_depth: None,
                 max_pages: None,
+                title: None,
+                authors: None,
+                language: None,
+                publisher: None,
+                publication_date: None,
+            },
+            ImportSource::Book {
+                path,
+                title,
+                authors,
+            } => ImportConfigJson {
+                source_type: "book".into(),
+                source_url: path.clone(),
+                git_ref: None,
+                paths: vec![],
+                extensions: vec![],
+                max_depth: None,
+                max_pages: None,
+                title: title.clone(),
+                authors: Some(authors.clone()),
+                language: None,
+                publisher: None,
+                publication_date: None,
             },
         }
     }

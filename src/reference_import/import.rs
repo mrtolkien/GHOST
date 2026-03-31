@@ -216,6 +216,11 @@ async fn upsert_provenance(
         extensions: vec![],
         max_depth: None,
         max_pages: None,
+        title: None,
+        authors: None,
+        language: None,
+        publisher: None,
+        publication_date: None,
     };
     let config_json_str = serde_json::to_string(&config_json).ok();
 

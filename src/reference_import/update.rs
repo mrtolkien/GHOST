@@ -200,7 +200,7 @@ async fn fetch_to_staging(
                 read_staging_as_manifest(&result.staging_dir, &config.topic, Some(&url_map))?;
             Ok((None, manifest))
         }
-        ImportSource::File { .. } => Err(ImportError::Config(
+        ImportSource::File { .. } | ImportSource::Book { .. } => Err(ImportError::Config(
             "only git and crawl sources support update".into(),
         )),
     }

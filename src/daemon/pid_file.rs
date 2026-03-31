@@ -60,10 +60,12 @@ pub fn acquire(workspace: &Path) -> Result<(), PidFileError> {
 pub fn release(workspace: &Path) {
     let path = pid_file_path(workspace);
     // Only remove if it's our own PID (guard against races)
-    if let Ok(contents) = fs::read_to_string(&path) {
-        if contents.trim().parse::<u32>().ok() == Some(std::process::id()) {
-            let _ = fs::remove_file(&path);
-        }
+    if fs::read_to_string(&path)
+        .ok()
+        .and_then(|c| c.trim().parse::<u32>().ok())
+        == Some(std::process::id())
+    {
+        let _ = fs::remove_file(&path);
     }
 }
 
