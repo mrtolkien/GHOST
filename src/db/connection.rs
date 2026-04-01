@@ -1,8 +1,8 @@
 use std::path::Path;
 use std::sync::Once;
 
-use sqlx::SqlitePool;
 use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions};
+use sqlx::{Connection, SqliteConnection, SqlitePool};
 use tracing::info;
 
 use super::error::DatabaseError;
@@ -44,6 +44,26 @@ pub async fn connect(workspace: &Path, embedding_dim: usize) -> Result<GhostDb, 
         .busy_timeout(BUSY_TIMEOUT)
         .pragma("cache_size", CACHE_SIZE_KIB);
 
+    // Run migrations on a dedicated single connection BEFORE opening the pool.
+    // SQLite DDL (CREATE/DROP TABLE) requires an exclusive lock. Running
+    // migrations through a pool risks SQLITE_LOCKED (code 6) because the
+    // pool's other connections hold reader locks that block the exclusive lock.
+    let start = std::time::Instant::now();
+
+    let mut migrate_conn = SqliteConnection::connect_with(&opts)
+        .await
+        .map_err(|source| DatabaseError::Connect {
+            path: db_path.clone(),
+            source,
+        })?;
+
+    sqlx::migrate!("./migrations")
+        .run(&mut migrate_conn)
+        .await
+        .map_err(|source| DatabaseError::Migrate { source })?;
+
+    migrate_conn.close().await.ok();
+
     let pool = SqlitePoolOptions::new()
         // sqlx's SQLite ping() is a no-op (only checks the worker thread
         // channel, not the actual SQLite handle). A connection that hits a
@@ -63,13 +83,6 @@ pub async fn connect(workspace: &Path, embedding_dim: usize) -> Result<GhostDb, 
             path: db_path.clone(),
             source,
         })?;
-
-    let start = std::time::Instant::now();
-
-    sqlx::migrate!("./migrations")
-        .run(&pool)
-        .await
-        .map_err(|source| DatabaseError::Migrate { source })?;
 
     // Create vec0 virtual table with dynamic embedding dimension.
     // This lives outside the migration because the dimension comes from config.

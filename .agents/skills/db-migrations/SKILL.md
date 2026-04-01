@@ -18,12 +18,12 @@ Every migration must be correct on the first attempt.
 ## Naming
 
 Files: `NNN_short_description.sql` (zero-padded sequence number). Add a comment at the
-top explaining *why* the migration exists.
+top explaining _why_ the migration exists.
 
 ## Table Recreation (CHECK / constraint changes)
 
-SQLite does not support `ALTER TABLE ... ALTER CONSTRAINT`. To change a CHECK constraint,
-column type, or other table-level constraint, you must recreate the table:
+SQLite does not support `ALTER TABLE ... ALTER CONSTRAINT`. To change a CHECK
+constraint, column type, or other table-level constraint, you must recreate the table:
 
 ```sql
 CREATE TABLE foo_new ( ... );
@@ -35,7 +35,7 @@ ALTER TABLE foo_new RENAME TO foo;
 ### Column Ordering (NON-NEGOTIABLE)
 
 **NEVER use `SELECT *` when copying data between tables.** `SELECT *` returns columns in
-the *source* table's physical order, which may not match the new table if columns were
+the _source_ table's physical order, which may not match the new table if columns were
 added by previous `ALTER TABLE ADD COLUMN` statements (which always append to the end).
 
 Always explicitly list every column in both the INSERT target and the SELECT source:
@@ -70,14 +70,23 @@ Safe for adding nullable columns or columns with defaults. Remember that `ADD CO
 always appends to the end of the physical column order — this is why explicit column
 lists matter in future table recreations.
 
+## Connection Locking
+
+Migrations run on a **dedicated single connection** before the pool is opened
+(`src/db/connection.rs`). This is intentional — SQLite DDL (`CREATE TABLE`, `DROP TABLE`)
+requires an exclusive lock. If migrations ran through the pool, other pool connections
+holding read locks would cause `SQLITE_LOCKED` (code 6) errors on any DDL migration.
+
+**Do not change this.** If you see migrations running through a pool, that's a bug.
+
 ## Validation Checklist
 
 Before committing any migration:
 
 1. **Column list**: Every `INSERT INTO ... SELECT` uses explicit column names on both
    sides. No `SELECT *`.
-2. **NOT NULL safety**: Every NOT NULL column in the target has a matching non-null source
-   column or an explicit default value.
+2. **NOT NULL safety**: Every NOT NULL column in the target has a matching non-null
+   source column or an explicit default value.
 3. **Constraint coverage**: CHECK constraints, UNIQUE constraints, and foreign keys in
    the new table are compatible with existing data.
 4. **Index recreation**: If you DROP a table, its indexes are dropped too. Recreate any
