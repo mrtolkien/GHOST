@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.1](https://github.com/mrtolkien/GHOST/compare/v0.13.0...v0.13.1) (2026-04-01)
+
+
+### Bug Fixes
+
+* explicit column list in migration 15 to handle column order mismatch ([46ca7d7](https://github.com/mrtolkien/GHOST/commit/46ca7d7b9a3df58a032d06ca53366595a876acf3))
+
 ## [0.13.0](https://github.com/mrtolkien/GHOST/compare/v0.12.0...v0.13.0) (2026-03-31)
 
 
