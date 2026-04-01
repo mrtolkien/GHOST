@@ -38,7 +38,7 @@ Follow this order — stop as soon as you have an answer:
 Convert produces a staging directory with markdown files and prints the staging path to
 stdout:
 
-```
+```sh
 ghost convert git <url> [--paths dir1,dir2] [--extensions .md,.rs] [--git-ref <ref>]
 ghost convert crawl <url> [--max-depth 3] [--max-pages 50]
 ghost convert pdf <path> [--no-ocr] [--page-range "1-10"] [--timeout 900]
@@ -55,7 +55,7 @@ content, then pick an appropriate `--topic`.
 
 ### Step 3: Import
 
-```
+```sh
 ghost reference import <staging-dir> --topic <topic> \
     [--source-type git|crawl|file] \
     [--source-url <url>] \
@@ -74,7 +74,7 @@ record is fully traceable.
 Documentation often lives in a separate repo (e.g. `DioxusLabs/docsite`, not
 `DioxusLabs/dioxus`). One search is enough:
 
-```bash
+```sh
 gh search repos "docs OR docsite OR website" --owner=<Org> --json name,description
 ```
 
@@ -82,7 +82,7 @@ gh search repos "docs OR docsite OR website" --owner=<Org> --json name,descripti
 
 Browse the repo to pick the narrowest `--paths`:
 
-```bash
+```sh
 gh api repos/<owner>/<repo>/contents/ --jq '.[].name'
 ```
 
@@ -92,13 +92,10 @@ For docs repos use `--extensions .md`; for code examples add `.rs`, `.py`, etc. 
 ### Running the convert (background)
 
 Git converts clone the repo and embed every file, which is slow on CPU. **Always use
-background mode** for the convert step:
+background mode** (`background: true`) for the convert step:
 
-```json
-{
-  "command": "ghost convert git https://github.com/DioxusLabs/docsite --paths docs-src/0.7/src --extensions .md",
-  "background": true
-}
+```sh
+ghost convert git https://github.com/DioxusLabs/docsite --paths docs-src/0.7/src --extensions .md
 ```
 
 Tell the OPERATOR: _"I'm converting the Dioxus docs in the background — I'll import them
@@ -110,29 +107,24 @@ The completion watcher triggers a follow-up turn automatically.
 When you see `[shell-command completed]`, the stdout contains the staging path. Read a
 few files to pick a good topic name, then run the import:
 
-```json
-{
-  "command": "ghost reference import /path/to/.staging/docsite --topic dioxus/docs --source-type git --source-url https://github.com/DioxusLabs/docsite --git-ref main"
-}
+```sh
+ghost reference import /path/to/.staging/docsite --topic dioxus/docs \
+    --source-type git --source-url https://github.com/DioxusLabs/docsite --git-ref main
 ```
 
 ## Crawl Import (Fallback)
 
-Use only when no git source exists:
+Use only when no git source exists. Run with `background: true`:
 
-```json
-{
-  "command": "ghost convert crawl https://docs.example.com/ --max-depth 2 --max-pages 30",
-  "background": true
-}
+```sh
+ghost convert crawl https://docs.example.com/ --max-depth 2 --max-pages 30
 ```
 
 After convert completes, import the staging dir:
 
-```json
-{
-  "command": "ghost reference import /path/to/.staging/docs-example-com --topic example/docs --source-type crawl --source-url https://docs.example.com/"
-}
+```sh
+ghost reference import /path/to/.staging/docs-example-com --topic example/docs \
+    --source-type crawl --source-url https://docs.example.com/
 ```
 
 ## PDF / Document Import
@@ -147,30 +139,23 @@ converting. It also keeps the original in `uploads/` for re-import if needed.
 
 1. **Download** (foreground — verify the file is real before converting):
 
-```json
-{
-  "command": "curl -L -o uploads/rulebook.pdf 'https://example.com/rulebook.pdf'",
-  "background": false
-}
+```sh
+curl -L -o uploads/rulebook.pdf 'https://example.com/rulebook.pdf'
 ```
 
 Check file size and type — some sites return HTML error pages with HTTP 200.
 
-2. **Convert** (background — OCR can take minutes):
+2. **Convert** (background — OCR can take minutes, use `background: true`):
 
-```json
-{
-  "command": "ghost convert pdf uploads/rulebook.pdf",
-  "background": true
-}
+```sh
+ghost convert pdf uploads/rulebook.pdf
 ```
 
 3. **Import** after convert completes:
 
-```json
-{
-  "command": "ghost reference import /path/to/.staging/rulebook --topic boardgames/arknova --source-type file"
-}
+```sh
+ghost reference import /path/to/.staging/rulebook --topic boardgames/arknova \
+    --source-type file
 ```
 
 ### PDF convert options (use ONLY when explicitly requested)
@@ -191,20 +176,15 @@ will tell you if they want non-default behavior.
 When the OPERATOR uploads a file, it lands in `uploads/` in the workspace. Convert it
 directly — no curl needed:
 
-```json
-{
-  "command": "ghost convert pdf uploads/<filename>",
-  "background": true
-}
+```sh
+ghost convert pdf uploads/<filename>
 ```
 
 After import, the original file is preserved in `references/<topic>/_originals/`. Clean
 up the uploaded file:
 
-```json
-{
-  "command": "rm uploads/<filename>"
-}
+```sh
+rm uploads/<filename>
 ```
 
 ## Book Import (EPUB)
@@ -213,55 +193,35 @@ up the uploaded file:
 
 1. **Convert** (fast — pure Rust, no external deps):
 
-```json
-{ "command": "ghost convert epub --path /path/to/book.epub" }
+```sh
+ghost convert epub --path /path/to/book.epub
 ```
 
 The output shows the staging path, title, authors, and chapter count.
 
 2. **Import**:
 
-```json
+```sh
+ghost reference import /path/to/.staging/book-slug --topic books/<slug> \
+    --source-type book
+```
+
+Pick a descriptive `--topic` under `books/` (e.g., `books/fiction`, `books/economy`).
+
+3. **Create notes** — use the `agent` tool to start the `book-import` agent. Pass the
+   topic, title, and authors from the convert output as `args`:
+
+```json agent
 {
-  "command": "ghost reference import /path/to/.staging/book-slug --topic books/<slug> --source-type book"
+  "action": "start",
+  "agent": "book-import",
+  "prompt": "Create notes from the imported book.",
+  "args": {
+    "topic": "books/<slug>",
+    "title": "<title from convert output>",
+    "authors": "<authors from convert output>"
+  }
 }
-```
-
-Pick a descriptive `--topic` under `books/` (e.g., `books/animal-farm`,
-`books/mute-compulsion`).
-
-3. **Create notes** — after import, run the book-import agent to generate structured
-   notes from the imported chapters:
-
-```json
-{
-  "command": "ghost agent run book-import --topic books/<slug> --title '<title>' --authors '<authors>'"
-}
-```
-
-The agent reads all imported chapters and creates:
-
-- A **source note** summarizing the book (archetype: `source`)
-- An **author entity note** (or updates an existing one)
-- **Secondary concept/theme notes** linked to the source note and existing knowledge
-
-### Example: Full book import flow
-
-```
-ghost convert epub --path ~/Documents/books/Animal\ Farm.epub
-# Output: /home/user/GHOST/.staging/animal-farm
-#         source_type=book
-#         title=Animal Farm
-#         authors=George Orwell
-#         chapters=11
-
-ghost reference import /home/user/GHOST/.staging/animal-farm \
-    --topic books/animal-farm --source-type book
-
-ghost agent run book-import \
-    --topic books/animal-farm \
-    --title "Animal Farm" \
-    --authors "George Orwell"
 ```
 
 ## Files on Disk
@@ -282,9 +242,10 @@ import. If you need to re-import with different options, re-run the convert step
 
 ## Post-Import: Enrich the Topic Note
 
-After import, a placeholder note exists at `notes/<topic>/index.md`. Edit it with a
-meaningful description — what the library/document covers, key concepts. This makes the
-topic discoverable via semantic search.
+_If the topic is new_, after import, a placeholder note exists at
+`notes/<topic>/index.md`. Edit it with a meaningful description — what the
+library/document covers, key concepts. This makes the topic discoverable via semantic
+search.
 
 ## Topic Hierarchy
 
@@ -301,7 +262,7 @@ knowledge_search(query="hooks", topic="dioxus", categories=["references"])
 
 ## Cleanup
 
-```
+```sh
 ghost reference delete --topic dioxus/docs
 ```
 
@@ -310,7 +271,7 @@ ghost reference delete --topic dioxus/docs
 When the OPERATOR asks to refresh or update existing reference material, or when you
 notice imported docs may be stale (e.g. a library released a new version):
 
-```
+```sh
 ghost reference update --topic <name> [--ref <tag-or-branch>]
 ```
 
@@ -324,16 +285,16 @@ This re-fetches from the original source and applies changes:
 For git sources, the command short-circuits if the upstream commit hash hasn't changed.
 Use `--ref` to switch to a different branch or tag.
 
-Examples:
+Examples (use `background: true`):
 
-```json
-{ "command": "ghost reference update --topic dioxus/docs", "background": true }
-{ "command": "ghost reference update --topic dioxus/docs --ref v0.6", "background": true }
+```sh
+ghost reference update --topic dioxus/docs
+ghost reference update --topic dioxus/docs --ref v0.6
 ```
 
 ## CLI Reference
 
-```
+```sh
 # Convert
 ghost convert git <url> [--paths <paths>] [--extensions <exts>] [--git-ref <ref>] [--output <dir>]
 ghost convert crawl <url> [--max-depth 3] [--max-pages 50] [--output <dir>]

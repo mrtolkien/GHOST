@@ -190,6 +190,19 @@ impl AgentRunner {
         parent_session_id: Option<&str>,
         cwd: Option<PathBuf>,
     ) -> Result<String, AgentError> {
+        self.run_in_background_with_args(agent_name, prompt_args(prompt), parent_session_id, cwd)
+            .await
+    }
+
+    /// Start an agent in the background with arbitrary args. Returns the
+    /// agent_id.
+    pub async fn run_in_background_with_args(
+        &self,
+        agent_name: &str,
+        args: HashMap<String, String>,
+        parent_session_id: Option<&str>,
+        cwd: Option<PathBuf>,
+    ) -> Result<String, AgentError> {
         // Verify agent exists before spawning background task.
         let config = self.config.current();
         if super::loader::resolve_agent_dir(&config.workspace, agent_name).is_none() {
@@ -228,7 +241,7 @@ impl AgentRunner {
                 handles: Arc::clone(&self.handles),
                 active_count: Arc::clone(&self.active_count),
             },
-            prompt_args(prompt),
+            args,
         );
 
         let handle = AgentHandle {

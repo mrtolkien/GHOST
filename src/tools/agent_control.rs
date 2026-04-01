@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use super::output::ToolOutput;
 use async_trait::async_trait;
 use serde_json::{Value, json};
@@ -39,6 +41,11 @@ impl Tool for AgentControl {
                     "prompt": {
                         "type": "string",
                         "description": "For 'start'/'continue': the prompt or follow-up instructions"
+                    },
+                    "args": {
+                        "type": "object",
+                        "description": "For 'start': optional key-value args passed to the agent's Lua build(ctx, args) function. String values only.",
+                        "additionalProperties": { "type": "string" }
                     },
                     "agent_id": {
                         "type": "string",
@@ -95,6 +102,17 @@ impl AgentControl {
             .and_then(Value::as_str)
             .ok_or_else(|| ToolError::InvalidParams("'start' requires a 'prompt'".to_string()))?;
 
+        // Build args map: always include prompt, merge in any explicit args.
+        let mut args: HashMap<String, String> =
+            HashMap::from([("prompt".into(), prompt.to_string())]);
+        if let Some(obj) = params.get("args").and_then(Value::as_object) {
+            for (k, v) in obj {
+                if let Some(s) = v.as_str() {
+                    args.insert(k.clone(), s.to_string());
+                }
+            }
+        }
+
         let parent_session_id = parse_session_thing_opt(&ctx.session_id);
 
         // When the caller has a non-workspace cwd (e.g. coding agent in a repo),
@@ -107,7 +125,7 @@ impl AgentControl {
         };
 
         let agent_id = runner
-            .run_in_background(agent_name, prompt, parent_session_id.as_deref(), cwd)
+            .run_in_background_with_args(agent_name, args, parent_session_id.as_deref(), cwd)
             .await
             .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
 

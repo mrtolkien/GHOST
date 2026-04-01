@@ -73,9 +73,10 @@ lists matter in future table recreations.
 ## Connection Locking
 
 Migrations run on a **dedicated single connection** before the pool is opened
-(`src/db/connection.rs`). This is intentional — SQLite DDL (`CREATE TABLE`, `DROP TABLE`)
-requires an exclusive lock. If migrations ran through the pool, other pool connections
-holding read locks would cause `SQLITE_LOCKED` (code 6) errors on any DDL migration.
+(`src/db/connection.rs`). This is intentional — SQLite DDL (`CREATE TABLE`,
+`DROP TABLE`) requires an exclusive lock. If migrations ran through the pool, other pool
+connections holding read locks would cause `SQLITE_LOCKED` (code 6) errors on any DDL
+migration.
 
 **Do not change this.** If you see migrations running through a pool, that's a bug.
 
