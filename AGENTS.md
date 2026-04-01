@@ -130,6 +130,14 @@ before adding or modifying any instrumentation.
   could meaningfully handle the error. If unsure, propagate with `?` or log with
   `if let Err(e) = ... { tracing::warn!(...) }`.
 
+### Database Migrations (NON-NEGOTIABLE)
+
+A broken migration kills the production daemon on startup with no automatic recovery.
+Read the `/db-migrations` skill before writing or modifying any file in `migrations/`.
+**Key rule: never use `SELECT *` in table recreation migrations** — always list columns
+explicitly to prevent column-order mismatches that silently corrupt data or violate
+constraints.
+
 ### Code Structure
 
 - Single crate. Max 4 levels of indentation — extract functions.
