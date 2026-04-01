@@ -14,6 +14,8 @@ CREATE TABLE import_batch_new (
     UNIQUE(topic_id)
 );
 
-INSERT INTO import_batch_new SELECT * FROM import_batch;
+INSERT INTO import_batch_new (id, topic_id, source_type, source_url, version_ref, ref_count, import_config, created_at, updated_at)
+SELECT id, topic_id, source_type, source_url, version_ref, ref_count, import_config, created_at, updated_at
+FROM import_batch;
 DROP TABLE import_batch;
 ALTER TABLE import_batch_new RENAME TO import_batch;
