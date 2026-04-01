@@ -249,20 +249,44 @@ fn format_chain_exhausted(errors: &[(String, Box<ProviderError>)]) -> String {
 impl ProviderError {
     /// Check whether an error message indicates the request exceeded the
     /// model's context window. Provider-agnostic — covers patterns from
-    /// OpenAI, Anthropic, OpenRouter, and other OpenAI-compatible APIs.
+    /// OpenAI, Anthropic, OpenRouter, Gemini, Kimi, and other
+    /// OpenAI-compatible APIs.
     pub fn is_context_overflow_message(msg: &str) -> bool {
         let lower = msg.to_lowercase();
+        // OpenAI Responses API: "Your input exceeds the context window of this model"
         lower.contains("exceeds the context window")
+            // OpenAI Responses API (alt): "the context window of this model"
             || lower.contains("context window of this model")
+            // OpenAI Chat Completions / OpenRouter: "This model's maximum context length is N tokens"
             || lower.contains("maximum context length")
+            // OpenAI error code (JSON field): "context_length_exceeded"
             || lower.contains("context_length_exceeded")
+            // OpenAI error code (in message text): "context length exceeded"
             || lower.contains("context length exceeded")
+            // General: "too many tokens"
             || lower.contains("too many tokens")
+            // General: "token limit exceeded"
             || lower.contains("token limit exceeded")
+            // Anthropic: "prompt is too long: N tokens > M maximum"
             || lower.contains("prompt is too long")
+            // General: "input is too long"
             || lower.contains("input is too long")
+            // Legacy: "prompt_length exceeded"
             || lower.contains("prompt_length exceeded")
+            // OpenAI GPT-5: "Input tokens exceed the configured limit of N"
             || lower.contains("input tokens exceed")
+            // Anthropic: "input length and `max_tokens` exceed context limit: N + M > L"
+            || lower.contains("exceed context limit")
+            // Anthropic 429: "Extra usage is required for long context requests"
+            || lower.contains("extra usage is required")
+            // Gemini: "The input token count (N) exceeds the maximum number of tokens allowed (M)"
+            || lower.contains("exceeds the maximum number of tokens")
+            // Gemini Vertex AI: "input token count is N but model only supports up to M"
+            || lower.contains("input token count is")
+            // Kimi: "Input token length too long"
+            || lower.contains("token length too long")
+            // Kimi: "Your request exceeded model token limit: N"
+            || lower.contains("exceeded model token limit")
     }
 
     /// Check whether an error indicates incompatible thinking/reasoning
@@ -535,6 +559,30 @@ mod tests {
         ));
         assert!(ProviderError::is_context_overflow_message(
             "input is too long"
+        ));
+        // Anthropic: exceed context limit
+        assert!(ProviderError::is_context_overflow_message(
+            "input length and `max_tokens` exceed context limit: 188240 + 21333 > 200000, decrease input length or `max_tokens` and try again"
+        ));
+        // Anthropic 429: extra usage required
+        assert!(ProviderError::is_context_overflow_message(
+            "Extra usage is required for long context requests."
+        ));
+        // Gemini: exceeds maximum number of tokens
+        assert!(ProviderError::is_context_overflow_message(
+            "The input token count (1632254) exceeds the maximum number of tokens allowed (1048576)."
+        ));
+        // Gemini Vertex AI: input token count is N
+        assert!(ProviderError::is_context_overflow_message(
+            "Unable to submit request because the input token count is 1251952 but model only supports up to 1048576."
+        ));
+        // Kimi: token length too long
+        assert!(ProviderError::is_context_overflow_message(
+            "Input token length too long"
+        ));
+        // Kimi: exceeded model token limit
+        assert!(ProviderError::is_context_overflow_message(
+            "Your request exceeded model token limit : 131072"
         ));
         assert!(!ProviderError::is_context_overflow_message("rate limited"));
         assert!(!ProviderError::is_context_overflow_message(

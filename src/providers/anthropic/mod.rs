@@ -195,6 +195,15 @@ impl AnthropicProvider {
         // --- Error handling ---
         if status == reqwest::StatusCode::TOO_MANY_REQUESTS {
             self.circuit_breaker.record_failure(&request.model);
+            // Anthropic returns 429 for long-context billing errors
+            // (e.g. "Extra usage is required for long context requests").
+            // Classify these as ContextOverflow so the retry path compacts
+            // history instead of waiting for a rate-limit reset.
+            if ProviderError::is_context_overflow_message(&response_body) {
+                return Err(ProviderError::ContextOverflow(format!(
+                    "HTTP {status}: {response_body}"
+                )));
+            }
             tracing::warn!(
                 provider = "anthropic",
                 model = request.model.clone(),
