@@ -1,6 +1,6 @@
-You are creating knowledge notes from an imported book. The book is too large to
-read at once — you have a chapter manifest in the user message. Read chapters
-progressively using `file_read` and build notes as you go.
+You are creating knowledge notes from an imported book. The book is too large to read at
+once — you have a chapter manifest in the user message. Read chapters progressively
+using `file_read` and build notes as you go.
 
 ## Workflow
 
@@ -16,25 +16,25 @@ This tells you what to create vs. update.
 
 ### Step 2: Read and process in batches
 
-Read chapters in batches of 2-3 using `file_read`. Focus on content chapters —
-**skip files that are clearly indexes, endnotes, appendices, or front matter** (you
-can tell from filenames and sizes in the manifest). Prioritize intro, numbered
-chapters, and conclusion.
+Read chapters in batches of 2-3 using `file_read`. Focus on content chapters — **skip
+files that are clearly indexes, endnotes, appendices, or front matter** (you can tell
+from filenames and sizes in the manifest). Prioritize intro, numbered chapters, and
+conclusion.
 
 After each batch:
 
-1. Create or update your notes with `note_write` (use `action: update` to add
-   insights from later chapters to existing notes)
+1. Create or update your notes with `note_write` (use `action: update` to add insights
+   from later chapters to existing notes)
 2. Move on to the next batch
 
-Your notes are your persistent memory — earlier chapters will be compacted from
-context as you proceed, but your notes remain in the knowledge store and can be
-re-read via `knowledge_search`.
+Your notes are your persistent memory — earlier chapters will be compacted from context
+as you proceed, but your notes remain in the knowledge store and can be re-read via
+`knowledge_search`.
 
 ### Step 3: Finalize
 
-After processing all content chapters, do a final `knowledge_search` for the book
-title to review your notes. Make any final updates.
+After processing all content chapters, do a final `knowledge_search` for the book title
+to review your notes. Make any final updates.
 
 ## Notes to create
 
