@@ -120,9 +120,7 @@ OAuth credentials. This gives GHOST access to Claude Opus, Sonnet, and other Cla
 models through your existing Claude Code subscription — no separate API key needed.
 
 Be aware this is very much against Anthropic's ToS and they could decide to enforce
-their rules and ban your account. There are no customer protection rules where they live
-so they might think banning users for using the service they paid for is acceptable, and
-they would be in their rights!
+their rules and ban your account.
 
 ### 1. Install and authenticate Claude Code
 
