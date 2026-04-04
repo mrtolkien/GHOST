@@ -114,6 +114,12 @@ pub const IDLE_POLL_INTERVAL: Duration = Duration::from_secs(2);
 /// Maximum idle polls before giving up (total wait = interval × polls).
 pub const MAX_IDLE_POLLS: usize = 30;
 
+/// Maximum retry attempts for continuation chat turns after transient errors.
+pub const MAX_CONTINUATION_RETRIES: usize = 3;
+
+/// Delay between retries for non-SessionBusy transient errors.
+pub const CONTINUATION_RETRY_DELAY: Duration = Duration::from_secs(2);
+
 /// Maximum characters for system messages forwarded to Discord.
 ///
 /// Discord v2 `text_display` components are capped at 4000 chars, and

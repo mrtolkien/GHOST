@@ -3,8 +3,8 @@ use std::sync::Arc;
 
 use tokio::task::JoinHandle;
 
-use crate::chat::SessionChat;
 use crate::chat::interrupt::ActiveSessions;
+use crate::chat::{ChatError, ChatResult, RunMetadata, SessionChat};
 use crate::coding::prompt::build_coding_prompt;
 use crate::db;
 use crate::db::GhostDb;
@@ -12,7 +12,10 @@ use crate::events::{SessionEvent, SessionEventReceiver};
 use crate::interfaces::discord::{DiscordSender, TimedTyping};
 use serenity::model::id::ChannelId;
 
-use crate::constants::{IDLE_POLL_INTERVAL, MAX_DISCORD_SYSTEM_MESSAGE_CHARS, MAX_IDLE_POLLS};
+use crate::constants::{
+    CONTINUATION_RETRY_DELAY, IDLE_POLL_INTERVAL, MAX_CONTINUATION_RETRIES,
+    MAX_DISCORD_SYSTEM_MESSAGE_CHARS, MAX_IDLE_POLLS,
+};
 
 /// Spawn a unified event handler that receives `SessionEvent`s and triggers
 /// continuation chat turns. Replaces both `completion_watcher` and agent
@@ -46,6 +49,7 @@ pub fn spawn_event_handler(
     })
 }
 
+#[tracing::instrument(name = "handle session event", skip_all, fields(session_id = %event.session_id, notify_only = event.notify_only))]
 async fn handle_event(
     event: SessionEvent,
     session_chat: &SessionChat,
@@ -53,12 +57,6 @@ async fn handle_event(
     db: &GhostDb,
 ) {
     let session_id = &event.session_id;
-
-    tracing::info!(
-        session_id = session_id.clone(),
-        notify_only = event.notify_only,
-        "handling session event",
-    );
 
     // Resolve Discord channel: first via interface_sessions, fallback to
     // coding_sessions.channel_id.
@@ -89,10 +87,7 @@ async fn handle_event(
     // Wait for any in-flight tool loop to finish before triggering continuation.
     let active_sessions = session_chat.active_sessions();
     if !wait_for_idle(active_sessions, session_id).await {
-        tracing::warn!(
-            session_id = session_id.clone(),
-            "session not idle after max polls, triggering anyway",
-        );
+        tracing::warn!("session not idle after max polls, triggering anyway");
     }
 
     // Send optional agent summary embed to Discord.
@@ -125,78 +120,21 @@ async fn handle_event(
         }
     }
 
-    // Determine if this is a coding session and trigger the appropriate chat.
+    // Trigger continuation chat turn with retry. Retries handle both
+    // SessionBusy (idle-wait before retry) and transient errors like DB
+    // contention (short delay before retry).
     let trigger = "[system] Background task completed.";
     let channel_id_str = discord_channel_id.map(|id| id.to_string());
-    let chat_result = match detect_coding_session(db, session_chat, session_id).await {
-        Some((working_dir, system_prompt)) => {
-            tracing::info!(
-                session_id = session_id.clone(),
-                working_dir = working_dir.display().to_string(),
-                "triggering coding continuation",
-            );
-            session_chat
-                .chat_coding(
-                    session_id,
-                    trigger,
-                    &system_prompt,
-                    &working_dir,
-                    channel_id_str.clone(),
-                    None,
-                )
-                .await
-        }
-        None => {
-            tracing::info!(
-                session_id = session_id.clone(),
-                "triggering GHOST continuation",
-            );
-            session_chat
-                .chat(session_id, trigger, channel_id_str.clone(), None)
-                .await
-        }
-    };
 
-    // If the session became busy between our idle check and the chat() call
-    // (e.g. the user sent a new message), wait again and retry once. The
-    // previous code assumed the running tool loop would see the system message,
-    // but that's false when the model is mid-generation and about to end_turn.
-    let chat_result = if matches!(
-        &chat_result,
-        Err(crate::chat::ChatError::SessionBusy { .. })
-    ) {
-        tracing::info!(
-            session_id = session_id.clone(),
-            "session busy, waiting for idle to retry continuation",
-        );
-        if !wait_for_idle(active_sessions, session_id).await {
-            tracing::warn!(
-                session_id = session_id.clone(),
-                "session still not idle after retry, triggering anyway",
-            );
-        }
-        match detect_coding_session(db, session_chat, session_id).await {
-            Some((working_dir, system_prompt)) => {
-                session_chat
-                    .chat_coding(
-                        session_id,
-                        trigger,
-                        &system_prompt,
-                        &working_dir,
-                        channel_id_str.clone(),
-                        None,
-                    )
-                    .await
-            }
-            None => {
-                session_chat
-                    .chat(session_id, trigger, channel_id_str.clone(), None)
-                    .await
-            }
-        }
-    } else {
-        chat_result
-    };
+    let chat_result = trigger_continuation_with_retry(
+        session_chat,
+        db,
+        session_id,
+        trigger,
+        &channel_id_str,
+        active_sessions,
+    )
+    .await;
 
     // Send response to Discord.
     match chat_result {
@@ -220,11 +158,76 @@ async fn handle_event(
         Err(e) => {
             tracing::error!(
                 error = e.to_string(),
-                session_id = session_id.clone(),
-                "failed to trigger chat turn after session event",
+                "failed to trigger chat turn after all retries",
             );
         }
     }
+}
+
+/// Attempt the continuation chat turn, retrying on any error.
+///
+/// `SessionBusy` triggers an idle-wait before retrying. Other errors (DB
+/// contention, transient provider failures) use a short fixed delay.
+async fn trigger_continuation_with_retry(
+    session_chat: &SessionChat,
+    db: &GhostDb,
+    session_id: &str,
+    trigger: &str,
+    channel_id_str: &Option<String>,
+    active_sessions: &ActiveSessions,
+) -> Result<(ChatResult, RunMetadata), ChatError> {
+    let mut last_err = None;
+
+    for attempt in 0..MAX_CONTINUATION_RETRIES {
+        let chat_result = match detect_coding_session(db, session_chat, session_id).await {
+            Some((working_dir, system_prompt)) => {
+                tracing::info!(
+                    attempt,
+                    working_dir = working_dir.display().to_string(),
+                    "triggering coding continuation",
+                );
+                session_chat
+                    .chat_coding(
+                        session_id,
+                        trigger,
+                        &system_prompt,
+                        &working_dir,
+                        channel_id_str.clone(),
+                        None,
+                    )
+                    .await
+            }
+            None => {
+                tracing::info!(attempt, "triggering GHOST continuation");
+                session_chat
+                    .chat(session_id, trigger, channel_id_str.clone(), None)
+                    .await
+            }
+        };
+
+        match chat_result {
+            Ok(result) => return Ok(result),
+            Err(ChatError::SessionBusy { .. }) => {
+                tracing::info!(attempt, "session busy, waiting for idle before retry");
+                if !wait_for_idle(active_sessions, session_id).await {
+                    tracing::warn!("session still not idle after wait");
+                }
+            }
+            Err(e) => {
+                tracing::warn!(
+                    attempt,
+                    error = %e,
+                    "continuation failed, retrying after delay",
+                );
+                last_err = Some(e);
+                tokio::time::sleep(CONTINUATION_RETRY_DELAY).await;
+            }
+        }
+    }
+
+    Err(last_err.unwrap_or_else(|| ChatError::SessionBusy {
+        session_id: session_id.to_string(),
+    }))
 }
 
 /// Poll until no tool loop is running for this session.
