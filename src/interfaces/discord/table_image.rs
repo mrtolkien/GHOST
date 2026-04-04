@@ -44,7 +44,7 @@ const BORDER_COLOR: &str = "#3B3D44";
 // ---------------------------------------------------------------------------
 // Font stack — proportional for readability, bold actually renders
 // ---------------------------------------------------------------------------
-const FONT_FAMILY: &str = "'Inter', 'Segoe UI', 'Helvetica Neue', 'Arial', 'Noto Sans', 'DejaVu Sans', 'Liberation Sans', 'Nimbus Sans', sans-serif";
+const FONT_FAMILY: &str = "'Inter', 'Segoe UI', 'Helvetica Neue', 'Arial', 'Noto Sans', 'DejaVu Sans', 'Liberation Sans', 'Nimbus Sans', 'Noto Color Emoji', sans-serif";
 
 static SVG_OPTIONS: LazyLock<usvg::Options> = LazyLock::new(|| {
     let mut opt = usvg::Options::default();

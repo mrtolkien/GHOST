@@ -537,10 +537,17 @@ async fn process_end_turn(
             }
             InterruptAction::Continue => {
                 if history.len() > pre_drain_len {
-                    history.push(ChatMessage {
-                        role: Role::Assistant,
-                        content: response.content,
-                    });
+                    // Insert the assistant response *before* the interrupt
+                    // messages so chronological order is preserved and the
+                    // conversation ends with a user message (required by
+                    // providers that reject assistant-message prefill).
+                    history.insert(
+                        pre_drain_len,
+                        ChatMessage {
+                            role: Role::Assistant,
+                            content: response.content,
+                        },
+                    );
                     state.last_result = None;
                     state.iterations += 1;
                     return Ok(IterationOutcome::Continue);

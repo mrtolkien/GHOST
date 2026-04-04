@@ -82,7 +82,7 @@
           # Font config for SVG table rendering — ensures DejaVu Sans is
           # always discoverable by fontdb even on headless servers.
           fontsConf = pkgs.makeFontsConf {
-            fontDirectories = [ pkgs.dejavu_fonts ];
+            fontDirectories = [ pkgs.dejavu_fonts pkgs.noto-fonts-color-emoji ];
           };
 
           unwrapped = craneLib.buildPackage (commonArgs // {
