@@ -1332,6 +1332,7 @@ dependencies = [
  "tree-sitter-toml-ng",
  "tree-sitter-typescript",
  "ulid",
+ "unicode-width",
  "url",
  "zstd",
 ]

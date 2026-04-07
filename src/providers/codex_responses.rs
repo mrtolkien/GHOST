@@ -360,7 +360,20 @@ fn parse_codex_sse_response(
 
     // Primary path: use the authoritative response.completed/incomplete event.
     if let Some(value) = completed_response {
-        return parse_codex_response_value(&value, fallback_model);
+        match parse_codex_response_value(&value, fallback_model) {
+            Ok(response) => return Ok(response),
+            Err(ProviderError::EmptyResponse { .. }) if !done_items.is_empty() => {
+                tracing::warn!(
+                    item_count = done_items.len() as u64,
+                    events = event_types_seen.join(", "),
+                    "codex SSE: terminal event had no output, reconstructing from output_item.done events",
+                );
+                let mut reconstructed = value;
+                reconstructed["output"] = Value::Array(done_items);
+                return parse_codex_response_value(&reconstructed, fallback_model);
+            }
+            Err(error) => return Err(error),
+        }
     }
 
     // Fallback: reconstruct from individual done items if terminal event was missing.
@@ -1082,5 +1095,54 @@ mod tests {
             json.get("reasoning").is_none() || json.get("reasoning").unwrap().is_null(),
             "reasoning should be absent or null when effort is None"
         );
+    }
+
+    #[test]
+    fn parse_sse_reconstructs_done_items_when_completed_output_is_empty() {
+        let raw = concat!(
+            "event: response.output_item.done\n",
+            "data: {",
+            "\"type\":\"response.output_item.done\",",
+            "\"item\":{",
+            "\"type\":\"reasoning\",",
+            "\"summary\":[{\"type\":\"summary_text\",\"text\":\"checking skill first\"}]",
+            "}",
+            "}\n\n",
+            "event: response.output_item.done\n",
+            "data: {",
+            "\"type\":\"response.output_item.done\",",
+            "\"item\":{",
+            "\"type\":\"function_call\",",
+            "\"call_id\":\"call_123\",",
+            "\"name\":\"file_read\",",
+            "\"arguments\":\"{\\\"path\\\":\\\"skills/foo.md\\\"}\"",
+            "}",
+            "}\n\n",
+            "event: response.completed\n",
+            "data: {",
+            "\"type\":\"response.completed\",",
+            "\"response\":{",
+            "\"id\":\"resp_123\",",
+            "\"model\":\"gpt-5.4\",",
+            "\"status\":\"completed\",",
+            "\"output\":[],",
+            "\"usage\":{\"input_tokens\":10,\"output_tokens\":5}",
+            "}",
+            "}\n\n"
+        );
+
+        let parsed = parse_codex_response(raw, "fallback").expect("parse response");
+
+        assert_eq!(parsed.stop_reason, StopReason::ToolUse);
+        assert_eq!(parsed.content.len(), 2);
+        assert!(matches!(
+            &parsed.content[0],
+            ContentBlock::Thinking { text, .. } if text.as_deref() == Some("checking skill first")
+        ));
+        assert!(matches!(
+            &parsed.content[1],
+            ContentBlock::ToolUse { id, name, input }
+                if id == "call_123" && name == "file_read" && input["path"] == "skills/foo.md"
+        ));
     }
 }

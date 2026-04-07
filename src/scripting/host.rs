@@ -87,12 +87,12 @@ impl ScriptHost {
                 match result {
                     LuaValue::Nil => Ok(None),
                     LuaValue::String(s) => Ok(Some(NudgeResult {
-                        text: s.to_str()?.to_string(),
+                        text: lua_string_lossy(&s),
                         temporal_fired: false,
                         context_pressure_fired: false,
                     })),
                     LuaValue::Table(t) => {
-                        let text: String = t.get("text")?;
+                        let text = table_string_lossy(&t, "text")?;
                         let temporal_fired: bool =
                             t.get::<Option<bool>>("temporal_fired")?.unwrap_or(false);
                         let context_pressure_fired: bool = t
@@ -125,7 +125,7 @@ impl ScriptHost {
                 let result: LuaValue = f.call(state)?;
                 match result {
                     LuaValue::Nil => Ok(None),
-                    LuaValue::String(s) => Ok(Some(s.to_str()?.to_string())),
+                    LuaValue::String(s) => Ok(Some(lua_string_lossy(&s))),
                     other => Err(LuaError::external(format!(
                         "on_end_turn must return string or nil, got {other:?}"
                     ))),
@@ -157,7 +157,7 @@ impl ScriptHost {
                 }
                 let result: LuaTable = f.call_async((ctx_val, args_table)).await?;
 
-                let system_prompt: String = result.get("system_prompt")?;
+                let system_prompt = table_string_lossy(&result, "system_prompt")?;
 
                 let mut messages = Vec::new();
                 let msgs_val: LuaValue = result.get("messages")?;
@@ -165,7 +165,7 @@ impl ScriptHost {
                     for pair in msgs.sequence_values::<LuaTable>() {
                         let msg = pair?;
                         let role: String = msg.get("role")?;
-                        let content: String = msg.get("content")?;
+                        let content = table_string_lossy(&msg, "content")?;
 
                         let tool_calls: Option<Vec<serde_json::Value>> =
                             match msg.get::<LuaValue>("tool_calls")? {
@@ -553,6 +553,19 @@ fn register_host_functions(lua: &Lua, agent_dir: &Path, workspace: &Path) -> Lua
 /// Strip YAML frontmatter (--- ... ---) from content.
 fn strip_yaml_frontmatter(content: &str) -> String {
     crate::skills::strip_frontmatter_body(content)
+}
+
+fn lua_string_lossy(s: &LuaString) -> String {
+    String::from_utf8_lossy(s.as_bytes().as_ref()).into_owned()
+}
+
+fn table_string_lossy(table: &LuaTable, key: &str) -> LuaResult<String> {
+    match table.get::<LuaValue>(key)? {
+        LuaValue::String(s) => Ok(lua_string_lossy(&s)),
+        other => Err(LuaError::external(format!(
+            "expected string for key '{key}', got {other:?}"
+        ))),
+    }
 }
 
 /// Convert a Lua value to a serde_json Value.
@@ -1377,5 +1390,44 @@ mod tests {
         assert_eq!(result.messages[2].content, "Summarize the files.");
         assert!(result.messages[2].tool_calls.is_none());
         assert!(result.messages[2].tool_results.is_none());
+    }
+
+    #[tokio::test]
+    async fn call_build_replaces_invalid_utf8_from_lua_strings() {
+        let dir = test_workspace();
+        write_agent_lua(
+            dir.path(),
+            r#"
+            return {
+                name = "test-agent",
+                description = "Tests lossy Lua string handling",
+                tools = {},
+                build = function(ctx, args)
+                    local broken = string.char(0xE3, 0x81)
+                    return {
+                        system_prompt = "Prompt" .. broken,
+                        messages = {
+                            { role = "user", content = "Start " .. broken .. " end" },
+                        },
+                    }
+                end,
+            }
+            "#,
+        );
+
+        let agent_dir = dir.path().join("agents").join("test-agent");
+        let mut host = ScriptHost::new(&agent_dir, dir.path()).unwrap();
+        host.load_config().unwrap();
+
+        let db = test_db(dir.path()).await;
+        let ctx = test_ctx(db, dir.path());
+        let result = host
+            .call_build(ctx, std::collections::HashMap::new())
+            .await
+            .unwrap();
+
+        assert_eq!(result.system_prompt, "Prompt\u{FFFD}");
+        assert_eq!(result.messages.len(), 1);
+        assert_eq!(result.messages[0].content, "Start \u{FFFD} end");
     }
 }

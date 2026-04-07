@@ -8,6 +8,7 @@ use std::sync::LazyLock;
 use resvg::tiny_skia;
 use resvg::usvg;
 use tracing::warn;
+use unicode_width::UnicodeWidthChar;
 
 // ---------------------------------------------------------------------------
 // Render scale: generate a 2x SVG for crisp images on HiDPI / Discord scaling
@@ -89,7 +90,7 @@ pub(super) fn render_table_png(raw_lines: &[String]) -> Option<Vec<u8>> {
     for (row_idx, row) in rows.iter().enumerate() {
         for (i, cell) in row.iter().enumerate() {
             if i < col_count {
-                let len = visible_len(cell);
+                let len = visible_width(cell);
                 let effective = if row_idx == 0 {
                     len + (len / 8).max(1)
                 } else {
@@ -412,7 +413,7 @@ fn wrap_inline_spans(spans: &[StyledSpan], max_chars: usize) -> Vec<Vec<StyledSp
                 if current_len == 0 {
                     continue;
                 }
-                let token_len = token.text.chars().count();
+                let token_len = display_width(&token.text);
                 if current_len + token_len > max_chars {
                     lines.push(Vec::new());
                     current_len = 0;
@@ -422,7 +423,7 @@ fn wrap_inline_spans(spans: &[StyledSpan], max_chars: usize) -> Vec<Vec<StyledSp
                 current_len += token_len;
             }
             TokenKind::Word => {
-                let mut rest = token.text.chars().collect::<Vec<char>>();
+                let mut rest = token.text.as_str();
                 while !rest.is_empty() {
                     if current_len >= max_chars {
                         lines.push(Vec::new());
@@ -432,10 +433,13 @@ fn wrap_inline_spans(spans: &[StyledSpan], max_chars: usize) -> Vec<Vec<StyledSp
                     if available == 0 {
                         continue;
                     }
-                    let take = available.min(rest.len());
-                    let chunk: String = rest.drain(..take).collect();
+                    let (chunk, remainder, width) = split_prefix_by_width(rest, available);
+                    if width == 0 {
+                        break;
+                    }
                     push_span(&mut lines, token.style, &chunk);
-                    current_len += take;
+                    current_len += width;
+                    rest = remainder;
                     if !rest.is_empty() {
                         lines.push(Vec::new());
                         current_len = 0;
@@ -527,12 +531,45 @@ fn flush(spans: &mut Vec<StyledSpan>, buf: &mut String, style: SpanStyle) {
     }
 }
 
-/// Count visible characters (excluding markdown markers).
-fn visible_len(input: &str) -> usize {
+/// Count visible display width (excluding markdown markers).
+fn visible_width(input: &str) -> usize {
     parse_inline(input)
         .iter()
-        .map(|s| s.text.chars().count())
+        .map(|s| display_width(&s.text))
         .sum()
+}
+
+fn display_width(text: &str) -> usize {
+    text.chars()
+        .map(|ch| UnicodeWidthChar::width(ch).unwrap_or(0))
+        .sum()
+}
+
+fn split_prefix_by_width(text: &str, max_width: usize) -> (String, &str, usize) {
+    let mut width = 0usize;
+    let mut end = 0usize;
+
+    for (idx, ch) in text.char_indices() {
+        let char_width = UnicodeWidthChar::width(ch).unwrap_or(0);
+        if end > 0 && width + char_width > max_width {
+            break;
+        }
+        if end == 0 && char_width > max_width {
+            end = idx + ch.len_utf8();
+            width = char_width;
+            break;
+        }
+        width += char_width;
+        end = idx + ch.len_utf8();
+    }
+
+    if end == 0 && !text.is_empty() {
+        let ch = text.chars().next().expect("text is not empty");
+        end = ch.len_utf8();
+        width = UnicodeWidthChar::width(ch).unwrap_or(0);
+    }
+
+    (text[..end].to_string(), &text[end..], width)
 }
 
 fn parse_cells(line: &str) -> Vec<String> {
@@ -682,10 +719,10 @@ mod tests {
 
     #[test]
     fn visible_len_strips_markers() {
-        assert_eq!(visible_len("**bold**"), 4);
-        assert_eq!(visible_len("plain **bold** more"), 15);
-        assert_eq!(visible_len("`code`"), 4);
-        assert_eq!(visible_len("no markers"), 10);
+        assert_eq!(visible_width("**bold**"), 4);
+        assert_eq!(visible_width("plain **bold** more"), 15);
+        assert_eq!(visible_width("`code`"), 4);
+        assert_eq!(visible_width("no markers"), 10);
     }
 
     #[test]
@@ -703,6 +740,14 @@ mod tests {
         assert_eq!(lines.len(), 2);
         assert_eq!(lines[0][0].style, SpanStyle::Bold);
         assert_eq!(lines[1][0].style, SpanStyle::Normal);
+    }
+
+    #[test]
+    fn wide_cjk_text_wraps_by_display_width() {
+        let lines = wrap_inline_spans(&parse_inline("評価"), 2);
+        assert_eq!(lines.len(), 2);
+        assert_eq!(lines[0][0].text, "評");
+        assert_eq!(lines[1][0].text, "価");
     }
 
     #[test]

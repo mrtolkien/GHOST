@@ -2,33 +2,41 @@
 
 ## [0.14.0](https://github.com/mrtolkien/GHOST/compare/v0.13.1...v0.14.0) (2026-04-04)
 
-
 ### Features
 
-* add progressive processing prompt for book-import agent ([63eae95](https://github.com/mrtolkien/GHOST/commit/63eae9590b6001b1fdc2a94cbaca8201bb11ba42))
-* book-import agent handles books exceeding context window ([3218118](https://github.com/mrtolkien/GHOST/commit/3218118f1a36190d70d33fd7158c441b44da11e0))
-
+- add progressive processing prompt for book-import agent
+  ([63eae95](https://github.com/mrtolkien/GHOST/commit/63eae9590b6001b1fdc2a94cbaca8201bb11ba42))
+- book-import agent handles books exceeding context window
+  ([3218118](https://github.com/mrtolkien/GHOST/commit/3218118f1a36190d70d33fd7158c441b44da11e0))
 
 ### Bug Fixes
 
-* add simple retry with backoff on event (command end) ([cb12029](https://github.com/mrtolkien/GHOST/commit/cb1202934b9ceb9b627e11986dcd9f6dc702a7c8))
-* book import skill rework + args working with agent_start too ([a204a31](https://github.com/mrtolkien/GHOST/commit/a204a317901290f8b00bba218b8333eb929de53a))
-* comprehensive context overflow detection across all providers ([c3f1d72](https://github.com/mrtolkien/GHOST/commit/c3f1d720497fb53d2089bd70eb0c3392e287e1f7))
-* correct interrupt ordering in tool loop + add emoji font for table PNGs ([2c081e5](https://github.com/mrtolkien/GHOST/commit/2c081e545be5654178936b2a54651b1d0b2a947c))
-* require sources in every reply, push knowledge-first research ([509c873](https://github.com/mrtolkien/GHOST/commit/509c8733c72d2ce8146a732336d9e0c5e0915048))
-* run migrations on single connection to avoid SQLITE_LOCKED ([6d47e05](https://github.com/mrtolkien/GHOST/commit/6d47e056d16e06232c9f2b0fcac9a9e6660ba6a2))
-* stronger "no bullshitting" instructions ([5c37ea6](https://github.com/mrtolkien/GHOST/commit/5c37ea6d76b3f8bc34d546bf5252a1312b1e37cf))
-
+- add simple retry with backoff on event (command end)
+  ([cb12029](https://github.com/mrtolkien/GHOST/commit/cb1202934b9ceb9b627e11986dcd9f6dc702a7c8))
+- book import skill rework + args working with agent_start too
+  ([a204a31](https://github.com/mrtolkien/GHOST/commit/a204a317901290f8b00bba218b8333eb929de53a))
+- comprehensive context overflow detection across all providers
+  ([c3f1d72](https://github.com/mrtolkien/GHOST/commit/c3f1d720497fb53d2089bd70eb0c3392e287e1f7))
+- correct interrupt ordering in tool loop + add emoji font for table PNGs
+  ([2c081e5](https://github.com/mrtolkien/GHOST/commit/2c081e545be5654178936b2a54651b1d0b2a947c))
+- require sources in every reply, push knowledge-first research
+  ([509c873](https://github.com/mrtolkien/GHOST/commit/509c8733c72d2ce8146a732336d9e0c5e0915048))
+- run migrations on single connection to avoid SQLITE_LOCKED
+  ([6d47e05](https://github.com/mrtolkien/GHOST/commit/6d47e056d16e06232c9f2b0fcac9a9e6660ba6a2))
+- stronger "no bullshitting" instructions
+  ([5c37ea6](https://github.com/mrtolkien/GHOST/commit/5c37ea6d76b3f8bc34d546bf5252a1312b1e37cf))
 
 ### Documentation
 
-* add db-migrations skill and CLAUDE.md rule for safe migrations ([6ef3d28](https://github.com/mrtolkien/GHOST/commit/6ef3d28d15b68e1c52de7e01b12c6f601821dea0))
-* add NON-NEGOTIABLE migration safety rule to AGENTS.md ([151a467](https://github.com/mrtolkien/GHOST/commit/151a467fe1f39f061d44ccef6fb61ed6cb751ba4))
-
+- add db-migrations skill and CLAUDE.md rule for safe migrations
+  ([6ef3d28](https://github.com/mrtolkien/GHOST/commit/6ef3d28d15b68e1c52de7e01b12c6f601821dea0))
+- add NON-NEGOTIABLE migration safety rule to AGENTS.md
+  ([151a467](https://github.com/mrtolkien/GHOST/commit/151a467fe1f39f061d44ccef6fb61ed6cb751ba4))
 
 ### Tests
 
-* add live test for progressive book-import path ([e5bf302](https://github.com/mrtolkien/GHOST/commit/e5bf3025546ba7677c0c22bdc53487723a5415ca))
+- add live test for progressive book-import path
+  ([e5bf302](https://github.com/mrtolkien/GHOST/commit/e5bf3025546ba7677c0c22bdc53487723a5415ca))
 
 ## [0.13.1](https://github.com/mrtolkien/GHOST/compare/v0.13.0...v0.13.1) (2026-04-01)
 
