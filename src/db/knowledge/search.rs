@@ -6,6 +6,12 @@ use crate::db::error::DatabaseError;
 
 use super::records::{SearchHit, truncate_snippet};
 
+const REFERENCE_FALLBACK_CONTENT_SCORE: f64 = 2.0;
+const REFERENCE_FALLBACK_PATH_SCORE: f64 = 1.0;
+const REFERENCE_FALLBACK_TOPIC_SCORE: f64 = 1.0;
+const REFERENCE_FALLBACK_EXACT_QUERY_BONUS: f64 = 4.0;
+const REFERENCE_FALLBACK_SNIPPET_LEN: usize = 500;
+
 /// Sanitize user input for FTS5 MATCH queries by quoting each term.
 fn sanitize_fts_query(query: &str) -> String {
     query
@@ -97,6 +103,26 @@ pub async fn search_references(
     limit: usize,
     topic_id: Option<&str>,
 ) -> Result<Vec<SearchHit>, DatabaseError> {
+    match search_references_fts(db, query, limit, topic_id).await {
+        Ok(hits) => Ok(hits),
+        Err(error) if is_malformed_reference_fts_error(&error) => {
+            tracing::warn!(
+                query,
+                topic_id,
+                "reference_fts is malformed; falling back to plain reference search"
+            );
+            search_references_fallback(db, query, limit, topic_id).await
+        }
+        Err(error) => Err(error),
+    }
+}
+
+async fn search_references_fts(
+    db: &SqlitePool,
+    query: &str,
+    limit: usize,
+    topic_id: Option<&str>,
+) -> Result<Vec<SearchHit>, DatabaseError> {
     #[derive(sqlx::FromRow)]
     struct RefSearchRow {
         id: String,
@@ -162,6 +188,239 @@ pub async fn search_references(
             }
         })
         .collect())
+}
+
+fn is_malformed_reference_fts_error(error: &DatabaseError) -> bool {
+    match error {
+        DatabaseError::Query {
+            table,
+            operation,
+            source,
+        } => {
+            *table == "reference"
+                && *operation == "search"
+                && source
+                    .to_string()
+                    .contains("database disk image is malformed")
+        }
+        _ => false,
+    }
+}
+
+async fn search_references_fallback(
+    db: &SqlitePool,
+    query: &str,
+    limit: usize,
+    topic_id: Option<&str>,
+) -> Result<Vec<SearchHit>, DatabaseError> {
+    let topic_names = fallback_topic_names(db).await?;
+    let terms = fallback_query_terms(query);
+    let query_lower = query.to_lowercase();
+    let (min_rowid, max_rowid) = fallback_reference_rowid_bounds(db).await?;
+
+    let mut hits = Vec::new();
+    for rowid in min_rowid..=max_rowid {
+        let row = match fetch_reference_metadata_for_fallback(db, rowid).await {
+            Ok(Some(row)) => row,
+            Ok(None) => continue,
+            Err(error) if is_malformed_row_error(&error) => {
+                tracing::warn!(rowid, "skipping corrupted reference metadata row");
+                continue;
+            }
+            Err(error) => return Err(error),
+        };
+
+        if topic_id.is_some_and(|tid| tid != row.topic_id) {
+            continue;
+        }
+
+        let topic_name = topic_names
+            .get(&row.topic_id)
+            .map(String::as_str)
+            .unwrap_or(row.topic_id.as_str());
+        let content = match fetch_reference_content_for_fallback(db, &row.id).await {
+            Ok(content) => Some(content),
+            Err(error) if is_malformed_row_error(&error) => {
+                tracing::warn!(
+                    ref_id = %row.id,
+                    path = %row.path,
+                    "skipping corrupted reference row during fallback search"
+                );
+                None
+            }
+            Err(error) => return Err(error),
+        };
+
+        let score = fallback_reference_score(
+            topic_name,
+            &row.path,
+            content.as_deref(),
+            &query_lower,
+            &terms,
+        );
+        if score <= 0.0 {
+            continue;
+        }
+
+        let snippet = match content {
+            Some(content) => truncate_snippet(&content, REFERENCE_FALLBACK_SNIPPET_LEN),
+            None => format!("Fallback match in references/{}", row.path),
+        };
+
+        hits.push(SearchHit {
+            id: row.id,
+            title: topic_name.to_string(),
+            snippet,
+            score,
+            kind: "reference".to_string(),
+            path: Some(format!("references/{}", row.path)),
+        });
+    }
+
+    hits.sort_by(|a, b| {
+        b.score
+            .partial_cmp(&a.score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| a.path.cmp(&b.path))
+    });
+    hits.truncate(limit);
+    Ok(hits)
+}
+
+async fn fallback_reference_rowid_bounds(db: &SqlitePool) -> Result<(i64, i64), DatabaseError> {
+    let bounds: Option<(Option<i64>, Option<i64>)> =
+        sqlx::query_as("SELECT MIN(rowid), MAX(rowid) FROM reference")
+            .fetch_optional(db)
+            .await
+            .map_err(|source| DatabaseError::Query {
+                table: "reference",
+                operation: "search_fallback_bounds",
+                source,
+            })?;
+
+    let (min_rowid, max_rowid) = bounds.unwrap_or((None, None));
+    Ok((min_rowid.unwrap_or(1), max_rowid.unwrap_or(0)))
+}
+
+async fn fetch_reference_metadata_for_fallback(
+    db: &SqlitePool,
+    rowid: i64,
+) -> Result<Option<FallbackReferenceMetadata>, DatabaseError> {
+    sqlx::query_as::<_, FallbackReferenceMetadata>(
+        "SELECT id, topic_id, path FROM reference WHERE rowid = ?",
+    )
+    .bind(rowid)
+    .fetch_optional(db)
+    .await
+    .map_err(|source| DatabaseError::Query {
+        table: "reference",
+        operation: "search_fallback",
+        source,
+    })
+}
+
+#[derive(sqlx::FromRow)]
+struct FallbackReferenceMetadata {
+    id: String,
+    topic_id: String,
+    path: String,
+}
+
+async fn fallback_topic_names(db: &SqlitePool) -> Result<HashMap<String, String>, DatabaseError> {
+    #[derive(sqlx::FromRow)]
+    struct TopicNameRow {
+        id: String,
+        name: String,
+    }
+
+    let rows = sqlx::query_as::<_, TopicNameRow>("SELECT id, name FROM topic")
+        .fetch_all(db)
+        .await
+        .map_err(|source| DatabaseError::Query {
+            table: "topic",
+            operation: "search_fallback_names",
+            source,
+        })?;
+
+    Ok(rows.into_iter().map(|row| (row.id, row.name)).collect())
+}
+
+async fn fetch_reference_content_for_fallback(
+    db: &SqlitePool,
+    ref_id: &str,
+) -> Result<String, DatabaseError> {
+    let (content,): (String,) = sqlx::query_as("SELECT content FROM reference WHERE id = ?")
+        .bind(ref_id)
+        .fetch_one(db)
+        .await
+        .map_err(|source| DatabaseError::Query {
+            table: "reference",
+            operation: "search_fallback_row",
+            source,
+        })?;
+
+    Ok(content)
+}
+
+fn fallback_query_terms(query: &str) -> Vec<String> {
+    let mut terms = Vec::new();
+
+    for term in query.split_whitespace().map(str::to_lowercase) {
+        if !terms.contains(&term) {
+            terms.push(term);
+        }
+    }
+
+    terms
+}
+
+fn fallback_reference_score(
+    topic_name: &str,
+    path: &str,
+    content: Option<&str>,
+    query_lower: &str,
+    terms: &[String],
+) -> f64 {
+    let content_lower = content.map(str::to_lowercase);
+    let path_lower = path.to_lowercase();
+    let topic_lower = topic_name.to_lowercase();
+
+    let mut score = 0.0;
+    if !query_lower.is_empty()
+        && (content_lower
+            .as_ref()
+            .is_some_and(|content| content.contains(query_lower))
+            || path_lower.contains(query_lower)
+            || topic_lower.contains(query_lower))
+    {
+        score += REFERENCE_FALLBACK_EXACT_QUERY_BONUS;
+    }
+
+    for term in terms {
+        if content_lower
+            .as_ref()
+            .is_some_and(|content| content.contains(term))
+        {
+            score += REFERENCE_FALLBACK_CONTENT_SCORE;
+        }
+        if path_lower.contains(term) {
+            score += REFERENCE_FALLBACK_PATH_SCORE;
+        }
+        if topic_lower.contains(term) {
+            score += REFERENCE_FALLBACK_TOPIC_SCORE;
+        }
+    }
+
+    score
+}
+
+fn is_malformed_row_error(error: &DatabaseError) -> bool {
+    match error {
+        DatabaseError::Query { source, .. } => source
+            .to_string()
+            .contains("database disk image is malformed"),
+        _ => false,
+    }
 }
 
 #[tracing::instrument(skip_all, level = "debug", fields(query = %query))]
