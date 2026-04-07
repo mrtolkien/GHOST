@@ -3,6 +3,9 @@ mod common;
 use ghost::db;
 use ghost::tools::{TodoStatus, ToolContext, ToolManager};
 use serde_json::json;
+use std::sync::{Arc, Mutex};
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::net::TcpListener;
 
 fn tool_ctx(
     config: &ghost::config::Config,
@@ -23,6 +26,112 @@ fn tool_ctx(
             ghost::web::browser::BrowserManager::new(vec![]),
         )),
     }
+}
+
+async fn spawn_static_http_server(
+    content_type: &'static str,
+    body: &'static [u8],
+) -> (String, tokio::task::JoinHandle<()>) {
+    let listener = TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("bind test server");
+    let addr = listener.local_addr().expect("local addr");
+    let handle = tokio::spawn(async move {
+        loop {
+            let Ok((mut socket, _)) = listener.accept().await else {
+                break;
+            };
+            let mut buf = [0_u8; 2048];
+            let Ok(read) = socket.read(&mut buf).await else {
+                continue;
+            };
+            if read == 0 {
+                continue;
+            }
+            let request = String::from_utf8_lossy(&buf[..read]);
+            let is_head = request.starts_with("HEAD ");
+            let response = if is_head {
+                format!(
+                    "HTTP/1.1 200 OK\r\nContent-Type: {content_type}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                    body.len()
+                )
+                .into_bytes()
+            } else {
+                let mut response = format!(
+                    "HTTP/1.1 200 OK\r\nContent-Type: {content_type}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                    body.len()
+                )
+                .into_bytes();
+                response.extend_from_slice(body);
+                response
+            };
+            let _ = socket.write_all(&response).await;
+        }
+    });
+    (format!("http://{addr}/document"), handle)
+}
+
+async fn spawn_docling_mock_server(
+    response_json: serde_json::Value,
+    captured_submit_body: Arc<Mutex<Option<String>>>,
+) -> (String, tokio::task::JoinHandle<()>) {
+    let listener = TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("bind docling server");
+    let addr = listener.local_addr().expect("local addr");
+    let body = response_json.to_string();
+    let handle = tokio::spawn(async move {
+        loop {
+            let Ok((mut socket, _)) = listener.accept().await else {
+                break;
+            };
+            let mut buf = Vec::new();
+            let mut chunk = [0_u8; 4096];
+            let Ok(read) = socket.read(&mut chunk).await else {
+                continue;
+            };
+            if read == 0 {
+                continue;
+            }
+            buf.extend_from_slice(&chunk[..read]);
+            let request = String::from_utf8_lossy(&buf).to_string();
+            let path = request
+                .lines()
+                .next()
+                .and_then(|line| line.split_whitespace().nth(1))
+                .unwrap_or("/");
+
+            let response_body = if path == "/v1/convert/source/async" {
+                if let Some((_, request_body)) = request.split_once("\r\n\r\n") {
+                    *captured_submit_body.lock().expect("lock captured body") =
+                        Some(request_body.to_string());
+                }
+                json!({ "task_id": "task-1" }).to_string()
+            } else if path == "/v1/status/poll/task-1?wait=5" {
+                json!({ "task_status": "success" }).to_string()
+            } else if path == "/v1/result/task-1" {
+                body.clone()
+            } else {
+                json!({ "error": "not found" }).to_string()
+            };
+
+            let status_line = if path == "/v1/convert/source/async"
+                || path == "/v1/status/poll/task-1?wait=5"
+                || path == "/v1/result/task-1"
+            {
+                "HTTP/1.1 200 OK"
+            } else {
+                "HTTP/1.1 404 Not Found"
+            };
+            let response = format!(
+                "{status_line}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                response_body.len(),
+                response_body
+            );
+            let _ = socket.write_all(response.as_bytes()).await;
+        }
+    });
+    (format!("http://{addr}"), handle)
 }
 
 #[tokio::test]
@@ -308,4 +417,68 @@ async fn unknown_tool_returns_not_found() {
     let result = manager.execute("nonexistent_tool", json!({}), &ctx).await;
 
     assert!(result.is_err());
+}
+
+#[tokio::test]
+async fn web_fetch_pdf_url_uses_docling_url_source() {
+    let (db, mut config, _workspace, _config_dir) = common::test_database().await;
+    let session_id = db::sessions::create_session(&db)
+        .await
+        .expect("create session");
+
+    let pdf_bytes = b"%PDF-1.4\n% test fixture\n";
+    let (pdf_url, pdf_server) =
+        spawn_static_http_server("application/pdf", pdf_bytes.as_slice()).await;
+
+    let captured_submit_body = Arc::new(Mutex::new(None));
+    let docling_response = json!({
+        "document": {
+            "json_content": {
+                "body": {
+                    "children": [{"$ref": "#/texts/0"}]
+                },
+                "texts": [{
+                    "label": "paragraph",
+                    "text": "PDF extraction works from web_fetch.",
+                    "prov": [{"page_no": 1, "bbox": null, "charspan": []}],
+                    "children": [],
+                    "level": null
+                }],
+                "pictures": [],
+                "tables": [],
+                "groups": [],
+                "pages": {
+                    "1": {
+                        "size": {"width": 612.0, "height": 792.0},
+                        "page_no": 1
+                    }
+                }
+            }
+        }
+    });
+    let (docling_url, docling_server) =
+        spawn_docling_mock_server(docling_response, captured_submit_body.clone()).await;
+    config.docling.url = Some(docling_url);
+
+    let ctx = tool_ctx(&config, &db, &session_id);
+    let manager = ToolManager::for_chat();
+
+    let result = manager
+        .execute("web_fetch", json!({ "url": pdf_url }), &ctx)
+        .await
+        .expect("web_fetch pdf");
+
+    pdf_server.abort();
+    docling_server.abort();
+
+    assert!(result.text.contains("PDF extraction works from web_fetch."));
+
+    let submit_body = captured_submit_body
+        .lock()
+        .expect("lock captured body")
+        .clone()
+        .expect("docling submit body");
+    assert!(submit_body.contains("\"kind\":\"http\""));
+    assert!(submit_body.contains("\"url\":\"http://"));
+    assert!(submit_body.contains("/document"));
 }
