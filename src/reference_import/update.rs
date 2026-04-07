@@ -6,7 +6,7 @@ use crate::convert::git::convert_git;
 use crate::db;
 use crate::db::GhostDb;
 
-use super::topic::{load_import_config_from_db, read_import_toml, write_import_toml};
+use super::topic::{ensure_update_metadata, write_import_toml};
 use super::types::{ImportConfig, ImportError, ImportSource, UpdateResult};
 
 /// Re-fetch references from their original source and apply changes.
@@ -31,15 +31,11 @@ pub async fn update_references(
         .ok_or_else(|| ImportError::Config(format!("topic '{topic_name}' not found")))?;
     let topic_id = &topic.id;
 
-    // 2. Read import config (TOML on disk first, DB fallback)
-    let mut config_json = match read_import_toml(workspace, topic_name) {
-        Ok(cfg) => cfg,
-        Err(_) => load_import_config_from_db(db, topic_id)
-            .await?
-            .ok_or_else(|| {
-                ImportError::Config(format!("no import config found for topic '{topic_name}'"))
-            })?,
-    };
+    // 2. Read repair-critical import config from disk, backfilling older topics
+    // from DB import metadata when possible.
+    let metadata = ensure_update_metadata(db, workspace, topic_id, topic_name).await?;
+    let disk_version_ref = metadata.version_ref;
+    let mut config_json = metadata.config;
 
     // 3. Apply --ref override if provided
     if let Some(r) = ref_override {
@@ -49,9 +45,9 @@ pub async fn update_references(
     // 4. Build ImportConfig
     let import_config = config_json.to_import_config(topic_name)?;
 
-    // 5. Get old version_ref from import batch
+    // 5. Load the existing import batch for batch-id reuse on created refs.
     let old_batch = db::knowledge::get_import_batch_by_topic(db, topic_id).await?;
-    let old_version_ref = old_batch.as_ref().and_then(|b| b.version_ref.clone());
+    let old_version_ref = disk_version_ref;
 
     // 6. Convert source to staging directory, then read as manifest.
     //    The staging tempdir is auto-cleaned when fetch_to_staging returns

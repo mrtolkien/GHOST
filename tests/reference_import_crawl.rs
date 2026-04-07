@@ -24,6 +24,10 @@ async fn crawl_import_small_site() {
     let provenance = ImportProvenance {
         source_type: Some("crawl".to_string()),
         source_url: Some("https://ghost.tolki.dev/".to_string()),
+        max_depth: Some(2),
+        max_pages: Some(max_pages),
+        no_ocr: None,
+        page_range: None,
         ..Default::default()
     };
 

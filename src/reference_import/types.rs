@@ -47,6 +47,12 @@ pub struct ImportProvenance {
     pub source_url: Option<String>,
     pub version_ref: Option<String>,
     pub git_ref: Option<String>,
+    pub paths: Vec<String>,
+    pub extensions: Vec<String>,
+    pub max_depth: Option<usize>,
+    pub max_pages: Option<usize>,
+    pub no_ocr: Option<bool>,
+    pub page_range: Option<(u32, u32)>,
 }
 
 #[derive(Debug)]
@@ -109,6 +115,10 @@ pub struct ImportConfigJson {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_pages: Option<usize>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub no_ocr: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub page_range: Option<(u32, u32)>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub authors: Option<Vec<String>>,
@@ -169,6 +179,8 @@ impl From<&ImportConfig> for ImportConfigJson {
                 extensions: extensions.clone(),
                 max_depth: None,
                 max_pages: None,
+                no_ocr: None,
+                page_range: None,
                 title: None,
                 authors: None,
                 language: None,
@@ -187,13 +199,19 @@ impl From<&ImportConfig> for ImportConfigJson {
                 extensions: vec![],
                 max_depth: Some(*max_depth),
                 max_pages: Some(*max_pages),
+                no_ocr: None,
+                page_range: None,
                 title: None,
                 authors: None,
                 language: None,
                 publisher: None,
                 publication_date: None,
             },
-            ImportSource::File { path, .. } => ImportConfigJson {
+            ImportSource::File {
+                path,
+                no_ocr,
+                page_range,
+            } => ImportConfigJson {
                 source_type: "file".into(),
                 source_url: path.clone(),
                 git_ref: None,
@@ -201,6 +219,8 @@ impl From<&ImportConfig> for ImportConfigJson {
                 extensions: vec![],
                 max_depth: None,
                 max_pages: None,
+                no_ocr: Some(*no_ocr),
+                page_range: *page_range,
                 title: None,
                 authors: None,
                 language: None,
@@ -219,6 +239,8 @@ impl From<&ImportConfig> for ImportConfigJson {
                 extensions: vec![],
                 max_depth: None,
                 max_pages: None,
+                no_ocr: None,
+                page_range: None,
                 title: title.clone(),
                 authors: Some(authors.clone()),
                 language: None,

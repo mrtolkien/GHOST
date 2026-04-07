@@ -238,6 +238,37 @@ ghost reference delete --topic <name>
 Removes the topic, all its references, embeddings, import metadata, and
 workspace files.
 
+## ghost db
+
+Repair the SQLite database by rebuilding file-backed state from the workspace and
+copying operational tables into a fresh candidate DB.
+
+### Repair
+
+```bash
+ghost db repair
+ghost db repair --dry-run
+```
+
+`ghost db repair --dry-run` is the safest default. It builds a candidate database beside
+`ghost.db`, verifies that DB-only tables were preserved, writes a JSON repair report, and
+leaves the live DB untouched.
+
+Run it when GHOST or `ghost knowledge search` starts failing with SQLite corruption errors
+such as `database disk image is malformed`.
+
+Repair artifacts are written next to the live database:
+
+- `ghost.db.repair-<timestamp>.candidate`
+- `ghost.db.repair-<timestamp>.report.json`
+- `ghost.db.backup-<timestamp>` on a successful non-dry-run swap
+
+:::caution[Fail-closed behavior]
+Repair does not mutate the corrupted DB in place. If it cannot safely preserve DB-only
+tables or cannot reconstruct file-backed state from the workspace, it leaves `ghost.db`
+untouched and exits with an error.
+:::
+
 ## ghost document
 
 Import documents (PDF, DOCX, etc.) via docling-serve. See

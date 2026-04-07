@@ -19,6 +19,14 @@ use crate::constants::DEFAULT_KNOWLEDGE_SEARCH_LIMIT;
 #[derive(Debug)]
 pub struct KnowledgeSearch;
 
+fn tool_execution_error(error: impl std::fmt::Display) -> ToolError {
+    let message = error.to_string();
+    match crate::error::repair_hint(&message) {
+        Some(hint) => ToolError::ExecutionFailed(format!("{message}\n\n{hint}")),
+        None => ToolError::ExecutionFailed(message),
+    }
+}
+
 #[async_trait]
 impl Tool for KnowledgeSearch {
     fn name(&self) -> &str {
@@ -112,7 +120,7 @@ impl Tool for KnowledgeSearch {
         let resolved_topic_ids = if let Some(topic_name) = topic {
             let topics = find_topics_by_prefix(&ctx.db, topic_name)
                 .await
-                .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
+                .map_err(tool_execution_error)?;
             topics.into_iter().map(|t| t.id).collect::<Vec<_>>()
         } else {
             vec![]
@@ -123,7 +131,7 @@ impl Tool for KnowledgeSearch {
             let code_topic = format!("code/{repo_name}");
             let topics = find_topics_by_prefix(&ctx.db, &code_topic)
                 .await
-                .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
+                .map_err(tool_execution_error)?;
             topics.into_iter().map(|t| t.id).collect::<Vec<_>>()
         } else {
             vec![]
@@ -139,7 +147,7 @@ impl Tool for KnowledgeSearch {
             bm25_hits.extend(
                 search_notes(&ctx.db, query, limit, archetype)
                     .await
-                    .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?,
+                    .map_err(tool_execution_error)?,
             );
         }
 
@@ -149,7 +157,7 @@ impl Tool for KnowledgeSearch {
                 bm25_hits.extend(
                     search_references(&ctx.db, query, limit, None)
                         .await
-                        .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?,
+                        .map_err(tool_execution_error)?,
                 );
             } else {
                 // Search references scoped to each matching topic
@@ -157,7 +165,7 @@ impl Tool for KnowledgeSearch {
                     bm25_hits.extend(
                         search_references(&ctx.db, query, limit, Some(tid))
                             .await
-                            .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?,
+                            .map_err(tool_execution_error)?,
                     );
                 }
             }
@@ -167,7 +175,7 @@ impl Tool for KnowledgeSearch {
             bm25_hits.extend(
                 search_diary(&ctx.db, query, limit)
                     .await
-                    .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?,
+                    .map_err(tool_execution_error)?,
             );
         }
 
@@ -175,7 +183,7 @@ impl Tool for KnowledgeSearch {
             bm25_hits.extend(
                 db::knowledge::search_topics(&ctx.db, query, limit)
                     .await
-                    .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?,
+                    .map_err(tool_execution_error)?,
             );
         }
 
@@ -183,7 +191,7 @@ impl Tool for KnowledgeSearch {
             bm25_hits.extend(
                 search_scripts(&ctx.db, query, limit)
                     .await
-                    .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?,
+                    .map_err(tool_execution_error)?,
             );
         }
 
@@ -191,7 +199,7 @@ impl Tool for KnowledgeSearch {
             bm25_hits.extend(
                 search_code_files(&ctx.db, query, limit, repo)
                     .await
-                    .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?,
+                    .map_err(tool_execution_error)?,
             );
         }
 
