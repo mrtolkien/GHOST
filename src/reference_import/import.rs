@@ -57,9 +57,12 @@ pub async fn import_from_path(
     let total_files = md_files.len();
     let mut created = 0usize;
     let mut skipped = 0usize;
+    let reference_source_url = source_url.or(provenance.source_url.as_deref());
+    let mut imported_ref_paths = Vec::with_capacity(md_files.len());
 
     for (relative, abs_path) in &md_files {
         let ref_path = format!("{topic}/{relative}");
+        imported_ref_paths.push(ref_path.clone());
 
         // Idempotency: skip if reference with this path already exists
         if db::knowledge::find_reference_by_path(db, &ref_path)
@@ -88,7 +91,7 @@ pub async fn import_from_path(
             &topic_id,
             &ref_path,
             &content,
-            source_url,
+            reference_source_url,
             None, // batch_id filled below if provenance present
             Some(&hash),
         )
@@ -104,7 +107,16 @@ pub async fn import_from_path(
     .await?;
 
     if let Some(batch_id) = batch_id.as_deref() {
-        db::knowledge::update_references_import_batch_by_topic(db, &topic_id, batch_id).await?;
+        for ref_path in &imported_ref_paths {
+            db::knowledge::update_reference_import_metadata_by_path(
+                db,
+                &topic_id,
+                ref_path,
+                batch_id,
+                reference_source_url,
+            )
+            .await?;
+        }
     }
 
     // Ensure skeleton index notes exist for the topic hierarchy

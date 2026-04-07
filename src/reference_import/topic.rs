@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::db;
 use crate::db::GhostDb;
@@ -21,11 +21,12 @@ pub fn read_import_toml(
     let content = std::fs::read_to_string(&path).map_err(|e| {
         ImportError::Config(format!("no _import.toml for topic '{topic_name}': {e}"))
     })?;
-    toml::from_str(&content).map_err(|e| {
+    let import_toml: ImportToml = toml::from_str(&content).map_err(|e| {
         ImportError::Config(format!(
             "invalid _import.toml for topic '{topic_name}': {e}"
         ))
-    })
+    })?;
+    Ok(import_toml.into_config())
 }
 
 /// Load an `ImportConfigJson` from the DB's `import_batch.import_config`
@@ -62,13 +63,99 @@ pub async fn ensure_topic_hierarchy(db: &GhostDb, topic_name: &str) -> Result<St
 
 /// Flat structure serialized into `_import.toml` — merges `ImportConfigJson`
 /// fields with runtime values (version_ref, ref_count).
-#[derive(Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 struct ImportToml {
-    #[serde(flatten)]
-    config: ImportConfigJson,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    source_type: String,
+    source_url: String,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    git_ref: Option<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    paths: Vec<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    extensions: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    max_depth: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    max_pages: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    authors: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    language: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    publisher: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    publication_date: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    video_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    channel: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    published_at: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    duration_seconds: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    transcript_source: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    section_count: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    chapter_count: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     version_ref: Option<String>,
     ref_count: usize,
+}
+
+impl ImportToml {
+    fn from_config(config: &ImportConfigJson, version_ref: Option<&str>, ref_count: usize) -> Self {
+        Self {
+            source_type: config.source_type.clone(),
+            source_url: config.source_url.clone(),
+            git_ref: config.git_ref.clone(),
+            paths: config.paths.clone(),
+            extensions: config.extensions.clone(),
+            max_depth: config.max_depth,
+            max_pages: config.max_pages,
+            title: config.title.clone(),
+            authors: config.authors.clone(),
+            language: config.language.clone(),
+            publisher: config.publisher.clone(),
+            publication_date: config.publication_date.clone(),
+            video_id: config.video_id.clone(),
+            channel: config.channel.clone(),
+            published_at: config.published_at.clone(),
+            duration_seconds: config.duration_seconds,
+            transcript_source: config.transcript_source.clone(),
+            section_count: config.section_count,
+            chapter_count: config.chapter_count,
+            version_ref: version_ref.map(String::from),
+            ref_count,
+        }
+    }
+
+    fn into_config(self) -> ImportConfigJson {
+        ImportConfigJson {
+            source_type: self.source_type,
+            source_url: self.source_url,
+            git_ref: self.git_ref,
+            paths: self.paths,
+            extensions: self.extensions,
+            max_depth: self.max_depth,
+            max_pages: self.max_pages,
+            title: self.title,
+            authors: self.authors,
+            language: self.language,
+            publisher: self.publisher,
+            publication_date: self.publication_date,
+            video_id: self.video_id,
+            channel: self.channel,
+            published_at: self.published_at,
+            duration_seconds: self.duration_seconds,
+            transcript_source: self.transcript_source,
+            section_count: self.section_count,
+            chapter_count: self.chapter_count,
+        }
+    }
 }
 
 /// Write `_import.toml` alongside imported references to record import metadata.
@@ -82,11 +169,7 @@ pub fn write_import_toml(
     let ref_dir = workspace.join("references").join(topic_name);
     std::fs::create_dir_all(&ref_dir)?;
 
-    let import_toml = ImportToml {
-        config: config.clone(),
-        version_ref: version_ref.map(String::from),
-        ref_count,
-    };
+    let import_toml = ImportToml::from_config(config, version_ref, ref_count);
 
     let content = format!(
         "# Auto-generated by ghost reference import\n{}",
