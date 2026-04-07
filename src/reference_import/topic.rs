@@ -79,6 +79,22 @@ struct ImportToml {
     max_depth: Option<usize>,
     #[serde(skip_serializing_if = "Option::is_none")]
     max_pages: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    video_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    channel: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    published_at: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    duration_seconds: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    transcript_source: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    section_count: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    chapter_count: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    language: Option<String>,
 }
 
 /// Write `_import.toml` alongside imported references to record import metadata.
@@ -102,6 +118,14 @@ pub fn write_import_toml(
         extensions: config.extensions.clone(),
         max_depth: config.max_depth,
         max_pages: config.max_pages,
+        video_id: config.video_id.clone(),
+        channel: config.channel.clone(),
+        published_at: config.published_at.clone(),
+        duration_seconds: config.duration_seconds,
+        transcript_source: config.transcript_source.clone(),
+        section_count: config.section_count,
+        chapter_count: config.chapter_count,
+        language: config.language.clone(),
     };
 
     let content = format!(
@@ -118,4 +142,43 @@ pub fn write_import_toml(
         .map_err(|e| ImportError::Io(std::io::Error::other(e.to_string())))?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn write_import_toml_includes_youtube_fields() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let config = ImportConfigJson {
+            source_type: "youtube".into(),
+            source_url: "https://www.youtube.com/watch?v=test123".into(),
+            git_ref: None,
+            paths: vec![],
+            extensions: vec![],
+            max_depth: None,
+            max_pages: None,
+            title: Some("Test Video".into()),
+            authors: None,
+            language: Some("en".into()),
+            publisher: None,
+            publication_date: None,
+            video_id: Some("test123".into()),
+            channel: Some("Example Channel".into()),
+            published_at: Some("2024-01-02".into()),
+            duration_seconds: Some(1_234),
+            transcript_source: Some("auto".into()),
+            section_count: Some(3),
+            chapter_count: Some(1),
+        };
+
+        write_import_toml(tmp.path(), "videos/test", &config, None, 3).expect("write import toml");
+
+        let content = std::fs::read_to_string(tmp.path().join("references/videos/test/_import.toml"))
+            .expect("read toml");
+        assert!(content.contains("source_type = \"youtube\""));
+        assert!(content.contains("video_id = \"test123\""));
+        assert!(content.contains("transcript_source = \"auto\""));
+    }
 }

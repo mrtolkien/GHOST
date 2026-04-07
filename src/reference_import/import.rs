@@ -221,6 +221,13 @@ async fn upsert_provenance(
         language: None,
         publisher: None,
         publication_date: None,
+        video_id: None,
+        channel: None,
+        published_at: None,
+        duration_seconds: None,
+        transcript_source: None,
+        section_count: None,
+        chapter_count: None,
     };
     let config_json_str = serde_json::to_string(&config_json).ok();
 
