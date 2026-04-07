@@ -5,11 +5,16 @@ use crate::db::GhostDb;
 use crate::knowledge;
 
 use super::topic::ensure_topic_hierarchy;
-use super::types::{ImportConfigJson, ImportError, ImportProvenance, ImportResult};
+use super::types::{
+    ImportConfigJson, ImportError, ImportProvenance, ImportResult, YoutubeImportProvenance,
+};
 
 /// Directories to skip when recursively collecting markdown files.
 const SKIP_DIR_PREFIXES: &[char] = &['_', '.'];
 const BOOK_METADATA_FILENAME: &str = "_metadata.json";
+
+/// Converter metadata file used to carry source-specific staging metadata.
+const METADATA_FILE: &str = "_metadata.json";
 
 /// Generic entry point for writing converted references into the workspace and DB.
 ///
@@ -37,7 +42,8 @@ pub async fn import_from_path(
         )));
     }
 
-    let config_json = build_import_config_json(path, provenance)?;
+    let provenance = enrich_youtube_provenance_from_staging(path, provenance)?;
+    let config_json = build_import_config_json(path, &provenance)?;
 
     // Ensure topic hierarchy in DB
     let topic_id = ensure_topic_hierarchy(db, topic).await?;
@@ -60,9 +66,12 @@ pub async fn import_from_path(
     let total_files = md_files.len();
     let mut created = 0usize;
     let mut skipped = 0usize;
+    let reference_source_url = source_url.or(provenance.source_url.as_deref());
+    let mut imported_ref_paths = Vec::with_capacity(md_files.len());
 
     for (relative, abs_path) in &md_files {
         let ref_path = format!("{topic}/{relative}");
+        imported_ref_paths.push(ref_path.clone());
 
         // Idempotency: skip if reference with this path already exists
         if db::knowledge::find_reference_by_path(db, &ref_path)
@@ -91,7 +100,7 @@ pub async fn import_from_path(
             &topic_id,
             &ref_path,
             &content,
-            source_url,
+            reference_source_url,
             None, // batch_id filled below if provenance present
             Some(&hash),
         )
@@ -106,11 +115,24 @@ pub async fn import_from_path(
         workspace,
         &topic_id,
         topic,
-        provenance,
+        &provenance,
         &config_json,
         created + skipped,
     )
     .await?;
+
+    if let Some(batch_id) = batch_id.as_deref() {
+        for ref_path in &imported_ref_paths {
+            db::knowledge::update_reference_import_metadata_by_path(
+                db,
+                &topic_id,
+                ref_path,
+                batch_id,
+                reference_source_url,
+            )
+            .await?;
+        }
+    }
 
     // Ensure skeleton index notes exist for the topic hierarchy
     knowledge::ensure_index_notes(workspace, topic)
@@ -121,6 +143,57 @@ pub async fn import_from_path(
         batch_id,
         references_created: created,
         references_skipped: skipped,
+    })
+}
+
+fn enrich_youtube_provenance_from_staging(
+    path: &Path,
+    provenance: &ImportProvenance,
+) -> Result<ImportProvenance, ImportError> {
+    if provenance.source_type.as_deref() != Some("youtube") || provenance.youtube.is_some() {
+        return Ok(provenance.clone());
+    }
+    if !path.is_dir() {
+        return Ok(provenance.clone());
+    }
+
+    let metadata_path = path.join(METADATA_FILE);
+    if !metadata_path.is_file() {
+        return Ok(provenance.clone());
+    }
+
+    let metadata = read_youtube_metadata(&metadata_path)?;
+    let mut enriched = provenance.clone();
+    enriched.youtube = Some(YoutubeImportProvenance {
+        video_id: Some(metadata.metadata.video_id),
+        title: metadata.metadata.title,
+        channel: metadata.metadata.channel,
+        published_at: metadata.metadata.published_at,
+        duration_seconds: metadata.metadata.duration_seconds,
+        transcript_source: Some(
+            match metadata.metadata.transcript_source {
+                crate::convert::youtube::TranscriptSource::Manual => "manual",
+                crate::convert::youtube::TranscriptSource::Auto => "auto",
+                crate::convert::youtube::TranscriptSource::Whisper => "whisper",
+            }
+            .to_string(),
+        ),
+        section_count: Some(metadata.section_count),
+        chapter_count: Some(metadata.chapter_count),
+        language: metadata.metadata.language,
+    });
+    Ok(enriched)
+}
+
+fn read_youtube_metadata(
+    metadata_path: &Path,
+) -> Result<crate::convert::youtube::YoutubeStagingMetadata, ImportError> {
+    let raw = std::fs::read_to_string(metadata_path)?;
+    serde_json::from_str(&raw).map_err(|error| {
+        ImportError::Config(format!(
+            "failed to parse YouTube staging metadata {}: {error}",
+            metadata_path.display()
+        ))
     })
 }
 
@@ -212,7 +285,7 @@ async fn upsert_provenance(
     config_json: &ImportConfigJson,
     total_refs_fallback: usize,
 ) -> Result<Option<String>, ImportError> {
-    let config_json_str = serde_json::to_string(&config_json)
+    let config_json_str = serde_json::to_string(config_json)
         .map_err(|e| ImportError::Config(format!("invalid import metadata JSON: {e}")))?;
 
     // Total references for this topic (existing + newly created)
@@ -268,6 +341,13 @@ fn build_import_config_json(
         language: None,
         publisher: None,
         publication_date: None,
+        video_id: None,
+        channel: None,
+        published_at: None,
+        duration_seconds: None,
+        transcript_source: None,
+        section_count: None,
+        chapter_count: None,
     };
 
     match config_json.source_type.as_str() {
@@ -275,6 +355,7 @@ fn build_import_config_json(
         "crawl" => validate_crawl_import_provenance(&config_json)?,
         "file" => enrich_file_import_metadata(path, &mut config_json)?,
         "book" if is_book_import => enrich_book_import_metadata(path, &mut config_json)?,
+        "youtube" => enrich_youtube_import_metadata(&mut config_json, provenance),
         _ => {}
     }
 
@@ -351,6 +432,24 @@ fn enrich_file_import_metadata(
     config_json.no_ocr = metadata.no_ocr;
     config_json.page_range = metadata.page_range;
     Ok(())
+}
+
+fn enrich_youtube_import_metadata(
+    config_json: &mut ImportConfigJson,
+    provenance: &ImportProvenance,
+) {
+    let Some(youtube) = provenance.youtube.as_ref() else {
+        return;
+    };
+    config_json.title = youtube.title.clone();
+    config_json.language = youtube.language.clone();
+    config_json.video_id = youtube.video_id.clone();
+    config_json.channel = youtube.channel.clone();
+    config_json.published_at = youtube.published_at.clone();
+    config_json.duration_seconds = youtube.duration_seconds;
+    config_json.transcript_source = youtube.transcript_source.clone();
+    config_json.section_count = youtube.section_count;
+    config_json.chapter_count = youtube.chapter_count;
 }
 
 fn require_repair_critical_provenance(

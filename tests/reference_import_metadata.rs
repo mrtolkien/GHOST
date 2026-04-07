@@ -134,6 +134,7 @@ async fn import_from_path_rejects_incomplete_supported_provenance() {
         version_ref: None,
         no_ocr: None,
         page_range: None,
+        youtube: None,
     };
     let topic = "docs/incomplete-provenance";
 
@@ -197,6 +198,13 @@ extensions = [".md", ".mdx"]
                 language: None,
                 publisher: None,
                 publication_date: None,
+                video_id: None,
+                channel: None,
+                published_at: None,
+                duration_seconds: None,
+                transcript_source: None,
+                section_count: None,
+                chapter_count: None,
             },
         ),
         (
@@ -222,6 +230,13 @@ max_pages = 25
                 language: None,
                 publisher: None,
                 publication_date: None,
+                video_id: None,
+                channel: None,
+                published_at: None,
+                duration_seconds: None,
+                transcript_source: None,
+                section_count: None,
+                chapter_count: None,
             },
         ),
         (
@@ -247,6 +262,13 @@ page_range = [1, 10]
                 language: None,
                 publisher: None,
                 publication_date: None,
+                video_id: None,
+                channel: None,
+                published_at: None,
+                duration_seconds: None,
+                transcript_source: None,
+                section_count: None,
+                chapter_count: None,
             },
         ),
         (
@@ -275,6 +297,13 @@ publication_date = "2023-09-10"
                 language: Some("en".to_string()),
                 publisher: Some("Books Inc".to_string()),
                 publication_date: Some("2023-09-10".to_string()),
+                video_id: None,
+                channel: None,
+                published_at: None,
+                duration_seconds: None,
+                transcript_source: None,
+                section_count: None,
+                chapter_count: None,
             },
         ),
     ];
@@ -345,6 +374,7 @@ async fn supported_git_and_crawl_imports_write_reconstructable_import_toml() {
                 max_pages: None,
                 no_ocr: None,
                 page_range: None,
+                youtube: None,
             },
         ),
         (
@@ -360,6 +390,7 @@ async fn supported_git_and_crawl_imports_write_reconstructable_import_toml() {
                 max_pages: Some(15),
                 no_ocr: None,
                 page_range: None,
+                youtube: None,
             },
         ),
     ];
@@ -414,6 +445,13 @@ async fn ensure_update_metadata_backfills_import_toml_from_existing_import_batch
         language: None,
         publisher: None,
         publication_date: None,
+        video_id: None,
+        channel: None,
+        published_at: None,
+        duration_seconds: None,
+        transcript_source: None,
+        section_count: None,
+        chapter_count: None,
     };
     let import_config_json =
         serde_json::to_string(&import_config).expect("serialize import config");

@@ -65,13 +65,13 @@ CREATE TABLE embedding (
 CREATE TABLE "import_batch" (
     id TEXT PRIMARY KEY NOT NULL,
     topic_id TEXT NOT NULL REFERENCES topic(id) ON DELETE CASCADE,
-    source_type TEXT NOT NULL CHECK (source_type IN ('git', 'page', 'crawl', 'file', 'book')),
+    source_type TEXT NOT NULL CHECK (source_type IN ('git', 'page', 'crawl', 'file', 'book', 'youtube')),
     source_url TEXT NOT NULL,
     version_ref TEXT,
     ref_count INTEGER NOT NULL DEFAULT 0,
     import_config TEXT,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(topic_id)
 );
 CREATE TABLE interface_session (
@@ -164,6 +164,7 @@ CREATE TABLE usage_log (
 CREATE INDEX idx_coding_sessions_channel ON coding_sessions(channel_id)
     WHERE status = 'active';
 CREATE INDEX idx_coding_sessions_status ON coding_sessions(status);
+CREATE INDEX idx_import_batch_topic_id ON import_batch(topic_id);
 CREATE INDEX idx_message_session ON message(session_id, created_at);
 CREATE INDEX idx_message_source_message ON message_source(message_id);
 CREATE INDEX idx_message_source_reference ON message_source(reference_id);

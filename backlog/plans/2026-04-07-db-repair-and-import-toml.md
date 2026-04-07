@@ -1,38 +1,51 @@
 # DB Repair And Import TOML Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use
+> superpowers:subagent-driven-development (recommended) or superpowers:executing-plans
+> to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add a safe `ghost db repair` command that rebuilds file-backed data from workspace files, salvages DB-only tables from the original DB, fails unless full salvage is verified, and audits/fixes `_import.toml` population so imported topics are fully reconstructable from disk.
+**Goal:** Add a safe `ghost db repair` command that rebuilds file-backed data from
+workspace files, salvages DB-only tables from the original DB, fails unless full salvage
+is verified, and audits/fixes `_import.toml` population so imported topics are fully
+reconstructable from disk.
 
-**Architecture:** Repair never mutates the malformed DB in place. It builds a fresh candidate DB beside `ghost.db`, reconstructs file-backed tables from the workspace, copies DB-only tables from the original DB with strict verification, then atomically swaps only if validation passes. Import provenance is treated as file-backed state, so `_import.toml` becomes mandatory and the reference import/update flows must always write enough metadata to rebuild `import_batch`.
+**Architecture:** Repair never mutates the malformed DB in place. It builds a fresh
+candidate DB beside `ghost.db`, reconstructs file-backed tables from the workspace,
+copies DB-only tables from the original DB with strict verification, then atomically
+swaps only if validation passes. Import provenance is treated as file-backed state, so
+`_import.toml` becomes mandatory and the reference import/update flows must always write
+enough metadata to rebuild `import_batch`.
 
-**Tech Stack:** Rust CLI (`clap`), SQLite via `sqlx`, existing workspace sync/reference import code, file-backed knowledge models, temp files and atomic rename, JSON/TOML serialization, repo test harness.
+**Tech Stack:** Rust CLI (`clap`), SQLite via `sqlx`, existing workspace sync/reference
+import code, file-backed knowledge models, temp files and atomic rename, JSON/TOML
+serialization, repo test harness.
 
 ---
 
 ## File Structure
 
-| Path | Action | Responsibility |
-| --- | --- | --- |
-| `src/cli/db.rs` | create | New `ghost db ...` CLI entrypoints, including `repair` |
-| `src/main.rs` | modify | Register the new `db` CLI command |
-| `src/db/repair.rs` | create | Orchestrate repair flow, candidate DB creation, salvage, verification, swap |
-| `src/db/repair_types.rs` | create | Repair report types, verification result structs, table policies |
-| `src/db/repair_copy.rs` | create | DB-only table copy/salvage helpers |
-| `src/db/repair_verify.rs` | create | Verification helpers and fail-closed checks |
-| `src/db/mod.rs` | modify | Export repair modules |
-| `src/reference_import/topic.rs` | modify | `_import.toml` parsing/validation helpers and stricter reconstruction support |
-| `src/reference_import/import.rs` | modify | Ensure imports always write complete `_import.toml` metadata |
-| `src/reference_import/update.rs` | modify | Remove DB fallback for import config during repair-critical paths; keep explicit failure when disk metadata is insufficient |
-| `src/cli/reference.rs` | modify | Surface `_import.toml` validation failures clearly in import/update flows if needed |
-| `tests/db_repair.rs` | create | End-to-end repair tests |
-| `tests/reference_import_metadata.rs` | create | `_import.toml` completeness/regression tests |
-| `tests/fixtures/db/reference_topic_malformed.db` | keep | Existing malformed search fixture for corruption-related scenarios |
-| `docs/src/content/...` | optional follow-up | User-facing docs if command is ready for users this round |
+| Path                                             | Action             | Responsibility                                                                                                              |
+| ------------------------------------------------ | ------------------ | --------------------------------------------------------------------------------------------------------------------------- |
+| `src/cli/db.rs`                                  | create             | New `ghost db ...` CLI entrypoints, including `repair`                                                                      |
+| `src/main.rs`                                    | modify             | Register the new `db` CLI command                                                                                           |
+| `src/db/repair.rs`                               | create             | Orchestrate repair flow, candidate DB creation, salvage, verification, swap                                                 |
+| `src/db/repair_types.rs`                         | create             | Repair report types, verification result structs, table policies                                                            |
+| `src/db/repair_copy.rs`                          | create             | DB-only table copy/salvage helpers                                                                                          |
+| `src/db/repair_verify.rs`                        | create             | Verification helpers and fail-closed checks                                                                                 |
+| `src/db/mod.rs`                                  | modify             | Export repair modules                                                                                                       |
+| `src/reference_import/topic.rs`                  | modify             | `_import.toml` parsing/validation helpers and stricter reconstruction support                                               |
+| `src/reference_import/import.rs`                 | modify             | Ensure imports always write complete `_import.toml` metadata                                                                |
+| `src/reference_import/update.rs`                 | modify             | Remove DB fallback for import config during repair-critical paths; keep explicit failure when disk metadata is insufficient |
+| `src/cli/reference.rs`                           | modify             | Surface `_import.toml` validation failures clearly in import/update flows if needed                                         |
+| `tests/db_repair.rs`                             | create             | End-to-end repair tests                                                                                                     |
+| `tests/reference_import_metadata.rs`             | create             | `_import.toml` completeness/regression tests                                                                                |
+| `tests/fixtures/db/reference_topic_malformed.db` | keep               | Existing malformed search fixture for corruption-related scenarios                                                          |
+| `docs/src/content/...`                           | optional follow-up | User-facing docs if command is ready for users this round                                                                   |
 
 ### Task 1: Define Repair Policy And CLI Surface
 
 **Files:**
+
 - Create: `src/cli/db.rs`
 - Create: `src/db/repair_types.rs`
 - Modify: `src/main.rs`
@@ -41,7 +54,9 @@
 
 - [ ] **Step 1: Write the failing CLI/policy test**
 
-Add a new test file `tests/db_repair.rs` with a minimal policy test that encodes the contract: repair writes a candidate beside the live DB and fails closed when verification is incomplete.
+Add a new test file `tests/db_repair.rs` with a minimal policy test that encodes the
+contract: repair writes a candidate beside the live DB and fails closed when
+verification is incomplete.
 
 ```rust
 mod common;
@@ -149,7 +164,9 @@ pub mod repair_types;
 
 - [ ] **Step 4: Wire the CLI command minimally**
 
-Update `src/main.rs` to register a `db` top-level command and return a placeholder `todo!()`/error-free stub only inside the handler boundary if necessary for compilation. Prefer a real `Err(...)` over `todo!()`.
+Update `src/main.rs` to register a `db` top-level command and return a placeholder
+`todo!()`/error-free stub only inside the handler boundary if necessary for compilation.
+Prefer a real `Err(...)` over `todo!()`.
 
 ```rust
 Db {
@@ -174,6 +191,7 @@ git commit -m "feat: scaffold db repair command and policy types"
 ### Task 2: Make `_import.toml` The Canonical Import Metadata Source
 
 **Files:**
+
 - Modify: `src/reference_import/topic.rs`
 - Modify: `src/reference_import/import.rs`
 - Modify: `src/reference_import/update.rs`
@@ -217,13 +235,16 @@ title = "Test Book"
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cargo test import_toml_round_trip_contains_repair_critical_metadata --test reference_import_metadata`
+Run:
+`cargo test import_toml_round_trip_contains_repair_critical_metadata --test reference_import_metadata`
 
-Expected: FAIL because current `_import.toml` parsing/writing does not guarantee every repair-critical field in one canonical shape.
+Expected: FAIL because current `_import.toml` parsing/writing does not guarantee every
+repair-critical field in one canonical shape.
 
 - [ ] **Step 3: Add explicit validation helpers**
 
-In `src/reference_import/topic.rs`, add a validation helper that fails when required provenance is missing:
+In `src/reference_import/topic.rs`, add a validation helper that fails when required
+provenance is missing:
 
 ```rust
 pub fn validate_import_metadata_for_repair(
@@ -244,7 +265,9 @@ pub fn validate_import_metadata_for_repair(
 
 - [ ] **Step 4: Make import/update always write complete metadata**
 
-In `src/reference_import/import.rs` and `src/reference_import/update.rs`, ensure every successful import/update rewrites `_import.toml` with the canonical fields needed to reconstruct `import_batch`, including:
+In `src/reference_import/import.rs` and `src/reference_import/update.rs`, ensure every
+successful import/update rewrites `_import.toml` with the canonical fields needed to
+reconstruct `import_batch`, including:
 
 ```rust
 write_import_toml(
@@ -256,11 +279,13 @@ write_import_toml(
 )?;
 ```
 
-and remove repair-critical dependence on `load_import_config_from_db()` for successful operation during repair-sensitive flows.
+and remove repair-critical dependence on `load_import_config_from_db()` for successful
+operation during repair-sensitive flows.
 
 - [ ] **Step 5: Add regression tests for existing import paths**
 
-Extend `tests/reference_import_metadata.rs` with table-driven checks for `crawl`, `file`, `book`, and `git` shaped metadata.
+Extend `tests/reference_import_metadata.rs` with table-driven checks for `crawl`,
+`file`, `book`, and `git` shaped metadata.
 
 ```rust
 #[test]
@@ -296,6 +321,7 @@ git commit -m "fix: make import metadata fully reconstructable from _import toml
 ### Task 3: Implement Candidate-DB Repair Flow
 
 **Files:**
+
 - Create: `src/db/repair.rs`
 - Create: `src/db/repair_copy.rs`
 - Create: `src/db/repair_verify.rs`
@@ -329,7 +355,8 @@ async fn repair_rebuilds_reference_search_from_workspace_and_keeps_live_db_until
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cargo test repair_rebuilds_reference_search_from_workspace_and_keeps_live_db_until_verified --test db_repair`
+Run:
+`cargo test repair_rebuilds_reference_search_from_workspace_and_keeps_live_db_until_verified --test db_repair`
 
 Expected: FAIL because the repair flow does not exist yet.
 
@@ -359,11 +386,14 @@ pub async fn repair_database(
 }
 ```
 
-The real implementation should initialize a fresh DB via the normal connection/migration path and call the existing workspace sync/import code instead of copying the corrupted DB.
+The real implementation should initialize a fresh DB via the normal connection/migration
+path and call the existing workspace sync/import code instead of copying the corrupted
+DB.
 
 - [ ] **Step 4: Implement DB-only copy policy**
 
-In `src/db/repair_copy.rs`, enumerate DB-only tables explicitly and copy them from the original DB into the candidate DB.
+In `src/db/repair_copy.rs`, enumerate DB-only tables explicitly and copy them from the
+original DB into the candidate DB.
 
 ```rust
 pub const DB_ONLY_TABLES: &[&str] = &[
@@ -399,7 +429,8 @@ pub const FILE_BACKED_TABLES: &[&str] = &[
 
 - [ ] **Step 5: Implement strict verification**
 
-In `src/db/repair_verify.rs`, compare row counts for DB-only tables and fail if any required table is unreadable or count-mismatched.
+In `src/db/repair_verify.rs`, compare row counts for DB-only tables and fail if any
+required table is unreadable or count-mismatched.
 
 ```rust
 pub async fn verify_db_only_table(
@@ -435,6 +466,7 @@ git commit -m "feat: add strict candidate-db repair flow"
 ### Task 4: Rebuild File-Backed Tables From Workspace Files
 
 **Files:**
+
 - Modify: `src/db/repair.rs`
 - Modify: `src/reference_import/topic.rs`
 - Modify: `src/cli/knowledge.rs` or shared sync modules used by workspace reconciliation
@@ -442,7 +474,8 @@ git commit -m "feat: add strict candidate-db repair flow"
 
 - [ ] **Step 1: Write the failing file-backed rebuild test**
 
-Add a test asserting `reference` and `import_batch` are rebuilt from disk, not copied from the old DB.
+Add a test asserting `reference` and `import_batch` are rebuilt from disk, not copied
+from the old DB.
 
 ```rust
 #[tokio::test]
@@ -461,11 +494,14 @@ async fn repair_recomputes_import_batch_from_import_toml() {
 
 Run: `cargo test repair_recomputes_import_batch_from_import_toml --test db_repair`
 
-Expected: FAIL because repair does not yet reconstruct `import_batch` from disk metadata.
+Expected: FAIL because repair does not yet reconstruct `import_batch` from disk
+metadata.
 
 - [ ] **Step 3: Implement file-backed reconstruction**
 
-In `src/db/repair.rs`, call the existing workspace bootstrap/sync path for notes, references, and diary, then explicitly regenerate `import_batch` from `_import.toml` for every imported topic discovered under `references/`.
+In `src/db/repair.rs`, call the existing workspace bootstrap/sync path for notes,
+references, and diary, then explicitly regenerate `import_batch` from `_import.toml` for
+every imported topic discovered under `references/`.
 
 ```rust
 let candidate = crate::db::connect(candidate_workspace.path(), embedding_dim).await?;
@@ -476,7 +512,8 @@ rebuild_import_batches_from_disk(&candidate, workspace).await?;
 
 - [ ] **Step 4: Implement `import_batch` reconstruction from `_import.toml`**
 
-Use `validate_import_metadata_for_repair()` and `upsert_import_batch()` with recomputed `ref_count`.
+Use `validate_import_metadata_for_repair()` and `upsert_import_batch()` with recomputed
+`ref_count`.
 
 ```rust
 let config = validate_import_metadata_for_repair(workspace, topic_name)?;
@@ -508,13 +545,15 @@ git commit -m "feat: rebuild file-backed db state from workspace metadata"
 ### Task 5: Final Verification And Operator UX
 
 **Files:**
+
 - Modify: `src/cli/db.rs`
 - Modify: `src/db/repair.rs`
 - Test: `tests/db_repair.rs`
 
 - [ ] **Step 1: Add a user-visible failure report test**
 
-Add a test that requires nonzero exit / failure report when `_import.toml` is missing for an imported topic.
+Add a test that requires nonzero exit / failure report when `_import.toml` is missing
+for an imported topic.
 
 ```rust
 #[tokio::test]
@@ -538,13 +577,16 @@ async fn repair_fails_when_import_metadata_cannot_be_reconstructed() {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cargo test repair_fails_when_import_metadata_cannot_be_reconstructed --test db_repair`
+Run:
+`cargo test repair_fails_when_import_metadata_cannot_be_reconstructed --test db_repair`
 
-Expected: FAIL because the current repair UX does not surface this specific failure reason.
+Expected: FAIL because the current repair UX does not surface this specific failure
+reason.
 
 - [ ] **Step 3: Implement CLI/report UX**
 
-In `src/cli/db.rs`, print the candidate path and report path on failure, and print the backup/candidate/live paths on success.
+In `src/cli/db.rs`, print the candidate path and report path on failure, and print the
+backup/candidate/live paths on success.
 
 ```rust
 match repair_database(&config.workspace, config.embeddings.dimension, args.dry_run).await? {
@@ -572,6 +614,7 @@ just ci
 ```
 
 Expected:
+
 - DB repair tests PASS
 - `_import.toml` metadata tests PASS
 - `just ci` PASS with no clippy warnings
@@ -592,13 +635,19 @@ git commit -m "feat: add strict db repair command and repair reporting"
   - Failure on missing or insufficient import metadata: Tasks 2 and 5
 - Placeholder scan:
   - No `TBD` or “implement later” placeholders remain.
-  - One implementation note in Task 3 Step 3 explicitly says to replace the bootstrap-copy sketch with fresh DB initialization; that is guidance, not a shipped placeholder.
+  - One implementation note in Task 3 Step 3 explicitly says to replace the
+    bootstrap-copy sketch with fresh DB initialization; that is guidance, not a shipped
+    placeholder.
 - Type consistency:
-  - `RepairReport`, `TableVerification`, and path helper names are used consistently across tasks.
+  - `RepairReport`, `TableVerification`, and path helper names are used consistently
+    across tasks.
 
-Plan complete and saved to `backlog/plans/2026-04-07-db-repair-and-import-toml.md`. Two execution options:
+Plan complete and saved to `backlog/plans/2026-04-07-db-repair-and-import-toml.md`. Two
+execution options:
 
-1. Subagent-Driven (recommended) - I dispatch a fresh subagent per task, review between tasks, fast iteration
-2. Inline Execution - Execute tasks in this session using executing-plans, batch execution with checkpoints
+1. Subagent-Driven (recommended) - I dispatch a fresh subagent per task, review between
+   tasks, fast iteration
+2. Inline Execution - Execute tasks in this session using executing-plans, batch
+   execution with checkpoints
 
 Which approach?

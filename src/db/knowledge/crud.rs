@@ -454,6 +454,51 @@ pub async fn update_reference_path(
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = "debug", fields(ref_id = %ref_id, import_batch_id = %import_batch_id))]
+pub async fn update_reference_import_batch(
+    db: &SqlitePool,
+    ref_id: &str,
+    import_batch_id: &str,
+) -> Result<(), DatabaseError> {
+    sqlx::query("UPDATE reference SET import_batch_id = ? WHERE id = ?")
+        .bind(import_batch_id)
+        .bind(ref_id)
+        .execute(db)
+        .await
+        .map_err(|source| DatabaseError::Query {
+            table: "reference",
+            operation: "update_import_batch",
+            source,
+        })?;
+    Ok(())
+}
+
+#[tracing::instrument(skip_all, level = "debug", fields(topic_id = %topic_id, path = %path, import_batch_id = %import_batch_id))]
+pub async fn update_reference_import_metadata_by_path(
+    db: &SqlitePool,
+    topic_id: &str,
+    path: &str,
+    import_batch_id: &str,
+    source_url: Option<&str>,
+) -> Result<(), DatabaseError> {
+    sqlx::query(
+        "UPDATE reference SET import_batch_id = ?, source_url = COALESCE(?, source_url) \
+         WHERE topic_id = ? AND path = ?",
+    )
+    .bind(import_batch_id)
+    .bind(source_url)
+    .bind(topic_id)
+    .bind(path)
+    .execute(db)
+    .await
+    .map_err(|source| DatabaseError::Query {
+        table: "reference",
+        operation: "update_import_metadata_by_path",
+        source,
+    })?;
+    Ok(())
+}
+
 #[tracing::instrument(skip_all, level = "debug", fields(path = %path))]
 pub async fn find_reference_by_path(
     db: &SqlitePool,

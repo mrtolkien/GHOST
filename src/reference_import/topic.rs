@@ -76,6 +76,20 @@ struct ImportToml {
     publisher: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     publication_date: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    video_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    channel: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    published_at: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    duration_seconds: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    transcript_source: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    section_count: Option<usize>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    chapter_count: Option<usize>,
 }
 
 #[derive(Debug, Clone)]
@@ -101,6 +115,13 @@ impl ImportToml {
             language: self.language,
             publisher: self.publisher,
             publication_date: self.publication_date,
+            video_id: self.video_id,
+            channel: self.channel,
+            published_at: self.published_at,
+            duration_seconds: self.duration_seconds,
+            transcript_source: self.transcript_source,
+            section_count: self.section_count,
+            chapter_count: self.chapter_count,
         }
     }
 }
@@ -190,7 +211,7 @@ fn validate_import_toml_for_repair(
                 ));
             }
         }
-        "file" | "book" | "page" => {}
+        "file" | "book" | "page" | "youtube" => {}
         other => {
             return Err(ImportError::Config(format!(
                 "topic '{topic_name}' has unsupported source_type '{other}' in _import.toml for repair reconstruction"
@@ -297,6 +318,13 @@ async fn load_import_toml_from_db(
         language: config.language,
         publisher: config.publisher,
         publication_date: config.publication_date,
+        video_id: config.video_id,
+        channel: config.channel,
+        published_at: config.published_at,
+        duration_seconds: config.duration_seconds,
+        transcript_source: config.transcript_source,
+        section_count: config.section_count,
+        chapter_count: config.chapter_count,
     }))
 }
 
@@ -328,6 +356,13 @@ pub fn write_import_toml(
         language: config.language.clone(),
         publisher: config.publisher.clone(),
         publication_date: config.publication_date.clone(),
+        video_id: config.video_id.clone(),
+        channel: config.channel.clone(),
+        published_at: config.published_at.clone(),
+        duration_seconds: config.duration_seconds,
+        transcript_source: config.transcript_source.clone(),
+        section_count: config.section_count,
+        chapter_count: config.chapter_count,
     };
 
     let content = format!(
@@ -344,4 +379,76 @@ pub fn write_import_toml(
         .map_err(|e| ImportError::Io(std::io::Error::other(e.to_string())))?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn write_import_toml_includes_youtube_fields() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let config = ImportConfigJson {
+            source_type: "youtube".into(),
+            source_url: "https://www.youtube.com/watch?v=test123".into(),
+            git_ref: None,
+            paths: vec![],
+            extensions: vec![],
+            max_depth: None,
+            max_pages: None,
+            no_ocr: None,
+            page_range: None,
+            title: Some("Test Video".into()),
+            authors: Some(vec!["Author One".into(), "Author Two".into()]),
+            language: Some("en".into()),
+            publisher: Some("Test Publisher".into()),
+            publication_date: Some("2024-01-02".into()),
+            video_id: Some("test123".into()),
+            channel: Some("Example Channel".into()),
+            published_at: Some("2024-01-02".into()),
+            duration_seconds: Some(1_234),
+            transcript_source: Some("auto".into()),
+            section_count: Some(3),
+            chapter_count: Some(1),
+        };
+
+        write_import_toml(tmp.path(), "videos/test", &config, Some("version-123"), 3)
+            .expect("write import toml");
+
+        let content =
+            std::fs::read_to_string(tmp.path().join("references/videos/test/_import.toml"))
+                .expect("read toml");
+        assert!(content.contains("source_type = \"youtube\""));
+        assert!(content.contains("title = \"Test Video\""));
+        assert!(content.contains("authors ="));
+        assert!(content.contains("Author One"));
+        assert!(content.contains("Author Two"));
+        assert!(content.contains("publisher = \"Test Publisher\""));
+        assert!(content.contains("publication_date = \"2024-01-02\""));
+        assert!(content.contains("video_id = \"test123\""));
+        assert!(content.contains("transcript_source = \"auto\""));
+
+        let parsed = read_import_toml(tmp.path(), "videos/test").expect("round-trip toml");
+        assert_eq!(parsed.source_type, config.source_type);
+        assert_eq!(parsed.source_url, config.source_url);
+        assert_eq!(parsed.git_ref, config.git_ref);
+        assert_eq!(parsed.paths, config.paths);
+        assert_eq!(parsed.extensions, config.extensions);
+        assert_eq!(parsed.max_depth, config.max_depth);
+        assert_eq!(parsed.max_pages, config.max_pages);
+        assert_eq!(parsed.no_ocr, config.no_ocr);
+        assert_eq!(parsed.page_range, config.page_range);
+        assert_eq!(parsed.title, config.title);
+        assert_eq!(parsed.authors, config.authors);
+        assert_eq!(parsed.language, config.language);
+        assert_eq!(parsed.publisher, config.publisher);
+        assert_eq!(parsed.publication_date, config.publication_date);
+        assert_eq!(parsed.video_id, config.video_id);
+        assert_eq!(parsed.channel, config.channel);
+        assert_eq!(parsed.published_at, config.published_at);
+        assert_eq!(parsed.duration_seconds, config.duration_seconds);
+        assert_eq!(parsed.transcript_source, config.transcript_source);
+        assert_eq!(parsed.section_count, config.section_count);
+        assert_eq!(parsed.chapter_count, config.chapter_count);
+    }
 }

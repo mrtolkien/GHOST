@@ -87,6 +87,7 @@ pub async fn execute(command: ReferenceCommand) -> Result<(), GhostError> {
                 max_pages,
                 no_ocr: None,
                 page_range: None,
+                ..Default::default()
             };
 
             println!("Importing from: {}", path.display());

@@ -9,9 +9,9 @@ description:
 
 # Reference Import Skill
 
-Import git repos, web crawls, and documents as topic-scoped references into the
-knowledge base. All sources go through a two-step flow: **convert** (produce staging dir
-with markdown) then **import** (index into the knowledge base).
+Import git repos, web crawls, documents, books, and YouTube videos as topic-scoped
+references into the knowledge base. All sources go through a two-step flow: **convert**
+(produce staging dir with markdown) then **import** (index into the knowledge base).
 
 ## Decision Flow
 
@@ -22,9 +22,12 @@ Follow this order — stop as soon as you have an answer:
 2. **Git import** (preferred for whole doc sets): find the docs repo via `gh`, convert
    with `ghost convert git`, then import. Use `background: true` for the convert step.
 3. **Crawl import** (fallback): only if no git source exists (e.g. docs-only site).
-4. **PDF/Document import**: download first (curl), then `ghost convert pdf`, then
+4. **YouTube import**: if the OPERATOR wants a single video, convert with
+   `ghost convert youtube`, then import the staging dir and run the `video-import`
+   agent.
+5. **PDF/Document import**: download first (curl), then `ghost convert pdf`, then
    import.
-5. **After starting the background convert**: tell the OPERATOR it's importing, include
+6. **After starting the background convert**: tell the OPERATOR it's importing, include
    any other pending responses (project offers, plans, etc.), then **end your turn**. A
    follow-up turn is triggered automatically when the convert finishes — you'll see the
    `[shell-command completed]` system message. Read the staging dir, pick a topic, then
@@ -41,12 +44,18 @@ stdout:
 ```sh
 ghost convert git <url> [--paths dir1,dir2] [--extensions .md,.rs] [--git-ref <ref>]
 ghost convert crawl <url> [--max-depth 3] [--max-pages 50]
+ghost convert youtube --url https://www.youtube.com/watch?v=<id>
 ghost convert pdf <path> [--no-ocr] [--page-range "1-10"] [--timeout 900]
 ```
 
 The staging directory defaults to `<workspace>/.staging/<slug>/`. The command prints the
 staging path and provenance details (source URL, git ref, etc.) to stdout — capture
 these for the import step.
+
+YouTube import is v1 single-video only. Transcript acquisition priority is: manual
+captions, then auto captions, then CPU Whisper fallback if captions are missing. The
+converter splits transcripts into multiple markdown files based primarily on length, not
+uploader chapters, so the reference files stay readable for rereading and search.
 
 ### Step 2: Inspect
 
@@ -57,7 +66,7 @@ content, then pick an appropriate `--topic`.
 
 ```sh
 ghost reference import <staging-dir> --topic <topic> \
-    [--source-type git|crawl|file] \
+    [--source-type git|crawl|file|youtube] \
     [--source-url <url>] \
     [--version-ref <commit-hash>] \
     [--git-ref <branch-or-tag>]
@@ -66,6 +75,50 @@ ghost reference import <staging-dir> --topic <topic> \
 The import indexes the staging directory into the knowledge base and writes files to
 `references/{topic}/`. Pass the provenance flags from the convert output so the import
 record is fully traceable.
+
+For YouTube imports, pass `--source-type youtube` and the original video URL from the
+converter output. The import only needs the markdown transcript sections in staging;
+there is no need to keep audio or subtitle artifacts.
+
+### YouTube Import
+
+1. **Convert** (single-video URLs only in v1):
+
+```sh
+ghost convert youtube --url https://www.youtube.com/watch?v=<id>
+```
+
+The converter tries manual captions first, auto captions second, and CPU Whisper only
+when captions are unavailable. It prints the staging path plus metadata such as the
+source URL, video ID, title, channel, transcript source, section count, and chapter
+count.
+
+2. **Import**:
+
+```sh
+ghost reference import /path/to/.staging/<slug> --topic videos/<slug> \
+    --source-type youtube \
+    --source-url https://www.youtube.com/watch?v=<id>
+```
+
+3. **Create notes** — use the `agent` tool to start the `video-import` agent. Pass the
+   topic, title, and channel from the convert output as `args`:
+
+```json agent
+{
+  "action": "start",
+  "agent": "video-import",
+  "prompt": "Create notes from the imported video.",
+  "args": {
+    "topic": "videos/<slug>",
+    "title": "<title from convert output>",
+    "channel": "<channel from convert output>"
+  }
+}
+```
+
+Use `video-import` for transcript-based notes. It is tuned for shorter section files,
+section-aware reading, and timestamped source notes.
 
 ## Git Import (Preferred)
 
@@ -233,6 +286,7 @@ AND stored in the DB for search. This means you can `file_read` on paths returne
 - **Git imports**: files mirror the repo structure (`references/{topic}/{rel_path}`)
 - **Crawl imports**: filenames are URL slugs (`references/{topic}/{slug}.md`)
 - **PDF imports**: one markdown file per source document
+- **YouTube imports**: one markdown file per transcript section
 - `knowledge_search` results for references include a `path:` field you can `file_read`
 
 ## Staging Directory

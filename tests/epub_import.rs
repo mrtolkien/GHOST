@@ -121,6 +121,7 @@ async fn epub_convert_and_import() {
         max_pages: None,
         no_ocr: None,
         page_range: None,
+        ..Default::default()
     };
 
     let import_result = import_from_path(
@@ -223,6 +224,7 @@ async fn epub_agent_creates_notes() {
         max_pages: None,
         no_ocr: None,
         page_range: None,
+        ..Default::default()
     };
 
     let import_result = import_from_path(
@@ -350,6 +352,7 @@ async fn epub_agent_progressive_path() {
         max_pages: None,
         no_ocr: None,
         page_range: None,
+        ..Default::default()
     };
 
     let import_result = import_from_path(

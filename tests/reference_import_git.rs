@@ -43,6 +43,7 @@ async fn import_and_query_git_references() {
         max_pages: None,
         no_ocr: None,
         page_range: None,
+        ..Default::default()
     };
 
     let result = import_from_path(

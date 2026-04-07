@@ -39,6 +39,7 @@ async fn update_git_references_with_diff_and_orphan_protection() {
         max_pages: None,
         no_ocr: None,
         page_range: None,
+        ..Default::default()
     };
 
     let import_result = import_from_path(

@@ -53,6 +53,21 @@ pub struct ImportProvenance {
     pub max_pages: Option<usize>,
     pub no_ocr: Option<bool>,
     pub page_range: Option<(u32, u32)>,
+    pub youtube: Option<YoutubeImportProvenance>,
+}
+
+/// YouTube-specific provenance metadata passed through the import pipeline.
+#[derive(Debug, Clone, Default)]
+pub struct YoutubeImportProvenance {
+    pub video_id: Option<String>,
+    pub title: Option<String>,
+    pub channel: Option<String>,
+    pub published_at: Option<String>,
+    pub duration_seconds: Option<u64>,
+    pub transcript_source: Option<String>,
+    pub section_count: Option<usize>,
+    pub chapter_count: Option<usize>,
+    pub language: Option<String>,
 }
 
 #[derive(Debug)]
@@ -128,6 +143,20 @@ pub struct ImportConfigJson {
     pub publisher: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub publication_date: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub video_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub channel: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub published_at: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub duration_seconds: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub transcript_source: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub section_count: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub chapter_count: Option<usize>,
 }
 
 impl ImportConfigJson {
@@ -186,6 +215,13 @@ impl From<&ImportConfig> for ImportConfigJson {
                 language: None,
                 publisher: None,
                 publication_date: None,
+                video_id: None,
+                channel: None,
+                published_at: None,
+                duration_seconds: None,
+                transcript_source: None,
+                section_count: None,
+                chapter_count: None,
             },
             ImportSource::Crawl {
                 url,
@@ -206,6 +242,13 @@ impl From<&ImportConfig> for ImportConfigJson {
                 language: None,
                 publisher: None,
                 publication_date: None,
+                video_id: None,
+                channel: None,
+                published_at: None,
+                duration_seconds: None,
+                transcript_source: None,
+                section_count: None,
+                chapter_count: None,
             },
             ImportSource::File {
                 path,
@@ -226,6 +269,13 @@ impl From<&ImportConfig> for ImportConfigJson {
                 language: None,
                 publisher: None,
                 publication_date: None,
+                video_id: None,
+                channel: None,
+                published_at: None,
+                duration_seconds: None,
+                transcript_source: None,
+                section_count: None,
+                chapter_count: None,
             },
             ImportSource::Book {
                 path,
@@ -246,6 +296,13 @@ impl From<&ImportConfig> for ImportConfigJson {
                 language: None,
                 publisher: None,
                 publication_date: None,
+                video_id: None,
+                channel: None,
+                published_at: None,
+                duration_seconds: None,
+                transcript_source: None,
+                section_count: None,
+                chapter_count: None,
             },
         }
     }
