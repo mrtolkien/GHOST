@@ -54,6 +54,7 @@ pub struct ImportProvenance {
 #[derive(Debug, Clone, Default)]
 pub struct YoutubeImportProvenance {
     pub video_id: Option<String>,
+    pub title: Option<String>,
     pub channel: Option<String>,
     pub published_at: Option<String>,
     pub duration_seconds: Option<u64>,
@@ -76,7 +77,7 @@ impl ImportProvenance {
             extensions: vec![],
             max_depth: None,
             max_pages: None,
-            title: None,
+            title: youtube.and_then(|meta| meta.title.clone()),
             authors: None,
             language: youtube.and_then(|meta| meta.language.clone()),
             publisher: None,

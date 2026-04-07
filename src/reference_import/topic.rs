@@ -80,6 +80,8 @@ struct ImportToml {
     #[serde(skip_serializing_if = "Option::is_none")]
     max_pages: Option<usize>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     video_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     channel: Option<String>,
@@ -118,6 +120,7 @@ pub fn write_import_toml(
         extensions: config.extensions.clone(),
         max_depth: config.max_depth,
         max_pages: config.max_pages,
+        title: config.title.clone(),
         video_id: config.video_id.clone(),
         channel: config.channel.clone(),
         published_at: config.published_at.clone(),
@@ -179,6 +182,7 @@ mod tests {
             std::fs::read_to_string(tmp.path().join("references/videos/test/_import.toml"))
                 .expect("read toml");
         assert!(content.contains("source_type = \"youtube\""));
+        assert!(content.contains("title = \"Test Video\""));
         assert!(content.contains("video_id = \"test123\""));
         assert!(content.contains("transcript_source = \"auto\""));
     }

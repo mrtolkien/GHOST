@@ -3,7 +3,9 @@ mod common;
 use std::path::Path;
 
 use ghost::db;
-use ghost::reference_import::{ImportProvenance, YoutubeImportProvenance, import_from_path};
+use ghost::reference_import::{
+    ImportConfigJson, ImportProvenance, YoutubeImportProvenance, import_from_path, read_import_toml,
+};
 
 #[tokio::test]
 async fn youtube_import_persists_provenance_and_links_batch() {
@@ -23,6 +25,7 @@ async fn youtube_import_persists_provenance_and_links_batch() {
         source_url: Some("https://www.youtube.com/watch?v=dQw4w9WgXcQ".to_string()),
         youtube: Some(YoutubeImportProvenance {
             video_id: Some("dQw4w9WgXcQ".to_string()),
+            title: Some("Never Gonna Give You Up".to_string()),
             channel: Some("Test Channel".to_string()),
             published_at: Some("2024-05-01T12:34:56Z".to_string()),
             duration_seconds: Some(1234),
@@ -59,10 +62,14 @@ async fn youtube_import_persists_provenance_and_links_batch() {
         .expect("batch should exist");
     assert_eq!(result.batch_id.as_deref(), Some(batch.id.as_str()));
 
-    let import_config: ghost::reference_import::ImportConfigJson =
+    let import_config: ImportConfigJson =
         serde_json::from_str(batch.import_config.as_deref().expect("import_config json"))
             .expect("parse import_config json");
     assert_eq!(import_config.source_type, "youtube");
+    assert_eq!(
+        import_config.title.as_deref(),
+        Some("Never Gonna Give You Up")
+    );
     assert_eq!(import_config.video_id.as_deref(), Some("dQw4w9WgXcQ"));
     assert_eq!(import_config.channel.as_deref(), Some("Test Channel"));
     assert_eq!(
@@ -74,6 +81,14 @@ async fn youtube_import_persists_provenance_and_links_batch() {
     assert_eq!(import_config.section_count, Some(3));
     assert_eq!(import_config.chapter_count, Some(1));
     assert_eq!(import_config.language.as_deref(), Some("en"));
+
+    let toml_config = read_import_toml(workspace_path, "videos/test").expect("read _import.toml");
+    assert_eq!(toml_config.source_type, "youtube");
+    assert_eq!(
+        toml_config.title.as_deref(),
+        Some("Never Gonna Give You Up")
+    );
+    assert_eq!(toml_config.video_id.as_deref(), Some("dQw4w9WgXcQ"));
 
     let refs = db::knowledge::list_references_by_topic(&db, Some(&topic.id), 10)
         .await
