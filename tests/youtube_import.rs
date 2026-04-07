@@ -2,6 +2,7 @@ mod common;
 
 use std::path::{Path, PathBuf};
 
+use ghost::convert::youtube::{TranscriptSource, YoutubeMetadata, YoutubeStagingMetadata};
 use ghost::reference_import::{
     ImportProvenance, YoutubeImportProvenance, import_from_path, read_import_toml,
 };
@@ -39,6 +40,25 @@ fn write_youtube_staging_dir(workspace: &Path) -> PathBuf {
         "# Main\n\nThis is the second section.",
     )
     .expect("write main section");
+    let metadata = YoutubeStagingMetadata {
+        metadata: YoutubeMetadata {
+            source_url: "https://www.youtube.com/watch?v=test123".to_string(),
+            video_id: "test123".to_string(),
+            title: Some("Test Video".to_string()),
+            channel: Some("Example Channel".to_string()),
+            published_at: Some("2024-01-02".to_string()),
+            duration_seconds: Some(1_234),
+            language: Some("en".to_string()),
+            transcript_source: TranscriptSource::Auto,
+        },
+        section_count: 2,
+        chapter_count: 1,
+    };
+    std::fs::write(
+        staging_dir.join("_metadata.json"),
+        serde_json::to_string_pretty(&metadata).expect("serialize staging metadata"),
+    )
+    .expect("write staging metadata");
 
     staging_dir
 }
@@ -105,6 +125,59 @@ async fn youtube_staging_import_writes_metadata_and_import_toml() {
     assert!(refs.iter().all(|reference| {
         reference.source_url.as_deref() == Some("https://www.youtube.com/watch?v=test123")
     }));
+}
+
+#[tokio::test]
+async fn youtube_staging_metadata_populates_cli_style_import_provenance() {
+    let (db, config, workspace, _config_dir) = common::test_database().await;
+    let workspace_path = Path::new(&config.workspace);
+    let staging_dir = write_youtube_staging_dir(workspace.path());
+
+    let result = import_from_path(
+        &db,
+        workspace_path,
+        &staging_dir,
+        "videos/cli-style",
+        &ImportProvenance {
+            source_type: Some("youtube".to_string()),
+            source_url: Some("https://www.youtube.com/watch?v=test123".to_string()),
+            ..ImportProvenance::default()
+        },
+        None,
+    )
+    .await
+    .expect("import youtube staging with converter metadata");
+
+    assert_eq!(result.references_created, 2);
+
+    let topic = ghost::db::knowledge::find_topic_by_name(&db, "videos/cli-style")
+        .await
+        .expect("find topic")
+        .expect("topic should exist");
+    let batch = ghost::db::knowledge::get_import_batch_by_topic(&db, &topic.id)
+        .await
+        .expect("get batch")
+        .expect("batch should exist");
+
+    let import_config = serde_json::from_str::<ghost::reference_import::ImportConfigJson>(
+        batch.import_config.as_deref().expect("import config json"),
+    )
+    .expect("parse import config");
+    assert_eq!(import_config.title.as_deref(), Some("Test Video"));
+    assert_eq!(import_config.video_id.as_deref(), Some("test123"));
+    assert_eq!(import_config.channel.as_deref(), Some("Example Channel"));
+    assert_eq!(import_config.transcript_source.as_deref(), Some("auto"));
+    assert_eq!(import_config.section_count, Some(2));
+    assert_eq!(import_config.chapter_count, Some(1));
+
+    let import_toml =
+        read_import_toml(workspace_path, "videos/cli-style").expect("read youtube _import.toml");
+    assert_eq!(import_toml.title.as_deref(), Some("Test Video"));
+    assert_eq!(import_toml.video_id.as_deref(), Some("test123"));
+    assert_eq!(import_toml.channel.as_deref(), Some("Example Channel"));
+    assert_eq!(import_toml.transcript_source.as_deref(), Some("auto"));
+    assert_eq!(import_toml.section_count, Some(2));
+    assert_eq!(import_toml.chapter_count, Some(1));
 }
 
 #[cfg(feature = "live-tests")]

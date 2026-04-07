@@ -56,6 +56,14 @@ pub struct YoutubeMetadata {
     pub transcript_source: TranscriptSource,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct YoutubeStagingMetadata {
+    #[serde(flatten)]
+    pub metadata: YoutubeMetadata,
+    pub section_count: usize,
+    pub chapter_count: usize,
+}
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum TranscriptSource {
@@ -202,7 +210,7 @@ pub async fn convert_youtube(
     }
 
     write_sections(&staging_dir, &metadata, &sections)?;
-    write_metadata(&staging_dir, &metadata)?;
+    write_metadata(&staging_dir, &metadata, sections.len(), chapters.len())?;
 
     Ok(YoutubeConvertResult {
         staging_dir,
@@ -323,7 +331,10 @@ fn split_group_by_length(cues: &[TranscriptCue], max_chars: usize) -> Vec<Transc
     for cue in cues {
         let cue_parts = split_large_cue(cue, max_chars);
         for part in cue_parts {
-            let projected_len = cues_text_len(&current) + separator_len(&current) + part.text.len();
+            let projected_len = cues_text_len(&current)
+                + separator_len(&current)
+                + part.text.len()
+                + usize::from(!current.is_empty()) * 2;
             if !current.is_empty() && projected_len > max_chars {
                 sections.push(section_from_cues(&current));
                 current = Vec::new();
@@ -1032,8 +1043,18 @@ fn slugify_title(title: &str) -> String {
         .join("-")
 }
 
-fn write_metadata(staging_dir: &Path, metadata: &YoutubeMetadata) -> Result<(), ConvertError> {
-    let json = serde_json::to_string_pretty(metadata)
+fn write_metadata(
+    staging_dir: &Path,
+    metadata: &YoutubeMetadata,
+    section_count: usize,
+    chapter_count: usize,
+) -> Result<(), ConvertError> {
+    let staging_metadata = YoutubeStagingMetadata {
+        metadata: metadata.clone(),
+        section_count,
+        chapter_count,
+    };
+    let json = serde_json::to_string_pretty(&staging_metadata)
         .map_err(|e| ConvertError::Conversion(format!("failed to serialize metadata: {e}")))?;
     std::fs::write(staging_dir.join(METADATA_FILE), json)?;
     Ok(())
@@ -1078,9 +1099,20 @@ mod tests {
             crate::constants::YOUTUBE_MIN_SECTION_CHARS,
         );
 
-        assert_eq!(sections.len(), 2);
+        assert_eq!(sections.len(), 3);
         assert_eq!(sections[0].start_seconds, 0);
-        assert_eq!(sections[1].start_seconds, 120);
+        assert_eq!(sections[1].start_seconds, 60);
+        assert_eq!(sections[2].start_seconds, 120);
+    }
+
+    #[test]
+    fn split_group_by_length_accounts_for_separator_overhead() {
+        let cues = vec![cue(0, 5), cue(60, 4)];
+
+        let sections = split_group_by_length(&cues, 10);
+
+        assert_eq!(sections.len(), 2);
+        assert!(sections.iter().all(|section| section.text.len() <= 10));
     }
 
     #[test]

@@ -5,10 +5,13 @@ use crate::db::GhostDb;
 use crate::knowledge;
 
 use super::topic::ensure_topic_hierarchy;
-use super::types::{ImportError, ImportProvenance, ImportResult};
+use super::types::{ImportError, ImportProvenance, ImportResult, YoutubeImportProvenance};
 
 /// Directories to skip when recursively collecting markdown files.
 const SKIP_DIR_PREFIXES: &[char] = &['_', '.'];
+
+/// Converter metadata file used to carry source-specific staging metadata.
+const METADATA_FILE: &str = "_metadata.json";
 
 /// Generic entry point for writing converted references into the workspace and DB.
 ///
@@ -35,6 +38,8 @@ pub async fn import_from_path(
             format!("import path not found: {}", path.display()),
         )));
     }
+
+    let provenance = enrich_youtube_provenance_from_staging(path, provenance)?;
 
     // Ensure topic hierarchy in DB
     let topic_id = ensure_topic_hierarchy(db, topic).await?;
@@ -102,7 +107,13 @@ pub async fn import_from_path(
 
     // Provenance: create batch + write _import.toml if we have source metadata
     let batch_id = upsert_provenance(
-        db, workspace, &topic_id, topic, provenance, created, skipped,
+        db,
+        workspace,
+        &topic_id,
+        topic,
+        &provenance,
+        created,
+        skipped,
     )
     .await?;
 
@@ -128,6 +139,57 @@ pub async fn import_from_path(
         batch_id,
         references_created: created,
         references_skipped: skipped,
+    })
+}
+
+fn enrich_youtube_provenance_from_staging(
+    path: &Path,
+    provenance: &ImportProvenance,
+) -> Result<ImportProvenance, ImportError> {
+    if provenance.source_type.as_deref() != Some("youtube") || provenance.youtube.is_some() {
+        return Ok(provenance.clone());
+    }
+    if !path.is_dir() {
+        return Ok(provenance.clone());
+    }
+
+    let metadata_path = path.join(METADATA_FILE);
+    if !metadata_path.is_file() {
+        return Ok(provenance.clone());
+    }
+
+    let metadata = read_youtube_metadata(&metadata_path)?;
+    let mut enriched = provenance.clone();
+    enriched.youtube = Some(YoutubeImportProvenance {
+        video_id: Some(metadata.metadata.video_id),
+        title: metadata.metadata.title,
+        channel: metadata.metadata.channel,
+        published_at: metadata.metadata.published_at,
+        duration_seconds: metadata.metadata.duration_seconds,
+        transcript_source: Some(
+            match metadata.metadata.transcript_source {
+                crate::convert::youtube::TranscriptSource::Manual => "manual",
+                crate::convert::youtube::TranscriptSource::Auto => "auto",
+                crate::convert::youtube::TranscriptSource::Whisper => "whisper",
+            }
+            .to_string(),
+        ),
+        section_count: Some(metadata.section_count),
+        chapter_count: Some(metadata.chapter_count),
+        language: metadata.metadata.language,
+    });
+    Ok(enriched)
+}
+
+fn read_youtube_metadata(
+    metadata_path: &Path,
+) -> Result<crate::convert::youtube::YoutubeStagingMetadata, ImportError> {
+    let raw = std::fs::read_to_string(metadata_path)?;
+    serde_json::from_str(&raw).map_err(|error| {
+        ImportError::Config(format!(
+            "failed to parse YouTube staging metadata {}: {error}",
+            metadata_path.display()
+        ))
     })
 }
 

@@ -15,8 +15,8 @@ pub use crud::{
     get_script, list_all_diary, list_all_notes, list_all_references, list_all_scripts, list_recent,
     list_references_by_topic, load_code_file_hashes, load_diary_file_hashes, load_note_file_hashes,
     load_reference_file_hashes, load_script_file_hashes, update_code_file, update_diary,
-    update_note, update_reference, update_reference_import_batch, update_reference_path,
-    update_reference_import_metadata_by_path, update_script,
+    update_note, update_reference, update_reference_import_batch,
+    update_reference_import_metadata_by_path, update_reference_path, update_script,
 };
 pub use graph::{
     backfill_message_source_references, cited_reference_ids, create_cited_edge, create_edge,
