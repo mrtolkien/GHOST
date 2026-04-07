@@ -47,6 +47,49 @@ pub struct ImportProvenance {
     pub source_url: Option<String>,
     pub version_ref: Option<String>,
     pub git_ref: Option<String>,
+    pub youtube: Option<YoutubeImportProvenance>,
+}
+
+/// YouTube-specific provenance metadata passed through the import pipeline.
+#[derive(Debug, Clone, Default)]
+pub struct YoutubeImportProvenance {
+    pub video_id: Option<String>,
+    pub channel: Option<String>,
+    pub published_at: Option<String>,
+    pub duration_seconds: Option<u64>,
+    pub transcript_source: Option<String>,
+    pub section_count: Option<usize>,
+    pub chapter_count: Option<usize>,
+    pub language: Option<String>,
+}
+
+impl ImportProvenance {
+    /// Build the DB/TOML snapshot for this provenance and the given source.
+    pub fn to_import_config_json(&self, source_type: &str, source_url: &str) -> ImportConfigJson {
+        let youtube = self.youtube.as_ref();
+
+        ImportConfigJson {
+            source_type: source_type.to_string(),
+            source_url: source_url.to_string(),
+            git_ref: self.git_ref.clone(),
+            paths: vec![],
+            extensions: vec![],
+            max_depth: None,
+            max_pages: None,
+            title: None,
+            authors: None,
+            language: youtube.and_then(|meta| meta.language.clone()),
+            publisher: None,
+            publication_date: None,
+            video_id: youtube.and_then(|meta| meta.video_id.clone()),
+            channel: youtube.and_then(|meta| meta.channel.clone()),
+            published_at: youtube.and_then(|meta| meta.published_at.clone()),
+            duration_seconds: youtube.and_then(|meta| meta.duration_seconds),
+            transcript_source: youtube.and_then(|meta| meta.transcript_source.clone()),
+            section_count: youtube.and_then(|meta| meta.section_count),
+            chapter_count: youtube.and_then(|meta| meta.chapter_count),
+        }
+    }
 }
 
 #[derive(Debug)]

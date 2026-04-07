@@ -175,8 +175,9 @@ mod tests {
 
         write_import_toml(tmp.path(), "videos/test", &config, None, 3).expect("write import toml");
 
-        let content = std::fs::read_to_string(tmp.path().join("references/videos/test/_import.toml"))
-            .expect("read toml");
+        let content =
+            std::fs::read_to_string(tmp.path().join("references/videos/test/_import.toml"))
+                .expect("read toml");
         assert!(content.contains("source_type = \"youtube\""));
         assert!(content.contains("video_id = \"test123\""));
         assert!(content.contains("transcript_source = \"auto\""));

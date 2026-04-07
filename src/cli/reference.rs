@@ -65,6 +65,7 @@ pub async fn execute(command: ReferenceCommand) -> Result<(), GhostError> {
                 source_url,
                 version_ref,
                 git_ref,
+                ..Default::default()
             };
 
             println!("Importing from: {}", path.display());

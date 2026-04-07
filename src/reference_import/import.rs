@@ -5,7 +5,7 @@ use crate::db::GhostDb;
 use crate::knowledge;
 
 use super::topic::ensure_topic_hierarchy;
-use super::types::{ImportConfigJson, ImportError, ImportProvenance, ImportResult};
+use super::types::{ImportError, ImportProvenance, ImportResult};
 
 /// Directories to skip when recursively collecting markdown files.
 const SKIP_DIR_PREFIXES: &[char] = &['_', '.'];
@@ -57,6 +57,7 @@ pub async fn import_from_path(
     let total_files = md_files.len();
     let mut created = 0usize;
     let mut skipped = 0usize;
+    let mut created_ref_ids = Vec::new();
 
     for (relative, abs_path) in &md_files {
         let ref_path = format!("{topic}/{relative}");
@@ -83,7 +84,7 @@ pub async fn import_from_path(
         std::fs::write(&disk_path, &content)?;
 
         let hash = crate::embeddings::pipeline::content_hash(&content);
-        db::knowledge::create_reference(
+        let ref_id = db::knowledge::create_reference(
             db,
             &topic_id,
             &ref_path,
@@ -93,6 +94,7 @@ pub async fn import_from_path(
             Some(&hash),
         )
         .await?;
+        created_ref_ids.push(ref_id);
 
         created += 1;
     }
@@ -102,6 +104,12 @@ pub async fn import_from_path(
         db, workspace, &topic_id, topic, provenance, created, skipped,
     )
     .await?;
+
+    if let Some(batch_id) = batch_id.as_deref() {
+        for ref_id in &created_ref_ids {
+            db::knowledge::update_reference_import_batch(db, ref_id, batch_id).await?;
+        }
+    }
 
     // Ensure skeleton index notes exist for the topic hierarchy
     knowledge::ensure_index_notes(workspace, topic)
@@ -208,27 +216,7 @@ async fn upsert_provenance(
         return Ok(None);
     };
 
-    let config_json = ImportConfigJson {
-        source_type: source_type.clone(),
-        source_url: source_url.clone(),
-        git_ref: provenance.git_ref.clone(),
-        paths: vec![],
-        extensions: vec![],
-        max_depth: None,
-        max_pages: None,
-        title: None,
-        authors: None,
-        language: None,
-        publisher: None,
-        publication_date: None,
-        video_id: None,
-        channel: None,
-        published_at: None,
-        duration_seconds: None,
-        transcript_source: None,
-        section_count: None,
-        chapter_count: None,
-    };
+    let config_json = provenance.to_import_config_json(source_type, source_url);
     let config_json_str = serde_json::to_string(&config_json).ok();
 
     // Total references for this topic (existing + newly created)

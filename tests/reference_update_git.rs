@@ -33,6 +33,7 @@ async fn update_git_references_with_diff_and_orphan_protection() {
         source_url: Some("https://github.com/DioxusLabs/docsite".to_string()),
         version_ref: Some(convert_result.version_ref.clone()),
         git_ref: None,
+        ..Default::default()
     };
 
     let import_result = import_from_path(

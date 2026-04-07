@@ -37,6 +37,7 @@ async fn import_and_query_git_references() {
         source_url: Some("https://github.com/DioxusLabs/docsite".to_string()),
         version_ref: Some(convert_result.version_ref.clone()),
         git_ref: None,
+        ..Default::default()
     };
 
     let result = import_from_path(
