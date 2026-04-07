@@ -136,3 +136,12 @@ pub const DEFAULT_CRAWL_MAX_DEPTH: usize = 3;
 
 /// Default maximum pages to crawl per reference import.
 pub const DEFAULT_CRAWL_MAX_PAGES: usize = 50;
+
+/// Maximum characters allowed in a single YouTube transcript section.
+pub const YOUTUBE_SECTION_MAX_CHARS: usize = 40_000;
+
+/// Minimum characters required for a usable imported transcript.
+pub const YOUTUBE_MIN_TRANSCRIPT_CHARS: usize = 500;
+
+/// Minimum characters to keep a section after splitting.
+pub const YOUTUBE_MIN_SECTION_CHARS: usize = 1_500;
