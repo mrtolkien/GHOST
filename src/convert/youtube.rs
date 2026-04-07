@@ -16,6 +16,15 @@ use super::staging::{create_staging_dir, slug_from_source};
 /// Metadata file written to the staging directory.
 const METADATA_FILE: &str = "_metadata.json";
 
+/// Multilingual Whisper model filename expected from the nix package.
+const WHISPER_MODEL_FILENAME: &str = "ggml-base.bin";
+
+/// Nix package name for the multilingual Whisper base model.
+const WHISPER_MODEL_PACKAGE: &str = "nixpkgs#whisper-cpp-model-base";
+
+/// Subtitle suffix markers that still represent the base language track.
+const SUBTITLE_VARIANT_MARKERS: &[&str] = &["orig", "forced"];
+
 /// Known YouTube hosts accepted by the converter.
 const YOUTUBE_HOSTS: &[&str] = &[
     "youtube.com",
@@ -83,6 +92,12 @@ struct ChapterMarker {
     title: Option<String>,
 }
 
+#[derive(Debug, Clone)]
+struct TranscriptCandidate {
+    cues: Vec<TranscriptCue>,
+    language: Option<String>,
+}
+
 #[derive(Debug, Deserialize)]
 struct YtDlpVideoMetadata {
     id: String,
@@ -120,29 +135,46 @@ pub async fn convert_youtube(
         .map_err(|e| ConvertError::Conversion(format!("failed to create temp dir: {e}")))?;
 
     let mut attempts = Vec::new();
-    let (cues, transcript_source) =
-        match try_subtitles(url, scratch_dir.path().join("manual").as_path(), false).await {
-            Ok(cues) => (cues, TranscriptSource::Manual),
-            Err(error) => {
-                attempts.push(format!("manual captions unavailable: {error}"));
-                match try_subtitles(url, scratch_dir.path().join("auto").as_path(), true).await {
-                    Ok(cues) => (cues, TranscriptSource::Auto),
-                    Err(error) => {
-                        attempts.push(format!("auto captions unavailable: {error}"));
-                        match try_whisper_fallback(url, scratch_dir.path()).await {
-                            Ok(cues) => (cues, TranscriptSource::Whisper),
-                            Err(error) => {
-                                attempts.push(format!("whisper fallback failed: {error}"));
-                                return Err(ConvertError::Conversion(format!(
-                                    "failed to acquire transcript: {}",
-                                    attempts.join("; ")
-                                )));
-                            }
+    let (cues, selected_language, transcript_source) = match try_subtitles(
+        url,
+        scratch_dir.path().join("manual").as_path(),
+        raw_metadata.language.as_deref(),
+        false,
+    )
+    .await
+    {
+        Ok(candidate) => (candidate.cues, candidate.language, TranscriptSource::Manual),
+        Err(error) => {
+            attempts.push(format!("manual captions unavailable: {error}"));
+            match try_subtitles(
+                url,
+                scratch_dir.path().join("auto").as_path(),
+                raw_metadata.language.as_deref(),
+                true,
+            )
+            .await
+            {
+                Ok(candidate) => (candidate.cues, candidate.language, TranscriptSource::Auto),
+                Err(error) => {
+                    attempts.push(format!("auto captions unavailable: {error}"));
+                    match try_whisper_fallback(url, scratch_dir.path()).await {
+                        Ok(cues) => (
+                            cues,
+                            raw_metadata.language.clone(),
+                            TranscriptSource::Whisper,
+                        ),
+                        Err(error) => {
+                            attempts.push(format!("whisper fallback failed: {error}"));
+                            return Err(ConvertError::Conversion(format!(
+                                "failed to acquire transcript: {}",
+                                attempts.join("; ")
+                            )));
                         }
                     }
                 }
             }
-        };
+        }
+    };
 
     let transcript_text = transcript_text(&cues);
     ensure_transcript_length(&transcript_text)?;
@@ -154,7 +186,7 @@ pub async fn convert_youtube(
         channel: raw_metadata.channel,
         published_at: normalize_upload_date(raw_metadata.upload_date.as_deref()),
         duration_seconds: raw_metadata.duration.and_then(duration_seconds),
-        language: raw_metadata.language,
+        language: selected_language.or(raw_metadata.language),
         transcript_source,
     };
 
@@ -599,12 +631,11 @@ async fn run_yt_dlp_json(url: &str) -> Result<String, ConvertError> {
 async fn try_subtitles(
     url: &str,
     output_dir: &Path,
+    preferred_language: Option<&str>,
     auto: bool,
-) -> Result<Vec<TranscriptCue>, ConvertError> {
+) -> Result<TranscriptCandidate, ConvertError> {
     let files = run_yt_dlp_subtitles(url, output_dir, auto).await?;
-    let cues = load_best_transcript(&files)?;
-    ensure_transcript_length(&transcript_text(&cues))?;
-    Ok(cues)
+    load_best_transcript(&files, preferred_language, YOUTUBE_MIN_TRANSCRIPT_CHARS)
 }
 
 async fn try_whisper_fallback(
@@ -698,9 +729,10 @@ async fn run_whisper(audio_path: &Path, output_dir: &Path) -> Result<PathBuf, Co
     let output_vtt = output_prefix.with_extension("vtt");
 
     let script = format!(
-        "model=\"$(find /nix/store -path '*whisper-cpp-model*' -name '*.bin' | head -n 1)\"; \
+        "model=\"$(find /nix/store -path '*whisper-cpp-model-base*' -name '{}' | head -n 1)\"; \
          if [ -z \"$model\" ]; then echo 'no whisper.cpp model found in nix shell' >&2; exit 1; fi; \
          whisper-cli -m \"$model\" -f '{}' -ovtt -of '{}'",
+        WHISPER_MODEL_FILENAME,
         audio_path.display(),
         output_prefix.display()
     );
@@ -709,7 +741,7 @@ async fn run_whisper(audio_path: &Path, output_dir: &Path) -> Result<PathBuf, Co
     command.args([
         "shell",
         "nixpkgs#whisper-cpp",
-        "nixpkgs#whisper-cpp-model-base-en",
+        WHISPER_MODEL_PACKAGE,
         "--command",
         "sh",
         "-lc",
@@ -764,21 +796,113 @@ fn collect_files_with_extension(dir: &Path, extension: &str) -> Result<Vec<PathB
     Ok(paths)
 }
 
-fn load_best_transcript(paths: &[PathBuf]) -> Result<Vec<TranscriptCue>, ConvertError> {
-    let mut best: Option<Vec<TranscriptCue>> = None;
+fn load_best_transcript(
+    paths: &[PathBuf],
+    preferred_language: Option<&str>,
+    min_chars: usize,
+) -> Result<TranscriptCandidate, ConvertError> {
+    let preferred: Vec<PathBuf> = paths
+        .iter()
+        .filter(|path| subtitle_matches_language(path, preferred_language))
+        .cloned()
+        .collect();
+
+    if !preferred.is_empty() {
+        let (preferred_best, preferred_error) = pick_longest_transcript(&preferred, min_chars);
+        if let Some(candidate) = preferred_best {
+            return Ok(candidate);
+        }
+
+        let (all_best, all_error) = pick_longest_transcript(paths, min_chars);
+        if let Some(candidate) = all_best {
+            return Ok(candidate);
+        }
+
+        if let Some(error) = preferred_error.or(all_error) {
+            return Err(error);
+        }
+        return Err(ConvertError::Conversion(
+            "subtitle files contained no transcript cues".into(),
+        ));
+    }
+
+    let (best, error) = pick_longest_transcript(paths, min_chars);
+    if let Some(candidate) = best {
+        return Ok(candidate);
+    }
+    if let Some(error) = error {
+        return Err(error);
+    }
+    Err(ConvertError::Conversion(
+        "subtitle files contained no transcript cues".into(),
+    ))
+}
+
+fn pick_longest_transcript(
+    paths: &[PathBuf],
+    min_chars: usize,
+) -> (Option<TranscriptCandidate>, Option<ConvertError>) {
+    let mut best: Option<TranscriptCandidate> = None;
     let mut best_len = 0usize;
+    let mut first_error = None;
 
     for path in paths {
-        let cues = parse_vtt_file(path)?;
+        let cues = match parse_vtt_file(path) {
+            Ok(cues) => cues,
+            Err(error) => {
+                if first_error.is_none() {
+                    first_error = Some(error);
+                }
+                continue;
+            }
+        };
         let text_len = transcript_text(&cues).len();
+        if text_len < min_chars {
+            continue;
+        }
         if text_len > best_len {
             best_len = text_len;
-            best = Some(cues);
+            best = Some(TranscriptCandidate {
+                cues,
+                language: subtitle_language_from_path(path),
+            });
         }
     }
 
-    best.ok_or_else(|| {
-        ConvertError::Conversion("subtitle files contained no transcript cues".into())
+    (best, first_error)
+}
+
+fn subtitle_language_from_path(path: &Path) -> Option<String> {
+    let stem = path.file_stem()?.to_str()?;
+    let language = stem.rsplit_once('.')?.1;
+    (!language.is_empty()).then(|| language.to_ascii_lowercase())
+}
+
+fn subtitle_matches_language(path: &Path, preferred_language: Option<&str>) -> bool {
+    let Some(preferred_language) = preferred_language else {
+        return false;
+    };
+    let preferred_language = preferred_language.to_ascii_lowercase();
+    let normalized_preferred = preferred_language.replace('_', "-");
+    let Some(file_name) = path.file_name().and_then(|name| name.to_str()) else {
+        return false;
+    };
+    let file_name = file_name.to_ascii_lowercase();
+
+    if file_name.contains(&format!(".{preferred_language}."))
+        || file_name.contains(&format!(".{normalized_preferred}."))
+        || file_name.contains(&format!(".{preferred_language}-"))
+        || file_name.contains(&format!(".{normalized_preferred}-"))
+    {
+        return true;
+    }
+
+    normalized_preferred.split('-').next().is_some_and(|base| {
+        normalized_preferred.contains('-')
+            && (file_name.contains(&format!(".{base}."))
+                || SUBTITLE_VARIANT_MARKERS
+                    .iter()
+                    .any(|marker| file_name.contains(&format!(".{base}-{marker}."))))
     })
 }
 
@@ -918,6 +1042,7 @@ fn write_metadata(staging_dir: &Path, metadata: &YoutubeMetadata) -> Result<(), 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
 
     fn cue(start_seconds: u64, len: usize) -> TranscriptCue {
         TranscriptCue::new(start_seconds, "x".repeat(len))
@@ -1012,5 +1137,160 @@ mod tests {
         let json = serde_json::to_string_pretty(&metadata).expect("serialize metadata");
 
         assert!(json.contains("\"transcript_source\": \"auto\""));
+    }
+
+    #[test]
+    fn subtitle_language_match_prefers_requested_track() {
+        let english = Path::new("/tmp/test123.en.vtt");
+        let japanese = Path::new("/tmp/test123.ja.vtt");
+        let regional = Path::new("/tmp/test123.en-US.vtt");
+
+        assert!(subtitle_matches_language(english, Some("en")));
+        assert!(subtitle_matches_language(regional, Some("en")));
+        assert!(subtitle_matches_language(japanese, Some("ja")));
+        assert!(!subtitle_matches_language(japanese, Some("en")));
+        assert!(!subtitle_matches_language(english, None));
+    }
+
+    #[test]
+    fn whisper_model_package_is_multilingual() {
+        assert_eq!(WHISPER_MODEL_PACKAGE, "nixpkgs#whisper-cpp-model-base");
+        assert_eq!(WHISPER_MODEL_FILENAME, "ggml-base.bin");
+    }
+
+    #[test]
+    fn load_best_transcript_prefers_requested_language_track() {
+        let tempdir = tempfile::tempdir().expect("tempdir");
+        let english = tempdir.path().join("video.en.vtt");
+        let japanese = tempdir.path().join("video.ja.vtt");
+        let english_text = "english transcript ".repeat(30);
+        let japanese_text = "japanese transcript ".repeat(30);
+
+        fs::write(
+            &english,
+            format!("WEBVTT\n\n00:00:00.000 --> 00:00:02.000\n{english_text}\n"),
+        )
+        .expect("write english vtt");
+        fs::write(
+            &japanese,
+            format!("WEBVTT\n\n00:00:00.000 --> 00:00:02.000\n{japanese_text}\n"),
+        )
+        .expect("write japanese vtt");
+
+        let candidate = load_best_transcript(
+            &[english, japanese],
+            Some("ja"),
+            crate::constants::YOUTUBE_MIN_TRANSCRIPT_CHARS,
+        )
+        .expect("preferred transcript should load");
+        assert_eq!(candidate.language.as_deref(), Some("ja"));
+        assert_eq!(candidate.cues.len(), 1);
+        assert_eq!(candidate.cues[0].text, japanese_text.trim());
+    }
+
+    #[test]
+    fn load_best_transcript_falls_back_when_preferred_track_is_invalid() {
+        let tempdir = tempfile::tempdir().expect("tempdir");
+        let english = tempdir.path().join("video.en.vtt");
+        let japanese = tempdir.path().join("video.ja.vtt");
+        let japanese_text = "japanese transcript ".repeat(30);
+
+        fs::write(
+            &english,
+            "WEBVTT\n\n00:aa:00.000 --> 00:00:02.000\nbroken english\n",
+        )
+        .expect("write invalid english vtt");
+        fs::write(
+            &japanese,
+            format!("WEBVTT\n\n00:00:00.000 --> 00:00:02.000\n{japanese_text}\n"),
+        )
+        .expect("write japanese vtt");
+
+        let candidate = load_best_transcript(
+            &[english, japanese],
+            Some("en"),
+            crate::constants::YOUTUBE_MIN_TRANSCRIPT_CHARS,
+        )
+        .expect("invalid preferred track should fall back");
+        assert_eq!(candidate.language.as_deref(), Some("ja"));
+        assert_eq!(candidate.cues.len(), 1);
+        assert_eq!(candidate.cues[0].text, japanese_text.trim());
+    }
+
+    #[test]
+    fn load_best_transcript_falls_back_when_preferred_track_is_too_short() {
+        let tempdir = tempfile::tempdir().expect("tempdir");
+        let english = tempdir.path().join("video.en.vtt");
+        let japanese = tempdir.path().join("video.ja.vtt");
+        let japanese_text = "japanese transcript ".repeat(30);
+
+        fs::write(
+            &english,
+            "WEBVTT\n\n00:00:00.000 --> 00:00:02.000\nshort preferred\n",
+        )
+        .expect("write short english vtt");
+        fs::write(
+            &japanese,
+            format!("WEBVTT\n\n00:00:00.000 --> 00:00:02.000\n{japanese_text}\n"),
+        )
+        .expect("write japanese vtt");
+
+        let candidate = load_best_transcript(
+            &[english, japanese],
+            Some("en"),
+            crate::constants::YOUTUBE_MIN_TRANSCRIPT_CHARS,
+        )
+        .expect("short preferred track should fall back");
+        assert_eq!(candidate.language.as_deref(), Some("ja"));
+        assert_eq!(candidate.cues.len(), 1);
+        assert_eq!(candidate.cues[0].text, japanese_text.trim());
+    }
+
+    #[test]
+    fn subtitle_language_match_supports_regional_fallback() {
+        let base_english = Path::new("/tmp/test123.en.vtt");
+        assert!(subtitle_matches_language(base_english, Some("en-US")));
+
+        let english_original = Path::new("/tmp/test123.en-orig.vtt");
+        assert!(subtitle_matches_language(english_original, Some("en-US")));
+
+        let base_french = Path::new("/tmp/test123.fr.vtt");
+        assert!(subtitle_matches_language(base_french, Some("fr-FR")));
+
+        let traditional_chinese = Path::new("/tmp/test123.zh-Hant.vtt");
+        assert!(!subtitle_matches_language(
+            traditional_chinese,
+            Some("zh-Hans")
+        ));
+    }
+
+    #[test]
+    fn load_best_transcript_errors_when_all_candidates_are_invalid() {
+        let tempdir = tempfile::tempdir().expect("tempdir");
+        let english = tempdir.path().join("video.en.vtt");
+        let japanese = tempdir.path().join("video.ja.vtt");
+
+        fs::write(
+            &english,
+            "WEBVTT\n\n00:aa:00.000 --> 00:00:02.000\nbroken english\n",
+        )
+        .expect("write invalid english vtt");
+        fs::write(
+            &japanese,
+            "WEBVTT\n\n00:bb:00.000 --> 00:00:02.000\nbroken japanese\n",
+        )
+        .expect("write invalid japanese vtt");
+
+        let error = load_best_transcript(
+            &[english, japanese],
+            Some("en"),
+            crate::constants::YOUTUBE_MIN_TRANSCRIPT_CHARS,
+        )
+        .expect_err("all invalid subtitle files should error");
+        assert!(
+            error.to_string().contains("timestamp")
+                || error.to_string().contains("subtitle")
+                || error.to_string().contains("invalid")
+        );
     }
 }
