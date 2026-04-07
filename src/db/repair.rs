@@ -44,7 +44,11 @@ pub async fn execute(dry_run: bool) -> Result<(), GhostError> {
         "Repair report: {}",
         report_path(&report.live_db, &report.timestamp).display()
     );
-    Ok(())
+    if report.success {
+        Ok(())
+    } else {
+        Err(repair_failed_error(&report))
+    }
 }
 
 pub async fn repair_database(
@@ -101,15 +105,18 @@ async fn repair_database_with_embeddings(
     .await;
 
     let mut report = match repair_result {
-        Ok(tables) => RepairReport {
-            timestamp: stamp.clone(),
-            candidate_db: candidate_db.clone(),
-            live_db: live_db.clone(),
-            backup_db: None,
-            tables,
-            success: true,
-            failure_reason: None,
-        },
+        Ok(tables) => {
+            let failure_reason = repair_failure_reason(&tables);
+            RepairReport {
+                timestamp: stamp.clone(),
+                candidate_db: candidate_db.clone(),
+                live_db: live_db.clone(),
+                backup_db: None,
+                tables,
+                success: failure_reason.is_none(),
+                failure_reason,
+            }
+        }
         Err(error) => RepairReport {
             timestamp: stamp.clone(),
             candidate_db: candidate_db.clone(),
@@ -268,6 +275,32 @@ fn write_report(path: &Path, report: &RepairReport) -> Result<(), GhostError> {
     std::fs::write(path, content).map_err(GhostError::Io)
 }
 
+fn repair_failure_reason(tables: &[TableVerification]) -> Option<String> {
+    let failed_tables: Vec<&str> = tables
+        .iter()
+        .filter(|table| !table.verified)
+        .map(|table| table.table)
+        .collect();
+
+    if failed_tables.is_empty() {
+        None
+    } else {
+        Some(format!(
+            "db repair verification failed for tables: {}",
+            failed_tables.join(", ")
+        ))
+    }
+}
+
+fn repair_failed_error(report: &RepairReport) -> GhostError {
+    GhostError::Other(
+        report
+            .failure_reason
+            .clone()
+            .unwrap_or_else(|| "database repair failed closed".to_string()),
+    )
+}
+
 fn database_error(error: crate::db::DatabaseError) -> GhostError {
     GhostError::Database(Box::new(error))
 }
@@ -324,4 +357,52 @@ fn swap_live_database(
         return Err(GhostError::Other(message));
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{repair_failed_error, repair_failure_reason};
+    use crate::db::repair_types::{RepairReport, TableVerification};
+    use std::path::PathBuf;
+
+    #[test]
+    fn repair_failure_reason_lists_unverified_tables() {
+        let tables = vec![
+            TableVerification {
+                table: "session",
+                copied_rows: 1,
+                source_rows: 1,
+                verified: true,
+            },
+            TableVerification {
+                table: "message_source",
+                copied_rows: 0,
+                source_rows: 1,
+                verified: false,
+            },
+        ];
+
+        assert_eq!(
+            repair_failure_reason(&tables).as_deref(),
+            Some("db repair verification failed for tables: message_source")
+        );
+    }
+
+    #[test]
+    fn repair_failed_error_uses_failure_reason() {
+        let report = RepairReport {
+            timestamp: "2026-04-07T00-00-00Z".to_string(),
+            candidate_db: PathBuf::from("/tmp/ghost.db.repair.candidate"),
+            live_db: PathBuf::from("/tmp/ghost.db"),
+            backup_db: None,
+            tables: Vec::new(),
+            success: false,
+            failure_reason: Some("db repair verification failed".to_string()),
+        };
+
+        assert_eq!(
+            repair_failed_error(&report).to_string(),
+            "db repair verification failed"
+        );
+    }
 }

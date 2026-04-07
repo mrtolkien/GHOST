@@ -102,13 +102,16 @@ async fn copy_message_sources(conn: &mut SqliteConnection) -> Result<(), Databas
         "INSERT INTO message_source (id, message_id, reference_id, url, title, created_at)
          SELECT ms.id,
                 ms.message_id,
-                (
-                    SELECT r.id
-                    FROM reference r
-                    WHERE r.source_url = ms.url
-                    ORDER BY r.created_at ASC
-                    LIMIT 1
-                ) AS reference_id,
+                CASE
+                    WHEN ms.reference_id IS NULL THEN NULL
+                    ELSE (
+                        SELECT r.id
+                        FROM reference r
+                        WHERE r.source_url = ms.url
+                        ORDER BY r.created_at ASC
+                        LIMIT 1
+                    )
+                END AS reference_id,
                 ms.url,
                 ms.title,
                 ms.created_at
@@ -209,4 +212,87 @@ async fn detach_source_db(conn: &mut SqliteConnection) -> Result<(), DatabaseErr
             source,
         })?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{copy_db_only_tables, count_rows};
+    use crate::db;
+    use sqlx::Row;
+
+    #[tokio::test]
+    async fn repair_copy_preserves_null_message_source_reference_id() {
+        const TEST_EMBEDDING_DIM: usize = 1;
+
+        let live_workspace = tempfile::TempDir::new().expect("live workspace");
+        let candidate_workspace = tempfile::TempDir::new().expect("candidate workspace");
+
+        let live_db = db::connect(live_workspace.path(), TEST_EMBEDDING_DIM)
+            .await
+            .expect("connect live db");
+        let candidate_db = db::connect(candidate_workspace.path(), TEST_EMBEDDING_DIM)
+            .await
+            .expect("connect candidate db");
+
+        let session_id = crate::db::sessions::create_session(&live_db)
+            .await
+            .expect("create session");
+        let message_id =
+            crate::db::sessions::create_message(&live_db, &session_id, "assistant", "hello")
+                .await
+                .expect("create message");
+        let source_id = crate::db::knowledge::create_message_source(
+            &live_db,
+            &message_id,
+            "https://example.com/reference",
+            Some("Example"),
+        )
+        .await
+        .expect("create message source");
+
+        let topic_id = crate::db::knowledge::create_topic(&candidate_db, "books/example")
+            .await
+            .expect("insert candidate topic");
+        crate::db::knowledge::create_reference(
+            &candidate_db,
+            &topic_id,
+            "chapter-01.md",
+            "content",
+            Some("https://example.com/reference"),
+            None,
+            Some("hash"),
+        )
+        .await
+        .expect("insert candidate reference");
+
+        live_db.close().await;
+        candidate_db.close().await;
+
+        let live_db_path = live_workspace.path().join("ghost.db");
+        let candidate_db_path = candidate_workspace.path().join("ghost.db");
+        copy_db_only_tables(&candidate_db_path, &live_db_path)
+            .await
+            .expect("copy db-only tables");
+
+        let repaired_db = db::connect(candidate_workspace.path(), TEST_EMBEDDING_DIM)
+            .await
+            .expect("connect repaired db");
+        let row = sqlx::query("SELECT id, reference_id FROM message_source WHERE id = ?")
+            .bind(&source_id)
+            .fetch_one(&repaired_db)
+            .await
+            .expect("fetch repaired message source");
+
+        assert_eq!(
+            row.get::<Option<String>, _>("reference_id"),
+            None,
+            "repair should keep a null reference_id null instead of inferring one from URL"
+        );
+
+        let (source_rows, copied_rows) =
+            count_rows(&candidate_db_path, &live_db_path, "message_source")
+                .await
+                .expect("count message_source rows");
+        assert_eq!(source_rows, copied_rows);
+    }
 }
