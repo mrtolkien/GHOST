@@ -109,8 +109,8 @@ These tools should be invoked on demand via nix rather than treated as managed s
 
 ### Staging Output
 
-The staging directory contains only canonical markdown transcript content. It does **not**
-preserve downloaded subtitle files or audio artifacts in `_originals/`.
+The staging directory contains only canonical markdown transcript content. It does
+**not** preserve downloaded subtitle files or audio artifacts in `_originals/`.
 
 The authoritative provenance anchor is the original YouTube URL, stored in
 `_import.toml`, so the source can be re-fetched later if needed.
@@ -153,8 +153,8 @@ This design intentionally avoids semantic topic-boundary inference in v1.
 
 Video metadata belongs in `_import.toml`, not in a synthetic markdown file.
 
-The YouTube import metadata should extend the existing provenance model with video fields
-such as:
+The YouTube import metadata should extend the existing provenance model with video
+fields such as:
 
 - `source_type = "youtube"`
 - `source_url`

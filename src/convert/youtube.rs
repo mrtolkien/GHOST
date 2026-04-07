@@ -559,7 +559,7 @@ fn extract_video_id(url: &Url) -> Option<String> {
             if path == "watch" {
                 url.query_pairs()
                     .find_map(|(key, value)| (key == "v" && !value.is_empty()).then_some(value))
-                    .map(|value| value.into_owned())
+                    .map(std::borrow::Cow::into_owned)
             } else if let Some(id) = path.strip_prefix("shorts/") {
                 (!id.is_empty()).then(|| id.to_string())
             } else if let Some(id) = path.strip_prefix("embed/") {

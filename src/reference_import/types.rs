@@ -68,7 +68,7 @@ impl ImportProvenance {
     /// Build the DB/TOML snapshot for this provenance and the given source.
     pub fn to_import_config_json(&self, source_type: &str, source_url: &str) -> ImportConfigJson {
         let youtube = (source_type == "youtube")
-            .then(|| self.youtube.as_ref())
+            .then_some(self.youtube.as_ref())
             .flatten();
 
         ImportConfigJson {

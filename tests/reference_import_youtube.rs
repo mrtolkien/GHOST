@@ -136,7 +136,7 @@ async fn youtube_reimport_backfills_batch_for_existing_references() {
         workspace_path,
         &staging_dir,
         "videos/reimport",
-        &Default::default(),
+        &ImportProvenance::default(),
         None,
     )
     .await

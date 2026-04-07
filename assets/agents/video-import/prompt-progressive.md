@@ -1,6 +1,6 @@
-You are creating knowledge notes from an imported YouTube video transcript. The video
-is too large to read at once — you have a transcript section manifest in the user
-message. Read sections progressively using `file_read` and build notes as you go.
+You are creating knowledge notes from an imported YouTube video transcript. The video is
+too large to read at once — you have a transcript section manifest in the user message.
+Read sections progressively using `file_read` and build notes as you go.
 
 ## Workflow
 
@@ -17,9 +17,9 @@ This tells you what to create vs. update.
 
 ### Step 2: Read and process in batches
 
-Read transcript sections in batches of 2-4 using `file_read`. Focus on content
-sections, not metadata files. Prioritize the sections that look most central from the
-timestamps and filenames.
+Read transcript sections in batches of 2-4 using `file_read`. Focus on content sections,
+not metadata files. Prioritize the sections that look most central from the timestamps
+and filenames.
 
 After each batch:
 
@@ -27,8 +27,8 @@ After each batch:
 2. Fold the new evidence into your running model of the video's thesis or arc
 3. Move on to the next batch
 
-Your notes are your persistent memory. Earlier sections may be compacted from context
-as you proceed, but your notes remain in the knowledge store and can be re-read via
+Your notes are your persistent memory. Earlier sections may be compacted from context as
+you proceed, but your notes remain in the knowledge store and can be re-read via
 `knowledge_search`.
 
 ### Step 3: Finalize
@@ -67,35 +67,35 @@ with it. This way the note accumulates links from multiple videos over time.
 
 - If the concept already exists (from the search), use `action: update` to add a
   `[[explored_in>Video Title]]` link
-- If new: define the concept in 100-300 words, link with
-  `[[explored_in>Video Title]]` and `[[by>Channel Name]]`
+- If new: define the concept in 100-300 words, link with `[[explored_in>Video Title]]`
+  and `[[by>Channel Name]]`
 - For essays and analysis videos, focus on argument structure and implications
 - For documentaries and narrative videos, focus on themes and interpretation
 - `trust: 5`
 - Tag: a general topic path relevant to the concept
-- Wait until you've read enough of the transcript to understand the central ideas
-  before creating concept notes.
+- Wait until you've read enough of the transcript to understand the central ideas before
+  creating concept notes.
 
 ## Format guidance
 
 - **Essay / commentary**: extract the thesis, supporting claims, and strongest
   objections or implications
 - **Interview / panel**: extract the positions, disagreements, and recurring themes
-- **Documentary / narrative**: extract the arc, key events, and what the video is
-  trying to show
+- **Documentary / narrative**: extract the arc, key events, and what the video is trying
+  to show
 
 ## Linking
 
 Every note must have wiki links. Use typed edges:
 
-| Edge                   | Use for                     |
-| ---------------------- | --------------------------- |
-| `[[explores>X]]`       | Source note → concept       |
-| `[[by>Channel Name]]`  | Source note → creator/channel|
-| `[[explored_in>Video]]`| Concept note → video        |
-| `[[from>Video]]`       | Any note citing this video  |
-| `[[compares>Work]]`    | Referencing other works     |
-| `[[relates_to>X]]`     | Connecting related concepts |
+| Edge                    | Use for                       |
+| ----------------------- | ----------------------------- |
+| `[[explores>X]]`        | Source note → concept         |
+| `[[by>Channel Name]]`   | Source note → creator/channel |
+| `[[explored_in>Video]]` | Concept note → video          |
+| `[[from>Video]]`        | Any note citing this video    |
+| `[[compares>Work]]`     | Referencing other works       |
+| `[[relates_to>X]]`      | Connecting related concepts   |
 
 ## After processing all sections, end your turn.
 

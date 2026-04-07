@@ -46,8 +46,8 @@ with it. This way the note accumulates links from multiple videos over time.
 
 - If the concept already exists (from the search), use `action: update` to add a
   `[[explored_in>Video Title]]` link
-- If new: define the concept in 100-300 words, link with
-  `[[explored_in>Video Title]]` and `[[by>Channel Name]]`
+- If new: define the concept in 100-300 words, link with `[[explored_in>Video Title]]`
+  and `[[by>Channel Name]]`
 - For essays and analysis videos, focus on argument structure and implications
 - For documentaries and narrative videos, focus on themes and interpretation
 - `trust: 5`
@@ -58,21 +58,21 @@ with it. This way the note accumulates links from multiple videos over time.
 - **Essay / commentary**: extract the thesis, supporting claims, and strongest
   objections or implications
 - **Interview / panel**: extract the positions, disagreements, and recurring themes
-- **Documentary / narrative**: extract the arc, key events, and what the video is
-  trying to show
+- **Documentary / narrative**: extract the arc, key events, and what the video is trying
+  to show
 
 ## Linking
 
 Every note must have wiki links. Use typed edges:
 
-| Edge                   | Use for                     |
-| ---------------------- | --------------------------- |
-| `[[explores>X]]`       | Source note → concept       |
-| `[[by>Channel Name]]`  | Source note → creator/channel|
-| `[[explored_in>Video]]`| Concept note → video        |
-| `[[from>Video]]`       | Any note citing this video  |
-| `[[compares>Work]]`    | Referencing other works     |
-| `[[relates_to>X]]`     | Connecting related concepts |
+| Edge                    | Use for                       |
+| ----------------------- | ----------------------------- |
+| `[[explores>X]]`        | Source note → concept         |
+| `[[by>Channel Name]]`   | Source note → creator/channel |
+| `[[explored_in>Video]]` | Concept note → video          |
+| `[[from>Video]]`        | Any note citing this video    |
+| `[[compares>Work]]`     | Referencing other works       |
+| `[[relates_to>X]]`      | Connecting related concepts   |
 
 ## After creating notes, end your turn.
 

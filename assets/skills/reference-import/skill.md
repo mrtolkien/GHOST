@@ -10,9 +10,8 @@ description:
 # Reference Import Skill
 
 Import git repos, web crawls, documents, books, and YouTube videos as topic-scoped
-references into the knowledge base. All sources go through a two-step flow:
-**convert** (produce staging dir with markdown) then **import** (index into the
-knowledge base).
+references into the knowledge base. All sources go through a two-step flow: **convert**
+(produce staging dir with markdown) then **import** (index into the knowledge base).
 
 ## Decision Flow
 
@@ -53,10 +52,10 @@ The staging directory defaults to `<workspace>/.staging/<slug>/`. The command pr
 staging path and provenance details (source URL, git ref, etc.) to stdout — capture
 these for the import step.
 
-YouTube import is v1 single-video only. Transcript acquisition priority is:
-manual captions, then auto captions, then CPU Whisper fallback if captions are missing.
-The converter splits transcripts into multiple markdown files based primarily on length,
-not uploader chapters, so the reference files stay readable for rereading and search.
+YouTube import is v1 single-video only. Transcript acquisition priority is: manual
+captions, then auto captions, then CPU Whisper fallback if captions are missing. The
+converter splits transcripts into multiple markdown files based primarily on length, not
+uploader chapters, so the reference files stay readable for rereading and search.
 
 ### Step 2: Inspect
 
