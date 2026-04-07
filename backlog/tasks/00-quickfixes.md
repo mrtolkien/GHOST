@@ -5,6 +5,10 @@
 - [ ] Review deep research skill: it should push the LLM to ask the user for more
       information before spawning a sub-agent. Because once it's started, it's going to
       work for a long time.
+- [ ] The GHOST re-reads the skills too often, wasting precious context
+- [ ] The GHOST re-quotes local files over and over again when editing/working with
+      skills, it's not super useful since we can't read it + using its own skills as
+      source is weird
 
 ---
 

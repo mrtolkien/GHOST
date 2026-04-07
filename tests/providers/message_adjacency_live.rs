@@ -87,7 +87,7 @@ async fn seed_and_chat(
 /// ```
 #[tokio::test]
 async fn system_message_between_tool_use_and_result() {
-    let response = seed_and_chat(
+    let response = Box::pin(seed_and_chat(
         "adj_sys_between_tool",
         &[
             ("user", "Send me the screenshot", None, None),
@@ -116,7 +116,7 @@ async fn system_message_between_tool_use_and_result() {
             ("assistant", "Sent the image.", None, None),
         ],
         "Say OK",
-    )
+    ))
     .await;
 
     assert!(!response.trim().is_empty(), "response should not be empty");
@@ -128,7 +128,7 @@ async fn system_message_between_tool_use_and_result() {
 /// + agent completion) before the tool result.
 #[tokio::test]
 async fn multiple_system_messages_between_tool_use_and_result() {
-    let response = seed_and_chat(
+    let response = Box::pin(seed_and_chat(
         "adj_multi_sys_between",
         &[
             ("user", "Do the thing", None, None),
@@ -157,7 +157,7 @@ async fn multiple_system_messages_between_tool_use_and_result() {
             ("assistant", "Done.", None, None),
         ],
         "Say OK",
-    )
+    ))
     .await;
 
     assert!(!response.trim().is_empty());
@@ -176,7 +176,7 @@ async fn multiple_system_messages_between_tool_use_and_result() {
 /// ```
 #[tokio::test]
 async fn consecutive_user_from_system_and_text() {
-    let response = seed_and_chat(
+    let response = Box::pin(seed_and_chat(
         "adj_consec_user",
         &[
             ("user", "Research standing desks in Japan", None, None),
@@ -196,7 +196,7 @@ async fn consecutive_user_from_system_and_text() {
             ),
         ],
         "Say OK",
-    )
+    ))
     .await;
 
     assert!(!response.trim().is_empty());
@@ -208,7 +208,7 @@ async fn consecutive_user_from_system_and_text() {
 /// same conversation, each injecting a system message.
 #[tokio::test]
 async fn two_send_image_calls_in_same_session() {
-    let response = seed_and_chat(
+    let response = Box::pin(seed_and_chat(
         "adj_two_send_images",
         &[
             ("user", "Show me the reservation QR code", None, None),
@@ -292,7 +292,7 @@ async fn two_send_image_calls_in_same_session() {
             ("assistant", "Resent with a larger capture.", None, None),
         ],
         "Say OK",
-    )
+    ))
     .await;
 
     assert!(!response.trim().is_empty());
@@ -308,7 +308,7 @@ async fn two_send_image_calls_in_same_session() {
 /// ```
 #[tokio::test]
 async fn system_message_not_between_tool_pair() {
-    let response = seed_and_chat(
+    let response = Box::pin(seed_and_chat(
         "adj_sys_not_tool",
         &[
             ("user", "Start a background task", None, None),
@@ -323,7 +323,7 @@ async fn system_message_not_between_tool_pair() {
             ("assistant", "The task finished successfully.", None, None),
         ],
         "Say OK",
-    )
+    ))
     .await;
 
     assert!(!response.trim().is_empty());
@@ -340,7 +340,7 @@ async fn system_message_not_between_tool_pair() {
 /// - Regular text exchanges
 #[tokio::test]
 async fn full_mixed_session() {
-    let response = seed_and_chat(
+    let response = Box::pin(seed_and_chat(
         "adj_full_mixed",
         &[
             ("user", "Book Hama sushi", None, None),
@@ -458,7 +458,7 @@ async fn full_mixed_session() {
             ("assistant", "pong", None, None),
         ],
         "Say OK",
-    )
+    ))
     .await;
 
     assert!(!response.trim().is_empty());

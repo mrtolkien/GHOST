@@ -108,7 +108,8 @@ async fn handle_event(
     // Send the background command output to Discord so the user sees what
     // triggered the continuation turn. Truncate to fit Discord's text_display
     // limit (send_gateway_v2 does not chunk automatically).
-    if let Some(sender) = discord_sender
+    if should_send_discord_system_message(&event)
+        && let Some(sender) = discord_sender
         && let Some(channel_id) = discord_channel_id
     {
         let content = truncate_for_discord(&event.system_message);
@@ -299,6 +300,13 @@ fn truncate_for_discord(content: &str) -> String {
     truncated
 }
 
+fn should_send_discord_system_message(event: &SessionEvent) -> bool {
+    !event
+        .discord
+        .as_ref()
+        .is_some_and(|discord| discord.agent_name.is_some() && discord.agent_metadata.is_some())
+}
+
 /// Extract channel ID from an interface key like "discord:channel:123456".
 fn parse_discord_channel_id(interface_key: &str) -> Option<u64> {
     interface_key
@@ -308,7 +316,24 @@ fn parse_discord_channel_id(interface_key: &str) -> Option<u64> {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+    use std::time::Duration;
+
     use super::*;
+    use crate::events::DiscordPayload;
+
+    fn test_metadata() -> RunMetadata {
+        RunMetadata {
+            model_alias: "primary".to_string(),
+            iterations: 1,
+            tool_counts: HashMap::new(),
+            input_tokens: 100,
+            output_tokens: 50,
+            cache_read_tokens: 0,
+            cache_creation_tokens: 0,
+            duration: Duration::from_secs(2),
+        }
+    }
 
     #[test]
     fn parse_discord_channel_id_valid() {
@@ -337,5 +362,33 @@ mod tests {
         let result = truncate_for_discord(&msg);
         assert!(result.len() <= MAX_DISCORD_SYSTEM_MESSAGE_CHARS + 20);
         assert!(result.ends_with("...[truncated]"));
+    }
+
+    #[test]
+    fn agent_completion_skips_discord_system_message() {
+        let event = SessionEvent {
+            session_id: "session-1".to_string(),
+            system_message: "[agent:briefing completed]\n\nLong internal recap".to_string(),
+            discord: Some(DiscordPayload {
+                agent_name: Some("briefing".to_string()),
+                agent_metadata: Some(test_metadata()),
+                agent_findings: Some("Found updates".to_string()),
+            }),
+            notify_only: false,
+        };
+
+        assert!(!should_send_discord_system_message(&event));
+    }
+
+    #[test]
+    fn background_command_still_sends_discord_system_message() {
+        let event = SessionEvent {
+            session_id: "session-1".to_string(),
+            system_message: "[shell-command completed]\n$ echo hi".to_string(),
+            discord: None,
+            notify_only: false,
+        };
+
+        assert!(should_send_discord_system_message(&event));
     }
 }
