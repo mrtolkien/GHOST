@@ -115,6 +115,12 @@ async fn epub_convert_and_import() {
         source_url: Some(TEST_EPUB.to_string()),
         version_ref: None,
         git_ref: None,
+        paths: vec![],
+        extensions: vec![],
+        max_depth: None,
+        max_pages: None,
+        no_ocr: None,
+        page_range: None,
         ..Default::default()
     };
 
@@ -212,6 +218,12 @@ async fn epub_agent_creates_notes() {
         source_url: Some(TEST_EPUB.to_string()),
         version_ref: None,
         git_ref: None,
+        paths: vec![],
+        extensions: vec![],
+        max_depth: None,
+        max_pages: None,
+        no_ocr: None,
+        page_range: None,
         ..Default::default()
     };
 
@@ -334,6 +346,12 @@ async fn epub_agent_progressive_path() {
         source_url: Some(TEST_EPUB_LARGE.to_string()),
         version_ref: None,
         git_ref: None,
+        paths: vec![],
+        extensions: vec![],
+        max_depth: None,
+        max_pages: None,
+        no_ocr: None,
+        page_range: None,
         ..Default::default()
     };
 

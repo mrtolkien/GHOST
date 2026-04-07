@@ -60,3 +60,31 @@ impl From<crate::db::DatabaseError> for GhostError {
         GhostError::Database(Box::new(e))
     }
 }
+
+pub fn repair_hint(message: &str) -> Option<&'static str> {
+    let lower = message.to_ascii_lowercase();
+    if lower.contains("database disk image is malformed") || lower.contains("code: 11") {
+        return Some(
+            "Database corruption detected. Run `ghost db repair --dry-run` to build and verify a repaired candidate database.",
+        );
+    }
+    None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::repair_hint;
+
+    #[test]
+    fn repair_hint_detects_malformed_sqlite_errors() {
+        let hint = repair_hint(
+            "database query failed for table 'reference' operation 'search': error returned from database: (code: 11) database disk image is malformed",
+        );
+        assert!(hint.is_some());
+    }
+
+    #[test]
+    fn repair_hint_ignores_unrelated_errors() {
+        assert!(repair_hint("query returned no rows").is_none());
+    }
+}

@@ -144,11 +144,11 @@ v1 uses a non-LLM hybrid splitter:
 4. Merge tiny chapters/segments where needed.
 5. If no chapters exist, split directly by transcript length using timestamp boundaries.
 
-The converter should target relatively large transcript sections rather than tiny chunks.
-The hard ceiling for a single reference file should be about **40,000 characters max**.
-Staying under that limit keeps each reference comfortably readable and re-loadable for
-modern LLM context windows while still avoiding pathological "entire 3-hour transcript
-in one file" imports.
+The converter should target relatively large transcript sections rather than tiny
+chunks. The hard ceiling for a single reference file should be about **40,000 characters
+max**. Staying under that limit keeps each reference comfortably readable and
+re-loadable for modern LLM context windows while still avoiding pathological "entire
+3-hour transcript in one file" imports.
 
 This design intentionally avoids semantic topic-boundary inference in v1.
 

@@ -4,7 +4,7 @@ use clap::Subcommand;
 
 use crate::db;
 use crate::error::GhostError;
-use crate::reference_import::ImportProvenance;
+use crate::reference_import::{ImportError, ImportProvenance};
 
 #[derive(Debug, Subcommand)]
 pub enum ReferenceCommand {
@@ -27,6 +27,18 @@ pub enum ReferenceCommand {
         /// Git ref (branch or tag)
         #[arg(long)]
         git_ref: Option<String>,
+        /// Comma-separated paths to include for git imports
+        #[arg(long, value_delimiter = ',')]
+        paths: Vec<String>,
+        /// Comma-separated file extensions to include for git imports
+        #[arg(long, value_delimiter = ',')]
+        extensions: Vec<String>,
+        /// Maximum BFS depth for crawl imports
+        #[arg(long)]
+        max_depth: Option<usize>,
+        /// Maximum number of pages for crawl imports
+        #[arg(long)]
+        max_pages: Option<usize>,
     },
     /// Update references for a topic from its original source
     Update {
@@ -59,12 +71,22 @@ pub async fn execute(command: ReferenceCommand) -> Result<(), GhostError> {
             source_url,
             version_ref,
             git_ref,
+            paths,
+            extensions,
+            max_depth,
+            max_pages,
         } => {
             let provenance = ImportProvenance {
                 source_type,
                 source_url,
                 version_ref,
                 git_ref,
+                paths,
+                extensions,
+                max_depth,
+                max_pages,
+                no_ocr: None,
+                page_range: None,
                 ..Default::default()
             };
 
@@ -79,7 +101,8 @@ pub async fn execute(command: ReferenceCommand) -> Result<(), GhostError> {
                 &provenance,
                 None,
             )
-            .await?;
+            .await
+            .map_err(|error| map_reference_import_error("import", &topic, error))?;
 
             print_import_result(&topic, &result);
             cleanup_staging(&path, workspace);
@@ -93,7 +116,8 @@ pub async fn execute(command: ReferenceCommand) -> Result<(), GhostError> {
                 &topic,
                 git_ref.as_deref(),
             )
-            .await?;
+            .await
+            .map_err(|error| map_reference_import_error("update", &topic, error))?;
             print_update_result(&topic, &result);
             Ok(())
         }
@@ -155,6 +179,19 @@ fn print_update_result(_topic: &str, result: &crate::reference_import::UpdateRes
     );
     if result.created + result.updated > 0 {
         println!("Embeddings are being re-computed in the background by the file watcher.");
+    }
+}
+
+fn map_reference_import_error(action: &str, topic: &str, error: ImportError) -> GhostError {
+    match &error {
+        ImportError::Config(message)
+            if message.contains("_import.toml") || message.contains("repair-critical") =>
+        {
+            GhostError::Other(format!(
+                "reference {action} failed for topic '{topic}': {message}"
+            ))
+        }
+        _ => GhostError::Import(error),
     }
 }
 

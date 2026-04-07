@@ -47,6 +47,12 @@ pub struct ImportProvenance {
     pub source_url: Option<String>,
     pub version_ref: Option<String>,
     pub git_ref: Option<String>,
+    pub paths: Vec<String>,
+    pub extensions: Vec<String>,
+    pub max_depth: Option<usize>,
+    pub max_pages: Option<usize>,
+    pub no_ocr: Option<bool>,
+    pub page_range: Option<(u32, u32)>,
     pub youtube: Option<YoutubeImportProvenance>,
 }
 
@@ -62,37 +68,6 @@ pub struct YoutubeImportProvenance {
     pub section_count: Option<usize>,
     pub chapter_count: Option<usize>,
     pub language: Option<String>,
-}
-
-impl ImportProvenance {
-    /// Build the DB/TOML snapshot for this provenance and the given source.
-    pub fn to_import_config_json(&self, source_type: &str, source_url: &str) -> ImportConfigJson {
-        let youtube = (source_type == "youtube")
-            .then_some(self.youtube.as_ref())
-            .flatten();
-
-        ImportConfigJson {
-            source_type: source_type.to_string(),
-            source_url: source_url.to_string(),
-            git_ref: self.git_ref.clone(),
-            paths: vec![],
-            extensions: vec![],
-            max_depth: None,
-            max_pages: None,
-            title: youtube.and_then(|meta| meta.title.clone()),
-            authors: None,
-            language: youtube.and_then(|meta| meta.language.clone()),
-            publisher: None,
-            publication_date: None,
-            video_id: youtube.and_then(|meta| meta.video_id.clone()),
-            channel: youtube.and_then(|meta| meta.channel.clone()),
-            published_at: youtube.and_then(|meta| meta.published_at.clone()),
-            duration_seconds: youtube.and_then(|meta| meta.duration_seconds),
-            transcript_source: youtube.and_then(|meta| meta.transcript_source.clone()),
-            section_count: youtube.and_then(|meta| meta.section_count),
-            chapter_count: youtube.and_then(|meta| meta.chapter_count),
-        }
-    }
 }
 
 #[derive(Debug)]
@@ -154,6 +129,10 @@ pub struct ImportConfigJson {
     pub max_depth: Option<usize>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_pages: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub no_ocr: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub page_range: Option<(u32, u32)>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -229,6 +208,8 @@ impl From<&ImportConfig> for ImportConfigJson {
                 extensions: extensions.clone(),
                 max_depth: None,
                 max_pages: None,
+                no_ocr: None,
+                page_range: None,
                 title: None,
                 authors: None,
                 language: None,
@@ -254,6 +235,8 @@ impl From<&ImportConfig> for ImportConfigJson {
                 extensions: vec![],
                 max_depth: Some(*max_depth),
                 max_pages: Some(*max_pages),
+                no_ocr: None,
+                page_range: None,
                 title: None,
                 authors: None,
                 language: None,
@@ -267,7 +250,11 @@ impl From<&ImportConfig> for ImportConfigJson {
                 section_count: None,
                 chapter_count: None,
             },
-            ImportSource::File { path, .. } => ImportConfigJson {
+            ImportSource::File {
+                path,
+                no_ocr,
+                page_range,
+            } => ImportConfigJson {
                 source_type: "file".into(),
                 source_url: path.clone(),
                 git_ref: None,
@@ -275,6 +262,8 @@ impl From<&ImportConfig> for ImportConfigJson {
                 extensions: vec![],
                 max_depth: None,
                 max_pages: None,
+                no_ocr: Some(*no_ocr),
+                page_range: *page_range,
                 title: None,
                 authors: None,
                 language: None,
@@ -300,6 +289,8 @@ impl From<&ImportConfig> for ImportConfigJson {
                 extensions: vec![],
                 max_depth: None,
                 max_pages: None,
+                no_ocr: None,
+                page_range: None,
                 title: title.clone(),
                 authors: Some(authors.clone()),
                 language: None,

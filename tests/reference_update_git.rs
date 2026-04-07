@@ -33,6 +33,12 @@ async fn update_git_references_with_diff_and_orphan_protection() {
         source_url: Some("https://github.com/DioxusLabs/docsite".to_string()),
         version_ref: Some(convert_result.version_ref.clone()),
         git_ref: None,
+        paths: vec!["docs-src/0.7/src/tutorial/".to_string()],
+        extensions: vec![".md".to_string()],
+        max_depth: None,
+        max_pages: None,
+        no_ocr: None,
+        page_range: None,
         ..Default::default()
     };
 

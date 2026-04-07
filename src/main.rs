@@ -49,6 +49,10 @@ enum Commands {
         #[command(subcommand)]
         command: ghost::cli::convert::ConvertCommand,
     },
+    Db {
+        #[command(subcommand)]
+        command: ghost::cli::db::DbCommand,
+    },
     Reference {
         #[command(subcommand)]
         command: ghost::cli::reference::ReferenceCommand,
@@ -124,6 +128,9 @@ async fn main() {
     let cli = Cli::parse();
     if let Err(e) = Box::pin(dispatch(cli.command)).await {
         eprintln!("Error: {e}");
+        if let Some(hint) = ghost::error::repair_hint(&e.to_string()) {
+            eprintln!("{hint}");
+        }
         std::process::exit(1);
     }
 }
@@ -141,7 +148,8 @@ async fn dispatch(command: Commands) -> Result<(), GhostError> {
         Commands::Knowledge { command } => ghost::cli::knowledge::execute(command).await,
         Commands::Project { command } => ghost::cli::project::execute(command).await,
         Commands::Convert { command } => ghost::cli::convert::execute(command).await,
-        Commands::Reference { command } => ghost::cli::reference::execute(command).await,
+        Commands::Db { command } => Box::pin(ghost::cli::db::execute(command)).await,
+        Commands::Reference { command } => Box::pin(ghost::cli::reference::execute(command)).await,
         Commands::Topics { command } => ghost::cli::topics::execute(command).await,
         Commands::Web { command } => ghost::cli::web::execute(command).await,
         Commands::Browsers { command } => ghost::cli::browsers::execute(command).await,

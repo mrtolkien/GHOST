@@ -1,12 +1,22 @@
 # YouTube Video Import v1 Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use
+> superpowers:subagent-driven-development (recommended) or superpowers:executing-plans
+> to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Import a single YouTube video URL as sectioned transcript references, then run a dedicated agent to create notes from the imported video.
+**Goal:** Import a single YouTube video URL as sectioned transcript references, then run
+a dedicated agent to create notes from the imported video.
 
-**Architecture:** Follow the existing two-step reference import flow. `ghost convert youtube` fetches captions or falls back to CPU Whisper, splits the transcript into bounded markdown sections in a staging directory, and prints provenance metadata. `ghost reference import` then ingests the staging directory unchanged, while a new `video-import` Lua agent reads the imported references and creates source and concept notes.
+**Architecture:** Follow the existing two-step reference import flow.
+`ghost convert youtube` fetches captions or falls back to CPU Whisper, splits the
+transcript into bounded markdown sections in a staging directory, and prints provenance
+metadata. `ghost reference import` then ingests the staging directory unchanged, while a
+new `video-import` Lua agent reads the imported references and creates source and
+concept notes.
 
-**Tech Stack:** Rust CLI (`clap`), `serde_json`, `tokio::process::Command`, on-demand nix shell tools (`yt-dlp`, `ffmpeg`, `whisper-cpp`), SQLite migration, Lua agent prompts, existing reference import pipeline.
+**Tech Stack:** Rust CLI (`clap`), `serde_json`, `tokio::process::Command`, on-demand
+nix shell tools (`yt-dlp`, `ffmpeg`, `whisper-cpp`), SQLite migration, Lua agent
+prompts, existing reference import pipeline.
 
 **Spec:** `backlog/tasks/4-import-v2/audio-content-import.md`
 
@@ -14,20 +24,20 @@
 
 ## File Map
 
-| File | Action | Responsibility |
-| --- | --- | --- |
-| `src/constants.rs` | modify | Add tuneable limits for transcript section sizing and caption quality guards |
-| `src/convert/mod.rs` | modify | Export `youtube` converter module |
-| `src/convert/youtube.rs` | create | YouTube metadata fetch, caption/STT acquisition, transcript parsing, section splitting, staging output |
-| `src/cli/convert.rs` | modify | Add `ConvertCommand::Youtube` and CLI execution/printing |
-| `migrations/016_youtube_source_type.sql` | create | Add `'youtube'` to `import_batch.source_type` CHECK constraint |
-| `src/reference_import/types.rs` | modify | Extend `ImportConfigJson` with YouTube metadata fields; allow `youtube` source snapshots |
-| `src/reference_import/topic.rs` | modify | Persist extended `_import.toml` fields for YouTube imports |
-| `assets/agents/video-import/agent.lua` | create | Dedicated note-extraction agent for video references |
-| `assets/agents/video-import/prompt.md` | create | Single-shot prompt for shorter video imports |
-| `assets/agents/video-import/prompt-progressive.md` | create | Progressive prompt for larger multi-section video imports |
-| `assets/skills/reference-import/skill.md` | modify | Document `ghost convert youtube` and `video-import` workflow |
-| `tests/youtube_import.rs` | create | Converter/import tests and optional live integration coverage |
+| File                                               | Action | Responsibility                                                                                         |
+| -------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------ |
+| `src/constants.rs`                                 | modify | Add tuneable limits for transcript section sizing and caption quality guards                           |
+| `src/convert/mod.rs`                               | modify | Export `youtube` converter module                                                                      |
+| `src/convert/youtube.rs`                           | create | YouTube metadata fetch, caption/STT acquisition, transcript parsing, section splitting, staging output |
+| `src/cli/convert.rs`                               | modify | Add `ConvertCommand::Youtube` and CLI execution/printing                                               |
+| `migrations/016_youtube_source_type.sql`           | create | Add `'youtube'` to `import_batch.source_type` CHECK constraint                                         |
+| `src/reference_import/types.rs`                    | modify | Extend `ImportConfigJson` with YouTube metadata fields; allow `youtube` source snapshots               |
+| `src/reference_import/topic.rs`                    | modify | Persist extended `_import.toml` fields for YouTube imports                                             |
+| `assets/agents/video-import/agent.lua`             | create | Dedicated note-extraction agent for video references                                                   |
+| `assets/agents/video-import/prompt.md`             | create | Single-shot prompt for shorter video imports                                                           |
+| `assets/agents/video-import/prompt-progressive.md` | create | Progressive prompt for larger multi-section video imports                                              |
+| `assets/skills/reference-import/skill.md`          | modify | Document `ghost convert youtube` and `video-import` workflow                                           |
+| `tests/youtube_import.rs`                          | create | Converter/import tests and optional live integration coverage                                          |
 
 ---
 
@@ -41,7 +51,8 @@
 
 - [ ] **Step 1: Add migration `016_youtube_source_type.sql`**
 
-Create a table-recreation migration following the existing `015_book_source_type.sql` pattern, but add `'youtube'` to the `source_type` CHECK constraint:
+Create a table-recreation migration following the existing `015_book_source_type.sql`
+pattern, but add `'youtube'` to the `source_type` CHECK constraint:
 
 ```sql
 -- Add 'youtube' to import_batch.source_type CHECK constraint.
@@ -95,11 +106,14 @@ pub chapter_count: Option<usize>,
 pub language: Option<String>,
 ```
 
-Update every `ImportConfigJson` constructor in the file to populate the new fields with `None` unless the source is YouTube.
+Update every `ImportConfigJson` constructor in the file to populate the new fields with
+`None` unless the source is YouTube.
 
-- [ ] **Step 3: Teach `ImportConfigJson::to_import_config()` to reject YouTube updates clearly**
+- [ ] **Step 3: Teach `ImportConfigJson::to_import_config()` to reject YouTube updates
+      clearly**
 
-Keep update support limited to `git` and `crawl`, but make the unsupported branch explicit:
+Keep update support limited to `git` and `crawl`, but make the unsupported branch
+explicit:
 
 ```rust
 other => {
@@ -113,7 +127,8 @@ No update implementation is needed for YouTube v1.
 
 - [ ] **Step 4: Extend `_import.toml` serialization**
 
-In `src/reference_import/topic.rs`, add the new optional fields to the private `ImportToml` struct and copy them from `ImportConfigJson` in `write_import_toml()`:
+In `src/reference_import/topic.rs`, add the new optional fields to the private
+`ImportToml` struct and copy them from `ImportConfigJson` in `write_import_toml()`:
 
 ```rust
 #[serde(skip_serializing_if = "Option::is_none")]
@@ -136,7 +151,9 @@ language: Option<String>,
 
 - [ ] **Step 5: Add a focused serialization unit test**
 
-At the bottom of `src/reference_import/topic.rs`, add a unit test that writes `_import.toml` for a synthetic YouTube config and asserts it contains the expected extra fields:
+At the bottom of `src/reference_import/topic.rs`, add a unit test that writes
+`_import.toml` for a synthetic YouTube config and asserts it contains the expected extra
+fields:
 
 ```rust
 #[test]
@@ -321,7 +338,8 @@ async fn run_yt_dlp_audio(url: &str, output_dir: &Path) -> Result<PathBuf, Conve
 async fn run_whisper(audio_path: &Path, output_dir: &Path) -> Result<PathBuf, ConvertError> { /* nix shell nixpkgs#whisper-cpp --command whisper-cli ... */ }
 ```
 
-Use `tokio::process::Command`, capture stderr, and convert failures into actionable `ConvertError::Conversion` messages that name the acquisition path that failed.
+Use `tokio::process::Command`, capture stderr, and convert failures into actionable
+`ConvertError::Conversion` messages that name the acquisition path that failed.
 
 - [ ] **Step 6: Implement transcript acquisition priority**
 
@@ -362,9 +380,7 @@ Each section file should begin with lightweight source context:
 ```md
 # <section title or fallback>
 
-Video: <title>
-URL: <source_url>
-Start: 08:40
+Video: <title> URL: <source_url> Start: 08:40
 
 <transcript text>
 ```
@@ -453,11 +469,14 @@ fn print_youtube_result(result: &YoutubeConvertResult) {
 }
 ```
 
-Change the transcript-source print to a stable lowercase string before finalizing the code; do not leave the debug formatter in place.
+Change the transcript-source print to a stable lowercase string before finalizing the
+code; do not leave the debug formatter in place.
 
 - [ ] **Step 4: Add a small CLI smoke test if the file already has test coverage**
 
-If `src/cli/convert.rs` already has tests by the time implementation reaches this step, add one for `print_youtube_result()`. Otherwise rely on the converter/import integration tests and keep this file focused.
+If `src/cli/convert.rs` already has tests by the time implementation reaches this step,
+add one for `print_youtube_result()`. Otherwise rely on the converter/import integration
+tests and keep this file focused.
 
 - [ ] **Step 5: Run a compile check**
 
@@ -482,7 +501,8 @@ git commit -m "feat: add ghost convert youtube command"
 
 - [ ] **Step 1: Create a non-network unit/integration test around staging import**
 
-Write a test that synthesizes a converted YouTube staging directory, then verifies the generic importer and `_import.toml` behavior:
+Write a test that synthesizes a converted YouTube staging directory, then verifies the
+generic importer and `_import.toml` behavior:
 
 ```rust
 #[tokio::test]
@@ -596,7 +616,8 @@ return {
 }
 ```
 
-Use `references/<topic>/*.md`, skip metadata files, and preserve the same progressive fallback pattern as `book-import`.
+Use `references/<topic>/*.md`, skip metadata files, and preserve the same progressive
+fallback pattern as `book-import`.
 
 - [ ] **Step 2: Write `prompt.md` for smaller imports**
 
@@ -620,7 +641,8 @@ The progressive prompt must explicitly instruct the agent to:
 
 - [ ] **Step 4: Add an optional live agent integration test**
 
-If the live YouTube convert test is stable enough during implementation, extend `tests/youtube_import.rs` with an LLM-gated test mirroring `epub_agent_creates_notes()`:
+If the live YouTube convert test is stable enough during implementation, extend
+`tests/youtube_import.rs` with an LLM-gated test mirroring `epub_agent_creates_notes()`:
 
 ```rust
 #[cfg(feature = "live-tests-llms")]
@@ -628,7 +650,8 @@ If the live YouTube convert test is stable enough during implementation, extend 
 async fn youtube_agent_creates_notes() { /* convert -> import -> run video-import -> assert source note exists */ }
 ```
 
-Skip this step if the live conversion fixture proves too brittle; do not block the whole feature on a flaky network test.
+Skip this step if the live conversion fixture proves too brittle; do not block the whole
+feature on a flaky network test.
 
 - [ ] **Step 5: Commit**
 
@@ -684,7 +707,8 @@ Add the `video-import` agent example:
 
 Run: `just fmt`
 
-Expected: markdown formatting remains clean and no generated formatting noise appears outside the intended files.
+Expected: markdown formatting remains clean and no generated formatting noise appears
+outside the intended files.
 
 - [ ] **Step 5: Commit**
 
@@ -726,7 +750,8 @@ If `GHOST_TEST_YOUTUBE_URL` is set and the machine has nix/network access, run:
 cargo test --features live-tests youtube_convert_live_from_env_url -- --nocapture
 ```
 
-Expected: converter fetches captions or Whisper fallback and produces at least one staged section.
+Expected: converter fetches captions or Whisper fallback and produces at least one
+staged section.
 
 - [ ] **Step 4: Final commit**
 
@@ -734,7 +759,8 @@ Expected: converter fetches captions or Whisper fallback and produces at least o
 git status --short
 ```
 
-Expected: only intended YouTube import files are modified. If clean and the work is not already split across earlier commits, make a final integration commit:
+Expected: only intended YouTube import files are modified. If clean and the work is not
+already split across earlier commits, make a final integration commit:
 
 ```bash
 git add src/constants.rs src/convert/mod.rs src/convert/youtube.rs src/cli/convert.rs migrations/016_youtube_source_type.sql src/reference_import/types.rs src/reference_import/topic.rs assets/agents/video-import/agent.lua assets/agents/video-import/prompt.md assets/agents/video-import/prompt-progressive.md assets/skills/reference-import/skill.md tests/youtube_import.rs
@@ -760,9 +786,11 @@ Spec coverage check:
 Placeholder scan:
 
 - No `TODO`/`TBD` markers remain.
-- Live network testing is explicitly optional and gated, not a hidden dependency for core verification.
+- Live network testing is explicitly optional and gated, not a hidden dependency for
+  core verification.
 
 Type consistency:
 
 - Use `youtube` as the provenance `source_type` everywhere.
-- Use `TranscriptSource` only inside converter code; persist lowercase strings in metadata output.
+- Use `TranscriptSource` only inside converter code; persist lowercase strings in
+  metadata output.

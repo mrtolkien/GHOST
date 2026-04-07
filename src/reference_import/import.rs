@@ -5,10 +5,13 @@ use crate::db::GhostDb;
 use crate::knowledge;
 
 use super::topic::ensure_topic_hierarchy;
-use super::types::{ImportError, ImportProvenance, ImportResult, YoutubeImportProvenance};
+use super::types::{
+    ImportConfigJson, ImportError, ImportProvenance, ImportResult, YoutubeImportProvenance,
+};
 
 /// Directories to skip when recursively collecting markdown files.
 const SKIP_DIR_PREFIXES: &[char] = &['_', '.'];
+const BOOK_METADATA_FILENAME: &str = "_metadata.json";
 
 /// Converter metadata file used to carry source-specific staging metadata.
 const METADATA_FILE: &str = "_metadata.json";
@@ -40,6 +43,7 @@ pub async fn import_from_path(
     }
 
     let provenance = enrich_youtube_provenance_from_staging(path, provenance)?;
+    let config_json = build_import_config_json(path, &provenance)?;
 
     // Ensure topic hierarchy in DB
     let topic_id = ensure_topic_hierarchy(db, topic).await?;
@@ -112,8 +116,8 @@ pub async fn import_from_path(
         &topic_id,
         topic,
         &provenance,
-        created,
-        skipped,
+        &config_json,
+        created + skipped,
     )
     .await?;
 
@@ -278,16 +282,11 @@ async fn upsert_provenance(
     topic_id: &str,
     topic: &str,
     provenance: &ImportProvenance,
-    created: usize,
-    skipped: usize,
+    config_json: &ImportConfigJson,
+    total_refs_fallback: usize,
 ) -> Result<Option<String>, ImportError> {
-    let (Some(source_type), Some(source_url)) = (&provenance.source_type, &provenance.source_url)
-    else {
-        return Ok(None);
-    };
-
-    let config_json = provenance.to_import_config_json(source_type, source_url);
-    let config_json_str = serde_json::to_string(&config_json).ok();
+    let config_json_str = serde_json::to_string(config_json)
+        .map_err(|e| ImportError::Config(format!("invalid import metadata JSON: {e}")))?;
 
     // Total references for this topic (existing + newly created)
     let total_refs = usize::try_from(
@@ -295,26 +294,197 @@ async fn upsert_provenance(
             .await?
             .max(0),
     )
-    .unwrap_or(created + skipped);
+    .unwrap_or(total_refs_fallback);
 
     let batch_id = db::knowledge::upsert_import_batch(
         db,
         topic_id,
-        source_type,
-        source_url,
+        &config_json.source_type,
+        &config_json.source_url,
         provenance.version_ref.as_deref(),
         total_refs as i64,
-        config_json_str.as_deref(),
+        Some(&config_json_str),
     )
     .await?;
 
     super::topic::write_import_toml(
         workspace,
         topic,
-        &config_json,
+        config_json,
         provenance.version_ref.as_deref(),
         total_refs,
     )?;
 
     Ok(Some(batch_id))
+}
+
+fn build_import_config_json(
+    path: &Path,
+    provenance: &ImportProvenance,
+) -> Result<ImportConfigJson, ImportError> {
+    let (source_type, source_url) =
+        require_repair_critical_provenance(&provenance.source_type, &provenance.source_url)?;
+    let is_book_import = source_type == "book";
+
+    let mut config_json = ImportConfigJson {
+        source_type,
+        source_url,
+        git_ref: provenance.git_ref.clone(),
+        paths: provenance.paths.clone(),
+        extensions: provenance.extensions.clone(),
+        max_depth: provenance.max_depth,
+        max_pages: provenance.max_pages,
+        no_ocr: provenance.no_ocr,
+        page_range: provenance.page_range,
+        title: None,
+        authors: None,
+        language: None,
+        publisher: None,
+        publication_date: None,
+        video_id: None,
+        channel: None,
+        published_at: None,
+        duration_seconds: None,
+        transcript_source: None,
+        section_count: None,
+        chapter_count: None,
+    };
+
+    match config_json.source_type.as_str() {
+        "git" => validate_git_import_provenance(&config_json, provenance)?,
+        "crawl" => validate_crawl_import_provenance(&config_json)?,
+        "file" => enrich_file_import_metadata(path, &mut config_json)?,
+        "book" if is_book_import => enrich_book_import_metadata(path, &mut config_json)?,
+        "youtube" => enrich_youtube_import_metadata(&mut config_json, provenance),
+        _ => {}
+    }
+
+    Ok(config_json)
+}
+
+fn validate_git_import_provenance(
+    _config_json: &ImportConfigJson,
+    provenance: &ImportProvenance,
+) -> Result<(), ImportError> {
+    if provenance.version_ref.is_none() {
+        return Err(ImportError::Config(
+            "supported imports require repair-critical import provenance for source_type 'git': missing version_ref"
+                .to_string(),
+        ));
+    }
+
+    Ok(())
+}
+
+fn validate_crawl_import_provenance(config_json: &ImportConfigJson) -> Result<(), ImportError> {
+    if config_json.max_depth.is_none() || config_json.max_pages.is_none() {
+        return Err(ImportError::Config(
+            "supported imports require repair-critical import provenance for source_type 'crawl': missing max_depth or max_pages"
+                .to_string(),
+        ));
+    }
+
+    Ok(())
+}
+
+fn enrich_book_import_metadata(
+    path: &Path,
+    config_json: &mut ImportConfigJson,
+) -> Result<(), ImportError> {
+    let metadata_path = path.join(BOOK_METADATA_FILENAME);
+    let metadata_content = std::fs::read_to_string(&metadata_path).map_err(|e| {
+        ImportError::Config(format!(
+            "book imports require staging metadata at {}: {e}",
+            metadata_path.display()
+        ))
+    })?;
+    let metadata: crate::convert::epub::EpubMetadata = serde_json::from_str(&metadata_content)
+        .map_err(|e| {
+            ImportError::Config(format!(
+                "invalid book staging metadata at {}: {e}",
+                metadata_path.display()
+            ))
+        })?;
+
+    config_json.title = metadata.title;
+    config_json.authors = (!metadata.authors.is_empty()).then_some(metadata.authors);
+    config_json.language = metadata.language;
+    config_json.publisher = metadata.publisher;
+    config_json.publication_date = metadata.publication_date;
+
+    Ok(())
+}
+
+fn enrich_file_import_metadata(
+    path: &Path,
+    config_json: &mut ImportConfigJson,
+) -> Result<(), ImportError> {
+    let metadata_path = path.join(BOOK_METADATA_FILENAME);
+    let Ok(metadata_content) = std::fs::read_to_string(&metadata_path) else {
+        return Ok(());
+    };
+    let metadata: FileImportMetadata = serde_json::from_str(&metadata_content).map_err(|e| {
+        ImportError::Config(format!(
+            "invalid file staging metadata at {}: {e}",
+            metadata_path.display()
+        ))
+    })?;
+    config_json.no_ocr = metadata.no_ocr;
+    config_json.page_range = metadata.page_range;
+    Ok(())
+}
+
+fn enrich_youtube_import_metadata(
+    config_json: &mut ImportConfigJson,
+    provenance: &ImportProvenance,
+) {
+    let Some(youtube) = provenance.youtube.as_ref() else {
+        return;
+    };
+    config_json.title = youtube.title.clone();
+    config_json.language = youtube.language.clone();
+    config_json.video_id = youtube.video_id.clone();
+    config_json.channel = youtube.channel.clone();
+    config_json.published_at = youtube.published_at.clone();
+    config_json.duration_seconds = youtube.duration_seconds;
+    config_json.transcript_source = youtube.transcript_source.clone();
+    config_json.section_count = youtube.section_count;
+    config_json.chapter_count = youtube.chapter_count;
+}
+
+fn require_repair_critical_provenance(
+    source_type: &Option<String>,
+    source_url: &Option<String>,
+) -> Result<(String, String), ImportError> {
+    let Some(source_type) = source_type.as_ref().map(|value| value.trim()) else {
+        return Err(ImportError::Config(
+            "supported imports require repair-critical import provenance: missing source_type"
+                .to_string(),
+        ));
+    };
+    if source_type.is_empty() {
+        return Err(ImportError::Config(
+            "supported imports require repair-critical import provenance: missing source_type"
+                .to_string(),
+        ));
+    }
+
+    let Some(source_url) = source_url.as_ref().map(|value| value.trim()) else {
+        return Err(ImportError::Config(format!(
+            "supported imports require repair-critical import provenance for source_type '{source_type}': missing source_url"
+        )));
+    };
+    if source_url.is_empty() {
+        return Err(ImportError::Config(format!(
+            "supported imports require repair-critical import provenance for source_type '{source_type}': missing source_url"
+        )));
+    }
+
+    Ok((source_type.to_string(), source_url.to_string()))
+}
+
+#[derive(serde::Deserialize)]
+struct FileImportMetadata {
+    no_ocr: Option<bool>,
+    page_range: Option<(u32, u32)>,
 }

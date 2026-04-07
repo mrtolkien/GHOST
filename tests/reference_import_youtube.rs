@@ -105,6 +105,7 @@ async fn youtube_import_persists_provenance_and_links_batch() {
 async fn youtube_reimport_backfills_batch_for_existing_references() {
     let (db, config, workspace, _config_dir) = common::test_database().await;
     let workspace_path = Path::new(&config.workspace);
+    let topic = "videos/reimport";
 
     let staging_dir = workspace.path().join(".staging").join("youtube-reimport");
     std::fs::create_dir_all(&staging_dir).expect("create staging dir");
@@ -131,33 +132,33 @@ async fn youtube_reimport_backfills_batch_for_existing_references() {
         ..Default::default()
     };
 
-    let initial = import_from_path(
-        &db,
-        workspace_path,
-        &staging_dir,
-        "videos/reimport",
-        &ImportProvenance::default(),
-        None,
-    )
-    .await
-    .expect("initial import reference");
-    assert_eq!(initial.references_created, 1);
-    assert_eq!(initial.references_skipped, 0);
+    let topic_id = db::knowledge::find_or_create_topic(&db, topic)
+        .await
+        .expect("create topic");
+    let ref_path = format!("{topic}/video.md");
+    let content = "# Transcript\n\nThis is a test transcript.";
+    std::fs::create_dir_all(workspace_path.join("references").join(topic))
+        .expect("create reference dir");
+    std::fs::write(workspace_path.join("references").join(&ref_path), content)
+        .expect("write existing reference file");
+    let hash = ghost::embeddings::pipeline::content_hash(content);
+    db::knowledge::create_reference(&db, &topic_id, &ref_path, content, None, None, Some(&hash))
+        .await
+        .expect("create existing reference");
 
-    let result = import_from_path(
-        &db,
-        workspace_path,
-        &staging_dir,
-        "videos/reimport",
-        &provenance,
-        None,
-    )
-    .await
-    .expect("re-import youtube reference");
+    let initial = db::knowledge::find_reference_by_path(&db, &ref_path)
+        .await
+        .expect("load existing reference")
+        .expect("reference should exist");
+    assert!(initial.import_batch_id.is_none());
+
+    let result = import_from_path(&db, workspace_path, &staging_dir, topic, &provenance, None)
+        .await
+        .expect("re-import youtube reference");
     assert_eq!(result.references_created, 0);
     assert_eq!(result.references_skipped, 1);
 
-    let topic = db::knowledge::find_topic_by_name(&db, "videos/reimport")
+    let topic = db::knowledge::find_topic_by_name(&db, topic)
         .await
         .expect("find topic")
         .expect("topic should exist");

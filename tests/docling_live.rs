@@ -272,6 +272,8 @@ async fn convert_pdf_then_import_full_pipeline() {
     let provenance = ImportProvenance {
         source_type: Some("file".to_string()),
         source_url: Some(pdf_path.display().to_string()),
+        no_ocr: Some(false),
+        page_range: None,
         ..Default::default()
     };
 
