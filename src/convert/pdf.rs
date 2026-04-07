@@ -10,6 +10,7 @@ use super::staging::{create_staging_dir, slug_from_source};
 
 /// Subdirectory within the staging dir for preserving original source files.
 const ORIGINALS_SUBDIR: &str = "_originals";
+const METADATA_FILENAME: &str = "_metadata.json";
 
 /// Result of converting a PDF file into a staging directory.
 #[derive(Debug)]
@@ -110,9 +111,23 @@ pub async fn convert_pdf(
     let originals_dir = staging_dir.join(ORIGINALS_SUBDIR);
     std::fs::create_dir_all(&originals_dir)?;
     std::fs::copy(path, originals_dir.join(original_filename))?;
+    write_metadata_file(&staging_dir, no_ocr, page_range)?;
 
     Ok(PdfConvertResult {
         staging_dir,
         markdown_file,
     })
+}
+
+fn write_metadata_file(
+    staging_dir: &Path,
+    no_ocr: bool,
+    page_range: Option<(u32, u32)>,
+) -> Result<(), ConvertError> {
+    let metadata = serde_json::json!({
+        "no_ocr": no_ocr,
+        "page_range": page_range,
+    });
+    std::fs::write(staging_dir.join(METADATA_FILENAME), metadata.to_string())?;
+    Ok(())
 }

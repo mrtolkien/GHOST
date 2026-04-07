@@ -119,8 +119,7 @@ async fn structural_tool_failure_stops_same_turn_research() {
     let fallback_calls = &tool_calls[failed_search_index + 1..];
     assert!(
         fallback_calls.is_empty(),
-        "expected no fallback tool calls after structural failure, got {:?}",
-        tool_calls
+        "expected no fallback tool calls after structural failure, got {tool_calls:?}"
     );
 
     let lower = result.message.to_lowercase();

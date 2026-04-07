@@ -375,6 +375,8 @@ pub async fn curate_references(
             let provenance = ImportProvenance {
                 source_type: Some("page".to_string()),
                 source_url: Some(file.url.clone()),
+                no_ocr: None,
+                page_range: None,
                 ..Default::default()
             };
 

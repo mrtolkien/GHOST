@@ -6,6 +6,10 @@ pub mod embeddings;
 mod error;
 pub mod interface_sessions;
 pub mod knowledge;
+pub mod repair;
+pub mod repair_copy;
+pub mod repair_types;
+pub mod repair_verify;
 pub mod sessions;
 
 pub use connection::{GhostDb, connect};
