@@ -473,6 +473,25 @@ pub async fn update_reference_import_batch(
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = "debug", fields(topic_id = %topic_id, import_batch_id = %import_batch_id))]
+pub async fn update_references_import_batch_by_topic(
+    db: &SqlitePool,
+    topic_id: &str,
+    import_batch_id: &str,
+) -> Result<(), DatabaseError> {
+    sqlx::query("UPDATE reference SET import_batch_id = ? WHERE topic_id = ?")
+        .bind(import_batch_id)
+        .bind(topic_id)
+        .execute(db)
+        .await
+        .map_err(|source| DatabaseError::Query {
+            table: "reference",
+            operation: "update_import_batch_by_topic",
+            source,
+        })?;
+    Ok(())
+}
+
 #[tracing::instrument(skip_all, level = "debug", fields(path = %path))]
 pub async fn find_reference_by_path(
     db: &SqlitePool,

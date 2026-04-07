@@ -37,6 +37,20 @@ async fn youtube_import_persists_provenance_and_links_batch() {
         ..Default::default()
     };
 
+    let initial = import_from_path(
+        &db,
+        workspace_path,
+        &staging_dir,
+        "videos/test",
+        &Default::default(),
+        Some("https://www.youtube.com/watch?v=dQw4w9WgXcQ"),
+    )
+    .await
+    .expect("initial import reference");
+
+    assert_eq!(initial.references_created, 1);
+    assert_eq!(initial.references_skipped, 0);
+
     let result = import_from_path(
         &db,
         workspace_path,
@@ -46,10 +60,10 @@ async fn youtube_import_persists_provenance_and_links_batch() {
         Some("https://www.youtube.com/watch?v=dQw4w9WgXcQ"),
     )
     .await
-    .expect("import youtube reference");
+    .expect("re-import youtube reference");
 
-    assert_eq!(result.references_created, 1);
-    assert_eq!(result.references_skipped, 0);
+    assert_eq!(result.references_created, 0);
+    assert_eq!(result.references_skipped, 1);
 
     let topic = db::knowledge::find_topic_by_name(&db, "videos/test")
         .await

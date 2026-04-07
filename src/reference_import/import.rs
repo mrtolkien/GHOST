@@ -57,7 +57,6 @@ pub async fn import_from_path(
     let total_files = md_files.len();
     let mut created = 0usize;
     let mut skipped = 0usize;
-    let mut created_ref_ids = Vec::new();
 
     for (relative, abs_path) in &md_files {
         let ref_path = format!("{topic}/{relative}");
@@ -84,7 +83,7 @@ pub async fn import_from_path(
         std::fs::write(&disk_path, &content)?;
 
         let hash = crate::embeddings::pipeline::content_hash(&content);
-        let ref_id = db::knowledge::create_reference(
+        db::knowledge::create_reference(
             db,
             &topic_id,
             &ref_path,
@@ -94,7 +93,6 @@ pub async fn import_from_path(
             Some(&hash),
         )
         .await?;
-        created_ref_ids.push(ref_id);
 
         created += 1;
     }
@@ -106,9 +104,7 @@ pub async fn import_from_path(
     .await?;
 
     if let Some(batch_id) = batch_id.as_deref() {
-        for ref_id in &created_ref_ids {
-            db::knowledge::update_reference_import_batch(db, ref_id, batch_id).await?;
-        }
+        db::knowledge::update_references_import_batch_by_topic(db, &topic_id, batch_id).await?;
     }
 
     // Ensure skeleton index notes exist for the topic hierarchy

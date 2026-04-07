@@ -64,39 +64,11 @@ pub async fn ensure_topic_hierarchy(db: &GhostDb, topic_name: &str) -> Result<St
 /// fields with runtime values (version_ref, ref_count).
 #[derive(Serialize)]
 struct ImportToml {
-    source_type: String,
-    source_url: String,
+    #[serde(flatten)]
+    config: ImportConfigJson,
     #[serde(skip_serializing_if = "Option::is_none")]
     version_ref: Option<String>,
     ref_count: usize,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    git_ref: Option<String>,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    paths: Vec<String>,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    extensions: Vec<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    max_depth: Option<usize>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    max_pages: Option<usize>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    title: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    video_id: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    channel: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    published_at: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    duration_seconds: Option<u64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    transcript_source: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    section_count: Option<usize>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    chapter_count: Option<usize>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    language: Option<String>,
 }
 
 /// Write `_import.toml` alongside imported references to record import metadata.
@@ -111,24 +83,9 @@ pub fn write_import_toml(
     std::fs::create_dir_all(&ref_dir)?;
 
     let import_toml = ImportToml {
-        source_type: config.source_type.clone(),
-        source_url: config.source_url.clone(),
+        config: config.clone(),
         version_ref: version_ref.map(String::from),
         ref_count,
-        git_ref: config.git_ref.clone(),
-        paths: config.paths.clone(),
-        extensions: config.extensions.clone(),
-        max_depth: config.max_depth,
-        max_pages: config.max_pages,
-        title: config.title.clone(),
-        video_id: config.video_id.clone(),
-        channel: config.channel.clone(),
-        published_at: config.published_at.clone(),
-        duration_seconds: config.duration_seconds,
-        transcript_source: config.transcript_source.clone(),
-        section_count: config.section_count,
-        chapter_count: config.chapter_count,
-        language: config.language.clone(),
     };
 
     let content = format!(
@@ -163,10 +120,10 @@ mod tests {
             max_depth: None,
             max_pages: None,
             title: Some("Test Video".into()),
-            authors: None,
+            authors: Some(vec!["Author One".into(), "Author Two".into()]),
             language: Some("en".into()),
-            publisher: None,
-            publication_date: None,
+            publisher: Some("Test Publisher".into()),
+            publication_date: Some("2024-01-02".into()),
             video_id: Some("test123".into()),
             channel: Some("Example Channel".into()),
             published_at: Some("2024-01-02".into()),
@@ -176,14 +133,41 @@ mod tests {
             chapter_count: Some(1),
         };
 
-        write_import_toml(tmp.path(), "videos/test", &config, None, 3).expect("write import toml");
+        write_import_toml(tmp.path(), "videos/test", &config, Some("version-123"), 3)
+            .expect("write import toml");
 
         let content =
             std::fs::read_to_string(tmp.path().join("references/videos/test/_import.toml"))
                 .expect("read toml");
         assert!(content.contains("source_type = \"youtube\""));
         assert!(content.contains("title = \"Test Video\""));
+        assert!(content.contains("authors ="));
+        assert!(content.contains("Author One"));
+        assert!(content.contains("Author Two"));
+        assert!(content.contains("publisher = \"Test Publisher\""));
+        assert!(content.contains("publication_date = \"2024-01-02\""));
         assert!(content.contains("video_id = \"test123\""));
         assert!(content.contains("transcript_source = \"auto\""));
+
+        let parsed = read_import_toml(tmp.path(), "videos/test").expect("round-trip toml");
+        assert_eq!(parsed.source_type, config.source_type);
+        assert_eq!(parsed.source_url, config.source_url);
+        assert_eq!(parsed.git_ref, config.git_ref);
+        assert_eq!(parsed.paths, config.paths);
+        assert_eq!(parsed.extensions, config.extensions);
+        assert_eq!(parsed.max_depth, config.max_depth);
+        assert_eq!(parsed.max_pages, config.max_pages);
+        assert_eq!(parsed.title, config.title);
+        assert_eq!(parsed.authors, config.authors);
+        assert_eq!(parsed.language, config.language);
+        assert_eq!(parsed.publisher, config.publisher);
+        assert_eq!(parsed.publication_date, config.publication_date);
+        assert_eq!(parsed.video_id, config.video_id);
+        assert_eq!(parsed.channel, config.channel);
+        assert_eq!(parsed.published_at, config.published_at);
+        assert_eq!(parsed.duration_seconds, config.duration_seconds);
+        assert_eq!(parsed.transcript_source, config.transcript_source);
+        assert_eq!(parsed.section_count, config.section_count);
+        assert_eq!(parsed.chapter_count, config.chapter_count);
     }
 }
