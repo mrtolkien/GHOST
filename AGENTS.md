@@ -134,6 +134,9 @@ before adding or modifying any instrumentation.
 
 A broken migration kills the production daemon on startup with no automatic recovery.
 Read the `/db-migrations` skill before writing or modifying any file in `migrations/`.
+**Never edit an existing migration unless it is the latest migration and it has not been
+pushed yet.** Once a migration might already exist in someone else's database or in a
+remote branch history, leave it immutable and add a new corrective migration instead.
 **Key rule: never use `SELECT *` in table recreation migrations** — always list columns
 explicitly to prevent column-order mismatches that silently corrupt data or violate
 constraints.

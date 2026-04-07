@@ -15,6 +15,22 @@ boot. **A broken migration kills the daemon** — the GHOST instance goes down a
 down until someone manually intervenes on the database. There is no rollback mechanism.
 Every migration must be correct on the first attempt.
 
+## Immutability Rule (NON-NEGOTIABLE)
+
+**Treat existing migrations as immutable. Never edit an old migration.**
+
+The only exception is the **latest** migration file, and only when it has **not been
+pushed yet**. If the migration has been pushed, merged, or might already have been
+applied in any workspace, do not edit it. Add a new corrective migration instead.
+
+Practical rule:
+
+- Safe to edit: the newest migration you just created locally and have not pushed.
+- Not safe to edit: any earlier migration, or the newest migration after push/merge.
+
+If you are fixing a bug in a migration that has already left your machine, the fix
+belongs in a new migration, not by rewriting history.
+
 ## Naming
 
 Files: `NNN_short_description.sql` (zero-padded sequence number). Add a comment at the

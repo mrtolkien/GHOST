@@ -98,6 +98,7 @@ impl DaemonHandle {
     }
 }
 
+#[tracing::instrument(skip_all, err)]
 pub async fn run() -> Result<(), GhostError> {
     let config = crate::config::load()?;
 
@@ -174,7 +175,7 @@ async fn shutdown_signal() {
     }
 }
 
-#[tracing::instrument(name = "boot ghost", skip_all)]
+#[tracing::instrument(name = "boot ghost", skip_all, err)]
 pub async fn boot() -> Result<DaemonHandle, GhostError> {
     info!("loading config");
     let config = crate::config::load()?;
@@ -182,7 +183,7 @@ pub async fn boot() -> Result<DaemonHandle, GhostError> {
 }
 
 /// Boot the daemon with a pre-built config (for tests and programmatic use).
-#[tracing::instrument(name = "boot ghost", skip_all)]
+#[tracing::instrument(name = "boot ghost", skip_all, err)]
 pub async fn boot_with_config(config: Config) -> Result<DaemonHandle, GhostError> {
     // Phase 1: workspace bootstrap (dirs, bundled files)
     let (changes, has_interactive) = {
@@ -463,4 +464,111 @@ async fn resolve_update_channel(db: &GhostDb) -> Option<ChannelId> {
         }
     }
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io;
+    use std::sync::{Arc, Mutex};
+
+    use tracing_subscriber::layer::SubscriberExt;
+
+    use super::boot_with_config;
+
+    #[derive(Clone, Debug)]
+    struct SharedWriter {
+        buffer: Arc<Mutex<Vec<u8>>>,
+    }
+
+    impl SharedWriter {
+        fn new(buffer: Arc<Mutex<Vec<u8>>>) -> Self {
+            Self { buffer }
+        }
+    }
+
+    struct SharedWriterGuard {
+        buffer: Arc<Mutex<Vec<u8>>>,
+    }
+
+    impl<'a> tracing_subscriber::fmt::MakeWriter<'a> for SharedWriter {
+        type Writer = SharedWriterGuard;
+
+        fn make_writer(&'a self) -> Self::Writer {
+            SharedWriterGuard {
+                buffer: Arc::clone(&self.buffer),
+            }
+        }
+    }
+
+    impl io::Write for SharedWriterGuard {
+        fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+            let mut buffer = self
+                .buffer
+                .lock()
+                .map_err(|_| io::Error::other("shared log buffer poisoned"))?;
+            buffer.extend_from_slice(buf);
+            Ok(buf.len())
+        }
+
+        fn flush(&mut self) -> io::Result<()> {
+            Ok(())
+        }
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn boot_failure_is_logged_via_tracing() {
+        let buffer = Arc::new(Mutex::new(Vec::new()));
+        let make_writer = SharedWriter::new(Arc::clone(&buffer));
+        let subscriber = tracing_subscriber::registry().with(
+            tracing_subscriber::fmt::layer()
+                .with_ansi(false)
+                .without_time()
+                .with_target(false)
+                .with_writer(make_writer),
+        );
+        let _guard = tracing::subscriber::set_default(subscriber);
+
+        let config_dir = tempfile::TempDir::new().expect("create config dir");
+        let blocking_file = tempfile::NamedTempFile::new().expect("create blocking file");
+        std::fs::write(
+            config_dir.path().join("config.toml"),
+            format!(
+                "workspace = \"{}\"\n\
+\n\
+[models]\n\
+default = \"primary\"\n\
+\n\
+[models.primary]\n\
+provider = \"openrouter\"\n\
+model = \"anthropic/claude-sonnet-4-5-20250929\"\n\
+context_window = 200000\n",
+                blocking_file.path().display()
+            ),
+        )
+        .expect("write config file");
+        let config = crate::config::load_from_dir(config_dir.path()).expect("load config");
+
+        let result = boot_with_config(config).await;
+        assert!(result.is_err(), "boot should fail when workspace is a file");
+
+        let logs = String::from_utf8(
+            buffer
+                .lock()
+                .expect("lock shared log buffer")
+                .clone(),
+        )
+        .expect("logs should be valid UTF-8");
+        assert!(
+            logs.contains("boot ghost"),
+            "expected boot span in logs, got: {logs}"
+        );
+        assert!(
+            logs.contains("ERROR boot ghost"),
+            "expected error-level boot log in logs, got: {logs}"
+        );
+        assert!(
+            logs.contains("error=failed to write config file"),
+            "expected returned error log in logs, got: {logs}"
+        );
+    }
 }

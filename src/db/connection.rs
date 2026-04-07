@@ -17,7 +17,7 @@ pub type GhostDb = SqlitePool;
 
 static SQLITE_VEC_INIT: Once = Once::new();
 
-#[tracing::instrument(skip_all, fields(db_path = %workspace.join("ghost.db").display()))]
+#[tracing::instrument(skip_all, err, fields(db_path = %workspace.join("ghost.db").display()))]
 pub async fn connect(workspace: &Path, embedding_dim: usize) -> Result<GhostDb, DatabaseError> {
     // Register sqlite-vec extension once per process.
     // SAFETY: must be called before any SQLite connections are opened.
