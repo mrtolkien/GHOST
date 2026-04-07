@@ -7,6 +7,7 @@ use crate::convert::crawl::CrawlConvertResult;
 use crate::convert::epub::EpubConvertResult;
 use crate::convert::git::GitConvertResult;
 use crate::convert::pdf::{PdfConvertResult, VisionFallback};
+use crate::convert::youtube::YoutubeConvertResult;
 use crate::error::GhostError;
 
 /// Default staging root directory name within the workspace.
@@ -74,6 +75,15 @@ pub enum ConvertCommand {
         /// Path to the EPUB file
         #[arg(long)]
         path: String,
+        /// Output directory for staging (default: <workspace>/.staging)
+        #[arg(long)]
+        output: Option<PathBuf>,
+    },
+    /// Convert a YouTube video to sectioned markdown transcript files
+    Youtube {
+        /// Individual YouTube video URL
+        #[arg(long)]
+        url: String,
         /// Output directory for staging (default: <workspace>/.staging)
         #[arg(long)]
         output: Option<PathBuf>,
@@ -165,6 +175,16 @@ pub async fn execute(command: ConvertCommand) -> Result<(), GhostError> {
                     .map_err(convert_err)?;
 
             print_epub_result(&result);
+            Ok(())
+        }
+        ConvertCommand::Youtube { url, output } => {
+            let staging_root = staging_root(&workspace, output.as_deref());
+
+            let result = crate::convert::youtube::convert_youtube(&staging_root, &url)
+                .await
+                .map_err(convert_err)?;
+
+            print_youtube_result(&result);
             Ok(())
         }
     }
@@ -264,4 +284,41 @@ fn print_epub_result(result: &EpubConvertResult) {
         println!("authors={}", result.metadata.authors.join(", "));
     }
     println!("chapters={}", result.chapter_count);
+}
+
+/// Print stdout metadata for a YouTube conversion result.
+fn print_youtube_result(result: &YoutubeConvertResult) {
+    println!("{}", result.staging_dir.display());
+    println!("source_type=youtube");
+    println!("source_url={}", result.metadata.source_url);
+    println!("video_id={}", result.metadata.video_id);
+    if let Some(title) = &result.metadata.title {
+        println!("title={title}");
+    }
+    if let Some(channel) = &result.metadata.channel {
+        println!("channel={channel}");
+    }
+    if let Some(published_at) = &result.metadata.published_at {
+        println!("published_at={published_at}");
+    }
+    if let Some(duration_seconds) = result.metadata.duration_seconds {
+        println!("duration_seconds={duration_seconds}");
+    }
+    if let Some(language) = &result.metadata.language {
+        println!("language={language}");
+    }
+    println!(
+        "transcript_source={}",
+        transcript_source_label(result.metadata.transcript_source)
+    );
+    println!("sections={}", result.section_count);
+    println!("chapters={}", result.chapter_count);
+}
+
+fn transcript_source_label(source: crate::convert::youtube::TranscriptSource) -> &'static str {
+    match source {
+        crate::convert::youtube::TranscriptSource::Manual => "manual",
+        crate::convert::youtube::TranscriptSource::Auto => "auto",
+        crate::convert::youtube::TranscriptSource::Whisper => "whisper",
+    }
 }
