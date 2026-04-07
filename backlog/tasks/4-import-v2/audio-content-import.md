@@ -109,8 +109,8 @@ These tools should be invoked on demand via nix rather than treated as managed s
 
 ### Staging Output
 
-The staging directory contains only canonical markdown transcript content. It does
-**not** preserve downloaded subtitle files or audio artifacts in `_originals/`.
+The staging directory contains only canonical markdown transcript content. It does **not**
+preserve downloaded subtitle files or audio artifacts in `_originals/`.
 
 The authoritative provenance anchor is the original YouTube URL, stored in
 `_import.toml`, so the source can be re-fetched later if needed.
@@ -144,8 +144,11 @@ v1 uses a non-LLM hybrid splitter:
 4. Merge tiny chapters/segments where needed.
 5. If no chapters exist, split directly by transcript length using timestamp boundaries.
 
-The converter should target a bounded transcript size window per file so later retrieval
-does not require loading an entire long video transcript in one reference.
+The converter should target relatively large transcript sections rather than tiny chunks.
+The hard ceiling for a single reference file should be about **40,000 characters max**.
+Staying under that limit keeps each reference comfortably readable and re-loadable for
+modern LLM context windows while still avoiding pathological "entire 3-hour transcript
+in one file" imports.
 
 This design intentionally avoids semantic topic-boundary inference in v1.
 
@@ -153,8 +156,8 @@ This design intentionally avoids semantic topic-boundary inference in v1.
 
 Video metadata belongs in `_import.toml`, not in a synthetic markdown file.
 
-The YouTube import metadata should extend the existing provenance model with video
-fields such as:
+The YouTube import metadata should extend the existing provenance model with video fields
+such as:
 
 - `source_type = "youtube"`
 - `source_url`
