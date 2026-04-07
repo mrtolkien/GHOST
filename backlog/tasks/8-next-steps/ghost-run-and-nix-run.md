@@ -26,7 +26,8 @@ Three changes:
    show, cancel), but handles both agents and scripts. The GHOST uses one tool for all
    managed processes.
 3. **`schedule.toml`** — replaces `crontab.lua`. Plain TOML at the workspace root.
-   Observable via `ghost schedule list`. Editable by the GHOST as a text file.
+   Observable via `ghost schedule list`. Editable by the GHOST as a text file. Allows it
+   to run non-agent workflows (deterministic jobs)
 
 ## `nix run` for native dependencies (DONE)
 
