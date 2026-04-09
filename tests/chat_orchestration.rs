@@ -1,14 +1,46 @@
 mod common;
 
+use std::collections::VecDeque;
 use std::sync::Arc;
+use std::sync::Mutex;
 
 use ghost::chat::{ChatStopReason, SessionChat};
 use ghost::db::sessions::MessagePayload;
-use ghost::providers::{ContentBlock, StopReason};
+use ghost::providers::{
+    ChatRequest, ChatResponse, ContentBlock, Provider, ProviderError, StopReason,
+};
 use ghost::tools::ToolManager;
 use serde_json::json;
 
 use common::{EchoTool, MockProvider, respond_response, response, shared};
+
+#[derive(Debug)]
+struct FlakyRequestProvider {
+    responses: Mutex<VecDeque<Result<ChatResponse, ProviderError>>>,
+}
+
+impl FlakyRequestProvider {
+    fn new(responses: Vec<Result<ChatResponse, ProviderError>>) -> Self {
+        Self {
+            responses: Mutex::new(VecDeque::from(responses)),
+        }
+    }
+}
+
+#[async_trait::async_trait]
+impl Provider for FlakyRequestProvider {
+    async fn chat(&self, _request: ChatRequest) -> Result<ChatResponse, ProviderError> {
+        self.responses
+            .lock()
+            .expect("lock responses")
+            .pop_front()
+            .expect("response queued")
+    }
+
+    fn name(&self) -> &str {
+        "flaky-request"
+    }
+}
 
 #[tokio::test]
 async fn chat_returns_response_text() {
@@ -77,6 +109,32 @@ async fn tool_loop_executes_and_sends_tool_result_back() {
         })
     });
     assert!(has_tool_result);
+}
+
+#[tokio::test]
+async fn chat_retries_once_on_transient_request_error() {
+    let (db, config, _workspace, _config_dir) = common::test_database().await;
+    let session_id = ghost::db::sessions::create_session(&db)
+        .await
+        .expect("create session");
+
+    let transient_error = reqwest::Client::new()
+        .get("http://127.0.0.1:9")
+        .send()
+        .await
+        .expect_err("closed port should fail");
+    let provider = Arc::new(FlakyRequestProvider::new(vec![
+        Err(ProviderError::Request(transient_error)),
+        Ok(respond_response("recovered", vec![])),
+    ]));
+    let chat = SessionChat::new(db.clone(), provider, ToolManager::empty(), shared(&config));
+
+    let result = chat
+        .chat(&session_id, "retry please", None, None)
+        .await
+        .expect("chat result");
+
+    assert_eq!(result.0.message, "recovered");
 }
 
 #[tokio::test]

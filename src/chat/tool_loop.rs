@@ -342,6 +342,15 @@ async fn send_with_retry(
             };
             retry_once(session_chat, retry_request).await
         }
+        Ok(Err(ProviderError::Request(error))) => {
+            tracing::warn!(
+                error = error.to_string(),
+                iteration = iteration as u64,
+                "provider request failed, retrying once",
+            );
+            tokio::time::sleep(RETRY_DELAY).await;
+            retry_once(session_chat, request).await
+        }
         Ok(Err(e)) => Err(ChatError::from(e)),
         Err(_elapsed) => {
             tracing::warn!(

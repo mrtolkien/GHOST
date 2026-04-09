@@ -174,12 +174,40 @@ impl OpenAiOAuthProvider {
                 .get("Retry-After")
                 .and_then(|value| value.to_str().ok()),
         );
+        let response_headers = http_response.headers().clone();
         let turn_state = http_response
             .headers()
             .get("x-codex-turn-state")
             .and_then(|v| v.to_str().ok())
             .map(ToString::to_string);
-        let response_body = http_response.text().await?;
+        let response_body = match http_response.text().await {
+            Ok(body) => body,
+            Err(error) => {
+                let duration_ms = started.elapsed().as_millis() as u64;
+                let error_string = error.to_string();
+                if self.debug_save_requests
+                    && let Some(ref dir) = self.debug_dir
+                {
+                    crate::providers::debug::save_debug_request(
+                        &crate::providers::debug::DebugRequestData {
+                            dir,
+                            provider_name: "openai_oauth",
+                            model: &request.model,
+                            request_body: &request_json,
+                            response_body: None,
+                            status: status.as_u16(),
+                            duration_ms,
+                            response_headers: Some(&response_headers),
+                            response_read_error: Some(&error_string),
+                            stage: "body_read_failed",
+                            debug_context: request.debug_context.as_ref(),
+                            max_saved_requests: self.debug_max_saved,
+                        },
+                    );
+                }
+                return Err(ProviderError::Request(error));
+            }
+        };
         let duration_ms = started.elapsed().as_millis() as u64;
 
         if self.debug_save_requests
@@ -191,9 +219,12 @@ impl OpenAiOAuthProvider {
                     provider_name: "openai_oauth",
                     model: &request.model,
                     request_body: &request_json,
-                    response_body: &response_body,
+                    response_body: Some(&response_body),
                     status: status.as_u16(),
                     duration_ms,
+                    response_headers: Some(&response_headers),
+                    response_read_error: None,
+                    stage: "completed",
                     debug_context: request.debug_context.as_ref(),
                     max_saved_requests: self.debug_max_saved,
                 },

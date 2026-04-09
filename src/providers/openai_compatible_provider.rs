@@ -174,6 +174,7 @@ impl OpenAiCompatibleProvider {
                 .get("Retry-After")
                 .and_then(|value| value.to_str().ok()),
         );
+        let response_headers = http_response.headers().clone();
         let response_body = http_response.text().await?;
         let duration_ms = started.elapsed().as_millis() as u64;
 
@@ -186,9 +187,12 @@ impl OpenAiCompatibleProvider {
                     provider_name: self.provider_name,
                     model: &request.model,
                     request_body: &request_json,
-                    response_body: &response_body,
+                    response_body: Some(&response_body),
                     status: status.as_u16(),
                     duration_ms,
+                    response_headers: Some(&response_headers),
+                    response_read_error: None,
+                    stage: "completed",
                     debug_context: request.debug_context.as_ref(),
                     max_saved_requests: self.debug_max_saved,
                 },

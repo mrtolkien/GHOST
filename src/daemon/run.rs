@@ -551,13 +551,8 @@ context_window = 200000\n",
         let result = boot_with_config(config).await;
         assert!(result.is_err(), "boot should fail when workspace is a file");
 
-        let logs = String::from_utf8(
-            buffer
-                .lock()
-                .expect("lock shared log buffer")
-                .clone(),
-        )
-        .expect("logs should be valid UTF-8");
+        let logs = String::from_utf8(buffer.lock().expect("lock shared log buffer").clone())
+            .expect("logs should be valid UTF-8");
         assert!(
             logs.contains("boot ghost"),
             "expected boot span in logs, got: {logs}"
