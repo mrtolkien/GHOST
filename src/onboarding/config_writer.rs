@@ -148,6 +148,7 @@ pub fn generate_env(state: &OnboardingState) -> String {
 fn provider_env_key(provider: &ProviderKind) -> Option<&'static str> {
     match provider {
         ProviderKind::OpenRouter => Some("OPENROUTER_API_KEY"),
+        ProviderKind::OpenAiCompatible => None,
         ProviderKind::Kimi => Some("KIMI_API_KEY"),
         ProviderKind::Anthropic | ProviderKind::OpenAiOAuth => None,
     }

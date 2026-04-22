@@ -201,6 +201,71 @@ context_window = 1000000\n",
 }
 
 #[test]
+fn config_loads_openai_compatible_provider() {
+    let workspace = TempDir::new().expect("workspace tempdir");
+    let config_dir = TempDir::new().expect("config tempdir");
+
+    fs::write(
+        config_dir.path().join("config.toml"),
+        format!(
+            "workspace = \"{}\"\n\
+\n\
+[models]\n\
+default = \"local\"\n\
+\n\
+[models.local]\n\
+provider = \"openai_compatible\"\n\
+model = \"gemma4:26b\"\n\
+context_window = 131072\n\
+base_url = \"http://192.168.1.91:11434/v1/chat/completions\"\n\
+api_key_env = \"LOCAL_LLM_API_KEY\"\n",
+            workspace.path().display()
+        ),
+    )
+    .expect("write config file");
+
+    let config = config::load_from_dir(config_dir.path()).expect("load config");
+    let model = config.models.aliases.get("local").expect("local alias");
+
+    assert_eq!(model.provider, ghost::config::ProviderKind::OpenAiCompatible);
+    assert_eq!(model.model, "gemma4:26b");
+    assert_eq!(
+        model.base_url.as_deref(),
+        Some("http://192.168.1.91:11434/v1/chat/completions")
+    );
+    assert_eq!(model.api_key_env.as_deref(), Some("LOCAL_LLM_API_KEY"));
+}
+
+#[test]
+fn openai_compatible_provider_requires_base_url() {
+    let workspace = TempDir::new().expect("workspace tempdir");
+    let config_dir = TempDir::new().expect("config tempdir");
+
+    fs::write(
+        config_dir.path().join("config.toml"),
+        format!(
+            "workspace = \"{}\"\n\
+\n\
+[models]\n\
+default = \"local\"\n\
+\n\
+[models.local]\n\
+provider = \"openai_compatible\"\n\
+model = \"gemma4:26b\"\n\
+context_window = 131072\n",
+            workspace.path().display()
+        ),
+    )
+    .expect("write config file");
+
+    let error = config::load_from_dir(config_dir.path()).expect_err("missing base_url must fail");
+    let message = error.to_string();
+
+    assert!(message.contains("base_url"));
+    assert!(message.contains("openai_compatible"));
+}
+
+#[test]
 fn config_get_prints_resolved_default_alias() {
     let (_config, _workspace, config_dir) = common::test_config();
     let value = config_cli::get_resolved_value_from_dir(config_dir.path(), "models.default")

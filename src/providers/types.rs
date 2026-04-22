@@ -351,6 +351,8 @@ pub fn create_provider(
     headers: std::collections::BTreeMap<String, String>,
     routing: Option<crate::providers::openai_compatible::ProviderRouting>,
     api_key: Option<&str>,
+    base_url: Option<&str>,
+    api_key_env: Option<&str>,
 ) -> Result<Arc<dyn Provider>, ProviderInitError> {
     match kind {
         ProviderKind::OpenRouter => Ok(Arc::new(match api_key {
@@ -359,6 +361,29 @@ pub fn create_provider(
             )?,
             None => crate::providers::openrouter::OpenRouterProvider::new(headers, routing)?,
         })),
+        ProviderKind::OpenAiCompatible => {
+            let endpoint = base_url.ok_or_else(|| ProviderInitError::UnsupportedProvider {
+                provider: "openai_compatible requires base_url".to_string(),
+            })?;
+            Ok(Arc::new(match api_key {
+                Some(key) => crate::providers::openai_compatible_provider::OpenAiCompatibleProvider::with_auth_key(
+                    "openai_compatible",
+                    endpoint,
+                    key,
+                    reqwest::header::HeaderMap::new(),
+                    headers,
+                    None,
+                )?,
+                None => crate::providers::openai_compatible_provider::OpenAiCompatibleProvider::with_optional_auth_env(
+                    "openai_compatible",
+                    endpoint,
+                    api_key_env,
+                    reqwest::header::HeaderMap::new(),
+                    headers,
+                    None,
+                )?,
+            }))
+        }
         ProviderKind::Kimi => Ok(Arc::new(match api_key {
             Some(key) => crate::providers::kimi_code::KimiCodeProvider::new_with_key(key, headers)?,
             None => crate::providers::kimi_code::KimiCodeProvider::new(headers)?,
@@ -389,6 +414,27 @@ pub fn provider_for_alias(
             let mut p = crate::providers::openrouter::OpenRouterProvider::new(
                 model.headers.clone(),
                 model.provider_routing.clone(),
+            )?;
+            p.set_debug(debug.0, debug.1, debug.2);
+            Ok(Arc::new(p))
+        }
+        ProviderKind::OpenAiCompatible => {
+            let endpoint = model
+                .base_url
+                .as_deref()
+                .ok_or_else(|| ProviderInitError::UnsupportedProvider {
+                    provider: format!(
+                        "openai_compatible model alias '{}' requires base_url",
+                        alias.unwrap_or(&config.models.default)
+                    ),
+                })?;
+            let mut p = crate::providers::openai_compatible_provider::OpenAiCompatibleProvider::with_optional_auth_env(
+                "openai_compatible",
+                endpoint,
+                model.api_key_env.as_deref(),
+                reqwest::header::HeaderMap::new(),
+                model.headers.clone(),
+                None,
             )?;
             p.set_debug(debug.0, debug.1, debug.2);
             Ok(Arc::new(p))

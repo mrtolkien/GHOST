@@ -26,10 +26,38 @@ pub struct OpenAiCompatibleProvider {
 
 impl OpenAiCompatibleProvider {
     #[tracing::instrument(name = "create provider", skip_all, fields(provider = provider_name, endpoint = endpoint))]
+    pub fn with_optional_auth_env(
+        provider_name: &'static str,
+        endpoint: &str,
+        auth_env_var: Option<&str>,
+        default_headers: HeaderMap,
+        extra_headers: BTreeMap<String, String>,
+        provider_routing: Option<ProviderRouting>,
+    ) -> Result<Self, ProviderError> {
+        match auth_env_var {
+            Some(auth_env_var) => Self::with_auth_env(
+                provider_name,
+                endpoint,
+                auth_env_var,
+                default_headers,
+                extra_headers,
+                provider_routing,
+            ),
+            None => Self::without_auth(
+                provider_name,
+                endpoint,
+                default_headers,
+                extra_headers,
+                provider_routing,
+            ),
+        }
+    }
+
+    #[tracing::instrument(name = "create provider", skip_all, fields(provider = provider_name, endpoint = endpoint))]
     pub fn with_auth_env(
         provider_name: &'static str,
-        endpoint: &'static str,
-        auth_env_var: &'static str,
+        endpoint: &str,
+        auth_env_var: &str,
         default_headers: HeaderMap,
         extra_headers: BTreeMap<String, String>,
         provider_routing: Option<ProviderRouting>,
@@ -40,7 +68,7 @@ impl OpenAiCompatibleProvider {
         Self::build(
             provider_name,
             endpoint,
-            &api_key,
+            Some(&api_key),
             default_headers,
             extra_headers,
             provider_routing,
@@ -52,7 +80,7 @@ impl OpenAiCompatibleProvider {
     /// Used during onboarding validation when the key hasn't been persisted yet.
     pub fn with_auth_key(
         provider_name: &'static str,
-        endpoint: &'static str,
+        endpoint: &str,
         api_key: &str,
         default_headers: HeaderMap,
         extra_headers: BTreeMap<String, String>,
@@ -61,7 +89,24 @@ impl OpenAiCompatibleProvider {
         Self::build(
             provider_name,
             endpoint,
-            api_key,
+            Some(api_key),
+            default_headers,
+            extra_headers,
+            provider_routing,
+        )
+    }
+
+    pub fn without_auth(
+        provider_name: &'static str,
+        endpoint: &str,
+        default_headers: HeaderMap,
+        extra_headers: BTreeMap<String, String>,
+        provider_routing: Option<ProviderRouting>,
+    ) -> Result<Self, ProviderError> {
+        Self::build(
+            provider_name,
+            endpoint,
+            None,
             default_headers,
             extra_headers,
             provider_routing,
@@ -70,20 +115,22 @@ impl OpenAiCompatibleProvider {
 
     fn build(
         provider_name: &'static str,
-        endpoint: &'static str,
-        api_key: &str,
+        endpoint: &str,
+        api_key: Option<&str>,
         mut default_headers: HeaderMap,
         extra_headers: BTreeMap<String, String>,
         provider_routing: Option<ProviderRouting>,
     ) -> Result<Self, ProviderError> {
-        default_headers.insert(
-            AUTHORIZATION,
-            HeaderValue::from_str(&format!("Bearer {api_key}")).map_err(|error| {
-                ProviderError::InvalidResponse(format!(
-                    "failed to encode authorization header: {error}"
-                ))
-            })?,
-        );
+        if let Some(api_key) = api_key {
+            default_headers.insert(
+                AUTHORIZATION,
+                HeaderValue::from_str(&format!("Bearer {api_key}")).map_err(|error| {
+                    ProviderError::InvalidResponse(format!(
+                        "failed to encode authorization header: {error}"
+                    ))
+                })?,
+            );
+        }
 
         for (name, value) in extra_headers {
             if let (Ok(header_name), Ok(header_value)) = (

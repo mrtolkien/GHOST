@@ -1,5 +1,8 @@
-use ghost::config::ProviderKind;
-use ghost::providers::{model_from_alias, types::user_message};
+use std::fs;
+
+use ghost::config::{self, ProviderKind};
+use ghost::providers::{model_from_alias, provider_for_alias, types::user_message};
+use tempfile::TempDir;
 
 use super::common;
 
@@ -27,4 +30,32 @@ fn request_helper_creates_user_message() {
     let msg = user_message("hello");
     assert_eq!(msg.role, ghost::providers::Role::User);
     assert_eq!(msg.content.len(), 1);
+}
+
+#[test]
+fn openai_compatible_provider_initializes_without_auth_env() {
+    let workspace = TempDir::new().expect("workspace tempdir");
+    let config_dir = TempDir::new().expect("config tempdir");
+    fs::write(
+        config_dir.path().join("config.toml"),
+        format!(
+            "workspace = \"{}\"\n\
+\n\
+[models]\n\
+default = \"local\"\n\
+\n\
+[models.local]\n\
+provider = \"openai_compatible\"\n\
+model = \"gemma4:26b\"\n\
+context_window = 131072\n\
+base_url = \"http://127.0.0.1:11434/v1/chat/completions\"\n",
+            workspace.path().display()
+        ),
+    )
+    .expect("write config");
+
+    let config = config::load_from_dir(config_dir.path()).expect("load config");
+    let provider = provider_for_alias(&config, Some("local")).expect("init provider");
+
+    assert_eq!(provider.name(), "openai_compatible");
 }

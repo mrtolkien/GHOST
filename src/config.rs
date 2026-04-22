@@ -150,6 +150,9 @@ pub enum ConfigError {
     #[error("web.search.url is required when provider is 'searxng'")]
     MissingSearxngUrl,
 
+    #[error("models.{alias}.base_url is required when provider is 'openai_compatible'")]
+    MissingOpenAiCompatibleBaseUrl { alias: String },
+
     #[error("cannot change '{field}' at runtime (requires restart)")]
     ImmutableFieldChanged { field: String },
 }
@@ -183,6 +186,8 @@ pub struct ModelSettings {
     pub provider: ProviderKind,
     pub model: String,
     pub context_window: u32,
+    pub base_url: Option<String>,
+    pub api_key_env: Option<String>,
     #[serde(default)]
     pub headers: BTreeMap<String, String>,
     pub reasoning_effort: Option<ReasoningEffort>,
@@ -332,6 +337,8 @@ pub struct ModelConfig {
     pub provider: ProviderKind,
     pub model: String,
     pub context_window: u32,
+    pub base_url: Option<String>,
+    pub api_key_env: Option<String>,
     pub headers: BTreeMap<String, String>,
     pub reasoning_effort: Option<ReasoningEffort>,
     /// OpenRouter provider routing preferences (only/ignore/order).
@@ -407,6 +414,8 @@ pub struct DebugConfig {
 #[serde(rename_all = "lowercase")]
 pub enum ProviderKind {
     OpenRouter,
+    #[serde(rename = "openai_compatible", alias = "openai-compatible")]
+    OpenAiCompatible,
     #[serde(alias = "kimi_code")]
     Kimi,
     #[serde(alias = "openai_oauth")]
@@ -420,6 +429,7 @@ impl ProviderKind {
     pub fn as_str(self) -> &'static str {
         match self {
             Self::OpenRouter => "openrouter",
+            Self::OpenAiCompatible => "openai_compatible",
             Self::Kimi => "kimi_code",
             Self::OpenAiOAuth => "openai_oauth",
             Self::Anthropic => "anthropic",
@@ -430,6 +440,7 @@ impl ProviderKind {
     pub fn from_cli_flag(s: &str) -> Option<Self> {
         match s {
             "openrouter" => Some(Self::OpenRouter),
+            "openai-compatible" | "openai_compatible" => Some(Self::OpenAiCompatible),
             "anthropic" => Some(Self::Anthropic),
             "kimi" | "kimi_code" => Some(Self::Kimi),
             "openai-oauth" | "chatgpt-oauth" | "openai_oauth" => Some(Self::OpenAiOAuth),
@@ -457,20 +468,30 @@ impl Config {
         let resolved_aliases = aliases
             .into_iter()
             .map(|(name, model)| {
-                (
+                if matches!(model.provider, ProviderKind::OpenAiCompatible)
+                    && model.base_url.is_none()
+                {
+                    return Err(ConfigError::MissingOpenAiCompatibleBaseUrl {
+                        alias: name.clone(),
+                    });
+                }
+
+                Ok((
                     name,
                     ModelConfig {
                         provider: model.provider,
                         model: model.model,
                         context_window: model.context_window,
+                        base_url: model.base_url,
+                        api_key_env: model.api_key_env,
                         headers: model.headers,
                         reasoning_effort: model.reasoning_effort,
                         provider_routing: model.provider_routing,
                         text_verbosity: model.text_verbosity,
                     },
-                )
+                ))
             })
-            .collect::<BTreeMap<_, _>>();
+            .collect::<Result<BTreeMap<_, _>, ConfigError>>()?;
 
         let default_chain: Vec<String> = settings
             .models
@@ -888,6 +909,8 @@ pub fn test_config(workspace: &std::path::Path) -> Config {
             provider: ProviderKind::OpenRouter,
             model: "test/model".to_string(),
             context_window: 200_000,
+            base_url: None,
+            api_key_env: None,
             headers: BTreeMap::new(),
             reasoning_effort: None,
             provider_routing: None,

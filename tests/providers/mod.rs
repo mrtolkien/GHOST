@@ -14,6 +14,8 @@ mod image_live;
 #[cfg(feature = "live-tests-llms")]
 mod message_adjacency_live;
 #[cfg(feature = "live-tests-llms")]
+mod openai_compatible_live;
+#[cfg(feature = "live-tests-llms")]
 mod onboarding_validation_live;
 #[cfg(feature = "live-tests-llms")]
 mod openai_oauth_live;

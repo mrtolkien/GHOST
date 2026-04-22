@@ -1,7 +1,8 @@
 ---
 title: Providers
 description:
-  LLM backends supported by GHOST — OpenRouter, Kimi Code, OpenAI OAuth, and Anthropic.
+  LLM backends supported by GHOST — OpenRouter, OpenAI-compatible APIs, Kimi Code,
+  OpenAI OAuth, and Anthropic.
 ---
 
 A provider is an LLM backend. GHOST supports multiple providers and lets you define
@@ -12,6 +13,7 @@ named model aliases.
 | Provider             | ID             | Auth                                      |
 | -------------------- | -------------- | ----------------------------------------- |
 | OpenRouter           | `openrouter`   | `OPENROUTER_API_KEY` env var              |
+| OpenAI-compatible    | `openai_compatible` | Optional `api_key_env` per model alias |
 | Kimi Code            | `kimi_code`    | `KIMI_API_KEY` env var                    |
 | OpenAI OAuth (Codex) | `openai_oauth` | `ghost auth codex`                        |
 | Anthropic (OAuth)    | `anthropic`    | Claude Code credentials (see setup below) |
@@ -38,6 +40,31 @@ context_window = 250000
 :::note `default` specifies which alias to use when none is specified. Each alias needs
 `provider`, `model`, and `context_window`. You can optionally add `headers` for extra
 HTTP headers. :::
+
+## OpenAI-Compatible Endpoints
+
+Use `openai_compatible` for local servers or hosted APIs that implement the OpenAI Chat
+Completions API.
+
+```toml title="~/.config/ghost/config.toml"
+[models.local]
+provider = "openai_compatible"
+model = "gemma4:26b"
+context_window = 131072
+base_url = "http://192.168.1.91:11434/v1/chat/completions"
+
+# Optional: only set this when the endpoint requires bearer auth.
+# api_key_env = "LOCAL_LLM_API_KEY"
+```
+
+Fields specific to `openai_compatible`:
+
+| Field         | Type     | Required | Description                                      |
+| ------------- | -------- | -------- | ------------------------------------------------ |
+| `base_url`    | `string` | Yes      | Full Chat Completions endpoint URL               |
+| `api_key_env` | `string` | No       | Env var name containing the bearer token to use  |
+
+If `api_key_env` is omitted, GHOST sends no `Authorization` header.
 
 ## OpenRouter Provider Routing
 

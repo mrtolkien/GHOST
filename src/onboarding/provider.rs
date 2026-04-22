@@ -5,6 +5,9 @@ use crate::config::ProviderKind;
 pub fn catalog_url(provider: &ProviderKind) -> &'static str {
     match provider {
         ProviderKind::OpenRouter => "https://openrouter.ai/rankings",
+        ProviderKind::OpenAiCompatible => {
+            "https://platform.openai.com/docs/api-reference/chat/create"
+        }
         ProviderKind::Anthropic => "https://docs.anthropic.com/en/docs/about-claude/models",
         ProviderKind::Kimi => "https://kimi.com",
         ProviderKind::OpenAiOAuth => "https://developers.openai.com/codex/models",
@@ -78,6 +81,7 @@ pub async fn prompt_credentials(
             };
             Ok(Some(key))
         }
+        ProviderKind::OpenAiCompatible => Ok(None),
         ProviderKind::Anthropic => {
             prompt_anthropic_credentials()?;
             Ok(None)
@@ -188,7 +192,7 @@ pub async fn validate_provider(
     use crate::providers::types::{ChatMessage, ChatRequest, ContentBlock, Role, create_provider};
     use std::collections::BTreeMap;
 
-    let p = create_provider(*provider, BTreeMap::new(), None, api_key)?;
+    let p = create_provider(*provider, BTreeMap::new(), None, api_key, None, None)?;
     let request = ChatRequest {
         model: model.to_string(),
         system: Some("Reply with OK".to_string()),
@@ -222,6 +226,10 @@ mod tests {
             Some(ProviderKind::Anthropic)
         ));
         assert!(matches!(
+            ProviderKind::from_cli_flag("openai_compatible"),
+            Some(ProviderKind::OpenAiCompatible)
+        ));
+        assert!(matches!(
             ProviderKind::from_cli_flag("openai-oauth"),
             Some(ProviderKind::OpenAiOAuth)
         ));
@@ -235,6 +243,7 @@ mod tests {
     #[test]
     fn provider_config_string_matches_config_rs() {
         assert_eq!(ProviderKind::OpenRouter.as_str(), "openrouter");
+        assert_eq!(ProviderKind::OpenAiCompatible.as_str(), "openai_compatible");
         assert_eq!(ProviderKind::Kimi.as_str(), "kimi_code");
         assert_eq!(ProviderKind::OpenAiOAuth.as_str(), "openai_oauth");
         assert_eq!(ProviderKind::Anthropic.as_str(), "anthropic");
@@ -243,6 +252,7 @@ mod tests {
     #[test]
     fn catalog_url_per_provider() {
         assert!(catalog_url(&ProviderKind::OpenRouter).contains("openrouter.ai"));
+        assert!(catalog_url(&ProviderKind::OpenAiCompatible).contains("openai.com"));
         assert!(catalog_url(&ProviderKind::Kimi).contains("kimi.com"));
         assert!(catalog_url(&ProviderKind::Anthropic).contains("anthropic.com"));
         assert!(catalog_url(&ProviderKind::OpenAiOAuth).contains("developers.openai.com"));

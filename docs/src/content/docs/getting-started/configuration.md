@@ -31,6 +31,13 @@ provider = "kimi_code"
 model = "kimi-k2.5"
 context_window = 250000
 
+[models.local]
+provider = "openai_compatible"
+model = "gemma4:26b"
+context_window = 131072
+base_url = "http://192.168.1.91:11434/v1/chat/completions"
+# api_key_env = "LOCAL_LLM_API_KEY" # Optional bearer token env var
+
 [models.codex]
 provider = "openai_oauth"
 model = "gpt-5.3-codex"
@@ -100,6 +107,7 @@ Secrets are read from `~/.config/ghost/.env` or directly from the environment va
 | `BRAVE_API_KEY`               | Web search                          |
 | `DISCORD_TOKEN`               | Discord bot                         |
 | `KIMI_API_KEY`                | Kimi Code provider                  |
+| `LOCAL_LLM_API_KEY`           | Example token for `openai_compatible` |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP collector URL (enables export) |
 | `OTEL_SERVICE_NAME`           | Service name in traces (def: GHOST) |
 | `OTEL_EXPORTER_OTLP_HEADERS`  | Auth headers for remote backends    |
