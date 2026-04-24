@@ -1,5 +1,50 @@
 # Changelog
 
+## [0.15.0](https://github.com/mrtolkien/GHOST/compare/v0.14.0...v0.15.0) (2026-04-24)
+
+
+### Features
+
+* add ghost convert youtube command ([8887717](https://github.com/mrtolkien/GHOST/commit/888771787782b0ff340cec1687865f3e0fb8c9d3))
+* add openai-compatible provideres ([67f7e20](https://github.com/mrtolkien/GHOST/commit/67f7e20e2475faba0bcaa93ec1599f33d3738f96))
+* add video import note agent ([c0a9f7c](https://github.com/mrtolkien/GHOST/commit/c0a9f7c2e7762c29a4bdc8236e93b8509dc02298))
+* add youtube import provenance schema ([100f23c](https://github.com/mrtolkien/GHOST/commit/100f23cf2537605e7567f6412b7517778c97f7de))
+* add youtube transcript converter ([9953c8a](https://github.com/mrtolkien/GHOST/commit/9953c8a6c1ebc79e533f398387b1b2283708dea8))
+* support pdf urls in web_fetch ([c5ff962](https://github.com/mrtolkien/GHOST/commit/c5ff9621cb279e6f31ccd48d28f0e508b2f1e7c2))
+
+
+### Bug Fixes
+
+* add error tracing during boot ([89bf66d](https://github.com/mrtolkien/GHOST/commit/89bf66d14c7c663311b0a83ade6d36888c85a7cc))
+* add retry on failed agent queries + save headers ([7c2d4bf](https://github.com/mrtolkien/GHOST/commit/7c2d4bfdc22e5f16ee237938cbd0df87fee115a5))
+* align youtube import migration ([1fd4748](https://github.com/mrtolkien/GHOST/commit/1fd474802a7812345978716dc9afeea26026409b))
+* backfill imported reference batches ([945f2cc](https://github.com/mrtolkien/GHOST/commit/945f2cc2a5ac5187ac06db08a9e14f7833f61348))
+* backfill topic import batches ([aedd828](https://github.com/mrtolkien/GHOST/commit/aedd828320fe37e0f54ba488236f1d9df1dc6a4b))
+* big timeout ([083d964](https://github.com/mrtolkien/GHOST/commit/083d96429a2d05526f8a294b83c74f0336670def))
+* do not pollute main session chat with agent return values ([ca31b7f](https://github.com/mrtolkien/GHOST/commit/ca31b7f4a022865e7df2c4121d06d24dfda03bd3))
+* do not pollute main session chat with agent return values ([3a18267](https://github.com/mrtolkien/GHOST/commit/3a18267d5edb3883c782a8e7cd5f1a40985a163c))
+* fix JP tables, SSE responses, lua truncation ([41652c5](https://github.com/mrtolkien/GHOST/commit/41652c5c206657b0b1792758c0b11c5105a88bcd))
+* fix PR warnings raised by Codex ([e71f1bb](https://github.com/mrtolkien/GHOST/commit/e71f1bb10f33a6386a1d8203b1a2ad484200d744))
+* persist youtube import title ([919cb08](https://github.com/mrtolkien/GHOST/commit/919cb084ee766e03df8eaab819fe84dc1fff0a7c))
+* preserve youtube import metadata ([5b5422a](https://github.com/mrtolkien/GHOST/commit/5b5422a92e5984f45b9f202382b19f4a29abc933))
+* stop fallback after structural workflow failures ([b9b2a5b](https://github.com/mrtolkien/GHOST/commit/b9b2a5ba8ef8ad51cab0e2ac3520de5d6e686556))
+* tighten import provenance backfill ([8e12255](https://github.com/mrtolkien/GHOST/commit/8e12255dab5a3aa3e08bff7a8b9281e896aa4c0c))
+* tighten user-facing source rules ([f9f9f6a](https://github.com/mrtolkien/GHOST/commit/f9f9f6ad56e5130ece44ad203e5315f9942c5d15))
+* track selected youtube subtitle language ([cbc9fe2](https://github.com/mrtolkien/GHOST/commit/cbc9fe28c45c6e537b08bc0130f55818eea605af))
+
+
+### Documentation
+
+* add youtube import v1 design ([99d3505](https://github.com/mrtolkien/GHOST/commit/99d35057870e51968c03bf339aa68aab3f7b6642))
+* add youtube import v1 design ([67e6740](https://github.com/mrtolkien/GHOST/commit/67e6740bf96c9dffa5de5049d7ea97b0703b4a0a))
+* add youtube import v1 design ([f4588af](https://github.com/mrtolkien/GHOST/commit/f4588afcd6c684385f913e73e41206aa6f6dd97f))
+* add youtube reference import workflow ([ca43759](https://github.com/mrtolkien/GHOST/commit/ca43759d714fd0c983d7878d5202de6eab09ccb6))
+
+
+### Tests
+
+* add youtube import coverage ([f117de9](https://github.com/mrtolkien/GHOST/commit/f117de9078a516ff54655a5c52e13ce69e7d6c69))
+
 ## [0.14.0](https://github.com/mrtolkien/GHOST/compare/v0.13.1...v0.14.0) (2026-04-04)
 
 ### Features
