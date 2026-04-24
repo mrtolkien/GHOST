@@ -17,7 +17,8 @@ pub const DEFAULT_MAX_TOOL_ITERATIONS: usize = 50;
 /// Per-request timeout for provider API calls. Providers can hang indefinitely
 /// (observed in live tests). This wraps each `Provider::chat()` call.
 /// On timeout, the request is retried once before propagating the error.
-pub const PROVIDER_REQUEST_TIMEOUT: Duration = Duration::from_secs(180);
+/// TODO: Show this as a per-model knob. 180s timed out with my local model.
+pub const PROVIDER_REQUEST_TIMEOUT: Duration = Duration::from_secs(180 * 5);
 
 /// Max characters fed into the LLM for context summarization.
 pub const MAX_SUMMARIZATION_INPUT_CHARS: usize = 50_000;
